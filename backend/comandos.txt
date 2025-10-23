@@ -1,0 +1,8 @@
+python manage.py makemigrations core cuentas empresas calendario items activos bodegas visitas vacaciones recursos cotizaciones rendiciones ordentrabajo contratos retroalimentacion
+
+
+
+
+docker build -t contenedores.snabbit.cl/erp_snabbit:backend .
+
+docker push contenedores.snabbit.cl/erp_snabbit:backend

@@ -1,0 +1,23 @@
+# Ignorar todas las migraciones de todas las aplicaciones
+**/migrations/
+ENV/
+# Ignorar la base de datos SQLite
+*.sqlite3
+*.sqlite3-journal
+
+**/__pycache__/**
+
+**/__pycache__/
+
+**.pyc
+
+/media
+/static
+.env
+sw_erp/settings.py
+sw_erp/settings_chris.py
+sw_erp/settings.py.bkp
+sw_erp/settings_produc.py
+
+firebase-adminsdk.json
+.env_chris
