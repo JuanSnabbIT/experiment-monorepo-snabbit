@@ -1,0 +1,88 @@
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { IEntregaEquipo } from "@/interface/visitas.interface"
+import ApiService from "@/services/ApiService"
+import { listaEntregaEquipoThunk, useAppDispatch } from "@/store"
+import { Dispatch, SetStateAction, useRef } from "react"
+import SignatureCanvas from 'react-signature-canvas'
+import { toast } from "react-toastify"
+
+
+function FirmarEntregaEquipo({isOpen, setIsOpen, entrega} : {isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, entrega: IEntregaEquipo}) {
+    const dispatch = useAppDispatch()
+    const sigCanvas = useRef<SignatureCanvas | null>(null)
+
+    const clear = () => {
+        if (sigCanvas.current) {
+            sigCanvas.current.clear();
+        }
+    };
+
+    return (
+        <>
+            <Tooltip text="Entregar Equipo">
+                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="HeroPencil" color="amber"></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Firmar la Entrega del Equipo</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div className="w-full">
+                            <Badge>Firma</Badge>
+                            <div className="dark:bg-white" style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+                                <SignatureCanvas
+                                    ref={(ref) => {sigCanvas.current = ref}}
+                                    penColor="black"
+                                    canvasProps={{
+                                        height: 200,
+                                        className: 'sigCanvas',
+                                        style: { width: '100%', border: '1px solid #000' },
+                                    }}
+                                />
+                            </div>
+                            <Button className="mt-2" variant="solid" onClick={clear}>Limpiar</Button>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={async () => {
+                            if (sigCanvas.current?.isEmpty()) {
+                                toast.error("Debe firmar para confirmar la entrega", {toastId: "Debe firmar para confirmar la entrega"})
+                            } else {
+                                try {
+                                    const response = await ApiService.fetchData({url: `/api/visitas-soporte/${entrega.visita}/entregas-equipos/${entrega.id}/`, method: "patch", headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                                        firma_entregado: sigCanvas.current?.toDataURL("image/png"),
+                                        estado_entrega: "entregado"
+                                    })})
+                                    if (response.data) {
+                                        const responseUsuarioEquipo = await ApiService.fetchData({url: `/api/usuarios-equipo/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                                            equipo: entrega.equipo,
+                                            usuario: entrega.usuario_a_entregar,
+                                        })})
+                                        if (responseUsuarioEquipo) {
+                                            toast.success("Entrega confirmada", {autoClose: 1000})
+                                            dispatch(listaEntregaEquipoThunk({id_visita: entrega.visita}));
+                                        }
+                                    } else {
+                                        toast.error("No se pudo crear la firma")
+                                    }
+                                } catch (error: any) {
+                                    toast.error(error.response.data || "Error al firmar la entrega", {toastId: "Error al firmar la entrega"})
+                                }
+                            }
+                        }}>Confirmar Entrega</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default FirmarEntregaEquipo

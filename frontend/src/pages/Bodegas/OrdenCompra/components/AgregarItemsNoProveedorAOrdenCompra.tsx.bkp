@@ -1,0 +1,183 @@
+import Input from "@/components/form/Input";
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact";
+import Validation from "@/components/form/Validation";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import OffCanvas, { OffCanvasBody, OffCanvasFooter, OffCanvasFooterChild, OffCanvasHeader } from "@/components/ui/OffCanvas";
+import Tooltip from "@/components/ui/Tooltip";
+import ApiService from "@/services/ApiService";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { listaItemsNoProveedorThunk } from "@/store/slices/item/itemSlice";
+import { useFormik } from "formik";
+import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import * as Yup from 'yup'
+
+
+function AgregarItemsNoProveedorAOrdenCompra({id_orden} : {id_orden: string | number | undefined}) {
+    const dispatch = useAppDispatch()
+    const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
+    const { listaItemsNoProveedor } = useAppSelector((state) => state.item)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [optionsItems, setOptionsItems] = useState<{value: string, label: string}[]>([])
+
+    useEffect(() => {
+        if (isOpen && detalleOrdenCompra && detalleOrdenCompra.oc_empresa) {
+            dispatch(listaItemsNoProveedorThunk({id_empresa: detalleOrdenCompra.oc_empresa, id_proveedor: detalleOrdenCompra.proveedor}))
+        }
+    }, [isOpen, detalleOrdenCompra])
+
+    useEffect(() => {
+        if (listaItemsNoProveedor) {
+            setOptionsItems(listaItemsNoProveedor.map(it => {return {value: it.id.toString(), label: it.nombre}}))
+        }
+    }, [listaItemsNoProveedor])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            item: "",
+            cantidad: 0,
+            precio: 0,
+        },
+        validationSchema: Yup.object().shape({
+            item: Yup.string().required("Requerido").nonNullable("NaN"),
+            cantidad: Yup.number().required("Requerido").nonNullable("Requerido").moreThan(0, "Tiene que ser mayor a 0."),
+            precio: Yup.number().required("Requerido").nonNullable("Requerido").moreThan(0, "Tiene que ser mayor a 0.")
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData<any, string>({url: `/api/ordenes-compra/${id_orden}/add_item_no_proveedor/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                    item_id: values.item,
+                    cantidad: values.cantidad,
+                    precio: values.precio
+                })})
+                if (response.data) {
+                    toast.success(response.data.message, {autoClose: 1000})
+                    setIsOpen(false)
+                    formik.resetForm()
+                }
+            } catch (error: any) {
+                toast.error(error.response)
+            }
+        }
+    })
+
+    useEffect(() => {
+        if (!isOpen) {
+            formik.resetForm()
+            setOptionsItems([])
+        }
+    }, [isOpen])
+
+    return (
+        <>
+            <Tooltip text="Agregar Items que no son del Proveedor">
+                <Button variant="solid" color="lime" icon="HeroPlus" onClick={() => {setIsOpen(true)}}></Button>
+            </Tooltip>
+            <OffCanvas
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                isStaticBackdrop={true}
+            >
+                <OffCanvasHeader>
+                    <Badge>Agregar Item que NO son del Proveedor</Badge>
+                </OffCanvasHeader>
+                <OffCanvasBody>
+                    <div className="flex flex-col gap-4">
+                        {/* {listaItemsNoProveedor.length > 0 ? listaItemsNoProveedor.map((item, index) => (
+                            <div className="w-full" key={index}>
+                                <Button variant={itemsChecked.includes(item.id.toString()) ? "solid" : "outline"} onClick={() => {
+                                    if (itemsChecked.includes(item.id.toString())) {
+                                        setItemsChecked(itemsChecked.filter((it) => it !== item.id.toString()))
+                                    } else {
+                                        setItemsChecked([...itemsChecked, item.id.toString()])
+                                    }
+                                }}>{item.nombre}</Button>
+                            </div>
+                        )) : (
+                            <div>Todos los items estan asociados al proveedor.</div>
+                        )} */}
+                        <div className="w-full">
+                            <Badge>Item</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.item}
+                                invalidFeedback={formik.errors.item}
+                            >
+                                <SelectReact
+                                    name="item"
+                                    placeholder="Item"
+                                    noOptionsMessage={(e) => `No se encontro el item ${e.inputValue}`}
+                                    options={optionsItems}
+                                    onBlur={formik.handleBlur}
+                                    value={{value: formik.values.item, label: optionsItems.find(it => it.value === formik.values.item)?.label || ""}}
+                                    isMulti={false}
+                                    onChange={(e) => {
+                                        formik.setFieldValue("item", (e as TSelectOption).value)
+                                        formik.validateField("item")
+                                    }}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Badge>Cantidad</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.cantidad}
+                                invalidFeedback={formik.errors.cantidad}
+                            >
+                                <Input
+                                    type="number"
+                                    name="cantidad"
+                                    value={formik.values.cantidad}
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Badge>Precio</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.precio}
+                                invalidFeedback={formik.errors.precio}
+                            >
+                                <Input
+                                    type="number"
+                                    name="precio"
+                                    value={formik.values.precio}
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </OffCanvasBody>
+                <OffCanvasFooter>
+                    <OffCanvasFooterChild></OffCanvasFooterChild>
+                    <OffCanvasFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        {/* <Button variant="solid" onClick={async () => {
+                            try {
+                                const data = {proveedor_id: detalleOrdenCompra.proveedor, item_ids: itemsChecked}
+                                const response = await ApiService.fetchData({ url: `/api/items-empresa/agregar-proveedor/`, method: 'post', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify(data)})
+                                if (response.data) {
+                                    toast.success("Items vinculados al proveedor.", {autoClose: 1000})
+                                    setIsOpenOffCanvas(false)
+                                    dispatch(listaItemsEmpresaProveedorThunk({ id_empresa: personalizacionUsuario?.empresa, id_proveedor: detalleOrdenCompra.proveedor }))
+                                    setItemsChecked([])
+                                }
+                            } catch (error: any) {
+                                toast.error(error.response.data.detail)
+                            }
+                        }}>Añadir</Button> */}
+                    </OffCanvasFooterChild>
+                </OffCanvasFooter>
+            </OffCanvas>
+        </>
+    )
+}
+
+export default AgregarItemsNoProveedorAOrdenCompra

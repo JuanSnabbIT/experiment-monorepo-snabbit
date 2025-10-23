@@ -1,0 +1,3 @@
+docker build -t contenedores.snabbit.cl/erp_snabbit:frontend .
+
+docker push contenedores.snabbit.cl/erp_snabbit:frontend

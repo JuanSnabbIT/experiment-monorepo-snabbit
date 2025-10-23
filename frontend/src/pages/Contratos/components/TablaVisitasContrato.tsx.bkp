@@ -1,0 +1,135 @@
+import Input from "@/components/form/Input"
+import Icon from "@/components/icon/Icon"
+import Badge from "@/components/ui/Badge"
+import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import { IContratoVisita } from "@/interface/contrato.interface"
+import { useAppDispatch, useAppSelector } from "@/store"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { useState } from "react"
+
+
+const columnHelper = createColumnHelper<IContratoVisita>()
+
+function TablaVisitasContrato() {
+    const dispatch = useAppDispatch()
+    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato)
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    const columns = [
+        columnHelper.accessor("descripcion_visita", {
+            cell: (info) => info.getValue(),
+            header: "Descripción"
+        }),
+        columnHelper.accessor("frecuencia_label", {
+            cell: (info) => info.getValue(),
+            header: "Frecuencia"
+        }),
+        columnHelper.accessor("cantidad", {
+            cell: (info) => info.getValue(),
+            header: "Cantidad"
+        })
+    ]
+
+    const table = useReactTable({
+        data: detalleContratoEmpresaCliente && detalleContratoEmpresaCliente.contrato_visitas.length > 0 ? detalleContratoEmpresaCliente.contrato_visitas : [],
+        columns: columns,
+        state: {
+            sorting: sorting,
+            globalFilter: globalFilter,
+        },
+        onSortingChange: setSorting,
+        enableGlobalFilter: true,
+        onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel()
+    });
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardHeaderChild>
+                    <Badge className="text-xl">Visitas</Badge>
+                </CardHeaderChild>
+                <CardHeaderChild>
+                    <Input
+                        name="globalFilter"
+                        placeholder="Buscar..."
+                        value={globalFilter}
+                        onChange={(e) => {setGlobalFilter(e.target.value)}}
+                    />
+                </CardHeaderChild>
+            </CardHeader>
+            <CardBody>
+                <div className="overflow-auto">
+                    <Table className='table-fixed min-w-[500px]'>
+                        <THead>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <Tr key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <Th
+                                            key={header.id}
+                                            isColumnBorder={false}
+                                            className='text-left'>
+                                            {header.isPlaceholder ? null : (
+                                                <div
+                                                    key={header.id}
+                                                    aria-hidden='true'
+                                                    {...{
+                                                        className: header.column.getCanSort()
+                                                            ? 'cursor-pointer select-none flex items-center'
+                                                            : '',
+                                                        onClick:
+                                                            header.column.getToggleSortingHandler(),
+                                                    }}>
+                                                    {flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext(),
+                                                    )}
+                                                    {{
+                                                        asc: (
+                                                            <Icon
+                                                                icon='HeroChevronUp'
+                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                            />
+                                                        ),
+                                                        desc: (
+                                                            <Icon
+                                                                icon='HeroChevronDown'
+                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                            />
+                                                        ),
+                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                </div>
+                                            )}
+                                        </Th>
+                                    ))}
+                                </Tr>
+                            ))}
+                        </THead>
+                        <TBody>
+                            {table.getRowModel().rows.map((row) => (
+                                <Tr key={row.id}>
+                                    {row.getVisibleCells().map((cell) => (
+                                        <Td key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </Td>
+                                    ))}
+                                </Tr>
+                            ))}
+                        </TBody>
+                    </Table>
+                    <div className="mt-2 min-w-[500px]">
+                        <TableCardFooterTemplateV2 table={table} />
+                    </div>
+                </div>
+            </CardBody>
+        </Card>
+    )
+}
+
+export default TablaVisitasContrato

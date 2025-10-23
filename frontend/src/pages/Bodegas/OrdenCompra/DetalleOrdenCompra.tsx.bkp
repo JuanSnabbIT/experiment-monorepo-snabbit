@@ -1,0 +1,513 @@
+import FieldWrap from "@/components/form/FieldWrap"
+import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Validation from "@/components/form/Validation"
+import Icon from "@/components/icon/Icon"
+import Container from "@/components/layouts/Container/Container"
+import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
+import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Card, { CardBody, CardHeader } from "@/components/ui/Card"
+import OffCanvas, { OffCanvasBody, OffCanvasFooter, OffCanvasFooterChild, OffCanvasHeader } from "@/components/ui/OffCanvas"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { detalleOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { listaItemsEmpresaProveedorThunk, listaItemsNoProveedorThunk } from "@/store/slices/item/itemSlice"
+import { useFormik } from "formik"
+import { useEffect, useState, Fragment } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+import EliminarItemOrdenCompra from "./modals/EliminarItemOrdenCompra"
+import ModalEnviarProveedor from "./modals/ModalEnviarProveedor"
+import ModalReenviarAlProveedor from "./modals/ModalReenviarAlProveedor"
+
+
+function DetalleOrdenCompra() {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { id } = useParams()
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const { listaItemsEmpresaProveedor, listaItemsNoProveedor } = useAppSelector((state) => state.item)
+    const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
+    const [isOpenOffCanvas, setIsOpenOffCanvas] = useState<boolean>(false)
+    const [isAddingItem, setIsAddingItem] = useState<boolean>(false)
+    const [itemsProveedor, setItemsProveedor] = useState<{ value: string, label: string }[]>([])
+    const [isEditingItem, setIsEditingItem] = useState<boolean>(false)
+    const [itemEditing, setItemEditing] = useState<string | undefined>()
+    const [itemsChecked, setItemsChecked] = useState<string[]>([])
+
+    useEffect(() => {
+        if (id) {
+            dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+        }
+    }, [id])
+
+    useEffect(() => {
+        if (personalizacionUsuario && personalizacionUsuario.empresa && detalleOrdenCompra) {
+            dispatch(listaItemsEmpresaProveedorThunk({ id_empresa: personalizacionUsuario.empresa, id_proveedor: detalleOrdenCompra.proveedor }))
+        }
+    }, [personalizacionUsuario, detalleOrdenCompra])
+
+    useEffect(() => {
+        if (listaItemsEmpresaProveedor.length > 0 && detalleOrdenCompra) {
+            setItemsProveedor(listaItemsEmpresaProveedor.filter((item) => !detalleOrdenCompra.datos_item.some((item_oc) => item_oc.item_empresa.id === item.id)).map((item) => { return { value: item.id.toString(), label: item.nombre } }))
+        }
+    }, [listaItemsEmpresaProveedor])
+
+    useEffect(() => {
+        if (isOpenOffCanvas && personalizacionUsuario && personalizacionUsuario.empresa && detalleOrdenCompra) {
+            dispatch(listaItemsNoProveedorThunk({id_empresa: personalizacionUsuario?.empresa, id_proveedor: detalleOrdenCompra?.proveedor}))
+        }
+    }, [isOpenOffCanvas, personalizacionUsuario, detalleOrdenCompra])
+
+    const formikAddingItem = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            item: "",
+            orden_compra: detalleOrdenCompra?.id || 0,
+            cantidad: 1,
+            precio: 1
+        },
+        validationSchema: Yup.object().shape({
+            item: Yup.string().required("Requerido").nonNullable("Requerido"),
+            orden_compra: Yup.number().min(0),
+            cantidad: Yup.number().min(1, "Debe ser mayor a 0").required("Requerido"),
+            precio: Yup.number().min(1, "Debe ser mayor a 0").required("Requerido")
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/items-en-orden-compra/`, method: 'post', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify(values) })
+                if (response.data) {
+                    toast.success("Item Añadido", { autoClose: 1000 })
+                    dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                    setIsAddingItem(false)
+                    formikAddingItem.resetForm()
+                }
+            } catch (error: any) {
+                toast.error(error.response.data)
+            }
+        }
+    })
+
+    const formikEditingitem = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            cantidad: 1,
+            precio: 1,
+        },
+        validationSchema: Yup.object().shape({
+            cantidad: Yup.number().min(1, "Debe ser mayor a 0").required("Requerido").nonNullable("Requerido"),
+            precio: Yup.number().min(1, "Debe ser mayor a 0").required("Requerido").nonNullable("Requerido"),
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${id}/items-en-orden-compra/${itemEditing}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify(values) })
+                if (response.data) {
+                    toast.success("Item Editado", { autoClose: 1000 })
+                    dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                    formikEditingitem.resetForm()
+                    setItemEditing(undefined)
+                    setIsEditingItem(false)
+                }
+            } catch (error: any) {
+                toast.error(error.response.data)
+            }
+        }
+    })
+
+    return (
+        <PageWrapper isProtectedRoute={true} name="Detalle Orden Compra" title="Detalle Orden Compra">
+            <Subheader>
+                <SubheaderLeft>
+                    <Badge className="text-xl">Orden {detalleOrdenCompra?.codigo}</Badge>
+                </SubheaderLeft>
+                <SubheaderRight>
+                    {detalleOrdenCompra && (
+                        <>
+                            {detalleOrdenCompra.estado === "-" && (
+                                <>
+                                    <Button variant="solid" onClick={async () => {
+                                        try {
+                                            const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify({ estado: "0" }) })
+                                            if (response.data) {
+                                                toast.success("Orden En Espera de Aprobacion", { autoClose: 1000 })
+                                                dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                                            }
+                                        } catch (error: any) {
+                                            toast.error(error.response.data)
+                                        }
+                                    }}>Terminar Borrador</Button>
+                                    <Button variant="solid" onClick={() => { setIsOpenOffCanvas(true) }}>Añadir Items a la Empresa</Button>
+                                </>
+                            )}
+                            {detalleOrdenCompra.estado === "0" && (
+                                <>
+                                    <Button variant="solid" onClick={() => {
+                                        const aprobarOrden = async () => {
+                                            try {
+                                                const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify({ estado: "1" }) })
+                                                if (response.data) {
+                                                    toast.success("Orden Aprobada", { autoClose: 1000 })
+                                                    dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                                                }
+                                            } catch (error: any) {
+                                                toast.error(error.response.data)
+                                            }
+                                        }
+
+                                        aprobarOrden()
+                                    }}>Aprobar</Button>
+                                    <Button variant="solid" color="red" onClick={() => {
+                                        const rechazarOrden = async () => {
+                                            try {
+                                                const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify({ estado: "2" }) })
+                                                if (response.data) {
+                                                    toast.success("Orden Rechazada", { autoClose: 1000 })
+                                                    dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                                                }
+                                            } catch (error: any) {
+                                                toast.error(error.response.data)
+                                            }
+                                        }
+
+                                        rechazarOrden()
+                                    }}>Rechazar</Button>
+                                </>
+                            )}
+                            {detalleOrdenCompra.estado === "1" && (
+                                <>
+                                    {/* <Button variant="solid" onClick={() => {
+                                        const aprobarOrden = async () => {
+                                            try {
+                                                const response = await ApiService.fetchData({ url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify({ estado: "3" }) })
+                                                if (response.data) {
+                                                    toast.success("Orden Aprobada", { autoClose: 1000 })
+                                                    dispatch(detalleOrdenCompraThunk({ id_orden: id }))
+                                                }
+                                            } catch (error: any) {
+                                                toast.error(error.response.data)
+                                            }
+                                        }
+
+                                        aprobarOrden()
+                                    }}>Enviar al Proovedor</Button> */}
+                                    <ModalEnviarProveedor id_orden={detalleOrdenCompra.id} />
+                                </>
+                            )}
+                            {detalleOrdenCompra.estado === "3" && (
+                                <ModalReenviarAlProveedor id_orden={detalleOrdenCompra.id} />
+                            )}
+                        </>
+                    )}
+                </SubheaderRight>
+            </Subheader>
+            <Container className="w-full h-full">
+                <div className="flex">
+                    <div className="w-full">
+                        <Card>
+                            <CardHeader>
+                                <Badge className="text-xl">Datos Orden de Compra</Badge>
+                            </CardHeader>
+                            <CardBody>
+                                <div className="flex flex-wrap justify-between items-center">
+                                    <div className="min-w-[100px]">
+                                        <Badge>Codigo</Badge>
+                                        <div className="ml-4">{detalleOrdenCompra?.codigo}</div>
+                                    </div>
+                                    <div className="min-w-[100px]">
+                                        <Badge>Proveedor</Badge>
+                                        <div className="ml-4">{detalleOrdenCompra?.nombre_proveedor}</div>
+                                    </div>
+                                    <div className="min-w-[100px]">
+                                        <Badge>Estado</Badge>
+                                        <div className="ml-4">{detalleOrdenCompra?.estado_label}</div>
+                                    </div>
+                                </div>
+
+                            </CardBody>
+
+                        </Card>
+
+                        {detalleOrdenCompra?.estado === "2" && (
+                            <Card className="mt-4 flex justify-center bg-red-100 border border-red-500">
+                                <CardBody className="flex items-center gap-4 justify-center">
+                                    <Icon icon="HeroInformationCircle" size="text-3xl" className="text-red-700" />
+                                    <Badge className="text-red-700 text-2xl">Su solicitud ha sido rechazada</Badge>
+                                </CardBody>
+                            </Card>
+                        )}
+                        {detalleOrdenCompra?.estado === "3" && (
+                            <Card className="mt-4 flex justify-center bg-green-100 border border-emerald-500">
+                                <CardBody className="flex items-center gap-4 justify-center">
+                                    <Icon icon="HeroInformationCircle" size="text-3xl" className="text-emerald-700" />
+                                    <Badge className="text-green-700 text-2xl">Su orden ha sido enviada a su proveedor</Badge>
+                                </CardBody>
+                            </Card>
+                        )}
+                        {detalleOrdenCompra?.estado === "4" && (
+                            <Card className="mt-4 flex justify-center bg-yellow-100 border border-yellow-500">
+                                <CardBody className="flex items-center gap-4 justify-center">
+                                    <Icon icon="HeroInformationCircle" size="text-3xl" className="text-yellow-700" />
+                                    <Badge className="text-yellow-700 text-2xl">Su orden ha sido parcialmente recibida</Badge>
+                                </CardBody>
+                            </Card>
+                        )}
+
+                        {detalleOrdenCompra?.estado === "5" && (
+                            <Card className="mt-4 flex justify-center bg-green-100 border border-green-500">
+                                <CardBody className="flex items-center gap-4 justify-center">
+                                    <Icon icon="HeroInformationCircle" size="text-3xl" className="text-green-700" />
+                                    <Badge className="text-green-700 text-2xl ">¡Su orden ha sido completada exitosamente!</Badge>
+                                </CardBody>
+                            </Card>
+                        )}
+
+
+                    </div>
+                </div>
+                {detalleOrdenCompra && (
+                    <>
+                        {detalleOrdenCompra.estado === "-" && (
+                            <>
+                                <div className="w-full h-full mt-4">
+                                    <Card>
+                                        <CardHeader>
+                                            <Badge className="text-xl">Items en la Orden de Compra</Badge>
+                                        </CardHeader>
+                                        <CardBody>
+                                            <div className="flex overflow-auto h-full">
+                                                <div className="w-full grid grid-cols-5 min-w-[700px]">
+                                                    <div className="col-span-1 border">
+                                                        <Badge>Item</Badge>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <Badge>Cantidad</Badge>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <Badge>Valor Unitario</Badge>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <Badge>Valor Total</Badge>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <Badge>Acciones</Badge>
+                                                    </div>
+                                                    {detalleOrdenCompra.datos_item.map((item, index) => (
+                                                        <Fragment key={index}>
+                                                            <div className="col-span-1 border">
+                                                                <div className="flex flex-col ml-4">
+                                                                    <div className="w-full">{item.item_empresa.nombre}</div>
+                                                                    <div className="w-full text-xs ml-2 flex gap-1"><Icon icon="DuoPenRuler" size="text-base" /> {item.item_empresa.tamanio} {item.item_empresa.unidad_label}</div>
+                                                                    <div className="w-full mt-2">
+                                                                        <Button size="xs" className="!px-1" icon="DuoBox3" onClick={() => { if (item.item_empresa.fabricante) navigate(`/registros/detalle-fabricante/${item.item_empresa.fabricante}`) }}>{item.item_empresa.nombre || "Sin Fabricante"}</Button>
+                                                                    </div>
+                                                                    <div className="w-full">
+                                                                        <Button size="xs" className="!px-1" icon="DuoAlignJustify" onClick={() => { if (item.item_empresa.categoria) navigate(`/registros/detalle-categoria/${item.item_empresa.categoria}`) }}>{item.item_empresa.nombre || "Sin Categoria"}</Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                {isEditingItem && itemEditing === item.id.toString() ? (
+                                                                    <Validation
+                                                                        isValid={formikEditingitem.isValid}
+                                                                        isTouched={formikEditingitem.touched.cantidad}
+                                                                        invalidFeedback={formikEditingitem.errors.cantidad}
+                                                                    >
+                                                                        <Input
+                                                                            rounded="rounded-none"
+                                                                            name="cantidad"
+                                                                            type="number"
+                                                                            min={1}
+                                                                            onChange={formikEditingitem.handleChange}
+                                                                            onBlur={formikEditingitem.handleBlur}
+                                                                            value={formikEditingitem.values.cantidad}
+                                                                        />
+                                                                    </Validation>
+                                                                ) : (
+                                                                    <div className="ml-4">{item.cantidad}</div>
+                                                                )}
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                {isEditingItem && itemEditing === item.id.toString() ? (
+                                                                    <>
+                                                                        <Validation
+                                                                            isValid={formikEditingitem.isValid}
+                                                                            isTouched={formikEditingitem.touched.precio}
+                                                                            invalidFeedback={formikEditingitem.errors.precio}
+                                                                        >
+                                                                            <FieldWrap firstSuffix="$">
+                                                                                <Input
+                                                                                    rounded="rounded-none"
+                                                                                    name="precio"
+                                                                                    type="number"
+                                                                                    min={1}
+                                                                                    onChange={formikEditingitem.handleChange}
+                                                                                    onBlur={formikEditingitem.handleBlur}
+                                                                                    value={formikEditingitem.values.precio}
+                                                                                />
+                                                                            </FieldWrap>
+                                                                        </Validation>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="ml-4">${item.precio}</div>
+                                                                )}
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                {isEditingItem && itemEditing === item.id.toString() ? (
+                                                                    <div className="ml-4">${(formikEditingitem.values.cantidad * formikEditingitem.values.precio).toLocaleString()}</div>
+                                                                ) : (
+                                                                    <div className="ml-4">${(item.cantidad * item.precio).toLocaleString()}</div>
+                                                                )}
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                
+                                                                {isEditingItem ? (
+                                                                    itemEditing === item.id.toString() ? (
+                                                                        <>
+                                                                            <Button className="m-2" variant="solid" color="red" onClick={() => { setIsEditingItem(false); formikEditingitem.resetForm(); setItemEditing(undefined) }}>Cancelar</Button>
+                                                                            <Button className="m-2" variant="solid" onClick={() => { formikEditingitem.handleSubmit() }}>Guardar</Button>
+                                                                        </>
+                                                                    ) : null
+                                                                ) : (
+                                                                    <>
+                                                                        <Button className="m-2" variant="solid" onClick={() => { setIsEditingItem(true); formikEditingitem.setFieldValue('precio', item.precio); formikEditingitem.setFieldValue("cantidad", item.cantidad); setItemEditing(item.id.toString()) }}>Editar</Button>
+                                                                        <EliminarItemOrdenCompra id_item={item.id} />
+                                                                    </>
+                                                                )}
+                                                                
+                                                            </div>
+                                                        </Fragment>
+                                                    ))}
+                                                    {isAddingItem && (
+                                                        <>
+                                                            <div className="col-span-1 border">
+                                                                <Validation
+                                                                    isValid={formikAddingItem.isValid}
+                                                                    isTouched={formikAddingItem.touched.item}
+                                                                    invalidFeedback={formikAddingItem.errors.item}
+                                                                >
+                                                                    <SelectReact
+                                                                        rounded="rounded-none"
+                                                                        name="item"
+                                                                        placeholder="Item"
+                                                                        options={itemsProveedor}
+                                                                        onBlur={formikAddingItem.handleBlur}
+                                                                        onChange={(e) => { formikAddingItem.setFieldValue('item', (e as TSelectOption).value) }}
+                                                                        noOptionsMessage={(e) => (<div>No existe {e.inputValue} en la empresa. <Button variant="solid" size="xs" onClick={() => { setIsOpenOffCanvas(true) }}>Añadir</Button></div>)}
+                                                                    />
+                                                                </Validation>
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                <Validation
+                                                                    isValid={formikAddingItem.isValid}
+                                                                    isTouched={formikAddingItem.touched.cantidad}
+                                                                    invalidFeedback={formikAddingItem.errors.cantidad}
+                                                                >
+                                                                    <Input
+                                                                        rounded="rounded-none"
+                                                                        name="cantidad"
+                                                                        type="number"
+                                                                        min={1}
+                                                                        onChange={formikAddingItem.handleChange}
+                                                                        onBlur={formikAddingItem.handleBlur}
+                                                                        value={formikAddingItem.values.cantidad}
+                                                                    />
+                                                                </Validation>
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                <Validation
+                                                                    isValid={formikAddingItem.isValid}
+                                                                    isTouched={formikAddingItem.touched.precio}
+                                                                    invalidFeedback={formikAddingItem.errors.precio}
+                                                                >
+                                                                    <FieldWrap firstSuffix="$">
+                                                                        <Input
+                                                                            rounded="rounded-none"
+                                                                            name="precio"
+                                                                            type="number"
+                                                                            min={1}
+                                                                            onChange={formikAddingItem.handleChange}
+                                                                            onBlur={formikAddingItem.handleBlur}
+                                                                            value={formikAddingItem.values.precio}
+                                                                        />
+                                                                    </FieldWrap>
+                                                                </Validation>
+                                                            </div>
+                                                            <div className="col-span-1 border">
+                                                                <div className="ml-4">${(formikAddingItem.values.cantidad * formikAddingItem.values.precio).toLocaleString()}</div>
+                                                            </div>
+                                                            <div className="col-span-1 border"></div>
+                                                        </>
+                                                    )}
+                                                    <div className="col-span-full mt-4 items-center flex justify-center">
+                                                        {isAddingItem ? (
+                                                            <>
+                                                                <Button color="red" icon="HeroXMark" onClick={() => { setIsAddingItem(false) }} rounded="rounded-full"></Button>
+                                                                <Button variant="solid" icon="HeroCheck" rounded="rounded-full" className="ml-4" onClick={() => { formikAddingItem.handleSubmit() }}></Button>
+                                                            </>
+                                                        ) : (
+                                                            <Button variant="solid" onClick={() => { setIsAddingItem(true) }} icon="HeroPlus" rounded="rounded-full"></Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </CardBody>
+                                    </Card>
+                                </div> 
+                                <OffCanvas
+                                    isOpen={isOpenOffCanvas}
+                                    setIsOpen={setIsOpenOffCanvas}
+                                >
+                                    <OffCanvasHeader>
+                                        <Badge>Añadir Item a la Empresa</Badge>
+                                    </OffCanvasHeader>
+                                    <OffCanvasBody>
+                                        <div className="flex flex-col gap-4">
+                                            {listaItemsNoProveedor.length > 0 ? listaItemsNoProveedor.map((item, index) => (
+                                                <div className="w-full" key={index}>
+                                                    <Button variant={itemsChecked.includes(item.id.toString()) ? "solid" : "outline"} onClick={() => {
+                                                        if (itemsChecked.includes(item.id.toString())) {
+                                                            setItemsChecked(itemsChecked.filter((it) => it !== item.id.toString()))
+                                                        } else {
+                                                            setItemsChecked([...itemsChecked, item.id.toString()])
+                                                        }
+                                                    }}>{item.nombre}</Button>
+                                                </div>
+                                            )) : (
+                                                <div>Todos los items estan asociados al proveedor.</div>
+                                            )}
+                                        </div>
+                                    </OffCanvasBody>
+                                    <OffCanvasFooter>
+                                        <OffCanvasFooterChild></OffCanvasFooterChild>
+                                        <OffCanvasFooterChild>
+                                            <Button color="red" onClick={() => { setIsOpenOffCanvas(false); setItemsChecked([]) }}>Cancelar</Button>
+                                            <Button variant="solid" onClick={async () => {
+                                                try {
+                                                    const data = {proveedor_id: detalleOrdenCompra.proveedor, item_ids: itemsChecked}
+                                                    const response = await ApiService.fetchData({ url: `/api/items-empresa/agregar-proveedor/`, method: 'post', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify(data)})
+                                                    if (response.data) {
+                                                        toast.success("Items vinculados al proveedor.", {autoClose: 1000})
+                                                        setIsOpenOffCanvas(false)
+                                                        dispatch(listaItemsEmpresaProveedorThunk({ id_empresa: personalizacionUsuario?.empresa, id_proveedor: detalleOrdenCompra.proveedor }))
+                                                        setItemsChecked([])
+                                                    }
+                                                } catch (error: any) {
+                                                    toast.error(error.response.data.detail)
+                                                }
+                                            }}>Añadir</Button>
+                                        </OffCanvasFooterChild>
+                                    </OffCanvasFooter>
+                                </OffCanvas>
+                            </>
+                        )}
+                    </>
+                )}
+            </Container>
+        </PageWrapper>
+    )
+}
+
+export default DetalleOrdenCompra

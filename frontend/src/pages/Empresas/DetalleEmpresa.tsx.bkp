@@ -1,0 +1,450 @@
+import { Fragment, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { toast } from "react-toastify";
+import Button from "@/components/ui/Button";
+import { detalleEmpresaThunk, listaEmpresasThunk } from "@/store/slices/empresa/empresaSlice";
+import Container from "@/components/layouts/Container/Container";
+import Modal, { ModalBody } from "@/components/ui/Modal";
+import Input from "@/components/form/Input";
+import ApiService from '@/services/ApiService';
+import CrearSucursal from "./modals/CrearSucursal";
+import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper";
+import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader";
+import Badge from "@/components/ui/Badge";
+import Card, { CardBody, CardHeader } from "@/components/ui/Card";
+import { useFormik } from "formik";
+import * as Yup from 'yup';
+import Validation from "@/components/form/Validation";
+import ModalEliminar from "../Items/Proveedor/modals/ModalEliminar";
+
+
+const validationSchema = Yup.object({
+    nombre: Yup.string().required("El nombre es requerido"),
+    direccion_principal: Yup.string().required("La dirección es requerida"),
+    sitio_web: Yup.string().url("El sitio web no es válido"),
+});
+
+const validationSchemaSucursal = Yup.object({
+    nombre: Yup.string().required("El nombre es requerido"),
+    direccion: Yup.string().required("La dirección es requerida"),
+    telefono: Yup.string().required("El teléfono es requerido"),
+});
+
+function DetalleEmpresa() {
+    const { empresaId } = useParams();
+    const dispatch = useAppDispatch();
+    const { error, listaEmpresas, detalleEmpresa } = useAppSelector((state) => state.empresa);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedSucursal, setSelectedSucursal] = useState<{ id: number; nombre: string; direccion: string; telefono: string; email: string } | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing2, setIsEditing2] = useState(false);
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        validationSchema,
+        initialValues: {
+            nombre: detalleEmpresa?.nombre || "",
+            direccion_principal: detalleEmpresa?.direccion_principal || "",
+            sitio_web: detalleEmpresa?.sitio_web || "",
+        },
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/empresas/${empresaId}/`,
+                    method: 'PUT',
+                    data: values,
+                });
+                if (response.status === 200) {
+                    dispatch(detalleEmpresaThunk({ id_empresa: empresaId }));
+                    toast.success("Empresa actualizada con éxito", { autoClose: 1000 });
+                    setIsEditing(false);
+                } else {
+                    toast.error("Error al actualizar la empresa");
+                }
+            } catch (error: any) {
+                toast.error("Error al actualizar la empresa");
+            }
+        }
+    })
+
+    const FormikSucursal = useFormik({
+        enableReinitialize: true,
+        validationSchema: validationSchemaSucursal,
+        initialValues: {
+            nombre: selectedSucursal?.nombre || "",
+            direccion: selectedSucursal?.direccion || "",
+            telefono: selectedSucursal?.telefono || "",
+            email: selectedSucursal?.email || "",
+        },
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/empresas/${empresaId}/sucursales-empresa/${selectedSucursal?.id}/`,
+                    method: 'PUT',
+                    data: {
+                        nombre: values.nombre,
+                        direccion: values.direccion,
+                        telefono: values.telefono,
+                        email: values.email,
+                        empresa: Number(empresaId),
+                    },
+                });
+                if (response.status === 200) {
+                    dispatch(listaEmpresasThunk());
+                    dispatch(detalleEmpresaThunk({ id_empresa: empresaId }));
+                    setIsEditing2(false);
+                    closeModal();
+                    setIsEditing2(false);
+                    toast.success("Sucursal actualizada con éxito", { autoClose: 1000 });
+                } else {
+                    toast.error("Error al actualizar la sucursal");
+                }
+            } catch (error: any) {
+                toast.error("Error al actualizar la sucursal");
+            }
+        }
+    })
+
+    useEffect(() => {
+        dispatch(listaEmpresasThunk());
+        dispatch(detalleEmpresaThunk({ id_empresa: empresaId }));
+    }, [dispatch]);
+
+    const empresa = listaEmpresas.find((emp) => emp.id === Number(empresaId));
+
+
+    const fetchSucursalDetails = async (sucursalId: number) => {
+        try {
+            const response = await ApiService.fetchData({
+                url: `/api/empresas/${empresaId}/sucursales-empresa/${sucursalId}/`,
+                method: 'GET',
+            });
+            if (response.status === 200) {
+                setSelectedSucursal(response.data as { id: number; nombre: string; direccion: string; telefono: string; email: string; });
+                setIsModalOpen(true);
+            } else {
+                toast.error("Error al obtener los detalles de la sucursal");
+            }
+        } catch (error: any) {
+            toast.error("Error al obtener los detalles de la sucursal");
+        }
+    };
+
+    const handleSucursalClick = (sucursal: any) => {
+        fetchSucursalDetails(sucursal.id);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedSucursal(null);
+        setIsEditing2(false);
+    };
+
+    const handleEditClick = () => {
+        setIsEditing(true);
+    };
+
+    if (error) {
+        toast.error("Error al obtener los detalles de la empresa");
+        return (
+            <div className="flex justify-center items-center h-full">
+                <div className="text-red-500 text-lg">
+                    <Badge>Error:</Badge> {error}
+                </div>
+            </div>
+        );
+    }
+
+    if (!empresa) {
+        return (
+            <div className="flex justify-center items-center h-full">
+                <div className="text-gray-500 text-lg">
+                    No se encontró la empresa
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <PageWrapper isProtectedRoute={true} title="Detalle Empresas" name="Detalle Empresas">
+            <Subheader>
+                <SubheaderLeft><Badge className='text-xl'>{detalleEmpresa?.nombre}</Badge></SubheaderLeft>
+                <SubheaderRight>
+                    <Button variant="solid" className="px-4 py-2 rounded-lg"
+                        onClick={handleEditClick}>
+                        Editar Empresa
+                    </Button>
+                </SubheaderRight>
+            </Subheader>
+            <Container className="h-full w-full">
+                <div className="flex flex-col md:flex-row gap-4 ">
+                    <Card className="order-1 md:w-1/2 p-4">
+                        <CardBody>
+
+                            <div className="flex flex-col gap-4">
+                                {detalleEmpresa && (
+                                    <Fragment>
+                                        <div className="w-full ">
+                                            <Badge>Nombre:</Badge>
+                                            {isEditing ? (
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.nombre}
+                                                    invalidFeedback={formik.errors.nombre}
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        name="nombre"
+                                                        value={formik.values.nombre}
+                                                        onChange={formik.handleChange}
+                                                        onBlur={formik.handleBlur}
+                                                    />
+                                                </Validation>
+                                            ) : (
+                                                <span>{detalleEmpresa.nombre}</span>
+                                            )}
+                                        </div>
+                                        <div className="w-full ">
+                                            <Badge className="mr-2">Dirección Principal:</Badge>
+                                            {isEditing ? (
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.direccion_principal}
+                                                    invalidFeedback={formik.errors.direccion_principal}
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        name="direccion_principal"
+                                                        value={formik.values.direccion_principal}
+                                                        onChange={formik.handleChange}
+                                                        onBlur={formik.handleBlur}
+                                                    />
+                                                </Validation>
+                                            ) : (
+                                                <span >{detalleEmpresa.direccion_principal}</span>
+                                            )}
+                                        </div>
+                                        <div className="w-full ">
+                                            <Badge className="mr-2">Sitio Web:</Badge>
+                                            {isEditing ? (
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.sitio_web}
+                                                    invalidFeedback={formik.errors.sitio_web}
+                                                >
+                                                    <Input
+                                                        type="text"
+                                                        name="sitio_web"
+                                                        value={formik.values.sitio_web}
+                                                        onChange={formik.handleChange}
+                                                        onBlur={formik.handleBlur}
+                                                    />
+                                                </Validation>
+                                            ) : (
+                                                <span>
+                                                    {detalleEmpresa.sitio_web ? (
+                                                        <a href={detalleEmpresa.sitio_web} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                                            Navegar
+                                                        </a>
+                                                    ) : (
+                                                        "N/A"
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-row ">
+                                            <Badge className="mr-2">Última Modificación:</Badge>
+                                            <span>{new Date(empresa.fecha_modificacion).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                                        </div>
+                                        <div className="mt-6 flex justify-end">
+                                            {isEditing && (
+                                                <>
+                                                    <Button className="px-4 py-2 rounded-lg  "
+                                                        variant="solid"
+                                                        onClick={() => formik.handleSubmit()}>
+                                                        Guardar Cambios
+                                                    </Button>
+                                                    <Button className="px-4 py-2 rounded-lg ml-4"
+                                                        color="red" variant='solid'
+                                                        onClick={() => {setIsEditing(false); formik.resetForm()}}>
+                                                        Cancelar
+                                                    </Button>
+                                                </>
+
+
+                                            )}
+                                        </div>
+                                    </Fragment>
+                                )}
+                            </div>
+                        </CardBody>
+                    </Card>
+
+                    <Card className="order-2 md:w-1/2 p-4 ">
+                        <CardHeader>
+                            <Badge className="text-xl">Sucursales</Badge>
+                            {empresaId && (
+                                <CrearSucursal empresaId={empresaId} />
+                            )}
+                        </CardHeader>
+                        <CardBody>
+                            <div className="rounded-xl p-4 border shadow-md mt-2">
+                                <ul className="space-y-4">
+                                    {[...empresa.sucursales].sort((a, b) => a.nombre.localeCompare(b.nombre)).map((sucursal) => (
+                                        <li key={sucursal.id} className="flex justify-between items-center">
+                                            <div className="flex items-center space-x-4">
+                                                <span className="text-lg cursor-pointer" onClick={() => handleSucursalClick(sucursal)}>
+                                                    <Badge>{sucursal.nombre}</Badge>
+                                                </span>
+                                                <span className="text-gray-600 dark:text-gray-300">{sucursal.direccion}</span>
+                                            </div>
+                                            <ModalEliminar
+                                                key={`modal-${sucursal.id}`}
+                                                mensaje="¿Está seguro de eliminar la sucursal?"
+                                                peticionUrl={`/api/empresas/${empresaId}/sucursales-empresa/${sucursal.id}/`}
+                                                nombre="Sucursal"
+                                                onDispatch={() => {
+                                                    dispatch(listaEmpresasThunk());
+                                                }}
+                                            />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            </Container>
+
+            {isModalOpen && selectedSucursal && (
+                <Modal isOpen={isModalOpen} setIsOpen={setIsModalOpen}>
+                    {[
+                        <ModalBody key="modal-body">
+                            <div className="p-4">
+                                <Badge className="text-2xl mb-4">Detalle de la Sucursal</Badge>
+                                <form onSubmit={FormikSucursal.handleSubmit} className="flex flex-col gap-4">
+                                    <div className="w-full">
+                                        <Badge>Nombre:</Badge>
+                                        {isEditing2 ? (
+                                            <Validation
+                                                isValid={FormikSucursal.isValid}
+                                                isTouched={FormikSucursal.touched.nombre}
+                                                invalidFeedback={FormikSucursal.errors.nombre}
+                                            >
+                                                <Input
+                                                    type="text"
+                                                    name="nombre"
+                                                    value={FormikSucursal.values.nombre}
+                                                    onChange={FormikSucursal.handleChange}
+                                                    onBlur={FormikSucursal.handleBlur}
+                                                    className="border rounded p-2 "
+                                                />
+                                            </Validation>
+                                        ) : (
+                                            <span >{selectedSucursal.nombre}</span>
+                                        )}
+                                    </div>
+                                    <div className="w-full">
+                                        <Badge>Dirección:</Badge>
+                                        {isEditing2 ? (
+                                            <Validation
+                                                isValid={FormikSucursal.isValid}
+                                                isTouched={FormikSucursal.touched.direccion}
+                                                invalidFeedback={FormikSucursal.errors.direccion}
+                                            >
+                                                <Input
+                                                    type="text"
+                                                    name="direccion"
+                                                    value={FormikSucursal.values.direccion}
+                                                    onChange={FormikSucursal.handleChange}
+                                                    onBlur={FormikSucursal.handleBlur}
+                                                    className="border rounded p-2 "
+                                                />
+                                            </Validation>
+                                        ) : (
+                                            <span>{selectedSucursal.direccion}</span>
+                                        )}
+                                    </div>
+                                    <div className="w-full">
+                                        <Badge>Teléfono:</Badge>
+                                        {isEditing2 ? (
+                                            <Validation
+                                                isValid={FormikSucursal.isValid}
+                                                isTouched={FormikSucursal.touched.telefono}
+                                                invalidFeedback={FormikSucursal.errors.telefono}
+                                            >
+                                                <Input
+                                                    type="text"
+                                                    name="telefono"
+                                                    value={FormikSucursal.values.telefono}
+                                                    onChange={FormikSucursal.handleChange}
+                                                    onBlur={FormikSucursal.handleBlur}
+                                                    className="border rounded p-2"
+                                                />
+                                            </Validation>
+                                        ) : (
+                                            <span>{selectedSucursal.telefono}</span>
+                                        )}
+                                    </div>
+                                    <div className="w-full">
+                                        <Badge>Email:</Badge>
+                                        {isEditing2 ? (
+                                            <Validation
+                                                isValid={FormikSucursal.isValid}
+                                                isTouched={FormikSucursal.touched.email}
+                                                invalidFeedback={FormikSucursal.errors.email}
+                                            >
+                                                <Input
+                                                    type="text"
+                                                    name="email"
+                                                    value={FormikSucursal.values.email}
+                                                    onChange={FormikSucursal.handleChange}
+                                                    onBlur={FormikSucursal.handleBlur}
+                                                    className="border rounded p-2 "
+                                                />
+                                            </Validation>
+                                        ) : (
+                                            <span>{selectedSucursal.email}</span>
+                                        )}
+                                    </div>
+                                    <div className="mt-6 text-center">
+                                        {isEditing2 ? (
+                                            <>
+                                                <Button onClick={() => FormikSucursal.handleSubmit()} variant="solid" className="px-4 py-2 rounded-lg ">
+                                                    Guardar Cambios
+                                                </Button>
+                                                <Button className="px-4 py-2 rounded-lg ml-4" variant="solid" color='red' onClick={() => {setIsEditing2(false); FormikSucursal.resetForm()}}>
+                                                    Cancelar
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <div className="justify-between">
+                                                <Button className="px-4 py-2 rounded-lg" variant="solid" onClick={() => {
+                                                    setIsEditing2(true);
+                                                    FormikSucursal.setValues({
+                                                        nombre: selectedSucursal.nombre,
+                                                        direccion: selectedSucursal.direccion,
+                                                        telefono: selectedSucursal.telefono,
+                                                        email: selectedSucursal.email,
+                                                    });
+                                                }}>
+                                                    Modificar
+                                                </Button>
+                                                <Button className="px-4 py-2 rounded-lg ml-4" variant="solid" color='red' onClick={() => setIsModalOpen(false)}>
+                                                    Cancelar
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </form>
+                            </div>
+                        </ModalBody>
+                    ]}
+                </Modal>
+            )}
+        </PageWrapper>
+    );
+}
+
+export default DetalleEmpresa;

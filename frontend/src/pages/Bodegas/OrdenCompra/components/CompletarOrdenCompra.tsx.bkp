@@ -1,0 +1,217 @@
+import Checkbox from "@/components/form/Checkbox"
+import Input from "@/components/form/Input"
+import Label from "@/components/form/Label"
+import Icon from "@/components/icon/Icon"
+import Container from "@/components/layouts/Container/Container"
+import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
+import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Card, { CardBody, CardHeader } from "@/components/ui/Card"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { IItemEnOrdenCompra } from "@/interface/bodega.interface"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { detalleOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { Fragment, useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { toast } from "react-toastify"
+
+
+function CompletarOrdenCompra() {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { id } = useParams()
+    const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
+    const [itemsCompleted, setItemsCompleted] = useState<{parcial: boolean, item: IItemEnOrdenCompra, nueva_cantidad: number}[]>([])
+    const [isOpenCompleted, setIsOpenCompleted] = useState<boolean>(false)
+    
+    useEffect(() => {
+        if (id) {
+            dispatch(detalleOrdenCompraThunk({id_orden: id}))
+        }
+    }, [id])
+
+    useEffect(() => {
+        if (detalleOrdenCompra) {
+            setItemsCompleted(detalleOrdenCompra.datos_item.map((item) => {return {parcial: false, item: item, nueva_cantidad: item.cantidad}}))
+        }
+    }, [detalleOrdenCompra])
+
+    return (
+        <PageWrapper isProtectedRoute={true} name="Completar Orden de Compra" title="Completar Orden de Compra">
+            <Subheader>
+                <SubheaderLeft>
+                    <Badge className="text-xl">Completar Orden de Compra {detalleOrdenCompra?.codigo}</Badge>
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <Tooltip text="Completar la Orden de Compra" placement="left-start">
+                        <Button variant="solid" onClick={() => {setIsOpenCompleted(true)}} icon="HeroCheck"></Button>
+                    </Tooltip>
+                    <Modal isOpen={isOpenCompleted} setIsOpen={setIsOpenCompleted}>
+                        <ModalHeader>
+                            <Badge className="text-xl">Completar la Orden de Compra</Badge>
+                        </ModalHeader>
+                        <ModalBody>
+                            <div className="flex flex-col gap-4">
+                                <div className="w-full">
+                                    <span>{itemsCompleted.some(element => element.parcial === true) ? (
+                                        <>Se completara la orden de manera parcial.</>
+                                    ) : (
+                                        <>Se completara la orden con todos los items.</>
+                                    )}</span>
+                                </div>
+                                <div className="w-full">
+                                    {itemsCompleted.some(element => element.parcial === true) && (
+                                        itemsCompleted.filter(item => item.parcial === true).map(item => (
+                                            <>
+                                                <Badge className="text-xl">{item.item.item_empresa.nombre}</Badge>
+                                                <div className="ml-4">{item.item.cantidad} ={">"} {item.nueva_cantidad}</div>
+                                            </>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <ModalFooterChild></ModalFooterChild>
+                            <ModalFooterChild>
+                                <Button color="red" onClick={() => {setIsOpenCompleted(false)}}>Cancelar</Button>
+                                <Button variant="solid" onClick={async () => {
+                                    try {
+                                        if (itemsCompleted.some(element => element.parcial === true)) {
+                                            if (itemsCompleted.some(element => element.nueva_cantidad <= element.item.cantidad)) {
+                                                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/completar_orden_compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                                                    estado: "4",
+                                                    items: itemsCompleted.map(item => {return {item_oc_id: item.item.id, cantidad: item.nueva_cantidad}})
+                                                })})
+                                                if (response.data) {
+                                                    toast.success("Orden de compra terminada de manera parcial.", {autoClose: 1000})
+                                                    setIsOpenCompleted(false)
+                                                    setItemsCompleted([])
+                                                    navigate('/lista-ordenes-compra')
+                                                }
+                                            } else {
+                                                toast.error("La nueva cantidad es mayor a la cantidad en la orden de compra")
+                                            }
+                                        } else {
+                                            const response_orden = await ApiService.fetchData({url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/completar_orden_compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "5"})})
+                                            if (response_orden) {
+                                                toast.success("Orden de compra completada.", {autoClose: 1000})
+                                                setIsOpenCompleted(false)
+                                                setItemsCompleted([])
+                                                navigate('/lista-ordenes-compra')
+                                            }
+                                        }
+                                    } catch (error: any) {
+                                        toast.error(error.response.data.error)
+                                    }
+                                }}>Completar</Button>
+                            </ModalFooterChild>
+                        </ModalFooter>
+                    </Modal>
+                </SubheaderRight>
+            </Subheader>
+            <Container className="w-full h-full">
+                <div className="flex">
+                    <div className="w-full">
+                        <Card>
+                            <CardHeader>
+                                <Badge className="text-xl">Items</Badge>
+                            </CardHeader>
+                            <CardBody>
+                                {detalleOrdenCompra ? (
+                                    <div className="flex overflow-auto h-full">
+                                        <div className="w-full grid grid-cols-5 min-w-[700px]">
+                                            <div className="col-span-1 border">
+                                                <Badge>Item</Badge>
+                                            </div>
+                                            <div className="col-span-1 border">
+                                                <Badge>Cantidad</Badge>
+                                            </div>
+                                            <div className="col-span-1 border">
+                                                <Badge>Valor Unitario</Badge>
+                                            </div>
+                                            <div className="col-span-1 border">
+                                                <Badge>Valor Total</Badge>
+                                            </div>
+                                            <div className="col-span-1 border">
+                                                <Badge>¿Es Parcial?</Badge>
+                                            </div>
+                                            {itemsCompleted.map((item, index) => (
+                                                <Fragment key={index}>
+                                                    <div className="col-span-1 border">
+                                                        <div className="flex flex-col ml-4">
+                                                            <div className="w-full">{item.item.item_empresa.nombre}</div>
+                                                            <div className="w-full text-xs ml-2 flex gap-1"><Icon icon="DuoPenRuler" size="text-base" /> {item.item.item_empresa.tamanio} {item.item.item_empresa.unidad_label}</div>
+                                                            <div className="w-full mt-2">
+                                                                <Button size="xs" className="!px-1" icon="DuoBox3" onClick={() => { if (item.item.item_empresa.fabricante) navigate(`/registros/detalle-fabricante/${item.item.item_empresa.fabricante}`) }}>{item.item.item_empresa.datos_fabricante?.nombre || "Sin Fabricante"}</Button>
+                                                            </div>
+                                                            <div className="w-full">
+                                                                <Button size="xs" className="!px-1" icon="DuoAlignJustify" onClick={() => { if (item.item.item_empresa.categoria) navigate(`/registros/detalle-categoria/${item.item.item_empresa.categoria}`) }}>{item.item.item_empresa.datos_categoria?.nombre || "Sin Categoria"}</Button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <div className="ml-4">{item.item.cantidad}</div>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <div className="ml-4">${item.item.precio}</div>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <div className="ml-4">${(item.item.cantidad * item.item.precio).toLocaleString()}</div>
+                                                    </div>
+                                                    <div className="col-span-1 border">
+                                                        <div className="m-4 gap-4 flex">
+                                                            <Checkbox
+                                                                variant="switch"
+                                                                name="parcial"
+                                                                onChange={(e) => {
+                                                                    setItemsCompleted(prevItems => 
+                                                                        prevItems.map((item, idx) => 
+                                                                            idx === index ? {...item, parcial: e.target.checked } : item
+                                                                        )
+                                                                    );
+                                                                }}
+                                                                checked={item.parcial}
+                                                                label={item.parcial ? "Si" : "No"}
+                                                            />
+                                                            {item.parcial && (
+                                                                <div className="flex flex-col w-full">
+                                                                    <Label htmlFor={''}>Nueva Cantidad</Label>
+                                                                    <Input
+                                                                        name="nueva_cantidad"
+                                                                        type="number"
+                                                                        max={item.item.cantidad}
+                                                                        min={0}
+                                                                        onChange={(e) => {
+                                                                            setItemsCompleted(prevItems => 
+                                                                                prevItems.map((item, idx) => 
+                                                                                    idx === index ? {...item, nueva_cantidad: parseInt(e.target.value) } : item
+                                                                                )
+                                                                            );
+                                                                        }}
+                                                                        value={item.nueva_cantidad}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </Fragment>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>No se encontro la orden de compra</div>
+                                )}
+                            </CardBody>
+                        </Card>
+                    </div>
+                </div>
+            </Container>
+        </PageWrapper>
+    )
+}
+
+export default CompletarOrdenCompra

@@ -1,0 +1,250 @@
+import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Validation from '@/components/form/Validation';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
+import ApiService from '@/services/ApiService';
+import { detalleRendicionThunk, listaCategoriasGastoThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useFormik } from 'formik';
+import { useEffect, useState } from 'react';
+import { SingleValue } from 'react-select';
+import { toast } from "react-toastify";
+import * as Yup from 'yup';
+
+
+const ModalDetalleGastos = ({ valuess, rendicion_id, id_detalle }: { valuess: any; rendicion_id: number | string | any; id_detalle: number }) => {
+    const dispatch = useAppDispatch();
+    const { listaCategoriasGasto } = useAppSelector((state) => state.rendicion);
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+
+    const formikDetalle = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            detalle: "",
+            cantidad: 0,
+            categoria: "",
+            monto_unitario: 0,
+            fecha_gasto: ""
+        },
+        validationSchema: Yup.object().shape({
+            detalle: Yup.string().notRequired().nullable(),
+            cantidad: Yup.number().required("Requerido").nonNullable("Requerido").min(1, "Debe ser mayor a 0"),
+            categoria: Yup.string().required("Requerido").nonNullable("Requerido"),
+            monto_unitario: Yup.number().required("Requerido").nonNullable("Requerido").min(1, "Debe ser mayor a 0"),
+            fecha_gasto: Yup.string().required("Requerido").nonNullable("Requerido")
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/rendiciones/${rendicion_id}/detalles-gasto/${id_detalle}/`,
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    data: JSON.stringify({
+                        cantidad: values.cantidad,
+                        detalle: values.detalle,
+                        categoria: values.categoria,
+                        monto_unitario: values.monto_unitario,
+                        monto_total: values.cantidad * values.monto_unitario,
+                        fecha_gasto: values.fecha_gasto
+                    })
+                });
+                if (response.data) {
+                    toast.success("Gasto actualizado", { autoClose: 1000 });
+                    dispatch(detalleRendicionThunk({id_rendicion: rendicion_id}));
+                    // dispatch(listaDetalleGastoThunk({id_rendicion: rendicion_id}))
+                    setIsOpen(false);
+                } else {
+                    toast.error("Error al actualizar el gasto");
+                }
+            } catch (error: any) {
+                toast.error("Error al actualizar el gasto");
+            }
+            formikDetalle.resetForm();
+        }
+    });
+
+    useEffect(() => {
+        if (isOpen && valuess) {
+            formikDetalle.setValues({
+                detalle: valuess.detalle,
+                cantidad: valuess.cantidad,
+                monto_unitario: valuess.monto_unitario,
+                categoria: valuess.categoria.toString(),
+                fecha_gasto: valuess.fecha_gasto
+            });
+        }
+    }, [isOpen, valuess]);
+
+    return (
+        <>
+            <Tooltip text="Editar">
+                <Button icon='HeroPencil' variant='solid' onClick={() => {setIsOpen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Editar Gasto</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        {/* {isEditing ? ( */}
+                        <div>
+                            <Badge>Detalle</Badge>
+                            <Validation
+                                isValid={formikDetalle.isValid}
+                                isTouched={formikDetalle.touched.detalle}
+                                invalidFeedback={formikDetalle.errors.detalle}
+                            >
+                                <Input
+                                    name="detalle"
+                                    id="detalle"
+                                    type="text"
+                                    onBlur={formikDetalle.handleBlur}
+                                    onChange={formikDetalle.handleChange}
+                                    value={formikDetalle.values.detalle}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Cantidad</Badge>
+                            <Validation
+                                isValid={formikDetalle.isValid}
+                                isTouched={formikDetalle.touched.cantidad}
+                                invalidFeedback={formikDetalle.errors.cantidad}
+                            >
+                                <Input
+                                    name="cantidad"
+                                    id="cantidad"
+                                    type="number"
+                                    onBlur={formikDetalle.handleBlur}
+                                    onChange={formikDetalle.handleChange}
+                                    value={formikDetalle.values.cantidad}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Fecha del Gasto</Badge>
+                            <Validation
+                                isValid={formikDetalle.isValid}
+                                isTouched={formikDetalle.touched.fecha_gasto}
+                                invalidFeedback={formikDetalle.errors.fecha_gasto}
+                            >
+                                <Input
+                                    name='fecha_gasto'
+                                    type='date'
+                                    onBlur={formikDetalle.handleBlur}
+                                    onChange={formikDetalle.handleChange}
+                                    value={formikDetalle.values.fecha_gasto}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Monto Unitario</Badge>
+                            <Validation
+                                isValid={formikDetalle.isValid}
+                                isTouched={formikDetalle.touched.monto_unitario}
+                                invalidFeedback={formikDetalle.errors.monto_unitario}
+                            >
+                                <Input
+                                    name="monto_unitario"
+                                    id="monto_unitario"
+                                    type="number"
+                                    onBlur={formikDetalle.handleBlur}
+                                    onChange={formikDetalle.handleChange}
+                                    value={formikDetalle.values.monto_unitario}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Categoría</Badge>
+                            <Validation
+                                isValid={formikDetalle.isValid}
+                                isTouched={formikDetalle.touched.categoria}
+                                invalidFeedback={formikDetalle.errors.categoria}
+                            >
+                                <SelectReact
+                                    name="categoria"
+                                    id="categoria"
+                                    placeholder="Seleccione una categoría o cree una."
+                                    isCreatable={true}
+                                    isClearable={true}
+                                    formatCreateLabel={(inputValue) => `Crear categoría "${inputValue}"`}
+                                    onCreateOption={async (inputValue) => {
+                                        try {
+                                            const response = await ApiService.fetchData({
+                                                url: '/api/categorias-gasto/',
+                                                method: 'POST',
+                                                data: { nombre: inputValue }
+                                            });
+                                            if (response.data) {
+                                                formikDetalle.setFieldValue("categoria", response.data);
+                                                toast.success("Categoría creada");
+                                                await dispatch(listaCategoriasGastoThunk());
+                                            } else {
+                                                toast.error("Error al crear la categoría");
+                                            }
+                                        } catch (error: any) {
+                                            toast.error("Error al crear la categoría");
+                                        }
+                                    }}
+                                    onChange={(newValue) => {
+                                        if (newValue) {
+                                            formikDetalle.setFieldValue("categoria", (newValue as SingleValue<TSelectOption>)?.value)
+                                        } else {
+                                            formikDetalle.setFieldValue("categoria", "")
+                                        }
+                                    }}
+                                    value={{value: formikDetalle.values.categoria, label: listaCategoriasGasto.find(cate => cate.id.toString() === formikDetalle.values.categoria)?.nombre || ""}}
+                                    options={listaCategoriasGasto.map((categoria: any) => ({ value: categoria.id.toString(), label: categoria.nombre }))}
+                                    onBlur={formikDetalle.handleBlur}
+                                    noOptionsMessage={() => "No hay opciones."}
+                                />
+                            </Validation>
+                        </div>
+                        {/* ) : (
+                            <>
+                                <div className="w-full ">
+                                    <Badge>Detalle</Badge>
+                                    <div className="ml-4">{valuess?.detalle || ""}</div>
+                                </div>
+                                <div className="w-full ">
+                                    <Badge>Cantidad</Badge>
+                                    <div className="ml-4">{valuess?.cantidad || 0}</div>
+                                </div>
+                                <div className="w-full ">
+                                    <Badge>Monto Unitario</Badge>
+                                    <div className="ml-4">{valuess?.monto_unitario || 0}</div>
+                                </div>
+                                <div className="w-full ">
+                                    <Badge>Categoría</Badge>
+                                    <div className="ml-4">{listaCategoriasGasto.find((categoria: any) => categoria.id === valuess?.categoria)?.nombre || ""}</div>
+                                </div>
+                                <div className="w-full ">
+                                    <Badge>Monto Total</Badge>
+                                    <div className="ml-4">{valuess?.monto_total || 0}</div>
+                                </div>
+                            </>
+                        )} */}
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        {/* {isEditing ? (
+                            <> */}
+                        <Button color='red' onClick={() => {setIsOpen(false); formikDetalle.resetForm()}}>Cancelar</Button>
+                        <Button variant='solid' onClick={() => {formikDetalle.handleSubmit()}}>Guardar</Button>
+                            {/* </>
+                        ) : (
+                            <Button variant='solid' onClick={() => { setIsEditing(true); }}>Modificar</Button>
+                        )} */}
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    );
+}
+
+export default ModalDetalleGastos;

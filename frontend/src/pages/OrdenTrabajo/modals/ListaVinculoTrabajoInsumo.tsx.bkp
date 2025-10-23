@@ -1,0 +1,185 @@
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import ApiService from '@/services/ApiService';
+import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { listaDetalleTrabajoCotizacionesSinInsumoThunk, listarInsumosCotizacionThunk, listaTrabajosFiltradasThunk, useAppDispatch, useAppSelector } from '@/store';
+import { IDetalleOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
+import Checkbox, { CheckboxGroup } from '@/components/form/Checkbox';
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table";
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import Icon from '@/components/icon/Icon';
+
+interface ListaVinculoTrabajoInsumoProps {
+    show: boolean;
+    handleClose: () => void;
+    ordenTrabajoId: number | string | undefined;
+    insumoId: number | undefined;
+    closeParentModal: () => void; // Añadir esta prop para cerrar el modal padre
+}
+
+const columnHelper = createColumnHelper<IDetalleOrdenDeTrabajo>();
+
+const ListaVinculoTrabajoInsumo: React.FC<ListaVinculoTrabajoInsumoProps> = ({ show, handleClose, ordenTrabajoId, insumoId, closeParentModal }) => {
+    const dispatch = useAppDispatch();
+    const { listaDetalleTrabajoCotizacionesSinInsumo } = useAppSelector((state) => state.ordenTrabajo);
+    
+    useEffect(() => {
+        if (show) {
+            dispatch(listaDetalleTrabajoCotizacionesSinInsumoThunk({ id_orden: ordenTrabajoId }))
+        }
+    }, [show]);
+
+    const handleAgregarInsumo = async (detalleTrabajoId: number) => {
+        try {
+            const response = await ApiService.fetchData({
+                url: `/api/ordenes-trabajo/${ordenTrabajoId}/detalles-trabajo/${detalleTrabajoId}/`,
+                method: 'patch',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({ insumo: insumoId })
+            });
+
+            if (response.data) {
+                toast.success("Insumo agregado al Detalle de la Orden", { autoClose: 1000 });
+                if (typeof ordenTrabajoId === 'number') {
+                    dispatch(listarInsumosCotizacionThunk({ id: ordenTrabajoId }));
+                }
+                handleClose();
+                closeParentModal(); 
+            }
+        } catch (error: any) {
+            toast.error(error.response.data);
+        }
+    };
+
+
+    const columns = [
+        columnHelper.accessor('id', {
+            cell: info => (
+                <CheckboxGroup isInline>
+                    <Checkbox
+                        label=''
+                        id={`detalle-${info.row.original.id}`}
+                        onChange={() => handleAgregarInsumo(info.row.original.id)}
+                    />
+                </CheckboxGroup>
+            ),
+            header: 'Seleccionar'
+        }),
+        columnHelper.accessor('descripcion', {
+            cell: info => info.getValue(),
+            header: 'Descripción'
+        })
+    ];
+
+    // const table = useReactTable({
+    //     data: listaDetalleTrabajoCotizacionesSinInsumo,
+    //     columns,
+    //     getCoreRowModel: getCoreRowModel(),
+    // });
+
+    const table = useReactTable({
+        data: listaDetalleTrabajoCotizacionesSinInsumo,
+        columns: columns,
+        // state: {
+        //     sorting: sorting,
+        //     globalFilter: globalFilter,
+        // },
+        // onSortingChange: setSorting,
+        // enableGlobalFilter: true,
+        // onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel()
+    });
+
+    return (
+       
+       <Modal isOpen={show} setIsOpen={handleClose} isStaticBackdrop>
+            <ModalHeader>
+                <Badge>Seleccionar Cotización</Badge>
+            </ModalHeader>
+            <ModalBody>
+                <div className="overflow-auto">
+                    {listaDetalleTrabajoCotizacionesSinInsumo.length > 0 ? (
+                    <>
+                        <Table className='table-fixed min-w-[400px]'>
+                            <THead>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th
+                                                key={header.id}
+                                                isColumnBorder={false}
+                                                className='text-left'>
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        key={header.id}
+                                                        aria-hidden='true'
+                                                        {...{
+                                                            className: header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                : '',
+                                                            onClick:
+                                                                header.column.getToggleSortingHandler(),
+                                                        }}>
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext(),
+                                                        )}
+                                                        {{
+                                                            asc: (
+                                                                <Icon
+                                                                    icon='HeroChevronUp'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                            desc: (
+                                                                <Icon
+                                                                    icon='HeroChevronDown'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                        }[header.column.getIsSorted() as string] ?? null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </THead>
+                            <TBody className="dark:bg-zinc-800 rounded-lg">
+                                {table.getRowModel().rows.map((row) => (
+                                    <Tr key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <Td key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </Td>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </TBody>
+                        </Table>
+                        <div className="mt-2 min-w-[400px]">
+                            <TableCardFooterTemplateV2 table={table} />
+                        </div>
+                    </>
+                    ) : (
+                        <div className="text-center text-gray-500">No se encontraron trabajos en OT.</div>
+                    )}
+                </div>
+            </ModalBody>
+            <ModalFooter>
+                <Button variant="solid" onClick={handleClose}>
+                    Cerrar
+                </Button>
+            </ModalFooter>
+        </Modal>
+        
+    );
+};
+
+export default ListaVinculoTrabajoInsumo;

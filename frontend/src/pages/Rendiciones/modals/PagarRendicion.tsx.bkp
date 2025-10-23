@@ -1,0 +1,50 @@
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import ApiService from "@/services/ApiService"
+import { detalleRendicionThunk, useAppDispatch } from "@/store"
+import { useState } from "react"
+import { toast } from "react-toastify"
+
+
+function PagarRendicion({id_rendicion} : {id_rendicion: string | number}) {
+    const dispatch = useAppDispatch()
+    const [isOpen, setIsopen] = useState<boolean>(false)
+
+    return (
+        <>
+            <Tooltip text="Pagar la Rendición">
+                <Button variant="solid" icon="HeroArrowSmallRight" onClick={() => {setIsopen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsopen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Pagar la Rendición</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="w-full">¿Pagar la rendición?</div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsopen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={async () => {
+                            try {
+                                const response = await ApiService.fetchData({url: `/api/rendiciones/${id_rendicion}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: 4})})
+                                if (response.data) {
+                                    dispatch(detalleRendicionThunk({id_rendicion}))
+                                    toast.success("Rendición pagada", {autoClose: 1000})
+                                    setIsopen(false)
+                                }
+                            } catch (error: any) {
+                                toast.error(error.response.data || "Error al pagar la rendicion", {toastId: "Error al pagar la rendicion"})
+                            }
+                        }}>Pagar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default PagarRendicion

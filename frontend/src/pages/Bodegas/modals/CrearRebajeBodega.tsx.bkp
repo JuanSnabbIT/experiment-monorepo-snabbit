@@ -1,0 +1,162 @@
+import Label from "@/components/form/Label"
+import SelectReact, { TSelectGroups, TSelectOption } from "@/components/form/SelectReact"
+import Textarea from "@/components/form/Textarea"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { listaBodegasThunk, listaRebajeBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
+import { detalleUsuarioEmpresaPorUserThunk, listaMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+
+
+function CrearRebajeBodega() {
+    const dispatch = useAppDispatch()
+    const { personalizacionUsuario, userMe } = useAppSelector((state) => state.auth)
+    const { detalleUsuarioEmpresa, listaMisClientes } = useAppSelector((state) => state.empresa)
+    const { listaBodegas } = useAppSelector((state) => state.bodega)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [optBodegas, setOptBodegas] = useState<{value: string, label: string}[]>([])
+    const [optClientes, setOptClientes] = useState<TSelectGroups>([])
+    const [selectedSucursal, setSelectedSucursal] = useState<{value: string, label: string} | null>(null)
+
+    useEffect(() => {
+        if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
+            dispatch(listaBodegasThunk())
+            dispatch(listaMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
+        }
+    }, [isOpen, personalizacionUsuario])
+
+    useEffect(() => {
+        if (listaBodegas.length > 0) {
+            setOptBodegas(listaBodegas.map(bod => {return {value: bod.id.toString(), label: bod.nombre}}))
+        }
+    }, [listaBodegas])
+
+    useEffect(() => {
+        if (listaMisClientes.length > 0) {
+            setOptClientes(
+                listaMisClientes.map((cli) => {
+                    return {
+                        label: cli.info_cliente.nombre,
+                        options: cli.info_cliente.sucursales.map((suc) => {
+                            return { value: suc.id.toString(), label: suc.nombre };
+                        }),
+                    };
+                })
+            )
+        }
+    }, [listaMisClientes])
+
+    useEffect(() => {
+        if (!detalleUsuarioEmpresa) {
+            dispatch(detalleUsuarioEmpresaPorUserThunk({id_usuario: userMe?.pk}))
+        }
+    }, [detalleUsuarioEmpresa])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            bodega: "",
+            sucursal_cliente: "",
+            motivo: "",
+        },
+        validationSchema: Yup.object().shape({
+            bodega: Yup.string().required("Requerido").nonNullable("Requerido"),
+            sucursal_cliente: Yup.string().required("Requerido").nonNullable("Requerido"),
+            motivo: Yup.string().nonNullable("No puede ser nulo").notRequired(),
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({url: `/api/rebajes/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({...values, creado_por: detalleUsuarioEmpresa?.id, sucursal_empresa: personalizacionUsuario?.sucursal_principal})})
+                if (response.data) {
+                    toast.success("Rebaje de bodega creado", {autoClose: 1000})
+                    dispatch(listaRebajeBodegaThunk())
+                    setIsOpen(false)
+                }
+            } catch (error: any) {
+                toast.error(error.response.data)
+            }
+        }
+    })
+
+    return (
+        <>
+            <Button variant="solid" onClick={() => {setIsOpen(true)}}>Crear</Button>
+            <Modal
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+            >
+                <ModalHeader>
+                    <Badge className="text-xl">
+                        Crear Rebaje de Bodega
+                    </Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div className="w-full">
+                            <Label htmlFor={'bodega'}>Bodega</Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.bodega}
+                                invalidFeedback={formik.errors.bodega}
+                            >
+                                <SelectReact
+                                    name="bodega"
+                                    options={optBodegas}
+                                    value={{value: formik.values.bodega, label: optBodegas.find(element => element.value === formik.values.bodega)?.label || ""}}
+                                    noOptionsMessage={(e) => `No existe ${e.inputValue}`}
+                                    onBlur={formik.handleBlur}
+                                    onChange={(e) => {formik.setFieldValue('bodega', (e as TSelectOption).value)}}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Label htmlFor={'sucursal'}>Sucursal Cliente</Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.sucursal_cliente}
+                                invalidFeedback={formik.errors.sucursal_cliente}
+                            >
+                                <SelectReact
+                                    name="sucursal_cliente"
+                                    options={optClientes}
+                                    noOptionsMessage={(e) => `No existe ${e.inputValue}`}
+                                    onChange={(e) => {
+                                        formik.setFieldValue('sucursal_cliente', (e as TSelectOption).value)
+                                        setSelectedSucursal((e as TSelectOption))
+                                    }}
+                                    value={{value: formik.values.sucursal_cliente, label: selectedSucursal?.label || ""}}
+                                    onBlur={formik.handleBlur}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Label htmlFor={'motivo'}>Motivo</Label>
+                            <Textarea 
+                                name="motivo"
+                                onBlur={formik.handleBlur}
+                                value={formik.values.motivo}
+                                onChange={formik.handleChange}
+                            />
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {formik.resetForm(); setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Crear</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearRebajeBodega

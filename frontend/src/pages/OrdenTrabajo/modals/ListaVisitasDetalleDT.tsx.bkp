@@ -1,0 +1,330 @@
+import Icon from "@/components/icon/Icon"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import Tooltip from "@/components/ui/Tooltip"
+import { IAsistenciaUsuarioEnOT, IEntregaEquipoEnOT } from "@/interface/visitas.interface"
+import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
+import CambiarEstadoAsistenciaUsuario from "@/pages/Visitas/modals/CambiarEstadoAsistenciaUsuario"
+import CambiarEstadoEntregaEquipo from "@/pages/Visitas/modals/CambiarEstadoEntregaEquipo"
+import EditarEquipoVisita from "@/pages/Visitas/modals/EditarEquipoVisita"
+import { detalleConVisitaThunk, detalleDelDetalleTrabajoThunk, useAppDispatch, useAppSelector } from "@/store"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { Dispatch, SetStateAction, useEffect, useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { toast } from "react-toastify"
+
+
+const columnHelperEntrega = createColumnHelper<IEntregaEquipoEnOT>()
+const columnHelperAsistencia = createColumnHelper<IAsistenciaUsuarioEnOT>()
+
+function ListaVisitasDetalleDT({isOpen, setIsOpen, detalleSeleccionado} : {isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, detalleSeleccionado: number | null, setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>}) {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { id } = useParams()
+    const { detalleConvisita } = useAppSelector((state) => state.ordenTrabajo)
+    const [listaEntrega, setListaEntrega] = useState<IEntregaEquipoEnOT[]>([])
+    const [listaAsistencia, setListaAsistencia] = useState<IAsistenciaUsuarioEnOT[]>([])
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
+    const [isOpenEditar, setIsOpenEditar] = useState<boolean>(false)
+    const [equipoSelected, setEquipoSelected] = useState<number | undefined>(undefined)
+
+    useEffect(() => {
+        if (detalleSeleccionado && isOpen) {
+            dispatch(detalleDelDetalleTrabajoThunk({id_detalle: detalleSeleccionado, id_orden: id}))
+            dispatch(detalleConVisitaThunk({ordenId: id, detalleTrabajoId: detalleSeleccionado}))
+        }
+    }, [detalleSeleccionado, isOpen])
+
+    useEffect(() => {
+        if (detalleConvisita) {
+            setListaAsistencia(detalleConvisita.datos_asistencias)
+            setListaEntrega(detalleConvisita.datos_entregas)
+        }
+    }, [detalleConvisita])
+
+    useEffect(() => {
+        if (!isOpenEditar && detalleSeleccionado) {
+            dispatch(detalleDelDetalleTrabajoThunk({id_detalle: detalleSeleccionado, id_orden: id}))
+        }
+    }, [isOpenEditar, detalleSeleccionado])
+
+    const columnsAsistencia = [
+        columnHelperAsistencia.accessor("id", {
+            cell: (info) => info.getValue(),
+            header: "N°",
+            size: 25
+        }),
+        columnHelperAsistencia.accessor("usuario_equipo_nombre", {
+            cell: (info) => info.getValue(),
+            header: "Usuario"
+        }),
+        columnHelperAsistencia.accessor("estado_revision_label", {
+            cell: (info) => info.getValue(),
+            header: "Estado de la revision"
+        }),
+        columnHelperAsistencia.display({
+            id: "acciones",
+            cell: (info) => {
+                return (
+                    <div className="flex justify-center gap-2">
+                        {detalleConvisita?.estado === "pendiente" && (
+                            <>
+                                <CambiarEstadoAsistenciaUsuario id_visita={id} info={info.row.original} tipo="1" id_detalle_trabajo={detalleSeleccionado} id_orden={id} />
+                                {info.row.original.estado_revision === "por_revisar" && (
+                                    <ModalEliminar 
+                                        mensaje={`Estas a punto de eliminar esta asistencia a ${info.row.original.usuario_equipo_nombre} ¿desea continuar?`} 
+                                        peticionUrl={`/api/visitas-soporte/${id}/asistencias-usuarios/${info.row.original.id}/`}
+                                        onDispatch={() => {dispatch(detalleConVisitaThunk({detalleTrabajoId: detalleSeleccionado, ordenId: id}))}}
+                                    >
+                                        Eliminar
+                                    </ModalEliminar>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )
+            }
+        })
+    ]
+
+    const tableAsistencias = useReactTable({
+        data: listaAsistencia,
+        columns: columnsAsistencia,
+        state: {
+            sorting: sorting,
+            globalFilter: globalFilter,
+        },
+        onSortingChange: setSorting,
+        enableGlobalFilter: true,
+        onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel()
+    });
+
+    const columnsEntrega = [
+        columnHelperEntrega.accessor("id", {
+            cell: (info) => info.getValue(),
+            header: "N°",
+            size: 25
+        }),
+        columnHelperEntrega.accessor("numero_serie_equipo", {
+            cell: (info) => info.getValue(),
+            header: "N° de Serie de Equipo"
+        }),
+        columnHelperEntrega.accessor("nombre_usuario_a_entregar", {
+            cell: (info) => info.getValue(),
+            header: "Entregar al Usuario"
+        }),
+        columnHelperEntrega.accessor("estado_entrega_label", {
+            cell: (info) => info.getValue(),
+            header: "Estado"
+        }),
+        columnHelperEntrega.display({
+            id: "acciones",
+            cell: (info) => (
+                <div className="flex justify-center gap-2">
+                    {detalleConvisita?.estado === "pendiente" && (
+                        <>
+                            <Tooltip text="Editar Equipo">
+                                <Button variant='solid' icon="HeroTv" color='amber' onClick={() => {
+                                    if (info.row.original.equipo) {
+                                        setEquipoSelected(info.row.original.equipo)
+                                        setIsOpenEditar(true)
+                                    } else {
+                                        toast.error("La entrega no tiene un equipo asignado", {toastId: "La entrega no tiene un equipo asignado"})
+                                    }
+                                }} />
+                            </Tooltip>
+                            {(info.row.original.estado_entrega != "entregado" && info.row.original.estado_entrega != "no_usuario") && (<CambiarEstadoEntregaEquipo entrega={info.row.original} tipo="1" id_detalle_trabajo={detalleSeleccionado} id_orden={id} />)}
+                            {info.row.original.estado_entrega === "por_entregar" && (
+                                <ModalEliminar
+                                    mensaje={`Estas a punto de eliminar esta entrega a ${info.row.original.usuario_a_entregar} ¿desea continuar?`} 
+                                    peticionUrl={`/api/visitas-soporte/${id}/entregas-equipos/${info.row.original.id}/`}
+                                    onDispatch={() => {if (detalleSeleccionado) dispatch(detalleConVisitaThunk({detalleTrabajoId: detalleSeleccionado, ordenId: id}))}}
+                                >Eliminar</ModalEliminar>
+                            )}
+                        </>
+                    )}
+                </div>
+            )
+        })
+    ]
+
+    const tableEntregas = useReactTable({
+        data: listaEntrega,
+        columns: columnsEntrega,
+        state: {
+            sorting: sorting,
+            globalFilter: globalFilter,
+        },
+        onSortingChange: setSorting,
+        enableGlobalFilter: true,
+        onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel()
+    });
+
+    return (
+        <>
+            <Modal isStaticBackdrop={true} size={"80vw"} isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdropAnimation={false}>
+                <ModalHeader>
+                    <Badge className="text-xl">Cambiar Estados Visita</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div className="w-full justify-between flex">
+                            <Badge className="text-xl">Asistencias</Badge>
+                            <Button variant="solid" color="violet" onClick={() => {navigate(`/orden-trabajo/detalle-visita-soporte/${detalleConvisita?.id}`)}}>Ir al detalle de la visita</Button>
+                        </div>
+                        <div className="w-full overflow-auto">
+                            <Table className='table-fixed min-w-[800px]'>
+                                <THead>
+                                    {tableAsistencias.getHeaderGroups().map((headerGroup) => (
+                                        <Tr key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <Th
+                                                    style={{ width: header.column.getSize() }}
+                                                    key={header.id}
+                                                    isColumnBorder={false}
+                                                    className='text-left'>
+                                                    {header.isPlaceholder ? null : (
+                                                        <div
+                                                            key={header.id}
+                                                            aria-hidden='true'
+                                                            {...{
+                                                                className: header.column.getCanSort()
+                                                                    ? 'cursor-pointer select-none flex items-center'
+                                                                    : '',
+                                                                onClick:
+                                                                    header.column.getToggleSortingHandler(),
+                                                            }}>
+                                                            {flexRender(
+                                                                header.column.columnDef.header,
+                                                                header.getContext(),
+                                                            )}
+                                                            {{
+                                                                asc: (
+                                                                    <Icon
+                                                                        icon='HeroChevronUp'
+                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                    />
+                                                                ),
+                                                                desc: (
+                                                                    <Icon
+                                                                        icon='HeroChevronDown'
+                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                    />
+                                                                ),
+                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                        </div>
+                                                    )}
+                                                </Th>
+                                            ))}
+                                        </Tr>
+                                    ))}
+                                </THead>
+                                <TBody>
+                                    {tableAsistencias.getRowModel().rows.map((row) => (
+                                        <Tr key={row.id}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <Td key={cell.id}>
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </Td>
+                                            ))}
+                                        </Tr>
+                                    ))}
+                                </TBody>
+                            </Table>
+                            <div className="mt-2 min-w-[800px]">
+                                <TableCardFooterTemplateV2 table={tableAsistencias} />
+                            </div>
+                        </div>
+                        <div className="w-full justify-between flex">
+                            <Badge className="text-xl">Entregas</Badge>
+                        </div>
+                        <div className="w-full overflow-auto">
+                            <Table className='table-fixed min-w-[800px]'>
+                                <THead>
+                                    {tableEntregas.getHeaderGroups().map((headerGroup) => (
+                                        <Tr key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <Th
+                                                    style={{ width: header.column.getSize() }}
+                                                    key={header.id}
+                                                    isColumnBorder={false}
+                                                    className='text-left'>
+                                                    {header.isPlaceholder ? null : (
+                                                        <div
+                                                            key={header.id}
+                                                            aria-hidden='true'
+                                                            {...{
+                                                                className: header.column.getCanSort()
+                                                                    ? 'cursor-pointer select-none flex items-center'
+                                                                    : '',
+                                                                onClick:
+                                                                    header.column.getToggleSortingHandler(),
+                                                            }}>
+                                                            {flexRender(
+                                                                header.column.columnDef.header,
+                                                                header.getContext(),
+                                                            )}
+                                                            {{
+                                                                asc: (
+                                                                    <Icon
+                                                                        icon='HeroChevronUp'
+                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                    />
+                                                                ),
+                                                                desc: (
+                                                                    <Icon
+                                                                        icon='HeroChevronDown'
+                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                    />
+                                                                ),
+                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                        </div>
+                                                    )}
+                                                </Th>
+                                            ))}
+                                        </Tr>
+                                    ))}
+                                </THead>
+                                <TBody>
+                                    {tableEntregas.getRowModel().rows.map((row) => (
+                                        <Tr key={row.id}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <Td key={cell.id}>
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </Td>
+                                            ))}
+                                        </Tr>
+                                    ))}
+                                </TBody>
+                            </Table>
+                            <div className="mt-2 min-w-[800px]">
+                                <TableCardFooterTemplateV2 table={tableEntregas} />
+                            </div>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cerrar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+            <EditarEquipoVisita isOpen={isOpenEditar} setIsOpen={setIsOpenEditar} id_equipo={equipoSelected} />
+        </>
+    )
+}
+
+export default ListaVisitasDetalleDT

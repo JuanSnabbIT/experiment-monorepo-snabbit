@@ -1,0 +1,49 @@
+// import Icon from "@/components/icon/Icon"
+// import Badge from "@/components/ui/Badge"
+// import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
+// import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+// import { IContratoServicio, IContratoVisita } from "@/interface/contrato.interface"
+// import { useAppDispatch, useAppSelector } from "@/store"
+// import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+// import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+// import dayjs from "dayjs"
+// import { useEffect, useState } from "react"
+// import TablaVisitasContrato from "./TablaVisitasContrato"
+// import TablaUsuarioVinculadoContrato from "./TablaUsuarioVinculadoContrato"
+
+
+// function DetalleDelContratoDelCliente() {
+//     const dispatch = useAppDispatch()
+//     const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato)
+
+//     return (
+//         <>
+//             {detalleContratoEmpresaCliente && (
+//                 <>
+//                     {/* <div className="border border-blue-500 rounded-xl p-4 grid grid-cols-3 gap-4">
+//                         <div>
+//                             <Badge>Fecha de Inicio</Badge>
+//                             <div className="ml-4">{dayjs(detalleContratoEmpresaCliente.fecha_inicio).format("DD/MM/YYYY")}</div>
+//                         </div>
+//                         <div>
+//                             <Badge>Fecha de Fin</Badge>
+//                             <div className="ml-4">{detalleContratoEmpresaCliente.fecha_fin ? dayjs(detalleContratoEmpresaCliente.fecha_fin).format("DD/MM/YYYY") : "Sin Fecha"}</div>
+//                         </div>
+//                         <div>
+//                             <Badge>Estado</Badge>
+//                             <div className="ml-4">{detalleContratoEmpresaCliente.estado_label}</div>
+//                         </div>
+//                         <div className="col-span-full">
+//                             <Badge>Observaciones</Badge>
+//                             <div className="ml-4">{detalleContratoEmpresaCliente.observaciones || "Sin Observaciones"}</div>
+//                         </div>
+//                     </div> */}
+//                     {/* <TablaVisitasContrato />
+//                     <TablaUsuarioVinculadoContrato /> */}
+//                 </>
+//             )}
+//         </>
+//     )
+// }
+
+// export default DetalleDelContratoDelCliente

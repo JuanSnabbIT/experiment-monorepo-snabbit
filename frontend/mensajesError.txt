@@ -1,0 +1,2 @@
+const mensajesError = Object.values(error.response.data).flat().join(" ");
+toast.error(mensajesError || "${}", {toastId: "${}"})

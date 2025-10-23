@@ -1,0 +1,74 @@
+// import Badge from "@/components/ui/Badge"
+// import Button from "@/components/ui/Button"
+// import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+// import Tooltip from "@/components/ui/Tooltip"
+// import { useRef, useState } from "react"
+// import SignatureCanvas from 'react-signature-canvas'
+// import { toast } from "react-toastify"
+
+// interface FirmaClienteProps {
+//     firmCli_id: string;
+//     onSave: (signature: string) => void;
+// }
+
+// function FirmaCliente({ firmCli_id, onSave }: FirmaClienteProps) {
+//     const [isOpen, setIsOpen] = useState<boolean>(false)
+//     const sigCanvas = useRef<SignatureCanvas | null>(null)
+
+//     const clear = () => {
+//         if (sigCanvas.current) {
+//             sigCanvas.current.clear();
+//         }
+//     };
+
+//     return (
+//         <>
+//             <Tooltip text="Firmar Solicitud">
+//                 <Button variant="solid" icon="HeroPencil" onClick={() => { setIsOpen(true) }}></Button>
+//             </Tooltip>
+//             <Modal
+//                 isOpen={isOpen}
+//                 setIsOpen={setIsOpen}
+//                 isStaticBackdrop={true}
+//                 isStaticBackdropAnimation={false}
+//             >
+//                 <ModalHeader>Firmar Solicitud</ModalHeader>
+//                 <ModalBody>
+//                     <Badge className="text-lg">Firma</Badge>
+//                     <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+//                         <SignatureCanvas
+//                             ref={(ref) => { sigCanvas.current = ref }}
+//                             penColor="black"
+//                             canvasProps={{
+//                                 height: 200,
+//                                 className: 'sigCanvas',
+//                                 style: { width: '100%', border: '1px solid #000' },
+//                             }}
+//                         />
+//                         <Button className="mt-2" variant="solid" onClick={clear}>Limpiar</Button>
+//                     </div>
+//                 </ModalBody>
+//                 <ModalFooter>
+//                     <ModalFooterChild />
+//                     <ModalFooterChild>
+//                         <Button color="red" onClick={() => setIsOpen(false)}>
+//                             Cancelar
+//                         </Button>
+//                         <Button variant="solid" onClick={() => {
+//                             if (sigCanvas.current) {
+//                                 const signature = sigCanvas.current.toDataURL('image/png');
+//                                 onSave(signature);
+//                                 toast.success("Firma guardada", { autoClose: 1000 });
+//                                 setIsOpen(false);
+//                             }
+//                         }}>
+//                             Guardar
+//                         </Button>
+//                     </ModalFooterChild>
+//                 </ModalFooter>
+//             </Modal>
+//         </>
+//     )
+// }
+
+// export default FirmaCliente

@@ -1,0 +1,142 @@
+import Icon from "@/components/icon/Icon";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
+import Tooltip from "@/components/ui/Tooltip";
+import { useAppDispatch, useAppSelector, listaGuiasSalidasDisponiblesThunk, listaDetalleTrabajoSinInsumoThunk, detalleGuiaSalidaBodegaThunk, listaItemsEnGuiaSalidaBodegaThunk } from "@/store"; // Import the new thunks
+import { useEffect, useState } from "react";
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact";
+import ApiService from '@/services/ApiService';
+import { toast } from 'react-toastify';
+import ModalDetalleGuiaSalida from "./ModalDetalleGuiaSalida";
+
+
+function VincularInsumos({ id_orden }: { id_detalleTrabajo: number | undefined, id_orden: number | undefined }) {
+	const dispatch = useAppDispatch();
+	const { listaDetalleTrabajoSinInsumo, detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+	const { listaGuiasSalidasDisponibles } = useAppSelector((state) => state.bodega)
+	const [isOpen, setIsOpen] = useState<boolean>(false);
+	const [isDetalleModalOpen, setIsDetalleModalOpen] = useState<boolean>(false);
+	const [selectedGuia, setSelectedGuia] = useState<number | undefined>(undefined);
+	const [selectedDetalle, setSelectedDetalle] = useState<number | undefined>(undefined);
+	const [guiaSeleccionada, setGuiaSeleccionada] = useState<number | undefined>(undefined);
+
+	useEffect(() => {
+		if (id_orden && isOpen) {
+			dispatch(listaGuiasSalidasDisponiblesThunk({id_empresa: detalleOrdenTrabajo?.empresa}));
+			dispatch(listaDetalleTrabajoSinInsumoThunk({id_orden: id_orden}));
+		}
+	}, [id_orden, isOpen]);
+
+	useEffect(() => {
+		if (isDetalleModalOpen && guiaSeleccionada) {
+			dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: guiaSeleccionada }));
+			dispatch(listaItemsEnGuiaSalidaBodegaThunk({ id_guia: guiaSeleccionada }));
+		}
+	}, [isDetalleModalOpen, guiaSeleccionada]);
+
+	useEffect(() => {
+		if (!isOpen) {
+			setSelectedGuia(undefined);
+			setSelectedDetalle(undefined);
+			setGuiaSeleccionada(undefined);
+		}
+	}, [isOpen]);
+
+	return (
+		<>
+			<Tooltip text="Agregar Insumos a la Orden">
+				<Button variant="solid" onClick={() => { setIsOpen(true) }} icon="HeroPlus"></Button>
+			</Tooltip>
+			<Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop >
+				<ModalHeader>
+					<Badge className="text-xl">Agregar Insumos a trabajo en OT</Badge>
+				</ModalHeader>
+				<ModalBody>
+					<div className="flex flex-col gap-4">
+						{listaGuiasSalidasDisponibles.length === 0 ? (
+							<div className="flex flex-col items-center justify-center h-full">
+								<Icon icon="HeroExclamationCircle" className="w-12 h-12 mb-2" />
+								<span className="text-lg font-semibold">No hay insumos disponibles</span>
+							</div>
+						) : (
+							<>
+								<div>
+									<Badge>Detalle de Trabajo</Badge>	
+									<SelectReact
+										name="detalle"
+										placeholder="Seleccione un Detalle"
+										options={listaDetalleTrabajoSinInsumo.map((detalle) => ({ value: detalle.id.toString(), label: detalle.nombre }))}
+										onChange={(e) => setSelectedDetalle(e ? parseInt((e as TSelectOption).value) : undefined)}
+										value={selectedDetalle ? { value: selectedDetalle.toString(), label: listaDetalleTrabajoSinInsumo.find(detalle => detalle.id === selectedDetalle)?.nombre || "" } : undefined}
+										noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+									/>
+								</div>
+								<div className="flex items-end">
+									<div className="flex-grow">
+										<Badge>Guias Disponibles</Badge>
+										<SelectReact
+											name="guia"
+											placeholder="Seleccione una Guia"
+											options={listaGuiasSalidasDisponibles.map((guia) => ({ value: guia.id.toString(), label: guia.motivo}))}
+											onChange={(e) => setSelectedGuia(e ? parseInt((e as TSelectOption).value) : undefined)}
+											value={selectedGuia ? { value: selectedGuia.toString(), label: listaGuiasSalidasDisponibles.find(guia => guia.id === selectedGuia)?.motivo || "" } : undefined}
+											noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+										/>
+									</div>
+									<div className="ml-2 mb-1">
+										<Tooltip text="Detalle">
+											<Button
+												variant="solid"
+												color="violet"
+												icon="HeroEye"
+												onClick={() => {
+													if (selectedGuia) {
+														setGuiaSeleccionada(selectedGuia);
+														setIsDetalleModalOpen(true);
+													}
+												}}
+											/>
+										</Tooltip>
+										{guiaSeleccionada && (
+											<ModalDetalleGuiaSalida isOpen={isDetalleModalOpen} setIsOpen={setIsDetalleModalOpen} />
+										)}
+									</div>
+								</div>
+							</>
+						)}
+					</div>
+				</ModalBody>
+				<ModalFooter>
+					<ModalFooterChild></ModalFooterChild>
+					<ModalFooterChild>
+						<Button variant="solid" isDisable={!selectedGuia || !selectedDetalle} onClick={async () => {
+							if (selectedGuia && selectedDetalle) {
+								try {
+									const response = await ApiService.fetchData({
+										url: `/api/ordenes-trabajo/${id_orden}/detalles-trabajo/${selectedDetalle}/`,
+										method: 'patch',
+										headers: { 'Content-Type': 'application/json' },
+										data: JSON.stringify({ insumo: selectedGuia })
+									});
+
+									if (response.data) {
+										toast.success("Insumo agregado al Detalle de la Orden", { autoClose: 1000 });
+										if (typeof id_orden === 'number') {
+											// dispatch(listarInsumosCotizacionThunk({ id: id_orden }));
+										}
+										setIsOpen(false);
+									}
+								} catch (error: any) {
+									toast.error(error.response.data);
+								}
+							}
+						}}>Vincular Insumo</Button>
+					</ModalFooterChild>
+				</ModalFooter>
+			</Modal>
+		</>
+	);
+}
+
+export default VincularInsumos;

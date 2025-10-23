@@ -1,0 +1,75 @@
+import Textarea from "@/components/form/Textarea";
+import Validation from "@/components/form/Validation";
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button";
+import ApiService from "@/services/ApiService";
+import { listaDetallesSeguimientosOTThunk, useAppDispatch } from "@/store";
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { toast } from "react-toastify";
+
+
+function SeguimientoEnCerrarOT({seguimiento, id_detalle, id_orden} : {seguimiento: {id: number; tipo: string; fecha: string; comentario: string; usuario: number}, id_orden: number | undefined, id_detalle: number}) {
+    const dispatch = useAppDispatch()
+    const [editando, setEditando] = useState<boolean>(false)
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            comentario: "",
+        },
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({url: `/api/ordenes-trabajo/${id_orden}/detalles-trabajo/${id_detalle}/seguimientos/${seguimiento.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(values)})
+                if (response.data) {
+                    toast.success("Seguimiento Cambiado", {autoClose: 1000})
+                    dispatch(listaDetallesSeguimientosOTThunk({id_orden: id_orden}))
+                    setEditando(false)
+                }
+            } catch (error: any) {
+                toast.error(error.response.data || "Error al cambiar el comentario del seguimiento", {toastId: "Error al cambiar el comentario del seguimiento"})
+            }
+        }
+    })
+
+    useEffect(() => {
+        if (editando) {
+            formik.setValues({comentario: seguimiento.comentario})
+        }
+    }, [editando])
+
+    return (
+        <div className="w-full">
+            <Badge>Seguimiento N°{seguimiento.id}</Badge>
+            <div className="flex gap-4">
+                {editando ? (
+                    <>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.comentario}
+                            invalidFeedback={formik.errors.comentario}
+                        >
+                            <Textarea
+                                name="comentario"
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                value={formik.values.comentario}
+                            />
+                        </Validation>
+                        <div className="gap-2 flex flex-col">
+                            <Button variant="solid" color="red" icon="HeroXMark" onClick={() => {setEditando(false)}}/>
+                            <Button variant="solid" icon="DuoSave" onClick={() => {formik.handleSubmit()}} />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="ml-4">{seguimiento.comentario}</div>
+                        <Button variant="solid" size="sm" icon="HeroPencil" onClick={() => {setEditando(true)}}></Button>
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
+export default SeguimientoEnCerrarOT

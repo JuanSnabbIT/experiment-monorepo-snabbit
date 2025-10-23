@@ -1,0 +1,165 @@
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { IGuiaSalida } from "@/interface/bodega.interface"
+import ModalDetalleGuiaSalida from "@/pages/OrdenTrabajo/modals/ModalDetalleGuiaSalida"
+import ApiService from "@/services/ApiService"
+import { detalleGuiaSalidaBodegaThunk, listaBodegasThunk, listaGuiasSalidasDisponiblesThunk, listaInsumosEnVisitaSoporteThunk, listaItemsEnGuiaSalidaBodegaThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+
+
+function AgregarInsumosAVisita() {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { detalleVisitasSoporte } = useAppSelector((state) => state.visita)
+    const { listaBodegas, detalleGuiaSalidaBodega, listaGuiasSalidasDisponibles } = useAppSelector((state) => state.bodega)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [guiaSeleccionada, setGuiaSeleccionada] = useState<IGuiaSalida | undefined>()
+    const [optionsGuia, setOptionsGuia] = useState<TSelectOption[]>([])
+    const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false)
+
+    useEffect(() => {
+        if (isOpenGuia) {
+            dispatch(detalleGuiaSalidaBodegaThunk({id_guia: guiaSeleccionada?.id}))
+            dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: guiaSeleccionada?.id}))
+        }
+    }, [isOpenGuia])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            bodega: "",
+            guia: "",
+        },
+        validationSchema: Yup.object().shape({
+            guia: Yup.string().required("Requerido").nonNullable("Requerido"),
+            bodega: Yup.string().notRequired().nullable()
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({url: `/api/visitas-soporte/${detalleVisitasSoporte?.id}/insumos-visitas/crear-insumo/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                    visita: detalleVisitasSoporte?.id,
+                    guia: values.guia
+                })})
+                if (response.data) {
+                    toast.success("Insumo añadido", {autoClose: 1000})
+                    dispatch(listaInsumosEnVisitaSoporteThunk({id_visita: detalleVisitasSoporte?.id}))
+                    formik.resetForm()
+                    setIsOpen(false)
+                }
+            } catch (error: any) {
+                toast.error(error.response.data || "Error al agregar el insumo", {toastId: "Error al agregar el insumo"})
+            }
+        }
+    })
+
+    // useEffect(() => {
+    //     if (listaGuiaDeSalidaFiltrada.length > 0) {
+    //         setOptionsGuia(listaGuiaDeSalidaFiltrada.map(guia => ({value: guia.id.toString(), label: `ID: ${guia.id.toString()}`})))
+    //     }
+    // }, [listaGuiaDeSalidaFiltrada])
+
+    // useEffect(() => {
+    //     if (formik.values.bodega.length > 0) {
+    //         dispatch(listaGuiasSalidasDisponiblesThunk({id_empresa:}))
+    //     }
+    // }, [formik.values.bodega])
+
+    useEffect(() => {
+        if (formik.values.guia.length > 0) {
+            dispatch(detalleGuiaSalidaBodegaThunk({id_guia: formik.values.guia}))
+        }
+    }, [formik.values.guia])
+
+    useEffect(() => {
+        if (detalleGuiaSalidaBodega) {
+            setGuiaSeleccionada(detalleGuiaSalidaBodega)
+        }
+    }, [detalleGuiaSalidaBodega])
+
+    useEffect(() => {
+        if (isOpen) {
+            dispatch(listaBodegasThunk())
+        }
+        if (!isOpen) {
+            formik.resetForm()
+            setGuiaSeleccionada(undefined)
+            setOptionsGuia([])
+        }
+    }, [isOpen])
+
+    return (
+        <>
+            <Tooltip text="Agregar Insumo">
+                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="HeroPlus"></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true} isStaticBackdropAnimation={false}>
+                <ModalHeader>
+                    <Badge className="text-xl">Agregar Insumo</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div className="w-full">
+                            <Badge className="text-xl">Bodegas</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.bodega}
+                                invalidFeedback={formik.errors.bodega}
+                            >
+                                <SelectReact
+                                    name="bodega"
+                                    placeholder="Seleccione una Bodega"
+                                    noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
+                                    options={listaBodegas.map(bod => ({value: bod.id.toString(), label: bod.nombre}))}
+                                    onBlur={formik.handleBlur}
+                                    onChange={(e) => {formik.setFieldValue("bodega", (e as TSelectOption).value)}}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Badge className="text-xl">Guias</Badge>
+                            <div className="flex gap-2">
+                                <div className="w-full">
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.guia}
+                                        invalidFeedback={formik.errors.guia}
+                                    >
+                                        <SelectReact
+                                            name="guia"
+                                            placeholder="Seleccione una Guia"
+                                            noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                            options={optionsGuia}
+                                            value={{value: formik.values.guia, label: optionsGuia.find(guia => guia.value === formik.values.guia)?.label || ""}}
+                                            onBlur={formik.handleBlur}
+                                            onChange={(e) => {formik.setFieldValue("guia", (e as TSelectOption).value)}}
+                                        />
+                                    </Validation>
+                                </div>
+                                {guiaSeleccionada && (<Button variant="solid" color="violet" onClick={() => {setIsOpenGuia(true)}} icon="HeroEye"></Button>)}
+                            </div>
+                        </div>
+
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+            <ModalDetalleGuiaSalida isOpen={isOpenGuia} setIsOpen={setIsOpenGuia} />
+        </>
+    )
+}
+
+export default AgregarInsumosAVisita

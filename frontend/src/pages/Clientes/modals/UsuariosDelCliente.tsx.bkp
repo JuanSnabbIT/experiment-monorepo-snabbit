@@ -1,0 +1,115 @@
+// import Input from "@/components/form/Input"
+// import Icon from "@/components/icon/Icon"
+// import Badge from "@/components/ui/Badge"
+// import Button from "@/components/ui/Button"
+// import Modal, { ModalBody, ModalHeader } from "@/components/ui/Modal"
+// import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+// import Tooltip from "@/components/ui/Tooltip"
+// import { useAppDispatch, useAppSelector } from "@/store"
+// import { listaUsuariosEmpresaThunk } from "@/store/slices/empresa/empresaSlice"
+// import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+// import { flexRender } from "@tanstack/react-table"
+// import { useEffect, useState } from "react"
+
+
+// function UsuariosDelCliente({id_cliente} : {id_cliente: number}) {
+//     const dispatch = useAppDispatch()
+//     const {  } = useAppSelector((state) => state.empresa)
+//     const [isOpen, setIsOpen] = useState<boolean>(false)
+
+//     useEffect(() => {
+//         dispatch(listaUsuariosEmpresaThunk())
+//     }, [])
+
+//     return (
+//         <>
+//             <Tooltip text="Usuarios del Cliente">
+//                 <Button variant="solid" color="lime" icon="HeroUsers" onClick={() => {setIsOpen(true)}}></Button>
+//             </Tooltip>
+//             <Modal
+//                 isOpen={isOpen}
+//                 setIsOpen={setIsOpen}
+//             >
+//                 <ModalHeader>
+//                     <Badge>Usuarios del Cliente</Badge>
+//                 </ModalHeader>
+//                 <ModalBody>
+//                     <div className="flex justify-end gap-4 mb-4">
+//                         <div>
+//                             <Input
+//                                 name="globalFilter"
+//                                 placeholder="Buscar..."
+//                                 value={globalFilter}
+//                                 onChange={(e) => { setGlobalFilter(e.target.value) }}
+//                             />
+//                         </div>
+//                     </div>
+//                     <div className="overflow-auto">
+//                         <Table className='table-fixed min-w-[600px]'>
+//                             <THead>
+//                                 {table.getHeaderGroups().map((headerGroup) => (
+//                                     <Tr key={headerGroup.id}>
+//                                         {headerGroup.headers.map((header) => (
+//                                             <Th
+//                                                 key={header.id}
+//                                                 isColumnBorder={false}
+//                                                 className='text-left'>
+//                                                 {header.isPlaceholder ? null : (
+//                                                     <div
+//                                                         key={header.id}
+//                                                         aria-hidden='true'
+//                                                         {...{
+//                                                             className: header.column.getCanSort()
+//                                                                 ? 'cursor-pointer select-none flex items-center'
+//                                                                 : '',
+//                                                             onClick:
+//                                                                 header.column.getToggleSortingHandler(),
+//                                                         }}>
+//                                                         {flexRender(
+//                                                             header.column.columnDef.header,
+//                                                             header.getContext(),
+//                                                         )}
+//                                                         {{
+//                                                             asc: (
+//                                                                 <Icon
+//                                                                     icon='HeroChevronUp'
+//                                                                     className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                                 />
+//                                                             ),
+//                                                             desc: (
+//                                                                 <Icon
+//                                                                     icon='HeroChevronDown'
+//                                                                     className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                                 />
+//                                                             ),
+//                                                         }[header.column.getIsSorted() as string] ?? null}
+//                                                     </div>
+//                                                 )}
+//                                             </Th>
+//                                         ))}
+//                                     </Tr>
+//                                 ))}
+//                             </THead>
+//                             <TBody>
+//                                 {table.getRowModel().rows.map((row) => (
+//                                     <Tr key={row.id}>
+//                                         {row.getVisibleCells().map((cell) => (
+//                                             <Td key={cell.id}>
+//                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
+//                                             </Td>
+//                                         ))}
+//                                     </Tr>
+//                                 ))}
+//                             </TBody>
+//                         </Table>
+//                         <div className="mt-2 min-w-[600px]">
+//                             <TableCardFooterTemplateV2 table={table} />
+//                         </div>
+//                     </div>
+//                 </ModalBody>
+//             </Modal>
+//         </>
+//     )
+// }
+
+// export default UsuariosDelCliente

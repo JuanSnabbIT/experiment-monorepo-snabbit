@@ -1,0 +1,22 @@
+import { useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+
+
+function CrearComentarios() {
+    const dispatch = useAppDispatch()
+    const { detalleCotizacion } = useAppSelector((state) => state.cotizacion)
+
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            comentario
+        }
+    })
+
+    return (
+        <></>
+    )
+}
+
+export default CrearComentarios

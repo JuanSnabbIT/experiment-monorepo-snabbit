@@ -1,0 +1,147 @@
+import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import ApiService from "@/services/ApiService"
+import { listaRetroalimentacionesOTThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { toast } from "react-toastify"
+import * as Yup from "yup"
+
+
+function CrearRetroalimentacionOT() {
+    const dispatch = useAppDispatch()
+    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa)
+    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isUser, setIsUser] = useState<boolean>(true)
+
+    useEffect(() => {
+        if (detalleOrdenTrabajo && isOpen) {
+            dispatch(listaUsuariosTodaLaEmpresaThunk({id_empresa: detalleOrdenTrabajo.cliente}))
+        }
+    }, [detalleOrdenTrabajo, isOpen])
+
+    useEffect(() => {
+        if (!isOpen) {
+            formik.resetForm()
+            setIsUser(true)
+        }
+    }, [isOpen])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            usuario: "",
+            nombre: "",
+            correo: "",
+        },
+        validationSchema: Yup.object().shape({
+            usuario: Yup.string().notRequired().nullable(),
+            nombre: Yup.string().notRequired().nullable().max(50, "Maximo 50 Caracteres"),
+            correo: Yup.string().email("Correo invalido").notRequired().nullable()
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/retroalimentaciones/enviar/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(values)})
+                if (response.data) {
+                    toast.success("Retroalimentación enviada")
+                    dispatch(listaRetroalimentacionesOTThunk({id_orden: detalleOrdenTrabajo?.id}))
+                    setIsOpen(false)
+                }
+            } catch (error: any) {
+                const mensajesError = Object.values(error.response.data).flat().join(" ");
+                toast.error(mensajesError || "Error al crear la retroalimentacion", {toastId: "Error al crear la retroalimentacion"})
+            }
+        }
+    })
+
+    return (
+        <>
+            <Tooltip text="Crear Retroalimentación" placement="auto">
+                <Button variant="solid" icon="HeroPlus" onClick={() => {setIsOpen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop isStaticBackdropAnimation={false}>
+                <ModalHeader>
+                    <Badge className="text-xl">Crear Retroalimentación</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <Badge>Usuario o Nombre</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.nombre}
+                                invalidFeedback={formik.errors.nombre}
+                            >
+                                <SelectReact
+                                    name="nombre"
+                                    isCreatable
+                                    isClearable
+                                    options={listaUsuariosTodaLaEmpresa.map(user => ({value: user.id.toString(), label: user.nombre_usuario}))}
+                                    noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
+                                    placeholder="Seleccione un usuario o ingrese un nombre"
+                                    formatCreateLabel={(inputValue) => `Nombre "${inputValue}"`}
+                                    onCreateOption={(e) => {
+                                        if (e) {
+                                            setIsUser(false)
+                                            formik.setFieldValue("nombre", e)
+                                            formik.setFieldValue("usuario", "")
+                                        } else {
+                                            setIsUser(true)
+                                            formik.setFieldValue("nombre", "")
+                                            formik.setFieldValue("usuario", "")
+                                        }
+                                    }}
+                                    onChange={(e) => {
+                                        if (e) {
+                                            setIsUser(true)
+                                            formik.setFieldValue("nombre", "")
+                                            formik.setFieldValue("usuario", (e as TSelectOption).value)
+                                        } else {
+                                            setIsUser(false)
+                                            formik.setFieldValue("nombre", "")
+                                            formik.setFieldValue("usuario", "")
+                                        }
+                                    }}
+                                    onBlur={formik.handleBlur}
+                                    value={formik.values.usuario && isUser ? {value: formik.values.usuario, label: listaUsuariosTodaLaEmpresa.find(user => user.id.toString() === formik.values.usuario)?.nombre_usuario || ""} : (formik.values.nombre && !isUser ? {value: formik.values.nombre, label: formik.values.nombre} : undefined)}
+                                />
+                            </Validation>
+                        </div>
+                        {!isUser && (
+                            <div>
+                                <Badge>Correo</Badge>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.correo}
+                                    invalidFeedback={formik.errors.correo}
+                                >
+                                    <Input
+                                        name="correo"
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        value={formik.values.correo}
+                                    />
+                                </Validation>
+                            </div>
+                        )}
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearRetroalimentacionOT

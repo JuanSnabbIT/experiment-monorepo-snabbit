@@ -1,0 +1,52 @@
+import Icon from "@/components/icon/Icon"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { useState } from "react"
+
+
+
+function CompletarCompra() {
+    const dispatch = useAppDispatch()
+    const { detalleCompra, listaItemsCompra } = useAppSelector((state) => state.bodega)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    return (
+        <>
+            <Tooltip text="Completar Compra">
+                <Button variant="solid" color="emerald" icon="HeroCheck" onClick={() => {setIsOpen(true)}} />
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Completar Compra</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <>
+                        <Badge>Errores</Badge>
+                        {listaItemsCompra.filter(item => !item.item_stock?.bodega_temporal).map((item, index) => (
+                            <div className="ml-4 flex flex-row items-center" key={index}><Icon icon="DuoCircle" className="mr-2"></Icon> {item.nombre_item} no tiene una bodega asignada</div>
+                        ))}
+                        {/* {listaItemsCompra} */}
+                    </>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button 
+                            variant="solid" 
+                            isDisable={listaItemsCompra.some(item => (item.cantidad <= 0 || item.precio <= 0 || !item.item_stock?.bodega_temporal))}
+                            onClick={async () => {
+
+                            }}
+                        >Guardar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CompletarCompra

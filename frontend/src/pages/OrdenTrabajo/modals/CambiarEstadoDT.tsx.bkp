@@ -1,0 +1,130 @@
+import { useEffect } from "react";
+import { useFormik } from "formik";
+import * as Yup from "yup";
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact";
+import Textarea from "@/components/form/Textarea";
+import Validation from "@/components/form/Validation";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
+import ApiService from "@/services/ApiService";
+import { listaDetalleTrabajoOTThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store";
+import { toast } from "react-toastify";
+import { ESTADOS_DETALLE_TRABAJO } from "@/constants/ordentrabajo.constant";
+
+
+function CambiarEstadoDT({ idDetalle, isOpen, onClose }: { idDetalle: number, isOpen: boolean, onClose: () => void }) {
+    const dispatch = useAppDispatch();
+    const { userMe } = useAppSelector((state) => state.auth)
+    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa)
+
+    useEffect(() => {
+        if (!usuarioEmpresaLogeado) {
+            dispatch(usuarioEmpresaLogeadoThunk({id_usuario: userMe?.pk}));
+        }
+    }, [usuarioEmpresaLogeado, userMe, dispatch]);
+
+    const formik = useFormik({
+        initialValues: {
+            nuevo_estado: '',
+            comentario: '',
+        },
+        validationSchema: Yup.object().shape({
+            nuevo_estado: Yup.string().required('Seleccione un estado').nonNullable("Seleccione un estado"),
+            comentario: Yup.string().required('Ingrese un comentario').nonNullable("Ingrese un comentario"),
+        }),
+        onSubmit: async (values) => {
+            try {
+                const patchResponse = await ApiService.fetchData({
+                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${idDetalle}/`,
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    data: JSON.stringify({estado: values.nuevo_estado}),
+                });
+                if (patchResponse.data) {
+                    const seguimientoResponse = await ApiService.fetchData({
+                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${idDetalle}/seguimientos/`,
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        data: JSON.stringify({
+                            detalle_trabajo: idDetalle,
+                            usuario: usuarioEmpresaLogeado?.id,
+                            tipo: 'actualizacion',
+                            comentario: values.comentario,
+                            estado: values.nuevo_estado  
+                        }),
+                    });
+                    if (seguimientoResponse.data) {
+                        toast.success('Estado actualizado y seguimiento creado', { autoClose: 1000 });
+                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
+                        onClose();
+                        formik.resetForm();
+                    } else {
+                        toast.error('Error al crear el seguimiento');
+                    }
+                } else {
+                    toast.error('Error al actualizar el estado');
+                }
+            } catch (error: any) {
+                toast.error(error.response?.data || 'Error en la solicitud', {toastId: 'Error en la solicitud'});
+            }
+        },
+    });
+
+    return (
+        <>
+            <Modal isOpen={isOpen} setIsOpen={onClose} isStaticBackdrop={true}>
+                <ModalHeader>
+                    <Badge className="text-xl">Cambiar Estado del Trabajo</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <Badge>Nuevo Estado</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.nuevo_estado}
+                                invalidFeedback={formik.errors.nuevo_estado}
+                            >
+                                <SelectReact
+                                    name="nuevo_estado"
+                                    placeholder="Seleccione un estado"
+                                    noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                    options={ESTADOS_DETALLE_TRABAJO.filter(estado => estado.value != "pendiente" && estado.value != "en_proceso")}
+                                    onBlur={formik.handleBlur}
+                                    onChange={(e) => (formik.setFieldValue("nuevo_estado", (e as TSelectOption).value))}
+                                    value={ESTADOS_DETALLE_TRABAJO.find(estado => estado.value === "nuevo_estado")}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Comentario del Seguimiento</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.comentario}
+                                invalidFeedback={formik.errors.comentario}
+                            >
+                                <Textarea
+                                    name="comentario"
+                                    value={formik.values.comentario}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild />
+                    <ModalFooterChild>
+                        <Button color="red" onClick={onClose}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => formik.handleSubmit()}>Guardar Cambios</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    );
+}
+
+export default CambiarEstadoDT;

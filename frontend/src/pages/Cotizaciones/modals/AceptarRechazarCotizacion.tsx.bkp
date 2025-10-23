@@ -1,0 +1,78 @@
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { ICotizacion } from "@/interface/cotizaciones.interface"
+import ApiService from "@/services/ApiService"
+import { detalleCotizacionThunk, listaCotizacionesSucursalThunk, listaCotizacionesThunk, listaItemsEnCotizacionThunk, useAppDispatch } from "@/store"
+import { useState } from "react"
+import { toast } from "react-toastify"
+
+
+function AceptarRechazarCotizacion({cotizacion, origen} : {cotizacion : ICotizacion, origen: string}) {
+    const dispatch = useAppDispatch()
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    return (
+        <>
+            <Tooltip text="Aceptar o Rechazar Cotización">
+                <Button variant="solid" color="sky" icon="DuoAngleDoubleRight" onClick={() => {setIsOpen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">¿Aceptar o Rechazar la Cotización?</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div>Si desea aceptar la cotización pulse el boton "Aceptar" si la quiere rechazar pulse "Rechazar"</div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                    </ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" variant="solid" onClick={async () => {
+                            try {
+                                const response = await ApiService.fetchData({url: `/api/cotizaciones/${cotizacion.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: 'rechazada'})})
+                                if (response.data) {
+                                    toast.success("Cotización rechazada", {autoClose: 1000})
+                                    if (origen === "lista") {
+                                        dispatch(listaCotizacionesThunk())
+                                    } else if (origen === "empresa") {
+                                        dispatch(listaCotizacionesSucursalThunk())
+                                    } else if (origen === "detalle") {
+                                        dispatch(detalleCotizacionThunk({ id_cotizacion: cotizacion.id }));
+                                        dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: cotizacion.id }));
+                                    }
+                                    setIsOpen(false)
+                                }
+                            } catch (error: any) {
+                                toast.error(error.response.data || "Error al rechazar la cotización", {toastId: "Error al rechazar la cotizacion"})
+                            }
+                        }}>Rechazar</Button>
+                        <Button variant="solid" onClick={async () => {
+                            try {
+                                const response = await ApiService.fetchData({url: `/api/cotizaciones/${cotizacion.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: 'aceptada'})})
+                                if (response.data) {
+                                    toast.success("Cotización aceptada", {autoClose: 1000})
+                                    if (origen === "lista") {
+                                        dispatch(listaCotizacionesThunk())
+                                    } else if (origen === "empresa") {
+                                        dispatch(listaCotizacionesSucursalThunk())
+                                    } else if (origen === "detalle") {
+                                        dispatch(detalleCotizacionThunk({ id_cotizacion: cotizacion.id }));
+                                        dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: cotizacion.id }));
+                                    }
+                                    setIsOpen(false)
+                                }
+                            } catch (error: any) {
+                                toast.error(error.response.data || "Error al aceptar la cotización", {toastId: "Error al aceptar la cotizacion"})
+                            }
+                        }}>Aceptar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default AceptarRechazarCotizacion

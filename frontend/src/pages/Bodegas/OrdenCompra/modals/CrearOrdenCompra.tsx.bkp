@@ -1,0 +1,143 @@
+import Input from "@/components/form/Input"
+import Label from "@/components/form/Label"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Textarea from "@/components/form/Textarea"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import { IOrdenCompra } from "@/interface/bodega.interface"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { detalleUsuarioEmpresaPorUserThunk } from "@/store/slices/empresa/empresaSlice"
+import { listaProveedoresEmpresaThunk } from "@/store/slices/item/itemSlice"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+
+
+function CrearOrdenCompra() {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { listaProveedoresEmpresa } = useAppSelector((state) => state.item)
+    const { detalleUsuarioEmpresa, listaMisClientes } = useAppSelector((state) => state.empresa)
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const [optionProveedores, setOptionProveedores] = useState<{ value: string; label: string; }[]>([])
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    useEffect(() => {
+        if (personalizacionUsuario && personalizacionUsuario.empresa) {
+            dispatch(detalleUsuarioEmpresaPorUserThunk({id_usuario: personalizacionUsuario.usuario}))
+            dispatch(listaProveedoresEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
+        }
+    }, [personalizacionUsuario])
+
+    useEffect(() => {
+        if (listaProveedoresEmpresa.length > 0) {
+            setOptionProveedores(listaProveedoresEmpresa.map((pro) => {return {value: pro.id.toString(), label: pro.nombre}}))
+        }
+    }, [listaProveedoresEmpresa])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            codigo: "",
+            proveedor: "",
+            observaciones: ""
+        },
+        validationSchema: Yup.object().shape({
+            codigo: Yup.string().required("Requerido").max(50, "Maximo 50 Caracteres"),
+            observaciones: Yup.string().notRequired(),
+            proveedor: Yup.string().required("Requerido")
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData<IOrdenCompra, string>({url: `/api/ordenes-compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({...values, creado_por: detalleUsuarioEmpresa?.id, sucursal: personalizacionUsuario?.sucursal_principal})})
+                if (response.data) {
+                    toast.success("Orden Creada", {autoClose: 1000})
+                    navigate(`/detalle-orden-compra/${response.data.id}`)
+                }
+            } catch (error: any) {
+                toast.error(error.response.data)
+            }
+        }
+    })
+
+    return (
+        <>
+            <Button variant="solid" onClick={() => {setIsOpen(true)}}>Crear</Button>
+            <Modal
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                isStaticBackdrop={true}
+            >
+                <ModalHeader>
+                    <Badge className="text-xl">Crear Orden de Compra</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div className="w-full">
+                            <Label htmlFor="codigo">Codigo</Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.codigo}
+                                invalidFeedback={formik.errors.codigo}
+                            >
+                                <Input
+                                    name="codigo"
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                    value={formik.values.codigo}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Label htmlFor="proveedor">Proveedor</Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.proveedor}
+                                invalidFeedback={formik.errors.proveedor}
+                            >
+                                <SelectReact 
+                                    name="proveedor"
+                                    options={optionProveedores}
+                                    value={{value: formik.values.proveedor, label: optionProveedores.find((pro) => pro.value === formik.values.proveedor)?.label || ""}}
+                                    onBlur={formik.handleBlur}
+                                    isMulti={false}
+                                    onChange={(e) => {formik.setFieldValue('proveedor', (e as TSelectOption)?.value)}}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
+                            <Label htmlFor="observaciones">Observaciones</Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.observaciones}
+                                invalidFeedback={formik.errors.observaciones}
+                            >
+                                <Textarea
+                                    name="observaciones"
+                                    rows={4}
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                    value={formik.values.observaciones}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Crear</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearOrdenCompra

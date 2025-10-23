@@ -1,0 +1,69 @@
+// import Input from "@/components/form/Input"
+// import Validation from "@/components/form/Validation"
+// import Badge from "@/components/ui/Badge"
+// import Button from "@/components/ui/Button"
+// import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+// import Tooltip from "@/components/ui/Tooltip"
+// import { useAppDispatch } from "@/store"
+// import { useFormik } from "formik"
+// import { useEffect, useState } from "react"
+
+
+// function TomarInventarioDelItem() {
+//     const dispatch = useAppDispatch()
+//     const [isOpen, setIsOpen] = useState<boolean>(false)
+
+//     useEffect(() => {
+//         if (isOpen) {
+
+//         }
+//     }, [isOpen])
+
+//     const formik = useFormik({
+//         enableReinitialize: true,
+//         initialValues: {
+//             nombre: "",
+//         },
+//         onSubmit: async (values) => {
+//             console.log(values)
+//         }
+//     })
+
+//     return (
+//         <>
+//             <Tooltip text="Inventariar">
+//                 <Button variant="solid" color="sky" icon="DuoIncomingBox"></Button>
+//             </Tooltip>
+//             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+//                 <ModalHeader>
+//                     <Badge className="text-xl">Inventariar</Badge>
+//                 </ModalHeader>
+//                 <ModalBody>
+//                     <div className="flex flex-col gap-4">
+//                         <div>
+//                             <Badge>Item</Badge>
+//                             <Validation
+//                                 isValid={formik.isValid}
+//                                 isTouched={formik.touched.nombre}
+//                                 invalidFeedback={formik.errors.nombre}
+//                             >
+//                                 <Input
+//                                     name="nombre"
+//                                 />
+//                             </Validation>
+//                         </div>
+//                     </div>
+//                 </ModalBody>
+//                 <ModalFooter>
+//                     <ModalFooterChild></ModalFooterChild>
+//                     <ModalFooterChild>
+//                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+//                         <Button variant="solid" onClick={() => {}}></Button>
+//                     </ModalFooterChild>
+//                 </ModalFooter>
+//             </Modal>
+//         </>
+//     )
+// }
+
+// export default TomarInventarioDelItem

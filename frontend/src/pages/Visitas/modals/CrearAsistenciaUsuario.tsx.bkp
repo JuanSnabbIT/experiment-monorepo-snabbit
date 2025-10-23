@@ -1,0 +1,140 @@
+import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Textarea from "@/components/form/Textarea"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import ApiService from "@/services/ApiService"
+import { listaMisClientesThunk, listaUsuariosTodaLaEmpresaThunk, listaUsuariosTodoElClienteThunk, listaVisitasSoporteThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { useParams } from "react-router-dom"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+
+function CrearAsistenciaUsuario() {
+    const dispatch = useAppDispatch()
+    const {id} = useParams()
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const { listaMisClientes, listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    useEffect(() => {
+        if (personalizacionUsuario && personalizacionUsuario.empresa && isOpen) {
+            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }))
+        }
+    }, [personalizacionUsuario, isOpen])
+
+    useEffect(() => {
+        if (!isOpen) {
+            formik.resetForm()
+        }
+    }, [isOpen])
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            visita: id,
+            estado_revision: "POR_REVISAR",
+            observaciones: "",
+            usuario_equipo: 0
+        },
+        validationSchema: Yup.object().shape({
+            estado_revision: Yup.string().required("Requerido").nullable(),
+            observaciones: Yup.string().nullable(),
+            usuario_equipo: Yup.string().required("Requerido").nullable()
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({
+                    url: '/api/asistencia-usuario/',
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify({
+                        ...values,
+                        cliente: id,
+                        empresa: personalizacionUsuario?.empresa
+                    })
+                });
+                if (response.data) {
+                    toast.success("Asistencia de Usuario Creada", { autoClose: 1000 });
+                    dispatch(listaVisitasSoporteThunk())
+                    formik.resetForm();
+                    setIsOpen(false);
+                } else {
+                    toast.error("Error al crear la Asistencia de Usuario");
+                }
+            } catch (error: any) {
+                toast.error("Error al crear la Asistencia de Usuario");
+            }
+        }
+    })
+
+    useEffect(() => {
+        if (formik.values.visita) {
+            dispatch(listaUsuariosTodoElClienteThunk({ id_empresa: formik.values.visita }))
+        }
+    }, [formik.values.visita])
+
+    return (
+        <>
+            <Tooltip text="Crear Asistencia de Usuario">
+                <Button variant="solid" icon="HeroPlus" onClick={() => { setIsOpen(true) }}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Crear Asistencia de Usuarioaaa</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                       
+                        <div>
+                            <Badge>Observaciones</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.observaciones}
+                                invalidFeedback={formik.errors.observaciones}
+                            >
+                                <Textarea
+                                    name="observaciones"
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                    value={formik.values.observaciones}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Usuario Equipo</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.usuario_equipo}
+                                invalidFeedback={formik.errors.usuario_equipo}
+                            >
+                                <SelectReact
+                                    name="usuario_equipo"
+                                    placeholder="Seleccione un Usuario"
+                                    noOptionsMessage={(e) => (`No existe ${e.inputValue}`)}
+                                    options={listaUsuariosTodoElCliente.map((user) => ({ value: user.id.toString(), label: user.nombre_usuario }))}
+                                    onBlur={formik.handleBlur}
+                                    value={listaUsuariosTodoElCliente.map((user) => ({ value: user.id.toString(), label: user.nombre_usuario })).find(option => option.value === formik.values.usuario_equipo.toString())}
+                                    onChange={(option: any) => { formik.setFieldValue("usuario_equipo", option?.value) }}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => { setIsOpen(false); formik.resetForm() }}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => { formik.handleSubmit() }}>Guardar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearAsistenciaUsuario

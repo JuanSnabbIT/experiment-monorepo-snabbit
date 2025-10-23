@@ -1,0 +1,502 @@
+import Input from "@/components/form/Input"
+import Radio, { RadioGroup } from "@/components/form/Radio"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Textarea from "@/components/form/Textarea"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import { ICompra } from "@/interface/bodega.interface"
+import ApiService from "@/services/ApiService"
+import { listaCategoriasThunk, listaFabricanteThunk, listaItemsCompraThunk, listaItemsEmpresaProveedorThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
+import { toast } from "react-toastify"
+import { IDetectedBarcode, Scanner } from '@yudiel/react-qr-scanner';
+import { IItemEmpresa } from "@/interface/items.interface"
+import Camera from 'react-html5-camera-photo';
+import 'react-html5-camera-photo/build/css/index.css';
+import { Gallery } from "react-grid-gallery";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import * as Yup from "yup"
+import Icon from "@/components/icon/Icon"
+
+
+interface FormikInterface {
+    nombre: string
+    descripcion_corta: string
+    fabricante: string
+    categoria: string
+    comentarios: string
+    codigo_barras: string
+    creando: boolean
+    cantidad: number
+    precio: number
+    imagenes: string[]
+    item: string
+}
+
+function CrearItemEnCompra({compra} : {compra: ICompra}) {
+    const dispatch = useAppDispatch()
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const { listaFabricante, listaCategorias, listaItemsEmpresaProveedor } = useAppSelector((state) => state.item)
+    const { listaItemsCompra } = useAppSelector((state) => state.bodega)
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [paused, setPaused] = useState<boolean>(false)
+    const [hasCameraPermission, setHasCameraPermission] = useState(false);
+    const [permissionChecked, setPermissionChecked] = useState(false);
+    const [index, setIndex] = useState(-1);
+    const [escaneado, setEscaneado] = useState<boolean>(false)
+    const [mostrarCamara, setMostrarCamara] = useState<boolean>(true)
+
+    const formik = useFormik<FormikInterface>({
+        enableReinitialize: true,
+        initialValues: {
+            nombre: "",
+            descripcion_corta: "",
+            fabricante: "",
+            categoria: "",
+            comentarios: "",
+            codigo_barras: "",
+            creando: false,
+            cantidad: 0,
+            precio: 0,
+            imagenes: [],
+            item: ""
+        },
+        validationSchema: Yup.object().shape({
+            nombre: Yup.mixed().when(['creando'], ([creando], schema) => {
+                if (creando && escaneado) {
+                    return schema
+                        .required("Requerido")
+                        .test(
+                            "nombre-no-nulo",
+                            "El nombre no debe ser nulo ni vacío",
+                            (value) => value !== null && value !== ""
+                        );
+                }
+                return schema;
+            }),
+            descripcion_corta: Yup.string().notRequired().nullable().max(45, "Máximo 45 caracteres"),
+            fabricante: Yup.string().notRequired().nullable(),
+            categoria: Yup.string().notRequired().nullable(),
+            comentarios: Yup.string().notRequired().nullable(),
+            codigo_barras: Yup.string().notRequired().nullable(),
+            cantidad: Yup.number().required("Requerido").nonNullable("Requerido").min(1, "Minimo 1"),
+            precio: Yup.number().required("Requerido").nonNullable("Requerido").min(1, "Minimo 1"),
+        }),
+        onSubmit: async (values) => {
+            if (!escaneado && values.creando) {
+                try {
+                    const response = await ApiService.fetchData({url: `/api/compras/${compra.id}/items-compras/crear-item-empresa/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                        imagenes: values.imagenes,
+                        cantidad: values.cantidad >= 0 ? values.cantidad : 0,
+                        precio: values.precio >= 0 ? values.precio : 0,
+                        item_empresa: {
+                            nombre: values.nombre,
+                            descripcion_corta: values.descripcion_corta,
+                            fabricante: values.fabricante,
+                            categoria: values.categoria,
+                            comentarios: values.comentarios,
+                            codigo_barras: values.codigo_barras,
+                            empresa: personalizacionUsuario?.empresa,
+                            proveedores_empresa: [compra.proveedor]
+                        }
+                    })})
+                    if (response.data) {
+                        toast.success("Item añadido", {toastId: "Item añadido", autoClose: 1000})
+                        setIsOpen(false)
+                        dispatch(listaItemsCompraThunk({id_compra: compra.id}))
+                    }
+                } catch (error: any) {
+                    toast.error(error.response.data || "Error al agregar items a la compra", {toastId: "Error al agregar items a la compra"})
+                }
+            } else {
+                try {
+                    const response = await ApiService.fetchData({url: `/api/compras/${compra.id}/items-compras/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                        compra: compra.id,
+                        item: values.item,
+                        cantidad: values.cantidad,
+                        precio: values.precio
+                    })})
+                    if (response.data) {
+                        toast.success("Item añadido", {toastId: "Item añadido", autoClose: 1000})
+                        setIsOpen(false)
+                        dispatch(listaItemsCompraThunk({id_compra: compra.id}))
+                    }
+                } catch (error: any) {
+                    toast.error(error.response.data || "Error al agregar items a la compra", {toastId: "Error al agregar items a la compra"})
+                }
+            }
+        }
+    })
+
+    useEffect(() => {
+        async function checkCameraPermission() {
+            try {
+                // Intentamos solicitar acceso a la cámara
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // Si se concede, detenemos las pistas (para evitar que la cámara quede encendida)
+                stream.getTracks().forEach(track => track.stop());
+                setHasCameraPermission(true);
+            } catch (error) {
+                // Si ocurre algún error (por ejemplo, si se niega el acceso), actualizamos el estado
+                console.error('Error al obtener permisos de la cámara:', error);
+                setHasCameraPermission(false);
+                toast.error("No se pudo acceder a la cámara");
+            } finally {
+                setPermissionChecked(true);
+            }
+        }
+        if (isOpen) {
+            dispatch(listaFabricanteThunk())
+            dispatch(listaCategoriasThunk())
+            dispatch(listaItemsEmpresaProveedorThunk({id_empresa: personalizacionUsuario?.empresa, id_proveedor: compra.proveedor}))
+            dispatch(listaItemsCompraThunk({id_compra: compra.id}))
+            checkCameraPermission();
+        } else {
+            formik.resetForm()
+            setMostrarCamara(false)
+            setEscaneado(false)
+        }
+    }, [isOpen])
+
+    return (
+        <>
+            <Tooltip text="Agregar Item">
+                <Button variant="solid" icon="HeroPlus" onClick={() => {setIsOpen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true} isStaticBackdropAnimation={false}>
+                <ModalHeader>
+                    <Badge className="text-xl">Agregar Item</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <Badge>Escanear o Crear</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.creando}
+                                invalidFeedback={formik.errors.creando}
+                            >
+                                <RadioGroup isInline>
+                                    <Radio
+                                        name="creando"
+                                        label="Escanear"
+                                        value="false"
+                                        selectedValue={formik.values.creando ? "true": "false"}
+                                        onChange={() => {formik.setFieldValue("creando", false)}}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                    <Radio
+                                        name="creando"
+                                        label="Crear"
+                                        value="true"
+                                        selectedValue={formik.values.creando ? "true": "false"}
+                                        onChange={() => {formik.setFieldValue("creando", true)}}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </RadioGroup>
+                            </Validation>
+                        </div>
+                        {formik.values.creando ? (
+                            <>
+                                <div>
+                                    <Badge>Nombre</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.nombre}
+                                        invalidFeedback={formik.errors.nombre}
+                                    >
+                                        <Input
+                                            name="nombre"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.nombre}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>Fabricante</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.fabricante}
+                                        invalidFeedback={formik.errors.fabricante}
+                                    >
+                                        <SelectReact
+                                            name="fabricante"
+                                            placeholder="Seleccione un fabricante"
+                                            options={listaFabricante.map(fab => ({value: fab.id.toString(), label: fab.nombre}))}
+                                            onChange={(e) => {
+                                                if (e) {
+                                                    formik.setFieldValue("fabricante", (e as TSelectOption).value)
+                                                } else {
+                                                    formik.setFieldValue("fabricante", "")
+                                                }
+                                            }}
+                                            onBlur={formik.handleBlur}
+                                            value={{value: formik.values.fabricante, label: listaFabricante.find(fab => fab.id.toString() === formik.values.fabricante)?.nombre || ""}}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>Categoria</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.categoria}
+                                        invalidFeedback={formik.errors.categoria}
+                                    >
+                                        <SelectReact
+                                            name="categoria"
+                                            placeholder="Seleccione una categoria"
+                                            options={listaCategorias.map(cat => ({value: cat.id.toString(), label: cat.nombre}))}
+                                            onChange={(e) => {
+                                                if (e) {
+                                                    formik.setFieldValue("categoria", (e as TSelectOption).value)
+                                                } else {
+                                                    formik.setFieldValue("categoria", "")
+                                                }
+                                            }}
+                                            onBlur={formik.handleBlur}
+                                            value={{value: formik.values.categoria, label: listaCategorias.find(cat => cat.id.toString() === formik.values.categoria)?.nombre || ""}}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>Descripción Corta</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.descripcion_corta}
+                                        invalidFeedback={formik.errors.descripcion_corta}
+                                    >
+                                        <Textarea
+                                            name="descripcion_corta"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.descripcion_corta}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>Comentarios</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.comentarios}
+                                        invalidFeedback={formik.errors.comentarios}
+                                    >
+                                        <Textarea
+                                            name="comentarios"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.comentarios}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>Codido de Barras</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.codigo_barras}
+                                        invalidFeedback={formik.errors.codigo_barras}
+                                    >
+                                        <Input
+                                            name="codigo_barras"
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            value={formik.values.codigo_barras}
+                                            disabled={escaneado}
+                                        />
+                                    </Validation>
+                                </div>
+                                {(permissionChecked && hasCameraPermission) && (
+                                    <Camera
+                                        idealFacingMode="environment"
+                                        onTakePhoto = {(dataUri) => {
+                                            formik.setFieldValue("imagenes", [...formik.values.imagenes, dataUri])
+                                        }}
+                                        onCameraError={() => {
+                                            setHasCameraPermission(false)
+                                            setPermissionChecked(true)
+                                        }}
+                                    />
+                                )}
+                                <div>
+                                    <Badge>Imagenes</Badge>
+                                    {formik.values.imagenes.length > 0 ? (
+                                        <>
+                                            <Gallery
+                                                images={formik.values.imagenes.map(imagen => ({src: imagen, height: 240, width: 320}))}
+                                                onClick={(index) => {setIndex(index)}}
+                                                enableImageSelection={false}
+                                                rowHeight={240}
+                                            />
+                                            <Lightbox
+                                                slides={formik.values.imagenes.map(imagen => ({src: imagen}))}
+                                                open={index >= 0}
+                                                index={index}
+                                                close={() => setIndex(-1)}
+                                                toolbar={{buttons: [
+                                                    <div className="items-center flex hover:text-red-600 text-zinc-50 transition-colors delay-75" key={"BotonEliminar"}>
+                                                        <Icon icon="HeroTrash" size="text-3xl" onClick={() => {
+                                                            formik.setFieldValue("imagenes", formik.values.imagenes.splice(index + 1, 1))
+                                                            setIndex(-1)
+                                                        }} />
+                                                    </div>,
+                                                    "close"
+                                                ]}}
+                                            />
+                                        </>
+                                    ) : ("Sin Imagenes")}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {(permissionChecked && hasCameraPermission) && (!escaneado) && mostrarCamara && (
+                                    <Scanner
+                                        onScan={async (detectedCodes: IDetectedBarcode[]) => {
+                                            if (detectedCodes.length > 0) {
+                                                for (const code of detectedCodes) {
+                                                    if (['ean_13', 'code_128', 'code_93', 'code_39', 'upc_a', 'upc_e'].includes(code.format)) {
+                                                        setPaused(true);
+                                                        const response = await ApiService.fetchData<IItemEmpresa[]>({url: `/api/items-empresa/?codigo_barras=${code.rawValue}`, method: 'get'})
+                                                        if (response.data) {
+                                                            if (response.data.length > 0) {
+                                                                if (listaItemsCompra.some(item => item.item === response.data[0].id)) {
+                                                                    toast.error("Item ya agregado a la compra")
+                                                                } else {
+                                                                    formik.setValues({
+                                                                        categoria: response.data[0].categoria ? response.data[0].categoria.toString() : "",
+                                                                        fabricante: response.data[0].fabricante ? response.data[0].fabricante.toString() : "",
+                                                                        codigo_barras: response.data[0].codigo_barras || "",
+                                                                        comentarios: response.data[0].comentarios,
+                                                                        descripcion_corta: response.data[0].descripcion_corta ? response.data[0].descripcion_corta : "",
+                                                                        nombre: response.data[0].nombre,
+                                                                        creando: false,
+                                                                        cantidad: 0,
+                                                                        precio: 0,
+                                                                        imagenes: response.data[0].imagenes.length > 0 ? response.data[0].imagenes.map(imagen => imagen.imagen) : [],
+                                                                        item: response.data[0].id.toString()
+                                                                    })
+                                                                    setEscaneado(true)
+                                                                }
+                                                            } else {
+                                                                toast.error(`Codigo ${code.rawValue} no encontrado`)
+                                                            }
+                                                        }
+                                                        setPaused(false)
+                                                    } else {
+                                                        toast.error('Formato de código de barras no soportado');
+                                                        setPaused(false)
+                                                    }
+                                                }
+                                            } else {
+                                                setPaused(false)
+                                                toast.error('No se detectaron códigos de barras');
+                                            }
+                                        }}
+                                        onError={(error) => {
+                                            console.error('Error en el escáner:', error);
+                                            toast.error('Error al acceder a la cámara.');
+                                        }}
+                                        formats={['ean_13', 'code_128', 'code_39', 'upc_a', 'upc_e']}
+                                        paused={paused}
+                                        allowMultiple={false}
+                                        constraints={{
+                                            facingMode: 'environment',
+                                            width:  { ideal: 1280 },
+                                            height: { ideal: 720 }
+                                        }}
+                                        scanDelay={300}
+                                        styles={{
+                                            container: { width: '100%', aspectRatio: '1 / 1' },
+                                            video:     { width: '100%', height: '100%', objectFit: 'cover' }
+                                        }}
+                                        components={{ finder: false }}        // ⬅️ apaga la mira original
+                                        classNames={{ container: 'relative' }} // necesario para overlay absoluto
+                                    />
+                                )}
+                                {(!mostrarCamara) && (hasCameraPermission) && (
+                                    <Button variant="solid" onClick={() => {setMostrarCamara(true)}}>Mostrar Escaner</Button>
+                                )}
+                                {!hasCameraPermission && (
+                                    <div>No hay permisos de camara</div>
+                                )}
+                                {escaneado && (
+                                    <Button variant="solid" onClick={() => {setEscaneado(false); formik.resetForm(); setPaused(false)}}>Volver a escanear</Button>
+                                )}
+                                {listaItemsEmpresaProveedor.length > 0 && (
+                                    <div>
+                                        <Badge>Item</Badge>
+                                        <SelectReact
+                                            name="seleccionItem"
+                                            options={listaItemsEmpresaProveedor.filter(item => !listaItemsCompra.some(it => it.item === item.id)).map(item => ({value: item.id.toString(), label: item.nombre}))}
+                                            value={{value: formik.values.item.toString(), label: listaItemsEmpresaProveedor.find(item => item.id.toString() === formik.values.item)?.nombre || ""}}
+                                            isClearable
+                                            noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                            onChange={(e) => {
+                                                if (e) {
+                                                    formik.setFieldValue("item", (e as TSelectOption).value)
+                                                } else {
+                                                    formik.setFieldValue("item", "")
+                                                }
+                                            }}
+                                            onBlur={formik.handleBlur}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        <div>
+                            <Badge>Cantidad</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.cantidad}
+                                invalidFeedback={formik.errors.cantidad}
+                            >
+                                <Input
+                                    name="cantidad"
+                                    type="number"
+                                    value={formik.values.cantidad}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Precio</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.precio}
+                                invalidFeedback={formik.errors.precio}
+                            >
+                                <Input
+                                    name="precio"
+                                    type="number"
+                                    value={formik.values.precio}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Agregar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearItemEnCompra

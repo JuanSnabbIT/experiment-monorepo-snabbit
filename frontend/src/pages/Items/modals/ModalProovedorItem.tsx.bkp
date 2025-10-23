@@ -1,0 +1,218 @@
+// import Checkbox from "@/components/form/Checkbox"
+// import Input from "@/components/form/Input"
+// import Icon from "@/components/icon/Icon"
+// import Badge from "@/components/ui/Badge"
+// import Button from "@/components/ui/Button"
+// import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+// import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+// import { IItem, IProveedor } from "@/interface/items.interface"
+// import ApiService from "@/services/ApiService"
+// import { useAppDispatch, useAppSelector } from "@/store"
+// import { listaItemsEmpresaThunk } from "@/store/slices/item/itemSlice"
+// import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+// import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+// import { de } from "date-fns/locale"
+// import { useEffect, useState } from "react"
+// import { useParams } from "react-router-dom"
+// import { toast } from "react-toastify"
+
+// const columnHelperItem = createColumnHelper<IProveedor>()
+
+// const ModalProovedorItem = () => {
+//     const [isOpen, setIsOpen] = useState<boolean>(false)
+//     const dispatch = useAppDispatch()
+//     const { listaProveedoresNoAsociadosItem } = useAppSelector((state) => state.item)
+//     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+//     const [sorting, setSorting] = useState<SortingState>([]);
+//     const [globalFilter, setGlobalFilter] = useState<string>('');
+//     const [checked, setChecked] = useState<string[]>([])
+//     const { id } = useParams()
+
+//     useEffect(() => {
+//         if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
+//             dispatch(listaProveedoresNoAsociadosItemThunk({ id_empresa: personalizacionUsuario.empresa, id_item_empresa: id }))
+//         }
+//     }, [isOpen, personalizacionUsuario])
+
+//     const columns = [
+//         columnHelperItem.accessor("nombre", {
+//             cell: (info) => info.getValue(),
+//             header: "Nombre"
+//         }),
+//         columnHelperItem.accessor("rut", {
+//             cell: (info) => info.getValue(),
+//             header: "Rut"
+//         }),
+//         columnHelperItem.accessor("direccion", {
+//             cell: (info) => info.getValue(),
+//             header: "Dirección"
+//         }),
+//         columnHelperItem.display({
+//             id: "acciones",
+//             cell: (info) => (
+//                 <div>
+//                     <Checkbox
+//                         id={info.row.original.id.toString()}
+//                         onChange={(e) => {
+//                             const value = info.row.original.id.toString();
+//                             if (e.target.checked) {
+//                                 // Añadir el elemento si no está ya presente
+//                                 if (!checked.includes(value)) {
+//                                     setChecked([...checked, value]);
+//                                 } else if (!checked) {
+//                                     setChecked([value]);
+//                                 }
+//                             } else {
+//                                 // Eliminar el elemento si ya está presente
+//                                 setChecked(checked.filter((item) => item !== value));
+//                             }
+//                         }}
+//                         checked={checked.includes(info.row.original.id.toString())}
+//                     />
+//                 </div>
+//             )
+//         })
+//     ]
+
+//     const table = useReactTable({
+//         data: listaProveedoresNoAsociadosItem,
+//         columns: columns,
+//         state: {
+//             sorting: sorting,
+//             globalFilter: globalFilter,
+//         },
+//         onSortingChange: setSorting,
+//         enableGlobalFilter: true,
+//         onGlobalFilterChange: setGlobalFilter,
+//         getCoreRowModel: getCoreRowModel(),
+//         getSortedRowModel: getSortedRowModel(),
+//         getFilteredRowModel: getFilteredRowModel(),
+//     })
+
+//     return (
+//         <>
+//             <Button variant="solid" onClick={() => { setIsOpen(true) }}>Añadir</Button>
+//             <Modal
+//                 isOpen={isOpen}
+//                 setIsOpen={setIsOpen}
+//                 size={"2xl"}
+//             >
+//                 <ModalHeader>
+//                     <Badge className="text-xl">Datos Proveedor</Badge>
+//                 </ModalHeader>
+//                 <ModalBody>
+//                     <div className="flex gap-4 justify-end mb-4">
+//                     <Button color="red" onClick={() => { setChecked([]) }}>Deseleccionar Todos</Button>
+//                     <Button variant="solid" onClick={() => {
+//                         setChecked(listaProveedoresNoAsociadosItem.map(item => item.id.toString()))
+//                     }}>Seleccionar Todos</Button>
+//                     <div>
+//                         <Input
+//                             name="globalFilter"
+//                             placeholder="Buscar..."
+//                             value={globalFilter}
+//                             onChange={(e) => { setGlobalFilter(e.target.value) }}
+//                         />
+//                     </div>
+//                 </div>
+//                 <div className="overflow-auto">
+//                     <Table className='table-fixed min-w-[700px]'>
+//                         <THead>
+//                             {table.getHeaderGroups().map((headerGroup) => (
+//                                 <Tr key={headerGroup.id}>
+//                                     {headerGroup.headers.map((header) => (
+//                                         <Th
+//                                             key={header.id}
+//                                             isColumnBorder={false}
+//                                             className='text-left'>
+//                                             {header.isPlaceholder ? null : (
+//                                                 <div
+//                                                     key={header.id}
+//                                                     aria-hidden='true'
+//                                                     {...{
+//                                                         className: header.column.getCanSort()
+//                                                             ? 'cursor-pointer select-none flex items-center'
+//                                                             : '',
+//                                                         onClick:
+//                                                             header.column.getToggleSortingHandler(),
+//                                                     }}>
+//                                                     {flexRender(
+//                                                         header.column.columnDef.header,
+//                                                         header.getContext(),
+//                                                     )}
+//                                                     {{
+//                                                         asc: (
+//                                                             <Icon
+//                                                                 icon='HeroChevronUp'
+//                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                             />
+//                                                         ),
+//                                                         desc: (
+//                                                             <Icon
+//                                                                 icon='HeroChevronDown'
+//                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                             />
+//                                                         ),
+//                                                     }[header.column.getIsSorted() as string] ?? null}
+//                                                 </div>
+//                                             )}
+//                                         </Th>
+//                                     ))}
+//                                 </Tr>
+//                             ))}
+//                         </THead>
+//                         <TBody>
+//                             {table.getRowModel().rows.map((row) => (
+//                                 <Tr key={row.id}>
+//                                     {row.getVisibleCells().map((cell) => (
+//                                         <Td key={cell.id}>
+//                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
+//                                         </Td>
+//                                     ))}
+//                                 </Tr>
+//                             ))}
+//                         </TBody>
+//                     </Table>
+//                     <div className="mt-2 min-w-[700px]">
+//                         <TableCardFooterTemplateV2 table={table} />
+//                     </div>
+//                 </div>
+//             </ModalBody>
+//             <ModalFooter>
+//                 <ModalFooterChild></ModalFooterChild>
+//                 <ModalFooterChild>
+//                     <Button color="red" onClick={() => { setIsOpen(false) }}>Cancelar</Button>
+//                     <Button variant="solid" onClick={async () => {
+//                         try {
+//                             if (checked.length > 0) {
+//                                 const data = {
+//                                     item_empresa_pk: id,
+//                                     proveedores_ids: checked
+//                                 }
+//                                 const response = await ApiService.fetchData({
+//                                     url: `/api/proveedores-empresa/asociar-proveedores-item/?item_empresa_pk=${personalizacionUsuario?.empresa}&proveedores_ids=${checked}`,
+//                                     method: 'post',
+//                                     headers: { 'Content-Type': 'application/json' },
+//                                     data: JSON.stringify(data)
+//                                 });
+//                                 if (response.data) {
+//                                     toast.success("Proveedore(s) Asociado", { autoClose: 1000 })
+//                                     dispatch(listaItemsEmpresaThunk({ id_empresa: personalizacionUsuario?.empresa }))
+//                                     setIsOpen(false)
+//                                     setChecked([])
+//                                 }
+//                             } else {
+//                                 toast.error("No hay ningun proveedor seleccionado")
+//                             }
+//                         } catch (error: any) {
+//                             toast.error(error.response.data)
+//                         }
+//                     }}>Añadir</Button>
+//                 </ModalFooterChild>
+//             </ModalFooter>
+//         </Modal >
+//         </>
+//     )
+// }
+
+// export default ModalProovedorItem

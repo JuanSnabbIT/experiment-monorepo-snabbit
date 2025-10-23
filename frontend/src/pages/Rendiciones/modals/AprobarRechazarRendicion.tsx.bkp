@@ -1,0 +1,52 @@
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import Tooltip from "@/components/ui/Tooltip"
+import ApiService from "@/services/ApiService"
+import { detalleRendicionThunk, useAppDispatch } from "@/store"
+import { useState } from "react"
+import { toast } from "react-toastify"
+
+
+function AprobarRechazarRendicion({id_rendicion} : {id_rendicion : string | number}) {
+    const dispatch = useAppDispatch()
+    const [isOpen, setIsopen] = useState<boolean>(false)
+
+    async function aprobarRechazar(id_rendicion : number | string, tipo: number) {
+        try {
+            const response = await ApiService.fetchData({url: `/api/rendiciones/${id_rendicion}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: tipo})})
+            if (response.data) {
+                dispatch(detalleRendicionThunk({id_rendicion}))
+                toast.success("Cambio realizado a la rendición", {autoClose: 1000})
+                setIsopen(false)
+            }
+        } catch (error: any) {
+            toast.error(error.response.data || "Error al cambiar estado rendicion", {toastId: "Error al cambiar estado rendicion"})
+        }
+    }
+
+    return (
+        <>
+            <Tooltip text="Aprobar o Rechazar la Rendición">
+                <Button variant="solid" icon="HeroArrowSmallRight" onClick={() => {setIsopen(true)}}></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsopen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Aprobar o Rechazar la Rendición</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="w-full">Seleccione una opción para cambiar el estado de la rendición</div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color="red" onClick={() => {aprobarRechazar(id_rendicion, 3)}}>Rechazar</Button>
+                        <Button variant="solid" onClick={async () => {aprobarRechazar(id_rendicion, 2)}}>Aprobar</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default AprobarRechazarRendicion

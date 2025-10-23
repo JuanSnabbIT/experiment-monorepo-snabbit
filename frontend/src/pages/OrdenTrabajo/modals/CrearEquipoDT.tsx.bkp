@@ -1,0 +1,385 @@
+import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Validation from "@/components/form/Validation"
+import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import { CONDICIONES_EQUIPO, GENERACION_PROCESADOR, MARCA_EQUIPO, MARCA_TARJETA_GRAFICA, SISTEMA_OPERATIVO, TAMANIO_RAM, TIPO_EQUIPO, TIPO_PROCESADOR, TIPO_TARJETA_GRAFICA } from "@/constants/recursos.constant"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch } from "@/store"
+import { useFormik } from "formik"
+import { Dispatch, SetStateAction } from "react"
+import { toast } from "react-toastify"
+import * as Yup from 'yup'
+
+
+function CrearEquipoDT({isOpenEquipo, setIsOpenEquipo} : {isOpenEquipo: boolean, setIsOpenEquipo: Dispatch<SetStateAction<boolean>>}) {
+    const dispatch = useAppDispatch()
+
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            condicion_equipo: "", //
+            contraseña_administrador: "", //
+            fecha_caducidad_garantia: "", //
+            fecha_compra: "", //
+            generacion_procesador: "", //
+            id_procesador: "", //
+            marca: "", //
+            marca_tarjeta_grafica: "", //
+            modelo: "", //
+            nombre_equipo: "", //
+            nombre_tarjeta_grafica: "", //
+            numero_serie: "", //
+            ram: "", //
+            // registrado_por: "",
+            sistema_operativo: "", //
+            tipo_equipo: "", //
+            tipo_procesador: "", //
+            tipo_tarjeta_grafica: "", //
+            almacenamientos: []
+        },
+        validationSchema: Yup.object().shape({
+            condicion_equipo: Yup.string().required("Requerido").nonNullable("Requerido"),
+            contraseña_administrador: Yup.string().notRequired().nullable().max(50, "Máximo 50 Caracteres"),
+            fecha_caducidad_garantia: Yup.string().notRequired().nullable(),
+            fecha_compra: Yup.string().notRequired().nullable(),
+            generacion_procesador: Yup.string().required("Requerido").nonNullable("Requerido"),
+            id_procesador: Yup.string().notRequired().nullable().max(50, "Máximo 50 Caracteres"),
+            marca: Yup.string().required("Requerido").nonNullable("Requerido"),
+            marca_tarjeta_grafica: Yup.string().required("Requerido").nonNullable("Requerido"),
+            modelo: Yup.string().notRequired().nonNullable("No puede ser nulo").max(100, "Máximo 100 Caracteres"),
+            nombre_equipo: Yup.string().notRequired().nullable().max(50, "Máximo 50 Caracteres"),
+            nombre_tarjeta_grafica: Yup.string().notRequired().nullable().max(50, "Máximo 50 Caracteres"),
+            numero_serie: Yup.string().required("Requerido").nonNullable("Requerido").max(100, "Máximo 100 Caracteres"),
+            ram: Yup.string().required("Requerido").nonNullable("Requerido"),
+            sistema_operativo: Yup.string().required("Requerido").nonNullable("Requerido"),
+            tipo_equipo: Yup.string().required("Requerido").nonNullable("Requerido"),
+            tipo_procesador: Yup.string().required("Requerido").nonNullable("Requerido"),
+            tipo_tarjeta_grafica: Yup.string().required("Requerido").nonNullable("Requerido"),
+        }),
+        onSubmit: async (values) => {
+            // try {
+            //     const response = await ApiService.fetchData({url: `/api/`})
+            // } catch (error: any) {
+            //     toast.error(error.response.data || "Error al crear el equipo", {toastId: "Error al crear el equipo"})
+            // }
+        }
+    })
+
+    return (
+        <Modal isOpen={isOpenEquipo} setIsOpen={setIsOpenEquipo}>
+            <ModalHeader>
+                <Badge className="text-xl">Crear Equipo</Badge>
+            </ModalHeader>
+            <ModalBody>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-full">
+                        <Badge className="text-xl">Datos del Equipo</Badge>
+                    </div>
+                    <div>
+                        <Badge>Numero de Serie</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.numero_serie}
+                            invalidFeedback={formik.errors.numero_serie}
+                        >
+                            <Input
+                                name="numero_serie"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.numero_serie}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Marca</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.marca}
+                            invalidFeedback={formik.errors.marca}
+                        >
+                            <SelectReact
+                                name="marca"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={MARCA_EQUIPO}
+                                onChange={(e) => {formik.setFieldValue("marca", (e as TSelectOption).value)}}
+                                value={{value: formik.values.marca, label: MARCA_EQUIPO.find(tg => tg.value === formik.values.marca)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Modelo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.modelo}
+                            invalidFeedback={formik.errors.modelo}
+                        >
+                            <Input
+                                name="modelo"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.modelo}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Tipo de Equipo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.tipo_equipo}
+                            invalidFeedback={formik.errors.tipo_equipo}
+                        >
+                            <SelectReact
+                                name="tipo_equipo"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={TIPO_EQUIPO}
+                                onChange={(e) => {formik.setFieldValue("tipo_equipo", (e as TSelectOption).value)}}
+                                value={{value: formik.values.tipo_equipo, label: TIPO_EQUIPO.find(tg => tg.value === formik.values.tipo_equipo)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Nombre del Equipo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.nombre_equipo}
+                            invalidFeedback={formik.errors.nombre_equipo}
+                        >
+                            <Input
+                                name="modelo"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.nombre_equipo}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Contraseña de Administrador</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.contraseña_administrador}
+                            invalidFeedback={formik.errors.contraseña_administrador}
+                        >
+                            <Input
+                                name="modelo"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.contraseña_administrador}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Condición del Equipo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.condicion_equipo}
+                            invalidFeedback={formik.errors.condicion_equipo}
+                        >
+                            <SelectReact
+                                name="condicion_equipo"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                options={CONDICIONES_EQUIPO}
+                                value={{value: formik.values.condicion_equipo, label: CONDICIONES_EQUIPO.find(ce => ce.value === formik.values.condicion_equipo)?.label || ""}}
+                                onChange={(e) => {formik.setFieldValue("condicion_equipo", (e as TSelectOption).value)}}
+                                onBlur={formik.handleBlur}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Ram</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.ram}
+                            invalidFeedback={formik.errors.ram}
+                        >
+                            <SelectReact
+                                name="ram"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={TAMANIO_RAM}
+                                onChange={(e) => {formik.setFieldValue("ram", (e as TSelectOption).value)}}
+                                value={{value: formik.values.ram, label: TAMANIO_RAM.find(gp => gp.value === formik.values.ram)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Sistema Operativo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.sistema_operativo}
+                            invalidFeedback={formik.errors.sistema_operativo}
+                        >
+                            <SelectReact
+                                name="sistema_operativo"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={SISTEMA_OPERATIVO}
+                                onChange={(e) => {formik.setFieldValue("sistema_operativo", (e as TSelectOption).value)}}
+                                value={{value: formik.values.sistema_operativo, label: SISTEMA_OPERATIVO.find(gp => gp.value === formik.values.sistema_operativo)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div className="col-span-full">
+                        <Badge className="text-xl">Datos Procesador</Badge>
+                    </div>
+                    <div>
+                        <Badge>Generación</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.generacion_procesador}
+                            invalidFeedback={formik.errors.generacion_procesador}
+                        >
+                            <SelectReact
+                                name="generacion_procesador"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={GENERACION_PROCESADOR}
+                                onChange={(e) => {formik.setFieldValue("generacion_procesador", (e as TSelectOption).value)}}
+                                value={{value: formik.values.generacion_procesador, label: GENERACION_PROCESADOR.find(gp => gp.value === formik.values.generacion_procesador)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Tipo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.tipo_procesador}
+                            invalidFeedback={formik.errors.tipo_procesador}
+                        >
+                            <SelectReact
+                                name="tipo_procesador"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={TIPO_PROCESADOR}
+                                onChange={(e) => {formik.setFieldValue("tipo_procesador", (e as TSelectOption).value)}}
+                                value={{value: formik.values.tipo_procesador, label: TIPO_PROCESADOR.find(gp => gp.value === formik.values.tipo_procesador)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Identificador</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.id_procesador}
+                            invalidFeedback={formik.errors.id_procesador}
+                        >
+                            <Input
+                                name="id_procesador"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.id_procesador}
+                            />
+                        </Validation>
+                    </div>
+                    <div className="col-span-full">
+                        <Badge className="text-xl">Datos Tarjeta Gráfica</Badge>
+                    </div>
+                    <div>
+                        <Badge>Marca</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.marca_tarjeta_grafica}
+                            invalidFeedback={formik.errors.marca_tarjeta_grafica}
+                        >
+                            <SelectReact
+                                name="marca_tarjeta_grafica"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={MARCA_TARJETA_GRAFICA}
+                                onChange={(e) => {formik.setFieldValue("marca_tarjeta_grafica", (e as TSelectOption).value)}}
+                                value={{value: formik.values.marca_tarjeta_grafica, label: MARCA_TARJETA_GRAFICA.find(mt => mt.value === formik.values.marca_tarjeta_grafica)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Tipo</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.tipo_tarjeta_grafica}
+                            invalidFeedback={formik.errors.tipo_tarjeta_grafica}
+                        >
+                            <SelectReact
+                                name="tipo_tarjeta_grafica"
+                                noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
+                                onBlur={formik.handleBlur}
+                                options={TIPO_TARJETA_GRAFICA}
+                                onChange={(e) => {formik.setFieldValue("tipo_tarjeta_grafica", (e as TSelectOption).value)}}
+                                value={{value: formik.values.tipo_tarjeta_grafica, label: TIPO_TARJETA_GRAFICA.find(tg => tg.value === formik.values.tipo_tarjeta_grafica)?.label || ""}}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Nombre</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.nombre_tarjeta_grafica}
+                            invalidFeedback={formik.values.nombre_tarjeta_grafica}
+                        >
+                            <Input
+                                name="nombre_tarjeta_grafica"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                value={formik.values.nombre_tarjeta_grafica}
+                            />
+                        </Validation>
+                    </div>
+                    <div className="col-span-full">
+                        <Badge className="text-xl">Datos Almacenamiento</Badge>
+                    </div>
+                    <div>
+                        <Badge>Tipo</Badge>
+
+                    </div>
+                    <div className="col-span-full">
+                        <Badge className="text-xl">Fechas Importantes</Badge>
+                    </div>
+                    <div>
+                        <Badge>Fecha de Compra</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.fecha_compra}
+                            invalidFeedback={formik.errors.fecha_compra}
+                        >
+                            <Input
+                                name="fecha_compra"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                type="date"
+                                value={formik.values.fecha_compra}
+                            />
+                        </Validation>
+                    </div>
+                    <div>
+                        <Badge>Fecha de Caducidad de Garantia</Badge>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.fecha_caducidad_garantia}
+                            invalidFeedback={formik.errors.fecha_caducidad_garantia}
+                        >
+                            <Input
+                                name="fecha_caducidad_garantia"
+                                onBlur={formik.handleBlur}
+                                onChange={formik.handleChange}
+                                type="date"
+                                value={formik.values.fecha_caducidad_garantia}
+                            />
+                        </Validation>
+                    </div>
+                </div>
+            </ModalBody>
+            <ModalFooter>
+                <ModalFooterChild></ModalFooterChild>
+                <ModalFooterChild>
+                    <Button color="red" onClick={() => {setIsOpenEquipo(false)}}>Cancelar</Button>
+                    <Button variant="solid" onClick={() => {}}>Guardar</Button>
+                </ModalFooterChild>
+            </ModalFooter>
+        </Modal>
+    )
+}
+
+export default CrearEquipoDT

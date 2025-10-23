@@ -1,0 +1,238 @@
+import { useEffect, useState, useMemo } from "react";
+import { 
+  createColumnHelper, 
+  getCoreRowModel, 
+  getSortedRowModel, 
+  useReactTable, 
+  SortingState,
+  getPaginationRowModel 
+} from "@tanstack/react-table";
+import Modal, { ModalBody, ModalFooter, ModalHeader } from "@/components/ui/Modal";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import ApiService from "@/services/ApiService";
+import { toast } from "react-toastify";
+import { IAsistenciaUsuario, IEntregaEquipo } from "@/interface/visitas.interface";
+import { useAppDispatch, useAppSelector, listaTodosAsistenciaUsuariosThunk, detalleConVisitaThunk } from "@/store";
+import Card, { CardBody } from "@/components/ui/Card";
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table";
+import { IDetalleOrdenDeTrabajoExtendido, IVisitaExtendida } from "@/interface/detalleconvisita.interface";
+
+interface ListaVisitasProps {
+  show: boolean;
+  handleClose: () => void;
+  detalleTrabajoId: number;
+  ordenId: number;
+}
+
+const columnHelper = createColumnHelper<IAsistenciaUsuario>();
+
+function ListaVisitas({ show, handleClose, detalleTrabajoId, ordenId }: ListaVisitasProps) {
+  const dispatch = useAppDispatch();
+  const { listaTodosAsistenciaUsuarios } = useAppSelector((state) => state.visita);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [visitas, setVisitas] = useState<IVisitaExtendida[]>([]);
+  const [asistencias, setAsistencias] = useState<IAsistenciaUsuario[]>([]);
+  const [entregas, setEntregas] = useState<IEntregaEquipo[]>([]);
+  const [selectedItem, setSelectedItem] = useState<{ tipo: "asistencia" | "entrega"; item: IAsistenciaUsuario | IEntregaEquipo } | null>(null);
+
+  useEffect(() => {
+	if (show) {
+		const fetchData = async () => {
+			try {
+				const response = await ApiService.fetchData<IDetalleOrdenDeTrabajoExtendido>({
+					url: `/api/ordenes-trabajo/${ordenId}/detalles-trabajo/${detalleTrabajoId}/detalles-con-visitas/`,
+					method: "GET",
+				});
+		
+				const detalles = response.data.visitas;
+				
+				let allVisitas: IVisitaExtendida[] = [];
+				let allAsistencias: IAsistenciaUsuario[] = [];
+				let allEntregas: IEntregaEquipo[] = [];
+		
+				detalles.forEach((visita: IVisitaExtendida) => {
+					allVisitas.push(visita);
+					allAsistencias.push(...visita.asistencias);
+					allEntregas.push(...visita.entregas);
+				});
+				setVisitas(allVisitas);
+				setAsistencias(allAsistencias);
+				setEntregas(allEntregas);
+			} catch (error) {
+				console.error("Error obteniendo detalles con visitas:", error);
+				toast.error("Error obteniendo los datos de visitas.");
+			}
+		};
+		
+		fetchData();
+	}
+}, [show]);
+
+
+  const handleConfirm = async () => {
+    if (!selectedItem) return;
+
+    try {
+      await ApiService.fetchData({
+        url: `/api/ordenes-trabajo/${ordenId}/detalles-trabajo/${detalleTrabajoId}/actualizar-estado/`,
+        method: "PATCH",
+        data: {
+          tipo: selectedItem.tipo,
+          id: selectedItem.item.id,
+          estado: selectedItem.tipo === "asistencia" ? "revisado" : "entregado",
+        },
+		
+      });
+	  dispatch(detalleConVisitaThunk({ordenId:ordenId, detalleTrabajoId:detalleTrabajoId}))
+      toast.success(`${selectedItem.tipo === "asistencia" ? "Asistencia" : "Entrega"} completada`);
+      setSelectedItem(null);
+    } catch (error) {
+      toast.error("Error al actualizar el estado");
+    }
+  };
+
+  const asistenciasPendientes = useMemo(() => 
+    asistencias.filter(a => a.estado_revision === "por_revisar"),
+    [asistencias]
+  );
+
+  const entregasPendientes = useMemo(() => 
+    entregas.filter(e => e.estado_entrega === "por_entregar"),
+    [entregas]
+  );
+
+  return (
+    <Modal isOpen={show} setIsOpen={handleClose} isStaticBackdrop isStaticBackdropAnimation>
+      <ModalHeader>
+        <Badge className="text-xl">Completar Asistencias y Entregas</Badge>
+      </ModalHeader>
+
+      <ModalBody>
+        {/* Tabla de asistencias */}
+        <Card>
+          <CardBody className="z-0">
+            <h3 className="text-lg font-semibold mb-4">Asistencias Pendientes</h3>
+            <Table>
+              <THead>
+                <Tr>
+                  <Th>N°</Th>
+                  <Th>Usuario</Th>
+                  <Th>Observaciones</Th>
+                  <Th>Acciones</Th>
+                </Tr>
+              </THead>
+			  <TBody>
+				{asistenciasPendientes.length > 0 ? (
+					asistenciasPendientes.map((asistencia, index) => (
+					<Tr key={asistencia.id}>
+						<Td>{index + 1}</Td>
+						<Td>{asistencia.usuario_equipo_nombre}</Td>
+						<Td>{asistencia.observaciones || "-"}</Td>
+						<Td>
+						<Tooltip text="Completar asistencia">
+							<Button 
+							color="emerald" 
+							variant="solid"
+							icon="HeroCheckCircle"
+							onClick={() => setSelectedItem({ tipo: "asistencia", item: asistencia })}
+							/>
+						</Tooltip>
+						</Td>
+					</Tr>
+					))
+				) : (
+					<Tr>
+					<Td colSpan={4} className="text-center py-4">
+						<p>No hay asistencias pendientes 🎉</p>
+					</Td>
+					</Tr>
+				)}
+				</TBody>
+            </Table>
+          </CardBody>
+        </Card>
+
+        {/* Tabla de entregas */}
+        <Card className="mt-6">
+          <CardBody className="z-0">
+            <h3 className="text-lg font-semibold mb-4">Entregas Pendientes</h3>
+            <Table>
+              <THead>
+                <Tr>
+                  <Th>N°</Th>
+                  <Th>Equipo</Th>
+                  <Th>Observaciones</Th>
+                  <Th>Acciones</Th>
+                </Tr>
+              </THead>
+			  <TBody>
+				{entregasPendientes.length > 0 ? (
+					entregasPendientes.map((entrega, index) => (
+					<Tr key={entrega.id}>
+						<Td>{index + 1}</Td>
+						<Td>{entrega.equipo}</Td>
+						<Td>{entrega.observaciones || "-"}</Td>
+						<Td>
+						<Tooltip text="Completar entrega">
+							<Button 
+							color="sky" 
+							variant="solid"
+							icon="HeroCheckCircle"
+							onClick={() => setSelectedItem({ tipo: "entrega", item: entrega })}
+							/>
+						</Tooltip>
+						</Td>
+					</Tr>
+					))
+				) : (
+					<Tr>
+					<Td colSpan={4} className="text-center py-4">
+						<p>No hay entregas pendientes 🎉</p>
+					</Td>
+					</Tr>
+				)}
+				</TBody>
+
+            </Table>
+          </CardBody>
+        </Card>
+      </ModalBody>
+
+      <ModalFooter>
+        <Button variant="solid" onClick={handleClose}>
+          Cerrar
+        </Button>
+      </ModalFooter>
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <Modal
+        isOpen={!!selectedItem}
+        setIsOpen={() => setSelectedItem(null)}
+      >
+        <ModalHeader>
+          <Badge className="text-xl">Confirmar Acción</Badge>
+        </ModalHeader>
+        <ModalBody>
+          <p>
+            ¿Está seguro de completar la {selectedItem?.tipo === "asistencia" ? "asistencia " : "entrega "} 
+            para <strong>{selectedItem?.item.observaciones || selectedItem?.item.observaciones}</strong>?<br />
+			<strong > Esta accion no se podra cambiar mas adelante</strong>
+		  </p>
+		  
+        </ModalBody>
+        <ModalFooter>
+          <Button color="red" onClick={() => setSelectedItem(null)}>
+            Cancelar
+          </Button>
+          <Button variant="solid" onClick={handleConfirm}>
+            Confirmar
+          </Button>
+        </ModalFooter>
+      </Modal>
+    </Modal>
+  );
+}
+
+export default ListaVisitas;

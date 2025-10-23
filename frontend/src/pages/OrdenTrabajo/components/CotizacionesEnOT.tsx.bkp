@@ -1,0 +1,214 @@
+// import Icon from "@/components/icon/Icon"
+// import Badge from "@/components/ui/Badge"
+// import Button from "@/components/ui/Button"
+// import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+// import Card, { CardBody, CardHeader } from "@/components/ui/Card"
+// import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+// import { IDetalleOrdenDeTrabajo } from "@/interface/ordenTrabajo.interface"
+// import { detalleCotizacionThunk, listaDetalleTrabajoOTThunk, useAppDispatch, useAppSelector } from "@/store"
+// import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, SortingState, createColumnHelper, flexRender } from "@tanstack/react-table"
+// import { useEffect, useState } from "react";
+// import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
+// import { useNavigate } from "react-router-dom";
+// import Tooltip from "@/components/ui/Tooltip";
+
+// const columnHelper = createColumnHelper<IDetalleOrdenDeTrabajo>()
+
+// function CotizacionesEnOT() {
+//     const dispatch = useAppDispatch()
+//     const { detalleOrdenTrabajo, listaDetalleTrabajoOT } = useAppSelector((state) => state.ordenTrabajo);
+//     const { detalleCotizacion } = useAppSelector((state) => state.cotizacion);
+//     const [listaFiltrada, setListaFiltrada] = useState<IDetalleOrdenDeTrabajo[]>([])
+//     const [sorting, setSorting] = useState<SortingState>([])
+//     const [globalFilter, setGlobalFilter] = useState<string>('')
+//     const [detalleCOTmodal, setDetalleCOTmodal] = useState<number | null>(null);
+//     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+//     useEffect(() => {
+//         if (detalleOrdenTrabajo) {
+//             dispatch(listaDetalleTrabajoOTThunk({id_orden: detalleOrdenTrabajo.id}))
+//             if (detalleOrdenTrabajo.trabajos && detalleOrdenTrabajo.trabajos.length > 0) {
+//                 dispatch(detalleCotizacionThunk({ id_cotizacion: detalleOrdenTrabajo.trabajos[0] }));
+//             }
+//         }
+//     }, [detalleOrdenTrabajo])
+
+//     useEffect(() => {
+//         if (listaDetalleTrabajoOT) {
+//             setListaFiltrada(listaDetalleTrabajoOT.filter(det => typeof(det.cotizacion) === "number"))
+//         }
+//     }, [listaDetalleTrabajoOT])
+
+//     const columns = [
+//         columnHelper.accessor("numero_cotizacion", {
+//             cell: (info) => info.getValue(),
+//             header: "N°"
+//         }),
+//         columnHelper.accessor("nombre_cotizacion", {
+//             cell: (info) => info.getValue(),
+//             header: "Nombre"
+//         }),
+//         columnHelper.display({
+//             id: "acciones",
+//             cell: (info) => (
+//                 <div>
+//                     <Tooltip text="Detalle Cotización">
+//                         <Button variant="solid" color="violet" icon="HeroEye" onClick={() => { setDetalleCOTmodal(info.row.original.id); setIsModalOpen(true); }}></Button>
+//                     </Tooltip>
+//                 </div>
+//             ),
+//             header: "Acciones"
+//         })
+//     ]
+
+//     const table = useReactTable({
+//         data: listaFiltrada,
+//         columns: columns,
+//         state: {
+//             sorting: sorting,
+//             globalFilter: globalFilter,
+//         },
+//         onSortingChange: setSorting,
+//         enableGlobalFilter: true,
+//         onGlobalFilterChange: setGlobalFilter,
+//         getCoreRowModel: getCoreRowModel(),
+//         getSortedRowModel: getSortedRowModel(),
+//         getFilteredRowModel: getFilteredRowModel(),
+//         getPaginationRowModel: getPaginationRowModel()
+//     })
+
+//     const navigate = useNavigate();
+
+//     return (
+//         <>
+//         <Card>
+//             <CardHeader>
+//                 <Badge className="text-xl">Cotizaciones en OT</Badge>
+//             </CardHeader>
+//             <CardBody>
+//                 <div className="overflow-auto">
+//                     {listaFiltrada.length > 0 ? (
+//                         <>
+//                             <Table className='table-fixed min-w-[500px]'>
+//                                 <THead>
+//                                     {table.getHeaderGroups().map((headerGroup) => (
+//                                         <Tr key={headerGroup.id}>
+//                                             {headerGroup.headers.map((header) => (
+//                                                 <Th
+//                                                     key={header.id}
+//                                                     isColumnBorder={false}
+//                                                     className='text-left'>
+//                                                     {header.isPlaceholder ? null : (
+//                                                         <div
+//                                                             key={header.id}
+//                                                             aria-hidden='true'
+//                                                             {...{
+//                                                                 className: header.column.getCanSort()
+//                                                                     ? 'cursor-pointer select-none flex items-center'
+//                                                                     : '',
+//                                                                 onClick:
+//                                                                     header.column.getToggleSortingHandler(),
+//                                                             }}>
+//                                                             {flexRender(
+//                                                                 header.column.columnDef.header,
+//                                                                 header.getContext(),
+//                                                             )}
+//                                                             {{
+//                                                                 asc: (
+//                                                                     <Icon
+//                                                                         icon='HeroChevronUp'
+//                                                                         className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                                     />
+//                                                                 ),
+//                                                                 desc: (
+//                                                                     <Icon
+//                                                                         icon='HeroChevronDown'
+//                                                                         className='ltr:ml-1.5 rtl:mr-1.5'
+//                                                                     />
+//                                                                 ),
+//                                                             }[header.column.getIsSorted() as string] ?? null}
+//                                                         </div>
+//                                                     )}
+//                                                 </Th>
+//                                             ))}
+//                                         </Tr>
+//                                     ))}
+//                                 </THead>
+//                                 <TBody>
+//                                     {table.getRowModel().rows.map((row) => (
+//                                         <Tr key={row.id}>
+//                                             {row.getVisibleCells().map((cell) => (
+//                                                 <Td key={cell.id}>
+//                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
+//                                                 </Td>
+//                                             ))}
+//                                         </Tr>
+//                                     ))}
+//                                 </TBody>
+//                             </Table>
+//                             <div className="mt-2 min-w-[500px]">
+//                                 <TableCardFooterTemplateV2 table={table} />
+//                             </div>
+//                         </>
+//                     ) : (
+//                         <div className="text-center text-gray-500">No se encontraron cotizaciones.</div>
+//                     )}
+//                 </div>
+//             </CardBody>
+//             {/* {detalleCOTmodal !== null && (
+//                 <DetalleCotizacionOT id_detalle={detalleCOTmodal} setDetalleTrabajo={} />
+//             )} */}
+//         </Card>
+//         <Modal isOpen={isModalOpen} setIsOpen={setIsModalOpen} isStaticBackdrop>
+//             <ModalHeader>
+//                 <Badge className="text-xl">Detalle del Cotizacion</Badge>
+//             </ModalHeader>
+//             <ModalBody>
+//                 <div className="flex flex-col gap-4">
+//                     <div className="w-full">
+//                         <Badge>Descripción</Badge>
+//                         <div className="ml-4">{detalleCotizacion?.descripcion}</div>
+//                     </div>
+//                     <div className="w-full">
+//                         <Badge>Número de Cotización</Badge>
+//                         <div className="ml-4">{detalleCotizacion?.numero_cotizacion}</div>
+//                     </div>
+//                     <div className="w-full">
+//                         <Badge>Nombre de Cotización</Badge>
+//                         <div className="ml-4">{detalleCotizacion?.nombre}</div>
+//                     </div>
+//                     <div className="w-full">
+//                         <Badge>Estado de la cotizacion</Badge>
+//                         <div className="ml-4">{detalleCotizacion?.estado_label}</div>
+//                     </div>
+//                     <div className="w-full">
+//                         <Badge>Fecha de Creación</Badge>
+//                         <div className="ml-4">
+//                             {detalleCotizacion?.fecha_creacion ? new Date(detalleCotizacion?.fecha_creacion).toLocaleDateString() : "Sin fecha"}
+//                         </div>
+//                     </div>
+//                     <div className="w-full">
+//                         <Badge>Fecha de Modificación</Badge>
+//                         <div className="ml-4">
+//                             {detalleCotizacion?.fecha_modificacion ? new Date(detalleCotizacion?.fecha_modificacion).toLocaleDateString() : "Sin fecha"}
+//                         </div>
+//                     </div>
+//                 </div>
+//             </ModalBody>
+//             <ModalFooter>
+//                 <ModalFooterChild />
+//                 <ModalFooterChild>
+//                     <Tooltip text="Navegar a la cotización">
+//                         <Button variant="solid" color="violet" onClick={() => { navigate(`/cotizacion/detalle-cotizacion/${detalleCotizacion?.id}`) }}>Detalle</Button>
+//                     </Tooltip>
+//                     <Button color="red" onClick={() => setIsModalOpen(false)}>
+//                         Cerrar
+//                     </Button>
+//                 </ModalFooterChild>
+//             </ModalFooter>
+//         </Modal>
+//         </>
+//     )
+// }
+
+// export default CotizacionesEnOT

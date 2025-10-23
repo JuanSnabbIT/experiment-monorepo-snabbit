@@ -1,0 +1,130 @@
+import Input from "@/components/form/Input"
+import Validation from "@/components/form/Validation"
+import Button from "@/components/ui/Button"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
+import { listaMisRendicionesThunk, listaRendicionesSucursalesThunk, listaRendicionesThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useFormik } from "formik"
+import { toast } from "react-toastify"
+import { useEffect, useState } from "react"
+import * as Yup from 'yup'
+import ApiService from "@/services/ApiService"
+import Badge from "@/components/ui/Badge"
+import Tooltip from "@/components/ui/Tooltip"
+
+
+function CrearRendicion({tipo} : { tipo: string }) {
+    const dispatch = useAppDispatch()
+    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [detalles, setDetalles] = useState<any[]>([])
+    const {personalizacionUsuario} = useAppSelector((state) => state.auth)
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            usuario: personalizacionUsuario?.usuario || "",
+            fecha_rendicion: "",
+            observaciones: "",
+            detalles: []
+        },
+        validationSchema: Yup.object().shape({
+            usuario: Yup.string().required("Requerido"),
+            fecha_rendicion: Yup.date().required("Requerido"),
+        }),
+        onSubmit: async (values) => {
+            try {
+                const response = await ApiService.fetchData({
+                    url: '/api/rendiciones/',
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    data: JSON.stringify({
+                        usuario: values.usuario,
+                        fecha_rendicion: values.fecha_rendicion,
+                        observaciones: values.observaciones,
+                        estado: 0,
+                        detalles: detalles
+                    })
+                });
+                if (response.data) {
+                    toast.success("Rendición Creada", { autoClose: 1000 });
+                    if (tipo === "0") {
+                        dispatch(listaMisRendicionesThunk())
+                    } else if (tipo === "1") {
+                        dispatch(listaRendicionesThunk())
+                    } else {
+                        dispatch(listaRendicionesSucursalesThunk());
+                    }
+                    setIsOpen(false);
+                }
+            } catch (error: any) {
+                const mensajesError = Object.values(error.response.data).flat().join(" ");
+                toast.error(mensajesError || "Error al crear la rendicion", {toastId: "Error al crear la rendicion"})
+            }
+        }
+    })
+
+    useEffect(() => {
+        if (!isOpen) {
+            formik.resetForm()
+        }
+    }, [isOpen])
+
+    return (
+        <>
+            <Tooltip text="Crear Rendición">
+                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="HeroPlus"></Button>
+            </Tooltip>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+                <ModalHeader>
+                    <Badge className="text-xl">Crear Rendición</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <Badge>Fecha de Rendición</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.fecha_rendicion}
+                                invalidFeedback={formik.errors.fecha_rendicion}
+                            >
+                                <Input
+                                    name="fecha_rendicion"
+                                    id="fecha_rendicion"
+                                    type="date"
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                    value={formik.values.fecha_rendicion}
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Badge>Observaciones</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.observaciones}
+                                invalidFeedback={formik.errors.observaciones}
+                            >
+                                <Input
+                                    name="observaciones"
+                                    id="observaciones"
+                                    type="text"
+                                    onBlur={formik.handleBlur}
+                                    onChange={formik.handleChange}
+                                    value={formik.values.observaciones}
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button color='red' onClick={() => {setIsOpen(false); formik.resetForm(); setDetalles([])}}>Cancelar</Button>
+                        <Button variant='solid' onClick={() => {formik.handleSubmit()}}>Crear</Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
+        </>
+    )
+}
+
+export default CrearRendicion

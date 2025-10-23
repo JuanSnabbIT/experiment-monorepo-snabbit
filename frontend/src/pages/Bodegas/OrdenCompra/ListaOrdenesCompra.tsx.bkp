@@ -1,0 +1,187 @@
+import Input from "@/components/form/Input"
+import Icon from "@/components/icon/Icon"
+import Container from "@/components/layouts/Container/Container"
+import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
+import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import Badge from "@/components/ui/Badge"
+import Card, { CardBody } from "@/components/ui/Card"
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import { IOrdenCompra } from "@/interface/bodega.interface"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { useState, useEffect } from "react"
+import CrearOrdenCompra from "./modals/CrearOrdenCompra"
+import Button from "@/components/ui/Button"
+import { useNavigate } from "react-router-dom"
+import Tooltip from "@/components/ui/Tooltip"
+import SubirCotizacion from "./modals/SubirCotizacion"
+import { toast } from "react-toastify"
+import ApiService from "@/services/ApiService"
+
+
+const columnHelper = createColumnHelper<IOrdenCompra>()
+
+function ListaOrdenesCompra() {
+    const dispatch = useAppDispatch()
+    const navigate = useNavigate()
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const { listaOrdenesCompra } = useAppSelector((state) => state.bodega)
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    useEffect(() => {
+        dispatch(listaOrdenesCompraThunk())
+    }, [personalizacionUsuario])
+
+    const columns = [
+        columnHelper.accessor("codigo", {
+            cell: (info) => info.getValue(),
+            header: "Codigo"
+        }),
+        columnHelper.accessor("estado_label", {
+            cell: (info) => info.getValue(),
+            header: "Estado"
+        }),
+        columnHelper.display({
+            id: "acciones",
+            cell: (info) => (
+                <div className="flex gap-2">
+                    <Button variant="solid" icon="HeroEye" color="violet" onClick={() => {navigate(`/detalle-orden-compra/${info.row.original.id}`)}}></Button>
+                    {(info.row.original.estado === "0" || info.row.original.estado === "1" || info.row.original.estado === "2" || info.row.original.estado === "3") && (
+                        <>
+                            <SubirCotizacion cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
+                            <Tooltip text="Volver a estado borrador">
+                                <Button variant="solid" icon="HeroArrowUturnLeft" color="zinc" onClick={async () => {
+                                    try {
+                                        const response = await ApiService.fetchData({url: `/api/ordenes-compra/${info.row.original.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "-"})})
+                                        if (response.data) {
+                                            toast.success('Orden de vuelta en estado "Borrador"', {autoClose: 1000})
+                                            dispatch(listaOrdenesCompraThunk())
+                                        }
+                                    } catch (error: any) {
+                                        toast.error(error.response.data)
+                                    }
+                                }}></Button>
+                            </Tooltip>
+                        </>
+                    )}
+                    {info.row.original.estado === "3" && (
+                        <>
+                            <Tooltip text="Completar Orden de Compra">
+                                <Button variant="solid" icon="DuoBox2" color="sky" onClick={() => {navigate(`/completar-orden-compra/${info.row.original.id}`)}}></Button>
+                            </Tooltip>
+                        </>
+                    )}
+                </div>
+            )
+        })
+    ]
+
+    const table = useReactTable({
+        data: listaOrdenesCompra,
+        columns: columns,
+        state: {
+            sorting: sorting,
+            globalFilter: globalFilter,
+        },
+        onSortingChange: setSorting,
+        enableGlobalFilter: true,
+        onGlobalFilterChange: setGlobalFilter,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    });
+
+    return (
+        <PageWrapper isProtectedRoute={true} name="Lista Ordenes de Compra" title="Lista Ordenes de Compra">
+            <Subheader>
+                <SubheaderLeft>
+                    <Badge className="text-xl">Ordenes de Compra</Badge>
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <div className="flex gap-4">
+                        <div>
+                            <Input
+                                name="globalFilter"
+                                placeholder="Buscar..."
+                                value={globalFilter}
+                                onChange={(e) => { setGlobalFilter(e.target.value) }}
+                            />
+                        </div>
+                        <CrearOrdenCompra />
+                    </div>
+                </SubheaderRight>
+            </Subheader>
+            <Container className="w-full h-full">
+                <Card>
+                    <CardBody className="overflow-auto">
+                        <Table className='table-fixed min-w-[600px]'>
+                            <THead>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th
+                                                key={header.id}
+                                                isColumnBorder={false}
+                                                className='text-left'>
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        key={header.id}
+                                                        aria-hidden='true'
+                                                        {...{
+                                                            className: header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                : '',
+                                                            onClick:
+                                                                header.column.getToggleSortingHandler(),
+                                                        }}>
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext(),
+                                                        )}
+                                                        {{
+                                                            asc: (
+                                                                <Icon
+                                                                    icon='HeroChevronUp'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                            desc: (
+                                                                <Icon
+                                                                    icon='HeroChevronDown'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                        }[header.column.getIsSorted() as string] ?? null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </THead>
+                            <TBody>
+                                {table.getRowModel().rows.map((row) => (
+                                    <Tr key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <Td key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </Td>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </TBody>
+                        </Table>
+                        <div className="mt-2 min-w-[600px]">
+                            <TableCardFooterTemplateV2 table={table} />
+                        </div>
+                    </CardBody>
+                </Card>
+            </Container>
+        </PageWrapper>
+    )
+}
+
+export default ListaOrdenesCompra

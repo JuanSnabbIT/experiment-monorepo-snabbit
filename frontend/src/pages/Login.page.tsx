@@ -1,0 +1,142 @@
+import { useState } from 'react';
+import { useFormik } from 'formik';
+import classNames from 'classnames';
+import { Link, useNavigate } from 'react-router-dom';
+import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
+import Button from '../components/ui/Button';
+import Input from '../components/form/Input';
+import LogoTemplate from '../templates/layouts/Logo/Logo.template';
+import FieldWrap from '../components/form/FieldWrap';
+import Icon from '../components/icon/Icon';
+import Validation from '../components/form/Validation';
+import { LOGIN, obtenerGruposThunk, useAppDispatch, userMeThunk } from '@/store';
+import { useKeyPressEvent } from 'react-use';
+import * as Yup from 'yup';
+import { toast } from 'react-toastify';
+import ApiService from '@/services/ApiService';
+
+
+interface LoginResponse {
+    access: string
+    refresh: string
+}
+
+const LoginPage = () => {
+	const dispatch = useAppDispatch();
+	const navigate = useNavigate();
+	const [passwordShowStatus, setPasswordShowStatus] = useState<boolean>(false);
+	useKeyPressEvent('Enter', () => {formik.handleSubmit()});
+
+	const formik = useFormik({
+		initialValues: {
+			email: '',
+			password: '',
+		},
+		validationSchema: Yup.object({
+			email: Yup.string()
+				.email('El correo electrónico no es válido')
+				.required('El correo electrónico es obligatorio'),
+			password: Yup.string()
+				.min(8, 'La contraseña debe tener al menos 8 caracteres')
+				.required('La contraseña es obligatoria'),
+		}),
+		onSubmit: async (values) => {
+			try {
+				const response = await ApiService.fetchData<LoginResponse, string>({url: '/auth/jwt/create/', method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({...values}), isLoginRequest: true})
+				if (response.status === 200) {
+					dispatch(userMeThunk({access: response.data.access}))
+            		dispatch(obtenerGruposThunk({access: response.data.access}))
+					dispatch(LOGIN({access: response.data.access, refresh: response.data.refresh}))
+					navigate('/')
+				}
+			} catch (error: any) {
+				toast.error(error.response.data.detail || "No se pudo iniciar sesión", {toastId: error.response.data.detail})
+			}
+		},
+	});
+
+	return (
+		<PageWrapper isProtectedRoute={false} className='bg-white dark:bg-inherit' name='Iniciar Sesión' title='Iniciar Sesión'>
+			<div className='container mx-auto flex h-full items-center justify-center p-8'>
+				<div className='flex max-w-xl flex-col gap-8'>
+					<div>
+						<LogoTemplate className='h-12' />
+					</div>
+					<div>
+						<span className='text-4xl font-semibold'>¡Bienvenido a Gestion Snabbit!</span>
+						<ul className="list-disc list-inside text-gray-600 dark:text-gray-300 mb-6 text-left">
+                            <li>Ingresa tu usuario y contraseña para acceder a la plataforma.</li>
+                            <li>Si aún no tienes una cuenta o no has creado tu contraseña, revisa la invitación que te enviamos.</li>
+                        </ul>
+						<p>¡Disfruta de todas las herramientas que hemos preparado para ti!</p>
+					</div>
+					<div className='flex flex-col gap-4'>
+						<div className={classNames({'mb-2': !formik.isValid})}>
+							<Validation
+								isValid={formik.isValid}
+								isTouched={formik.touched.email}
+								invalidFeedback={formik.errors.email}>
+								<FieldWrap
+									firstSuffix={<Icon icon='HeroEnvelope' className='mx-2' />}>
+									<Input
+										dimension='lg'
+										id='email'
+										name='email'
+										placeholder='Correo Electronico'
+										value={formik.values.email}
+										onChange={formik.handleChange}
+										onBlur={formik.handleBlur}
+									/>
+								</FieldWrap>
+							</Validation>
+						</div>
+						<div className={classNames({'mb-2': !formik.isValid})}>
+							<Validation
+								isValid={formik.isValid}
+								isTouched={formik.touched.password}
+								invalidFeedback={formik.errors.password}>
+								<FieldWrap
+									firstSuffix={<Icon icon='HeroKey' className='mx-2' />}
+									lastSuffix={
+										<Icon
+											className='mx-2 cursor-pointer'
+											icon={passwordShowStatus ? 'HeroEyeSlash' : 'HeroEye'}
+											onClick={() => {setPasswordShowStatus(!passwordShowStatus)}}
+										/>
+									}>
+									<Input
+										dimension='lg'
+										type={passwordShowStatus ? 'text' : 'password'}
+										autoComplete='current-password'
+										id='password'
+										name='password'
+										placeholder='Contraseña'
+										value={formik.values.password}
+										onChange={formik.handleChange}
+										onBlur={formik.handleBlur}
+									/>
+								</FieldWrap>
+							</Validation>
+						</div>
+						<div>
+							<Button
+								size='lg'
+								variant='solid'
+								className='w-full font-semibold'
+								onClick={() => formik.handleSubmit()}>
+								Iniciar
+							</Button>
+						</div>
+					</div>
+					<div>
+						<span className='flex gap-2 text-sm'>
+							<Link to='/recuperar-contraseña' className='hover:text-inherit'>Olvidaste tu contraseña</Link>
+						</span>
+					</div>
+				</div>
+			</div>
+		</PageWrapper>
+	);
+};
+
+export default LoginPage;
