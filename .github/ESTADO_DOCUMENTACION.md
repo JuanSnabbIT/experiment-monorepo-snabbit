@@ -126,9 +126,61 @@ Este documento registra el progreso de la documentación exhaustiva del monorepo
 
 ---
 
-## 📝 Documentación Pendiente
+## 📝 Documentación Nueva (Post-GitHub Push)
 
-### 6. SCRIPTS_UTILIDADES.md (800+ líneas) ✅
+### 6. MODELO_NEGOCIO.md ✅
+**Ubicación**: `.github/MODELO_NEGOCIO.md`
+
+**Contenido**:
+- Propósito general del ERP (empresa de servicios técnicos)
+- Conceptos fundamentales (Item, ItemBodega, Equipo)
+- Flujos de negocio end-to-end:
+  * Flujo 1: Atención de servicio técnico completo (8 pasos)
+  * Flujo 2: Adquisición de inventario (5 pasos)
+- Separación Item vs ItemBodega vs Equipo (diagrama + ejemplos)
+- XOR constraint en ItemOT explicado con casos de uso
+- Estados de OT: control de workflow y calidad (7 estados documentados)
+- Casos de uso avanzados (multi-OT, rendiciones, retroalimentación)
+- 7 preguntas frecuentes respondidas
+- Próximos pasos sugeridos (4 opciones)
+
+**Estado**: **COMPLETADO** ✅ (3,000+ líneas)
+
+---
+
+### 7. EXPLORACION_ORDENTRABAJO.md ✅
+**Ubicación**: `.github/EXPLORACION_ORDENTRABAJO.md`
+
+**Contenido**:
+- 10 fases de exploración cronológica documentadas:
+  * Fase 1: Creación de OT base
+  * Fase 2: Exploración de 10 tabs en detalle
+  * Fase 3: Crear Trabajo y asignar técnico
+  * Fase 4: Blocker #1 - "Entrega de Equipos" vacío (resuelto)
+  * Fase 5: Blocker #2 - "Asistencia de Usuarios" vacío (pendiente)
+  * Fase 6: Blocker #3 - "Agregar Insumo" requiere GuiaSalida (resuelto)
+  * Fase 7: Path 1 - Crear items no serializados (ENTRADA_DIRECTA)
+  * Fase 8: Path 2 - Crear items serializados via OrdenCompra
+  * Fase 9: Completar GuiaSalida y agregar insumo a OT (resuelto)
+  * Fase 10: Asignar equipo a OT (Entrega de Equipos)
+- 6 patrones arquitectónicos descubiertos:
+  * GenericFK pattern (RecursoOT)
+  * XOR constraint pattern (ItemOT)
+  * Auto-creation pattern (Equipo via signal)
+  * State transition gates (GuiaSalida estado)
+  * ONE-TIME constraint (MovimientoBodega)
+- Comparación Path 1 vs Path 2 (tabla detallada)
+- Máquina de estados OT (7 estados + triggers + permisos)
+- Métricas de exploración (60% features, 29% estados)
+- 8 lecciones aprendidas
+- 4 categorías de próximos pasos
+- 7 preguntas respondidas por agente
+
+**Estado**: **COMPLETADO** ✅ (4,000+ líneas)
+
+---
+
+### 8. SCRIPTS_UTILIDADES.md (800+ líneas) ✅
 **Ubicación**: `.github/SCRIPTS_UTILIDADES.md`
 
 **Contenido**:
@@ -147,7 +199,11 @@ Este documento registra el progreso de la documentación exhaustiva del monorepo
 
 ---
 
-### 7. Reorganización de Instrucciones Existentes
+## 📝 Documentación Pendiente
+
+---
+
+### 9. Reorganización de Instrucciones Existentes
 **Objetivo**: Mover archivos existentes a nueva estructura de carpetas
 
 **Archivos a mover**:
@@ -174,7 +230,7 @@ Este documento registra el progreso de la documentación exhaustiva del monorepo
 
 ---
 
-### 8. Índice Maestro de Documentación
+### 10. Índice Maestro de Documentación
 **Ubicación sugerida**: `.github/INDICE_DOCUMENTACION.md`
 
 **Contenido propuesto**:
@@ -188,7 +244,7 @@ Este documento registra el progreso de la documentación exhaustiva del monorepo
 
 ---
 
-### 9. Crear Archivos de Configuración VS Code
+### 11. Crear Archivos de Configuración VS Code
 **Archivos a crear** (templates disponibles en CONFIGURACION_DESARROLLO.md):
 
 #### `.vscode/settings.json`
@@ -237,7 +293,7 @@ Este documento registra el progreso de la documentación exhaustiva del monorepo
 
 ---
 
-### 10. Preparar Commit para GitHub
+### 12. Preparar Commit para GitHub
 **Checklist**:
 - [ ] Verificar que `.gitignore` excluye correctamente:
   - `backend/ENV/`
@@ -285,40 +341,50 @@ git push origin main
 | 2. Analizar backend apps | ✅ Completado | 100% | 15000+ | 5 |
 | 3. Analizar frontend | ✅ Completado | 100% | 900+ | 1 |
 | 4. Analizar scripts | ✅ Completado | 100% | 800+ | 1 |
-| 5. Reorganizar instrucciones | ❌ No iniciado | 0% | - | 0 |
-| 6. Crear índice maestro | ❌ No iniciado | 0% | - | 0 |
-| 7. Completar config VS Code | ❌ No iniciado | 50% | - | 0 de 2 |
-| 8. Preparar commit | ❌ No iniciado | 0% | - | - |
+| 5. Crear MODELO_NEGOCIO.md | ✅ Completado | 100% | 3000+ | 1 |
+| 6. Crear EXPLORACION_ORDENTRABAJO.md | ✅ Completado | 100% | 4000+ | 1 |
+| 7. Reorganizar instrucciones | ❌ No iniciado | 0% | - | 0 |
+| 8. Crear índice maestro | ❌ No iniciado | 0% | - | 0 |
+| 9. Completar config VS Code | ❌ No iniciado | 50% | - | 0 de 2 |
+| 10. Preparar commit | ❌ No iniciado | 0% | - | - |
 
-**Total documentado**: ~19,100 líneas  
-**Archivos creados**: 9 documentos principales (3 arquitectura + 5 backend apps + 1 scripts)  
-**Progreso general**: ~80%
+**Total documentado**: ~26,100 líneas  
+**Archivos creados**: 11 documentos principales (3 arquitectura + 5 backend apps + 1 scripts + 2 exploraciones)  
+**Progreso general**: ~90%
 
 ---
 
 ## 🎯 Próximos Pasos Recomendados
 
-### Prioridad Alta (Crítico para GitHub Push)
+### Prioridad Alta (Crítico para Exploración Completa)
 
-1. **Crear índice maestro** (Tarea 6)
+1. **Continuar exploración OT** (actualizar EXPLORACION_ORDENTRABAJO.md)
+   - Completar Blocker #2: Asistencia de Usuarios
+   - Completar todos los Trabajos
+   - Transicionar estados: Proceso → Completada → Validada → Cerrada
+   - Explorar tabs faltantes (Compras linkage, Rendiciones, Visitas, Retroalimentaciones)
+   - Probar edge cases (anular GuiaSalida, revertir estados, multi-OT Equipo)
+   - Estimado: 2-3 horas exploración + 1 hora documentación
+
+### Prioridad Media (Mejora de Documentación)
+
+2. **Crear índice maestro** (Tarea 8)
    - Crear `INDICE_DOCUMENTACION.md`
    - Actualizar `copilot-instructions.md` con nueva estructura
    - Estimado: 30 minutos, ~300 líneas
 
-### Prioridad Media (Mejora de DX)
-
-2. **Crear archivos de configuración VS Code** (Tarea 7)
+2. **Crear archivos de configuración VS Code** (Tarea 9)
    - Crear `.vscode/settings.json` y `.vscode/launch.json`
    - Copiar templates desde CONFIGURACION_DESARROLLO.md
    - Estimado: 10 minutos
 
-3. **Reorganizar instrucciones** (Tarea 5)
+3. **Reorganizar instrucciones** (Tarea 7)
    - Mover backend-instructions.md y frontend-instructions.md a subcarpetas
    - Estimado: 5 minutos
 
 ### Prioridad Baja (Preparación Final)
 
-4. **Preparar commit para GitHub** (Tarea 8)
+4. **Preparar commit para GitHub** (Tarea 10)
    - Verificar .gitignore
    - Validar integridad de documentación
    - Crear mensaje de commit descriptivo
@@ -335,6 +401,8 @@ git push origin main
 ├── ARQUITECTURA_FRONTEND.md        # ✅ Arquitectura frontend React (900+ líneas)
 ├── CONFIGURACION_DESARROLLO.md     # ✅ Setup VS Code y workflows (600+ líneas)
 ├── SCRIPTS_UTILIDADES.md           # ✅ Scripts setup/dev/maintenance (800+ líneas)
+├── MODELO_NEGOCIO.md               # ✅ Modelo de negocio completo del ERP (3,000+ líneas)
+├── EXPLORACION_ORDENTRABAJO.md     # ✅ Exploración OT: 10 fases + patrones (4,000+ líneas)
 ├── ESTADO_DOCUMENTACION.md         # ✅ Este archivo - estado y próximos pasos
 ├── EXPLORACION_EMPRESAS.md         # ✅ Exploración Módulo 1: Empresas (preexistente)
 ├── INICIALIZACION.md               # ✅ Guía de inicialización del sistema (preexistente)
@@ -363,8 +431,8 @@ git push origin main
     └── tasks.instructions.md       # ✅ Instrucciones de tareas VS Code (preexistente)
 ```
 
-**Total archivos**: 23 (9 nuevos + 14 preexistentes)  
-**Total líneas documentadas**: ~19,100 (nuevas) + ~2,000 (preexistentes) = **~21,100 líneas**
+**Total archivos**: 25 (11 nuevos + 14 preexistentes)  
+**Total líneas documentadas**: ~26,100 (nuevas) + ~2,000 (preexistentes) = **~28,100 líneas**
 
 ---
 
@@ -451,6 +519,6 @@ last_updated: "YYYY-MM-DD"
 
 ---
 
-**Última actualización**: 2025-01-05  
-**Progreso**: 80% del análisis exhaustivo completado  
-**Próximo hito**: Crear índice maestro (Tarea 6) → 85% progreso
+**Última actualización**: 2025-11-05  
+**Progreso**: 90% del análisis exhaustivo completado  
+**Próximo hito**: Continuar exploración OT → 95% progreso
