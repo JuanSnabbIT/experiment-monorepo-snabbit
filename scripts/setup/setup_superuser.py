@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""
+"""\
 Script para configurar un superusuario con permisos de empresa.
 
 Qué hace:
@@ -19,7 +19,7 @@ Prerequisitos:
 
 Uso:
     cd backend
-    backend\ENV\Scripts\python.exe ..\scripts\setup\setup_superuser.py
+    backend\\ENV\\Scripts\\python.exe ..\\scripts\\setup\\setup_superuser.py
 """
 import os
 import sys
@@ -36,7 +36,7 @@ django.setup()
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
-from core.models import Personalizacion
+from core.models import PersonalizacionUsuario
 
 User = get_user_model()
 
@@ -48,7 +48,6 @@ def crear_grupos():
         ('superadmin', 'Administrador con permisos máximos'),
         ('multi-empresas', 'Acceso a múltiples empresas'),
         ('tecnico', 'Técnico de campo para OT y visitas'),
-        ('bodeguero', 'Encargado de bodega e inventario'),
         ('representante_legal', 'Representante legal de empresa'),
     ]
     
@@ -65,9 +64,9 @@ def crear_grupos():
 
 
 def crear_empresa_inicial():
-    """Crea una empresa y sucursal inicial."""
+    """Crea la empresa base y asegura la sucursal "Casa Matriz"."""
     empresa, created = Empresa.objects.get_or_create(
-        rut='11111111-1',
+        rut_empresa='11111111-1',
         defaults={
             'nombre': 'Snabbit',
             'direccion_principal': 'Dirección Principal 123',
@@ -75,85 +74,85 @@ def crear_empresa_inicial():
             'email': 'contacto@snabbit.cl',
         }
     )
-    
+
     if created:
-        print(f"✓ Empresa '{empresa.nombre}' creada (RUT: {empresa.rut})")
+        print(f"✓ Empresa '{empresa.nombre}' creada (RUT: {empresa.rut_empresa})")
     else:
-        print(f"  Empresa '{empresa.nombre}' ya existe (RUT: {empresa.rut})")
-    
-    sucursal, created = SucursalEmpresa.objects.get_or_create(
-        empresa=empresa,
-        nombre='Casa Matriz',
-        defaults={
-            'direccion': 'Dirección Principal 123',
-            'telefono': '+56912345678',
-        }
-    )
-    
-    if created:
-        print(f"✓ Sucursal '{sucursal.nombre}' creada")
-    else:
+        print(f"  Empresa '{empresa.nombre}' ya existe (RUT: {empresa.rut_empresa})")
+
+    sucursal = empresa.sucursales.filter(nombre='Casa Matriz').first()
+    if sucursal:
         print(f"  Sucursal '{sucursal.nombre}' ya existe")
-    
+    else:
+        sucursal = SucursalEmpresa.objects.create(
+            empresa=empresa,
+            nombre='Casa Matriz',
+            direccion=empresa.direccion_principal,
+        )
+        print(f"✓ Sucursal '{sucursal.nombre}' creada (fallback)")
+
     return empresa, sucursal
 
 
-def configurar_usuario_empresa(user, empresa, sucursal, grupos):
-    """Configura un UsuarioEmpresa con grupos administrativos."""
+def configurar_usuario_empresa(user, sucursal, grupos):
+    """Crea o actualiza el perfil UsuarioEmpresa del superusuario."""
     usuario_empresa, created = UsuarioEmpresa.objects.get_or_create(
         usuario=user,
-        empresa=empresa,
         defaults={
             'sucursal': sucursal,
-            'is_active': True,
+            'estado': '1',
         }
     )
-    
+
     if created:
         print(f"✓ UsuarioEmpresa creado para '{user.email}'")
     else:
-        print(f"  UsuarioEmpresa ya existe para '{user.email}'")
-    
-    # Asignar grupos administrativos
+        actualizado = False
+        if usuario_empresa.sucursal_id != sucursal.id:
+            usuario_empresa.sucursal = sucursal
+            actualizado = True
+        if usuario_empresa.estado != '1':
+            usuario_empresa.estado = '1'
+            actualizado = True
+
+        if actualizado:
+            usuario_empresa.save()
+            print(f"✓ UsuarioEmpresa actualizado para '{user.email}'")
+        else:
+            print(f"  UsuarioEmpresa ya existe para '{user.email}'")
+
     grupos_admin = [g for g in grupos if g.name in ['staff', 'superadmin', 'multi-empresas']]
     usuario_empresa.grupos.set(grupos_admin)
-    usuario_empresa.save()
     print(f"✓ Grupos asignados: {', '.join([g.name for g in grupos_admin])}")
-    
+
     return usuario_empresa
 
 
-def configurar_personalizacion(user, sucursal, empresa):
+def configurar_personalizacion(user, sucursal):
     """Configura la personalización del usuario para el dashboard."""
-    personalizacion, created = Personalizacion.objects.get_or_create(
+    personalizacion, created = PersonalizacionUsuario.objects.get_or_create(
         usuario=user,
         defaults={
-            'tema': 'system',
+            'tema': '3',  # Sistema
             'font_size': 14,
             'sucursal_principal': sucursal,
-            'empresa': empresa,
-            'dashboard_preferences': {}
         }
     )
-    
+
     if created:
         print(f"✓ Personalización creada para '{user.email}'")
     else:
-        # Actualizar sucursal y empresa si no estaban configuradas
         actualizado = False
-        if not personalizacion.sucursal_principal:
+        if personalizacion.sucursal_principal_id != sucursal.id:
             personalizacion.sucursal_principal = sucursal
             actualizado = True
-        if not personalizacion.empresa:
-            personalizacion.empresa = empresa
-            actualizado = True
-        
+
         if actualizado:
             personalizacion.save()
             print(f"✓ Personalización actualizada para '{user.email}'")
         else:
             print(f"  Personalización ya existe para '{user.email}'")
-    
+
     return personalizacion
 
 
@@ -193,12 +192,12 @@ def main():
     
     # 4. Configurar UsuarioEmpresa
     print("--- Configurando UsuarioEmpresa ---")
-    usuario_empresa = configurar_usuario_empresa(superuser, empresa, sucursal, grupos)
+    usuario_empresa = configurar_usuario_empresa(superuser, sucursal, grupos)
     print()
     
     # 5. Configurar Personalización
     print("--- Configurando Personalización ---")
-    personalizacion = configurar_personalizacion(superuser, sucursal, empresa)
+    personalizacion = configurar_personalizacion(superuser, sucursal)
     print()
     
     print("=" * 60)

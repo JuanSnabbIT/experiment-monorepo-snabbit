@@ -47,7 +47,7 @@ function CrearEmpresa() {
                         nombre: values.nombre,
                         sitio_web: values.sitio_web,
                         direccion_principal: values.direccion_principal,
-                        rut: values.rut,
+                        rut_empresa: values.rut,
                         telefono: values.telefono,
                         email: values.email,
                         recargo: values.recargo

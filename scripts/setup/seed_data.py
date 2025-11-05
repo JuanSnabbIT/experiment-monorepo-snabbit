@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""
+"""\
 Script para poblar la base de datos con datos de prueba.
 
 Qué hace:
@@ -26,8 +26,7 @@ Uso:
 import os
 import sys
 import django
-from decimal import Decimal
-from datetime import date, timedelta
+from pathlib import Path
 
 # Setup Django
 backend_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,8 +39,19 @@ from django.contrib.auth.models import Group
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from items.models import Categoria, Fabricante, ItemEmpresa
 from bodegas.models import Bodega
+from core.models import PersonalizacionUsuario
+from openpyxl import load_workbook
 
 User = get_user_model()
+
+BASE_BACKEND_PATH = Path(backend_path) / "backend"
+EXCEL_USER_FILES = [
+    "usuarios_aygasociados.xlsx",
+    "usuarios_camacoes.xlsx",
+    "usuarios_molinarios.xlsx",
+    "usuarios_prodalmen.xlsx",
+]
+DEFAULT_EXCEL_PASSWORD = "test1234"
 
 
 def crear_empresas_adicionales():
@@ -66,8 +76,13 @@ def crear_empresas_adicionales():
     empresas = []
     for data in empresas_data:
         empresa, created = Empresa.objects.get_or_create(
-            rut=data['rut'],
-            defaults=data
+            rut_empresa=data['rut'],
+            defaults={
+                'nombre': data['nombre'],
+                'direccion_principal': data['direccion_principal'],
+                'telefono': data['telefono'],
+                'email': data['email'],
+            }
         )
         empresas.append(empresa)
         if created:
@@ -114,7 +129,7 @@ def crear_usuarios_prueba():
         },
     ]
     
-    empresa_snabbit = Empresa.objects.get(rut='11111111-1')
+    empresa_snabbit = Empresa.objects.get(rut_empresa='11111111-1')
     sucursal = SucursalEmpresa.objects.filter(empresa=empresa_snabbit).first()
     
     usuarios = []
@@ -137,9 +152,14 @@ def crear_usuarios_prueba():
         # Asociar a empresa con grupos
         usuario_empresa, _ = UsuarioEmpresa.objects.get_or_create(
             usuario=user,
-            empresa=empresa_snabbit,
-            defaults={'sucursal': sucursal, 'is_active': True}
+            defaults={
+                'sucursal': sucursal,
+                'estado': '1',
+            }
         )
+        if usuario_empresa.sucursal_id != sucursal.id:
+            usuario_empresa.sucursal = sucursal
+            usuario_empresa.save(update_fields=['sucursal'])
         
         # Asignar grupos
         grupos = Group.objects.filter(name__in=data['grupos'])
@@ -162,10 +182,7 @@ def crear_categorias_y_fabricantes():
     
     categorias = []
     for nombre in categorias_data:
-        categoria, created = Categoria.objects.get_or_create(
-            nombre=nombre,
-            defaults={'descripcion': f'Categoría de {nombre}'}
-        )
+        categoria, created = Categoria.objects.get_or_create(nombre=nombre)
         categorias.append(categoria)
         if created:
             print(f"✓ Categoría '{categoria.nombre}' creada")
@@ -180,10 +197,7 @@ def crear_categorias_y_fabricantes():
     
     fabricantes = []
     for nombre in fabricantes_data:
-        fabricante, created = Fabricante.objects.get_or_create(
-            nombre=nombre,
-            defaults={'pais_origen': 'China' if nombre in ['Hikvision', 'Dahua'] else 'USA'}
-        )
+        fabricante, created = Fabricante.objects.get_or_create(nombre=nombre)
         fabricantes.append(fabricante)
         if created:
             print(f"✓ Fabricante '{fabricante.nombre}' creado")
@@ -193,27 +207,24 @@ def crear_categorias_y_fabricantes():
 
 def crear_items_prueba(categorias, fabricantes):
     """Crea items de prueba."""
-    empresa_snabbit = Empresa.objects.get(rut='11111111-1')
+    empresa_snabbit = Empresa.objects.get(rut_empresa='11111111-1')
     
     items_data = [
         {
             'nombre': 'Cámara Domo 2MP',
-            'codigo': 'CAM-DOMO-001',
-            'precio': Decimal('45000'),
+            'descripcion_corta': 'CAM-DOMO-001',
             'categoria': categorias[0],
             'fabricante': fabricantes[0],
         },
         {
             'nombre': 'DVR 8 Canales',
-            'codigo': 'DVR-8CH-001',
-            'precio': Decimal('120000'),
+            'descripcion_corta': 'DVR-8CH-001',
             'categoria': categorias[1],
             'fabricante': fabricantes[1],
         },
         {
             'nombre': 'Cable UTP Cat5e',
-            'codigo': 'CAB-UTP-001',
-            'precio': Decimal('500'),
+            'descripcion_corta': 'CAB-UTP-001',
             'categoria': categorias[4],
             'fabricante': fabricantes[4],
         },
@@ -222,54 +233,210 @@ def crear_items_prueba(categorias, fabricantes):
     items = []
     for data in items_data:
         item, created = ItemEmpresa.objects.get_or_create(
-            codigo=data['codigo'],
             empresa=empresa_snabbit,
+            nombre=data['nombre'],
             defaults={
-                'nombre': data['nombre'],
-                'precio': data['precio'],
+                'descripcion_corta': data['descripcion_corta'],
                 'categoria': data['categoria'],
                 'fabricante': data['fabricante'],
-                'descripcion': f"Item de prueba: {data['nombre']}",
             }
         )
         items.append(item)
         if created:
             print(f"✓ Item '{item.nombre}' creado")
+        else:
+            cambios = False
+            if data['categoria'] and item.categoria_id != data['categoria'].id:
+                item.categoria = data['categoria']
+                cambios = True
+            if data['fabricante'] and item.fabricante_id != data['fabricante'].id:
+                item.fabricante = data['fabricante']
+                cambios = True
+            if data['descripcion_corta'] and item.descripcion_corta != data['descripcion_corta']:
+                item.descripcion_corta = data['descripcion_corta']
+                cambios = True
+            if cambios:
+                item.save()
+                print(f"✓ Item '{item.nombre}' actualizado")
     
     return items
 
 
 def crear_bodegas_prueba():
     """Crea bodegas de prueba."""
-    empresa_snabbit = Empresa.objects.get(rut='11111111-1')
-    sucursal = SucursalEmpresa.objects.filter(empresa=empresa_snabbit).first()
-    
+    empresa_snabbit = Empresa.objects.get(rut_empresa='11111111-1')
+    sucursal = _obtener_sucursal_principal(empresa_snabbit)
+
     bodegas_data = [
         {
             'nombre': 'Bodega Principal',
-            'direccion': 'Av. Principal 123',
         },
         {
             'nombre': 'Bodega Secundaria',
-            'direccion': 'Calle Secundaria 456',
         },
     ]
-    
+
     bodegas = []
     for data in bodegas_data:
         bodega, created = Bodega.objects.get_or_create(
             nombre=data['nombre'],
-            empresa=empresa_snabbit,
-            defaults={
-                'direccion': data['direccion'],
-                'sucursal': sucursal,
-            }
+            sucursal=sucursal,
         )
         bodegas.append(bodega)
         if created:
             print(f"✓ Bodega '{bodega.nombre}' creada")
+        elif bodega.sucursal_id != sucursal.id:
+            bodega.sucursal = sucursal
+            bodega.save(update_fields=['sucursal'])
+            print(f"✓ Bodega '{bodega.nombre}' actualizada")
     
     return bodegas
+
+
+def _clean_str(value):
+    if value is None:
+        return ""
+    text = str(value).strip()
+    return text
+
+
+def _obtener_sucursal_principal(empresa: Empresa) -> SucursalEmpresa:
+    sucursal = empresa.sucursales.first()
+    if not sucursal:
+        sucursal = SucursalEmpresa.objects.create(
+            empresa=empresa,
+            nombre="Casa Matriz",
+            direccion=empresa.direccion_principal or "Dirección no especificada",
+        )
+    return sucursal
+
+
+def cargar_usuarios_desde_excels():
+    """Crea empresas y usuarios a partir de planillas Excel ubicadas en backend/."""
+    print("--- Cargando usuarios desde planillas Excel ---")
+
+    archivos = []
+    for nombre in EXCEL_USER_FILES:
+        ruta = BASE_BACKEND_PATH / nombre
+        if ruta.exists():
+            archivos.append(ruta)
+        else:
+            print(f"  ⚠️ Archivo '{nombre}' no encontrado, se omite.")
+
+    if not archivos:
+        print("  ⚠️ No se encontraron planillas de usuarios.")
+        return {"empresas": 0, "usuarios": 0}
+
+    grupo_representante = Group.objects.filter(name="representante_legal").first()
+
+    totales = {"empresas": 0, "usuarios": 0}
+    for archivo in archivos:
+        wb = load_workbook(archivo)
+        sheet = wb.active
+        headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+
+        try:
+            idx_empresa = headers.index("Empresa")
+            idx_nombre = headers.index("Nombre")
+            idx_apellido = headers.index("Apellido")
+            idx_correo = headers.index("Correo")
+        except ValueError:
+            print(f"  ⚠️ Encabezados inesperados en '{archivo.name}', se omite.")
+            continue
+
+        print(f"  Procesando '{archivo.name}' ({sheet.max_row - 1} filas)")
+
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            empresa_nombre = _clean_str(row[idx_empresa])
+            email = _clean_str(row[idx_correo]).lower()
+            first_name = _clean_str(row[idx_nombre])
+            last_name = _clean_str(row[idx_apellido])
+
+            if not email:
+                continue
+
+            if not empresa_nombre:
+                empresa_nombre = "Empresa sin nombre"
+
+            empresa_defaults = {
+                "direccion_principal": "Dirección no especificada",
+                "telefono": "",
+                "email": "",
+            }
+            empresa, creada = Empresa.objects.get_or_create(
+                nombre=empresa_nombre,
+                defaults=empresa_defaults,
+            )
+            if creada:
+                totales["empresas"] += 1
+
+            # Asegurar que la empresa tenga sucursal principal
+            sucursal = _obtener_sucursal_principal(empresa)
+
+            user, creado_usuario = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    "first_name": first_name or "Usuario",
+                    "last_name": last_name or "",
+                    "is_active": True,
+                }
+            )
+            if creado_usuario:
+                user.set_password(DEFAULT_EXCEL_PASSWORD)
+                user.is_active = True
+                user.save()
+                totales["usuarios"] += 1
+            else:
+                actualizado = False
+                if first_name and user.first_name != first_name:
+                    user.first_name = first_name
+                    actualizado = True
+                if last_name and user.last_name != last_name:
+                    user.last_name = last_name
+                    actualizado = True
+                if not user.is_active:
+                    user.is_active = True
+                    actualizado = True
+                if actualizado:
+                    user.save()
+
+            usuario_empresa, creado_ue = UsuarioEmpresa.objects.get_or_create(
+                usuario=user,
+                defaults={
+                    "sucursal": sucursal,
+                    "estado": "1",
+                }
+            )
+
+            if not creado_ue:
+                cambios = False
+                if usuario_empresa.sucursal_id != sucursal.id:
+                    usuario_empresa.sucursal = sucursal
+                    cambios = True
+                if usuario_empresa.estado != "1":
+                    usuario_empresa.estado = "1"
+                    cambios = True
+                if cambios:
+                    usuario_empresa.save()
+            else:
+                usuario_empresa.save()
+
+            if grupo_representante:
+                usuario_empresa.grupos.add(grupo_representante)
+
+            personalizacion, creada_personalizacion = PersonalizacionUsuario.objects.get_or_create(
+                usuario=user,
+                defaults={
+                    "tema": "3",
+                    "font_size": 14,
+                    "sucursal_principal": sucursal,
+                }
+            )
+            if not creada_personalizacion and personalizacion.sucursal_principal_id != sucursal.id:
+                personalizacion.sucursal_principal = sucursal
+                personalizacion.save(update_fields=["sucursal_principal"])
+
+    return totales
 
 
 def main():
@@ -280,7 +447,7 @@ def main():
     
     # Verificar que existe empresa base
     try:
-        Empresa.objects.get(rut='11111111-1')
+        Empresa.objects.get(rut_empresa='11111111-1')
     except Empresa.DoesNotExist:
         print("❌ Error: No se encontró la empresa base 'Snabbit'.")
         print("   Ejecuta primero: setup_superuser.py")
@@ -305,6 +472,9 @@ def main():
     print("--- Creando bodegas de prueba ---")
     bodegas = crear_bodegas_prueba()
     print()
+
+    totales_excel = cargar_usuarios_desde_excels()
+    print()
     
     print("=" * 60)
     print("✓ Datos de prueba creados exitosamente")
@@ -317,6 +487,8 @@ def main():
     print(f"- Fabricantes: {len(fabricantes)}")
     print(f"- Items: {len(items)}")
     print(f"- Bodegas: {len(bodegas)}")
+    print(f"- Empresas desde Excel: {totales_excel['empresas']}")
+    print(f"- Usuarios desde Excel: {totales_excel['usuarios']}")
     print()
     print("Usuarios de prueba creados:")
     print("  - tecnico@snabbit.cl / test1234")

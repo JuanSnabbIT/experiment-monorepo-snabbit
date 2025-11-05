@@ -59,6 +59,7 @@ function DetalleEmpresa() {
         if (id) {
             dispatch(detalleEmpresaThunk({id_empresa: id}))
             dispatch(listaMisSucursalesThunk({id_empresa: id}))
+            dispatch(listaInvitacionesThunk())  // ← Cargar invitaciones al montar componente
         }
     }, [id])
 
