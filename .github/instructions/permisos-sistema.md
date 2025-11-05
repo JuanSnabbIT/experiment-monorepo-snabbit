@@ -2,12 +2,14 @@
 title: "Sistema de Permisos del ERP"
 scope: "full-stack"
 status: "active"
-last_updated: "2025-11-03"
+last_updated: "2025-11-04"
 ---
 
 # 🔐 Sistema de Permisos del ERP Snabbit
 
 **Guía Completa para Entender la Arquitectura de Permisos**
+
+> **📌 Nota**: Este documento explica el sistema actual. Para la modernización con Django Guardian, ver [permisos-guardian.md](./permisos-guardian.md)
 
 ---
 
@@ -21,8 +23,9 @@ last_updated: "2025-11-03"
 6. [Backend: Configuración de Permisos](#-backend-configuración-de-permisos)
 7. [Flujo de Onboarding](#-flujo-de-onboarding)
 8. [Ejemplos Prácticos](#-ejemplos-prácticos)
-9. [Troubleshooting](#-troubleshooting)
-10. [Mejores Prácticas](#-mejores-prácticas)
+9. [Limitaciones del Sistema Actual](#-limitaciones-del-sistema-actual)
+10. [Troubleshooting](#-troubleshooting)
+11. [Mejores Prácticas](#-mejores-prácticas)
 
 ---
 
@@ -642,6 +645,72 @@ Grupos se obtienen de **todos** los registros:
 Para cambiar empresa activa:
 - Frontend permite seleccionar sucursal en header (componente `SelectSucursalEmpresa`)
 - Actualiza `Personalizacion.sucursal_principal`
+
+---
+
+## ⚠️ Limitaciones del Sistema Actual
+
+### 1. **No Hay Permisos a Nivel de Objeto**
+
+**Problema**: Solo puedo verificar si el usuario está autenticado y filtrar por empresa.
+
+```python
+# Actual: Solo filtrado manual en get_queryset()
+class CotizacionViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=self.request.user).first()
+        if personalizacion and personalizacion.sucursal_principal:
+            return Cotizacion.objects.filter(empresa=personalizacion.sucursal_principal.empresa)
+        return Cotizacion.objects.none()
+```
+
+**Limitación**: No puedo decir "Usuario X puede editar Cotización #123 pero no #456" dentro de la misma empresa.
+
+### 2. **Permisos Hardcodeados en Frontend**
+
+```typescript
+// pages.config.ts
+empresa: {
+    authority: ['staff', 'superadmin'],  // ← Hardcoded
+}
+```
+
+**Problema**:
+- Si cambio un grupo en BD, debo cambiar código frontend
+- No es dinámico
+- Difícil de mantener
+
+### 3. **Filtrado Manual Repetitivo**
+
+```python
+# Cada ViewSet tiene que implementar su propio filtrado
+def get_queryset(self):
+    user = self.request.user
+    personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+    if personalizacion and personalizacion.sucursal_principal:
+        return MiModelo.objects.filter(empresa=personalizacion.sucursal_principal.empresa)
+    return MiModelo.objects.none()
+```
+
+**Problema**:
+- Código duplicado en ~20+ ViewSets
+- Fácil olvidar filtrar en algún endpoint
+- No es DRY (Don't Repeat Yourself)
+
+### 4. **Sin Auditoría Granular**
+
+**Problema**:
+- No sé QUÉ objeto específico modificó un usuario
+- Solo puedo auditar a nivel de empresa
+- No puedo rastrear "Usuario X aprobó Cotización #123"
+
+### 5. **Solución: Django Guardian**
+
+Para resolver estas limitaciones, ver [permisos-guardian.md](./permisos-guardian.md) que implementa:
+- ✅ Permisos por objeto específico
+- ✅ Permisos dinámicos desde BD
+- ✅ Código centralizado sin duplicación
+- ✅ Auditoría granular por objeto
 
 ---
 

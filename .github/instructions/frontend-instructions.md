@@ -164,6 +164,8 @@ npm run format
 
 ## Referencias cruzadas
 - [Backend (Django)](./backend-instructions.md): consumo de APIs REST.
+- [Redux Toolkit y Thunks](./redux-thunks.md): guía detallada de Redux y operaciones asíncronas.
+- [Estructura del Store](./store-structure.md): índice de todos los slices y cómo acceder a ellos.
 - [Seguridad](./security.md): manejo de tokens JWT, validaciones frontend.
 - [Testing](./testing.md): estrategias de tests frontend (RTL, msw).
 - [Performance](./performance.md): memoización, lazy-load, optimización de re-renders.
