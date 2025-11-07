@@ -64,63 +64,63 @@ export const Pages = {
 		to: '/empresa',
 		text: 'Empresa',
 		icon: 'HeroBuildingOffice2',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			listaUsuariosEmpresa: {
 				id: 'listaUsuariosEmpresa',
 				to: '/empresa/lista-usuarios-empresa',
 				text: 'Usuarios Empresa',
 				icon: 'DuoGroup',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleUsuarioEmpresa: {
 				id: 'detalleUsuarioEmpresa',
 				to: '/empresa/detalle-usuario-empresa/:id',
 				text: 'Detalle Usuario Empresa',
 				icon: 'DuoGroup',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			// listaClientes:{
 			// 	id: 'listaClientes',
 			// 	to: '/empresa/lista-clientes',
 			// 	text: 'Clientes',
 			// 	icon: 'DuoDislike',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			detalleCliente: {
 				id: 'detalleCliente',
 				to: '/empresa/detalle-cliente/:id',
 				text: 'Clientes',
 				icon: 'HeroBuildingOffice2',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaEmpresas: {
 				id: 'listaEmpresas',
 				to: '/empresa/empresas',
 				text: 'Empresas',
 				icon: 'DuoBuilding',
-				authority: ['staff', 'multi-empresas', 'superadmin'],
+				authority: [],
 			},
 			detalleEmpresa: {
 				id: 'detalleEmpresa',
 				to: '/empresas/:id',
 				text: 'Detalle Empresa',
 				icon: 'DuoAddressCard',
-				authority: ['staff', 'superadmin'],
+				authority: [],
 			},
 			// listaRendicionesSucursal: {
 			// 	id: 'listaRendicionesSucursal',
 			// 	to: '/empresa/lista-rendiciones-sucursal',
 			// 	text: 'Rendiciones Sucursal',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			contratosDelCliente: {
 				id: 'contratosDelCliente',
 				to: '/empresa/contratos-cliente/:id',
 				text: 'Contratos Del Cliente',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 		}
 	},
@@ -130,56 +130,56 @@ export const Pages = {
 		to: '/cotizacion',
 		text: 'Cotización',
 		icon: 'DuoMailbox',
-		authority: ['staff', 'superadmin', 'tecnico'],
+		authority: [],
 		subPages: {
 			// listaCotizaciones: {
 			// 	id: 'listaCotizaciones',
 			// 	to: '/cotizacion/lista-cotizaciones',
 			// 	text: 'Cotizaciones',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			detalleCotizacion: {
 				id: 'detalleCotizacion',
 				to: '/cotizacion/detalle-cotizacion/:numero_cotizacion',
 				text: 'Detalle Cotización',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin', 'tecnico']
+				authority: []
 			},
 			listaCotizacionesEmpresa:{
 				id: 'listaCotizacionesEmpresa',
 				to: '/cotizacion/lista-cotizaciones-empresa',
 				text: 'Cotizaciones Clientes',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin', 'tecnico']
+				authority: []
 			}
 			// listaItemsCotizacion: {
 			// 	id: 'listaItemsCotizacion',
 			// 	to: '/cotizacion/lista-items-cotizacion',
 			// 	text: 'Items Cotizacion',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			// detalleItemCotizacion: {
 			// 	id: 'detalleItemCotizacion',
 			// 	to: '/cotizacion/detalle-item-cotizacion/:id',
 			// 	text: 'Detalle Item Cotizacion',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			// listaSeguimientoCotizacion: {
 			// 	id: 'listaSeguimientoCotizacion',
 			// 	to: '/cotizacion/lista-seguimiento-cotizacion',
 			// 	text: 'Seguimiento Cotizacion',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 			// detalleSeguimientoCotizacion: {
 			// 	id: 'detalleSeguimientoCotizacion',
 			// 	to: '/cotizacion/detalle-seguimiento-cotizacion/:id',
 			// 	text: 'Detalle Seguimiento Cotizacion',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['staff', 'superadmin']
+			// 	authority: []
 			// },
 		}
 	},
@@ -189,56 +189,56 @@ export const Pages = {
 		to: '/compras',
 		text: 'Compras',
 		icon: 'HeroSquares2X2',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			listaOrdenesCompra: {
 				id: 'listaOrdenesCompra',
 				to: '/compras/lista-ordenes-compra',
 				text: 'Ordenes Compra',
 				icon: 'HeroDocumentArrowDown',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaMisOrdenesDeCompra: {
 				id: 'listaMisOrdenesDeCompra',
 				to: '/compras/lista-mis-ordenes',
 				text: 'Mis Ordenes de Compra',
 				icon: "HeroWallet",
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleOrdenCompra: {
 				id: 'detalleOrdenCompra',
 				to: '/compras/detalle-orden-compra/:id',
 				text: 'Detalle Orden Compra',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			completarOrdenCompra: { 
 				id: 'completarOrdenCompra',
 				to: '/compras/completar-orden-compra/:id',
 				text: 'Completar Orden Compra',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			agregarItemsOrdenCompra: {
 				id: 'agregarItemsOrdenCompra',
 				to: '/compras/agregar-items-oc/:id',
 				text: 'Agregar Items a la Orden de Compra',
 				icon: 'HeroDocument',
-				authority: ['superadmin', 'staff']
+				authority: []
 			},
 			listaCompra: {
 				id: 'listaCompra',
 				to: '/compras/lista-compras',
 				text: 'Compras',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleCompra: {
 				id: 'detalleCompra',
 				to: '/compras/detalle-compra/:id',
 				text: 'Detalle Compra',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			}
 		}
 	},
@@ -248,70 +248,70 @@ export const Pages = {
 		to: '/bodega',
 		text: 'Bodega',
 		icon: 'DuoCommode2',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			listaBodegas: {
 				id: 'listaBodegas',
 				to: '/bodega/lista-bodegas',
 				text: 'Bodegas',
 				icon: 'DuoSafe',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaGuiaSalida: {
 				id: 'listaGuiaSalida',
 				to: '/bodega/lista-guia-salida',
 				text: 'Guias de Salida',
 				icon: 'HeroDocumentArrowUp',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleBodega: {
 				id: 'detalleBodega',
 				to: '/bodega/detalle-bodega/:id',
 				text: 'Detalle Bodega',
 				icon: 'DuoSafe',
-				authority: ['staff', 'superadmin'],
+				authority: [],
 			},
 			detalleGuiaSalidaBodega: {
 				id: 'detalleGuiaSalidaBodega',
 				to: '/bodega/detalle-guia-salida-bodega/:id',
 				text: 'Detalle Guia de Salida de Bodega',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			devolucionParcialGuiaSalidaBodega: {
 				id: 'devolucionParcialGuiaSalidaBodega',
 				to: '/bodega/devolucion-parcial-guia-salida-bodega/:id',
 				text: 'Devolucion Parcial Guia Salida',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			crearItemsGuiaSalidaBodega: {
 				id: 'crearItemsGuiaSalidaBodega',
 				to: '/bodega/crear-items-guia-salida/:id',
 				text: 'Crear Items Guia Salida Bodega',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaTomaInventario: {
 				id: 'listaTomaDeInventario',
 				to: '/bodega/tomas-inventarios',
 				text: 'Tomas de Inventarios',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleTomaInventario: {
 				id: 'detalleTomaInventario',
 				to: '/bodega/detalle-toma-inventario/:id',
 				text: 'Detalle Toma de Inventario',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			inventariarTomaInventario: {
 				id: 'inventariarTomaInventario',
 				to: '/bodega/inventariar-toma-inventario/:id',
 				text: 'Inventariar Toma Inventario',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			}
 		}
 	},
@@ -321,56 +321,56 @@ export const Pages = {
 		to: '/orden-trabajo',
 		text: 'Orden Trabajo',
 		icon: 'DuoMailbox',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			listaOrdenesTrabajo: {
 				id: 'listaOrdenesTrabajo',
 				to: '/orden-trabajo/lista-ordenes-trabajo',
 				text: 'Ordenes Trabajo',
 				icon: 'DuoMailbox',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleOrdenTrabajo: {
 				id: 'detalleOrdenTrabajo',
 				to: '/orden-trabajo/detalle-orden-trabajo/:id',
 				text: 'Detalle Orden Trabajo',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaVisitasSoporte: {
 				id: 'listaVisitasSoporte',
 				to: '/orden-trabajo/lista-visitas-soporte',
 				text: 'Asistencias Técnicas',
 				icon: 'DuoMailbox',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleVisitaSoporte: {
 				id: 'detalleVisitaSoporte',
 				to: '/orden-trabajo/detalle-visita-soporte/:id',
 				text: 'Detalle Visita Soporte',
 				icon: 'DuoMailbox',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			agregarItemsACompraDT: {
 				id: 'agregarItemsACompraDT',
 				to: '/orden-trabajo/:idOrden/detalle-orden-trabajo/:idDetalle/agregar-items-compra',
 				text: 'Agregar Item a la Compra',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			vistaPreviaAdjunto: {
 				id: 'vistaPreviaAdjunto',
 				to: '/orden-trabajo/:idOrden/vista-previa-adjunto/:id',
 				text: 'Vista Previa Adjunto',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleRetroalimentacionOT: {
 				id: 'detalleRetroalimentacionOT',
 				to: '/orden-trabajo/detalle-retroalimentacion/:id',
 				text: 'Detalle Retroalimentacion OT',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			}
 		}
 	},
@@ -380,70 +380,70 @@ export const Pages = {
 		to: '/registros',
 		text: 'Registros',
 		icon: 'DuoPuzzle',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			listaCategorias: {
 				id: 'listaCategorias',
 				to: '/registros/lista-categorias',
 				text: 'Categorias',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaFabricantes: {
 				id: 'listaFabricantes',
 				to: '/registros/lista-fabricantes',
 				text: 'Fabricantes',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaProveedoresEmpresa: {
 				id: 'listaFabricanteThunk',
 				to: '/registros/lista-proveedores-empresa',
 				text: 'Proveedores',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleProveedorEmpresa: {
 				id: 'detalleProveedorEmpresa',
 				to: '/registros/detalle-proveedor-empresa/:id',
 				text: 'Detalle Proveedor Empresa',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaItemsEmpresa: {
 				id: 'listaItemsEmpresa',
 				to: '/registros/lista-items-empresa',
 				text: 'Items',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			listaUsuarios: {
 				id: 'listaUsuarios',
 				to: '/registros/lista-usuarios',
 				text: 'Usuarios',
 				icon: 'HeroDocument',
-				authority: ['staff']
+				authority: []
 			},
 			detalleFabricante:{
 				id: 'detalleFabricante',
 				to: '/registros/detalle-fabricante/:id',
 				text: 'Detalle Fabricante',
 				icon: 'HeroDocument',
-				authority: ['superadmin']
+				authority: []
 			},
 			detalleCategoria:{
 				id: 'detalleCategoria',
 				to: '/registros/detalle-categoria/:id',
 				text: 'Detalle Categoria',
 				icon: 'HeroDocument',
-				authority: ['superadmin']
+				authority: []
 			},
 			detalleItemEmpresa: {
 				id: 'detalleItemEmpresa',
 				to: '/registros/detalle-item-empresa/:id',
 				text: 'Detalle Item Empresa',
 				icon: 'HeroDocument',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 		}
 	},
@@ -467,7 +467,7 @@ export const Pages = {
 				to: '/vacaciones/pedir-vacaciones',
 				text: 'Pedir Vacaciones',
 				icon: 'DuoSunset1',
-				authority: ['staff', 'superadmin'],
+				authority: [],
 			},
 			listaMisSolicitudesVacaciones: {
 				id: 'listaMisSolicitudesVacaciones',
@@ -481,7 +481,7 @@ export const Pages = {
                                 to: '/vacaciones/lista-solicitudes-vacaciones',
                                 text: 'Solicitudes Vacaciones',
                                 icon: 'DuoBulletList',
-                                authority: ['staff', 'superadmin']
+                                authority: []
                         },
                         dashboardVacaciones: {
                                 id: 'dashboardVacaciones',
@@ -512,21 +512,21 @@ export const Pages = {
 		to: '/recursos',
 		text: 'Recursos',
 		icon: 'DuoTv1',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 		subPages: {
 			// listaEquiposDeMisClientes: {
 			// 	id: 'listaEquiposDeMisClientes',
 			// 	to: '/recursos/lista-equipos-clientes',
 			// 	text: 'Lista de Equipos de mis Clientes',
 			// 	icon: 'HeroDocument',
-			// 	authority: ['superadmin', 'staff']
+			// 	authority: []
 			// },
 			listaSoftware: {
 				id: 'listaSoftware',
 				to: '/recursos/lista-software',
 				text: 'Softwares',
 				icon: 'DuoLaptop',
-				authority: ['superadmin', 'staff']
+				authority: []
 			}
 		}
 	},
@@ -543,7 +543,7 @@ export const Pages = {
 				to: '/rendicion/lista-rendiciones',
 				text: 'Rendiciones Admin',
 				icon: 'DuoDollar',
-				authority: ['staff', 'superadmin']
+				authority: []
 			},
 			detalleRendicion: {
 				id: 'detalleRendicion',
@@ -567,7 +567,7 @@ export const Pages = {
 		to: '/invitaciones-empresas',
 		text: 'Invitaciones',
 		icon: 'DuoMailbox2',
-		authority: ['staff', 'superadmin'],
+		authority: [],
 	},
 	listaDiasCalendario: {
 		id: 'listaDiasCalendario',
@@ -581,21 +581,21 @@ export const Pages = {
 		to: '/lista-equipos-empresa',
 		text: 'Equipos Empresa',
 		icon: 'HeroDocument',
-		authority: ['superadmin', 'staff']
+		authority: []
 	},
 	detalleEquipoEmpresa: {
 		id: 'detalleEquipoEmpresa',
 		to: '/detalle-equipo-empresa/:id',
 		text: 'Detalle Equipo Empresa',
 		icon: 'HeroDocument',
-		authority: ['superadmin', 'staff']
+		authority: []
 	},
 	detalleSucursal: {
 		id: 'detalleSucursal',
 		to: '/empresas/:id_empresa/detalle-sucursal/:id',
 		text: 'Detalle Sucursal',
 		icon: 'HeroDocument',
-		authority: ['superadmin', 'staff']
+		authority: []
 	},
 };
 

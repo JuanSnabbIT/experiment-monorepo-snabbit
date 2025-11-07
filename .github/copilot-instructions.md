@@ -34,7 +34,8 @@ El objetivo es mantener un código **seguro, consistente, testeable y documentad
 
 ## 3. Estructura general del repositorio
 
-> **📚 Navegación**: Para guías de lectura organizadas por rol, ver [INDICE_DOCUMENTACION.md](./INDICE_DOCUMENTACION.md) (índice maestro con mapa visual, rutas de aprendizaje y quick links).
+> **📚 Navegación**: Para guías de lectura organizadas por rol, ver [INDICE_MAESTRO.md](./INDICE_MAESTRO.md) (índice maestro con mapa visual, rutas de aprendizaje y quick links).
+> **📖 Landing page**: [.github/README.md](./README.md) - Punto de entrada principal de la documentación
 
 ```
 monorepo_erp/
@@ -56,39 +57,73 @@ monorepo_erp/
 │   ├── public/
 │   ├── package.json
 │   └── vite.config.ts
-├── .github/                # 📚 Documentación completa del proyecto (~21,100 líneas)
-│   ├── copilot-instructions.md  # Este archivo (índice principal para IA)
-│   ├── INDICE_DOCUMENTACION.md  # 🗺️ Índice maestro para navegación humana
-│   ├── ARQUITECTURA_SISTEMA.md  # Arquitectura general del monorepo (800+ líneas)
-│   ├── ARQUITECTURA_FRONTEND.md # Arquitectura React + Redux (900+ líneas)
-│   ├── CONFIGURACION_DESARROLLO.md  # Setup VS Code y workflows (600+ líneas)
-│   ├── SCRIPTS_UTILIDADES.md    # Scripts setup/dev/maintenance (800+ líneas)
-│   ├── ESTADO_DOCUMENTACION.md  # Tracking de progreso (80%)
-│   ├── INICIALIZACION.md        # Guía completa de setup (preexistente)
-│   ├── EXPLORACION_EMPRESAS.md  # Módulo 1: Empresas (bugs, lecciones)
-│   ├── GUIA_EXPLORACION_SISTEMA.md  # Guía paso a paso exploración
-│   ├── REFERENCIA_RAPIDA_ENDPOINTS.md  # Referencia rápida API
-│   └── instructions/            # Módulos temáticos organizados
-│       ├── backend/             # 📁 Documentación backend (5 docs, ~19,000 líneas)
-│       │   ├── core-cuentas.md  # core + cuentas apps (~2,400 líneas)
-│       │   ├── empresas-cotizaciones.md  # empresas + cotizaciones (~2,500 líneas)
-│       │   ├── contratos-bodegas-items.md  # contratos + bodegas + items (~4,500 líneas)
-│       │   ├── ordentrabajo-recursos-rendiciones-visitas.md  # Operations (~6,000 líneas)
-│       │   └── vacaciones-calendario-activos-retroalimentacion.md  # Support (~3,500 líneas)
-│       ├── backend-instructions.md  # Instrucciones generales backend
-│       ├── frontend-instructions.md # Instrucciones generales frontend
-│       ├── redux-thunks.md      # Redux Toolkit y thunks asíncronos
-│       ├── store-structure.md   # Índice completo de slices Redux
-│       ├── standards.md         # Estándares de código
-│       ├── security.md          # Seguridad (JWT, CORS, secretos)
-│       ├── pr-flow.md           # Flujo de PRs y commits
-│       ├── ci-cd.md             # Pipelines CI/CD
-│       ├── testing.md           # Estrategias de testing
-│       ├── performance.md       # Optimización y performance
-│       ├── observability.md     # Logging, métricas, tracing
-│       ├── playbooks.md         # Troubleshooting operativo
-│       ├── tasks.instructions.md # VS Code tasks
-│       └── glossary.md          # Glosario de términos
+├── .github/                # 📚 Documentación completa del proyecto (reorganizada 2025-11-07)
+│   ├── README.md                # 📖 Landing page de documentación
+│   ├── copilot-instructions.md  # 🤖 Este archivo (índice principal para IA)
+│   ├── INDICE_MAESTRO.md        # 🗺️ Índice maestro para navegación humana
+│   │
+│   ├── arquitectura/            # 🏛️ Diseño y decisiones técnicas
+│   │   ├── sistema.md           # Arquitectura general del monorepo (800+ líneas)
+│   │   ├── frontend.md          # Arquitectura React + Redux (900+ líneas)
+│   │   ├── base-de-datos.md     # Modelo de datos
+│   │   ├── modelo-negocio.md    # Lógica de negocio ERP
+│   │   └── flujos/              # Flujos de negocio específicos
+│   │
+│   ├── exploracion/             # 🔍 Exploraciones de módulos
+│   │   ├── README.md            # Guía de exploración
+│   │   ├── empresas.md          # Módulo 1: Empresas (bugs, lecciones)
+│   │   ├── contratos.md         # Módulo 2: Contratos
+│   │   └── template.md          # Plantilla para nuevas exploraciones
+│   │
+│   ├── guias/                   # 📚 Tutoriales prácticos
+│   │   ├── inicializacion.md    # Setup completo desde cero
+│   │   ├── desarrollo.md        # VS Code tasks, debugging (600+ líneas)
+│   │   ├── exploracion-sistema.md  # Cómo explorar el sistema
+│   │   └── scripts.md           # Scripts de utilidad (800+ líneas)
+│   │
+│   ├── instrucciones/           # 📖 Referencias técnicas detalladas
+│   │   ├── README.md            # Índice de instrucciones
+│   │   ├── backend/             # 📁 Django, DRF, Celery (~19,000 líneas)
+│   │   │   ├── general.md       # Instrucciones generales backend
+│   │   │   ├── core-cuentas.md
+│   │   │   ├── empresas-cotizaciones.md
+│   │   │   ├── contratos-bodegas-items.md
+│   │   │   ├── ordentrabajo-recursos-rendiciones-visitas.md
+│   │   │   ├── vacaciones-calendario-activos-retroalimentacion.md
+│   │   │   ├── permisos-guardian.md
+│   │   │   ├── permisos-sistema.md
+│   │   │   └── referencia-endpoints.md
+│   │   ├── frontend/            # 🎨 React, Redux, TypeScript
+│   │   │   ├── general.md       # Instrucciones generales frontend
+│   │   │   ├── redux-thunks.md  # Redux Toolkit y thunks
+│   │   │   └── store-structure.md  # Índice de 14 slices Redux
+│   │   ├── procesos/            # 📋 Standards, security, testing
+│   │   │   ├── standards.md
+│   │   │   ├── security.md
+│   │   │   ├── pr-flow.md
+│   │   │   ├── ci-cd.md
+│   │   │   ├── testing.md
+│   │   │   ├── performance.md
+│   │   │   └── observability.md
+│   │   └── soporte/             # 🆘 Glossary, playbooks, tasks
+│   │       ├── playbooks.md
+│   │       ├── glossary.md
+│   │       └── tasks.md
+│   │
+│   ├── tracking/                # 📊 Seguimiento de progreso
+│   │   ├── hallazgos-y-mejoras.md   # 🐛 Bugs, mejoras, notas técnicas
+│   │   └── estado-documentacion.md  # Estado del progreso (80%)
+│   │
+│   ├── plantillas/              # 📋 Templates reutilizables
+│   │   ├── exploracion-modulo.md
+│   │   └── hallazgo.md
+│   │
+│   ├── meta/                    # 🔧 Metadata estructurada
+│   │   └── REPO_SUMMARY.json   # Resumen machine-readable
+│   │
+│   └── prompts/                 # 💬 Prompts para agentes IA
+│       └── repo-analyzer.prompt.md
+│
 └── scripts/                # Scripts de setup y mantenimiento
     ├── setup/              # setup_superuser.py, seed_data.py, reset_db.py
     ├── development/        # create_groups.py
@@ -97,8 +132,9 @@ monorepo_erp/
 
 **Notas importantes**:
 - ⚠️ **NO modificar `frontend/` ni `backend/` sin comprensión completa**: Estas carpetas son el CORE del proyecto. Explorar primero, documentar en `.github/`, luego modificar.
-- 📚 **Toda documentación en `.github/`**: Guías, exploraciones, instrucciones técnicas.
-- 🛠️ **Scripts en `scripts/`**: Utilidades de setup/maintenance documentadas en `SCRIPTS_UTILIDADES.md`.
+- 📚 **Toda documentación en `.github/`**: Reorganizada en 6 categorías temáticas (arquitectura, exploración, guías, instrucciones, tracking, plantillas).
+- 🛠️ **Scripts en `scripts/`**: Utilidades de setup/maintenance documentadas en `guias/scripts.md`.
+- 🔍 **Sistema de tracking**: `tracking/hallazgos-y-mejoras.md` centraliza bugs, mejoras y notas técnicas encontradas durante exploración.
 
 ---
 
@@ -132,52 +168,52 @@ monorepo_erp/
 
 ## 5. Enlaces a módulos temáticos
 
-Cada módulo está en `.github/instructions/` y sigue una estructura estándar con frontmatter YAML, objetivo, reglas clave, checklist y referencias cruzadas.
+Cada módulo está en `.github/instrucciones/` y sigue una estructura estándar con frontmatter YAML, objetivo, reglas clave, checklist y referencias cruzadas.
 
 ### 5.1. Documentos de Inicialización y Exploración
-- **[Inicialización del Sistema](./INICIALIZACION.md)**: Guía completa de setup, scripts disponibles, flujos de inicialización.
-- **[Exploración: Empresas](./EXPLORACION_EMPRESAS.md)**: Módulo 1 completado - bugs encontrados, lecciones aprendidas.
+- **[Inicialización del Sistema](./guias/inicializacion.md)**: Guía completa de setup, scripts disponibles, flujos de inicialización.
+- **[Exploración: Empresas](./exploracion/empresas.md)**: Módulo 1 completado - bugs encontrados, lecciones aprendidas.
 
 ### 5.2. Documentos de Arquitectura y Configuración
-- **[Arquitectura del Sistema](./ARQUITECTURA_SISTEMA.md)**: Visión general del monorepo, tecnologías, flujos de datos, organización de apps Django, estructura frontend, arquitectura de seguridad, decisiones técnicas.
-- **[Arquitectura Frontend](./ARQUITECTURA_FRONTEND.md)**: Estructura React detallada, 14 Redux slices, BaseService.ts, routing con roles, componentes, convenciones, patterns de hooks.
-- **[Configuración de Desarrollo](./CONFIGURACION_DESARROLLO.md)**: 18 VS Code tasks, 15+ extensiones recomendadas, configuraciones debug, workspace settings, workflows comunes, troubleshooting.
-- **[Scripts de Utilidad](./SCRIPTS_UTILIDADES.md)**: Documentación técnica de 8 scripts (setup, development, maintenance), 6 patrones comunes, 5 flujos completos, troubleshooting.
+- **[Arquitectura del Sistema](./arquitectura/sistema.md)**: Visión general del monorepo, tecnologías, flujos de datos, organización de apps Django, estructura frontend, arquitectura de seguridad, decisiones técnicas.
+- **[Arquitectura Frontend](./arquitectura/frontend.md)**: Estructura React detallada, 14 Redux slices, BaseService.ts, routing con roles, componentes, convenciones, patterns de hooks.
+- **[Configuración de Desarrollo](./guias/desarrollo.md)**: 18 VS Code tasks, 15+ extensiones recomendadas, configuraciones debug, workspace settings, workflows comunes, troubleshooting.
+- **[Scripts de Utilidad](./guias/scripts.md)**: Documentación técnica de 8 scripts (setup, development, maintenance), 6 patrones comunes, 5 flujos completos, troubleshooting.
 
 ### 5.3. Módulos técnicos por stack
-- **[Backend (Django)](./instructions/backend-instructions.md)**: modelos, serializers, vistas, Celery, Channels, JWT, permisos.
-- **[Frontend (React)](./instructions/frontend-instructions.md)**: componentes, rutas, estado (Redux), servicios HTTP, tipado.
-- **[Redux Toolkit y Thunks](./instructions/redux-thunks.md)**: gestión de estado global, operaciones asíncronas, debugging de thunks.
-- **[Estructura del Store Redux](./instructions/store-structure.md)**: índice completo de slices, cómo encontrar el slice correcto, relaciones entre slices.
-- **[Estándares de código](./instructions/standards.md)**: PEP 8, ESLint, Prettier, convenciones de nombres, estructura de carpetas.
+- **[Backend (Django)](./instrucciones/backend/general.md)**: modelos, serializers, vistas, Celery, Channels, JWT, permisos.
+- **[Frontend (React)](./instrucciones/frontend/general.md)**: componentes, rutas, estado (Redux), servicios HTTP, tipado.
+- **[Redux Toolkit y Thunks](./instrucciones/frontend/redux-thunks.md)**: gestión de estado global, operaciones asíncronas, debugging de thunks.
+- **[Estructura del Store Redux](./instrucciones/frontend/store-structure.md)**: índice completo de slices, cómo encontrar el slice correcto, relaciones entre slices.
+- **[Estándares de código](./instrucciones/procesos/standards.md)**: PEP 8, ESLint, Prettier, convenciones de nombres, estructura de carpetas.
 
 ### 5.4. Documentación detallada de Backend (Django apps)
-- **[core + cuentas](./instructions/backend/core-cuentas.md)**: BaseModel, PersonalizacionUsuario, User, InvitacionEmpresa con tokens UUID.
-- **[empresas + cotizaciones](./instructions/backend/empresas-cotizaciones.md)**: Empresa, SucursalEmpresa, UsuarioEmpresa, RelacionEmpresa, Cotizacion con multicurrency.
-- **[contratos + bodegas + items](./instructions/backend/contratos-bodegas-items.md)**: Contrato UUID, LicenciaContrato windowing, MovimientoBodega tipos, Item con PMP.
-- **[ordentrabajo + recursos + rendiciones + visitas](./instructions/backend/ordentrabajo-recursos-rendiciones-visitas.md)**: OrdenTrabajo folio+UUID, RecursoOT GenericFK, RendicionGasto, VisitaTerreno.
-- **[vacaciones + calendario + activos + retroalimentacion](./instructions/backend/vacaciones-calendario-activos-retroalimentacion.md)**: SolicitudVacaciones ley chilena, EventoCalendario recurrencia, Activo tracking, Retroalimentacion GenericFK.
+- **[core + cuentas](./instrucciones/backend/core-cuentas.md)**: BaseModel, PersonalizacionUsuario, User, InvitacionEmpresa con tokens UUID.
+- **[empresas + cotizaciones](./instrucciones/backend/empresas-cotizaciones.md)**: Empresa, SucursalEmpresa, UsuarioEmpresa, RelacionEmpresa, Cotizacion con multicurrency.
+- **[contratos + bodegas + items](./instrucciones/backend/contratos-bodegas-items.md)**: Contrato UUID, LicenciaContrato windowing, MovimientoBodega tipos, Item con PMP.
+- **[ordentrabajo + recursos + rendiciones + visitas](./instrucciones/backend/ordentrabajo-recursos-rendiciones-visitas.md)**: OrdenTrabajo folio+UUID, RecursoOT GenericFK, RendicionGasto, VisitaTerreno.
+- **[vacaciones + calendario + activos + retroalimentacion](./instrucciones/backend/vacaciones-calendario-activos-retroalimentacion.md)**: SolicitudVacaciones ley chilena, EventoCalendario recurrencia, Activo tracking, Retroalimentacion GenericFK.
 
 ### 5.5. Módulos de procesos
-- **[Seguridad](./instructions/security.md)**: manejo de secretos, CORS/CSRF, validaciones, JWT, rotación de claves.
-- **[Flujo de PR](./instructions/pr-flow.md)**: convenciones de commits, ramas, revisiones, plantillas de PR.
-- **[CI/CD](./instructions/ci-cd.md)**: pipelines, linters, tests automáticos, despliegue Docker.
+- **[Seguridad](./instrucciones/procesos/security.md)**: manejo de secretos, CORS/CSRF, validaciones, JWT, rotación de claves.
+- **[Flujo de PR](./instrucciones/procesos/pr-flow.md)**: convenciones de commits, ramas, revisiones, plantillas de PR.
+- **[CI/CD](./instrucciones/procesos/ci-cd.md)**: pipelines, linters, tests automáticos, despliegue Docker.
 
 ### 5.6. Módulos de calidad
-- **[Testing](./instructions/testing.md)**: estrategias unit/integración/e2e, cobertura, fixtures, mocks (msw).
-- **[Performance](./instructions/performance.md)**: optimización de queries (N+1), lazy-load, memoización, índices DB.
-- **[Observabilidad](./instructions/observability.md)**: logging, métricas (Prometheus), tracing, health checks.
+- **[Testing](./instrucciones/procesos/testing.md)**: estrategias unit/integración/e2e, cobertura, fixtures, mocks (msw).
+- **[Performance](./instrucciones/procesos/performance.md)**: optimización de queries (N+1), lazy-load, memoización, índices DB.
+- **[Observabilidad](./instrucciones/procesos/observability.md)**: logging, métricas (Prometheus), tracing, health checks.
 
 ### 5.7. Módulos de soporte
-- **[Playbooks](./instructions/playbooks.md)**: onboarding, manejo de incidentes, rollback, troubleshooting común.
-- **[Glosario](./instructions/glossary.md)**: términos de negocio (ERP, bodega, contrato, OT) y técnicos (JWT, thunk, serializer).
-- **[Tasks Instructions](./instructions/tasks.instructions.md)**: Tareas de VS Code, cómo ejecutar servicios.
+- **[Playbooks](./instrucciones/soporte/playbooks.md)**: onboarding, manejo de incidentes, rollback, troubleshooting común.
+- **[Glosario](./instrucciones/soporte/glossary.md)**: términos de negocio (ERP, bodega, contrato, OT) y técnicos (JWT, thunk, serializer).
+- **[Tasks Instructions](./instrucciones/soporte/tasks.md)**: Tareas de VS Code, cómo ejecutar servicios.
 
 ---
 
 ## 6. Plantilla estándar de un módulo
 
-Cada archivo en `.github/instructions/` debe seguir esta estructura:
+Cada archivo en `.github/instrucciones/` debe seguir esta estructura:
 
 ```markdown
 ---
@@ -217,12 +253,12 @@ Descripción breve del propósito de este módulo y a quién va dirigido (desarr
 
 ### Crear un nuevo módulo
 ```
-Crea un módulo de instrucciones en `.github/instructions/<nombre>.md` siguiendo la plantilla estándar. Incluye: frontmatter YAML, objetivo, 5-7 reglas clave con ejemplos, checklist y referencias cruzadas a otros módulos.
+Crea un módulo de instrucciones en `.github/instrucciones/<nombre>.md` siguiendo la plantilla estándar. Incluye: frontmatter YAML, objetivo, 5-7 reglas clave con ejemplos, checklist y referencias cruzadas a otros módulos.
 ```
 
 ### Actualizar un módulo existente
 ```
-Actualiza `.github/instructions/<nombre>.md` con las nuevas reglas sobre <tema>. Mantén la estructura, añade ejemplos de código y actualiza `last_updated`.
+Actualiza `.github/instrucciones/<nombre>.md` con las nuevas reglas sobre <tema>. Mantén la estructura, añade ejemplos de código y actualiza `last_updated`.
 ```
 
 ### Generar checklist de PR
@@ -232,7 +268,7 @@ Genera un checklist de PR basado en las instrucciones de `pr-flow.md`, `testing.
 
 ### Validar cumplimiento de estándares
 ```
-Revisa el archivo <ruta> según `standards.md` y `backend-instructions.md`. Reporta violaciones de PEP 8, falta de tipado, docstrings faltantes, y propón correcciones.
+Revisa el archivo <ruta> según `standards.md` y `backend/general.md`. Reporta violaciones de PEP 8, falta de tipado, docstrings faltantes, y propón correcciones.
 ```
 
 ---
@@ -273,7 +309,7 @@ Revisa el archivo <ruta> según `standards.md` y `backend-instructions.md`. Repo
 ### 10.2. Autenticación y permisos
 - JWT con `access` (5h) y `refresh` (10h) tokens (configurables en `settings.py`).
 - Por defecto: `IsAuthenticated` en todas las vistas; `AllowAny` debe justificarse.
-- Ver [security.md](./instructions/security.md) y [backend-instructions.md](./instructions/backend-instructions.md) para detalles.
+- Ver [security.md](./instrucciones/procesos/security.md) y [backend/general.md](./instrucciones/backend/general.md) para detalles.
 
 ### 10.3. Tareas asíncronas
 - Celery con `@shared_task`; programación con `django-celery-beat`.
@@ -337,7 +373,7 @@ backend\ENV\Scripts\python.exe scripts\setup\reset_db.py
 
 - **Mantén la coherencia**: al crear nuevos módulos, actualiza los enlaces en este archivo raíz y valida referencias cruzadas.
 
-- **Evolución continua**: este sistema de instrucciones debe actualizarse conforme el proyecto crece. Propón cambios mediante PR siguiendo [pr-flow.md](./instructions/pr-flow.md).
+- **Evolución continua**: este sistema de instrucciones debe actualizarse conforme el proyecto crece. Propón cambios mediante PR siguiendo [pr-flow.md](./instrucciones/procesos/pr-flow.md).
 
 ---
 

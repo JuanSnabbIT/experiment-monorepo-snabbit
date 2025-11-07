@@ -18,14 +18,17 @@ from core.models import PersonalizacionUsuario
 
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 User = get_user_model()
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+
 
 # async def get_grupos_user(request):
 #     jwt_authenticator = JWTAuthentication()
@@ -47,6 +50,7 @@ class UserViewSet(viewsets.ModelViewSet):
 #     }
 #     return JsonResponse(response_data)
 
+
 async def get_grupos_user(request):
     jwt_authenticator = JWTAuthentication()
     try:
@@ -55,40 +59,49 @@ async def get_grupos_user(request):
         validated_token = jwt_authenticator.get_validated_token(raw_token)
         user = await sync_to_async(jwt_authenticator.get_user)(validated_token)
     except (InvalidToken, TokenError) as e:
-        return JsonResponse({'error': str(e)}, status=401)
+        return JsonResponse({"error": str(e)}, status=401)
 
     if not user or not user.is_active:
-        return JsonResponse({'error': 'Usuario no autenticado o inactivo'}, status=401)
+        return JsonResponse({"error": "Usuario no autenticado o inactivo"}, status=401)
 
     # Envuelves también la obtención de los grupos en sync_to_async:
     grupos_usuario_empresa = await sync_to_async(
         lambda: list(
             UsuarioEmpresa.objects.filter(usuario=user)
-            .values_list('grupos__name', flat=True)
+            .values_list("grupos__name", flat=True)
             .distinct()
         )
     )()
 
     response_data = {
-        'grupos': grupos_usuario_empresa,
+        "grupos": grupos_usuario_empresa,
     }
     return JsonResponse(response_data)
 
+
 class InvitacionEmpresaFilter(filters.FilterSet):
-    estado = filters.CharFilter(method='filter_by_estado')
+    estado = filters.CharFilter(method="filter_by_estado")
 
     class Meta:
         model = InvitacionEmpresa
-        fields = ['estado']
+        fields = ["estado"]
 
     def filter_by_estado(self, queryset, name, value):
-        if value == 'aceptada':
+        if value == "aceptada":
             return queryset.filter(is_accepted=True)
-        elif value == 'pendiente':
-            return queryset.filter(is_accepted=False, is_denied=False, expiration_date__gte=timezone.now(), expiration_date__isnull=False).exclude(pk__in=[inv.pk for inv in queryset if inv.is_expired()])
-        elif value == 'expirada':
-            return queryset.filter(expiration_date__lt=timezone.now()) | queryset.filter(pk__in=[inv.pk for inv in queryset if inv.is_expired()])
+        elif value == "pendiente":
+            return queryset.filter(
+                is_accepted=False,
+                is_denied=False,
+                expiration_date__gte=timezone.now(),
+                expiration_date__isnull=False,
+            ).exclude(pk__in=[inv.pk for inv in queryset if inv.is_expired()])
+        elif value == "expirada":
+            return queryset.filter(
+                expiration_date__lt=timezone.now()
+            ) | queryset.filter(pk__in=[inv.pk for inv in queryset if inv.is_expired()])
         return queryset
+
 
 class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
     queryset = InvitacionEmpresa.objects.all()
@@ -97,18 +110,24 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
     filterset_class = InvitacionEmpresaFilter
 
     def create(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        first_name = request.data.get('first_name')
-        last_name = request.data.get('last_name')
-        sucursal_id = request.data.get('sucursal')
+        email = request.data.get("email")
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+        sucursal_id = request.data.get("sucursal")
 
         if not all([email, first_name, last_name, sucursal_id]):
-            return Response({'detail': 'Email, nombre, apellido y sucursal son requeridos.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Email, nombre, apellido y sucursal son requeridos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Verificar si el usuario ya existe
         user_exists = User.objects.filter(email=email).exists()
         if user_exists:
-            return Response({'detail': 'El usuario con este email ya existe.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "El usuario con este email ya existe."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Crear la invitación
         serializer = self.get_serializer(data=request.data)
@@ -121,7 +140,7 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
             email=email,
             first_name=first_name,
             last_name=last_name,
-            is_active=False  # El usuario estará inactivo hasta que active su cuenta
+            is_active=False,  # El usuario estará inactivo hasta que active su cuenta
         )
 
         if SucursalEmpresa.objects.filter(pk=sucursal_id).exists():
@@ -135,14 +154,16 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
 
         email_subject = "Aceptar Invitacion a Empresa"
         activation_link = f"{os.getenv('FRONTEND_URL')}/aceptar-invitacion/{invitacion.activation_token}/"
-        html_body = f'''
+        html_body = f"""
             <p>Fuiste invitado a unirte a {sucursal}.</p>
             <p>Por favor acepte esta invitación.</p>
-        '''
-        titulo="Invitación Empresa"
-        text_boton="Aceptar Invitación"
+        """
+        titulo = "Invitación Empresa"
+        text_boton = "Aceptar Invitación"
 
-        send_email_task(email_subject, [email], html_body, titulo, activation_link, text_boton, [])
+        send_email_task(
+            email_subject, [email], html_body, titulo, activation_link, text_boton, []
+        )
 
         # Enviar correo electrónico con el enlace de activación
         # send_mail(
@@ -154,18 +175,21 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
         # )
 
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def get_queryset(self):
-        # Obtener la personalización del usuario autenticado
-        personalizacion_usuario = PersonalizacionUsuario.objects.filter(usuario=self.request.user).first()
+        # # Obtener la personalización del usuario autenticado
+        # personalizacion_usuario = PersonalizacionUsuario.objects.filter(usuario=self.request.user).first()
 
-        if personalizacion_usuario and personalizacion_usuario.sucursal_principal:
-            # Filtrar las invitaciones por la sucursal principal del usuario
-            return InvitacionEmpresa.objects.filter(sucursal=personalizacion_usuario.sucursal_principal)
+        # if personalizacion_usuario and personalizacion_usuario.sucursal_principal:
+        #     # Filtrar las invitaciones por la sucursal principal del usuario
+        #     return InvitacionEmpresa.objects.filter(sucursal=personalizacion_usuario.sucursal_principal)
 
-        # Si no tiene una sucursal principal, devolver un queryset vacío
-        return InvitacionEmpresa.objects.none()
+        # # Si no tiene una sucursal principal, devolver un queryset vacío
+        # return InvitacionEmpresa.objects.none()
+        return InvitacionEmpresa.objects.all()
 
     def perform_destroy(self, instance):
         # Eliminar la invitación
@@ -176,7 +200,7 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
         if user:
             user.delete()
 
-    @action(detail=True, methods=['post'], url_path='reenviar-invitacion')
+    @action(detail=True, methods=["post"], url_path="reenviar-invitacion")
     def reenviar_invitacion(self, request, pk=None):
         """Reenviar una invitación por correo electrónico."""
         invitacion = self.get_object()
@@ -189,10 +213,10 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
         # Preparar y enviar el correo electrónico
         email_subject = "Reenviar Invitación a Empresa"
         activation_link = f"{os.getenv('FRONTEND_URL')}/aceptar-invitacion/{invitacion.activation_token}/"
-        html_body = f'''
+        html_body = f"""
             <p>Has recibido nuevamente la invitación para unirte a {invitacion.sucursal}.</p>
             <p>Por favor, acepte esta invitación antes del {invitacion.expiration_date.strftime('%d/%m/%Y')}.</p>
-        '''
+        """
         titulo = "Invitación Empresa"
         text_boton = "Aceptar Invitación"
 
@@ -203,27 +227,34 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
             titulo,
             activation_link,
             text_boton,
-            []
+            [],
         )
 
         return Response(
             {"detail": "La invitación ha sido reenviada exitosamente."},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([AllowAny])
 def activate_account(request, token):
     try:
         invitacion = InvitacionEmpresa.objects.get(activation_token=token)
         if invitacion.is_expired():
-            return Response({'detail': 'La invitación ha expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "La invitación ha expirado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user = User.objects.get(email=invitacion.email)
-        password = request.data.get('password')
+        password = request.data.get("password")
 
         if not password:
-            return Response({'detail': 'La contraseña es requerida.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "La contraseña es requerida."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user.set_password(password)
         user.is_active = True
@@ -233,13 +264,21 @@ def activate_account(request, token):
         invitacion.is_accepted = True
         invitacion.accepted_at = timezone.now()
         invitacion.save()
-        
-        personalizacion, created = PersonalizacionUsuario.objects.get_or_create(usuario=user)
+
+        personalizacion, created = PersonalizacionUsuario.objects.get_or_create(
+            usuario=user
+        )
         personalizacion.sucursal_principal = invitacion.sucursal
         personalizacion.save()
 
-        return Response({'detail': 'Cuenta activada con éxito.'}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Cuenta activada con éxito."}, status=status.HTTP_200_OK
+        )
     except InvitacionEmpresa.DoesNotExist:
-        return Response({'detail': 'Token inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Token inválido."}, status=status.HTTP_400_BAD_REQUEST
+        )
     except User.DoesNotExist:
-        return Response({'detail': 'Usuario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Usuario no encontrado."}, status=status.HTTP_404_NOT_FOUND
+        )

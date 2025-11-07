@@ -1,0 +1,448 @@
+{
+  "repo_type": "monorepo",
+  "generated_at": "2025-11-07T00:00:00Z",
+  "version": "1.0.0",
+  "description": "Sistema ERP completo con backend Django + frontend React para gestión de empresas, contratos, órdenes de trabajo, bodegas e inventario",
+  
+  "areas": [
+    "backend",
+    "frontend",
+    "scripts",
+    "documentation"
+  ],
+  
+  "backend": {
+    "framework": "Django 5.1",
+    "language": "Python 3.11+",
+    "architecture": "REST API + ASGI (tiempo real)",
+    "apps": [
+      {
+        "name": "core",
+        "purpose": "Modelos base, tareas comunes, NDA",
+        "models": 6,
+        "key_features": ["ModeloBase", "ModeloBaseHistorico", "PersonalizacionUsuario", "AcuerdoConfidencialidad"]
+      },
+      {
+        "name": "cuentas",
+        "purpose": "Autenticación y gestión de usuarios",
+        "models": 2,
+        "key_features": ["User custom", "InvitacionEmpresa con UUID"]
+      },
+      {
+        "name": "empresas",
+        "purpose": "Gestión de empresas multi-tenant",
+        "models": 4,
+        "key_features": ["Empresa", "SucursalEmpresa", "UsuarioEmpresa", "RelacionEmpresa"]
+      },
+      {
+        "name": "cotizaciones",
+        "purpose": "Cotizaciones y conversión a contratos",
+        "models": 9,
+        "key_features": ["Cotizacion multi-currency", "ItemCotizacion con IVA/PPM", "EstadoCotizacion workflow"]
+      },
+      {
+        "name": "contratos",
+        "purpose": "Contratos con clientes y licenciamiento",
+        "models": 15,
+        "key_features": ["ContratoEmpresaCliente UUID", "ContratoLicencia windowing", "ParametroContrato dinámico"]
+      },
+      {
+        "name": "bodegas",
+        "purpose": "Gestión de inventario y movimientos",
+        "models": 11,
+        "key_features": ["Bodega multi-empresa", "MovimientoBodega tipos", "TomaInventario con fotos", "PMP calculation"]
+      },
+      {
+        "name": "items",
+        "purpose": "Catálogo de productos/servicios",
+        "models": 7,
+        "key_features": ["ItemEmpresa tipos", "ProveedorEmpresa", "CampoAdicionalProveedor"]
+      },
+      {
+        "name": "ordentrabajo",
+        "purpose": "Órdenes de trabajo y seguimiento",
+        "models": 8,
+        "key_features": ["OrdenDeTrabajo folio+UUID", "DetalleTrabajo GenericFK", "UsuarioAsignadoOT XOR", "Estados workflow"]
+      },
+      {
+        "name": "recursos",
+        "purpose": "Equipos, software y recursos técnicos",
+        "models": 7,
+        "key_features": ["Equipo con numero_serie unique", "Software GenericFK", "UsuarioEquipo tracking"]
+      },
+      {
+        "name": "rendiciones",
+        "purpose": "Rendiciones de gastos",
+        "models": 4,
+        "key_features": ["Rendicion con categorías", "ItemRendicion GenericFK", "total_rendicion property"]
+      },
+      {
+        "name": "visitas",
+        "purpose": "Visitas técnicas y entregas",
+        "models": 3,
+        "key_features": ["VisitaSoporte", "AsistenciaUsuario", "EntregaDeEquipo con firma"]
+      },
+      {
+        "name": "vacaciones",
+        "purpose": "Solicitudes de vacaciones (ley chilena)",
+        "models": 1,
+        "key_features": ["SolicitudVacaciones", "calcular_dias_solicitados", "validación días hábiles"]
+      },
+      {
+        "name": "calendario",
+        "purpose": "Gestión de eventos y feriados",
+        "models": 1,
+        "key_features": ["DiaCalendario", "es_feriado", "es_irrenunciable"]
+      },
+      {
+        "name": "activos",
+        "purpose": "Gestión de activos fijos",
+        "models": 3,
+        "key_features": ["Activo tracking", "DocumentoActivo", "ImagenActivo"]
+      },
+      {
+        "name": "bd_ciudades",
+        "purpose": "Catálogo de regiones/provincias/comunas Chile",
+        "models": 3,
+        "key_features": ["Region", "Provincia", "Comuna (managed=False)"]
+      },
+      {
+        "name": "retroalimentacion",
+        "purpose": "Feedback de servicios",
+        "models": 3,
+        "key_features": ["Retroalimentacion UUID GenericFK", "generar_preguntas_aplicables", "LogDeAcceso"]
+      }
+    ],
+    "total_models": 95,
+    "patterns": {
+      "generic_fk": 6,
+      "xor_constraint": 2,
+      "soft_delete": 0,
+      "uuid_pk": 3,
+      "signals": 6,
+      "celery_tasks": "multiple"
+    }
+  },
+  
+  "frontend": {
+    "framework": "Vite + React 18",
+    "language": "TypeScript",
+    "styling": "TailwindCSS",
+    "state_management": "Redux Toolkit",
+    "slices": [
+      {
+        "name": "authSlice",
+        "purpose": "Autenticación JWT y usuario actual",
+        "key_actions": ["login", "logout", "refreshToken"]
+      },
+      {
+        "name": "empresasSlice",
+        "purpose": "Gestión de empresas",
+        "key_actions": ["fetchEmpresas", "createEmpresa", "updateEmpresa"]
+      },
+      {
+        "name": "sucursalesSlice",
+        "purpose": "Sucursales de empresas",
+        "key_actions": ["fetchSucursales", "createSucursal"]
+      },
+      {
+        "name": "usuariosEmpresaSlice",
+        "purpose": "Usuarios vinculados a empresas",
+        "key_actions": ["fetchUsuariosEmpresa", "inviteUser"]
+      },
+      {
+        "name": "cotizacionesSlice",
+        "purpose": "Cotizaciones y conversión",
+        "key_actions": ["fetchCotizaciones", "createCotizacion", "convertToContract"]
+      },
+      {
+        "name": "contratosSlice",
+        "purpose": "Contratos con clientes",
+        "key_actions": ["fetchContratos", "createContrato", "activateContract"]
+      },
+      {
+        "name": "bodegasSlice",
+        "purpose": "Bodegas e inventario",
+        "key_actions": ["fetchBodegas", "fetchStock", "createMovimiento"]
+      },
+      {
+        "name": "itemsSlice",
+        "purpose": "Catálogo de items",
+        "key_actions": ["fetchItems", "createItem", "updateItem"]
+      },
+      {
+        "name": "ordenTrabajoSlice",
+        "purpose": "Órdenes de trabajo",
+        "key_actions": ["fetchOrdenes", "createOrden", "updateEstado"]
+      },
+      {
+        "name": "recursosSlice",
+        "purpose": "Equipos y software",
+        "key_actions": ["fetchEquipos", "createEquipo", "assignEquipo"]
+      },
+      {
+        "name": "rendicionesSlice",
+        "purpose": "Rendiciones de gastos",
+        "key_actions": ["fetchRendiciones", "createRendicion", "approveRendicion"]
+      },
+      {
+        "name": "visitasSlice",
+        "purpose": "Visitas técnicas",
+        "key_actions": ["fetchVisitas", "createVisita", "completeVisita"]
+      },
+      {
+        "name": "calendarioSlice",
+        "purpose": "Eventos y calendario",
+        "key_actions": ["fetchEventos", "createEvento"]
+      },
+      {
+        "name": "retroalimentacionSlice",
+        "purpose": "Feedback de servicios",
+        "key_actions": ["fetchRetroalimentaciones", "submitFeedback"]
+      }
+    ],
+    "total_slices": 14,
+    "routing": "React Router v6 con protección de rutas por roles",
+    "http_service": "BaseService.ts con interceptores JWT"
+  },
+  
+  "scripts": {
+    "setup": [
+      {
+        "name": "setup_superuser.py",
+        "purpose": "Crear superusuario + empresa + personalización",
+        "idempotent": true
+      },
+      {
+        "name": "seed_data.py",
+        "purpose": "Seed datos iniciales desde Excel",
+        "idempotent": false
+      },
+      {
+        "name": "reset_db.py",
+        "purpose": "Resetear BD (flush + migraciones)",
+        "idempotent": true
+      }
+    ],
+    "development": [
+      {
+        "name": "create_groups.py",
+        "purpose": "Crear grupos y permisos desde Excel",
+        "idempotent": true
+      },
+      {
+        "name": "check_personalizacion.py",
+        "purpose": "Diagnosticar permisos de usuario",
+        "idempotent": true
+      },
+      {
+        "name": "list_endpoints.py",
+        "purpose": "Listar todos los endpoints de API",
+        "idempotent": true
+      },
+      {
+        "name": "reset_local_data.py",
+        "purpose": "Wrapper de reset_db.py",
+        "idempotent": true
+      }
+    ],
+    "maintenance": [
+      {
+        "name": "backup_db.py",
+        "purpose": "Backup de SQLite con timestamp",
+        "idempotent": false
+      }
+    ]
+  },
+  
+  "build": {
+    "backend": {
+      "install": "pip install -r req.txt",
+      "migrate": "python manage.py migrate",
+      "run_dev": "python manage.py runserver",
+      "run_asgi": "daphne -b 0.0.0.0 -p 8000 sw_erp.asgi:application",
+      "test": "python manage.py test",
+      "celery_worker": "celery -A sw_erp worker --loglevel=info",
+      "celery_beat": "celery -A sw_erp beat --loglevel=info"
+    },
+    "frontend": {
+      "install": "npm install",
+      "dev": "npm run dev",
+      "build": "npm run build",
+      "test": "npm run test",
+      "lint": "npm run lint"
+    }
+  },
+  
+  "test": {
+    "backend": {
+      "framework": "Django TestCase",
+      "coverage": "Unknown (no configurado explícitamente)",
+      "run": "python manage.py test"
+    },
+    "frontend": {
+      "framework": "Vitest + React Testing Library",
+      "mocking": "msw (Mock Service Worker)",
+      "run": "npm run test"
+    }
+  },
+  
+  "workflows": [
+    "CI/CD (propuesto, no configurado)",
+    "Linting (backend: flake8, frontend: ESLint + Prettier)",
+    "Testing (manual en desarrollo)"
+  ],
+  
+  "docs": {
+    "index": ".github/INDICE_MAESTRO.md",
+    "architecture": [
+      ".github/arquitectura/sistema.md",
+      ".github/arquitectura/frontend.md",
+      ".github/arquitectura/base-de-datos.md",
+      ".github/arquitectura/modelo-negocio.md"
+    ],
+    "guides": [
+      ".github/guias/inicializacion.md",
+      ".github/guias/desarrollo.md",
+      ".github/guias/exploracion-sistema.md",
+      ".github/guias/scripts.md"
+    ],
+    "explorations": [
+      ".github/exploracion/empresas.md",
+      ".github/exploracion/contratos.md"
+    ],
+    "instructions": {
+      "backend": ".github/instrucciones/backend/",
+      "frontend": ".github/instrucciones/frontend/",
+      "processes": ".github/instrucciones/procesos/",
+      "support": ".github/instrucciones/soporte/"
+    },
+    "tracking": [
+      ".github/tracking/hallazgos-y-mejoras.md",
+      ".github/tracking/estado-documentacion.md"
+    ],
+    "total_lines": 28100,
+    "total_files": 25
+  },
+  
+  "quality": {
+    "duplicates": [
+      {
+        "issue": "Validaciones de negocio dispersas",
+        "locations": ["serializers", "models.clean()", "signals"],
+        "severity": "P1",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#MEJ-002"
+      },
+      {
+        "issue": "Documentación de SerializerMethodField incompleta",
+        "locations": ["Múltiples serializers"],
+        "severity": "P2",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#INC-002"
+      }
+    ],
+    "gaps": [
+      {
+        "gap": "Soft delete no implementado",
+        "impact": "Sin auditoría de eliminaciones",
+        "severity": "P1",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#MEJ-001"
+      },
+      {
+        "gap": "Índices de BD faltantes",
+        "impact": "Performance degradado en queries frecuentes",
+        "severity": "P2",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#MEJ-003"
+      },
+      {
+        "gap": "TypeScript typing incompleto (uso de 'any')",
+        "impact": "Pérdida de type safety",
+        "severity": "P3",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#MEJ-004"
+      }
+    ],
+    "warnings": [
+      {
+        "warning": "Dashboard sin empresa asignada causa crash",
+        "severity": "P0",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#BUG-001"
+      },
+      {
+        "warning": "Lista de invitaciones siempre vacía",
+        "severity": "P0",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#BUG-002"
+      },
+      {
+        "warning": "Permisos de grupo no se aplican automáticamente",
+        "severity": "P1",
+        "registered_in": ".github/tracking/hallazgos-y-mejoras.md#BUG-003"
+      }
+    ],
+    "documentation_coverage": "80%",
+    "code_standards": {
+      "backend": "PEP 8 (mayormente seguido)",
+      "frontend": "ESLint + Prettier (configurado)",
+      "naming": "Mix español (modelos) / inglés (métodos) - documentado"
+    }
+  },
+  
+  "security": {
+    "authentication": "JWT (SimpleJWT) con access + refresh tokens",
+    "authorization": "Django permissions + grupos",
+    "secrets_management": "Variables de entorno (.env)",
+    "cors": "Configurado en settings.py",
+    "csrf": "Django CSRF protection habilitado",
+    "https": "Recomendado para producción (no forzado en dev)"
+  },
+  
+  "performance": {
+    "database": "SQLite (dev), PostgreSQL recomendado (prod)",
+    "caching": "No implementado explícitamente",
+    "n_plus_1": "Identificado en serializers anidados (ver MEJ-003)",
+    "indexes": "Faltan en queries frecuentes (ver MEJ-003)",
+    "frontend_optimization": "Code splitting propuesto, no implementado"
+  },
+  
+  "deployment": {
+    "docker": "Dockerfiles presentes (backend + frontend)",
+    "infrastructure": "No documentado",
+    "ci_cd": "Propuesto en .github/instrucciones/procesos/ci-cd.md (no implementado)",
+    "monitoring": "Propuesto en .github/instrucciones/procesos/observability.md (no implementado)"
+  },
+  
+  "exploration_progress": {
+    "completed_modules": [
+      "Empresas (100%)",
+      "Core y Cuentas (100%)",
+      "Backend apps (100% documentación)"
+    ],
+    "in_progress_modules": [
+      "Orden de Trabajo (60% exploración práctica)"
+    ],
+    "pending_modules": [
+      "Cotizaciones (exploración práctica)",
+      "Bodegas (exploración práctica completa)",
+      "Contratos (flujo completo end-to-end)",
+      "Rendiciones y Visitas"
+    ]
+  },
+  
+  "next_steps": [
+    "Completar exploración práctica de Orden de Trabajo",
+    "Implementar correcciones de bugs P0 (BUG-001, BUG-002)",
+    "Ejecutar reorganización de documentación (PLAN_REORGANIZACION.md)",
+    "Crear ADRs para decisiones arquitectónicas clave",
+    "Implementar soft delete (MEJ-001) en modelos críticos",
+    "Agregar índices de BD (MEJ-003) para queries frecuentes"
+  ],
+  
+  "metadata": {
+    "repository": "monorepo_erp",
+    "owner": "Fabian",
+    "created_at": "Unknown",
+    "last_major_update": "2025-11-07",
+    "primary_language": "Python + TypeScript",
+    "license": "Unknown",
+    "team_size": "1 (Fabian - exploración inicial)",
+    "status": "Active development - exploration phase"
+  }
+}

@@ -23,20 +23,23 @@ Uso:
 """
 import os
 import sys
+
 import django
 
 # Agregar path del backend al PYTHONPATH
-backend_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(backend_path, 'backend'))
+backend_path = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+sys.path.insert(0, os.path.join(backend_path, "backend"))
 
 # Configurar Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sw_erp.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sw_erp.settings")
 django.setup()
 
+from core.models import PersonalizacionUsuario
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
-from core.models import PersonalizacionUsuario
 
 User = get_user_model()
 
@@ -44,13 +47,13 @@ User = get_user_model()
 def crear_grupos():
     """Crea los grupos necesarios para el sistema."""
     grupos = [
-        ('staff', 'Personal administrativo general'),
-        ('superadmin', 'Administrador con permisos máximos'),
-        ('multi-empresas', 'Acceso a múltiples empresas'),
-        ('tecnico', 'Técnico de campo para OT y visitas'),
-        ('representante_legal', 'Representante legal de empresa'),
+        ("staff", "Personal administrativo general"),
+        ("superadmin", "Administrador con permisos máximos"),
+        ("multi-empresas", "Acceso a múltiples empresas"),
+        ("tecnico", "Técnico de campo para OT y visitas"),
+        ("representante_legal", "Representante legal de empresa"),
     ]
-    
+
     grupos_creados = []
     for nombre_grupo, descripcion in grupos:
         grupo, created = Group.objects.get_or_create(name=nombre_grupo)
@@ -59,20 +62,20 @@ def crear_grupos():
             print(f"✓ Grupo '{nombre_grupo}' creado")
         else:
             print(f"  Grupo '{nombre_grupo}' ya existe")
-    
+
     return grupos_creados
 
 
 def crear_empresa_inicial():
     """Crea la empresa base y asegura la sucursal "Casa Matriz"."""
     empresa, created = Empresa.objects.get_or_create(
-        rut_empresa='11111111-1',
+        rut_empresa="11111111-1",
         defaults={
-            'nombre': 'Snabbit',
-            'direccion_principal': 'Dirección Principal 123',
-            'telefono': '+56912345678',
-            'email': 'contacto@snabbit.cl',
-        }
+            "nombre": "Snabbit",
+            "direccion_principal": "Dirección Principal 123",
+            "telefono": "+56912345678",
+            "email": "contacto@snabbit.cl",
+        },
     )
 
     if created:
@@ -80,13 +83,13 @@ def crear_empresa_inicial():
     else:
         print(f"  Empresa '{empresa.nombre}' ya existe (RUT: {empresa.rut_empresa})")
 
-    sucursal = empresa.sucursales.filter(nombre='Casa Matriz').first()
+    sucursal = empresa.sucursales.filter(nombre="Casa Matriz").first()
     if sucursal:
         print(f"  Sucursal '{sucursal.nombre}' ya existe")
     else:
         sucursal = SucursalEmpresa.objects.create(
             empresa=empresa,
-            nombre='Casa Matriz',
+            nombre="Casa Matriz",
             direccion=empresa.direccion_principal,
         )
         print(f"✓ Sucursal '{sucursal.nombre}' creada (fallback)")
@@ -99,9 +102,9 @@ def configurar_usuario_empresa(user, sucursal, grupos):
     usuario_empresa, created = UsuarioEmpresa.objects.get_or_create(
         usuario=user,
         defaults={
-            'sucursal': sucursal,
-            'estado': '1',
-        }
+            "sucursal": sucursal,
+            "estado": "1",
+        },
     )
 
     if created:
@@ -111,8 +114,8 @@ def configurar_usuario_empresa(user, sucursal, grupos):
         if usuario_empresa.sucursal_id != sucursal.id:
             usuario_empresa.sucursal = sucursal
             actualizado = True
-        if usuario_empresa.estado != '1':
-            usuario_empresa.estado = '1'
+        if usuario_empresa.estado != "1":
+            usuario_empresa.estado = "1"
             actualizado = True
 
         if actualizado:
@@ -121,7 +124,9 @@ def configurar_usuario_empresa(user, sucursal, grupos):
         else:
             print(f"  UsuarioEmpresa ya existe para '{user.email}'")
 
-    grupos_admin = [g for g in grupos if g.name in ['staff', 'superadmin', 'multi-empresas']]
+    grupos_admin = [
+        g for g in grupos if g.name in ["staff", "superadmin", "multi-empresas"]
+    ]
     usuario_empresa.grupos.set(grupos_admin)
     print(f"✓ Grupos asignados: {', '.join([g.name for g in grupos_admin])}")
 
@@ -133,10 +138,10 @@ def configurar_personalizacion(user, sucursal):
     personalizacion, created = PersonalizacionUsuario.objects.get_or_create(
         usuario=user,
         defaults={
-            'tema': '3',  # Sistema
-            'font_size': 14,
-            'sucursal_principal': sucursal,
-        }
+            "tema": "3",  # Sistema
+            "font_size": 14,
+            "sucursal_principal": sucursal,
+        },
     )
 
     if created:
@@ -156,50 +161,138 @@ def configurar_personalizacion(user, sucursal):
     return personalizacion
 
 
+def crear_superusuario_interactivo():
+    """Crea un superusuario de forma interactiva si no existe."""
+    print("=" * 60)
+    print("CREACIÓN DE SUPERUSUARIO")
+    print("=" * 60)
+    print()
+    print("Por favor, ingresa los datos del superusuario:")
+    print()
+
+    import getpass
+
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    while True:
+        email = input("Email: ").strip()
+        if not email:
+            print("❌ El email es obligatorio.")
+            continue
+
+        try:
+            validate_email(email)
+            if User.objects.filter(email=email).exists():
+                print(f"❌ Ya existe un usuario con el email '{email}'.")
+                continue
+            break
+        except ValidationError:
+            print("❌ Email inválido. Intenta nuevamente.")
+
+    while True:
+        rut = input("RUT (formato: 12345678-9): ").strip()
+        if not rut:
+            print("❌ El RUT es obligatorio.")
+            continue
+
+        if User.objects.filter(rut=rut).exists():
+            print(f"❌ Ya existe un usuario con el RUT '{rut}'.")
+            continue
+        break
+
+    first_name = input("Nombre: ").strip()
+    if not first_name:
+        first_name = "Admin"
+
+    last_name = input("Apellido: ").strip()
+    if not last_name:
+        last_name = "Sistema"
+
+    while True:
+        password = getpass.getpass("Contraseña (mínimo 8 caracteres): ")
+        if len(password) < 8:
+            print("❌ La contraseña debe tener al menos 8 caracteres.")
+            continue
+
+        password_confirm = getpass.getpass("Confirma contraseña: ")
+        if password != password_confirm:
+            print("❌ Las contraseñas no coinciden.")
+            continue
+        break
+
+    try:
+        user = User.objects.create_superuser(
+            email=email,
+            rut=rut,
+            first_name=first_name,
+            last_name=last_name,
+            password=password,
+        )
+        print()
+        print(f"✅ Superusuario '{user.email}' creado exitosamente")
+        print()
+        return user
+    except Exception as e:
+        print(f"❌ Error al crear superusuario: {e}")
+        return None
+
+
 def main():
     print("=" * 60)
     print("Configuración de Superusuario con Empresa")
     print("=" * 60)
     print()
-    
-    # 1. Buscar superusuario
+
+    # 1. Buscar o crear superusuario
     try:
         superuser = User.objects.filter(is_superuser=True).first()
         if not superuser:
-            print("❌ No se encontró ningún superusuario.")
+            print("⚠️  No se encontró ningún superusuario en el sistema.")
             print()
-            print("   Ejecuta primero:")
-            print("   cd backend")
-            print("   backend\\ENV\\Scripts\\python.exe manage.py createsuperuser")
+            respuesta = input("¿Deseas crear uno ahora? (s/n): ").strip().lower()
             print()
-            return
-        
-        print(f"✓ Superusuario encontrado: {superuser.email}")
-        print()
+
+            if respuesta in ["s", "si", "yes", "y"]:
+                superuser = crear_superusuario_interactivo()
+                if not superuser:
+                    print("❌ No se pudo crear el superusuario. Abortando.")
+                    return
+            else:
+                print("❌ Configuración cancelada.")
+                print()
+                print("   Para crear un superusuario manualmente:")
+                print("   cd backend")
+                print("   backend\\ENV\\Scripts\\python.exe manage.py createsuperuser")
+                print()
+                return
+        else:
+            print(f"✓ Superusuario encontrado: {superuser.email}")
+            print()
     except Exception as e:
         print(f"❌ Error al buscar superusuario: {e}")
         return
-    
+
     # 2. Crear grupos
     print("--- Creando grupos de permisos ---")
     grupos = crear_grupos()
     print()
-    
+
     # 3. Crear empresa y sucursal
     print("--- Creando empresa inicial ---")
     empresa, sucursal = crear_empresa_inicial()
     print()
-    
+
     # 4. Configurar UsuarioEmpresa
     print("--- Configurando UsuarioEmpresa ---")
     usuario_empresa = configurar_usuario_empresa(superuser, sucursal, grupos)
     print()
-    
+
     # 5. Configurar Personalización
     print("--- Configurando Personalización ---")
     personalizacion = configurar_personalizacion(superuser, sucursal)
     print()
-    
+
     print("=" * 60)
     print("✓ Configuración completada exitosamente")
     print("=" * 60)
@@ -213,5 +306,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

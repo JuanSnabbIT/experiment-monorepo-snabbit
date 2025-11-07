@@ -1,0 +1,63 @@
+# .copilotignore - Excluir archivos/carpetas del contexto de GitHub Copilot
+# Esto ayuda a enfocar el contexto en código relevante y documentación útil
+
+# Entornos virtuales y dependencias
+backend/ENV/**
+**/node_modules/**
+**/venv/**
+**/.venv/**
+
+# Archivos compilados y cache
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/**
+**/dist/**
+**/build/**
+**/*.egg-info/**
+
+# Bases de datos locales
+backend/db.sqlite3
+backend/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Logs
+**/*.log
+**/logs/**
+
+# Archivos temporales
+**/.DS_Store
+**/Thumbs.db
+**/*.swp
+**/*.swo
+**/*~
+
+# Archivos de configuración de IDE (excepto .vscode que puede ser útil)
+**/.idea/**
+**/.vs/**
+
+# Certificados y claves (seguridad)
+**/*.pem
+**/*.key
+**/*.crt
+
+# Archivos de backup
+**/*.bak
+**/*.backup
+**/bkp/**
+
+# Archivos de migración antiguos (mantener solo las últimas)
+# backend/**/migrations/0*.py
+
+# Archivos de Jupyter Notebook output
+**/.ipynb_checkpoints/**
+
+# Archivos git
+**/.git/**
+**/.gitattributes
+
+# Scripts de shell específicos del sistema
+backend/eliminar_migraciones.sh
+backend/eliminar_pycache.sh
