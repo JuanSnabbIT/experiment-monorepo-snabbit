@@ -548,7 +548,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
         # remitente = 'tu-correo@ejemplo.com'  # Definir aquí el remitente
         
-        url_boton = f"{os.getenv("FRONTEND_URL")}/detalle-orden-compra/{orden.pk}"
+        url_boton = f"{os.getenv('FRONTEND_URL')}/detalle-orden-compra/{orden.pk}"
 
         try:
             send_email_task(asunto, [email_destinatario], mensaje, asunto, url_boton, "Ir a la Orden", [])
