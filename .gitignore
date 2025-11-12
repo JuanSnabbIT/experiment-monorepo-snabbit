@@ -58,3 +58,6 @@ Thumbs.db
 
 # Misc
 *.orig
+
+.github/
+backend/jupyter_notebooks/
