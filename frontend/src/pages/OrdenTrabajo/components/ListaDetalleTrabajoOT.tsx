@@ -51,6 +51,9 @@ import ListaAsistenciasDT from '../modals/ListaAsistenciasDT';
 import ListaEntregasDT from '../modals/ListaEntregasDT';
 import TerminarInsumoDT from '../modals/TerminarInsumoDT';
 import CrearCotizacionDesdeOT from '../modals/CrearCotizacionDesdeOT';
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 
