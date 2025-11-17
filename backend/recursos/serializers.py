@@ -110,6 +110,117 @@ class UsuarioEquipoSerializer(serializers.ModelSerializer):
         fields = '__all__'
         model = UsuarioEquipo
 
+class UsuarioEquipoListSerializer(serializers.ModelSerializer):
+    """Serializer simplificado para listar UsuarioEquipo sin datos completos del equipo"""
+    nombre_usuario = serializers.SerializerMethodField()
+    rut_usuario = serializers.SerializerMethodField()
+    email_usuario = serializers.SerializerMethodField()
+    cargo_usuario = serializers.SerializerMethodField()
+    numero_serie_equipo = serializers.CharField(source='equipo.numero_serie', read_only=True)
+    tipo_equipo = serializers.CharField(source='equipo.get_tipo_equipo_display', read_only=True)
+    marca_equipo = serializers.CharField(source='equipo.marca', read_only=True)
+    foto_usuario = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UsuarioEquipo
+        fields = [
+            'id', 'nombre_usuario', 'rut_usuario', 'email_usuario', 'cargo_usuario',
+            'equipo', 'numero_serie_equipo', 'tipo_equipo', 'marca_equipo',
+            'fecha_asignacion', 'fecha_devolucion', 'estado', 'observaciones',
+            'foto_usuario', 'fecha_creacion', 'fecha_modificacion'
+        ]
+
+    def get_nombre_usuario(self, obj):
+        return obj.usuario.usuario.get_nombre_completo()
+
+    def get_rut_usuario(self, obj):
+        return obj.usuario.usuario.rut
+
+    def get_email_usuario(self, obj):
+        return obj.usuario.usuario.email
+
+    def get_cargo_usuario(self, obj):
+        return obj.usuario.cargo if obj.usuario.cargo else 'N/A'
+
+    def get_foto_usuario(self, obj):
+        if obj.usuario.usuario.image:
+            return obj.usuario.usuario.image.url
+        return None
+
+class EquipoDetalleCompletoSerializer(serializers.ModelSerializer):
+    """Serializer con información completa del equipo incluyendo todas sus relaciones"""
+    tipo_equipo_label = serializers.SerializerMethodField()
+    marca_label = serializers.SerializerMethodField()
+    tipo_procesador_label = serializers.SerializerMethodField()
+    generacion_procesador_label = serializers.SerializerMethodField()
+    ram_label = serializers.SerializerMethodField()
+    sistema_operativo_label = serializers.SerializerMethodField()
+    condicion_equipo_label = serializers.SerializerMethodField()
+    marca_tarjeta_grafica_label = serializers.SerializerMethodField()
+    tipo_tarjeta_grafica_label = serializers.SerializerMethodField()
+    
+    # Relaciones completas
+    almacenamientos = AlmacenamientoEquipoSerializer(source="almacenamientoequipo_set", read_only=True, many=True)
+    monitores = MonitorEquipoSerializer(source="monitorequipo_set", read_only=True, many=True)
+    software_instalado = SoftwareInstaladoSerializer(source="softwareinstalado_set", read_only=True, many=True)
+    fotos = serializers.SerializerMethodField()
+    
+    # Información del cliente
+    nombre_cliente = serializers.CharField(source='cliente.nombre', read_only=True)
+    rut_cliente = serializers.CharField(source='cliente.rut_empresa', read_only=True)
+    
+    # Información del usuario actual asignado
+    usuario_actual = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Equipo
+        fields = '__all__'
+
+    def get_usuario_actual(self, obj):
+        usuario_equipo = obj.usuario_equipo.filter(estado=True).first()
+        if usuario_equipo:
+            return {
+                'id': usuario_equipo.id,
+                'nombre': usuario_equipo.usuario.usuario.get_nombre_completo(),
+                'rut': usuario_equipo.usuario.usuario.rut,
+                'email': usuario_equipo.usuario.usuario.email,
+                'cargo': usuario_equipo.usuario.cargo,
+                'fecha_asignacion': usuario_equipo.fecha_asignacion,
+                'observaciones': usuario_equipo.observaciones
+            }
+        return None
+
+    def get_fotos(self, obj):
+        fotos = FotoEquipo.objects.filter(usuario_equipo__equipo=obj)
+        return FotoEquipoSerializer(fotos, many=True).data
+
+    def get_tipo_equipo_label(self, obj):
+        return obj.get_tipo_equipo_display()
+
+    def get_marca_label(self, obj):
+        return obj.get_marca_display()
+
+    def get_tipo_procesador_label(self, obj):
+        return obj.get_tipo_procesador_display()
+
+    def get_generacion_procesador_label(self, obj):
+        return obj.get_generacion_procesador_display()
+
+    def get_ram_label(self, obj):
+        return obj.get_ram_display()
+
+    def get_sistema_operativo_label(self, obj):
+        return obj.get_sistema_operativo_display()
+
+    def get_condicion_equipo_label(self, obj):
+        return obj.get_condicion_equipo_display()
+
+    def get_marca_tarjeta_grafica_label(self, obj):
+        return obj.get_marca_tarjeta_grafica_display()
+
+    def get_tipo_tarjeta_grafica_label(self, obj):
+        return obj.get_tipo_tarjeta_grafica_display()
+
 class SoftwareDeEmpresaSerializer(serializers.ModelSerializer):
     nombre_empresa = serializers.SerializerMethodField()
 

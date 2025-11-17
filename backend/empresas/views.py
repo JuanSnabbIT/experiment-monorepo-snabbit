@@ -68,10 +68,16 @@ class EmpresaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='usuarios')
     def usuarios(self, request, pk=None):
+        """
+        Lista todos los UsuarioEmpresa de una empresa específica.
+        Endpoint: GET /api/empresas/{pk}/usuarios/
+        """
         empresa = self.get_object()
-        usuarios = UsuarioEmpresa.objects.filter(sucursal__empresa=empresa)
+        usuarios = UsuarioEmpresa.objects.filter(
+            sucursal__empresa=empresa
+        ).select_related('usuario', 'sucursal').prefetch_related('grupos')
         serializer = UsuarioEmpresaSerializer(usuarios, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='usuarios-de-clientes')
     def usuarios_de_clientes(self, request, pk=None):
@@ -117,6 +123,28 @@ class EmpresaViewSet(viewsets.ModelViewSet):
 
         serializer = EquipoSerializer(equipos, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='equipos-asignados')
+    def equipos_asignados(self, request, pk=None):
+        """
+        Lista todos los UsuarioEquipo (equipos asignados) de todos los usuarios de una empresa.
+        Endpoint: GET /api/empresas/{pk}/equipos-asignados/
+        """
+        from recursos.models import UsuarioEquipo
+        from recursos.serializers import UsuarioEquipoListSerializer
+        
+        empresa = self.get_object()
+        
+        # Obtener todos los UsuarioEmpresa de esta empresa
+        usuarios_empresa = UsuarioEmpresa.objects.filter(sucursal__empresa=empresa)
+        
+        # Obtener todos los UsuarioEquipo de estos usuarios
+        usuario_equipos = UsuarioEquipo.objects.filter(
+            usuario__in=usuarios_empresa
+        ).select_related('equipo', 'usuario__usuario', 'usuario__sucursal')
+        
+        serializer = UsuarioEquipoListSerializer(usuario_equipos, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class SucursalEmpresaViewSet(viewsets.ModelViewSet):
     queryset = SucursalEmpresa.objects.all()

@@ -1,0 +1,1083 @@
+{
+	"info": {
+		"_postman_id": "ordentrabajov2-api-collection",
+		"name": "OrdenTrabajoV2 API - CRUD Completo",
+		"description": "Colección completa de endpoints para ordentrabajov2 con URLs anidadas (/ordenes-de-trabajo/) y datos de ejemplo",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api",
+			"type": "string"
+		},
+		{
+			"key": "orden_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "soporte_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "servicio_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "0. Utilitarios - Obtener PKs",
+			"description": "Endpoints para obtener IDs necesarios en otros endpoints (empresas, clientes, usuarios, equipos)",
+			"item": [
+				{
+					"name": "Listar Todas las Empresas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empresas/",
+							"host": ["{{base_url}}"],
+							"path": ["empresas", ""]
+						},
+						"description": "Obtener lista de empresas para usar su ID como 'empresa' o 'cliente'"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Usuarios de una Empresa",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empresas/1/usuarios/",
+							"host": ["{{base_url}}"],
+							"path": ["empresas", "1", "usuarios", ""]
+						},
+						"description": "Obtener UsuarioEmpresa de una empresa específica para usar como 'tecnico_responsable_ot', 'cliente_solicitante', 'tecnico_asignado', 'usuario_comprador'"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Todos los UsuarioEmpresa",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/usuarios-empresa/",
+							"host": ["{{base_url}}"],
+							"path": ["usuarios-empresa", ""]
+						},
+						"description": "Lista global de UsuarioEmpresa (puede ser filtrada en frontend)"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Equipos Asignados de una Empresa",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empresas/2/equipos-asignados/",
+							"host": ["{{base_url}}"],
+							"path": ["empresas", "2", "equipos-asignados", ""]
+						},
+						"description": "Obtener UsuarioEquipo (asignaciones) de una empresa para obtener 'usuario_equipo_id'"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar UsuarioEquipo por UsuarioEmpresa",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/usuarios-equipo/por-usuario-empresa/8/",
+							"host": ["{{base_url}}"],
+							"path": ["usuarios-equipo", "por-usuario-empresa", "8", ""]
+						},
+						"description": "Obtener equipos asignados a un usuario específico. Usar para obtener 'usuario_equipo' en UsuarioAsignadoSoporte"
+					},
+					"response": []
+				},
+				{
+					"name": "Detalle Completo de Equipo desde UsuarioEquipo",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/usuarios-equipo/15/equipo-detalle/",
+							"host": ["{{base_url}}"],
+							"path": ["usuarios-equipo", "15", "equipo-detalle", ""]
+						},
+						"description": "Obtener información completa del equipo incluyendo almacenamientos, monitores, software, fotos"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Clientes de una Empresa (Relaciones)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empresas/1/mis-clientes/",
+							"host": ["{{base_url}}"],
+							"path": ["empresas", "1", "mis-clientes", ""]
+						},
+						"description": "Obtener empresas cliente de una empresa prestadora de servicios"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Técnicos de una Empresa",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/usuarios-empresa/empresa/1/tecnicos/",
+							"host": ["{{base_url}}"],
+							"path": ["usuarios-empresa", "empresa", "1", "tecnicos", ""]
+						},
+						"description": "Filtrar usuarios que pertenecen al grupo 'tecnico' de una empresa"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "1. Órdenes de Trabajo",
+			"item": [
+				{
+					"name": "Listar Órdenes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Orden (Soporte Remoto)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('orden_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empresa\": 1,\n  \"cliente\": 2,\n  \"tipo_servicio\": \"soporte_r\",\n  \"descripcion\": \"Incidente en servidor de correo - No se pueden enviar emails\",\n  \"prioridad\": \"1\",\n  \"fecha_inicio_ot\": \"2025-11-17\",\n  \"notas_internas\": \"Cliente reporta problema desde las 9:00 AM\",\n  \"tecnico_responsable_ot\": 5,\n  \"cliente_solicitante\": 8\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Orden (Soporte Presencial)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empresa\": 1,\n  \"cliente\": 3,\n  \"tipo_servicio\": \"soporte_p\",\n  \"descripcion\": \"Instalación de equipos nuevos en oficina\",\n  \"prioridad\": \"2\",\n  \"fecha_inicio_ot\": \"2025-11-18\",\n  \"tecnico_responsable_ot\": 6,\n  \"cliente_solicitante\": 10\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Orden (Servicio General)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empresa\": 1,\n  \"cliente\": 4,\n  \"tipo_servicio\": \"general\",\n  \"descripcion\": \"Mantenimiento preventivo anual de infraestructura\",\n  \"prioridad\": \"3\",\n  \"fecha_inicio_ot\": \"2025-11-20\",\n  \"fecha_finalizacion_ot\": \"2025-11-25\",\n  \"tecnico_responsable_ot\": 7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""]
+						}
+					}
+				},
+				{
+					"name": "Obtener Orden por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Orden (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empresa\": 1,\n  \"cliente\": 2,\n  \"tipo_servicio\": \"soporte_r\",\n  \"descripcion\": \"Incidente en servidor de correo - RESUELTO\",\n  \"prioridad\": \"1\",\n  \"estado\": \"completada\",\n  \"fecha_inicio_ot\": \"2025-11-17\",\n  \"fecha_finalizacion_ot\": \"2025-11-17\",\n  \"notas_internas\": \"Se reinició el servicio SMTP y se verificó conectividad\",\n  \"tecnico_responsable_ot\": 5,\n  \"cliente_solicitante\": 8\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Orden Parcial (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"en_proceso\",\n  \"notas_internas\": \"Técnico en camino al sitio\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Cambiar Estado de Orden (Acción Custom)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"cerrada\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/cambiar-estado/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "cambiar-estado", ""]
+						}
+					}
+				},
+				{
+					"name": "Filtrar Órdenes por Estado",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/?estado=pendiente",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""],
+							"query": [
+								{
+									"key": "estado",
+									"value": "pendiente"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Filtrar Órdenes por Tipo de Servicio",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/?tipo_servicio=soporte_r",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""],
+							"query": [
+								{
+									"key": "tipo_servicio",
+									"value": "soporte_r"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Eliminar Orden",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Soportes Técnicos (Anidados)",
+			"item": [
+				{
+					"name": "Listar Soportes de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Soporte en Orden",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('soporte_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Diagnóstico inicial servidor correo\",\n  \"descripcion\": \"Revisar logs del servicio SMTP y verificar puertos\",\n  \"estado\": \"en_proceso\",\n  \"tecnico_asignado\": 5,\n  \"fecha_soporte\": \"2025-11-17\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", ""]
+						}
+					}
+				},
+				{
+					"name": "Obtener Soporte Específico",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/{{soporte_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", "{{soporte_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Soporte",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"completado\",\n  \"descripcion\": \"Se identificó problema en configuración DNS. Corregido y verificado.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/{{soporte_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", "{{soporte_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Estado de Soporte (Acción)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"completado\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/{{soporte_id}}/actualizar-estado/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", "{{soporte_id}}", "actualizar-estado", ""]
+						}
+					}
+				},
+				{
+					"name": "Eliminar Soporte",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/soportes-tecnicos/{{soporte_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "soportes-tecnicos", "{{soporte_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Listar Todos los Soportes (Top-level)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/soportes-v2/",
+							"host": ["{{base_url}}"],
+							"path": ["soportes-v2", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Servicios en OT (Anidados)",
+			"item": [
+				{
+					"name": "Listar Servicios de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Servicio en Orden",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('servicio_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Actualización de firmware en switches\",\n  \"descripcion\": \"Actualizar firmware de todos los switches de red a última versión estable\",\n  \"estado\": \"pendiente\",\n  \"tecnico_asignado\": 7,\n  \"resuelto\": false,\n  \"fecha_servicio\": \"2025-11-21\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", ""]
+						}
+					}
+				},
+				{
+					"name": "Obtener Servicio Específico",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/{{servicio_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", "{{servicio_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Servicio",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"completado\",\n  \"resuelto\": true,\n  \"descripcion\": \"Firmware actualizado exitosamente en 8 switches. Todos operativos.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/{{servicio_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", "{{servicio_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Estado de Servicio (Acción)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"en_proceso\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/{{servicio_id}}/actualizar-estado/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", "{{servicio_id}}", "actualizar-estado", ""]
+						}
+					}
+				},
+				{
+					"name": "Eliminar Servicio",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/servicios-generales/{{servicio_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "servicios-generales", "{{servicio_id}}", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Usuarios Asignados a Soporte",
+			"item": [
+				{
+					"name": "Listar Usuarios Asignados a Soporte",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/soportes-v2/{{soporte_id}}/usuarios-asignados-soporte/",
+							"host": ["{{base_url}}"],
+							"path": ["soportes-v2", "{{soporte_id}}", "usuarios-asignados-soporte", ""]
+						}
+					}
+				},
+				{
+					"name": "Asignar Usuario a Soporte",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"usuario_equipo\": 15,\n  \"trabajo_realizado\": \"Revisión de configuración de red en equipo del usuario\",\n  \"resuelto\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/soportes-v2/{{soporte_id}}/usuarios-asignados-soporte/",
+							"host": ["{{base_url}}"],
+							"path": ["soportes-v2", "{{soporte_id}}", "usuarios-asignados-soporte", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Asignación",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"trabajo_realizado\": \"Se reconfiguró adaptador de red y se verificó conectividad con servidor\",\n  \"resuelto\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/soportes-v2/{{soporte_id}}/usuarios-asignados-soporte/1/",
+							"host": ["{{base_url}}"],
+							"path": ["soportes-v2", "{{soporte_id}}", "usuarios-asignados-soporte", "1", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Historial de Cambios (Anidado)",
+			"item": [
+				{
+					"name": "Ver Historial de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/historial-cambios/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "historial-cambios", ""]
+						},
+						"description": "Obtiene todos los cambios históricos de una orden específica (solo lectura)"
+					}
+				},
+				{
+					"name": "Ver Entrada Específica de Historial",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/historial-cambios/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "historial-cambios", "1", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Adjuntos de Orden (Anidados)",
+			"item": [
+				{
+					"name": "Listar Adjuntos de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/archivos-adjuntos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "archivos-adjuntos", ""]
+						}
+					}
+				},
+				{
+					"name": "Subir Adjunto a Orden (multipart)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "tipo",
+									"value": "informe",
+									"type": "text"
+								},
+								{
+									"key": "descripcion",
+									"value": "Reporte técnico de diagnóstico del servidor",
+									"type": "text"
+								},
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/archivos-adjuntos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "archivos-adjuntos", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Adjunto sin archivo (JSON)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"contrato\",\n  \"descripcion\": \"Contrato de servicio firmado\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/archivos-adjuntos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "archivos-adjuntos", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Adjunto",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"descripcion\": \"Reporte técnico actualizado con conclusiones finales\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/archivos-adjuntos/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "archivos-adjuntos", "1", ""]
+						}
+					}
+				},
+				{
+					"name": "Eliminar Adjunto",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/archivos-adjuntos/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "archivos-adjuntos", "1", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Rendiciones/Gastos en OT (Anidados)",
+			"item": [
+				{
+					"name": "Listar Rendiciones de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+						}
+					}
+				},
+				{
+					"name": "Crear Rendición en Orden",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoria\": \"hardware\",\n  \"detalle\": \"Cable de red categoría 6 (50 metros)\",\n  \"cantidad\": 2,\n  \"monto_unitario\": 15000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T14:30:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+						},
+						"description": "monto_total se calcula automáticamente (cantidad * monto_unitario)"
+					}
+				},
+				{
+					"name": "Crear Rendición (Transporte)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoria\": \"transporte\",\n  \"detalle\": \"Taxi para visita a cliente en zona remota\",\n  \"cantidad\": 1,\n  \"monto_unitario\": 45000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T16:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+						}
+					}
+				},
+				{
+					"name": "Actualizar Rendición",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"detalle\": \"Cable de red categoría 6 (50 metros) - Proveedor actualizado\",\n  \"cantidad\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", "1", ""]
+						}
+					}
+				},
+				{
+					"name": "Eliminar Rendición",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", "1", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "8. Cierre Administrativo (Anidado)",
+			"item": [
+				{
+					"name": "Ver Cierre de una Orden",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/cierre-administrativo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "cierre-administrativo", ""]
+						},
+						"description": "Obtiene el cierre administrativo si existe (OneToOne)"
+					}
+				},
+				{
+					"name": "Actualizar Cierre (Validar)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"valido\": true,\n  \"resultado\": {\n    \"validaciones\": {\n      \"soportes_completados\": true,\n      \"adjuntos_presentes\": true,\n      \"rendiciones_aprobadas\": true,\n      \"firma_cliente\": true\n    },\n    \"observaciones\": \"Todos los criterios cumplidos\"\n  },\n  \"comentario\": \"Orden cerrada correctamente. Cliente satisfecho con el servicio.\",\n  \"usuario\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/cierre-administrativo/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "cierre-administrativo", "1", ""]
+						},
+						"description": "Solo se puede actualizar (PATCH), no crear ni eliminar manualmente"
+					}
+				},
+				{
+					"name": "Actualizar Cierre (Observado)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"valido\": false,\n  \"resultado\": {\n    \"validaciones\": {\n      \"soportes_completados\": true,\n      \"adjuntos_presentes\": false,\n      \"rendiciones_aprobadas\": true,\n      \"firma_cliente\": false\n    },\n    \"errores\": [\n      \"Falta adjuntar informe técnico final\",\n      \"Falta firma del cliente en acta de cierre\"\n    ]\n  },\n  \"comentario\": \"Cierre observado. Pendiente documentación.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/cierre-administrativo/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "cierre-administrativo", "1", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "9. Flujos Completos de Ejemplo",
+			"item": [
+				{
+					"name": "Flujo 1: Crear Orden Soporte Remoto",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empresa\": 1,\n  \"cliente\": 2,\n  \"tipo_servicio\": \"soporte_r\",\n  \"descripcion\": \"Usuario reporta lentitud en sistema de facturación\",\n  \"prioridad\": \"1\",\n  \"fecha_inicio_ot\": \"2025-11-17\",\n  \"tecnico_responsable_ot\": 5,\n  \"cliente_solicitante\": 12\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", ""]
+						},
+						"description": "Signal crea automáticamente un SoporteTecnico inicial"
+					}
+				},
+				{
+					"name": "Flujo 2: Agregar Detalle a Soporte Existente",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Optimización de consultas SQL\",\n  \"descripcion\": \"Se identificaron 3 queries lentas. Se agregaron índices y se optimizó join.\",\n  \"estado\": \"completado\",\n  \"tecnico_asignado\": 5,\n  \"fecha_soporte\": \"2025-11-17\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/1/soportes-tecnicos/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "1", "soportes-tecnicos", ""]
+						}
+					}
+				},
+				{
+					"name": "Flujo 3: Agregar Gastos",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"categoria\": \"alimentacion\",\n  \"detalle\": \"Almuerzo durante atención de emergencia fuera de horario\",\n  \"cantidad\": 1,\n  \"monto_unitario\": 12000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T13:30:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/1/gastos-rendicion/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "1", "gastos-rendicion", ""]
+						}
+					}
+				},
+				{
+					"name": "Flujo 4: Cambiar Estado a Cerrada",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"estado\": \"cerrada\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/1/cambiar-estado/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "1", "cambiar-estado", ""]
+						},
+						"description": "Signal crea automáticamente CierreAdministrativoOT"
+					}
+				},
+				{
+					"name": "Flujo 5: Validar Cierre",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"valido\": true,\n  \"resultado\": {\n    \"checks\": {\n      \"soportes_ok\": true,\n      \"gastos_aprobados\": true,\n      \"documentacion_completa\": true\n    }\n  },\n  \"comentario\": \"Orden cerrada y validada exitosamente\",\n  \"usuario\": 3\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/ordenes-de-trabajo/1/cierre-administrativo/1/",
+							"host": ["{{base_url}}"],
+							"path": ["ordenes-de-trabajo", "1", "cierre-administrativo", "1", ""]
+						}
+					}
+				}
+			]
+		}
+	]
+}
