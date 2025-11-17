@@ -4,7 +4,7 @@ from core.models import PersonalizacionUsuario
 from cotizaciones.models import Cotizacion
 from cotizaciones.serializers import CotizacionSerializer
 from retroalimentacion.models import Retroalimentacion
-from .models import DetalleGastoRendicionOT, OrdenDeTrabajo, DetalleTrabajo, HistorialCambiosOrden, AdjuntoDeOrden, SeguimientoDetalleTrabajo, UsuarioAsignadoOT
+from .models import DetalleGastoRendicionOT, OrdenDeTrabajo, DetalleTrabajo, HistorialCambiosOrden, AdjuntoDeOrden, SeguimientoDetalleTrabajo, UsuarioAsignadoOT, CierreAdministrativoOT
 from .serializers import (
     DetalleTrabajoCompraSerializer,
     OrdenDeTrabajoSerializer,
@@ -21,7 +21,7 @@ from rest_framework.decorators import action
 from django.utils.timezone import localtime
 from itertools import chain
 from empresas.models import UsuarioEmpresa
-from .utils import FIELDS_MAPPING, get_accion_modelo
+from .utils import FIELDS_MAPPING, get_accion_modelo, validar_cierre_ot, cerrar_ot
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from bodegas.models import GuiaSalida, Compra, ItemsGuiaSalida, StockItemEnBodega, ItemEnCompra, ItemOrdenCompraEnStock
 from bodegas.serializers import CompraCreateSerializer, GuiaSalidaSerializer
@@ -50,6 +50,119 @@ class OrdenDeTrabajoViewSet(viewsets.ModelViewSet):
         if personalizacion and personalizacion.sucursal_principal:
             return OrdenDeTrabajo.objects.filter(empresa=personalizacion.sucursal_principal.empresa)
         return OrdenDeTrabajo.objects.none()
+
+    @action(detail=True, methods=["get"], url_path="validar-cierre")
+    def validar_cierre(self, request, pk=None):
+        """
+        GET /api/ordenes-trabajo/{id}/validar-cierre/
+        Devuelve el resumen de validaciones para decidir cierre administrativo.
+        """
+        orden = self.get_object()
+        resultado = validar_cierre_ot(orden.id)
+        return Response(resultado, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="cerrar")
+    def cerrar(self, request, pk=None):
+        """
+        POST /api/ordenes-trabajo/{id}/cerrar/
+        Body: { comentario?: string, forzar?: boolean }
+        Crea/actualiza el CierreAdministrativoOT.
+        """
+        orden = self.get_object()
+
+        comentario = request.data.get("comentario")
+        forzar_raw = request.data.get("forzar", False)
+        # Normalizar booleanos provenientes de JSON o strings
+        if isinstance(forzar_raw, str):
+            forzar = forzar_raw.strip().lower() in ("true", "1", "t", "yes", "si", "sí")
+        else:
+            forzar = bool(forzar_raw)
+
+        # Reglas para cierre forzado: requiere autenticación, permiso y comentario
+        if forzar:
+            user = request.user
+            if not user or not user.is_authenticated:
+                return Response({"detail": "Autenticación requerida para cierre forzado."}, status=status.HTTP_401_UNAUTHORIZED)
+            if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False) or user.has_perm("ordentrabajo.force_close_ot")):
+                return Response({"detail": "No tiene permisos para forzar el cierre de una OT."}, status=status.HTTP_403_FORBIDDEN)
+            if not comentario or not str(comentario).strip():
+                return Response({"detail": "El campo 'comentario' es obligatorio al forzar el cierre."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Si ya existe cierre y no es forzado, devolver 409 con el cierre existente
+        try:
+            cierre_existente = orden.cierre_administrativo
+        except CierreAdministrativoOT.DoesNotExist:
+            cierre_existente = None
+
+        if cierre_existente and not forzar:
+            data_existente = {
+                "id": cierre_existente.id,
+                "valido": cierre_existente.valido,
+                "resultado": cierre_existente.resultado,
+                "comentario": cierre_existente.comentario,
+                "fecha_cierre": localtime(cierre_existente.fecha_cierre).isoformat() if cierre_existente.fecha_cierre else None,
+                "usuario": (
+                    {
+                        "id": cierre_existente.usuario.id,
+                        "nombre": str(cierre_existente.usuario.usuario.get_nombre() if cierre_existente.usuario and cierre_existente.usuario.usuario else cierre_existente.usuario)
+                    }
+                    if cierre_existente.usuario else None
+                ),
+            }
+            return Response(data_existente, status=status.HTTP_409_CONFLICT)
+
+        # Obtener UsuarioEmpresa si es posible
+        usuario_empresa = None
+        try:
+            usuario_empresa = obtener_usuario_empresa(request.user)
+        except Exception:
+            usuario_empresa = None
+
+        cierre = cerrar_ot(orden.id, usuario_empresa=usuario_empresa, comentario=comentario, forzar=forzar)
+
+        data = {
+            "id": cierre.id,
+            "valido": cierre.valido,
+            "resultado": cierre.resultado,
+            "comentario": cierre.comentario,
+            "fecha_cierre": localtime(cierre.fecha_cierre).isoformat() if cierre.fecha_cierre else None,
+            "usuario": (
+                {
+                    "id": cierre.usuario.id,
+                    "nombre": str(cierre.usuario.usuario.get_nombre() if cierre.usuario and cierre.usuario.usuario else cierre.usuario)
+                }
+                if cierre.usuario else None
+            ),
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="cierre")
+    def obtener_cierre(self, request, pk=None):
+        """
+        GET /api/ordenes-trabajo/{id}/cierre/
+        Obtiene el CierreAdministrativoOT si existe.
+        """
+        orden = self.get_object()
+        try:
+            cierre = orden.cierre_administrativo
+        except CierreAdministrativoOT.DoesNotExist:
+            return Response({"detail": "La OT no tiene cierre administrativo."}, status=status.HTTP_404_NOT_FOUND)
+
+        data = {
+            "id": cierre.id,
+            "valido": cierre.valido,
+            "resultado": cierre.resultado,
+            "comentario": cierre.comentario,
+            "fecha_cierre": localtime(cierre.fecha_cierre).isoformat() if cierre.fecha_cierre else None,
+            "usuario": (
+                {
+                    "id": cierre.usuario.id,
+                    "nombre": str(cierre.usuario.usuario.get_nombre() if cierre.usuario and cierre.usuario.usuario else cierre.usuario)
+                }
+                if cierre.usuario else None
+            ),
+        }
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'], url_path='history')
     def history(self, request, pk=None):

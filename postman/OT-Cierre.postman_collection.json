@@ -1,0 +1,223 @@
+{
+  "info": {
+    "name": "ERP Snabbit - Flujo Cierre OT",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para validar y cerrar OTs, más endpoints de remediación."
+  },
+  "item": [
+    {
+      "name": "Validar Cierre OT",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/validar-cierre/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "validar-cierre" ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 Ejemplo",
+          "originalRequest": {},
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"version\": 1,\n  \"puede_cerrar\": true,\n  \"forzado\": false,\n  \"validaciones\": {\n    \"cotizacion\": true,\n    \"visitasoporte\": true,\n    \"compra\": true\n  },\n  \"observaciones\": [],\n  \"detalles\": []\n}"
+        }
+      ]
+    },
+    {
+      "name": "Cerrar OT",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comentario\": \"Cierre desde Postman\",\n  \"forzar\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/cerrar/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "cerrar" ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 Ejemplo",
+          "originalRequest": {},
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"id\": 1,\n  \"valido\": true,\n  \"resultado\": {\n    \"puede_cerrar\": true,\n    \"validaciones\": {\n      \"cotizacion\": true,\n      \"visitasoporte\": true,\n      \"compra\": true\n    },\n    \"observaciones\": []\n  },\n  \"comentario\": \"Cierre desde Postman\",\n  \"fecha_cierre\": \"2025-11-12T14:30:00-03:00\",\n  \"usuario\": {\n    \"id\": 10,\n    \"nombre\": \"Juan Pérez\"\n  }\n}"
+        },
+        {
+          "name": "409 Ya tenía cierre (payload existente)",
+          "originalRequest": {},
+          "status": "Conflict",
+          "code": 409,
+          "body": "{\n  \"id\": 1,\n  \"valido\": false,\n  \"resultado\": { \n    \"puede_cerrar\": false,\n    \"validaciones\": { \n      \"cotizacion\": true, \n      \"visitasoporte\": false, \n      \"compra\": true \n    },\n    \"observaciones\": [\"Sin retroalimentación registrada\"]\n  },\n  \"comentario\": \"Cierre previo\",\n  \"fecha_cierre\": \"2025-11-12T14:30:00-03:00\",\n  \"usuario\": { \n    \"id\": 10, \n    \"nombre\": \"Juan Pérez\" \n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Cerrar OT (forzado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"comentario\": \"Cierre forzado por QA\",\n  \"forzar\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/cerrar/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "cerrar" ]
+        },
+        "response": [
+          {
+            "name": "200 Forzado creado/actualizado",
+            "originalRequest": {},
+            "status": "OK",
+            "code": 200,
+            "body": "{\n  \"id\": 2,\n  \"valido\": false,\n  \"resultado\": { \n    \"puede_cerrar\": false, \n    \"forzado\": true,\n    \"validaciones\": { \n      \"cotizacion\": true, \n      \"visitasoporte\": false, \n      \"compra\": true \n    },\n    \"observaciones\": [\"Sin retroalimentación registrada\"]\n  },\n  \"comentario\": \"Cierre forzado por QA\",\n  \"fecha_cierre\": \"2025-11-12T14:35:00-03:00\",\n  \"usuario\": { \n    \"id\": 10, \n    \"nombre\": \"Juan Pérez\" \n  }\n}"
+          },
+          {
+            "name": "401 Falta autenticación",
+            "originalRequest": {},
+            "status": "Unauthorized",
+            "code": 401,
+            "body": "{\n  \"detail\": \"Autenticación requerida para cierre forzado.\"\n}"
+          },
+          {
+            "name": "403 Sin permiso",
+            "originalRequest": {},
+            "status": "Forbidden",
+            "code": 403,
+            "body": "{\n  \"detail\": \"No tiene permisos para forzar el cierre de una OT.\"\n}"
+          },
+          {
+            "name": "400 Falta comentario",
+            "originalRequest": {},
+            "status": "Bad Request",
+            "code": 400,
+            "body": "{\n  \"detail\": \"El campo 'comentario' es obligatorio al forzar el cierre.\"\n}"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Obtener Cierre OT",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/cierre/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "cierre" ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 Ejemplo",
+          "originalRequest": {},
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"id\": 1,\n  \"valido\": true,\n  \"resultado\": { ... },\n  \"comentario\": null,\n  \"fecha_cierre\": \"2025-11-12T14:30:00-03:00\",\n  \"usuario\": null\n}"
+        },
+        {
+          "name": "404 Sin cierre",
+          "originalRequest": {},
+          "status": "Not Found",
+          "code": 404,
+          "body": "{\n  \"detail\": \"La OT no tiene cierre administrativo.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Guias disponibles (remediación)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/detalles-trabajo/guias-disponibles/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "detalles-trabajo", "guias-disponibles" ]
+        }
+      }
+    },
+    {
+      "name": "Asignar insumo a detalle (remediación)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"insumo\": 123\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/detalles-trabajo/{{detalleId}}/asignar-insumo/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "detalles-trabajo", "{{detalleId}}", "asignar-insumo" ]
+        }
+      }
+    },
+    {
+      "name": "Crear compra en detalle (remediación)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sucursal\": 1,\n  \"proveedor\": null,\n  \"observaciones\": \"Compra de prueba\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/detalles-trabajo/{{detalleId}}/crear-compra/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "detalles-trabajo", "{{detalleId}}", "crear-compra" ]
+        }
+      }
+    },
+    {
+      "name": "Completar compra en detalle (remediación)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firma\": \"data:image/png;base64,iVBORw0K...\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ordenes-trabajo/{{otId}}/detalles-trabajo/{{detalleId}}/completar-compra/",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "ordenes-trabajo", "{{otId}}", "detalles-trabajo", "{{detalleId}}", "completar-compra" ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000/api" },
+    { "key": "token", "value": "<JWT>" },
+    { "key": "otId", "value": "1" },
+    { "key": "detalleId", "value": "1" }
+  ]
+}

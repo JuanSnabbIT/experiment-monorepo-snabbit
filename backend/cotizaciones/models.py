@@ -38,7 +38,8 @@ class Cotizacion(ModeloBase):
     @property
     def calcular_total_estimado(self):
         """Calcula el total estimado sumando los costos totales de los items."""
-        return sum(item.costo_total for item in self.detalles.all())
+        # Ajuste: la relación correcta es 'items' (related_name en ItemCotizacion)
+        return sum(item.costo_total for item in self.items.all())
 
     @property
     def es_vigente(self):

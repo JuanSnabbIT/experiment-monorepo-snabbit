@@ -7,6 +7,7 @@ __pycache__/
 ENV/
 env/
 venv/
+backend/venv/
 *.egg-info/
 dist/
 build/
@@ -58,3 +59,6 @@ Thumbs.db
 
 # Misc
 *.orig
+
+.github/
+backend/jupyter_notebooks/

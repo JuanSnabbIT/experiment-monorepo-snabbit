@@ -393,7 +393,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
         # Filtrar los ítems de la cotización que tienen 'proveedor_empresa' y 'item_empresa' definidos,
         # y que su proveedor coincida con el proveedor indicado
-        items_filtrados = cotizacion.detalles.filter(
+        # Usar related_name correcto 'items' (ItemCotizacion.cotizacion related_name="items")
+        items_filtrados = cotizacion.items.filter(
             proveedor_empresa__isnull=False,
             item_empresa__isnull=False,
             proveedor_empresa=proveedor

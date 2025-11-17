@@ -94,6 +94,65 @@ class UsuarioEquipoViewSet(viewsets.ModelViewSet):
         else:
             return Response({"error": "El cliente_id es requerido"}, status=400)
 
+    @action(detail=False, methods=['get'], url_path='por-usuario-empresa/(?P<usuario_empresa_pk>[^/.]+)')
+    def por_usuario_empresa(self, request, usuario_empresa_pk=None):
+        """
+        Lista todos los UsuarioEquipo (equipos asignados) de un UsuarioEmpresa específico.
+        Endpoint: GET /api/usuarios-equipo/por-usuario-empresa/{usuario_empresa_pk}/
+        """
+        from empresas.models import UsuarioEmpresa
+        try:
+            usuario_empresa = UsuarioEmpresa.objects.get(pk=usuario_empresa_pk)
+        except UsuarioEmpresa.DoesNotExist:
+            return Response(
+                {"error": f"UsuarioEmpresa con id {usuario_empresa_pk} no existe"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Filtrar UsuarioEquipo por el usuario_empresa
+        usuario_equipos = UsuarioEquipo.objects.filter(
+            usuario=usuario_empresa
+        ).select_related('equipo', 'usuario__usuario', 'usuario__sucursal__empresa')
+
+        # Usar el serializer simplificado
+        from .serializers import UsuarioEquipoListSerializer
+        serializer = UsuarioEquipoListSerializer(usuario_equipos, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='equipo-detalle')
+    def equipo_detalle(self, request, pk=None):
+        """
+        Obtiene el detalle completo del Equipo asociado a un UsuarioEquipo específico.
+        Incluye almacenamientos, monitores, software, fotos y usuario actual.
+        Endpoint: GET /api/usuarios-equipo/{pk}/equipo-detalle/
+        """
+        try:
+            usuario_equipo = UsuarioEquipo.objects.select_related(
+                'equipo', 'usuario__usuario'
+            ).get(pk=pk)
+        except UsuarioEquipo.DoesNotExist:
+            return Response(
+                {"error": f"UsuarioEquipo con id {pk} no existe"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Obtener el equipo y serializarlo con información completa
+        equipo = usuario_equipo.equipo
+        from .serializers import EquipoDetalleCompletoSerializer
+        serializer = EquipoDetalleCompletoSerializer(equipo)
+        
+        # Agregar información del UsuarioEquipo actual
+        data = serializer.data
+        data['usuario_equipo_info'] = {
+            'id': usuario_equipo.id,
+            'fecha_asignacion': usuario_equipo.fecha_asignacion,
+            'fecha_devolucion': usuario_equipo.fecha_devolucion,
+            'estado': usuario_equipo.estado,
+            'observaciones': usuario_equipo.observaciones
+        }
+        
+        return Response(data, status=status.HTTP_200_OK)
+
 class AlmacenamientoEquipoViewSet(viewsets.ModelViewSet):
     queryset = AlmacenamientoEquipo.objects.all()
     serializer_class = AlmacenamientoEquipoSerializer
