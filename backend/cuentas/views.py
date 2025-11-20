@@ -1,23 +1,24 @@
-from django.shortcuts import render
+import os
+
+from asgiref.sync import sync_to_async
+from core.models import PersonalizacionUsuario
+from core.tasks import send_email_task
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.http import JsonResponse
+from django.shortcuts import render
+from django_filters import rest_framework as filters
+from dotenv import load_dotenv
+from empresas.models import SucursalEmpresa, UsuarioEmpresa
+from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import viewsets, status
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from asgiref.sync import sync_to_async
-from django.http import JsonResponse
-from .serializers import *
-from rest_framework.permissions import AllowAny
-from django.core.mail import send_mail
-from django_filters import rest_framework as filters
-from core.tasks import send_email_task
-from empresas.models import SucursalEmpresa, UsuarioEmpresa
-from core.models import PersonalizacionUsuario
 
-import os
-from dotenv import load_dotenv
+from .serializers import *
 
 load_dotenv()
 

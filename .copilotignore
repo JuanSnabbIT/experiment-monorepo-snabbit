@@ -1,0 +1,105 @@
+# ========================================
+# .copilotignore
+# Archivos y carpetas excluidos del contexto de GitHub Copilot
+# ========================================
+
+# ----------------------------------------
+# Secretos y credenciales
+# ----------------------------------------
+**/*.env
+**/.env.*
+**/secrets.json
+**/*_secrets.*
+**/*.key
+**/*.pem
+**/*.p12
+**/*.crt
+**/*.pfx
+**/secrets/**
+**/credentials/**
+
+# ----------------------------------------
+# Entornos virtuales Python
+# ----------------------------------------
+**/ENV/**
+**/venv/**
+**/.venv/**
+**/virtualenv/**
+
+# ----------------------------------------
+# Cachés y artefactos de build
+# ----------------------------------------
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/.mypy_cache/**
+**/.pytest_cache/**
+**/.ruff_cache/**
+**/node_modules/**
+**/dist/**
+**/build/**
+**/.next/**
+**/*.log
+
+# ----------------------------------------
+# Bases de datos locales
+# ----------------------------------------
+**/db.sqlite3
+**/db.sqlite3-journal
+**/*.db
+
+# ----------------------------------------
+# Datos grandes o irrelevantes
+# ----------------------------------------
+**/data/**
+**/datasets/**
+**/tmp/**
+**/temp/**
+**/outputs/**
+**/uploads/**
+**/media/**
+
+# ----------------------------------------
+# Archivos de sistema
+# ----------------------------------------
+**/.DS_Store
+**/Thumbs.db
+**/*.swp
+**/*.swo
+**/*~
+
+# ----------------------------------------
+# Control de versiones (metadatos git)
+# ----------------------------------------
+.git/**
+
+# ----------------------------------------
+# Archivos binarios y multimedia grandes
+# ----------------------------------------
+**/*.pdf
+**/*.zip
+**/*.tar.gz
+**/*.rar
+**/*.mp4
+**/*.avi
+**/*.mov
+**/*.mp3
+
+# ----------------------------------------
+# Backups y respaldos
+# ----------------------------------------
+**/*.bak
+**/*.backup
+**/*.old
+**/backups/**
+
+# ----------------------------------------
+# Celery beat schedule
+# ----------------------------------------
+**/celerybeat-schedule
+**/celerybeat-schedule.db
+
+# ----------------------------------------
+# Notebooks con outputs grandes
+# ----------------------------------------
+**/*-checkpoint.ipynb

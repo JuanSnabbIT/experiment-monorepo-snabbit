@@ -95,6 +95,23 @@ npm run dev
 
 Toda la documentación del proyecto está centralizada en `.github/`:
 
+### 🤖 Guías para Agentes de IA
+
+Este proyecto incluye instrucciones específicas para GitHub Copilot y otros agentes de IA:
+
+- **[Instrucciones Canónicas](.github/copilot-instructions.md)**: Contexto del proyecto, arquitectura, convenciones y workflows
+- **[Guía para Agentes AI](AGENTS.md)**: Principios transversales, workflow recomendado y formato de respuestas
+- **Instrucciones Granulares** en `.github/instructions/`:
+  - [Python](.github/instructions/python.instructions.md) - Estándares PEP 8, type hints, modelos Django
+  - [TypeScript](.github/instructions/typescript.instructions.md) - Strict mode, interfaces, React patterns
+  - [Backend](.github/instructions/backend.instructions.md) - Django/DRF, Celery, multi-tenant
+  - [Frontend](.github/instructions/frontend.instructions.md) - Redux Toolkit, BaseService, TailwindCSS
+  - [Markdown](.github/instructions/markdown.instructions.md) - Estructura de documentos
+  - [Shell](.github/instructions/shell.instructions.md) - Scripts bash/batch/PowerShell
+- **[Exclusiones](.copilotignore)**: Archivos excluidos del contexto de Copilot (secretos, cachés, binarios)
+
+> **Cómo usar**: En VS Code, las instrucciones se aplican automáticamente según el tipo de archivo. Para configurar manualmente: `Ctrl+Shift+P` → "Configure Chat" → "Chat Instructions".
+
 ### Guías de Exploración
 - **[Inicialización del Sistema](.github/INICIALIZACION.md)**: Setup completo, scripts, flujos de inicialización
 - **[Módulo 1: Empresas](.github/EXPLORACION_EMPRESAS.md)**: Bugs encontrados, arquitectura, lecciones aprendidas
