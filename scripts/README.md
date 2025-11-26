@@ -8,9 +8,9 @@ Colección de scripts para inicialización, desarrollo y mantenimiento del monor
 scripts/
 ├── README.md                    # Este archivo
 ├── setup/                       # Scripts de inicialización y configuración
-│   ├── setup_superuser.py      # Configurar superusuario con empresa
-│   ├── reset_db.py             # Resetear base de datos a estado inicial
-│   └── seed_data.py            # Poblar DB con datos de prueba
+│   ├── setup_superuser.py       # Configurar superusuario con empresa
+│   ├── reset_db.py              # Resetear base de datos a estado inicial
+│   └── seed_data.py             # Poblar DB con datos de prueba
 ├── development/                 # Scripts para desarrollo
 │   ├── create_groups.py        # Crear grupos de permisos
 │   └── export_fixtures.py      # Exportar fixtures para testing
@@ -103,6 +103,11 @@ backend\ENV\Scripts\python.exe ..\scripts\setup\reset_db.py
 cd backend
 backend\ENV\Scripts\python.exe ..\scripts\setup\seed_data.py
 ```
+
+Incluye:
+- Creación de usuarios internos (técnico, bodeguero, admin)
+- Importación de empresas y usuarios cliente desde Excel con fallback a datos internos
+- Registro de equipos para clientes con asignaciones parciales a usuarios
 
 ### Development (Desarrollo)
 

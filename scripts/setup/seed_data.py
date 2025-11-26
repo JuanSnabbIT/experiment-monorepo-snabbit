@@ -3,8 +3,9 @@
 Script para poblar la base de datos con datos de prueba.
 
 Qué hace:
-- Crea múltiples empresas y sucursales
-- Crea usuarios con diferentes roles
+- Crea usuarios internos con diferentes roles
+- Carga empresas y usuarios cliente desde Excel o usa datos de prueba como respaldo
+- Registra equipos para clientes y realiza asignaciones parciales
 - Crea items de prueba (productos/servicios)
 - Crea bodegas con stock
 - Crea cotizaciones de ejemplo
@@ -25,6 +26,7 @@ Uso:
 """
 import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import django
@@ -44,6 +46,7 @@ from django.contrib.auth.models import Group
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from items.models import Categoria, Fabricante, ItemEmpresa
 from openpyxl import load_workbook
+from recursos.models import Equipo, UsuarioEquipo
 
 User = get_user_model()
 
@@ -56,54 +59,6 @@ EXCEL_USER_FILES = [
 ]
 DEFAULT_EXCEL_PASSWORD = "test1234"
 
-
-def crear_empresas_adicionales():
-    """Crea empresas de prueba adicionales."""
-    empresas_data = [
-        {
-            "rut": "76123456-7",
-            "nombre": "Empresa Cliente A",
-            "direccion_principal": "Av. Principal 100",
-            "telefono": "+56922334455",
-            "email": "contacto@clientea.cl",
-        },
-        {
-            "rut": "76234567-8",
-            "nombre": "Empresa Cliente B",
-            "direccion_principal": "Calle Secundaria 200",
-            "telefono": "+56933445566",
-            "email": "info@clienteb.cl",
-        },
-    ]
-
-    empresas = []
-    for data in empresas_data:
-        empresa, created = Empresa.objects.get_or_create(
-            rut_empresa=data["rut"],
-            defaults={
-                "nombre": data["nombre"],
-                "direccion_principal": data["direccion_principal"],
-                "telefono": data["telefono"],
-                "email": data["email"],
-            },
-        )
-        empresas.append(empresa)
-        if created:
-            print(f"✓ Empresa '{empresa.nombre}' creada")
-
-            # Crear sucursal para cada empresa
-            SucursalEmpresa.objects.get_or_create(
-                empresa=empresa,
-                nombre="Sucursal Principal",
-                defaults={
-                    "direccion": data["direccion_principal"],
-                    "telefono": data["telefono"],
-                },
-            )
-        else:
-            print(f"  Empresa '{empresa.nombre}' ya existe")
-
-    return empresas
 
 
 def crear_usuarios_prueba():
@@ -299,6 +254,10 @@ def crear_bodegas_prueba():
     return bodegas
 
 
+def _slugify(nombre: str) -> str:
+    return "".join(char for char in nombre.lower() if char.isalnum())
+
+
 def _clean_str(value):
     if value is None:
         return ""
@@ -317,9 +276,10 @@ def _obtener_sucursal_principal(empresa: Empresa) -> SucursalEmpresa:
     return sucursal
 
 
-def cargar_usuarios_desde_excels():
-    """Crea empresas y usuarios a partir de planillas Excel ubicadas en backend/."""
-    print("--- Cargando usuarios desde planillas Excel ---")
+def preparar_empresas_y_usuarios_cliente():
+    """Carga usuarios y empresas desde Excel, con fallback a datos de prueba."""
+
+    print("--- Preparando empresas y usuarios cliente ---")
 
     archivos = []
     for nombre in EXCEL_USER_FILES:
@@ -329,125 +289,337 @@ def cargar_usuarios_desde_excels():
         else:
             print(f"  ⚠️ Archivo '{nombre}' no encontrado, se omite.")
 
-    if not archivos:
-        print("  ⚠️ No se encontraron planillas de usuarios.")
-        return {"empresas": 0, "usuarios": 0}
+    totales = {"empresas": 0, "usuarios": 0, "usando_excel": False}
+    usuarios: list[UsuarioEmpresa] = []
+    empresas_dict: dict[int, Empresa] = {}
 
-    grupo_representante = Group.objects.filter(name="representante_legal").first()
+    if archivos:
+        totales["usando_excel"] = True
+        grupo_representante = Group.objects.filter(name="representante_legal").first()
 
-    totales = {"empresas": 0, "usuarios": 0}
-    for archivo in archivos:
-        wb = load_workbook(archivo)
-        sheet = wb.active
-        headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+        for archivo in archivos:
+            wb = load_workbook(archivo)
+            sheet = wb.active
+            headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
 
-        try:
-            idx_empresa = headers.index("Empresa")
-            idx_nombre = headers.index("Nombre")
-            idx_apellido = headers.index("Apellido")
-            idx_correo = headers.index("Correo")
-        except ValueError:
-            print(f"  ⚠️ Encabezados inesperados en '{archivo.name}', se omite.")
-            continue
-
-        print(f"  Procesando '{archivo.name}' ({sheet.max_row - 1} filas)")
-
-        for row in sheet.iter_rows(min_row=2, values_only=True):
-            empresa_nombre = _clean_str(row[idx_empresa])
-            email = _clean_str(row[idx_correo]).lower()
-            first_name = _clean_str(row[idx_nombre])
-            last_name = _clean_str(row[idx_apellido])
-
-            if not email:
+            try:
+                idx_empresa = headers.index("Empresa")
+                idx_nombre = headers.index("Nombre")
+                idx_apellido = headers.index("Apellido")
+                idx_correo = headers.index("Correo")
+            except ValueError:
+                print(f"  ⚠️ Encabezados inesperados en '{archivo.name}', se omite.")
                 continue
 
-            if not empresa_nombre:
-                empresa_nombre = "Empresa sin nombre"
+            print(f"  Procesando '{archivo.name}' ({sheet.max_row - 1} filas)")
 
-            empresa_defaults = {
-                "direccion_principal": "Dirección no especificada",
-                "telefono": "",
-                "email": "",
-            }
-            empresa, creada = Empresa.objects.get_or_create(
-                nombre=empresa_nombre,
-                defaults=empresa_defaults,
-            )
-            if creada:
-                totales["empresas"] += 1
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                empresa_nombre = _clean_str(row[idx_empresa])
+                email = _clean_str(row[idx_correo]).lower()
+                first_name = _clean_str(row[idx_nombre])
+                last_name = _clean_str(row[idx_apellido])
 
-            # Asegurar que la empresa tenga sucursal principal
-            sucursal = _obtener_sucursal_principal(empresa)
+                if not email:
+                    continue
 
-            user, creado_usuario = User.objects.get_or_create(
-                email=email,
+                if not empresa_nombre:
+                    empresa_nombre = "Empresa sin nombre"
+
+                empresa_defaults = {
+                    "direccion_principal": "Dirección no especificada",
+                    "telefono": "",
+                    "email": "",
+                }
+                empresa, creada = Empresa.objects.get_or_create(
+                    nombre=empresa_nombre,
+                    defaults=empresa_defaults,
+                )
+                empresas_dict[empresa.id] = empresa
+                if creada:
+                    totales["empresas"] += 1
+
+                sucursal = _obtener_sucursal_principal(empresa)
+
+                user, creado_usuario = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        "first_name": first_name or "Usuario",
+                        "last_name": last_name or "",
+                        "is_active": True,
+                    },
+                )
+                if creado_usuario:
+                    user.set_password(DEFAULT_EXCEL_PASSWORD)
+                    user.is_active = True
+                    user.save()
+                    totales["usuarios"] += 1
+                else:
+                    actualizado = False
+                    if first_name and user.first_name != first_name:
+                        user.first_name = first_name
+                        actualizado = True
+                    if last_name and user.last_name != last_name:
+                        user.last_name = last_name
+                        actualizado = True
+                    if not user.is_active:
+                        user.is_active = True
+                        actualizado = True
+                    if actualizado:
+                        user.save()
+
+                usuario_empresa, creado_ue = UsuarioEmpresa.objects.get_or_create(
+                    usuario=user,
+                    defaults={
+                        "sucursal": sucursal,
+                        "estado": "1",
+                    },
+                )
+
+                if not creado_ue:
+                    cambios = False
+                    if usuario_empresa.sucursal_id != sucursal.id:
+                        usuario_empresa.sucursal = sucursal
+                        cambios = True
+                    if usuario_empresa.estado != "1":
+                        usuario_empresa.estado = "1"
+                        cambios = True
+                    if cambios:
+                        usuario_empresa.save()
+                else:
+                    usuario_empresa.save()
+
+                if grupo_representante:
+                    usuario_empresa.grupos.add(grupo_representante)
+
+                personalizacion, creada_personalizacion = (
+                    PersonalizacionUsuario.objects.get_or_create(
+                        usuario=user,
+                        defaults={
+                            "tema": "3",
+                            "font_size": 14,
+                            "sucursal_principal": sucursal,
+                        },
+                    )
+                )
+                if (
+                    not creada_personalizacion
+                    and personalizacion.sucursal_principal_id != sucursal.id
+                ):
+                    personalizacion.sucursal_principal = sucursal
+                    personalizacion.save(update_fields=["sucursal_principal"])
+
+                usuarios.append(usuario_empresa)
+
+    if usuarios:
+        return list(empresas_dict.values()), usuarios, totales
+
+    totales["usando_excel"] = False
+    print("  ⚠️ No se encontraron planillas válidas. Usando datos de prueba.")
+
+    empresas_data = [
+        {
+            "rut": "76123456-7",
+            "nombre": "Empresa Cliente A",
+            "direccion_principal": "Av. Principal 100",
+            "telefono": "+56922334455",
+            "email": "contacto@clientea.cl",
+        },
+        {
+            "rut": "76234567-8",
+            "nombre": "Empresa Cliente B",
+            "direccion_principal": "Calle Secundaria 200",
+            "telefono": "+56933445566",
+            "email": "info@clienteb.cl",
+        },
+    ]
+
+    empresas: list[Empresa] = []
+    for data in empresas_data:
+        empresa, created = Empresa.objects.get_or_create(
+            rut_empresa=data["rut"],
+            defaults={
+                "nombre": data["nombre"],
+                "direccion_principal": data["direccion_principal"],
+                "telefono": data["telefono"],
+                "email": data["email"],
+            },
+        )
+        empresas.append(empresa)
+        if created:
+            print(f"✓ Empresa '{empresa.nombre}' creada")
+        else:
+            print(f"  Empresa '{empresa.nombre}' ya existe")
+
+        _obtener_sucursal_principal(empresa)
+
+    usuarios_existentes: list[UsuarioEmpresa] = []
+    for empresa in empresas:
+        sucursal = _obtener_sucursal_principal(empresa)
+        existentes = list(
+            UsuarioEmpresa.objects.filter(
+                sucursal__empresa=empresa, estado="1"
+            ).select_related("usuario")
+        )
+        usuarios_existentes.extend(existentes)
+
+        faltantes = max(0, 2 - len(existentes))
+        if faltantes == 0:
+            continue
+
+        dominio = _slugify(empresa.nombre) or "cliente"
+        base_datos = [
+            {
+                "email": f"soporte@{dominio}.cl",
+                "first_name": "Soporte",
+                "last_name": empresa.nombre,
+            },
+            {
+                "email": f"backoffice@{dominio}.cl",
+                "first_name": "Backoffice",
+                "last_name": empresa.nombre,
+            },
+        ]
+
+        for data in base_datos:
+            if faltantes <= 0:
+                break
+
+            user, created = User.objects.get_or_create(
+                email=data["email"],
                 defaults={
-                    "first_name": first_name or "Usuario",
-                    "last_name": last_name or "",
+                    "first_name": data["first_name"],
+                    "last_name": data["last_name"],
                     "is_active": True,
                 },
             )
-            if creado_usuario:
+            if created:
                 user.set_password(DEFAULT_EXCEL_PASSWORD)
-                user.is_active = True
                 user.save()
-                totales["usuarios"] += 1
+                print(f"✓ Usuario cliente creado: {user.email}")
             else:
-                actualizado = False
-                if first_name and user.first_name != first_name:
-                    user.first_name = first_name
-                    actualizado = True
-                if last_name and user.last_name != last_name:
-                    user.last_name = last_name
-                    actualizado = True
-                if not user.is_active:
-                    user.is_active = True
-                    actualizado = True
-                if actualizado:
-                    user.save()
+                print(f"  Usuario cliente reutilizado: {user.email}")
 
-            usuario_empresa, creado_ue = UsuarioEmpresa.objects.get_or_create(
+            usuario_empresa, _ = UsuarioEmpresa.objects.get_or_create(
                 usuario=user,
+                defaults={"sucursal": sucursal, "estado": "1"},
+            )
+            if usuario_empresa.sucursal_id != sucursal.id:
+                usuario_empresa.sucursal = sucursal
+                usuario_empresa.save(update_fields=["sucursal"])
+
+            usuarios_existentes.append(usuario_empresa)
+            faltantes -= 1
+
+    return empresas, usuarios_existentes, totales
+
+
+def crear_equipos_para_empresas(
+    empresas: list[Empresa], registrado_por: UsuarioEmpresa | None
+) -> list[Equipo]:
+    if not registrado_por:
+        print("⚠️ No se encontró el usuario técnico para registrar equipos.")
+        return []
+
+    equipos_creados: list[Equipo] = []
+    base_equipos = [
+        {
+            "tipo_equipo": "PORTATIL",
+            "marca": "HP",
+            "modelo": "ProBook 440",
+            "ram": "16",
+            "sistema_operativo": "WINDOWS",
+        },
+        {
+            "tipo_equipo": "ESCRITORIO",
+            "marca": "Dell",
+            "modelo": "OptiPlex 7090",
+            "ram": "32",
+            "sistema_operativo": "WINDOWS",
+        },
+        {
+            "tipo_equipo": "PORTATIL",
+            "marca": "Lenovo",
+            "modelo": "ThinkPad T14",
+            "ram": "16",
+            "sistema_operativo": "WINDOWS",
+        },
+    ]
+
+    for empresa in empresas:
+        dominio = _slugify(empresa.nombre).upper() or "CLI"
+        for idx, datos_equipo in enumerate(base_equipos, start=1):
+            numero_serie = f"{dominio}-{idx:03d}"
+            equipo, created = Equipo.objects.get_or_create(
+                numero_serie=numero_serie,
                 defaults={
-                    "sucursal": sucursal,
-                    "estado": "1",
+                    "cliente": empresa,
+                    "registrado_por": registrado_por,
+                    **datos_equipo,
                 },
             )
-
-            if not creado_ue:
-                cambios = False
-                if usuario_empresa.sucursal_id != sucursal.id:
-                    usuario_empresa.sucursal = sucursal
-                    cambios = True
-                if usuario_empresa.estado != "1":
-                    usuario_empresa.estado = "1"
-                    cambios = True
-                if cambios:
-                    usuario_empresa.save()
+            equipos_creados.append(equipo)
+            if created:
+                print(f"✓ Equipo creado: {equipo.numero_serie} para {empresa.nombre}")
             else:
-                usuario_empresa.save()
+                print(f"  Equipo ya existe: {equipo.numero_serie} para {empresa.nombre}")
 
-            if grupo_representante:
-                usuario_empresa.grupos.add(grupo_representante)
+    return equipos_creados
 
-            personalizacion, creada_personalizacion = (
-                PersonalizacionUsuario.objects.get_or_create(
-                    usuario=user,
-                    defaults={
-                        "tema": "3",
-                        "font_size": 14,
-                        "sucursal_principal": sucursal,
-                    },
-                )
+
+def crear_asignaciones_equipos(
+    equipos: list[Equipo], usuarios_cliente: list[UsuarioEmpresa]
+) -> list[UsuarioEquipo]:
+    asignaciones: list[UsuarioEquipo] = []
+    usuarios_por_empresa: dict[int, list[UsuarioEmpresa]] = {}
+    for usuario in usuarios_cliente:
+        empresa_id = usuario.sucursal.empresa_id
+        usuarios_por_empresa.setdefault(empresa_id, []).append(usuario)
+
+    equipos_por_empresa: dict[int, list[Equipo]] = {}
+    for equipo in equipos:
+        equipos_por_empresa.setdefault(equipo.cliente_id, []).append(equipo)
+
+    for empresa_id, equipos_empresa in equipos_por_empresa.items():
+        usuarios = usuarios_por_empresa.get(empresa_id, [])
+        if not usuarios:
+            print("⚠️ No hay usuarios cliente para asignar equipos en la empresa", empresa_id)
+            continue
+
+        activos: list[tuple[Equipo, UsuarioEmpresa]] = []
+        devueltos: list[tuple[Equipo, UsuarioEmpresa]] = []
+
+        if usuarios:
+            activos.append((equipos_empresa[0], usuarios[0]))
+        if len(usuarios) > 1 and len(equipos_empresa) > 1:
+            devueltos.append((equipos_empresa[1], usuarios[1]))
+
+        for equipo, usuario in activos:
+            usuario_equipo, _ = UsuarioEquipo.objects.get_or_create(
+                equipo=equipo,
+                usuario=usuario,
+                defaults={"observaciones": "Equipo asignado para soporte"},
             )
-            if (
-                not creada_personalizacion
-                and personalizacion.sucursal_principal_id != sucursal.id
-            ):
-                personalizacion.sucursal_principal = sucursal
-                personalizacion.save(update_fields=["sucursal_principal"])
+            asignaciones.append(usuario_equipo)
+            print(
+                f"✓ Equipo activo asignado: {equipo.numero_serie} -> {usuario.usuario.email}"
+            )
 
-    return totales
+        for equipo, usuario in devueltos:
+            usuario_equipo, _ = UsuarioEquipo.objects.get_or_create(
+                equipo=equipo,
+                usuario=usuario,
+                defaults={
+                    "estado": False,
+                    "fecha_devolucion": date.today() - timedelta(days=15),
+                    "observaciones": "Equipo devuelto para mantenimiento",
+                },
+            )
+            asignaciones.append(usuario_equipo)
+            print(
+                f"✓ Equipo devuelto registrado: {equipo.numero_serie} -> {usuario.usuario.email}"
+            )
+
+    return asignaciones
 
 
 def main():
@@ -464,12 +636,24 @@ def main():
         print("   Ejecuta primero: setup_superuser.py")
         return
 
-    print("--- Creando empresas adicionales ---")
-    empresas = crear_empresas_adicionales()
-    print()
-
     print("--- Creando usuarios de prueba ---")
     usuarios = crear_usuarios_prueba()
+    print()
+
+    empresas, usuarios_clientes, totales_clientes = (
+        preparar_empresas_y_usuarios_cliente()
+    )
+    print()
+
+    registrado_por = UsuarioEmpresa.objects.filter(
+        usuario__email="tecnico@snabbit.cl"
+    ).first()
+    print("--- Registrando equipos de clientes ---")
+    equipos = crear_equipos_para_empresas(empresas, registrado_por)
+    print()
+
+    print("--- Asignando equipos a usuarios cliente ---")
+    asignaciones = crear_asignaciones_equipos(equipos, usuarios_clientes)
     print()
 
     print("--- Creando categorías y fabricantes ---")
@@ -484,9 +668,6 @@ def main():
     bodegas = crear_bodegas_prueba()
     print()
 
-    totales_excel = cargar_usuarios_desde_excels()
-    print()
-
     print("=" * 60)
     print("✓ Datos de prueba creados exitosamente")
     print("=" * 60)
@@ -494,12 +675,17 @@ def main():
     print("Resumen:")
     print(f"- Empresas: {len(empresas) + 1} (incluyendo Snabbit)")
     print(f"- Usuarios: {len(usuarios)}")
+    print(f"- Usuarios cliente: {len(usuarios_clientes)}")
     print(f"- Categorías: {len(categorias)}")
     print(f"- Fabricantes: {len(fabricantes)}")
     print(f"- Items: {len(items)}")
     print(f"- Bodegas: {len(bodegas)}")
-    print(f"- Empresas desde Excel: {totales_excel['empresas']}")
-    print(f"- Usuarios desde Excel: {totales_excel['usuarios']}")
+    print(f"- Equipos creados: {len(equipos)}")
+    print(f"- Asignaciones de equipos: {len(asignaciones)}")
+    print(f"- Empresas desde Excel: {totales_clientes['empresas']}")
+    print(f"- Usuarios desde Excel: {totales_clientes['usuarios']}")
+    if not totales_clientes["usando_excel"]:
+        print("  (Fallback a datos de prueba internos)")
     print()
     print("Usuarios de prueba creados:")
     print("  - tecnico@snabbit.cl / test1234")
