@@ -60,41 +60,75 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
-            usuarios_empresa: [{value: ""}],
-            copias: [{ value: "" }],
+            usuarios_empresa: [] as { value: string }[],
+            copias: [] as { value: string }[],
         },
         validationSchema,
-        onSubmit: async (values) => {
+        onSubmit: async (values, { setSubmitting }) => {
             try {
-                let data = {}
-                if (isUser) {
-                    data = {usuarios_empresa: values.usuarios_empresa.map((user) => user.value)}
-                } else {
-                    data = {copias: values.copias.map((cop) => cop.value)}
+                const usuariosSeleccionados = (values.usuarios_empresa || [])
+                    .map((user) => user.value)
+                    .filter((val) => val);
+                const copiasSeleccionadas = (values.copias || [])
+                    .map((cop) => cop.value)
+                    .filter((val) => val);
+
+                if (isUser && usuariosSeleccionados.length === 0) {
+                    toast.error("Seleccione al menos un usuario interno");
+                    setSubmitting(false);
+                    return;
                 }
-                const response = await ApiService.fetchData({url: `/api/cotizaciones/${cotizacion.id}/enviar-cotizacion/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(data)})
+                if (!isUser && copiasSeleccionadas.length === 0) {
+                    toast.error("Ingrese al menos un correo externo");
+                    setSubmitting(false);
+                    return;
+                }
+
+                const data = isUser
+                    ? { usuarios_empresa: usuariosSeleccionados.map((id) => Number(id)) }
+                    : { copias: copiasSeleccionadas };
+
+                const response = await ApiService.fetchData({
+                    url: `/api/cotizaciones/${cotizacion.id}/enviar-cotizacion/`,
+                    method: 'post',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify(data),
+                    timeout: 15000,
+                });
                 if (response.data) {
-                    toast.success("Cotización enviada", {autoClose: 1000})
-                    setIsOpen(false)
-                    dispatch(detalleCotizacionThunk({id_cotizacion: cotizacion.id}))
+                    toast.success("Copia de cotizacion enviada", {autoClose: 1000});
+                    setIsOpen(false);
+                    dispatch(detalleCotizacionThunk({id_cotizacion: cotizacion.id}));
                 }
             } catch (error: any) {
-                toast.error(error.response.data || "Error al enviar cotización")
+                console.error("Error al enviar copia de cotizacion", error?.response?.data || error);
+                if (error?.code === "ECONNABORTED") {
+                    toast.info("Solicitud enviada, espere confirmaci\u00f3n.", { autoClose: 1500 });
+                    setIsOpen(false);
+                } else {
+                    const detalleError = error?.response?.data?.detail || error?.response?.data;
+                    toast.error(detalleError || "Error al enviar copia de cotizacion");
+                }
+            } finally {
+                setSubmitting(false);
             }
         }
     })
 
     return (
         <>
-            <Tooltip text="Enviar Cotización">
+            <Tooltip text="Enviar copia de la cotizacion">
                 <Button variant="solid" color="emerald" icon="HeroEnvelopeOpen" onClick={() => {setIsOpen(true)}}></Button>
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
                 <ModalHeader>
-                    <Badge className="text-xl">Enviar Cotización</Badge>
+                    <Badge className="text-xl">Enviar copia de la cotizacion</Badge>
                 </ModalHeader>
                 <ModalBody>
                     <div className="flex flex-col gap-4">
+                        <div className="text-sm text-gray-500">
+                            Reenvia la cotizacion aprobada a usuarios internos o correos externos.
+                        </div>
                         <div>
                             <Badge className="text-xl">Usuarios del Sistema</Badge>
                             <Checkbox
@@ -181,3 +215,4 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
 }
 
 export default EnviarCotizacion
+
