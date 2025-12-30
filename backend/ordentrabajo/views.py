@@ -959,10 +959,6 @@ class DetalleTrabajoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='completar-compra')
     def completar_compra(self, request, orden_trabajo_pk=None, pk=None):
         detalle = self.get_object()
-        firma = request.data.get("firma")
-
-        # obtén la instancia de UsuarioEmpresa
-        user = obtener_usuario_empresa(request.user)
 
         with transaction.atomic():
             # 1) Verificar que el trabajo sea una Compra
@@ -974,58 +970,11 @@ class DetalleTrabajoViewSet(viewsets.ModelViewSet):
 
             # 2) Cambiar estado de la Compra
             compra.estado = '1'
-            compra.save()
+            compra.save(update_fields=["estado"])
 
-            # 3) Crear la GuiaSalida
-            guia = GuiaSalida.objects.create(
-                bodega=compra.bodega_temporal,
-                recibido_por=user,
-                creado_por=user,
-                estado="E",
-                motivo="Compra en OT",
-                firma_recibido_por=firma,
-                firma_entrega=firma,
-                entregado_a=user
-            )
-
-            # 4) Replicar items de la Compra en la GuiaSalida usando ItemOrdenCompraEnStock
-            ct_itemcompra = ContentType.objects.get_for_model(ItemEnCompra)
-            for item_compra in compra.itemencompra_set.select_related('item'):
-                # 4a) Obtén (o crea) el registro en ItemOrdenCompraEnStock
-                iocs, _ = ItemOrdenCompraEnStock.objects.get_or_create(
-                    content_type=ct_itemcompra,
-                    item_oc_id=item_compra.id,
-                    defaults={
-                        'bodega_temporal': compra.bodega_temporal,
-                        'cantidad': item_compra.cantidad,
-                    }
-                )
-
-                # 4b) Asegúrate de que tenga su StockItemEnBodega; si no, créalo con cantidad=0
-                if not iocs.stock_item:
-                    stock, _ = StockItemEnBodega.objects.get_or_create(
-                        item=item_compra.item,
-                        bodega=iocs.bodega_temporal,
-                        defaults={'cantidad': 0},
-                    )
-                    iocs.stock_item = stock
-                    iocs.save()
-
-                # 4c) Ahora sí, crea el ItemsGuiaSalida a partir de ese stock_item
-                item_guia = ItemsGuiaSalida.objects.create(
-                    guia=guia,
-                    stock_item=stock,
-                    cantidad_original=stock.cantidad + item_compra.cantidad,
-                    cantidad_rebajada=item_compra.cantidad,
-                )
-
-                registrar_entrada(stock_item=stock, cantidad=(stock.cantidad + item_compra.cantidad), usuario=user, origen=iocs, descripcion="Items añadidos por una compra en OT")
-                registrar_salida(stock_item=stock, cantidad=stock.cantidad, origen=item_guia, usuario=user, descripcion="Items rebajados por una guia de salida en OT")
-
-            # 5) Asociar la guia al DetalleTrabajo y marcarlo completado
-            detalle.insumo = guia
+            # 3) Marcar el detalle como completado (sin generar guia ni movimientos de stock)
             detalle.estado = 'completado'
-            detalle.save()
+            detalle.save(update_fields=["estado"])
 
             serializer = self.get_serializer(detalle)
             return Response(serializer.data, status=status.HTTP_200_OK)

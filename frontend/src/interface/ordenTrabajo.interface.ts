@@ -182,8 +182,9 @@ export interface IInsumo {
 		cantidad_items: number;
 		estado: string;
 		estado_label: string;
-	};
+	} | null;
 	estado_label: string;
+	tipo?: 'soporte' | 'servicio';
 }
 
 export interface ICheckCompletibilidad {
@@ -297,8 +298,18 @@ export interface ISoporteTecnico {
 	nombre: string;
 	descripcion: string;
 	estado: 'pendiente' | 'en_proceso' | 'completado' | 'medianamente_completado' | 'no_realizado';
+	estado_label?: string;
 	tecnico_asignado: number | null;
+	nombre_tecnico?: string | null;
 	fecha_soporte: string | null;
+	guia_salida?: {
+		id: number;
+		motivo: string;
+		cantidad_items: number;
+		estado: string;
+		estado_label: string;
+	} | null;
+	usuarios_asignados_count?: number;
 	fecha_creacion: string;
 	fecha_modificacion: string;
 }
@@ -320,6 +331,9 @@ export interface IUsuarioAsignadoSoporte {
 	id: number;
 	soporte_tecnico: number;
 	usuario_equipo: number;
+	nombre_usuario: string;
+	numero_serie_equipo: string;
+	tipo_equipo: string;
 	trabajo_realizado: string;
 	resuelto: boolean;
 	fecha_creacion: string;

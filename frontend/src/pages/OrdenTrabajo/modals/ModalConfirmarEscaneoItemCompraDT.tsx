@@ -8,7 +8,7 @@ import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import { IItemEmpresa } from "@/interface/items.interface"
 import ApiService from "@/services/ApiService"
-import { listaCategoriasThunk, listaFabricanteThunk, listaItemsCompraThunk, listaItemsEmpresaProveedorThunk, useAppDispatch, useAppSelector } from "@/store"
+import { listaCategoriasThunk, listaFabricanteThunk, listaItemsCompraThunk, listaItemsEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import { IDetectedBarcode, Scanner } from "@yudiel/react-qr-scanner"
 import { useFormik } from "formik"
 import { Dispatch, SetStateAction, useEffect, useState } from "react"
@@ -53,7 +53,7 @@ function ModalConfirmarEscaneoItemCompraDT({
     // const { personalizacionUsuario } = useAppSelector((state) => state.auth)
     const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo)
     const { detalleCompra, listaItemsCompra } = useAppSelector((state) => state.bodega)
-    const { listaItemsEmpresaProveedor } = useAppSelector((state) => state.item)
+    const { listaItemsEmpresa } = useAppSelector((state) => state.item)
     const { listaCategorias, listaFabricante } = useAppSelector((state) => state.item)
     const [activeComponent, setActiveComponent] = useState<string>("Item de la Empresa")
     const [hasCameraPermission, setHasCameraPermission] = useState(false);
@@ -63,7 +63,7 @@ function ModalConfirmarEscaneoItemCompraDT({
 
     useEffect(() => {
         if (isOpen && detalleCompra && detalleOrdenTrabajo) {
-            dispatch(listaItemsEmpresaProveedorThunk({id_empresa: detalleOrdenTrabajo.empresa, id_proveedor: detalleCompra.proveedor}))
+            dispatch(listaItemsEmpresaThunk({id_empresa: detalleOrdenTrabajo.empresa}))
             dispatch(listaCategoriasThunk())
             dispatch(listaFabricanteThunk())
         }
@@ -140,7 +140,7 @@ function ModalConfirmarEscaneoItemCompraDT({
                             comentarios: values.comentarios,
                             codigo_barras: values.codigo_barras,
                             empresa: detalleOrdenTrabajo?.empresa,
-                            proveedores_empresa: [detalleCompra?.proveedor]
+                            proveedores_empresa: []
                         }
                     })})
                     if (response.data) {
@@ -225,11 +225,11 @@ function ModalConfirmarEscaneoItemCompraDT({
                         </Button>
                     </div>
                     {activeComponent === "Item de la Empresa" && (
-                        listaItemsEmpresaProveedor.length > 0 && (
+                        listaItemsEmpresa.length > 0 && (
                             <SelectReact
                                 name="seleccionItem"
-                                options={listaItemsEmpresaProveedor.filter(item => !listaItemsCompra.some(it => it.item === item.id)).map(item => ({value: item.id.toString(), label: item.nombre}))}
-                                value={{value: formik.values.item.toString(), label: listaItemsEmpresaProveedor.find(item => item.id.toString() === formik.values.item)?.nombre || ""}}
+                                options={listaItemsEmpresa.filter(item => !listaItemsCompra.some(it => it.item === item.id)).map(item => ({value: item.id.toString(), label: item.nombre}))}
+                                value={{value: formik.values.item.toString(), label: listaItemsEmpresa.find(item => item.id.toString() === formik.values.item)?.nombre || ""}}
                                 isClearable
                                 noOptionsMessage={(e) => (`No Existe ${e.inputValue}`)}
                                 onChange={(e) => {

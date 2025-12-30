@@ -24,6 +24,8 @@ def crear_registros_iniciales_y_cierre(sender, instance, created, **kwargs):
                     "nombre": "Soporte inicial",
                     "descripcion": "Registro automático de soporte",
                     "estado": "pendiente",
+                    "tecnico_asignado": instance.tecnico_responsable_ot,
+                    "fecha_soporte": instance.fecha_inicio_ot,
                 },
             )
         elif instance.tipo_servicio == "general":
@@ -33,6 +35,8 @@ def crear_registros_iniciales_y_cierre(sender, instance, created, **kwargs):
                     "nombre": "Servicio inicial",
                     "descripcion": "Registro automático de servicio",
                     "estado": "pendiente",
+                    "tecnico_asignado": instance.tecnico_responsable_ot,
+                    "fecha_servicio": instance.fecha_inicio_ot,
                 },
             )
     # Crear cierre administrativo si la orden está cerrada y no existe aún

@@ -6,6 +6,7 @@ from .models import (
     HistorialCambiosOrden,
     OrdenDeTrabajo,
     RendicionEnOt,
+    SeguimientoItemOT,
     ServicioEnOT,
     SoporteTecnico,
     UsuarioAsignadoSoporte,
@@ -155,3 +156,14 @@ class CierreAdministrativoOTAdmin(admin.ModelAdmin):
     search_fields = ["orden__id", "comentario"]
     readonly_fields = ["fecha_cierre", "fecha_creacion", "fecha_modificacion"]
     raw_id_fields = ["orden", "usuario"]
+
+
+@admin.register(SeguimientoItemOT)
+class SeguimientoItemOTAdmin(admin.ModelAdmin):
+    list_display = ["id", "servicio", "soporte", "usuario", "tipo", "fecha_creacion"]
+    list_filter = ["tipo"]
+    search_fields = ["servicio__id", "soporte__id", "comentario"]
+    readonly_fields = ["fecha_creacion", "fecha_modificacion"]
+    raw_id_fields = ["servicio", "soporte", "usuario"]
+
+

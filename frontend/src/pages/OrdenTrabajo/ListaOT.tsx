@@ -13,14 +13,14 @@ import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import { listaOrdenTrabajoThunk, RootState, useAppDispatch, useAppSelector } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
-	createColumnHelper,
-	flexRender,
-	getCoreRowModel,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	SortingState,
-	useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -45,25 +45,41 @@ const ListaOT = () => {
 
 	const columns = [
 		columnHelper.accessor('id', {
-			cell: (info) => info.getValue(),
+			cell: (info) => (
+				<div className='font-bold text-gray-600 dark:text-gray-400'>
+					{info.getValue()}
+				</div>
+			),
 			header: 'N°',
 			size: 20,
 		}),
 		columnHelper.accessor('tipo_servicio_label', {
-			cell: (info) => info.getValue(),
+			cell: (info) => (
+				<div className='font-semibold text-gray-700 dark:text-gray-300'>
+					{info.getValue()}
+				</div>
+			),
 			header: 'Tipo Servicio',
 		}),
 		columnHelper.accessor('empresa_nombre', {
-			cell: (info) => info.getValue(),
+			cell: (info) => (
+				<div className='font-medium text-gray-700 dark:text-gray-300'>
+					{info.getValue()}
+				</div>
+			),
 			header: 'Empresa',
 		}),
 		columnHelper.accessor('cliente_nombre', {
-			cell: (info) => info.getValue(),
+			cell: (info) => (
+				<div className='font-medium text-gray-700 dark:text-gray-300'>
+					{info.getValue()}
+				</div>
+			),
 			header: 'Cliente',
 		}),
 		columnHelper.accessor('fecha_inicio_ot', {
 			cell: (info) => (
-				<div className={!info.row.original.fecha_inicio_ot ? 'italic text-gray-400' : ''}>
+				<div className={!info.row.original.fecha_inicio_ot ? 'italic text-gray-400' : 'text-gray-500'}>
 					{info.row.original.fecha_inicio_ot
 						? dayjs(info.row.original.fecha_inicio_ot).format('DD/MM/YYYY')
 						: 'Por confirmar'}
@@ -75,7 +91,7 @@ const ListaOT = () => {
 			cell: (info) => (
 				<div
 					className={
-						!info.row.original.fecha_finalizacion_ot ? 'italic text-gray-400' : ''
+						!info.row.original.fecha_finalizacion_ot ? 'italic text-gray-400' : 'text-gray-500'
 					}>
 					{info.row.original.fecha_finalizacion_ot
 						? dayjs(info.row.original.fecha_finalizacion_ot).format('DD/MM/YYYY')
@@ -85,11 +101,41 @@ const ListaOT = () => {
 			header: 'Fecha Finalización',
 		}),
 		columnHelper.accessor('estado_label', {
-			cell: (info) => info.getValue(),
+			cell: (info) => {
+				const estado = info.getValue();
+				let color: 'emerald' | 'amber' | 'red' | 'blue' | 'gray' = 'gray';
+				const estadoLower = estado?.toLowerCase() || '';
+
+				if (estadoLower.includes('completada')) color = 'emerald';
+				else if (estadoLower.includes('pendiente')) color = 'amber';
+				else if (estadoLower.includes('reprogr') || estadoLower.includes('cancelada')) color = 'red';
+				else if (estadoLower.includes('en proceso')) color = 'blue';
+
+				return (
+					<Badge variant='solid' color={color} className='capitalize'>
+						{estado}
+					</Badge>
+				);
+			},
 			header: 'Estado',
 		}),
 		columnHelper.accessor('prioridad_label', {
-			cell: (info) => info.getValue(),
+			cell: (info) => {
+				const prioridad = info.getValue();
+				let color: 'emerald' | 'amber' | 'red' | 'blue' | 'gray' = 'gray';
+				const prioridadLower = prioridad?.toLowerCase() || '';
+
+				if (prioridadLower.includes('alta')) color = 'red';
+				else if (prioridadLower.includes('media')) color = 'amber';
+				else if (prioridadLower.includes('baja')) color = 'blue';
+				else if (prioridadLower.includes('normal')) color = 'gray';
+
+				return (
+					<Badge variant='solid' color={color} className='capitalize'>
+						{prioridad}
+					</Badge>
+				);
+			},
 			header: 'Prioridad',
 		}),
 		columnHelper.display({

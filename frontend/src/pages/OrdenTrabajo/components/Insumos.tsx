@@ -14,7 +14,7 @@ import {
     SortingState,
     useReactTable
 } from "@tanstack/react-table";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
 import ApiService from "@/services/ApiService";
@@ -29,8 +29,9 @@ const columnHelper = createColumnHelper<IInsumo>();
 
 function Insumos() {
     const dispatch = useAppDispatch();
-    const navigate = useNavigate()
-    const { detalleOrdenTrabajo, listaInsumos } = useAppSelector((state) => state.ordenTrabajo);
+    const navigate = useNavigate();
+    const { detalleOrdenTrabajo, listaInsumos = [] } = useAppSelector((state) => state.ordenTrabajo ?? { listaInsumos: [] });
+    const { listaVouchers = [] } = useAppSelector((state) => state.bodega ?? { listaVouchers: [] });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>("");
 
@@ -39,6 +40,25 @@ function Insumos() {
             dispatch(listaInsumosThunk({id_orden_trabajo: detalleOrdenTrabajo.id}));
         }
     }, [detalleOrdenTrabajo]);
+
+    const hayDevolucionesDesdeGuias = useMemo(() => {
+        if (!detalleOrdenTrabajo) return false;
+        return listaVouchers
+            .filter((voucher) => voucher.orden_trabajo === detalleOrdenTrabajo.id)
+            .some((voucher) =>
+                (Array.isArray(voucher.movimientos_agrupados) ? voucher.movimientos_agrupados : [])
+                    .some((grupo) => grupo.origen_tipo === "GuíaSalida"),
+            );
+    }, [detalleOrdenTrabajo, listaVouchers]);
+
+    const abrirDetalleGuia = (guiaId?: number | null) => {
+        console.log("Insumos: click ver guía", guiaId);
+        if (!guiaId) {
+            toast.error("No se pudo abrir el detalle: guía sin identificador");
+            return;
+        }
+        navigate(`/bodega/detalle-guia-salida-bodega/${guiaId}`);
+    };
 
     const columns = [
         columnHelper.accessor("id", {
@@ -54,26 +74,43 @@ function Insumos() {
             cell: (info) => info.getValue(),
             header: "Estado de Trabajo",
         }),
+        columnHelper.accessor("tipo", {
+            cell: (info) => (info.getValue() === "servicio" ? "Servicio" : "Soporte"),
+            header: "Tipo",
+            size: 80,
+        }),
         columnHelper.accessor("guia.id", {
-            cell: (info) => info.getValue(),
+            cell: (info) => info.getValue() ?? "-",
             header: "N° de Guia",
             size: 80
         }),
         columnHelper.accessor("guia.estado_label", {
-            cell: (info) => info.getValue(),
+            cell: (info) => info.getValue() ?? "-",
             header: "Estado de Guia"
         }),
         columnHelper.accessor("guia.cantidad_items", {
-            cell: (info) => info.getValue(),
+            cell: (info) => info.getValue() ?? 0,
             header: "Cantidad de Items"
         }),
         columnHelper.display({
             id: "acciones",
             cell: (info) => (
                 <div>
-                    <Tooltip text="Detalle Guia de Salida">
-                        <Button variant="solid" color="violet" icon="HeroEye" onClick={() => {navigate(`/bodega/detalle-guia-salida-bodega/${info.row.original.guia.id}`)}}></Button>
-                    </Tooltip>
+                    {info.row.original.guia && (
+                        <Tooltip text="Detalle Guia de Salida">
+                            <Button
+                                variant="solid"
+                                color="violet"
+                                icon="HeroEye"
+                                onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    console.log("mousedown detalle guía", info.row.original.guia?.id);
+                                    abrirDetalleGuia(info.row.original.guia?.id);
+                                }}
+                            />
+                        </Tooltip>
+                    )}
                 </div>
             ),
             header: "",
@@ -81,8 +118,10 @@ function Insumos() {
         })
     ];
 
+    const dataFiltrada = (listaInsumos || []).filter((insumo) => !!insumo.guia);
+
     const table = useReactTable({
-        data: listaInsumos,
+        data: dataFiltrada,
         columns: columns,
         state: {
             sorting: sorting,
@@ -104,30 +143,42 @@ function Insumos() {
                     <CardHeaderChild>
                         <Badge className="text-xl">Insumos</Badge>
                     </CardHeaderChild>
-                    <CardHeaderChild>
+                    <CardHeaderChild className="flex items-center gap-2">
                         <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter}>
                             {/* {detalleOrdenTrabajo && detalleOrdenTrabajo.estado === "pendiente" && <VincularInsumos id_orden={detalleOrdenTrabajo?.id} id_detalleTrabajo={detalleDelDetalleTrabajo?.id} />} */}
                         </AnimacionDeInputModoMovil>
+                        {detalleOrdenTrabajo && hayDevolucionesDesdeGuias && (
+                            <Tooltip text="Ver devoluciones de guías">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    color="blue"
+                                    icon="HeroDocumentDuplicate"
+                                    onClick={() =>
+                                        navigate(`/bodega/devoluciones?orden_trabajo=${detalleOrdenTrabajo.id}`)
+                                    }
+                                />
+                            </Tooltip>
+                        )}
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody className="z-0">
                     <div className="overflow-auto">
                         {listaInsumos.length > 0 ? (
                             <>
-                                <Table className="table-fixed min-w-[600px]">
+                                <Table>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
                                                 {headerGroup.headers.map((header) => (
-                                                    <Th key={header.id} isColumnBorder={false} style={{width: header.column.getSize()}} className="text-left">
+                                                    <Th
+                                                        key={header.id}
+                                                        scope="col"
+                                                        onClick={header.column.getToggleSortingHandler()}
+                                                        className="cursor-pointer select-none"
+                                                    >
                                                         {header.isPlaceholder ? null : (
-                                                            <div
-                                                                key={header.id}
-                                                                {...{
-                                                                    className: header.column.getCanSort() ? "cursor-pointer select-none flex items-center" : "",
-                                                                    onClick: header.column.getToggleSortingHandler()
-                                                                }}
-                                                            >
+                                                            <div className="flex items-center">
                                                                 {flexRender(header.column.columnDef.header, header.getContext())}
                                                                 {{
                                                                     asc: (
