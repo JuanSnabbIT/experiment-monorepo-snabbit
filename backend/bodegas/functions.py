@@ -1,39 +1,54 @@
 from collections import defaultdict
 from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib import colors
 from textwrap import wrap
 
+from django.utils import timezone
 from empresas.models import UsuarioEmpresa
-from recursos.models import Equipo  # ajusta el import a tu app real
+from recursos.models import Equipo
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+
+# Stub functions (not yet implemented or to be removed)
+def generar_orden_de_compra(*args, **kwargs):
+    """Placeholder for generar_orden_de_compra."""
+    pass
+
+
+def generar_pdf_bodega(*args, **kwargs):
+    """Placeholder for generar_pdf_bodega."""
+    return BytesIO()
+
+
+def generar_pdf_bodega_resumido(*args, **kwargs):
+    """Placeholder for generar_pdf_bodega_resumido."""
+    return BytesIO()
+
 
 def crear_equipos_para_items_guia(guia_salida, usuario_empresa):
     """
-    Crea registros Equipo para todos los Items individualizados de la guía.
-    Debe ejecutarse dentro de una transacción si el llamador lo requiere.
+    Crea registros Equipo para todos los Items individualizados de la guia.
+    Debe ejecutarse dentro de una transaccion si el llamador lo requiere.
     """
-
     for item_guia in guia_salida.itemsguiasalida_set.filter(individualizado=True):
-        datos_serie_item = item_guia.numero_serie            # {"serie": "...", ...}
+        datos_serie_item = item_guia.numero_serie
 
         if not (isinstance(datos_serie_item, dict) and datos_serie_item.get("serie")):
-            continue  # la validación ya la hiciste antes, pero mejor prevenir
+            continue
 
         serie = datos_serie_item["serie"]
 
-        # --- localizar el ItemOrdenCompraEnStock correspondiente ---
         item_oc_obj = None
         for item_oc in item_guia.stock_item.itemordencompraenstock_set.all():
-            numeros_serie_data = item_oc.numeros_serie        # {"numeros_serie": [ {serie, ...}, ... ]}
+            numeros_serie_data = item_oc.numeros_serie
             series_list = (numeros_serie_data or {}).get("numeros_serie", [])
             if any(sd.get("serie") == serie for sd in series_list):
                 item_oc_obj = item_oc
                 break
 
-        # --- obtener fecha de compra ---
         orden_compra = None
         if item_oc_obj is not None:
             if hasattr(item_oc_obj.item_oc, "orden_compra"):
@@ -49,328 +64,256 @@ def crear_equipos_para_items_guia(guia_salida, usuario_empresa):
             },
         )
 
-def generar_orden_de_compra(nombre_empresa, rut_empresa, direccion_empresa, telefono_empresa, 
-                            email_empresa, sitio_web_empresa, fecha_orden, codigo_orden, nombre_cliente, telefono_cliente,
-                            direccion_cliente, rut_cliente, email_cliente, datos_tabla, neto_orden, subtotal_orden, iva_orden,
-                            total_orden, comentarios_orden, buffer):
-    
-    # Crear PDF en el buffer
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    ancho, alto = letter
 
-    # Márgenes reducidos
-    margen_x = 30
-    margen_y = 30
-
-    # Posición inicial del encabezado
-    y_pos = alto - margen_y
-
-    # Encabezado: Nombre de la empresa
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(margen_x, y_pos, nombre_empresa)
-    y_pos -= 25
-
-    pdf.setFont("Helvetica", 10)
-
-    # RUT de la empresa
-    if rut_empresa:
-        pdf.drawString(margen_x, y_pos, f"RUT: {rut_empresa}")
-        y_pos -= 15
-
-    # Dirección de la empresa (wrapped dentro de la zona izquierda)
-    if direccion_empresa:
-        # Reservar espacio horizontal para detalles de la orden a la derecha
-        x_right = ancho - margen_x - 200
-        left_width = x_right - margen_x
-        max_chars = int(left_width / 6)
-        for line in wrap(direccion_empresa, width=max_chars):
-            pdf.drawString(margen_x, y_pos, line)
-            y_pos -= 15
-
-    # Teléfono de la empresa
-    if telefono_empresa:
-        pdf.drawString(margen_x, y_pos, f"Teléfono: {telefono_empresa}")
-        y_pos -= 15
-
-    # Correo de la empresa
-    if email_empresa:
-        pdf.drawString(margen_x, y_pos, f"Correo: {email_empresa}")
-        y_pos -= 15
-
-    # Sitio web de la empresa
-    if sitio_web_empresa:
-        pdf.drawString(margen_x, y_pos, f"Sitio Web: {sitio_web_empresa}")
-        y_pos -= 15
-
-    # Encabezado derecha: Detalles de la orden
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(ancho - margen_x - 200, alto - margen_y, "ORDEN DE COMPRA")
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(ancho - margen_x - 200, alto - margen_y - 20, f"Fecha: {fecha_orden}")
-    pdf.drawString(ancho - margen_x - 200, alto - margen_y - 35, f"Número de Orden de Compra: {codigo_orden}")
-
-    # Línea divisoria
-    pdf.line(margen_x, y_pos - 10, ancho - margen_x, y_pos - 10)
-    y_pos -= 30
-
-    # Información del destinatario
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(margen_x, y_pos, "SEÑORES:")
-    y_pos -= 15
-
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(margen_x, y_pos, nombre_cliente)
-    y_pos -= 15
-
-    if direccion_cliente:
-        pdf.drawString(margen_x, y_pos, direccion_cliente)
-        y_pos -= 15
-
-    if rut_cliente:
-        pdf.drawString(margen_x, y_pos, f"RUT: {rut_cliente}")
-        y_pos -= 15
-
-    if telefono_cliente:
-        pdf.drawString(margen_x, y_pos, f"Teléfono: {telefono_cliente}")
-        y_pos -= 15
-
-    if email_cliente:
-        pdf.drawString(margen_x, y_pos, f"Correo: {email_cliente}")
-        y_pos -= 15
-
-    # Línea divisoria
-    pdf.line(margen_x, y_pos - 10, ancho - margen_x, y_pos - 10)
-    y_pos -= 30
-
-    # Preparar estilos para la tabla
-    styles = getSampleStyleSheet()
-    desc_style = ParagraphStyle(
-        name='TableDescription',
-        parent=styles['BodyText'],
-        fontSize=8,
-        leading=10
-    )
-
-    # Construir datos de la tabla con Paragraph para la descripción
-    tabla_data = []
-    header = datos_tabla[0]
-    tabla_data.append(header)
-
-    for row in datos_tabla[1:]:
-        if len(row) == 6:
-            codigo, nombre_item, descripcion_item, cantidad, precio_unitario, total = row
-            contenido = Paragraph(f"<b>{nombre_item}</b><br/>{descripcion_item}", desc_style)
-        elif len(row) == 5:
-            codigo, descripcion, cantidad, precio_unitario, total = row
-            contenido = Paragraph(descripcion, desc_style)
-        else:
-            codigo = row[0]
-            cantidad, precio_unitario, total = row[-3], row[-2], row[-1]
-            resto = " ".join(str(x) for x in row[1:-3])
-            contenido = Paragraph(resto, desc_style)
-        tabla_data.append([codigo, contenido, cantidad, precio_unitario, total])
-
-    # Definir anchos de columnas
-    ancho_tabla = ancho - 2*margen_x
-    colWidths = [0.15*ancho_tabla, 0.5*ancho_tabla, 0.1*ancho_tabla, 0.12*ancho_tabla, 0.13*ancho_tabla]
-
-    tabla = Table(tabla_data, colWidths=colWidths)
-    tabla.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#003366")),
-        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
-        ("ALIGN", (0,0), (-1,0), "CENTER"),
-        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE", (0,0), (-1,0), 10),
-        ("ALIGN", (1,1), (1,-1), "LEFT"),
-        ("ALIGN", (2,1), (2,-1), "CENTER"),
-        ("ALIGN", (3,1), (3,-1), "CENTER"),
-        ("ALIGN", (4,1), (4,-1), "CENTER"),
-        ("GRID", (0,0), (-1,-1), 1, colors.black)
-    ]))
-
-    # Dibujar tabla
-    table_w, table_h = tabla.wrap(0,0)
-    y_tabla = y_pos - table_h - 40
-    tabla.drawOn(pdf, margen_x, y_tabla)
-
-    # Totales
-    y_tot = y_tabla - 40
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawRightString(ancho-margen_x, y_tot, f"NETO: {neto_orden}")
-    pdf.drawRightString(ancho-margen_x, y_tot-15, f"SUBTOTAL: {subtotal_orden}")
-    pdf.drawRightString(ancho-margen_x, y_tot-30, f"IVA 19%: {iva_orden}")
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawRightString(ancho-margen_x, y_tot-45, f"TOTAL: {total_orden}")
-
-    # Comentarios
-    y_com = y_tot - 100
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(margen_x, y_com, "Comentarios o instrucciones especiales:")
-    pdf.rect(margen_x, y_com-50, ancho-2*margen_x, 40)
-    text = pdf.beginText(margen_x+10, y_com-25)
-    text.setFont("Helvetica", 10)
-    max_w = ancho - 2*margen_x - 20
-    for ln in wrap(comentarios_orden, width=int(max_w/6)):
-        text.textLine(ln)
-    pdf.drawText(text)
-
-    # Guardar y resetear
-    pdf.save()
-    buffer.seek(0)
-
-def generar_pdf_bodega(datos_bodega):
+def generar_voucher_devolucion(voucher_id):
     """
-    Genera un archivo PDF con tabla estilizada en azul y sin bordes visibles.
+    Genera PDF del voucher de devolución.
     
-    :param datos_bodega: Diccionario con la información de la bodega y sus items.
-    :return: BytesIO con el contenido del PDF.
+    Integra lógica de generación con tabla agrupada por origen (GuíaSalida/Compra).
+    Sigue patrón de generar_pdf_bodega.
+    
+    Args:
+        voucher_id (int): ID del voucher
+    
+    Returns:
+        BytesIO: Buffer con el PDF generado
+    
+    Raises:
+        VoucherDevolucion.DoesNotExist: Si el voucher no existe
     """
+    from bodegas.models import VoucherDevolucion
+    from bodegas.serializers import VoucherDevolucionSerializer
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    
+    # Obtener voucher con datos relacionados
+    voucher = VoucherDevolucion.objects.select_related('orden_trabajo').prefetch_related(
+        'movimientos_voucher__movimiento__stock_item__item',
+        'movimientos_voucher__movimiento__stock_item__bodega',
+        'movimientos_voucher__movimiento__usuario__usuario'
+    ).get(id=voucher_id)
+    
+    # Serializar para obtener movimientos agrupados
+    serializer = VoucherDevolucionSerializer(voucher)
+    movimientos_agrupados = serializer.data['movimientos_agrupados']
+    
+    # Crear buffer
     buffer = BytesIO()
-    margin = 30  # Margen ajustado a 30 puntos
+    
+    # Crear documento PDF
+    from reportlab.lib.units import inch
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
-        leftMargin=margin,
-        rightMargin=margin,
-        topMargin=margin,
-        bottomMargin=margin,
+        rightMargin=0.5*inch,
+        leftMargin=0.5*inch,
+        topMargin=0.75*inch,
+        bottomMargin=0.5*inch
     )
-
-    elements = []
+    
+    # Estilos
     styles = getSampleStyleSheet()
-    title_style = styles["Title"]
-    title_style.fontSize = 14
-    title_style.alignment = 1  # Centrar el texto
-
-    # Título
-    title = Paragraph(f"<b>Reporte de Bodega: {datos_bodega['nombre']}</b>", title_style)
-    elements.append(title)
-    elements.append(Spacer(1, 10))  # Espaciado entre el título y la tabla
-
-    # Tabla de datos
-    table_data = [
-        ["Nombre del Item", "Categoría", "Fabricante", "Cantidad", "PMP", "Proveedores"]
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=12,
+        alignment=TA_CENTER
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#374151'),
+        spaceAfter=8,
+        spaceBefore=12
+    )
+    
+    # Contenido del PDF
+    story = []
+    
+    # --- Header ---
+    story.append(Paragraph("VOUCHER DE DEVOLUCIÓN", title_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Información del voucher
+    info_data = [
+        ['Número:', voucher.numero],
+        ['Orden de Trabajo:', f"OT #{voucher.orden_trabajo.id}"],
+        ['Fecha Emisión:', voucher.fecha_creacion.strftime('%d/%m/%Y %H:%M')],
+        ['Total Ítems Devueltos:', str(voucher.total_items_devueltos)],
     ]
-
-    for item in datos_bodega['items']:
-        table_data.append([
-            item['nombre'],
-            item['categoria'],
-            item['fabricante'],
-            item['cantidad'],
-            item['pmp'],
-            item['proveedores']
-        ])
-
-    # Estilo de la tabla
-    table = Table(table_data, colWidths=[100, 100, 100, 60, 60, 120])
-    table.setStyle(TableStyle([
-        # Estilo para encabezados
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),  # Azul oscuro
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),  # Texto blanco en encabezados
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
-
-        # Estilo para celdas
-        ("ALIGN", (0, 1), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 1), (-1, -1), 9),
-
-        # Bordes de las celdas
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    
+    info_table = Table(info_data, colWidths=[2*inch, 4*inch])
+    info_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#374151')),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
-
-    elements.append(table)
-
-    # Construir el PDF
-    doc.build(elements)
-
+    story.append(info_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # --- Movimientos agrupados por origen ---
+    if not movimientos_agrupados:
+        story.append(Paragraph("No hay movimientos registrados.", styles['Normal']))
+    else:
+        for grupo in movimientos_agrupados:
+            # Header del grupo (origen)
+            origen_header = f"{grupo['origen_detalle']}"
+            story.append(Paragraph(origen_header, heading_style))
+            
+            # Tabla de items del grupo
+            items_data = [
+                ['Ítem', 'Código', 'Cantidad', 'Bodega', 'Usuario', 'Fecha']
+            ]
+            
+            for item in grupo['items']:
+                items_data.append([
+                    item['item_nombre'][:30],  # Truncar si es muy largo
+                    item['item_codigo'],
+                    str(item['cantidad_devuelta']),
+                    item['bodega'][:20],
+                    item['usuario'][:25],
+                    item['fecha'].split()[0],  # Solo fecha, sin hora
+                ])
+            
+            # Crear tabla
+            items_table = Table(
+                items_data,
+                colWidths=[2.2*inch, 1*inch, 0.8*inch, 1.3*inch, 1.5*inch, 0.9*inch]
+            )
+            items_table.setStyle(TableStyle([
+                # Header
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                
+                # Body
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (2, 1), (2, -1), 'CENTER'),  # Cantidad centrada
+                ('ALIGN', (5, 1), (5, -1), 'CENTER'),  # Fecha centrada
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')]),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ]))
+            
+            story.append(items_table)
+            story.append(Spacer(1, 0.2*inch))
+    
+    # --- Footer ---
+    story.append(Spacer(1, 0.3*inch))
+    story.append(Paragraph(
+        f"Documento generado: {timezone.now().strftime('%d/%m/%Y %H:%M:%S')}",
+        styles['Normal']
+    ))
+    
+    # Construir PDF
+    doc.build(story)
     buffer.seek(0)
     return buffer
 
-def generar_pdf_bodega_resumido(datos_bodega):
+
+def generar_pdf_etiquetas_bodega(items_data):
     """
-    Genera un archivo PDF con ítems agrupados por categoría y tabla estilizada.
-    
-    :param datos_bodega: Diccionario con la información de la bodega y sus ítems.
-    :return: BytesIO con el contenido del PDF.
+    Genera un PDF con etiquetas de bodega para los items especificados.
+
+    items_data: lista de dicts con estructura:
+        {
+            "codigo": str,
+            "nombre": str,
+            "cantidad": int,
+            "bodega": str
+        }
+
+    Retorna: BytesIO object
     """
     buffer = BytesIO()
-    margin = 30  # Margen ajustado a 30 puntos
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        leftMargin=margin,
-        rightMargin=margin,
-        topMargin=margin,
-        bottomMargin=margin,
+
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=20, bottomMargin=20)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle(
+        "CustomTitle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        textColor=colors.HexColor("#003366"),
+        spaceAfter=20,
+        alignment=1,
     )
 
-    elements = []
-    styles = getSampleStyleSheet()
-    title_style = styles["Title"]
-    title_style.fontSize = 14
-    title_style.alignment = 1  # Centrar el texto
-
-    # Título
-    title = Paragraph(f"<b>Reporte de Bodega: {datos_bodega['nombre']}</b>", title_style)
+    title = Paragraph("Etiquetas de Bodega", title_style)
     elements.append(title)
-    elements.append(Spacer(1, 10))  # Espaciado entre el título y la tabla
 
-    # Agrupar los ítems por categoría
-    categorias = defaultdict(lambda: {"cantidad_total": 0, "pmp_total": 0, "num_items": 0})
+    table_data = [["Codigo", "Nombre", "Cantidad"]]
 
-    for item in datos_bodega['items']:
-        categoria = item['categoria'] if item['categoria'] else "Sin categoría"
-        categorias[categoria]["cantidad_total"] += item['cantidad']
-        categorias[categoria]["pmp_total"] += item['cantidad'] * item['pmp']
-        categorias[categoria]["num_items"] += 1
+    for item in items_data:
+        table_data.append(
+            [
+                item.get("codigo", ""),
+                item.get("nombre", ""),
+                str(item.get("cantidad", 0)),
+            ]
+        )
 
-    # Calcular PMP promedio ponderado por categoría
-    for categoria, datos in categorias.items():
-        if datos["cantidad_total"] > 0:
-            datos["pmp_promedio"] = datos["pmp_total"] / datos["cantidad_total"]
-        else:
-            datos["pmp_promedio"] = 0
-
-    # Crear datos para la tabla
-    table_data = [["Categoría", "Cantidad Total", "PMP Promedio"]]
-
-    for categoria, datos in categorias.items():
-        table_data.append([
-            categoria,
-            datos["cantidad_total"],
-            f"${datos['pmp_promedio']:.2f}"
-        ])
-
-    # Estilo de la tabla
     table = Table(table_data, colWidths=[200, 100, 150])
-    table.setStyle(TableStyle([
-        # Estilo para encabezados
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),  # Azul oscuro
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),  # Texto blanco en encabezados
-        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
-
-        # Estilo para celdas
-        ("ALIGN", (0, 1), (-1, -1), "CENTER"),
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 1), (-1, -1), 9),
-
-        # Bordes de las celdas
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#003366")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 0), 10),
+                ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 1), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
 
     elements.append(table)
 
-    # Construir el PDF
     doc.build(elements)
 
     buffer.seek(0)
     return buffer
+
+
+def calcular_saldo_historico_stock(stock_item):
+    """Calculate accumulated stock balance at each movement date."""
+    from bodegas.models import MovimientoStock
+
+    movimientos = MovimientoStock.objects.filter(stock_item=stock_item).order_by(
+        "created_at"
+    )
+    saldo_acumulado = 0
+    resultado = []
+
+    for movimiento in movimientos:
+        saldo_acumulado += movimiento.cantidad
+        resultado.append(
+            {
+                "fecha": movimiento.created_at,
+                "tipo_movimiento": movimiento.tipo_movimiento,
+                "cantidad_delta": movimiento.cantidad,
+                "saldo_acumulado": saldo_acumulado,
+                "descripcion": movimiento.descripcion,
+            }
+        )
+
+    return resultado

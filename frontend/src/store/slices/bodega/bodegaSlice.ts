@@ -1,4 +1,4 @@
-import { IBodega, IItemEnOrdenCompra, IItemOrdenCompraEnStock, IItemGuiaSalida, IOrdenCompra, IGuiaSalida, IStockItemEnBodega, IEventoOc, ICompra, IItemEnCompra, IMovimientoStock, ITomaInventario, IItemEnTomaInventario, IEstadoTomaInventario } from "@/interface/bodega.interface"
+import { IBodega, IItemEnOrdenCompra, IItemOrdenCompraEnStock, IItemGuiaSalida, IOrdenCompra, IGuiaSalida, IStockItemEnBodega, IEventoOc, ICompra, IItemEnCompra, IMovimientoStock, ITomaInventario, IItemEnTomaInventario, IEstadoTomaInventario, IVoucherDevolucion } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
 
@@ -31,6 +31,13 @@ export interface BodegaState {
     listaEstadosTomaInventario: IEstadoTomaInventario[]
     buscarItemEnTomaInventario: IItemEnTomaInventario[]
     listaGuiasSalidasDisponibles: IGuiaSalida[]
+    listaVouchers: IVoucherDevolucion[]
+    detalleVoucher: IVoucherDevolucion | undefined
+    vouchersPaginacion: {
+        count: number
+        next: string | null
+        previous: string | null
+    }
 }
 
 const initialState: BodegaState = {
@@ -60,7 +67,14 @@ const initialState: BodegaState = {
     listaItemsEnTomaInventario: [],
     listaEstadosTomaInventario: [],
     buscarItemEnTomaInventario: [],
-    listaGuiasSalidasDisponibles: []
+    listaGuiasSalidasDisponibles: [],
+    listaVouchers: [],
+    detalleVoucher: undefined,
+    vouchersPaginacion: {
+        count: 0,
+        next: null,
+        previous: null,
+    },
 }
 
 export const listaGuiasSalidasDisponiblesThunk = createAsyncThunk<IGuiaSalida[], {id_empresa: number | string | undefined}, {rejectValue: string}>(
@@ -375,6 +389,63 @@ export const listaItemsOrdenCompraEnStockThunk = createAsyncThunk<IItemOrdenComp
     }
 )
 
+// ========== VOUCHERS DE DEVOLUCIÓN ==========
+
+export const listaVouchersThunk = createAsyncThunk<
+    { results: IVoucherDevolucion[]; count: number; next: string | null; previous: string | null },
+    { orden_trabajo?: number; search?: string; page?: number },
+    { rejectValue: string }
+>(
+    'bodega/listaVouchersThunk',
+    async (filtros, { rejectWithValue }) => {
+        try {
+            const params = new URLSearchParams()
+            if (filtros?.orden_trabajo) {
+                params.append('orden_trabajo', filtros.orden_trabajo.toString())
+            }
+            if (filtros?.search) {
+                params.append('search', filtros.search)
+            }
+            if (filtros?.page) {
+                params.append('page', filtros.page.toString())
+            }
+
+            const response = await ApiService.fetchData<{
+                count: number
+                next: string | null
+                previous: string | null
+                results: IVoucherDevolucion[]
+            }>({
+                url: '/api/vouchers-devolucion/',
+                method: 'get',
+                params: params.toString() ? params : undefined,
+            })
+            return response.data
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.error || 'Error al cargar vouchers')
+        }
+    }
+)
+
+export const detalleVoucherThunk = createAsyncThunk<
+    IVoucherDevolucion,
+    number,
+    { rejectValue: string }
+>(
+    'bodega/detalleVoucherThunk',
+    async (voucherId, { rejectWithValue }) => {
+        try {
+            const response = await ApiService.fetchData<IVoucherDevolucion>({
+                url: `/api/vouchers-devolucion/${voucherId}/`,
+                method: 'get',
+            })
+            return response.data
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.error || 'Error al cargar voucher')
+        }
+    }
+)
+
 const bodegaSlice = createSlice({
     name: `bodega/bodegaSlice`,
     initialState,
@@ -384,6 +455,17 @@ const bodegaSlice = createSlice({
         },
         LIMPIAR_LISTA_BUSCAR_ITEM_TOMA_INVENTARIO: (state) => {
             state.buscarItemEnTomaInventario = []
+        },
+        LIMPIAR_DETALLE_ORDEN_COMPRA: (state) => {
+            state.detalleOrdenCompra = undefined
+            state.listaItemsEnOrdenCompra = []
+            state.listaItemsOrdenCompraEnStock = []
+        },
+        LIMPIAR_DETALLE_COMPRA: (state) => {
+            state.detalleCompra = undefined
+        },
+        LIMPIAR_ITEMS_COMPRA: (state) => {
+            state.listaItemsCompra = []
         }
     },
     extraReducers(builder) {
@@ -577,6 +659,8 @@ const bodegaSlice = createSlice({
             })
             .addCase(detalleCompraThunk.pending, (state) => {
                 state.loading = true
+                state.detalleCompra = undefined
+                state.listaItemsCompra = []
             })
             .addCase(detalleCompraThunk.fulfilled, (state, action) => {
                 state.detalleCompra = action.payload
@@ -588,6 +672,7 @@ const bodegaSlice = createSlice({
             })
             .addCase(listaItemsCompraThunk.pending, (state) => {
                 state.loading = true
+                state.listaItemsCompra = []
             })
             .addCase(listaItemsCompraThunk.fulfilled, (state, action) => {
                 state.listaItemsCompra = action.payload
@@ -685,9 +770,45 @@ const bodegaSlice = createSlice({
                 state.loading = false
                 state.error = action.payload
             })
+            // ========== VOUCHERS ==========
+            .addCase(listaVouchersThunk.pending, (state) => {
+                state.loading = true
+                state.error = undefined
+            })
+            .addCase(listaVouchersThunk.fulfilled, (state, action) => {
+                state.listaVouchers = action.payload.results
+                state.vouchersPaginacion = {
+                    count: action.payload.count,
+                    next: action.payload.next,
+                    previous: action.payload.previous,
+                }
+                state.loading = false
+            })
+            .addCase(listaVouchersThunk.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload
+            })
+            .addCase(detalleVoucherThunk.pending, (state) => {
+                state.loading = true
+                state.error = undefined
+            })
+            .addCase(detalleVoucherThunk.fulfilled, (state, action) => {
+                state.detalleVoucher = action.payload
+                state.loading = false
+            })
+            .addCase(detalleVoucherThunk.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload
+            })
     }
 })
 
-export const { LIMPIAR_LISTA_GUIA_SALIDA_POR_BODEGA, LIMPIAR_LISTA_BUSCAR_ITEM_TOMA_INVENTARIO } = bodegaSlice.actions
+export const {
+    LIMPIAR_LISTA_GUIA_SALIDA_POR_BODEGA,
+    LIMPIAR_LISTA_BUSCAR_ITEM_TOMA_INVENTARIO,
+    LIMPIAR_DETALLE_ORDEN_COMPRA,
+    LIMPIAR_DETALLE_COMPRA,
+    LIMPIAR_ITEMS_COMPRA
+} = bodegaSlice.actions
 
 export default bodegaSlice.reducer
