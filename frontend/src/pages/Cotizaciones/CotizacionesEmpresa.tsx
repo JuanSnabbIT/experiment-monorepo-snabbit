@@ -1,21 +1,25 @@
-import { useEffect, useState } from 'react'
-import { listaCotizacionesSucursalThunk, useAppDispatch, useAppSelector } from '@/store'
-import Card, { CardBody } from '@/components/ui/Card'
+import Input from '@/components/form/Input'
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact'
+import Icon from '@/components/icon/Icon'
+import Container from '@/components/layouts/Container/Container'
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
 import Badge from '@/components/ui/Badge'
-import Container from '@/components/layouts/Container/Container'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import Tooltip from '@/components/ui/Tooltip'
 import Button from '@/components/ui/Button'
-import { useNavigate } from 'react-router-dom'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
+import Card, { CardBody } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
+import Tooltip from '@/components/ui/Tooltip'
+import { ESTADO_COTIZACION } from '@/constants/cotizacion.constant'
 import { ICotizacion } from '@/interface/cotizaciones.interface'
+import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
+import { listaCotizacionesSucursalThunk, listaMisClientesThunk, useAppDispatch, useAppSelector } from '@/store'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import { MouseEvent, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { MultiValue } from 'react-select'
+import CopiasCotizacion from './modals/CopiasCotizacion'
 import CrearCotizacion from './modals/CrearCotizacion'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
 
 
 const columnHelper = createColumnHelper<ICotizacion>()
@@ -25,47 +29,160 @@ const CotizacionesEmpresa = () => {
     const navigate = useNavigate()
     const { listaCotizaciones } = useAppSelector((state) => state.cotizacion)
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const { listaMisClientes } = useAppSelector((state) => state.empresa)
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
+    const [optionClientes, setOptionClientes] = useState<{ value: string; label: string }[]>([])
+    const [filtroCliente, setFiltroCliente] = useState<string[]>([])
+    const [filtroEstado, setFiltroEstado] = useState<string[]>([])
+    const [copiasModalOpen, setCopiasModalOpen] = useState(false)
+    const [cotizacionCopias, setCotizacionCopias] = useState<ICotizacion | null>(null)
 
     useEffect(() => {
-        dispatch(listaCotizacionesSucursalThunk())
+        if (personalizacionUsuario?.empresa) {
+            dispatch(listaCotizacionesSucursalThunk(undefined))
+            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }))
+        }
     }, [personalizacionUsuario])
 
+    useEffect(() => {
+        if (listaMisClientes.length > 0) {
+            setOptionClientes(listaMisClientes.map(cliente => ({
+                value: cliente.info_cliente.id.toString(),
+                label: cliente.info_cliente.nombre
+            })))
+        } else {
+            setOptionClientes([])
+        }
+    }, [listaMisClientes])
+
+    useEffect(() => {
+        if (!personalizacionUsuario?.empresa) {
+            return
+        }
+        const params = new URLSearchParams()
+        filtroCliente.forEach((id) => params.append("cliente", id))
+        filtroEstado.forEach((id) => params.append("estado", id))
+        dispatch(listaCotizacionesSucursalThunk({ filtro: params }))
+    }, [filtroCliente, filtroEstado, personalizacionUsuario])
+
+    const handleAbrirCopias = (cotizacion: ICotizacion, event?: MouseEvent<HTMLButtonElement>) => {
+        if (event) {
+            event.stopPropagation()
+        }
+        setCotizacionCopias(cotizacion)
+        setCopiasModalOpen(true)
+    }
+
     const columns = [
+
+        columnHelper.accessor("numero_cotizacion", {
+            cell: (info) => (
+                <div className='font-bold text-gray-600 dark:text-gray-400'>
+                    #{info.getValue()}
+                </div>
+            ),
+            header: "N\u00b0"
+        }),
+        columnHelper.accessor("nombre", {
+            cell: (info) => (
+                <div className='font-semibold text-gray-900 dark:text-gray-100'>
+                    {info.getValue()}
+                </div>
+            ),
+            header: "Nombre"
+        }),
         columnHelper.accessor("cliente_nombre", {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <div className='font-medium text-gray-700 dark:text-gray-300'>
+                    {info.getValue()}
+                </div>
+            ),
             header: "Cliente"
         }),
-        columnHelper.accessor("numero_cotizacion", {
-            cell: (info) => info.getValue(),
-            header: "Número de Cotización"
+        columnHelper.accessor("fecha_creacion", {
+            cell: (info) => {
+                const date = new Date(info.getValue())
+                return (
+                    <div className='text-gray-500'>
+                        {date.toLocaleDateString()}
+                    </div>
+                )
+            },
+            header: "Fecha"
+        }),
+        columnHelper.accessor("total_estimado", {
+            cell: (info) => {
+                const row = info.row.original
+                let formattedValue = '';
+                const val = parseFloat(info.getValue() as unknown as string);
+
+                if (row.tipo_moneda === '2' || !row.tipo_moneda) { // CLP
+                     // Redondear hacia arriba y usar separadores de miles, sin decimales
+                     const rounded = Math.ceil(val);
+                     formattedValue = `$${rounded.toLocaleString('es-CL')}`;
+                } else if (row.tipo_moneda === '1') { // USD
+                    // USD con decimales standard y sufijo
+                    formattedValue = `${val.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} USD`;
+                } else if (row.tipo_moneda === '3') { // UF
+                    formattedValue = `${val.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF`;
+                }
+
+                return (
+                    <div className='font-mono font-medium'>
+                         {formattedValue}
+                    </div>
+                )
+            },
+            header: "Total"
         }),
         columnHelper.accessor("estado_label", {
-            cell: (info) => info.getValue(),
+            cell: (info) => {
+                const estado = info.getValue()
+                let color: "emerald" | "red" | "amber" | "blue" | "gray" = "gray"
+                
+                if (estado?.toLowerCase().includes("aceptad")) color = "emerald"
+                else if (estado?.toLowerCase().includes("rechazad")) color = "red"
+                else if (estado?.toLowerCase().includes("pendiente")) color = "amber"
+                else if (estado?.toLowerCase().includes("enviada")) color = "blue"
+
+                return (
+                    <Badge variant='solid' color={color} className='capitalize'>
+                        {estado}
+                    </Badge>
+                )
+            },
             header: "Estado"
-        }),
-        columnHelper.accessor("tipo_moneda_label", {
-            cell: (info) => info.getValue(),
-            header: "Tipo de Moneda"
         }),
         columnHelper.display({
             id: "acciones",
-            cell: (info) => (
-                <div className="flex justify-center gap-2">
-                    <Tooltip text="Detalle Cotización">
-                        <Button variant="solid" color='violet' onClick={() => {navigate(`/cotizacion/detalle-cotizacion/${info.row.original.numero_cotizacion}/`)}} icon="HeroEye"></Button>
-                    </Tooltip>
-                    <ModalEliminar
-                        mensaje={`Estas a punto de eliminar la cotización ${info.row.original.numero_cotizacion}. ¿Desea continuar?`} 
-                        peticionUrl={`/api/cotizaciones/${info.row.original.id}/`}
-                        onDispatch={() => {dispatch(listaCotizacionesSucursalThunk())}}
-                    >
-                        Eliminar
-                    </ModalEliminar>
-
-                </div>
-            )
+            header: "Acciones",
+            cell: (info) => {
+                const esRechazada = info.row.original.estado?.toLowerCase() === "rechazada"
+                const tieneCopias = (info.row.original.copias_count || 0) > 0
+                return (
+                    <div className="flex gap-2">
+                        <Tooltip text="Ver Detalle">
+                            <Button variant="solid" color='violet' onClick={() => {navigate(`/cotizacion/detalle-cotizacion/${info.row.original.numero_cotizacion}/`)}} icon="HeroEye"></Button>
+                        </Tooltip>
+                        {esRechazada || tieneCopias ? (
+                            <Tooltip text="Copias">
+                                <Button
+                                    variant="solid"
+                                    color="emerald"
+                                    icon="HeroDocumentDuplicate"
+                                    onClick={(event) => {handleAbrirCopias(info.row.original, event)}}
+                                ></Button>
+                            </Tooltip>
+                        ) : null}
+                        <ModalEliminar
+                            mensaje={`Estas a punto de eliminar la cotizacion ${info.row.original.numero_cotizacion}. Desea continuar?`} 
+                            peticionUrl={`/api/cotizaciones/${info.row.original.id}/`}
+                            onDispatch={() => {dispatch(listaCotizacionesSucursalThunk(undefined))}}
+                        />
+                    </div>
+                )
+            }
         })
     ]
 
@@ -91,10 +208,44 @@ const CotizacionesEmpresa = () => {
                 <SubheaderLeft>
                     <Badge className="text-xl">Cotizaciones Clientes</Badge>
                 </SubheaderLeft>
-                <SubheaderRight>
-                    <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={200}>
+                <SubheaderRight className="w-full md:w-auto">
+                    <div className="flex flex-col md:flex-row gap-4 w-full">
+                        <div className="min-w-[200px]">
+                            <SelectReact
+                                name="cliente"
+                                placeholder="Cliente"
+                                noOptionsMessage={() => ("Sin Opciones")}
+                                options={optionClientes}
+                                isMulti={true}
+                                onChange={(selectedOptions) => {
+                                    const ids = (selectedOptions as MultiValue<TSelectOption>).map((option) => option.value)
+                                    setFiltroCliente(ids)
+                                }}
+                            />
+                        </div>
+                        <div className="min-w-[200px]">
+                            <SelectReact
+                                name="estado"
+                                placeholder="Estado"
+                                noOptionsMessage={() => ("Sin Opciones")}
+                                options={ESTADO_COTIZACION}
+                                isMulti={true}
+                                onChange={(selectedOptions) => {
+                                    const ids = (selectedOptions as MultiValue<TSelectOption>).map((option) => option.value)
+                                    setFiltroEstado(ids)
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <Input
+                                name="globalFilter"
+                                placeholder="Buscar..."
+                                value={globalFilter}
+                                onChange={(e) => {setGlobalFilter(e.target.value)}}
+                            />
+                        </div>
                         <CrearCotizacion empresa={true} />
-                    </AnimacionDeInputModoMovil>
+                    </div>
                 </SubheaderRight>
             </Subheader>
             <Container className="w-full h-full">
@@ -165,6 +316,11 @@ const CotizacionesEmpresa = () => {
                     </CardBody>
                 </Card>
             </Container>
+            <CopiasCotizacion
+                cotizacion={cotizacionCopias}
+                isOpen={copiasModalOpen}
+                setIsOpen={setCopiasModalOpen}
+            />
         </PageWrapper>
     )
 }

@@ -10,13 +10,17 @@ export interface CotizacionState {
     error: any;
     listaCotizaciones: ICotizacion[];
     detalleCotizacion: ICotizacion | undefined;
+    detallesPorNumero: Record<string, ICotizacion>;
     listaItemsCotizacion: IItemCotizacion[];
     listaItemsEnCotizacion: IItemCotizacion[];
+    itemsPorCotizacion: Record<string, IItemCotizacion[]>;
     detalleItemCotizacion: IItemCotizacion | undefined;
     detalleItemEnCotizacion: IItemCotizacion | undefined;
     listaSeguimientoCotizacion: ISeguimientoCotizacion[];
     detalleSeguiemientoCotizacion: ISeguimientoCotizacion | undefined;
     listaSolicitantesCotizacion: ISolicitanteCotizacion[];
+    solicitantesPorCotizacion: Record<string, ISolicitanteCotizacion[]>;
+    copiasPorCotizacion: Record<string, ICotizacion[]>;
     listaUsuariosParaSolicitante: IUsuarioEmpresa[];
     listaComentariosCotizacion: IComentarioCotizacion[];
     listaOrdenesDeCompraCotizacion: IOrdenCompra[]
@@ -27,13 +31,17 @@ const initialState: CotizacionState = {
     error: undefined,
     listaCotizaciones: [],
     listaItemsEnCotizacion: [],
+    itemsPorCotizacion: {},
     detalleCotizacion: undefined,
+    detallesPorNumero: {},
     listaItemsCotizacion: [],
     detalleItemCotizacion: undefined,
     detalleItemEnCotizacion: undefined,
     listaSeguimientoCotizacion: [],
     detalleSeguiemientoCotizacion: undefined,
     listaSolicitantesCotizacion: [],
+    solicitantesPorCotizacion: {},
+    copiasPorCotizacion: {},
     listaUsuariosParaSolicitante: [],
     listaComentariosCotizacion: [],
     listaOrdenesDeCompraCotizacion: []
@@ -123,14 +131,60 @@ export const detalleItemEnCotizacionThunk = createAsyncThunk<IItemCotizacion, { 
     }
 )
 
-export const listaCotizacionesSucursalThunk = createAsyncThunk<ICotizacion[], undefined, { rejectValue: string }>(  
+export const listaCotizacionesSucursalThunk = createAsyncThunk<
+    ICotizacion[],
+    { filtro?: URLSearchParams } | undefined,
+    { rejectValue: string }
+>(
     'cotizacion/listaCotizacionesSucursalThunk',
-    async (_, { rejectWithValue }) => {
+    async (args, { rejectWithValue }) => {
         try {
-            const response = await ApiService.fetchData<ICotizacion[]>({url: '/api/cotizaciones/cotizaciones-empresa/', method: 'get' })
+            const response = await ApiService.fetchData<ICotizacion[]>({
+                url: '/api/cotizaciones/cotizaciones-empresa/',
+                method: 'get',
+                params: args?.filtro ? args.filtro : undefined,
+            })
             return response.data
         } catch (error: any) {
             return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const listaCopiasCotizacionThunk = createAsyncThunk<
+    ICotizacion[],
+    { id_cotizacion: number | string | undefined },
+    { rejectValue: string }
+>(
+    'cotizacion/listaCopiasCotizacionThunk',
+    async ({ id_cotizacion }, { rejectWithValue }) => {
+        try {
+            const response = await ApiService.fetchData<ICotizacion[]>({
+                url: `/api/cotizaciones/${id_cotizacion}/copias/`,
+                method: 'get',
+            })
+            return response.data
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || "Error al obtener las copias")
+        }
+    }
+)
+
+export const duplicarCotizacionThunk = createAsyncThunk<
+    ICotizacion,
+    { id_cotizacion: number | string | undefined },
+    { rejectValue: string }
+>(
+    'cotizacion/duplicarCotizacionThunk',
+    async ({ id_cotizacion }, { rejectWithValue }) => {
+        try {
+            const response = await ApiService.fetchData<ICotizacion>({
+                url: `/api/cotizaciones/${id_cotizacion}/duplicar/`,
+                method: 'post',
+            })
+            return response.data
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data || "Error al duplicar cotizacion")
         }
     }
 )
@@ -230,6 +284,10 @@ const cotizacionSlice = createSlice({
             .addCase(detalleCotizacionThunk.fulfilled, (state, action) => {
                 state.loading = false
                 state.detalleCotizacion = action.payload
+                const key = action.payload?.numero_cotizacion ? String(action.payload.numero_cotizacion) : undefined
+                if (key) {
+                    state.detallesPorNumero[key] = action.payload
+                }
             })
             .addCase(detalleCotizacionThunk.rejected, (state, action) => {
                 state.loading = false
@@ -263,6 +321,10 @@ const cotizacionSlice = createSlice({
             .addCase(listaItemsEnCotizacionThunk.fulfilled, (state, action) => {
                 state.loading = false
                 state.listaItemsEnCotizacion = action.payload
+                const key = action.meta.arg.id_cotizacion ? String(action.meta.arg.id_cotizacion) : undefined
+                if (key) {
+                    state.itemsPorCotizacion[key] = action.payload
+                }
             })
             .addCase(listaItemsEnCotizacionThunk.rejected, (state, action) => {
                 state.loading = false
@@ -290,6 +352,30 @@ const cotizacionSlice = createSlice({
                 state.loading = false
                 state.error = action.payload
             })
+            .addCase(listaCopiasCotizacionThunk.pending, (state) => {
+                state.loading = true
+            })
+            .addCase(listaCopiasCotizacionThunk.fulfilled, (state, action) => {
+                state.loading = false
+                const key = action.meta.arg.id_cotizacion ? String(action.meta.arg.id_cotizacion) : undefined
+                if (key) {
+                    state.copiasPorCotizacion[key] = action.payload
+                }
+            })
+            .addCase(listaCopiasCotizacionThunk.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload
+            })
+            .addCase(duplicarCotizacionThunk.pending, (state) => {
+                state.loading = true
+            })
+            .addCase(duplicarCotizacionThunk.fulfilled, (state) => {
+                state.loading = false
+            })
+            .addCase(duplicarCotizacionThunk.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload
+            })
             .addCase(seguimientoCotizacionThunk.pending, (state) => {
                 state.loading = true
             })
@@ -307,6 +393,10 @@ const cotizacionSlice = createSlice({
             .addCase(listaSolicitantesCotizacionThunk.fulfilled, (state, action) => {
                 state.loading = false
                 state.listaSolicitantesCotizacion = action.payload
+                const key = action.meta.arg.id_cotizacion ? String(action.meta.arg.id_cotizacion) : undefined
+                if (key) {
+                    state.solicitantesPorCotizacion[key] = action.payload
+                }
             })
             .addCase(listaSolicitantesCotizacionThunk.rejected, (state, action) => {
                 state.loading = false
@@ -351,6 +441,10 @@ const cotizacionSlice = createSlice({
             .addCase(detalleCotizacionPorNumeroThunk.fulfilled, (state, action) => {
                 state.loading = false
                 state.detalleCotizacion = action.payload
+                const key = action.payload?.numero_cotizacion ? String(action.payload.numero_cotizacion) : undefined
+                if (key) {
+                    state.detallesPorNumero[key] = action.payload
+                }
             })
             .addCase(detalleCotizacionPorNumeroThunk.rejected, (state, action) => {
                 state.loading = false
