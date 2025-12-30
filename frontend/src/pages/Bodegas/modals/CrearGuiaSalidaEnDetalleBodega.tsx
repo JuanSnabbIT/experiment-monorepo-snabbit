@@ -8,7 +8,7 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import { IUsuarioEmpresa } from "@/interface/empresas.interface"
 import ApiService from "@/services/ApiService"
-import { detalleBodegaThunk, useAppDispatch, useAppSelector } from "@/store"
+import { detalleBodegaThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useFormik } from "formik"
@@ -22,30 +22,26 @@ const columnHelper = createColumnHelper<IUsuarioEmpresa>()
 function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, id_bodega: number | undefined}) {
     const dispatch = useAppDispatch()
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaUsuariosTodaLaEmpresa, listaUsuariosDeMisClientes, detalleUsuarioEmpresa } = useAppSelector((state) => state.empresa)
+    const { listaUsuariosTodaLaEmpresa, detalleUsuarioEmpresa } = useAppSelector((state) => state.empresa)
     const [optUsuarios, setOptUsuarios] = useState<IUsuarioEmpresa[]>([])
     const [userSelect, setUserSelect] = useState<IUsuarioEmpresa | undefined>()
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        setOptUsuarios([...listaUsuariosTodaLaEmpresa, ...listaUsuariosDeMisClientes])
-    }, [listaUsuariosDeMisClientes, listaUsuariosTodaLaEmpresa])
+        setOptUsuarios(listaUsuariosTodaLaEmpresa)
+    }, [listaUsuariosTodaLaEmpresa])
+
+    useEffect(() => {
+        if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
+            dispatch(listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }))
+        }
+    }, [isOpen, personalizacionUsuario])
 
     const columns = [
         columnHelper.accessor("nombre_usuario", {
             cell: (info) => info.getValue(),
             header: "Nombre"
-        }),
-        columnHelper.accessor("nombre_sucursal", {
-            cell: (info) => info.getValue(),
-            header: "Sucursal"
-        }),
-        columnHelper.accessor("papeleta.rut", {
-            cell: (info) => (
-                <div>{info.row.original.papeleta.rut || "Sin Rut"}</div>
-            ),
-            header: "Rut"
         }),
         columnHelper.accessor("email_usuario", {
             cell: (info) => info.getValue(),
@@ -54,7 +50,7 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
         columnHelper.display({
             id: "acciones",
             cell: (info) => (
-                <div>
+                <div className="flex justify-end">
                     <Checkbox
                         onChange={(e) => {
                             if (e.target.checked) {
@@ -124,7 +120,7 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
     return (
         <>
             <Button variant="solid" onClick={() => {setIsOpen(true)}}>Crear Guia de Salida para esta Bodega</Button>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
                 <ModalHeader>
                     <Badge className="text-xl">Crear Guia de Salida</Badge>
                 </ModalHeader>
@@ -140,18 +136,18 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                             />
                         </div>
                         <div className="w-full">
-                            <div className="mb-2 justify-between flex">
-                                <Badge>Recibido Por</Badge>
-                                <Input
-                                    className="max-w-[200px]"
-                                    name="globalFilter"
-                                    placeholder="Buscar..."
-                                    value={globalFilter}
-                                    onChange={(e) => { setGlobalFilter(e.target.value) }}
-                                />
-                            </div>
+                            <div className="mb-2 justify-end flex">
+                                    <Badge>Recibido Por</Badge>
+                                    <Input
+                                        className="max-w-[200px]"
+                                        name="globalFilter"
+                                        placeholder="Buscar..."
+                                        value={globalFilter}
+                                        onChange={(e) => { setGlobalFilter(e.target.value) }}
+                                    />
+                                </div>
                             <div className="overflow-auto">
-                                <Table className='table-fixed min-w-[800px]'>
+                                <Table className='table-fixed min-w-[400px]'>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
@@ -208,7 +204,7 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                                         ))}
                                     </TBody>
                                 </Table>
-                                <div className="mt-2 min-w-[800px]">
+                                <div className="mt-2 min-w-[400px]">
                                     <TableCardFooterTemplateV2 table={table} />
                                 </div>
                             </div>
@@ -219,7 +215,7 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Crear</Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
