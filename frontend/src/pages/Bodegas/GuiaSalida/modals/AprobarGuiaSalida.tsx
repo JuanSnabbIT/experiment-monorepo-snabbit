@@ -3,13 +3,13 @@ import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import ApiService from "@/services/ApiService"
-import { detalleGuiaSalidaBodegaThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosDeMisClientesThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
+import { detalleGuiaSalidaBodegaThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react"
 import SignatureCanvas from 'react-signature-canvas'
 import { toast } from "react-toastify"
 
 
-function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen} : {id_guia: number | undefined, bodegaSelected: string | undefined, isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>}) {
+function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen, onSuccess} : {id_guia: number | undefined, bodegaSelected: string | undefined, isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
     const sigCanvas = useRef<SignatureCanvas | null>(null)
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
@@ -93,9 +93,11 @@ function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen} : {id_gu
                                     clear()
                                     setIsOpen(false)
                                     dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: bodegaSelected}))
+                                    onSuccess && onSuccess()
                                 }
                             } catch (error: any) {
-                                toast.error(error.response.data)
+                                const msg = error?.response?.data?.detail || error?.response?.data || "Error al aprobar guía"
+                                toast.error(msg)
                             }
                         }}>Aprobar</Button>
                     </ModalFooterChild>

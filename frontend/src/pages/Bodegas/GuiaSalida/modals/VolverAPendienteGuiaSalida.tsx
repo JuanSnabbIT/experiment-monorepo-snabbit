@@ -9,7 +9,7 @@ import { useState } from "react"
 import { toast } from "react-toastify"
 
 
-function VolverAPendienteGuiaSalida({guia_salida} : {guia_salida: IGuiaSalida}) {
+function VolverAPendienteGuiaSalida({guia_salida, onSuccess} : {guia_salida: IGuiaSalida, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
@@ -36,6 +36,7 @@ function VolverAPendienteGuiaSalida({guia_salida} : {guia_salida: IGuiaSalida}) 
                                 if (response.data) {
                                     toast.success("Guia devuelta a estado pendiente", {autoClose: 1000})
                                     dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: guia_salida.bodega}))
+                                    onSuccess && onSuccess()
                                     setIsOpen(false)
                                 }
                             } catch (error: any) {

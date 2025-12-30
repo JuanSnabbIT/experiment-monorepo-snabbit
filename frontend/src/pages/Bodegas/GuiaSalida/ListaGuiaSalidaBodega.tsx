@@ -77,6 +77,13 @@ function ListaGuiaSalidaBodega() {
         }
     }, [listaBodegas])
 
+    useEffect(() => {
+        // Seleccionar automáticamente la primera bodega disponible para evitar vista vacía
+        if (!bodegaSelected && listaBodegas.length > 0) {
+            setBodegaSelected(listaBodegas[0].id.toString())
+        }
+    }, [listaBodegas, bodegaSelected])
+
     const columns = [
         columnHelper.accessor("id", {
             cell: (info) => info.getValue(),
@@ -105,26 +112,40 @@ function ListaGuiaSalidaBodega() {
             id: "acciones",
             cell: (info) => (
                 <div className="flex flex-wrap gap-2">
-                    {info.row.original.estado === "P" ? (
-                        <>
-                            <Tooltip text="Items a Rebajar">
-                                <Button variant="solid" color="sky" onClick={() => {navigate(`/bodega/crear-items-guia-salida/${info.row.original.id}`)}}>Items a Rebajar</Button>
-                            </Tooltip>
-                            <ModalEliminar
-                                mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.id} ¿desea continuar?`}
-                                onDispatch={() => {dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: bodegaSelected}))}}
-                                peticionUrl={`/api/guia-salida/${info.row.original.id}/`}
-                            />
-                        </>
-                    ) : (
-                        <Tooltip text="Detalle Guia">
-                            <Button variant="solid" color="violet" icon="HeroEye" onClick={() => {navigate(`/bodega/detalle-guia-salida-bodega/${info.row.original.id}`)}} />
-                        </Tooltip>
+                    <Tooltip text="Ver Detalle">
+                        <Button variant="solid" color="violet" icon="HeroEye" onClick={() => {navigate(`/bodega/detalle-guia-salida-bodega/${info.row.original.id}`)}} />
+                    </Tooltip>
+                    {info.row.original.estado === "P" && (
+                        <ModalEliminar
+                            mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.id} ¿desea continuar?`}
+                            onDispatch={() => {dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: bodegaSelected}))}}
+                            peticionUrl={`/api/guia-salida/${info.row.original.id}/`}
+                        />
                     )}
                     {info.row.original.estado === "ER" && (
-                        <Tooltip text="Firmar para Aprobar Guia">
-                            <Button variant="solid" onClick={() => {setIsOpen(true); setGuiaSelected(info.row.original.id)}} icon="HeroPencil" color="emerald" />
-                        </Tooltip>
+                        (() => {
+                            const soporte = info.row.original.soporte_tecnico;
+                            const faltaDatosSoporte = soporte && soporte.falta_datos;
+                            const disabled = !!faltaDatosSoporte;
+                            const tooltip = disabled ? "Faltan datos en la OT (asignar técnico y fecha)" : "Firmar para Aprobar Guia";
+                            return (
+                                <Tooltip text={tooltip}>
+                                    <div className={disabled ? "opacity-60 cursor-not-allowed" : ""}>
+                                        <Button
+                                            variant="solid"
+                                            isDisable={disabled}
+                                            onClick={() => {
+                                                if (disabled) return;
+                                                setIsOpen(true);
+                                                setGuiaSelected(info.row.original.id);
+                                            }}
+                                            icon="HeroPencil"
+                                            color="emerald"
+                                        />
+                                    </div>
+                                </Tooltip>
+                            );
+                        })()
                     )}
                     {info.row.original.estado === "ET" && (
                         <>
