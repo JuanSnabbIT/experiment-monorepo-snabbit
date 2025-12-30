@@ -1,7 +1,15 @@
+from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
-from .models import Compra, ItemEnCompra, OrdenCompra, ItemEnOrdenCompra, ItemOrdenCompraEnStock
-from django.contrib.contenttypes.models import ContentType
+
+from .models import (
+    Compra,
+    ItemEnCompra,
+    ItemEnOrdenCompra,
+    ItemOrdenCompraEnStock,
+    ItemsGuiaSalida,
+    OrdenCompra,
+)
 
 # import random
 
@@ -24,9 +32,10 @@ from django.contrib.contenttypes.models import ContentType
 #         instance.codigo = generate_random_code()
 #         instance.save()
 
+
 @receiver(post_save, sender=OrdenCompra)
 def create_items_in_stock(sender, instance, **kwargs):
-    if instance.estado == '3':
+    if instance.estado == "3":
         # Eliminar todos los ItemOrdenCompraEnStock relacionados con esta orden de compra
         # ItemOrdenCompraEnStock.objects.filter(
         #     content_type__app_label='bodegas',
@@ -36,12 +45,13 @@ def create_items_in_stock(sender, instance, **kwargs):
         # Crear nuevos registros en ItemOrdenCompraEnStock por cada ItemEnOrdenCompra
         items_en_orden = ItemEnOrdenCompra.objects.filter(orden_compra=instance)
         for item in items_en_orden:
-            content_type = ContentType.objects.get_for_model(item)  # Obtén el ContentType del modelo
+            content_type = ContentType.objects.get_for_model(
+                item
+            )  # Obtén el ContentType del modelo
             ItemOrdenCompraEnStock.objects.get_or_create(
-                content_type=content_type,
-                item_oc_id=item.id,
-                cantidad=item.cantidad
+                content_type=content_type, item_oc_id=item.id, cantidad=item.cantidad
             )
+
 
 @receiver(pre_delete, sender=ItemEnCompra)
 def eliminar_item_en_stock(sender, instance, **kwargs):
@@ -52,16 +62,53 @@ def eliminar_item_en_stock(sender, instance, **kwargs):
     )
     if item_stock.exists():
         item_stock.first().delete()
-    
+
 
 @receiver(post_save, sender=ItemEnCompra)
 def create_items_in_stock(sender, created, instance, **kwargs):
     if created:
-        compra = Compra.objects.get(pk=instance.compra.pk)
         content_type = ContentType.objects.get_for_model(instance)
         ItemOrdenCompraEnStock.objects.get_or_create(
             content_type=content_type,
             item_oc_id=instance.id,
             cantidad=instance.cantidad,
-            bodega_temporal=compra.bodega_temporal
         )
+
+
+@receiver(pre_delete, sender=ItemsGuiaSalida)
+def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kwargs):
+    """
+    Si se elimina un ItemsGuiaSalida (individual o por cascada al borrar la Guía),
+    se revierte la reserva de stock cuando la guía no ha salido definitivamente.
+    """
+    from bodegas.movimientos import registrar_devolucion
+    from empresas.models import UsuarioEmpresa
+
+    guia = instance.guia
+    # Solo revertimos reservas si la guía no está en tránsito/entregada/terminada
+    if guia.estado in ("ET", "E", "T"):
+        return
+
+    stock_item = instance.stock_item
+    cantidad = instance.cantidad_rebajada or 0
+    if cantidad <= 0:
+        return
+
+    # BUG FIX: Usar registrar_devolucion en lugar de modificar directamente
+    # para mantener trazabilidad en MovimientoStock
+    usuario = guia.creado_por  # Usuario que creó la guía
+
+    # Solo actualizar cantidad_no_disponible aquí
+    stock_item.cantidad_no_disponible = max(
+        0, stock_item.cantidad_no_disponible - cantidad
+    )
+    stock_item.save(update_fields=["cantidad_no_disponible"])
+
+    # registrar_devolucion actualiza stock_item.cantidad automáticamente
+    registrar_devolucion(
+        stock_item=stock_item,
+        cantidad=cantidad,
+        usuario=usuario,
+        origen=instance,
+        descripcion="Items eliminados de una guia de salida (signal)",
+    )

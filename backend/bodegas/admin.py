@@ -1,64 +1,125 @@
 from django.contrib import admin
+
 from .models import *
+
 
 @admin.register(Bodega)
 class BodegaAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'sucursal', 'fecha_creacion', 'fecha_modificacion')
-    search_fields = ('nombre', 'sucursal__nombre')
+    list_display = ("nombre", "sucursal", "fecha_creacion", "fecha_modificacion")
+    search_fields = ("nombre", "sucursal__nombre")
+
 
 @admin.register(TomaInventario)
 class TomaInventarioAdmin(admin.ModelAdmin):
-    list_display = ('id', 'fecha_inicio', 'fecha_termino', 'fecha_creacion')
-    filter_horizontal = ('bodegas',)
+    list_display = ("id", "fecha_inicio", "fecha_termino", "fecha_creacion")
+    filter_horizontal = ("bodegas",)
+
 
 # @admin.register(ImagenesTomaInventario)
 # class ImagenesTomaInventarioAdmin(admin.ModelAdmin):
 #     list_display = ('id', 'toma_inventario', 'fecha_creacion')
 
+
 @admin.register(OrdenCompra)
 class OrdenCompraAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'proveedor', 'creado_por', 'estado', 'fecha_creacion')
-    list_filter = ('estado', 'proveedor')
-    search_fields = ('codigo', 'proveedor__nombre',)
+    list_display = ("codigo", "proveedor", "creado_por", "estado", "fecha_creacion")
+    list_filter = ("estado", "proveedor")
+    search_fields = (
+        "codigo",
+        "proveedor__nombre",
+    )
+
 
 @admin.register(ItemEnOrdenCompra)
 class ItemEnOrdenCompraAdmin(admin.ModelAdmin):
-    list_display = ('orden_compra', 'item', 'cantidad', 'precio')
-    search_fields = ('orden_compra__codigo', 'item__nombre')
+    list_display = ("orden_compra", "item", "cantidad", "precio")
+    search_fields = ("orden_compra__codigo", "item__nombre")
+
 
 @admin.register(Compra)
 class CompraAdmin(admin.ModelAdmin):
-    list_display = ('codigo', 'proveedor', 'creado_por', 'estado', 'fecha_creacion')
-    list_filter = ('estado', 'proveedor')
-    search_fields = ('codigo', 'proveedor__nombre')
+    list_display = ("codigo", "sucursal", "creado_por", "estado", "fecha_creacion")
+    list_filter = ("estado", "sucursal")
+    search_fields = ("codigo", "sucursal__nombre")
+
 
 @admin.register(ItemEnCompra)
 class ItemEnCompraAdmin(admin.ModelAdmin):
-    list_display = ('compra', 'item', 'cantidad', 'precio')
-    search_fields = ('compra__codigo', 'item__nombre')
+    list_display = ("compra", "item", "cantidad", "precio")
+    search_fields = ("compra__codigo", "item__nombre")
+
 
 @admin.register(StockItemEnBodega)
 class StockItemEnBodegaAdmin(admin.ModelAdmin):
-    list_display = ('bodega', 'item', 'cantidad', 'pmp')
-    search_fields = ('bodega__nombre', 'item__nombre')
+    list_display = ("bodega", "item", "cantidad", "pmp")
+    search_fields = ("bodega__nombre", "item__nombre")
+
 
 @admin.register(ItemOrdenCompraEnStock)
 class ItemOrdenCompraEnStockAdmin(admin.ModelAdmin):
-    list_display = ('content_type', 'item_oc_id', 'stock_item', 'cantidad')
-    search_fields = ('stock_item__item__nombre',)
+    list_display = ("content_type", "item_oc_id", "stock_item", "cantidad")
+    search_fields = ("stock_item__item__nombre",)
+
 
 @admin.register(GuiaSalida)
 class GuiaSalidaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'bodega', 'creado_por', 'estado', 'fecha_creacion')
-    list_filter = ('estado', 'bodega')
-    search_fields = ('bodega__nombre',)
+    list_display = ("id", "bodega", "creado_por", "estado", "fecha_creacion")
+    list_filter = ("estado", "bodega")
+    search_fields = ("bodega__nombre",)
+
 
 @admin.register(ItemsGuiaSalida)
 class ItemsGuiaSalidaAdmin(admin.ModelAdmin):
-    list_display = ('guia', 'stock_item', 'cantidad_original', 'cantidad_rebajada', 'cantidad_devuelta')
-    search_fields = ('guia__id', 'stock_item__item__nombre')
+    list_display = (
+        "guia",
+        "stock_item",
+        "cantidad_original",
+        "cantidad_rebajada",
+        "cantidad_devuelta",
+    )
+    search_fields = ("guia__id", "stock_item__item__nombre")
+
+
+@admin.register(MovimientoStock)
+class MovimientoStockAdmin(admin.ModelAdmin):
+    list_display = ("stock_item", "tipo_movimiento", "cantidad", "usuario", "fecha_creacion")
+    search_fields = ("stock_item__item__nombre", "stock_item__bodega__nombre")
+    list_filter = ("tipo_movimiento",)
+
 
 admin.site.register(ArchivoCompra)
-admin.site.register(MovimientoStock)
 admin.site.register(ItemEnTomaInventario)
 admin.site.register(ImagenDeItemEnTomaInventario)
+
+
+class MovimientoEnVoucherInline(admin.TabularInline):
+    model = MovimientoEnVoucher
+    extra = 0
+    fields = ("movimiento", "orden", "notas")
+    raw_id_fields = ["movimiento"]  # Cambiado de autocomplete_fields
+
+
+@admin.register(VoucherDevolucion)
+class VoucherDevolucionAdmin(admin.ModelAdmin):
+    list_display = ("numero", "orden_trabajo", "total_items_devueltos", "fecha_creacion")
+    search_fields = ("numero", "orden_trabajo__id")
+    readonly_fields = ("numero", "fecha_creacion", "fecha_modificacion")
+    inlines = [MovimientoEnVoucherInline]
+    
+    fieldsets = (
+        ("Información General", {
+            "fields": ("numero", "orden_trabajo", "observaciones")
+        }),
+        ("Metadatos", {
+            "fields": ("fecha_creacion", "fecha_modificacion"),
+            "classes": ("collapse",)
+        }),
+    )
+
+
+@admin.register(MovimientoEnVoucher)
+class MovimientoEnVoucherAdmin(admin.ModelAdmin):
+    list_display = ("voucher", "movimiento", "orden", "fecha_creacion")
+    search_fields = ("voucher__numero", "movimiento__stock_item__item__nombre")
+    list_filter = ("voucher__orden_trabajo",)
+    ordering = ["voucher", "orden", "-fecha_creacion"]
