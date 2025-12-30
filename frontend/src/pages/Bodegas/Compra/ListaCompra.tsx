@@ -40,9 +40,12 @@ function ListaCompra() {
             cell: (info) => info.getValue(),
             header: "Estado"
         }),
-        columnHelper.accessor("tipo_label", {
-            cell: (info) => info.getValue(),
-            header: "Tipo"
+        columnHelper.accessor("orden_trabajo", {
+            cell: (info) => {
+                const orden = info.getValue()
+                return orden ? <Badge>OT vinculada</Badge> : <Badge>Independiente</Badge>
+            },
+            header: "Origen"
         }),
         columnHelper.display({
             id: "acciones",
