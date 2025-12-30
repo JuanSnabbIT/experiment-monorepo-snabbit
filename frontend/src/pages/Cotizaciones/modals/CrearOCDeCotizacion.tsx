@@ -1,4 +1,3 @@
-import Checkbox from "@/components/form/Checkbox"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
@@ -15,8 +14,19 @@ function CrearOCDeCotizacion() {
     const navigate = useNavigate()
     const { detalleCotizacion, listaItemsEnCotizacion, listaOrdenesDeCompraCotizacion } = useAppSelector((state) => state.cotizacion)
     const [isOpen, setIsOpen] = useState<boolean>(false)
-    const [proveedores, setProveedores] = useState<{id: string, nombre: string}[]>([])
-    const [proveedorSeleccionado, setProveedorSeleccionado] = useState<{id: string, nombre: string} | undefined>()
+    const [proveedores, setProveedores] = useState<{id: string, nombre: string, moneda: string}[]>([])
+    const [creandoOCProveedor, setCreandoOCProveedor] = useState<string | null>(null)
+    const [creandoTodas, setCreandoTodas] = useState<boolean>(false)
+
+    useEffect(() => {
+        if (detalleCotizacion?.id) {
+            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
+        }
+        // Limpiar proveedores al cambiar de cotización
+        return () => {
+            setProveedores([])
+        }
+    }, [detalleCotizacion?.id])
 
     useEffect(() => {
         if (isOpen && detalleCotizacion) {
@@ -27,11 +37,15 @@ function CrearOCDeCotizacion() {
 
     useEffect(() => {
         if (listaItemsEnCotizacion.length > 0 && listaItemsEnCotizacion.filter(item => item.item_empresa).length > 0 && isOpen) {
-            let lista_proveedores: {id: string, nombre: string}[] = []
-            listaItemsEnCotizacion.filter(item => item.item_empresa).forEach(item => {
+            let lista_proveedores: {id: string, nombre: string, moneda: string}[] = []
+            listaItemsEnCotizacion.filter(item => item.item_empresa && item.aprobado).forEach(item => {
                 if (item.proveedor_empresa && item.nombre_proveedor) {
                     if (!lista_proveedores.some(pro => pro.id === item.proveedor_empresa?.toString())) {
-                        lista_proveedores = [...lista_proveedores, {id: item.proveedor_empresa?.toString(), nombre: item.nombre_proveedor}]
+                        lista_proveedores = [...lista_proveedores, {
+                            id: item.proveedor_empresa?.toString(), 
+                            nombre: item.nombre_proveedor,
+                            moneda: item.tipo_moneda_proveedor_label || 'CLP'
+                        }]
                     }
                 }
             })
@@ -39,63 +53,161 @@ function CrearOCDeCotizacion() {
         }
     }, [listaItemsEnCotizacion, isOpen])
 
+    const handleCrearOCProveedor = async (proveedorId: string) => {
+        if (!detalleCotizacion) return
+        try {
+            if (creandoTodas) return
+            setCreandoOCProveedor(proveedorId)
+            const response = await ApiService.fetchData<{id: number}>({
+                url: `/api/cotizaciones/${detalleCotizacion.id}/crear-orden-compra/`,
+                method: 'post',
+                headers: {'Content-Type': 'application/json'},
+                data: {proveedor_id: proveedorId}
+            })
+            if (response.data?.id) {
+                toast.success('Orden creada', {autoClose: 1000})
+                navigate(`/compras/detalle-orden-compra/${response.data.id}`)
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.error || 'Error al crear la orden de compra')
+        } finally {
+            setCreandoOCProveedor(null)
+        }
+    }
+
+    const tieneOrdenCompra = listaOrdenesDeCompraCotizacion.length > 0
+    const proveedoresPendientes = proveedores.filter(
+        (prov) => !listaOrdenesDeCompraCotizacion.some((oc) => oc.proveedor.toString() === prov.id)
+    )
+    const mostrarCrearTodas = proveedoresPendientes.length > 1
+
+    const handleCrearTodasOCs = async () => {
+        if (!detalleCotizacion || proveedoresPendientes.length === 0 || creandoTodas) return
+        try {
+            setCreandoTodas(true)
+            for (const proveedor of proveedoresPendientes) {
+                setCreandoOCProveedor(proveedor.id)
+                try {
+                    const response = await ApiService.fetchData<{id: number}>({
+                        url: `/api/cotizaciones/${detalleCotizacion.id}/crear-orden-compra/`,
+                        method: 'post',
+                        headers: {'Content-Type': 'application/json'},
+                        data: {proveedor_id: proveedor.id}
+                    })
+                    if (response.data?.id) {
+                        toast.success('Orden creada', {autoClose: 1000})
+                    }
+                } catch (error: any) {
+                    toast.error(error?.response?.data?.error || 'Error al crear la orden de compra')
+                }
+            }
+            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
+        } finally {
+            setCreandoOCProveedor(null)
+            setCreandoTodas(false)
+        }
+    }
+
     return (
         <>
-            <Tooltip text="Crear OC">
-                <Button variant="solid" color="amber" icon="HeroShoppingCart" onClick={() => {setIsOpen(true)}}></Button>
+            <Tooltip text={tieneOrdenCompra ? "Gestionar Órdenes de Compra" : "Crear OC"}>
+                <Button
+                    variant="solid"
+                    color={tieneOrdenCompra ? "violet" : "amber"}
+                    icon={tieneOrdenCompra ? "HeroEye" : "HeroShoppingCart"}
+                    onClick={() => setIsOpen(true)}
+                ></Button>
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
-                    <Badge className="text-xl">Crear Orden de Compra</Badge>
+                    <Badge className="text-xl">Órdenes de Compra - Cotización #{detalleCotizacion?.numero_cotizacion}</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <div className="flex flex-col gap-4">
-                        <div>Seleccione un proveedor para crear la orden de compra</div>
-                        {proveedores.map((prov, index) => (
-                            <div key={index} className="flex flex-row gap-2">
-                                <Badge>{prov.nombre}</Badge>
-                                {listaOrdenesDeCompraCotizacion.find(oc => oc.proveedor.toString() === prov.id) ? (
-                                    <>
-                                        <Tooltip text="Ir a la Orden de Compra">
-                                            <Button size="xs" variant="solid" color="violet" icon="HeroEye" onClick={() => {navigate(`/compras/detalle-orden-compra/${listaOrdenesDeCompraCotizacion.find(oc => oc.proveedor.toString() === prov.id)?.id}`)}}></Button>
-                                        </Tooltip>
-                                    </>
-                                ) : (
-                                    <Checkbox
-                                        name="oc"
-                                        checked={proveedorSeleccionado && proveedorSeleccionado.id === prov.id}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setProveedorSeleccionado({id: prov.id, nombre: prov.nombre})
-                                            } else {
-                                                setProveedorSeleccionado(undefined)
-                                            }
-                                        }}
-                                    />
-                                )}
+                    <div className="flex flex-col gap-3">
+                        {mostrarCrearTodas && (
+                            <div className="flex justify-end">
+                                <Button
+                                    size="sm"
+                                    variant="solid"
+                                    color="amber"
+                                    icon="HeroShoppingCart"
+                                    isLoading={creandoTodas}
+                                    onClick={handleCrearTodasOCs}
+                                >
+                                    Crear OCs
+                                </Button>
                             </div>
-                        ))}
+                        )}
+                        {proveedores.length === 0 ? (
+                            <div className="text-gray-600">No hay proveedores con ítems en esta cotización.</div>
+                        ) : (
+                            proveedores.map((prov, index) => {
+                                const oc = listaOrdenesDeCompraCotizacion.find(oc => oc.proveedor.toString() === prov.id)
+                                return (
+                                    <div key={index} className="flex flex-row gap-3 items-center justify-between p-3 border rounded hover:bg-gray-50">
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex gap-2 items-center">
+                                                <Badge color="sky">{prov.nombre}</Badge>
+                                                <Badge variant="outline" className="border-gray-300 text-gray-500">{prov.moneda}</Badge>
+                                                {oc && <Badge color="violet">{oc.codigo}</Badge>}
+                                            </div>
+                                            {oc ? (
+                                                <div className="text-sm text-gray-600">Estado: {oc.estado_label}</div>
+                                            ) : (
+                                                <div className="text-sm text-gray-600">Sin orden de compra</div>
+                                            )}
+                                             <div className="mt-2 text-xs text-gray-500">
+                                                <strong>Items aprobados:</strong>
+                                                <ul className="list-disc pl-4 mt-1">
+                                                    {listaItemsEnCotizacion
+                                                        .filter(item => 
+                                                            item.proveedor_empresa?.toString() === prov.id && 
+                                                            item.aprobado
+                                                        )
+                                                        .map((item, idx) => (
+                                                            <li key={idx}>
+                                                                {item.cantidad}x {item.nombre_item || item.nombre || "Item sin nombre"}
+                                                            </li>
+                                                        ))
+                                                    }
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        {oc ? (
+                                            <Button
+                                                size="sm"
+                                                variant="solid"
+                                                color="violet"
+                                                icon="HeroEye"
+                                                onClick={() => {
+                                                    navigate(`/compras/detalle-orden-compra/${oc.id}`)
+                                                    setIsOpen(false)
+                                                }}
+                                            >
+                                                Ver OC
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="solid"
+                                                color="amber"
+                                                icon="HeroShoppingCart"
+                                                isLoading={creandoOCProveedor === prov.id || creandoTodas}
+                                                onClick={() => handleCrearOCProveedor(prov.id)}
+                                            >
+                                                Crear OC
+                                            </Button>
+                                        )}
+                                    </div>
+                                )
+                            })
+                        )}
                     </div>
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={async () => {
-                            try {
-                                if (proveedorSeleccionado) {
-                                    const response  = await ApiService.fetchData({url: `/api/cotizaciones/${detalleCotizacion?.id}/crear-orden-compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({proveedor_id: proveedorSeleccionado.id})})
-                                    if (response.data) {
-                                        toast.success("Orden creada", {autoClose: 1000})
-                                        setIsOpen(false)
-                                    }
-                                } else {
-                                    toast.error("Seleccione un proveedor", {toastId: "Seleccione un proveedor"})
-                                }
-                            } catch (error: any) {
-                                toast.error(error.response.data.error || "Error al crear la orden de compra")
-                            }
-                        }}>Crear OC</Button>
+                        <Button color="red" onClick={() => setIsOpen(false)}>Cerrar</Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
