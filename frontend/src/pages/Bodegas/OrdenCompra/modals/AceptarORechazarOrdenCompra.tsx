@@ -9,7 +9,7 @@ import { useState } from "react"
 import { toast } from "react-toastify"
 
 
-function AceptarORechazarOrdenCompra({id_orden, id_empresa} : {id_orden: string | number | undefined, id_empresa?: string | number | null}) {
+function AceptarORechazarOrdenCompra({id_orden, id_empresa, onSuccess} : {id_orden: string | number | undefined, id_empresa?: string | number | null, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
@@ -40,6 +40,8 @@ function AceptarORechazarOrdenCompra({id_orden, id_empresa} : {id_orden: string 
                                         dispatch(listaMisOrdenesDeCompraThunk())
                                     }
                                     toast.success("Orden rechazada", {autoClose: 1000})
+                                    if (onSuccess) onSuccess()
+                                    setIsOpen(false)
                                 }
                             } catch (error: any) {
                                 toast.error(error.response.data)
@@ -55,6 +57,8 @@ function AceptarORechazarOrdenCompra({id_orden, id_empresa} : {id_orden: string 
                                         dispatch(listaMisOrdenesDeCompraThunk())
                                     }
                                     toast.success("Orden aceptada", {autoClose: 1000})
+                                    if (onSuccess) onSuccess()
+                                    setIsOpen(false)
                                 }
                             } catch (error: any) {
                                 toast.error(error.response.data)

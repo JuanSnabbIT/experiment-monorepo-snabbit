@@ -4,7 +4,7 @@ import OffCanvas, { OffCanvasBody, OffCanvasFooter, OffCanvasFooterChild, OffCan
 import Tooltip from "@/components/ui/Tooltip"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { detalleOrdenCompraThunk, listaItemsEnOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { listaCategoriasThunk, listaFabricanteThunk, listaItemsEmpresaProveedorThunk, listaItemsNoProveedorThunk } from "@/store/slices/item/itemSlice"
+import { listaCategoriasThunk, listaFabricanteThunk, listaItemsEmpresaProveedorThunk } from "@/store/slices/item/itemSlice"
 import { useEffect, useState } from "react"
 import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import { useFormik } from "formik"
@@ -38,7 +38,7 @@ const getValidationSchema = (isCreating: boolean) => Yup.object().shape({
 
 function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | number | undefined}) {
     const dispatch = useAppDispatch()
-    const { listaItemsEmpresaProveedor, listaCategorias, listaFabricante, listaItemsNoProveedor } = useAppSelector((state) => state.item)
+    const { listaItemsEmpresaProveedor, listaCategorias, listaFabricante } = useAppSelector((state) => state.item)
     const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [optionsItems, setOptionsItems] = useState<{value: string, label: string}[]>([])
@@ -62,7 +62,6 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
     useEffect(() => {
         if (isOpen && detalleOrdenCompra) {
             dispatch(listaItemsEmpresaProveedorThunk({id_empresa: detalleOrdenCompra.oc_empresa, id_proveedor: detalleOrdenCompra.proveedor}))
-            dispatch(listaItemsNoProveedorThunk({id_empresa: detalleOrdenCompra.oc_empresa, id_proveedor: detalleOrdenCompra.proveedor}))
             dispatch(listaFabricanteThunk())
             dispatch(listaCategoriasThunk())
         }
@@ -83,13 +82,12 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
     useEffect(() => {
         let opti: {value: string, label: string}[] = []
         if (listaItemsEmpresaProveedor.length > 0) {
-            opti = listaItemsEmpresaProveedor.filter(it => !detalleOrdenCompra?.datos_item.some(i => i.item === it.id)).map(item => {return {value: item.id.toString(), label: item.nombre}})
-        }
-        if (listaItemsNoProveedor.length > 0) {
-            opti = opti.concat(listaItemsNoProveedor.map(item => {return {value: item.id.toString(), label: item.nombre}}))
+            opti = listaItemsEmpresaProveedor
+                .filter(it => !detalleOrdenCompra?.datos_item.some(i => i.item === it.id))
+                .map(item => ({ value: item.id.toString(), label: item.nombre }));
         }
         setOptionsItems(opti)
-    }, [listaItemsEmpresaProveedor, listaItemsNoProveedor])
+    }, [listaItemsEmpresaProveedor, detalleOrdenCompra?.datos_item])
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -148,7 +146,6 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                     }
                 } else {
                     const itemProv = listaItemsEmpresaProveedor.find(it => data.item === it.id.toString())
-                    const itemNoProv = listaItemsNoProveedor.find(it => data.item === it.id.toString())
                     if (itemProv) {
                         const responseAgregar = await ApiService.fetchData<any, string>({url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/add_item/`, headers: {'Content-Type': 'application/json'}, method: 'post', data: JSON.stringify({item: data.item, cantidad: data.cantidad, precio: data.precio})})
                         if (responseAgregar.data) {
@@ -157,21 +154,6 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                             setIsSubmitting(false)
                         } else {
                             toast.error(responseAgregar.data.error || "Error al agregar el item a la orden de compra", {toastId: "Error al agregar el item a la orden de compra"})
-                        }
-                    }
-                    if (itemNoProv) {
-                        const responseNoProv = await ApiService.fetchData<any, string>({url: `/api/ordenes-compra/${id_orden}/add_item_no_proveedor/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                            item_id: values.item,
-                            cantidad: values.cantidad,
-                            precio: values.precio
-                        })})
-                        if (responseNoProv.data) {
-                            toast.success(responseNoProv.data.message, {autoClose: 1000})
-                            setIsSubmitting(false)
-                            setIsOpen(false)
-                            formik.resetForm()
-                        } else {
-                            toast.error(responseNoProv.data.error || "Error al agregar el item a la orden de compra", {toastId: "Error al agregar el item a la orden de compra"})
                         }
                     }
                 }
@@ -227,7 +209,7 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                                     isClearable={true}
                                     options={optionsItems}
                                     formatCreateLabel={(e) => (`Crear item "${e}"`)}
-                                    value={isCreating ? {value: formik.values.nombre, label: formik.values.nombre} : {value: formik.values.item, label: listaItemsEmpresaProveedor.find(it => it.id.toString() === formik.values.item)?.nombre || listaItemsNoProveedor.find(it => it.id.toString() === formik.values.item)?.nombre || ""}}
+                                    value={isCreating ? {value: formik.values.nombre, label: formik.values.nombre} : {value: formik.values.item, label: listaItemsEmpresaProveedor.find(it => it.id.toString() === formik.values.item)?.nombre || ""}}
                                     onCreateOption={(e) => {
                                         setIsCreating(true);
                                         setItemSelected(undefined)
@@ -241,7 +223,6 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                                         formik.setFieldValue("item", e ? (e as TSelectOption).value : "");
                                         setIsCreating(false);
                                         const itemProv = listaItemsEmpresaProveedor.find(it => it.id.toString() === (e as TSelectOption).value)
-                                        const itemNoProv = listaItemsNoProveedor.find(it => it.id.toString() === (e as TSelectOption).value)
                                         if (itemProv) {
                                             setItemSelected(itemProv)
                                             if (itemProv.categoria) {
@@ -254,22 +235,6 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                                             if (itemProv.fabricante) {
                                                 setFabricanteSelected({value: itemProv.fabricante.toString(), label: itemProv.datos_fabricante?.nombre || ""})
                                                 formik.setFieldValue("fabricante", itemProv.fabricante.toString())
-                                            } else {
-                                                setFabricanteSelected(undefined)
-                                                formik.setFieldValue("fabricante", "")
-                                            }
-                                        } else if (itemNoProv) {
-                                            setItemSelected(itemNoProv)
-                                            if (itemNoProv.categoria) {
-                                                setCategoriaSelected({value: itemNoProv.categoria.toString() || "", label: itemNoProv.datos_categoria?.nombre || ""})
-                                                formik.setFieldValue("categoria", itemNoProv.categoria.toString())
-                                            } else {
-                                                setCategoriaSelected(undefined)
-                                                formik.setFieldValue("categoria", "")
-                                            }
-                                            if (itemNoProv.fabricante) {
-                                                setFabricanteSelected({value: itemNoProv.fabricante.toString(), label: itemNoProv.datos_fabricante?.nombre || ""})
-                                                formik.setFieldValue("fabricante", itemNoProv.fabricante.toString())
                                             } else {
                                                 setFabricanteSelected(undefined)
                                                 formik.setFieldValue("fabricante", "")

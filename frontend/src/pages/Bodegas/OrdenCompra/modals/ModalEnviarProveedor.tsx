@@ -16,7 +16,7 @@ import { toast } from "react-toastify"
 import * as Yup from 'yup'
 
 
-function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden} : {id_empresa: string | number | null | undefined, id_proveedor: string | number | undefined | null, id_orden: string | number | undefined}) {
+function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden, onSuccess} : {id_empresa: string | number | null | undefined, id_proveedor: string | number | undefined | null, id_orden: string | number | undefined, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [isUsingEmail, setIsUsingEmail] = useState<boolean>(false)
@@ -37,6 +37,7 @@ function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden} : {id_empresa
                 if (response.data) {
                     toast.success("Correo Enviado a Proveedor", {autoClose: 1000})
                     dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
+                    if (onSuccess) onSuccess()
                     setIsOpen(false)
                 }
             } catch (error: any) {
@@ -124,6 +125,8 @@ function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden} : {id_empresa
                                 if (response.data) {
                                     toast.success("Orden de compra cambiada de estado", {autoClose: 1000})
                                     dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                    if (onSuccess) onSuccess()
+                                    setIsOpen(false)
                                 }
                             } catch (error: any) {
                                 const mensajesError = Object.values(error.response.data).flat().join(" ");
