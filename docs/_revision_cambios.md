@@ -170,6 +170,26 @@ Cada sub-bloque agrupa cambios relacionados a una **funcionalidad completa** (ba
     - frontend/src/pages/Cotizaciones/modals/CrearOCDeCotizacion.tsx
 
   _Estado:_ Sub-bloque 1.5 validado y commiteado en branch aislado
+
+  ### Commit aislado (Sub-bloque 1.6)
+
+  - **Branch creado:** feature/cotizaciones/creacion-main
+  - **Commit:** aafa1e1 -- feat(cotizaciones): Sub-bloque 1.6 - Lista y Filtros
+  - **Archivos incluidos:**
+    - frontend/src/pages/Cotizaciones/CotizacionesEmpresa.tsx
+    - frontend/src/store/slices/cotizaciones/cotizacionSlice.ts
+
+  _Estado:_ Sub-bloque 1.6 validado y commiteado en branch aislado
+
+---
+
+## BLOQUE 1: COMPLETADO ✅
+
+**Branch final:** feature/cotizaciones/creacion-main
+**Total commits:** 11 (6 feat + 5 docs)
+**Estado:** Listo para merge a integration/revision-bloques-1-5
+
+---
 - [ ] Backend: modelos coherentes con migraciones
 - [ ] Backend: serializers con validaci├│n
 - [ ] Backend: views con permisos
