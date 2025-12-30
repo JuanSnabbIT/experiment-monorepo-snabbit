@@ -1,35 +1,29 @@
 import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import Tooltip from "@/components/ui/Tooltip"
+import { ESTADOS_OC } from "@/constants/bodegas.constant"
 import { IOrdenCompra } from "@/interface/bodega.interface"
+import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useState, useEffect } from "react"
-import CrearOrdenCompra from "./modals/CrearOrdenCompra"
-import Button from "@/components/ui/Button"
-import { useNavigate } from "react-router-dom"
-import Tooltip from "@/components/ui/Tooltip"
-import SubirCotizacion from "./modals/SubirCotizacion"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import { detalleEmpresaThunk, listaMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
-import AceptarORechazarOrdenCompra from "./modals/AceptarORechazarOrdenCompra"
-import ModalEnviarProveedor from "./modals/ModalEnviarProveedor"
-import ModalReenviarAlProveedor from "./modals/ModalReenviarAlProveedor"
-import ModalVolverABorradorOC from "./modals/ModalVolverABorradorOC"
-import { MultiValue } from "react-select"
-import { ESTADOS_OC } from "@/constants/bodegas.constant"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { formatPrice } from '@/utils/currency'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import dayjs from "dayjs"
-import useAuthority from "@/hooks/useAuthority"
-import { toast } from "react-toastify"
-import ApiService from "@/services/ApiService"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { MultiValue } from "react-select"
+import CrearOrdenCompra from "./modals/CrearOrdenCompra"
+import SubirCotizacion from "./modals/SubirCotizacion"
 
 
 const columnHelper = createColumnHelper<IOrdenCompra>()
@@ -64,73 +58,77 @@ function ListaOrdenesCompraV2() {
 
     const columns = [
         columnHelper.accessor("codigo", {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <div className='font-bold text-gray-600 dark:text-gray-400'>
+                    {info.getValue()}
+                </div>
+            ),
             header: "Codigo"
         }),
-        columnHelper.accessor("nombre_cliente", {
-            cell: (info) => info.getValue(),
-            header: "Cliente"
+        columnHelper.accessor("nombre_proveedor", {
+            cell: (info) => (
+                <div className='font-semibold text-gray-700 dark:text-gray-300'>
+                    {info.getValue()}
+                </div>
+            ),
+            header: "Proveedor"
         }),
-        columnHelper.accessor("estado_label", {
-            cell: (info) => info.getValue(),
-            header: "Estado"
+        columnHelper.accessor("nombre_cliente", {
+            cell: (info) => (
+                <div className='font-semibold text-gray-700 dark:text-gray-300'>
+                    {info.getValue()}
+                </div>
+            ),
+            header: "Cliente"
         }),
         columnHelper.accessor("fecha_creacion", {
             cell: (info) => (
-                <div>{dayjs(info.row.original.fecha_creacion).format('DD/MM/YYYY HH:MM')}</div>
+                <div className='text-gray-500'>
+                    {dayjs(info.row.original.fecha_creacion).format('DD/MM/YYYY')}
+                </div>
             ),
-            header: "Fecha de Creacion"
+            header: "Fecha"
+        }),
+        columnHelper.display({
+            id: 'total',
+            cell: (info) => {
+                const items = info.row.original.datos_item || []
+                const neto = items.reduce((acc, item) => acc + (item.cantidad * item.precio), 0)
+                const iva = neto * 0.19
+                const total = neto + iva // Asumiendo lógica estándar, si hay exentos debería manejarse en backend idealmente, pero frontend replica lo del detalle
+                
+                return (
+                    <div className='font-mono font-medium'>
+                         ${formatPrice(total)} {info.row.original.tipo_moneda_label || 'CLP'}
+                    </div>
+                )
+            },
+            header: 'Total',
+        }),
+        columnHelper.accessor("estado_label", {
+            cell: (info) => {
+                const estado = info.getValue()
+                let color: "emerald" | "amber" | "red" | "blue" | "gray" = "gray"
+                const estadoLower = estado?.toLowerCase() || ''
+                
+                if (estadoLower.includes("completad") || estadoLower.includes("recibida") || estadoLower.includes("aprobada")) color = "emerald"
+                else if (estadoLower.includes("borrador") || estadoLower.includes("pendiente")) color = "amber"
+                else if (estadoLower.includes("rechazad") || estadoLower.includes("anulada")) color = "red"
+                else if (estadoLower.includes("enviada")) color = "blue"
+
+                return (
+                    <Badge variant='solid' color={color} className='capitalize'>
+                        {estado}
+                    </Badge>
+                )
+            },
+            header: "Estado"
         }),
         columnHelper.display({
             id: "acciones",
+            header: "Acciones",
             cell: (info) => (
                 <div className="flex gap-2">
-                    {info.row.original.estado === "-" && (
-                        <Tooltip text="Agregar Items">
-                            <Button variant="solid" onClick={() => {navigate(`/compras/agregar-items-oc/${info.row.original.id}`)}} icon="HeroPlus"></Button>
-                        </Tooltip>
-                    )}
-                    {(info.row.original.estado === "0") && (
-                        <>
-                            <AceptarORechazarOrdenCompra id_orden={info.row.original.id} id_empresa={personalizacionUsuario?.empresa} />
-                            {useAuthority(listaGrupos?.grupos, ["staff"]) && (
-                                <ModalVolverABorradorOC id_orden={info.row.original.id} />
-                            )}
-                        </>
-                    )}
-                    {info.row.original.estado === "1" && (
-                        <>
-                            <ModalEnviarProveedor id_empresa={info.row.original.oc_empresa} id_proveedor={info.row.original.proveedor} id_orden={info.row.original.id} />
-                            {useAuthority(listaGrupos?.grupos, ["staff"]) && (
-                                <ModalVolverABorradorOC id_orden={info.row.original.id} />
-                            )}
-                            <Tooltip text="No Enviar al Proveedor">
-                                <Button variant="solid" color="sky" icon="HeroXCircle" onClick={async () => {
-                                    try {
-                                        const response = await ApiService.fetchData({url: `/api/ordenes-compra/${info.row.original.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "3"})})
-                                        if (response.data) {
-                                            toast.success("Orden de compra cambiada de estado", {autoClose: 1000})
-                                            dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                        }
-                                    } catch (error: any) {
-                                        const mensajesError = Object.values(error.response.data).flat().join(" ");
-                                        toast.error(mensajesError || "Error al cambiar el estado de la OC", {toastId: "Error al cambiar el estado de la OC"})
-                                    }
-                                }} />
-                            </Tooltip>
-                        </>
-                    )}
-                    {info.row.original.estado === "3" && (
-                        <>
-                            <Tooltip text="Completar Orden de Compra">
-                                <Button variant="solid" icon="DuoBox2" color="sky" onClick={() => {navigate(`/compras/completar-orden-compra/${info.row.original.id}`)}}></Button>
-                            </Tooltip>
-                            <ModalReenviarAlProveedor id_orden={info.row.original.id} id_empresa={info.row.original.oc_empresa} id_proveedor={info.row.original.proveedor} />
-                            {useAuthority(listaGrupos?.grupos, ["staff"]) && (
-                                <ModalVolverABorradorOC id_orden={info.row.original.id} />
-                            )}
-                        </>
-                    )}
                     <Tooltip text="Detalle Orden de Compra">
                         <Button variant="solid" color="violet" onClick={() => {navigate(`/compras/detalle-orden-compra/${info.row.original.id}`)}} icon="HeroEye"></Button>
                     </Tooltip>

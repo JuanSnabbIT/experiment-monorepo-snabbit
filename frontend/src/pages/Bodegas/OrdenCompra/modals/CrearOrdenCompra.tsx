@@ -9,7 +9,7 @@ import { IOrdenCompra } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { listaMisOrdenesDeCompraThunk, listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { usuarioEmpresaLogeadoThunk, listaMisClientesThunk, selectEmpresasThunk } from "@/store/slices/empresa/empresaSlice"
+import { listaMisClientesThunk, selectEmpresasThunk, usuarioEmpresaLogeadoThunk } from "@/store/slices/empresa/empresaSlice"
 import { listaProveedoresEmpresaThunk } from "@/store/slices/item/itemSlice"
 import { useFormik } from "formik"
 import { useEffect, useState } from "react"
@@ -42,7 +42,14 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
 
     useEffect(() => {
         if (listaProveedoresEmpresa.length > 0) {
-            setOptionProveedores(listaProveedoresEmpresa.map((pro) => {return {value: pro.id.toString(), label: pro.nombre}}))
+            setOptionProveedores(listaProveedoresEmpresa.map((pro) => {
+                const monedas: {[key: string]: string} = {'1': 'USD', '2': 'CLP', '3': 'UF'}
+                const moneda = monedas[pro.tipo_moneda] || 'CLP'
+                return {
+                    value: pro.id.toString(), 
+                    label: `${pro.nombre} (${moneda})`
+                }
+            }))
         }
     }, [listaProveedoresEmpresa])
 

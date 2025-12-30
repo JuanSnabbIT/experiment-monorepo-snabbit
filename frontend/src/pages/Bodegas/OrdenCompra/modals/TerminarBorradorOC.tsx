@@ -10,9 +10,8 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 
 
-function TerminarBorradorOC({id_orden} : {id_orden: string | number | undefined}) {
+function TerminarBorradorOC({id_orden, onSuccess} : {id_orden: string | number | undefined, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
-    const navigate = useNavigate()
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
@@ -47,7 +46,10 @@ function TerminarBorradorOC({id_orden} : {id_orden: string | number | undefined}
                                 if (response.data) {
                                     toast.success("Orden de compra terminada.", {autoClose: 1000})
                                     dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                    navigate('/compras/lista-ordenes-compra', {replace: true})
+                                    if (onSuccess) {
+                                        onSuccess()
+                                    }
+                                    setIsOpen(false)
                                 }
                             } catch (error: any) {
                                 toast.error(error.response.data)

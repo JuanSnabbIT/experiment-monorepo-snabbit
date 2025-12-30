@@ -10,7 +10,7 @@ import { toast } from "react-toastify"
 
 
 
-function ModalVolverABorradorOC({id_orden} : {id_orden: string | number}) {
+function ModalVolverABorradorOC({id_orden, onSuccess} : {id_orden: string | number, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
     const [isOpen, setIsOpen] = useState<boolean>(false)
@@ -44,6 +44,8 @@ function ModalVolverABorradorOC({id_orden} : {id_orden: string | number}) {
                                 } else if (window.location.pathname.includes('/lista-mis-ordenes')) {
                                     dispatch(listaMisOrdenesDeCompraThunk())
                                 }
+                                    if (onSuccess) onSuccess()
+                                    setIsOpen(false)
                                 }
                             } catch (error: any) {
                                 toast.error(error.response.data)
