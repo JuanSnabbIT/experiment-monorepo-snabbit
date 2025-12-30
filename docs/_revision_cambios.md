@@ -180,6 +180,32 @@ Cada sub-bloque agrupa cambios relacionados a una **funcionalidad completa** (ba
 ## Notas
 _Pendiente de revisi├│n detallada_
 
+  ### Commit aislado (Sub-bloque 1.6)
+
+  - **Branch creado:** feature/cotizaciones/creacion-main
+  - **Commit:** aafa1e1 -- feat(cotizaciones): Sub-bloque 1.6 - Lista y Filtros
+  - **Archivos incluidos:**
+    - frontend/src/pages/Cotizaciones/CotizacionesEmpresa.tsx
+    - frontend/src/store/slices/cotizaciones/cotizacionSlice.ts
+
+  _Estado:_ Sub-bloque 1.6 validado y commiteado en branch aislado
+
+---
+
+## Estado Final del Bloque 1: COTIZACIONES
+
+**Rama:** feature/cotizaciones/creacion-main
+**Total de commits:** 10 (6 feat + 4 docs)
+**Estado:** ✅ COMPLETADO
+
+Todos los sub-bloques (1.1 a 1.6) han sido revisados, validados y commiteados.
+
+### Próximos pasos
+- Revisar Bloque 2: COMPRAS
+- Revisar Bloque 3: ÓRDENES DE COMPRA
+- Revisar Bloque 4: GUÍAS DE SALIDA
+- Revisar Bloque 5: ÓRDENES DE TRABAJO
+
 ---
 
 # BLOQUE 2: COMPRAS
