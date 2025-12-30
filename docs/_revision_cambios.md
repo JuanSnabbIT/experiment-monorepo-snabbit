@@ -143,6 +143,17 @@ Cada sub-bloque agrupa cambios relacionados a una **funcionalidad completa** (ba
   - Frontend: `CrearOCDeCotizacion.tsx` (+169)
   - **Objetivo:** Generar Orden de Compra autom├ítica
 
+
+  ### Commit aislado (Sub-bloque 1.4)
+
+  - **Branch creado:** feature/cotizaciones/creacion-main
+  - **Commit:** 1fc37fe -- feat(cotizaciones): Sub-bloque 1.4 - Flujo de Aprobación y Envío
+  - **Archivos incluidos:**
+    - backend/cotizaciones/views.py
+    - frontend/src/pages/Cotizaciones/modals/AprobarCotizacion.tsx
+    - frontend/src/pages/Cotizaciones/modals/EnviarCotizacion.tsx
+
+  _Estado:_ Sub-bloque 1.4 validado y commiteado en branch aislado
 - **1.6: Lista y Filtros**
   - Backend: querys optimizadas, filtros
   - Frontend: `CotizacionesEmpresa.tsx` (+112)
