@@ -18,10 +18,12 @@ import Collapse from '@/components/utils/Collapse';
 import ApiService from '@/services/ApiService';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
+    actualizarSoporteTecnicoThunk,
     checkCompletibilidadOTThunk,
     detalleOrdenTrabajoThunk,
-    eliminarServicioGeneralThunk,
-    listaServiciosGeneralesThunk,
+    eliminarSoporteTecnicoThunk,
+    listaInsumosThunk,
+    listaSoportesTecnicosThunk,
     listaTecnicosThunk,
     useAppDispatch,
     useAppSelector,
@@ -40,15 +42,15 @@ import {
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import CrearServicioEnOT from '../modals/CrearServicioEnOT';
-import VincularCotizacion from '../modals/VincularCotizacion';
+import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
+import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
 
-function ListaServiciosOT() {
+function ListaSoportesTecnicosOT() {
 	const dispatch = useAppDispatch();
-	const { detalleOrdenTrabajo, listaServiciosGenerales, listaTecnicos } = useAppSelector(
+	const { detalleOrdenTrabajo, listaSoportesTecnicos, listaTecnicos } = useAppSelector(
 		(s) => s.ordenTrabajo,
 	);
 	const { personalizacionUsuario } = useAppSelector((s) => s.auth);
@@ -60,7 +62,6 @@ function ListaServiciosOT() {
 	const [sorting, setSorting] = useState<SortingState>([]);
 	// Asignar fecha modal
 	const [isOpenAsignarFecha, setIsOpenAsignarFecha] = useState<boolean>(false);
-	const [isOpenVincularCotizacion, setIsOpenVincularCotizacion] = useState<boolean>(false);
 	const [fechaAsignar, setFechaAsignar] = useState<string | undefined>();
 	// Para cambio de estado: (usado en acciones)
 	const [isOpenEstado, setIsOpenEstado] = useState<boolean>(false);
@@ -76,12 +77,69 @@ function ListaServiciosOT() {
 	const [isOpenSeguimiento, setIsOpenSeguimiento] = useState<boolean>(false);
 	const [comentarioSeguimiento, setComentarioSeguimiento] = useState<string>('');
 	const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario');
+	// Para gestión de usuarios asignados
+	const [isOpenUsuarios, setIsOpenUsuarios] = useState<boolean>(false);
+	const [soporteIdUsuarios, setSoporteIdUsuarios] = useState<number | null>(null);
+
+	const requisitosGlobalesOk = useMemo(() => {
+		if (!listaSoportesTecnicos || listaSoportesTecnicos.length === 0) return false;
+		return listaSoportesTecnicos.every((s: any) => {
+			const tieneTecnico = !!s.tecnico_asignado;
+			const tieneFecha = !!s.fecha_soporte;
+			const guiaOk =
+				!s.guia_salida || ['FR', 'ET', 'E', 'T'].includes(s.guia_salida.estado);
+			return tieneTecnico && tieneFecha && guiaOk;
+		});
+	}, [listaSoportesTecnicos]);
+
+	const iniciarSoporte = async (soporte: any) => {
+		if (!detalleOrdenTrabajo) return;
+		const ok = await confirmAlert({
+			title: 'Confirmar cambio de estado',
+			text: '¿Iniciar este soporte y pasar a En proceso?',
+			confirmText: 'Confirmar',
+			cancelText: 'Cancelar',
+			icon: 'warning',
+		});
+		if (!ok) return;
+		try {
+			await dispatch(
+				actualizarSoporteTecnicoThunk({
+					id_orden: detalleOrdenTrabajo.id,
+					id_soporte: soporte.id,
+					data: { estado: 'en_proceso' },
+				}),
+			).unwrap();
+			toast.success('Soporte en proceso');
+		} catch (e: any) {
+			const msg =
+				e?.response?.data?.detail ||
+				e?.message ||
+				'No se pudo iniciar el soporte. Revisa técnico, fecha y guía.';
+			toast.error(msg);
+			return;
+		}
+		// Refrescar listas relacionadas
+		dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+		dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+		dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
+	};
+
+	useEffect(() => {
+		if (
+			detalleOrdenTrabajo &&
+			(detalleOrdenTrabajo.tipo_servicio === 'soporte_p' ||
+				detalleOrdenTrabajo.tipo_servicio === 'soporte_r')
+		) {
+			dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+		}
+	}, [detalleOrdenTrabajo]);
 
 	// Vincular guía
 	const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false);
 	const [guiaSeleccionada, setGuiaSeleccionada] = useState<string | null>(null);
 	const [guiasDisponibles, setGuiasDisponibles] = useState<{ value: string; label: string }[]>([]);
-	const [servicioParaGuia, setServicioParaGuia] = useState<number | null>(null);
+	const [soporteParaGuia, setSoporteParaGuia] = useState<number | null>(null);
 
 	const cargarGuiasDisponibles = async () => {
 		if (!detalleOrdenTrabajo) return;
@@ -100,86 +158,12 @@ function ListaServiciosOT() {
 		}
 	};
 
-	const vincularGuia = async () => {
-		if (!detalleOrdenTrabajo || !servicioParaGuia || !guiaSeleccionada) return;
-		try {
-			await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioParaGuia}/asociar-guia/`,
-				method: 'post',
-				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({ guia_salida: guiaSeleccionada }),
-			});
-			toast.success('Guía vinculada');
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-			setIsOpenGuia(false);
-		} catch (e: any) {
-			const msg = e?.response?.data?.detail || 'Error al vincular guía';
-			toast.error(msg);
-		}
-	};
-
-	const desvincularGuia = async (servicioId: number) => {
-		if (!detalleOrdenTrabajo) return;
-		const ok = await confirmAlert({
-			title: 'Desvincular guia',
-			text: 'Desvincular la guia de este servicio?',
-			confirmText: 'Desvincular',
-			cancelText: 'Cancelar',
-			icon: 'warning',
-		});
-		if (!ok) return;
-		try {
-			await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioId}/desasociar-guia/`,
-				method: 'post',
-				headers: { 'Content-Type': 'application/json' },
-			});
-			toast.success('Guía desvinculada');
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-		} catch (e: any) {
-			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
-			toast.error(msg);
-		}
-	};
-
-	const iniciarServicio = async (servicio: any) => {
-		if (!detalleOrdenTrabajo) return;
-		const ok = await confirmAlert({
-			title: 'Confirmar cambio de estado',
-			text: 'Iniciar este servicio y pasar a En proceso?',
-			confirmText: 'Confirmar',
-			cancelText: 'Cancelar',
-			icon: 'warning',
-		});
-		if (!ok) return;
-		try {
-			await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicio.id}/`,
-				method: 'patch',
-				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({ estado: 'en_proceso' }),
-			});
-			toast.success('Servicio en proceso');
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-			dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
-		} catch (e: any) {
-			const msg = e?.response?.data?.detail || e?.message || 'No se pudo iniciar el servicio.';
-			toast.error(msg);
-		}
-	};
-
-	useEffect(() => {
-		if (detalleOrdenTrabajo && detalleOrdenTrabajo.tipo_servicio === 'general') {
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-		}
-	}, [detalleOrdenTrabajo]);
-
-	const fetchSeguimientosServicio = async (servicioId: number) => {
+	const fetchSeguimientosServicio = async (soporteId: number) => {
 		if (!detalleOrdenTrabajo) return;
 		setCargandoSeguimientos(true);
 		try {
 			const resp = await ApiService.fetchData<any[]>({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioId}/seguimientos/`,
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${soporteId}/seguimientos/`,
 				method: 'get',
 			});
 			setSeguimientos(resp.data || []);
@@ -211,9 +195,9 @@ function ListaServiciosOT() {
 	};
 
 	const filtro = globalFilter?.toLowerCase()?.trim();
-	const serviciosFiltrados = listaServiciosGenerales
+	const soportesFiltrados = listaSoportesTecnicos
 		? filtro
-			? listaServiciosGenerales.filter((s: any) => {
+			? listaSoportesTecnicos.filter((s: any) => {
 					return (
 						String(s.nombre ?? '')
 							.toLowerCase()
@@ -226,7 +210,7 @@ function ListaServiciosOT() {
 							.includes(filtro)
 					);
 				})
-			: listaServiciosGenerales
+			: listaSoportesTecnicos
 		: [];
 
 	const estadoBadgeColor = (e: string) => {
@@ -303,11 +287,12 @@ function ListaServiciosOT() {
 				const isNoRealizado =
 					estadoLower === 'no_realizado' || estadoLower === 'no realizado';
 				const hasTecnico = !!info.row.original.tecnico_asignado;
-				const hasFecha = !!info.row.original.fecha_servicio;
+				const hasFecha = !!info.row.original.fecha_soporte;
 				const requierePrereqs = isPendiente;
 				const guia = info.row.original.guia_salida;
 				const guiaListo = !guia || ['FR', 'ET', 'E', 'T'].includes(guia.estado);
 				const faltaBasicos = !hasTecnico || !hasFecha;
+				const canStartLocal = !requierePrereqs || (!faltaBasicos && guiaListo);
 
 				// Validación OT Padre (Normalización de estados)
 				const hasOTFecha = !!detalleOrdenTrabajo?.fecha_inicio_ot;
@@ -315,20 +300,19 @@ function ListaServiciosOT() {
 				const hasOTResponsable = !!(detalleOrdenTrabajo?.responsable_empresa || detalleOrdenTrabajo?.tecnico_responsable_ot);
 				const faltaOTConfig = !hasOTFecha || !hasOTResponsable;
 
-				const canStart = !requierePrereqs || (!faltaBasicos && guiaListo && !faltaOTConfig);
-
+				const canStart = requisitosGlobalesOk && canStartLocal && !faltaOTConfig;
 				let tooltipText = 'Cambiar estado';
-				if (!canStart && requierePrereqs) {
-					if (faltaOTConfig) {
-						tooltipText =
-							'La OT principal debe tener fecha de inicio y responsable asignado para iniciar trabajos';
-					} else if (faltaBasicos) {
-						tooltipText = 'Requiere técnico asignado y fecha de servicio para iniciar';
-					} else if (!guiaListo) {
-						tooltipText = 'Debes firmar la Guía de Salida (Firmada/En Tránsito) para iniciar';
-					}
+				if (faltaOTConfig && requierePrereqs) {
+					tooltipText =
+						'La OT principal debe tener fecha de inicio y responsable asignado para iniciar trabajos';
+				} else if (!requisitosGlobalesOk) {
+					tooltipText =
+						'Todos los trabajos deben tener técnico, fecha y guía firmada (si aplica) antes de iniciar cualquiera.';
+				} else if (!canStartLocal && requierePrereqs) {
+					tooltipText = faltaBasicos
+						? 'Requiere técnico asignado y fecha de soporte para iniciar'
+						: 'Debes firmar la Guía de Salida (Firmada/En Tránsito) para iniciar';
 				}
-
 				const estadoIcon = isPendiente
 					? 'HeroPlay'
 					: isEnProceso
@@ -354,7 +338,7 @@ function ListaServiciosOT() {
 								onClick={() => {
 									if (!canStart) return;
 									if (estadoLower === 'pendiente') {
-										iniciarServicio(info.row.original);
+										iniciarSoporte(info.row.original);
 										return;
 									}
 									setSelectedService(info.row.original);
@@ -377,14 +361,35 @@ function ListaServiciosOT() {
 				info.getValue() ?? <span className='italic text-gray-400'>Sin Técnico</span>,
 			header: 'Técnico Asignado',
 		}),
-		columnHelper.accessor('fecha_servicio', {
+		columnHelper.accessor('usuarios_asignados_count', {
+			cell: (info) => (
+				<div className='flex items-center gap-2'>
+					<span>{info.getValue() ?? 0}</span>
+					<Tooltip text='Gestionar usuarios asignados'>
+						<Button
+							variant='solid'
+							color='violet'
+							icon='HeroUsers'
+							size='xs'
+							onClick={() => {
+								setSoporteIdUsuarios(info.row.original.id);
+								setIsOpenUsuarios(true);
+							}}
+						/>
+					</Tooltip>
+				</div>
+			),
+			header: 'Usuarios Asignados',
+			size: 150,
+		}),
+		columnHelper.accessor('fecha_soporte', {
 			cell: (info) =>
 				info.getValue() ? (
 					dayjs(info.getValue()).locale('es').format('DD/MM/YYYY')
 				) : (
 					<span className='italic text-gray-400'>Sin fecha</span>
 				),
-			header: 'Fecha trabajo',
+			header: 'Fecha soporte',
 		}),
 		columnHelper.display({
 			id: 'acciones',
@@ -392,6 +397,7 @@ function ListaServiciosOT() {
 				const estadoLower = String(info.row.original.estado ?? '').toLowerCase();
 				const isPendiente = estadoLower === 'pendiente';
 				const isEnProceso = estadoLower === 'en_proceso' || estadoLower === 'en proceso';
+				const tieneGuia = !!info.row.original.guia_salida;
 				return (
 					<div className='flex flex-wrap gap-2'>
 						{!isPendiente && (
@@ -405,34 +411,19 @@ function ListaServiciosOT() {
 							</Tooltip>
 						)}
 						{isEnProceso && (
-							<>
-								<Tooltip text='Añadir seguimiento'>
-									<Button
-										variant='solid'
-										color='blue'
-										icon='HeroPlusCircle'
-										onClick={() => {
-											setSelectedService(info.row.original);
-											setComentarioSeguimiento('');
-											setTipoSeguimiento('comentario');
-											setIsOpenSeguimiento(true);
-										}}
-									/>
-								</Tooltip>
-								{/* Vincular Cotización - Comentado: Funcionalidad pendiente de implementación backend
-								<Tooltip text='Vincular Cotización'>
-									<Button
-										variant='solid'
-										color='emerald'
-										icon='HeroDocumentText'
-										onClick={() => {
-											setSelectedService(info.row.original);
-											setIsOpenVincularCotizacion(true);
-										}}
-									/>
-								</Tooltip>
-								*/}
-							</>
+							<Tooltip text='Añadir seguimiento'>
+								<Button
+									variant='solid'
+									color='blue'
+									icon='HeroPlusCircle'
+									onClick={() => {
+										setSelectedService(info.row.original);
+										setComentarioSeguimiento('');
+										setTipoSeguimiento('comentario');
+										setIsOpenSeguimiento(true);
+									}}
+								/>
+							</Tooltip>
 						)}
 						{isPendiente && (
 							<>
@@ -456,22 +447,22 @@ function ListaServiciosOT() {
 										onClick={() => {
 											setSelectedService(info.row.original);
 											setFechaAsignar(
-												info.row.original.fecha_servicio ?? undefined,
+												info.row.original.fecha_soporte ?? undefined,
 											);
 											setIsOpenAsignarFecha(true);
 										}}
 									/>
 								</Tooltip>
-								<Tooltip text='Eliminar servicio'>
+								<Tooltip text='Eliminar soporte técnico'>
 									<Button
 										variant='solid'
 										color='red'
-										icon='HeroTrash'
-										onClick={async () => {
+									icon='HeroTrash'
+									onClick={async () => {
 											if (!detalleOrdenTrabajo) return;
 											const ok = await confirmAlert({
-												title: 'Eliminar servicio',
-												text: 'Eliminar este servicio? Esta accion no se puede deshacer.',
+												title: 'Eliminar soporte tecnico',
+												text: 'Eliminar este soporte tecnico? Esta accion no se puede deshacer.',
 												confirmText: 'Eliminar',
 												cancelText: 'Cancelar',
 												icon: 'warning',
@@ -480,16 +471,16 @@ function ListaServiciosOT() {
 											if (!ok) return;
 											try {
 												await dispatch(
-													eliminarServicioGeneralThunk({
+													eliminarSoporteTecnicoThunk({
 														id_orden: detalleOrdenTrabajo.id,
-														id_servicio: info.row.original.id,
+														id_soporte: info.row.original.id,
 													}),
 												);
-												toast.success('Servicio eliminado', {
+												toast.success('Soporte técnico eliminado', {
 													autoClose: 1000,
 												});
 												dispatch(
-													listaServiciosGeneralesThunk({
+													listaSoportesTecnicosThunk({
 														id_orden: detalleOrdenTrabajo.id,
 													}),
 												);
@@ -497,21 +488,23 @@ function ListaServiciosOT() {
 												const msg = Object.values(e?.response?.data || {})
 													.flat()
 													.join(' ');
-												toast.error(msg || 'Error al eliminar servicio');
+												toast.error(
+													msg || 'Error al eliminar soporte técnico',
+												);
 											}
 										}}
 									/>
 								</Tooltip>
 							</>
 						)}
-						{!info.row.original.guia_salida ? (
+						{!tieneGuia ? (
 							<Tooltip text='Vincular Guía de Salida'>
 								<Button
 									variant='solid'
 									color='emerald'
 									icon='HeroLink'
 									onClick={() => {
-										setServicioParaGuia(info.row.original.id);
+										setSoporteParaGuia(info.row.original.id);
 										setGuiaSeleccionada(null);
 										setIsOpenGuia(true);
 										cargarGuiasDisponibles();
@@ -535,7 +528,7 @@ function ListaServiciosOT() {
 		}),
 	];
 	const table = useReactTable({
-		data: serviciosFiltrados,
+		data: soportesFiltrados,
 		columns: columns,
 		state: {
 			sorting: sorting,
@@ -550,26 +543,73 @@ function ListaServiciosOT() {
 		getPaginationRowModel: getPaginationRowModel(),
 	});
 
-	const quitarTecnico = async () => {
-		if (!detalleOrdenTrabajo || !selectedService) return;
+	const vincularGuia = async () => {
+		if (!detalleOrdenTrabajo || !soporteParaGuia || !guiaSeleccionada) return;
 		try {
-			const resp = await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
-				method: 'patch',
+			await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${soporteParaGuia}/asociar-guia/`,
+				method: 'post',
 				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({ tecnico_asignado: null }),
+				data: JSON.stringify({ guia_salida: guiaSeleccionada }),
 			});
-			if (resp.data) {
-				toast.success('Técnico quitado', { autoClose: 1000 });
-				dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-				setIsOpenDetail(false);
-				setSelectedService(null);
-			}
 		} catch (e: any) {
-			const msg = Object.values(e?.response?.data || {})
-				.flat()
-				.join(' ');
-			toast.error(msg || 'Error al quitar técnico');
+			const msg = e?.response?.data?.detail || 'Error al vincular guía';
+			toast.error(msg);
+			return;
+		}
+
+		let refrescoOk = true;
+		try {
+			await dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+			await dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+		} catch (e) {
+			refrescoOk = false;
+			console.warn('No se pudo refrescar soportes/insumos tras vincular guía', e);
+		}
+
+		if (refrescoOk) {
+			toast.success('Guía vinculada');
+		} else {
+			toast.warning('Guía vinculada, pero no se pudo refrescar la lista');
+		}
+		setIsOpenGuia(false);
+	};
+
+	const desvincularGuia = async (soporteId: number) => {
+		if (!detalleOrdenTrabajo) return;
+		const ok = await confirmAlert({
+			title: 'Desvincular guia',
+			text: 'Desvincular la guia de este soporte?',
+			confirmText: 'Desvincular',
+			cancelText: 'Cancelar',
+			icon: 'warning',
+		});
+		if (!ok) return;
+		try {
+			await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${soporteId}/desasociar-guia/`,
+				method: 'post',
+				headers: { 'Content-Type': 'application/json' },
+			});
+		} catch (e: any) {
+			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
+			toast.error(msg);
+			return;
+		}
+
+		let refrescoOk = true;
+		try {
+			await dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+			await dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+		} catch (e) {
+			refrescoOk = false;
+			console.warn('No se pudo refrescar soportes/insumos tras desvincular guía', e);
+		}
+
+		if (refrescoOk) {
+			toast.success('Guía desvinculada');
+		} else {
+			toast.warning('Guía desvinculada, pero no se pudo refrescar la lista');
 		}
 	};
 
@@ -591,11 +631,7 @@ function ListaServiciosOT() {
 		}
 	}, [isOpenEstado, personalizacionUsuario]);
 
-	// Formik para Asignar Técnico en servicios generales: se crea más abajo junto al modal
-
-	// Nota: el control de cambio de estado se realiza desde la columna de Acciones
-
-	// Formik para Asignar Técnico (servicios generales)
+	// Formik para Asignar Técnico en soportes técnicos
 	const formikTecnico = useFormik({
 		enableReinitialize: true,
 		initialValues: {
@@ -609,7 +645,7 @@ function ListaServiciosOT() {
 		onSubmit: async (values) => {
 			try {
 				const response = await ApiService.fetchData({
-					url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/servicios-generales/${detalleSeleccionado}/`,
+					url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/soportes-tecnicos/${detalleSeleccionado}/`,
 					method: 'patch',
 					headers: { 'Content-Type': 'application/json' },
 					data: JSON.stringify({ tecnico_asignado: values.tecnico_asignado }),
@@ -617,11 +653,11 @@ function ListaServiciosOT() {
 				if (response.data) {
 					try {
 						await ApiService.fetchData({
-							url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/servicios-generales/${detalleSeleccionado}/seguimientos/`,
+							url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/soportes-tecnicos/${detalleSeleccionado}/seguimientos/`,
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
 							data: JSON.stringify({
-								servicio: detalleSeleccionado,
+								soporte_tecnico: detalleSeleccionado,
 								usuario: null,
 								tipo: values.tipo_seguimiento,
 								comentario: values.comentario,
@@ -632,7 +668,7 @@ function ListaServiciosOT() {
 					}
 					toast.success('Técnico asignado', { autoClose: 1000 });
 					formikTecnico.resetForm();
-					dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo?.id }));
+					dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo?.id }));
 					setIsOpenTecnico(false);
 					setDetalleSeleccionado(null);
 					setSelectedService(null);
@@ -657,11 +693,11 @@ function ListaServiciosOT() {
 		}
 		try {
 			await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				data: JSON.stringify({
-					servicio: selectedService.id,
+					soporte_tecnico: selectedService.id,
 					usuario: null,
 					tipo: tipoSeguimiento || 'comentario',
 					comentario: comentarioSeguimiento,
@@ -681,7 +717,7 @@ function ListaServiciosOT() {
 		<Card>
 			<CardHeader>
 				<CardHeaderChild>
-					<Badge className='text-xl'>Servicios Generales</Badge>
+					<Badge className='text-xl'>Soportes Técnicos</Badge>
 				</CardHeaderChild>
 				<CardHeaderChild>
 					<AnimacionDeInputModoMovil
@@ -691,14 +727,14 @@ function ListaServiciosOT() {
 						{detalleOrdenTrabajo &&
 							(detalleOrdenTrabajo.estado === 'pendiente' ||
 								detalleOrdenTrabajo.estado === 'en_proceso') && (
-								<CrearServicioEnOT />
+								<CrearSoporteTecnicoEnOT />
 							)}
 					</AnimacionDeInputModoMovil>
 				</CardHeaderChild>
 			</CardHeader>
 			<CardBody>
 				<div className='mt-2 overflow-auto'>
-					{serviciosFiltrados && serviciosFiltrados.length > 0 ? (
+					{soportesFiltrados && soportesFiltrados.length > 0 ? (
 						<>
 							<Table className='min-w-[800px] table-fixed'>
 								<THead>
@@ -749,7 +785,7 @@ function ListaServiciosOT() {
 							</Table>
 						</>
 					) : (
-						<div className='text-center text-gray-500'>No hay servicios generales.</div>
+						<div className='text-center text-gray-500'>No hay soportes técnicos.</div>
 					)}
 				</div>
 
@@ -758,9 +794,10 @@ function ListaServiciosOT() {
 				</div>
 			</CardBody>
 
+			{/* Modal Detalle - Continuará en siguiente mensaje por límite de tamaño */}
 			<Modal isOpen={isOpenDetail} setIsOpen={setIsOpenDetail}>
 				<ModalHeader>
-					<Badge>Detalle Servicio</Badge>
+					<Badge>Detalle Soporte Técnico</Badge>
 				</ModalHeader>
 				<ModalBody>
 					{selectedService ? (
@@ -798,15 +835,21 @@ function ListaServiciosOT() {
 									</div>
 								</div>
 								<div>
-									<Badge>Fecha trabajo</Badge>
+									<Badge>Fecha soporte</Badge>
 									<div className='ml-4'>
-										{selectedService.fecha_servicio ? (
-											dayjs(selectedService.fecha_servicio)
+										{selectedService.fecha_soporte ? (
+											dayjs(selectedService.fecha_soporte)
 												.locale('es')
 												.format('DD/MM/YYYY')
 										) : (
 											<span className='italic text-gray-400'>Sin fecha</span>
 										)}
+									</div>
+								</div>
+								<div>
+									<Badge>Usuarios Asignados</Badge>
+									<div className='ml-4'>
+										{selectedService.usuarios_asignados_count ?? 0}
 									</div>
 								</div>
 							</div>
@@ -931,6 +974,51 @@ function ListaServiciosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
+			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
+				<ModalHeader>
+					<Badge className='text-xl'>Vincular Guía de Salida</Badge>
+				</ModalHeader>
+				<ModalBody>
+					<div className='flex flex-col gap-4'>
+						<div>
+							<div className='mb-1 text-sm font-semibold'>Guía disponible</div>
+							<SelectReact
+								name='guia'
+								options={guiasDisponibles}
+								placeholder='Selecciona una guía'
+								value={
+									guiaSeleccionada
+										? guiasDisponibles.find((g) => g.value === guiaSeleccionada)
+										: null
+								}
+								onChange={(opt) => setGuiaSeleccionada((opt as TSelectOption).value)}
+							/>
+						</div>
+						{guiasDisponibles.length === 0 && (
+							<div className='text-sm text-gray-500'>
+								No hay guías disponibles (Estados ER/ET/E/T, sin vínculo previo).
+							</div>
+						)}
+					</div>
+				</ModalBody>
+				<ModalFooter>
+					<ModalFooterChild>
+						<Button variant='outline' onClick={() => setIsOpenGuia(false)}>
+							Cancelar
+						</Button>
+					</ModalFooterChild>
+					<ModalFooterChild>
+						<Button
+							variant='solid'
+							color='emerald'
+							isDisable={!guiaSeleccionada}
+							onClick={vincularGuia}
+						>
+							Vincular
+						</Button>
+					</ModalFooterChild>
+				</ModalFooter>
+			</Modal>
 			<Modal isOpen={isOpenTecnico} setIsOpen={setIsOpenTecnico} isStaticBackdrop={true}>
 				<ModalHeader>
 					<Badge className='text-xl'>Asignar Técnico</Badge>
@@ -994,42 +1082,7 @@ function ListaServiciosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
-			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
-				<ModalHeader>
-					<Badge>Vincular Guía de Salida</Badge>
-				</ModalHeader>
-				<ModalBody>
-					<div className='flex flex-col gap-4'>
-						<div className='w-full'>
-							<Badge>Guías Disponibles</Badge>
-							<SelectReact
-								name='guia_salida'
-								placeholder='Seleccione una guía'
-								options={guiasDisponibles}
-								onChange={(e) => setGuiaSeleccionada((e as TSelectOption).value)}
-								value={guiasDisponibles.find((g) => g.value === guiaSeleccionada)}
-							/>
-						</div>
-					</div>
-				</ModalBody>
-				<ModalFooter>
-					<ModalFooterChild />
-					<ModalFooterChild>
-						<Button color='red' onClick={() => setIsOpenGuia(false)}>
-							Cancelar
-						</Button>
-						<Button
-							variant='solid'
-							color='emerald'
-							onClick={vincularGuia}
-							isDisable={!guiaSeleccionada}>
-							Vincular
-						</Button>
-					</ModalFooterChild>
-				</ModalFooter>
-			</Modal>
-
-			{/* Modal para cambio de estado (Servicios Generales) */}
+			{/* Modal para cambio de estado (Soportes Técnicos) */}
 			<Modal isOpen={isOpenEstado} setIsOpen={setIsOpenEstado}>
 				<ModalHeader>
 					<Badge>Cambiar Estado</Badge>
@@ -1113,9 +1166,9 @@ function ListaServiciosOT() {
 										</div>
 									</div>
 								)}
-								{!selectedService.fecha_servicio && (
+								{!selectedService.fecha_soporte && (
 									<div className='mt-2'>
-										<Badge>Fecha de trabajo</Badge>
+										<Badge>Fecha de soporte</Badge>
 										<div className='ml-4'>
 											<Input
 												name='fecha_en_modal'
@@ -1164,11 +1217,12 @@ function ListaServiciosOT() {
 									);
 									return;
 								}
+
 								const requiresTecnico =
 									estadoNuevo === 'en_proceso' &&
 									!selectedService.tecnico_asignado;
 								const requiresFecha =
-									estadoNuevo === 'en_proceso' && !selectedService.fecha_servicio;
+									estadoNuevo === 'en_proceso' && !selectedService.fecha_soporte;
 								if (
 									(requiresTecnico && !tecnicoSeleccionado) ||
 									(requiresFecha && !fechaEnModal)
@@ -1184,7 +1238,7 @@ function ListaServiciosOT() {
 									if (requiresTecnico && tecnicoSeleccionado)
 										payload.tecnico_asignado = tecnicoSeleccionado;
 									if (requiresFecha && fechaEnModal)
-										payload.fecha_servicio = fechaEnModal;
+										payload.fecha_soporte = fechaEnModal;
 
 									// Auto-start OT if pending
 									if (detalleOrdenTrabajo.estado === 'pendiente') {
@@ -1209,7 +1263,7 @@ function ListaServiciosOT() {
 
 								try {
 									const resp = await ApiService.fetchData({
-										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
+										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
 										method: 'patch',
 										headers: { 'Content-Type': 'application/json' },
 										data: JSON.stringify(payload),
@@ -1218,14 +1272,14 @@ function ListaServiciosOT() {
 										if (requiresComment && comentario && comentario.trim()) {
 											try {
 												await ApiService.fetchData({
-													url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
+													url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
 													method: 'post',
 													headers: { 'Content-Type': 'application/json' },
 													data: JSON.stringify({
 														comentario,
 														tipo: 'incidencia',
 														usuario: null,
-														servicio: selectedService.id,
+														soporte_tecnico: selectedService.id,
 													}),
 												});
 												fetchSeguimientosServicio(selectedService.id);
@@ -1235,7 +1289,7 @@ function ListaServiciosOT() {
 										}
 										toast.success('Estado cambiado', { autoClose: 1000 });
 										dispatch(
-											listaServiciosGeneralesThunk({
+											listaSoportesTecnicosThunk({
 												id_orden: detalleOrdenTrabajo.id,
 											}),
 										);
@@ -1278,7 +1332,7 @@ function ListaServiciosOT() {
 
 			<Modal isOpen={isOpenAsignarFecha} setIsOpen={setIsOpenAsignarFecha}>
 				<ModalHeader>
-					<Badge>Asignar Fecha de Trabajo</Badge>
+					<Badge>Asignar Fecha de Soporte</Badge>
 				</ModalHeader>
 				<ModalBody>
 					<div className='flex flex-col gap-4'>
@@ -1317,15 +1371,15 @@ function ListaServiciosOT() {
 								}
 								try {
 									const resp = await ApiService.fetchData({
-										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
+										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
 										method: 'patch',
 										headers: { 'Content-Type': 'application/json' },
-										data: JSON.stringify({ fecha_servicio: fechaAsignar }),
+										data: JSON.stringify({ fecha_soporte: fechaAsignar }),
 									});
 									if (resp.data) {
 										toast.success('Fecha asignada', { autoClose: 1000 });
 										dispatch(
-											listaServiciosGeneralesThunk({
+											listaSoportesTecnicosThunk({
 												id_orden: detalleOrdenTrabajo.id,
 											}),
 										);
@@ -1345,20 +1399,24 @@ function ListaServiciosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
-			{selectedService && detalleOrdenTrabajo && (
-				<VincularCotizacion
-					isOpen={isOpenVincularCotizacion}
-					setIsOpen={setIsOpenVincularCotizacion}
-					entityType='servicio-general'
-					entityId={selectedService.id}
+
+			{/* Modal Gestionar Usuarios Asignados */}
+			{detalleOrdenTrabajo && soporteIdUsuarios && (
+				<ListaUsuarioEquipoOT
 					ordenId={detalleOrdenTrabajo.id}
-					entityName={selectedService.nombre}
-					onSuccess={() => {
-						if (detalleOrdenTrabajo) {
-							dispatch(
-								listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }),
-							);
-						}
+					soporteId={soporteIdUsuarios}
+					clienteId={detalleOrdenTrabajo.cliente}
+					isOpen={isOpenUsuarios}
+					onClose={() => {
+						setIsOpenUsuarios(false);
+						setSoporteIdUsuarios(null);
+					}}
+					onSaved={() => {
+						dispatch(
+							listaSoportesTecnicosThunk({
+								id_orden: detalleOrdenTrabajo.id,
+							}),
+						);
 					}}
 				/>
 			)}
@@ -1366,4 +1424,4 @@ function ListaServiciosOT() {
 	);
 }
 
-export default ListaServiciosOT;
+export default ListaSoportesTecnicosOT;

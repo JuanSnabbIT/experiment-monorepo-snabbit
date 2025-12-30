@@ -1,3 +1,4 @@
+from bodegas.models import GuiaSalida
 from rest_framework import serializers
 
 from .models import (
@@ -6,10 +7,26 @@ from .models import (
     HistorialCambiosOrden,
     OrdenDeTrabajo,
     RendicionEnOt,
+    SeguimientoItemOT,
     ServicioEnOT,
     SoporteTecnico,
     UsuarioAsignadoSoporte,
 )
+
+
+class GuiaSalidaMiniSerializer(serializers.ModelSerializer):
+    cantidad_items = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GuiaSalida
+        fields = ("id", "motivo", "cantidad_items", "estado", "estado_label")
+
+    def get_cantidad_items(self, obj):
+        return obj.items.count()
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
 
 
 class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
@@ -75,6 +92,22 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
 
 
 class SoporteTecnicoSerializer(serializers.ModelSerializer):
+    estado_label = serializers.SerializerMethodField()
+    nombre_tecnico = serializers.SerializerMethodField()
+    usuarios_asignados_count = serializers.SerializerMethodField()
+    guia_salida = GuiaSalidaMiniSerializer(read_only=True)
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
+
+    def get_nombre_tecnico(self, obj):
+        if obj.tecnico_asignado:
+            return obj.tecnico_asignado.usuario.get_nombre_completo()
+        return None
+
+    def get_usuarios_asignados_count(self, obj):
+        return obj.usuarioasignadosoporte_set.filter(resuelto=False).count()
+
     class Meta:
         model = SoporteTecnico
         fields = [
@@ -83,20 +116,40 @@ class SoporteTecnicoSerializer(serializers.ModelSerializer):
             "nombre",
             "descripcion",
             "estado",
+            "estado_label",
             "tecnico_asignado",
+            "nombre_tecnico",
             "fecha_soporte",
+            "guia_salida",
+            "usuarios_asignados_count",
             "fecha_creacion",
             "fecha_modificacion",
         ]
 
 
 class UsuarioAsignadoSoporteSerializer(serializers.ModelSerializer):
+    nombre_usuario = serializers.SerializerMethodField()
+    numero_serie_equipo = serializers.SerializerMethodField()
+    tipo_equipo = serializers.SerializerMethodField()
+
+    def get_nombre_usuario(self, obj):
+        return obj.usuario_equipo.usuario.usuario.get_nombre_completo()
+
+    def get_numero_serie_equipo(self, obj):
+        return obj.usuario_equipo.equipo.numero_serie
+
+    def get_tipo_equipo(self, obj):
+        return obj.usuario_equipo.equipo.get_tipo_equipo_display()
+
     class Meta:
         model = UsuarioAsignadoSoporte
         fields = [
             "id",
             "soporte_tecnico",
             "usuario_equipo",
+            "nombre_usuario",
+            "numero_serie_equipo",
+            "tipo_equipo",
             "trabajo_realizado",
             "resuelto",
             "fecha_creacion",
@@ -107,6 +160,7 @@ class UsuarioAsignadoSoporteSerializer(serializers.ModelSerializer):
 class ServicioEnOTSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     nombre_tecnico = serializers.SerializerMethodField()
+    guia_salida = GuiaSalidaMiniSerializer(read_only=True)
 
     def get_estado_label(self, obj):
         return obj.get_estado_display()
@@ -127,6 +181,7 @@ class ServicioEnOTSerializer(serializers.ModelSerializer):
             "estado_label",
             "tecnico_asignado",
             "nombre_tecnico",
+            "guia_salida",
             "resuelto",
             "fecha_servicio",
             "fecha_creacion",
@@ -135,7 +190,8 @@ class ServicioEnOTSerializer(serializers.ModelSerializer):
 
 
 class HistorialCambiosOrdenSerializer(serializers.ModelSerializer):
-    usuario_nombre = serializers.CharField(source="usuario.nombre", read_only=True)
+    usuario_nombre = serializers.SerializerMethodField()
+    nombre_usuario = serializers.SerializerMethodField()
 
     class Meta:
         model = HistorialCambiosOrden
@@ -148,9 +204,28 @@ class HistorialCambiosOrdenSerializer(serializers.ModelSerializer):
             "comentario",
             "usuario",
             "usuario_nombre",
+            "nombre_usuario",
             "fecha_creacion",
         ]
-        read_only_fields = fields  # Historial es sólo lectura aquí
+        read_only_fields = [
+            "id",
+            "fecha_cambio",
+            "fecha_creacion",
+            "usuario",
+            "usuario_nombre",
+            "nombre_usuario",
+            "orden",
+        ]
+
+    def get_usuario_nombre(self, obj):
+        if obj.usuario and hasattr(obj.usuario, "usuario"):
+            return obj.usuario.usuario.get_nombre_completo()
+        if obj.usuario:
+            return str(obj.usuario)
+        return None
+
+    def get_nombre_usuario(self, obj):
+        return self.get_usuario_nombre(obj)
 
 
 class AdjuntoDeOrdenSerializer(serializers.ModelSerializer):
@@ -168,12 +243,15 @@ class AdjuntoDeOrdenSerializer(serializers.ModelSerializer):
 
 
 class RendicionEnOtSerializer(serializers.ModelSerializer):
+    categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
+
     class Meta:
         model = RendicionEnOt
         fields = [
             "id",
             "orden",
             "categoria",
+            "categoria_nombre",
             "detalle",
             "cantidad",
             "monto_unitario",
@@ -201,3 +279,27 @@ class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
             "fecha_modificacion",
         ]
         read_only_fields = ["fecha_cierre", "fecha_creacion", "fecha_modificacion"]
+
+
+class SeguimientoItemOTSerializer(serializers.ModelSerializer):
+    usuario_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SeguimientoItemOT
+        fields = [
+            "id",
+            "servicio",
+            "soporte",
+            "usuario",
+            "usuario_nombre",
+            "tipo",
+            "comentario",
+            "fecha_creacion",
+            "fecha_modificacion",
+        ]
+        read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+    def get_usuario_nombre(self, obj):
+        if obj.usuario:
+            return obj.usuario.usuario.get_nombre_completo()
+        return None

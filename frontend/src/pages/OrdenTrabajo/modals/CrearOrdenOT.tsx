@@ -5,21 +5,21 @@ import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
-	ModalBody,
-	ModalFooter,
-	ModalFooterChild,
-	ModalHeader,
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { PRIORIDAD, TIPO_SERVICIO } from '@/constants/ordentrabajo.constant';
 import CrearProspectoModal from '@/pages/OrdenTrabajo/modals/CrearProspectoModal';
 import ApiService from '@/services/ApiService';
 import {
-	listaMisClientesThunk,
-	listaUsuariosTodaLaEmpresaThunk,
-	listaUsuariosTodoElClienteThunk,
-	useAppDispatch,
-	useAppSelector,
+    listaMisClientesThunk,
+    listaUsuariosTodaLaEmpresaThunk,
+    listaUsuariosTodoElClienteThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
@@ -296,16 +296,13 @@ function CrearOrdenOT() {
 							</Validation>
 						</div>
 
-						{/* Divisor visual */}
-						<div className='my-2 border-t border-gray-200'></div>
-						<p className='-mt-2 mb-2 text-sm text-gray-600'>
-							Campos opcionales (se pueden completar después)
-						</p>
+						{/* Espacio entre secciones principales y opcionales */}
+						<div className='mt-2'></div>
 
 						{/* Fechas opcionales */}
 						<div className='grid grid-cols-2 gap-4'>
 							<div>
-								<Badge>Fecha Inicio (opcional)</Badge>
+								<Badge>Fecha Inicio</Badge>
 								<Validation
 									isValid={formik.isValid}
 									isTouched={formik.touched.fecha_inicio_ot}
@@ -321,7 +318,7 @@ function CrearOrdenOT() {
 								</Validation>
 							</div>
 							<div>
-								<Badge>Fecha Fin (opcional)</Badge>
+								<Badge>Fecha Fin</Badge>
 								<Validation
 									isValid={formik.isValid}
 									isTouched={formik.touched.fecha_finalizacion_ot}
@@ -341,7 +338,7 @@ function CrearOrdenOT() {
 						{/* Responsable y solicitante opcionales */}
 						<div className='grid grid-cols-2 gap-4'>
 							<div>
-								<Badge>Responsable (opcional)</Badge>
+								<Badge>Responsable</Badge>
 								<Validation
 									isValid={formik.isValid}
 									isTouched={formik.touched.responsable_empresa}
@@ -406,7 +403,7 @@ function CrearOrdenOT() {
 
 						{/* Notas internas opcionales */}
 						<div>
-							<Badge>Notas Internas (opcional)</Badge>
+							<Badge>Notas Internas</Badge>
 							<Validation
 								isValid={formik.isValid}
 								isTouched={formik.touched.notas_internas}

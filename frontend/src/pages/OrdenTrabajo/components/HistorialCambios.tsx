@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { listaHistorialCambiosThunk, useAppDispatch, useAppSelector } from '@/store';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { IHistorialCambiosOrden } from '@/interface/ordenTrabajo.interface';
-import Icon from '@/components/icon/Icon';
-import Table, { THead, Tr, Th, TBody, Td } from '@/components/ui/Table';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
-import Collapse from '@/components/utils/Collapse';
-import Button from '@/components/ui/Button';
+import {
+	createColumnHelper,
+	getCoreRowModel,
+	getFilteredRowModel,
+	getPaginationRowModel,
+	getSortedRowModel,
+	SortingState,
+	useReactTable,
+} from '@tanstack/react-table';
 import dayjs from 'dayjs';
 
 
@@ -17,10 +22,32 @@ const columnHelper = createColumnHelper<IHistorialCambiosOrden>()
 const HistorialCambios = ({ordenId} : {ordenId: number | string | undefined}) => {
     const dispatch = useAppDispatch()
     const { listaHistorialCambios } = useAppSelector((state) => state.ordenTrabajo)
-    const [historialAbierto, setHistorialAbierto] = useState<number | undefined>()
-    const [isOpening, setIsOpening] = useState<boolean>(false)
+    const [historialSeleccionadoId, setHistorialSeleccionadoId] = useState<number | undefined>()
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    const renderDetalleListado = (detalle?: string | null) => {
+        if (!detalle) {
+            return <p className="text-sm text-gray-500">Sin informacion</p>;
+        }
+
+        const partes = detalle
+            .split(';')
+            .map((item) => item.trim())
+            .filter(Boolean);
+
+        if (partes.length === 0) {
+            return <p className="text-sm text-gray-500">Sin informacion</p>;
+        }
+
+        return (
+            <ul className="ml-4 list-disc space-y-1 text-sm">
+                {partes.map((item, index) => (
+                    <li key={`${item}-${index}`}>{item}</li>
+                ))}
+            </ul>
+        );
+    };
 
     useEffect(() => {
         dispatch(listaHistorialCambiosThunk({id_orden: ordenId}))
@@ -39,40 +66,7 @@ const HistorialCambios = ({ordenId} : {ordenId: number | string | undefined}) =>
         }),
         columnHelper.display({
             id: "estados",
-            cell: (info) => (
-                <div>
-                    <Button isDisable={isOpening} variant='solid' icon={historialAbierto === info.row.original.id ? "DuoAngleDown" : "DuoAngleUp"} color='sky' onClick={() => {
-                        if (isOpening) return;
-                        setIsOpening(true);
-                        if (historialAbierto === info.row.original.id) {
-                            setHistorialAbierto(undefined);
-                        } else {
-                            setHistorialAbierto(info.row.original.id);
-                        }
-                        setTimeout(() => setIsOpening(false), 300);
-                    }}></Button>
-                    <Collapse isOpen={historialAbierto === info.row.original.id} className="transition-opacity">
-                        <div className="p-3 rounded-md shadow-sm">
-                            <Badge className="mb-1">Estado Anterior</Badge>
-                            <div className="ml-4">
-                                <p className="text-sm">{info.row.original.estado_anterior}</p>
-                            </div>
-                        </div>
-                        <div className="p-3 rounded-md shadow-sm">
-                            <Badge className="mb-1">Estado Actual</Badge>
-                            <div className="ml-4">
-                                <p className="text-sm">{info.row.original.estado_actual}</p>
-                            </div>
-                        </div>
-                        <div className="p-3 rounded-md shadow-sm">
-                            <Badge className="mb-1">Comeentario</Badge>
-                            <div className="ml-4">
-                                <p className="text-sm">{info.row.original.comentario}</p>
-                            </div>
-                        </div>
-                    </Collapse>
-                </div>
-            ),
+            cell: (info) => info.row.original.comentario || 'Sin comentario',
             header: "Comentario"
         })
     ]
@@ -88,9 +82,22 @@ const HistorialCambios = ({ordenId} : {ordenId: number | string | undefined}) =>
         enableGlobalFilter: true,
         onGlobalFilterChange: setGlobalFilter,
         getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     });
+
+	const visibleRows = table.getRowModel().rows;
+	const visibleIds = useMemo(
+		() => visibleRows.map((row) => row.original.id),
+		[visibleRows],
+	);
+
+	useEffect(() => {
+		if (historialSeleccionadoId && !visibleIds.includes(historialSeleccionadoId)) {
+			setHistorialSeleccionadoId(undefined);
+		}
+	}, [historialSeleccionadoId, visibleIds]);
 
     return (
         <Card>
@@ -100,74 +107,91 @@ const HistorialCambios = ({ordenId} : {ordenId: number | string | undefined}) =>
                 </CardHeaderChild>
             </CardHeader>
             <CardBody className='z-0'>
-                <div className='overflow-auto'>
-                    {listaHistorialCambios.length > 0 ? (
-                        <>
-                            <Table className='table-fixed min-w-[500px]'>
-                                <THead>
-                                    {table.getHeaderGroups().map((headerGroup) => (
-                                        <Tr key={headerGroup.id}>
-                                            {headerGroup.headers.map((header) => (
-                                                <Th
-                                                    key={header.id}
-                                                    isColumnBorder={false}
-                                                    className='text-left'>
-                                                    {header.isPlaceholder ? null : (
-                                                        <div
-                                                            key={header.id}
-                                                            aria-hidden='true'
-                                                            {...{
-                                                                className: header.column.getCanSort()
-                                                                    ? 'cursor-pointer select-none flex items-center'
-                                                                    : '',
-                                                                onClick:
-                                                                    header.column.getToggleSortingHandler(),
-                                                            }}>
-                                                            {flexRender(
-                                                                header.column.columnDef.header,
-                                                                header.getContext(),
-                                                            )}
-                                                            {{
-                                                                asc: (
-                                                                    <Icon
-                                                                        icon='HeroChevronUp'
-                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                    />
-                                                                ),
-                                                                desc: (
-                                                                    <Icon
-                                                                        icon='HeroChevronDown'
-                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                    />
-                                                                ),
-                                                            }[header.column.getIsSorted() as string] ?? null}
+                {listaHistorialCambios.length > 0 ? (
+                    <>
+                        <div className='relative min-w-0'>
+                            <div className='absolute left-0 right-0 top-3 h-px bg-zinc-200' />
+                                <div className='relative flex items-stretch gap-6 overflow-x-auto pb-4 pt-6 pr-2 snap-x snap-mandatory'>
+                                {visibleRows.map((row) => {
+                                    const item = row.original;
+                                    const isSelected = historialSeleccionadoId === item.id;
+                                    return (
+                                        <Fragment key={item.id}>
+                                            <div
+                                                className={`relative flex h-[220px] min-h-0 flex-none snap-start flex-col rounded-lg border p-4 text-left shadow-sm w-[320px] transition ${
+                                                    isSelected
+                                                        ? 'border-blue-400 bg-blue-50/40 shadow-md'
+                                                        : 'border-zinc-200 bg-white hover:border-blue-200 hover:shadow-md'
+                                                }`}>
+                                                <div className='absolute -top-4 left-6 h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow-sm' />
+                                                <div className='flex min-h-0 flex-1 flex-col gap-3'>
+                                                    <div className='flex flex-col gap-2'>
+                                                        <div className='text-xs uppercase tracking-wide text-gray-500'>
+                                                            Fecha del cambio
                                                         </div>
-                                                    )}
-                                                </Th>
-                                            ))}
-                                        </Tr>
-                                    ))}
-                                </THead>
-                                <TBody>
-                                    {table.getRowModel().rows.map((row) => (
-                                        <Tr key={row.id}>
-                                            {row.getVisibleCells().map((cell) => (
-                                                <Td key={cell.id}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                </Td>
-                                            ))}
-                                        </Tr>
-                                    ))}
-                                </TBody>
-                            </Table>
-                            <div className="mt-2 min-w-[500px]">
-                                <TableCardFooterTemplateV2 table={table} />
+                                                        <div className='text-sm font-semibold text-gray-900'>
+                                                            {dayjs(item.fecha_cambio).format('DD-MM-YYYY')}
+                                                        </div>
+                                                        <div className='text-sm text-gray-600'>
+                                                            Usuario: {item.nombre_usuario || 'Sin usuario'}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <Badge className='mb-1'>Comentario</Badge>
+                                                        <p className='text-sm text-gray-700'>
+                                                            {item.comentario || 'Sin comentario'}
+                                                        </p>
+                                                    </div>
+                                                    <div className='mt-auto'>
+                                                    <Button
+                                                        variant='solid'
+                                                        icon={isSelected ? 'DuoAngleDown' : 'DuoAngleUp'}
+                                                        color='sky'
+                                                        onClick={() => {
+                                                            if (isSelected) {
+                                                                setHistorialSeleccionadoId(undefined);
+                                                            } else {
+                                                                setHistorialSeleccionadoId(item.id);
+                                                            }
+                                                        }}>
+                                                        {isSelected ? 'Ocultar detalle' : 'Ver detalle'}
+                                                    </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {isSelected && (
+                                                <div className='relative flex h-[220px] min-h-0 flex-none snap-start flex-col overflow-hidden rounded-lg border border-blue-200 bg-white p-4 text-left shadow-sm w-[360px]'>
+                                                    <div className='absolute -top-4 left-6 h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow-sm' />
+                                                    <div className='flex min-h-0 flex-1 flex-col gap-2'>
+                                                        <div className='grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1'>
+                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 p-3'>
+                                                                <Badge className='mb-1'>Estado Anterior</Badge>
+                                                                <div className='ml-4'>
+                                                                    {renderDetalleListado(item.estado_anterior)}
+                                                                </div>
+                                                            </div>
+                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 p-3'>
+                                                                <Badge className='mb-1'>Estado Actual</Badge>
+                                                                <div className='ml-4'>
+                                                                    {renderDetalleListado(item.estado_actual)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </Fragment>
+                                    );
+                                })}
                             </div>
-                        </>
-                    ) : (
-                        <div className="text-center text-gray-500">No hay cambios sobre la OT.</div>
-                    )}
-                </div>
+                        </div>
+                        <div className='mt-4'>
+                            <TableCardFooterTemplateV2 table={table} />
+                        </div>
+                    </>
+                ) : (
+                    <div className='text-center text-gray-500'>No hay cambios sobre la OT.</div>
+                )}
             </CardBody>
         </Card>
     )

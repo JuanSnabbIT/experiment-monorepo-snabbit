@@ -16,8 +16,11 @@ import {
 	IRetroalimentacionSinPermisosOT,
 	ISeguimientoOrden,
 	IServicioEnOT,
+	ISoporteTecnico,
+	IUsuarioAsignadoSoporte,
 	IUsuarioVinculado,
 } from '@/interface/ordenTrabajo.interface';
+import { ICompra } from '@/interface/bodega.interface';
 import { IVisitaEnOT } from '@/interface/visitas.interface';
 import ApiService from '@/services/ApiService';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
@@ -55,6 +58,12 @@ export interface OrdenTrabajoState {
 	// Servicios Generales
 	listaServiciosGenerales: IServicioEnOT[];
 	detalleServicioGeneral: IServicioEnOT | undefined;
+	// Soportes Técnicos V2
+	listaSoportesTecnicos: ISoporteTecnico[];
+	detalleSoporteTecnico: ISoporteTecnico | undefined;
+	listaUsuariosAsignadosSoporte: IUsuarioAsignadoSoporte[];
+	// Compras en OT V2
+	listaComprasEnOT: ICompra[];
 }
 
 const initialState: OrdenTrabajoState = {
@@ -90,6 +99,12 @@ const initialState: OrdenTrabajoState = {
 	// Servicios Generales
 	listaServiciosGenerales: [],
 	detalleServicioGeneral: undefined,
+	// Soportes Técnicos V2
+	listaSoportesTecnicos: [],
+	detalleSoporteTecnico: undefined,
+	listaUsuariosAsignadosSoporte: [],
+	// Compras en OT V2
+	listaComprasEnOT: [],
 };
 
 export const detalleRetroalimentacionOTThunk = createAsyncThunk<
@@ -201,7 +216,7 @@ export const checkCompletibilidadOTThunk = createAsyncThunk<
 >('ordenTrabajo/checkCompletibilidadOTThunk', async ({ id_orden }, { rejectWithValue }) => {
 	try {
 		const response = await ApiService.fetchData<ICheckCompletibilidad>({
-			url: `/api/ordenes-de-trabajo/${id_orden}/check-completabilidad`,
+			url: `/api/ordenes-de-trabajo/${id_orden}/check-completabilidad/`,
 			method: 'get',
 		});
 		return response.data;
@@ -457,7 +472,7 @@ export const listaInsumosThunk = createAsyncThunk<
 >('ordenTrabajo/listaInsumosThunk', async ({ id_orden_trabajo }, { rejectWithValue }) => {
 	try {
 		const response = await ApiService.fetchData<IInsumo[]>({
-			url: `/api/ordenes-de-trabajo/${id_orden_trabajo}/insumos/`,
+			url: `/api/ordenes-de-trabajo/${id_orden_trabajo}/insumos/?solo_con_guia=true`,
 			method: 'get',
 		});
 		return response.data;
@@ -641,6 +656,187 @@ export const cambiarEstadoServicioGeneralThunk = createAsyncThunk<
 		}
 	},
 );
+
+// ========== SOPORTES TÉCNICOS V2 ==========
+export const listaSoportesTecnicosThunk = createAsyncThunk<
+	ISoporteTecnico[],
+	{ id_orden: number | string | undefined },
+	{ rejectValue: string }
+>('ordenTrabajo/listaSoportesTecnicosThunk', async ({ id_orden }, { rejectWithValue }) => {
+	try {
+		const response = await ApiService.fetchData<ISoporteTecnico[]>({
+			url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/`,
+			method: 'get',
+		});
+		return response.data;
+	} catch (error: any) {
+		return rejectWithValue(error.response?.data || 'Error al obtener los soportes técnicos');
+	}
+});
+
+export const crearSoporteTecnicoThunk = createAsyncThunk<
+	ISoporteTecnico,
+	{ id_orden: number | string | undefined; data: Partial<ISoporteTecnico> },
+	{ rejectValue: string }
+>('ordenTrabajo/crearSoporteTecnicoThunk', async ({ id_orden, data }, { rejectWithValue }) => {
+	try {
+		const response = await ApiService.fetchData<ISoporteTecnico>({
+			url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/`,
+			method: 'post',
+			data,
+		});
+		return response.data;
+	} catch (error: any) {
+		return rejectWithValue(error.response?.data || 'Error al crear el soporte técnico');
+	}
+});
+
+export const actualizarSoporteTecnicoThunk = createAsyncThunk<
+	ISoporteTecnico,
+	{ id_orden: number | string | undefined; id_soporte: number; data: Partial<ISoporteTecnico> },
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/actualizarSoporteTecnicoThunk',
+	async ({ id_orden, id_soporte, data }, { rejectWithValue }) => {
+		try {
+			const response = await ApiService.fetchData<ISoporteTecnico>({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/`,
+				method: 'patch',
+				data,
+			});
+			return response.data;
+		} catch (error: any) {
+			return rejectWithValue(
+				error.response?.data || 'Error al actualizar el soporte técnico',
+			);
+		}
+	},
+);
+
+export const eliminarSoporteTecnicoThunk = createAsyncThunk<
+	number,
+	{ id_orden: number | string | undefined; id_soporte: number },
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/eliminarSoporteTecnicoThunk',
+	async ({ id_orden, id_soporte }, { rejectWithValue }) => {
+		try {
+			await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/`,
+				method: 'delete',
+			});
+			return id_soporte;
+		} catch (error: any) {
+			return rejectWithValue(error.response?.data || 'Error al eliminar el soporte técnico');
+		}
+	},
+);
+
+export const cambiarEstadoSoporteTecnicoThunk = createAsyncThunk<
+	ISoporteTecnico,
+	{ id_orden: number | string | undefined; id_soporte: number; estado: string },
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/cambiarEstadoSoporteTecnicoThunk',
+	async ({ id_orden, id_soporte, estado }, { rejectWithValue }) => {
+		try {
+			const response = await ApiService.fetchData<ISoporteTecnico>({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/actualizar-estado/`,
+				method: 'post',
+				data: { estado },
+			});
+			return response.data;
+		} catch (error: any) {
+			return rejectWithValue(
+				error.response?.data || 'Error al cambiar el estado del soporte',
+			);
+		}
+	},
+);
+
+export const listaUsuariosAsignadosSoporteThunk = createAsyncThunk<
+	IUsuarioAsignadoSoporte[],
+	{ id_orden: number | string | undefined; id_soporte: number | string | undefined },
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/listaUsuariosAsignadosSoporteThunk',
+	async ({ id_orden, id_soporte }, { rejectWithValue }) => {
+		try {
+			const response = await ApiService.fetchData<IUsuarioAsignadoSoporte[]>({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/usuarios-asignados/`,
+				method: 'get',
+			});
+			return response.data;
+		} catch (error: any) {
+			return rejectWithValue(
+				error.response?.data || 'Error al obtener los usuarios asignados al soporte',
+			);
+		}
+	},
+);
+
+export const eliminarUsuarioAsignadoSoporteThunk = createAsyncThunk<
+	number,
+	{ id_orden: number | string | undefined; id_soporte: number; id_usuario_asignado: number },
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/eliminarUsuarioAsignadoSoporteThunk',
+	async ({ id_orden, id_soporte, id_usuario_asignado }, { rejectWithValue }) => {
+		try {
+			await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/usuarios-asignados/${id_usuario_asignado}/`,
+				method: 'delete',
+			});
+			return id_usuario_asignado;
+		} catch (error: any) {
+			return rejectWithValue(error.response?.data || 'Error al eliminar el usuario asignado');
+		}
+	},
+);
+
+export const actualizarUsuarioAsignadoSoporteThunk = createAsyncThunk<
+	IUsuarioAsignadoSoporte,
+	{
+		id_orden: number | string | undefined;
+		id_soporte: number;
+		id_usuario_asignado: number;
+		data: Partial<IUsuarioAsignadoSoporte>;
+	},
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/actualizarUsuarioAsignadoSoporteThunk',
+	async ({ id_orden, id_soporte, id_usuario_asignado, data }, { rejectWithValue }) => {
+		try {
+			const response = await ApiService.fetchData<IUsuarioAsignadoSoporte>({
+				url: `/api/ordenes-de-trabajo/${id_orden}/soportes-tecnicos/${id_soporte}/usuarios-asignados/${id_usuario_asignado}/`,
+				method: 'patch',
+				data,
+			});
+			return response.data;
+		} catch (error: any) {
+			return rejectWithValue(
+				error.response?.data || 'Error al actualizar el usuario asignado',
+			);
+		}
+	},
+);
+
+// ========== COMPRAS EN OT V2 ==========
+export const listaComprasEnOTThunk = createAsyncThunk<
+	ICompra[],
+	{ id_orden: number | string | undefined },
+	{ rejectValue: string }
+>('ordenTrabajo/listaComprasEnOTThunk', async ({ id_orden }, { rejectWithValue }) => {
+	try {
+		const response = await ApiService.fetchData<ICompra[]>({
+			url: `/api/compras/?orden_trabajo=${id_orden}`,
+			method: 'get',
+		});
+		return response.data;
+	} catch (error: any) {
+		return rejectWithValue(error.response?.data || 'Error al obtener las compras en OT');
+	}
+});
 
 export const ordenTrabajoSlice = createSlice({
 	name: 'ordenTrabajo/ordenTrabajoSlice',
@@ -1012,7 +1208,89 @@ export const ordenTrabajoSlice = createSlice({
 				if (index !== -1) {
 					state.listaServiciosGenerales[index] = action.payload;
 				}
-			});
+			})
+			// Soportes Técnicos V2
+			.addCase(listaSoportesTecnicosThunk.pending, (state) => {
+				state.loading = true;
+			})
+			.addCase(listaSoportesTecnicosThunk.fulfilled, (state, action) => {
+				state.loading = false;
+				state.listaSoportesTecnicos = action.payload;
+			})
+			.addCase(listaSoportesTecnicosThunk.rejected, (state, action) => {
+				state.loading = false;
+				state.error = action.payload;
+			})
+			.addCase(crearSoporteTecnicoThunk.pending, (state) => {
+				state.loading = true;
+			})
+			.addCase(crearSoporteTecnicoThunk.fulfilled, (state, action) => {
+				state.loading = false;
+				state.listaSoportesTecnicos.push(action.payload);
+			})
+			.addCase(crearSoporteTecnicoThunk.rejected, (state, action) => {
+				state.loading = false;
+				state.error = action.payload;
+			})
+			.addCase(actualizarSoporteTecnicoThunk.fulfilled, (state, action) => {
+				const index = state.listaSoportesTecnicos.findIndex(
+					(s) => s.id === action.payload.id,
+				);
+				if (index !== -1) {
+					state.listaSoportesTecnicos[index] = action.payload;
+				}
+			})
+			.addCase(eliminarSoporteTecnicoThunk.fulfilled, (state, action) => {
+				state.listaSoportesTecnicos = state.listaSoportesTecnicos.filter(
+					(s) => s.id !== action.payload,
+				);
+			})
+			.addCase(cambiarEstadoSoporteTecnicoThunk.fulfilled, (state, action) => {
+				const index = state.listaSoportesTecnicos.findIndex(
+					(s) => s.id === action.payload.id,
+				);
+				if (index !== -1) {
+					state.listaSoportesTecnicos[index] = action.payload;
+				}
+			})
+			// Usuarios Asignados a Soportes
+			.addCase(listaUsuariosAsignadosSoporteThunk.pending, (state) => {
+				state.loading = true;
+			})
+			.addCase(listaUsuariosAsignadosSoporteThunk.fulfilled, (state, action) => {
+				state.loading = false;
+				state.listaUsuariosAsignadosSoporte = action.payload;
+			})
+			.addCase(listaUsuariosAsignadosSoporteThunk.rejected, (state, action) => {
+				state.loading = false;
+				state.error = action.payload;
+			})
+			.addCase(eliminarUsuarioAsignadoSoporteThunk.fulfilled, (state, action) => {
+				state.listaUsuariosAsignadosSoporte = state.listaUsuariosAsignadosSoporte.filter(
+					(u) => u.id !== action.payload,
+				);
+			})
+			.addCase(actualizarUsuarioAsignadoSoporteThunk.fulfilled, (state, action) => {
+				const index = state.listaUsuariosAsignadosSoporte.findIndex(
+					(u) => u.id === action.payload.id,
+				);
+				if (index !== -1) {
+					state.listaUsuariosAsignadosSoporte[index] = action.payload;
+				}
+			})
+			// Compras en OT V2
+			.addCase(listaComprasEnOTThunk.pending, (state) => {
+				state.loading = true;
+			})
+			.addCase(listaComprasEnOTThunk.fulfilled, (state, action) => {
+				state.loading = false;
+				state.listaComprasEnOT = action.payload;
+			})
+			.addCase(listaComprasEnOTThunk.rejected, (state, action) => {
+				state.loading = false;
+				state.error = action.payload as string;
+			})
+			;
 	},
 });
 export const {} = ordenTrabajoSlice.actions;
