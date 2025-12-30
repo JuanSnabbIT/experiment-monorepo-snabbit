@@ -161,6 +161,15 @@ Cada sub-bloque agrupa cambios relacionados a una **funcionalidad completa** (ba
   - **Objetivo:** Listado con b├║squeda y estados
 
 ## Checklist
+
+  ### Commit aislado (Sub-bloque 1.5)
+
+  - **Branch creado:** feature/cotizaciones/creacion-main
+  - **Commit:** fa6f5c4 -- feat(cotizaciones): Sub-bloque 1.5 - Creación de OC desde Cotización
+  - **Archivos incluidos:**
+    - frontend/src/pages/Cotizaciones/modals/CrearOCDeCotizacion.tsx
+
+  _Estado:_ Sub-bloque 1.5 validado y commiteado en branch aislado
 - [ ] Backend: modelos coherentes con migraciones
 - [ ] Backend: serializers con validaci├│n
 - [ ] Backend: views con permisos
