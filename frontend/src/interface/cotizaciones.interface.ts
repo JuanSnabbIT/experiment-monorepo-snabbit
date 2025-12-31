@@ -63,7 +63,7 @@ export interface IItemCotizacion {
     proveedor_empresa: number
     tipo_moneda_proveedor?: string
     tipo_moneda_proveedor_label?: string
-}}
+}
 
 export interface ISeguimientoCotizacion {
     id: number;
