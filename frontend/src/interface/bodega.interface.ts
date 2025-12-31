@@ -75,6 +75,7 @@ export interface IOrdenCompra {
 	fecha_compra: string | null;
 	tipo_moneda?: string;
 	tipo_moneda_label?: string;
+	proveedor_empresa?: { tipo_moneda?: string };
 }
 
 export interface IGuiaSalida {
@@ -92,6 +93,8 @@ export interface IGuiaSalida {
 	nombre_creado_por: string;
 	nombre_recibido_por: string | null;
 	firma_entrega?: string;
+	orden_trabajo?: number | null;
+	soporte_tecnico?: number | null;
 }
 
 export interface IItemGuiaSalida {

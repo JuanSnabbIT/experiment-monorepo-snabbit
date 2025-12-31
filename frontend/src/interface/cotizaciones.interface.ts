@@ -24,6 +24,7 @@ export interface ICotizacion {
     cliente: number
     items: number[]
     solicitantes: number[]
+    copias_count?: number
 }
 
 export interface IItemCotizacion {
@@ -60,7 +61,9 @@ export interface IItemCotizacion {
     cotizacion: number
     item_empresa: number
     proveedor_empresa: number
-}
+    tipo_moneda_proveedor?: string
+    tipo_moneda_proveedor_label?: string
+}}
 
 export interface ISeguimientoCotizacion {
     id: number;

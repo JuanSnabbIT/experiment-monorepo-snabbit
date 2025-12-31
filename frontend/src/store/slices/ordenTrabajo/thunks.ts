@@ -1,14 +1,14 @@
 import { createAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { IOrdenTrabajo } from '@/types/ordentrabajoTypes';
+import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
 
 // TODO: These thunks are placeholders to keep DetalleOT running.
 // Align with real API-backed thunks from ordenTrabajo slice when available.
-export const getOrdenTrabajo = createAsyncThunk<IOrdenTrabajo | undefined, number>(
+export const getOrdenTrabajo = createAsyncThunk<IOrdenDeTrabajo | undefined, number>(
   'ordentrabajo/getOrdenTrabajo',
   async () => undefined,
 );
 
-export const obtenerHistorialEstados = createAsyncThunk<IOrdenTrabajo['historial_estados'] | undefined, number>(
+export const obtenerHistorialEstados = createAsyncThunk<IOrdenDeTrabajo['estado'] | undefined, number>(
   'ordentrabajo/obtenerHistorialEstados',
   async () => undefined,
 );
@@ -18,7 +18,7 @@ export const updateNumero = createAsyncThunk<undefined, { id: number; numero: st
   async () => undefined,
 );
 
-export const updateEstado = createAsyncThunk<undefined, { id: number; estado: IOrdenTrabajo['estado'] | null }>(
+export const updateEstado = createAsyncThunk<undefined, { id: number; estado: IOrdenDeTrabajo['estado'] | null }>(
   'ordentrabajo/updateEstado',
   async () => undefined,
 );
