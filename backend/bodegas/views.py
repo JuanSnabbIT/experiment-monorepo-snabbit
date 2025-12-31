@@ -1742,10 +1742,15 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
     serializer_class = ItemsGuiaSalidaSerializer
 
     def get_queryset(self):
+        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
+        sucursal = usuario_empresa.sucursal
+        empresa = usuario_empresa.empresa
+        
         guia = self.kwargs.get("guia_salida_bodega_pk")
+        qs = ItemsGuiaSalida.objects.filter(guia__bodega__sucursal=sucursal, guia__bodega__sucursal__empresa=empresa)
         if guia:
-            return ItemsGuiaSalida.objects.filter(guia_id=guia)
-        return ItemsGuiaSalida.objects.all()
+            return qs.filter(guia_id=guia)
+        return qs
 
     @action(detail=False, methods=["get"], url_path="filtrar-por-cliente")
     def filtrar_por_cliente(self, request):
@@ -2217,10 +2222,14 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
     serializer_class = ItemEnCompraSerializer
 
     def get_queryset(self):
+        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
+        sucursal = usuario_empresa.sucursal
+        
         compra = self.kwargs.get("compras_pk")
+        qs = ItemEnCompra.objects.filter(compra__sucursal=sucursal)
         if compra:
-            return ItemEnCompra.objects.filter(compra=compra)
-        return ItemEnCompra.objects.all()
+            return qs.filter(compra=compra)
+        return qs
 
     @action(detail=False, methods=["post"], url_path="crear-item-empresa")
     def crear_item_empresa(self, request, compras_pk=None):
@@ -2490,8 +2499,12 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "head", "options"]
     
     def get_queryset(self):
-        """Retorna todos los vouchers de devolución."""
-        qs = self.queryset
+        """Retorna vouchers de devolución filtrados por empresa/sucursal del usuario."""
+        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
+        sucursal = usuario_empresa.sucursal
+        empresa = usuario_empresa.empresa
+        
+        qs = self.queryset.filter(orden_trabajo__sucursal=sucursal, orden_trabajo__sucursal__empresa=empresa)
         try:
             sample = list(qs.values_list('id', flat=True)[:5])
             print(f"[DEBUG] vouchers queryset count={qs.count()} sample_ids={sample}")
