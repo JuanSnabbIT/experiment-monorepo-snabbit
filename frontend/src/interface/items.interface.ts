@@ -50,6 +50,7 @@ export interface IProveedorEmpresa {
     catalogo_web: null | string
     recargo_dolar: number
     empresa: number
+    tipo_moneda?: string
 }
 
 export interface IItemEmpresa {
