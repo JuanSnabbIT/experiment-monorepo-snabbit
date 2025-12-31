@@ -33,7 +33,7 @@ export const AsideBody: FC<IAsideBodyProps> = (props) => {
 	return (
 		<div
 			data-component-name='Aside/AsideBody'
-			className={classNames('h-full overflow-x-scroll px-6', 'no-scrollbar', className)}
+			className={classNames('flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6', 'no-scrollbar', className)}
 			{...rest}>
 			{children}
 		</div>

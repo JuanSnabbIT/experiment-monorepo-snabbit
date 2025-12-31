@@ -289,25 +289,23 @@ const Modal: FC<IModalProps> = (props) => {
 			modalSizes[size as TModalStableSize]) ||
 		size;
 
-	// Backdrop close function
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const closeModal = (event: { target: any }) => {
-		// @ts-ignore
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-call
-		if (ref.current && !ref.current.contains(event.target) && !isStaticBackdrop) {
+	// Handle modal backdrop click: close only if clicking on the backdrop itself, not on child elements
+	const handleModalClick = (
+		event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
+	) => {
+		// Only close if clicking exactly on the modal container, not on its children
+		if (event.target === event.currentTarget && !isStaticBackdrop) {
 			setIsOpen(false);
 		}
 	};
-	useEventListener('mousedown', closeModal);
-	useEventListener('touchstart', closeModal); // Touchscreen
 
-	// Backdrop static function
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const modalStatic = (event: { target: any }) => {
-		// @ts-ignore
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-call
-		if (ref.current && !ref.current.contains(event.target) && isStaticBackdrop) {
-			if (isStaticBackdropAnimation) { // Added condition
+	// Handle static backdrop (animate instead of closing)
+	const handleStaticBackdropClick = (
+		event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
+	) => {
+		// Only animate if clicking exactly on the modal container
+		if (event.target === event.currentTarget && isStaticBackdrop) {
+			if (isStaticBackdropAnimation) {
 				// @ts-ignore
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
 				refModal.current.classList.add('!scale-105');
@@ -317,8 +315,6 @@ const Modal: FC<IModalProps> = (props) => {
 			}
 		}
 	};
-	useEventListener('mousedown', modalStatic);
-	useEventListener('touchstart', modalStatic); // Touchscreen
 
 	// Keypress close function
 	const escFunction = (event: { key: string }) => {
@@ -357,6 +353,8 @@ const Modal: FC<IModalProps> = (props) => {
 							tabIndex={-1}
 							aria-labelledby={titleId}
 							aria-hidden='true'
+							onClick={handleModalClick}
+							onTouchStart={handleStaticBackdropClick}
 							{...animationProps}
 							{...rest}>
 							<Dialog
