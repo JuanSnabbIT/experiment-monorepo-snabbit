@@ -1,0 +1,248 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Backend: Runserver",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["manage.py", "runserver", "0.0.0.0:8000"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "group": "dev",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "group": {
+        "kind": "build"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Performing system checks",
+          "endsPattern": "^Quit the server|Starting development server"
+        }
+      }
+    },
+    {
+      "label": "Frontend: Dev Server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev", "--", "--port", "5173"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "group": "dev",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^  VITE",
+          "endsPattern": "Local:.*http"
+        }
+      }
+    },
+    {
+      "label": "Backend: Celery Worker",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["-m", "celery", "-A", "sw_erp", "worker", "--loglevel=info"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "group": "dev",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^celery@",
+          "endsPattern": "ready\\."
+        }
+      }
+    },
+    {
+      "label": "Backend: Celery Beat",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["-m", "celery", "-A", "sw_erp", "beat", "--loglevel=info"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "group": "dev",
+        "panel": "shared",
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^celery beat",
+          "endsPattern": "beat: Starting"
+        }
+      }
+    },
+    {
+      "label": "Backend: Make Migrations",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["manage.py", "makemigrations"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      }
+    },
+    {
+      "label": "Backend: Migrate",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["manage.py", "migrate"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      }
+    },
+    {
+      "label": "Backend: Migrations (Make + Migrate)",
+      "dependsOn": ["Backend: Make Migrations", "Backend: Migrate"],
+      "dependsOrder": "sequence",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Backend: Setup Superuser",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["..\\dev\\scripts\\setup\\setup_superuser.py"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/C"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Seed Base",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["..\\dev\\scripts\\setup\\seed_base.py"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/C"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Backend: Reset DB",
+      "type": "shell",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "args": ["..\\dev\\scripts\\setup\\reset_db.py"],
+      "windows": {
+        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/backend",
+        "shell": {
+          "executable": "cmd.exe",
+          "args": ["/C"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Start Backend (Runserver + Celery)",
+      "dependsOn": [
+        "Backend: Runserver",
+        "Backend: Celery Worker",
+        "Backend: Celery Beat"
+      ],
+      "dependsOrder": "parallel",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Dev: Start All (Backend + Frontend)",
+      "dependsOn": ["Dev: Start Backend (Runserver + Celery)", "Frontend: Dev Server"],
+      "dependsOrder": "parallel",
+      "presentation": {
+        "reveal": "always"
+      }
+    }
+  ]
+}

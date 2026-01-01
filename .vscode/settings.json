@@ -1,0 +1,104 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["-v"],
+  "python.terminal.activateEnvironment": false,
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.rulers": [80, 120],
+  "editor.tabSize": 2,
+  "editor.detectIndentation": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "editor.rulers": [80, 88, 120]
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/ENV": true,
+    "**/node_modules": true,
+    "**/.pytest_cache": true,
+    "**/dist": false,
+    "**/build": false,
+    "**/.vscode": false,
+    "**/.git": false
+  },
+  "search.exclude": {
+    "**/ENV": true,
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/dist": true,
+    "**/.pytest_cache": true
+  },
+  "files.associations": {
+    "*.ipynb": "jupyter-notebook",
+    "*.env.example": "properties"
+  },
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+  "eslint.workingDirectories": ["frontend"],
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "prettier.requireConfig": true,
+  "files.autoSave": "off",
+  "breadcrumbs.enabled": true,
+  "editor.suggestSelection": "first",
+  "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "on",
+      "strings": "on",
+      "other": "on"
+    }
+  },
+  "github.copilot.advanced": {
+    "inlineSuggestCount": 3
+  },
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": true,
+    "scminput": false
+  },
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.useAgentsMdFile": true,
+  "chat.useNestedAgentsMdFiles": true,
+  "chat.instructionsFilesLocations": [".github/instructions"],
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [
+    { "text": "Incluye siempre lista de cambios, alcance y riesgos." }
+  ],
+  "github.copilot.chat.reviewSelection.instructions": [
+    {
+      "text": "Revisa claridad, estructura y coherencia de estilo segun .github/instructions/*.instructions.md y .github/copilot-instructions.md."
+    }
+  ]
+}

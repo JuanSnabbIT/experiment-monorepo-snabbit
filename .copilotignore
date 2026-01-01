@@ -103,3 +103,21 @@
 # Notebooks con outputs grandes
 # ----------------------------------------
 **/*-checkpoint.ipynb
+
+# ----------------------------------------
+# Archivos específicos del proyecto
+# ----------------------------------------
+**/monorepo/proyecto_*/**
+backend/Pruebas_*.ipynb
+backend/Reportlab_*.ipynb
+backend/nombre_prueba
+backend/comandos*.txt
+backend/eliminar_*.ps1
+backend/eliminar_*.sh
+backend/verify_expiration.py
+frontend/bkp/**
+frontend/AnimacionDeInputModoMovil.txt
+frontend/mensajesError.txt
+frontend/OLD_README.md
+frontend/eslint-report*.json
+frontend/eslint-report*.txt

@@ -31,11 +31,12 @@ celerybeat-schedule
 celerybeat.pid
 
 # IDEs
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
+.vscode/settings.json.local
+.vscode/*.code-workspace
 
 # Node
 node_modules/
@@ -60,5 +61,13 @@ Thumbs.db
 # Misc
 *.orig
 
-.github/
-backend/jupyter_notebooks/
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+*.cover
+
+# Development notebooks (outputs only)
+**/*.ipynb_checkpoints/
+backend/Pruebas_*.ipynb
+backend/Reportlab_*.ipynb
