@@ -1,15 +1,29 @@
-from celery import shared_task
-from django.core.mail import EmailMessage
 import os
+
+from celery import shared_task
+from core.indicators import obtener_valor_dolar
+from django.apps import apps
+from django.core.mail import EmailMessage
 from dotenv import load_dotenv
+
 load_dotenv()
 
+
 @shared_task
-def send_email_task(subject, recipient_list, html_body, titulo, url_boton, text_boton, cc=[], pdf_attachment=None):
+def send_email_task(
+    subject,
+    recipient_list,
+    html_body,
+    titulo,
+    url_boton,
+    text_boton,
+    cc=[],
+    pdf_attachment=None,
+):
     """
     Tarea compartida para enviar correos electrónicos con variables dinámicas.
     """
-    body = '''
+    body = """
         <!DOCTYPE html>
         <html lang="en">
             <head>
@@ -133,7 +147,7 @@ def send_email_task(subject, recipient_list, html_body, titulo, url_boton, text_
                 </table>
             </body>
         </html>
-    '''
+    """
 
     formatted_body = body.format(
         img=f"{os.getenv('FRONTEND_URL')}/logo192.png",
@@ -149,17 +163,35 @@ def send_email_task(subject, recipient_list, html_body, titulo, url_boton, text_
         email = EmailMessage(
             subject=subject,
             body=formatted_body,
-            from_email=os.getenv('CORREO_APPWEB') or 'appweb@teloinvento.cl',
+            from_email=os.getenv("CORREO_APPWEB") or "appweb@teloinvento.cl",
             to=recipient_list,
             cc=cc,
         )
-        email.content_subtype = 'html'  # Especificar que el contenido es HTML
+        email.content_subtype = "html"  # Especificar que el contenido es HTML
 
         # Adjuntar el PDF si se proporciona
         if pdf_attachment:
-            email.attach(pdf_attachment[0], pdf_attachment[1], 'application/pdf')
+            email.attach(pdf_attachment[0], pdf_attachment[1], "application/pdf")
 
         email.send()
         return f"Correo enviado a: {recipient_list}"
     except Exception as e:
         return f"Error enviando correo: {str(e)}"
+
+
+@shared_task
+def update_dolar_task(cotizacion_id):
+    """
+    Tarea para actualizar el valor del dolar observado de una cotización.
+    """
+    try:
+        Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
+        dolar_val = obtener_valor_dolar()
+        if dolar_val:
+            Cotizacion.objects.filter(id=cotizacion_id).update(
+                dolar_observado=dolar_val
+            )
+            return f"Cotización {cotizacion_id} actualizada con dolar: {dolar_val}"
+        return "No se pudo obtener el valor del dolar"
+    except Exception as e:
+        return f"Error actualizando dolar: {str(e)}"

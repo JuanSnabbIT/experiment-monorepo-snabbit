@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""\
+"""
 Script para configurar un superusuario con permisos de empresa.
 
 Qué hace:
@@ -15,26 +15,57 @@ Cuándo usar:
 
 Prerequisitos:
 - Haber ejecutado: python manage.py migrate
-- Haber creado superusuario: python manage.py createsuperuser
+  (el script pedirá crear un superusuario si no existe)
 
 Uso:
     cd backend
-    backend\\ENV\\Scripts\\python.exe ..\\scripts\\setup\\setup_superuser.py
+    ..\dev\scripts\setup\setup_superuser.py
 """
 import os
 import sys
 
 import django
 
-# Agregar path del backend al PYTHONPATH
-backend_path = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
-sys.path.insert(0, os.path.join(backend_path, "backend"))
+# Calcular ruta al directorio backend y moverse allí para evitar problemas de carga de apps
+this_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.abspath(os.path.join(this_dir, "..", "..", ".."))
+backend_path = os.path.join(repo_root, "backend")
 
-# Configurar Django
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
+try:
+    os.chdir(backend_path)
+except Exception:
+    pass
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sw_erp.settings")
-django.setup()
+try:
+    django.setup()
+except Exception as e:
+    print("Error iniciando Django:", e)
+    sys.exit(1)
+
+# Ejecutar migraciones para asegurar que todas las tablas existen antes
+# de crear objetos que disparen signals dependientes de tablas (ej: DescripcionGrupo)
+from django.core.management import call_command
+
+try:
+    print("=> Generando migraciones pendientes (si las hay) y aplicándolas...")
+    # Intentar crear migraciones automáticas sólo para las apps principales de desarrollo
+    apps_para_migrar = ["core", "cuentas", "empresas"]
+    try:
+        print(f"=> Ejecutando makemigrations para: {', '.join(apps_para_migrar)}")
+        call_command("makemigrations", *apps_para_migrar, "--noinput")
+    except Exception as e:
+        print("⚠️  makemigrations falló o no generó cambios:", e)
+
+    # Aplicar migraciones
+    call_command("migrate", "--noinput")
+except Exception as e:
+    print("❌ Error al ejecutar migraciones automáticamente:", e)
+    print("Por favor ejecuta manualmente: backend\\ENV\\Scripts\\python.exe manage.py migrate")
+    sys.exit(1)
 
 from core.models import PersonalizacionUsuario
 from django.contrib.auth import get_user_model
@@ -275,7 +306,29 @@ def main():
 
     # 2. Crear grupos
     print("--- Creando grupos de permisos ---")
+    # Para evitar errores si la tabla core_descripciongrupo no existe (signals que crean DescripcionGrupo),
+    # desconectamos temporalmente el receiver create_descripcion_grupo si está registrado.
+    from django.db.models.signals import post_save
+    SIGNALS_RECONNECTED = False
+    try:
+        import core.signals as _core_signals
+        if hasattr(_core_signals, "create_descripcion_grupo"):
+            try:
+                post_save.disconnect(_core_signals.create_descripcion_grupo, sender=Group)
+                SIGNALS_RECONNECTED = True
+            except Exception:
+                SIGNALS_RECONNECTED = False
+    except Exception:
+        SIGNALS_RECONNECTED = False
+
     grupos = crear_grupos()
+
+    # Reconectar el signal si lo desconectamos antes
+    try:
+        if SIGNALS_RECONNECTED:
+            post_save.connect(_core_signals.create_descripcion_grupo, sender=Group)
+    except Exception:
+        pass
     print()
 
     # 3. Crear empresa y sucursal

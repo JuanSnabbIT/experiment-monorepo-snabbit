@@ -27,6 +27,12 @@ class Fabricante(models.Model):
         ordering = ['nombre']
 
 class ProveedorEmpresa(ModeloBase):
+    TIPO_MONEDA_CHOICES = (
+        ("1", "USD"),
+        ("2", "CLP"),
+        ("3", "UF"),
+    )
+    
     nombre               = models.CharField(max_length=250)
     rut                  = models.CharField(max_length=250)
     direccion            = models.CharField(max_length=250, null=True, blank=True)
@@ -40,6 +46,7 @@ class ProveedorEmpresa(ModeloBase):
     email_ejecutivo      = models.EmailField(max_length=45, blank=True, null=True)
     catalogo_web         = models.CharField(max_length=64, blank=True, null=True)
     recargo_dolar        = models.IntegerField(default=5)
+    tipo_moneda          = models.CharField(max_length=1, choices=TIPO_MONEDA_CHOICES, default="2")
 
     def __str__(self):
         return '%s de %s'%(self.nombre, self.empresa.nombre)

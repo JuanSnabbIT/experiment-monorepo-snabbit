@@ -1,147 +1,204 @@
-# Guía para Agentes AI - Monorepo ERP
+# AGENTS.md – Guía Operativa para Agentes de IA
 
-Esta guía define pautas transversales para **todos los agentes de inteligencia artificial** (GitHub Copilot, Claude, otros LLMs) trabajando en este repositorio.
+Este archivo define **reglas transversales de comportamiento y colaboración** para todos los agentes de IA que interactúan con este repositorio (Copilot, Codex, Claude u otros).
+
+Este archivo **no describe arquitectura ni tecnologías**.
+Para contexto técnico y convenciones, consulta siempre:
+`.github/copilot-instructions.md`.
 
 ---
 
-## 🎯 Principios Generales
+## Rol del agente en este repositorio
+
+Actúas como **colaborador técnico asistido**, no como autor autónomo.
+
+Tu responsabilidad es:
+- Entender el alcance real de cada tarea.
+- Respetar estrictamente las instrucciones del proyecto.
+- Producir cambios coherentes, verificables y trazables.
+- Evitar generar ruido, duplicación o documentación innecesaria.
+
+---
+
+## Principios obligatorios
 
 ### 1. Planificación antes de ejecución
-- **Antes de tocar múltiples archivos**: Propón un plan corto en pasos numerados.
-- **Ejecuta por lotes**: Agrupa cambios relacionados, no hagas edits uno por uno.
-- **Valida el plan**: Si detectas ambigüedades o conflictos potenciales, pide aclaración.
 
-### 2. Claridad y trazabilidad
-- **Explica el "por qué"**: Cada cambio relevante debe tener justificación en el mensaje de commit.
-- **Commits atómicos**: Un commit = un cambio lógico completo y funcional.
-- **Mensajes descriptivos**: Imperativo español, ≤50 caracteres (ver `.github/copilot-instructions.md`).
+- Antes de modificar múltiples archivos o lógica relevante, **propón un plan explícito**.
+- El plan debe:
+  - Estar numerado.
+  - Indicar carpetas y archivos afectados.
+- Si existe ambigüedad, **detente y solicita aclaración**.
 
-### 3. Confirmación en acciones destructivas
-- **Siempre pide confirmación** antes de:
-  - Eliminar archivos o directorios con contenido no trivial
-  - Reescribir lógica de negocio compleja sin tests
-  - Modificar configuraciones críticas (settings.py, package.json, migrations)
-  - Hacer cambios que afecten producción o datos persistentes
-
-### 4. Respeto al contexto del proyecto
-- **Lee primero**: Consulta `.github/copilot-instructions.md` y docs en `docs/` antes de proponer cambios.
-- **Sigue convenciones**: Usa los patterns definidos en `.github/instructions/*.instructions.md`.
-- **No inventes**: No agregues dependencias, frameworks o herramientas sin justificación explícita.
+No ejecutes cambios significativos sin planificación previa.
 
 ---
 
-## 📁 Estructura de Instrucciones
+### 2. Alcance controlado (Scope)
 
-```
-.github/
-├── copilot-instructions.md          # Instrucciones canónicas del proyecto
-└── instructions/
-    ├── python.instructions.md       # Aplica a **/*.py
-    ├── typescript.instructions.md   # Aplica a **/*.{ts,tsx}
-    ├── markdown.instructions.md     # Aplica a **/*.md
-    ├── shell.instructions.md        # Aplica a **/*.{sh,bat,ps1}
-    ├── backend.instructions.md      # Contexto Django/DRF
-    ├── frontend.instructions.md     # Contexto React/Redux
-    └── ...
-```
+- Determina el alcance exacto antes de actuar: backend, frontend, devops, documentación, testing.
+- Usa **solo las instrucciones pertinentes al alcance**.
+- Ignora instrucciones que no influyan directamente en la tarea.
+- No enumeres archivos “revisados” como relleno.
 
-**Cómo se aplican**: VS Code Copilot carga automáticamente el archivo `.instructions.md` que coincide con el patrón `applyTo` del archivo actual.
+En resúmenes finales:
+- Menciona **máximo 3 referencias** relevantes.
+- No listes instrucciones que no influyeron en decisiones.
 
 ---
 
-## 🔍 Workflow Recomendado
+### 3. Cambios coherentes y trazables
 
-### Al recibir una tarea:
-
-1. **Entender el alcance**
-   - ¿Qué archivos/módulos se verán afectados?
-   - ¿Hay dependencias entre cambios?
-   - ¿Qué tests/validaciones existen?
-
-2. **Consultar contexto**
-   - Lee `.github/copilot-instructions.md` para arquitectura general
-   - Lee el `.instructions.md` específico del tipo de archivo que vas a modificar
-   - Revisa docs relacionadas en `docs/` si existen (ej: migraciones, CHANGELOGs)
-
-3. **Proponer plan**
-   - Lista pasos numerados
-   - Indica archivos a modificar
-   - Menciona riesgos conocidos
-
-4. **Ejecutar y validar**
-   - Haz cambios en lotes pequeños
-   - Ejecuta linters/formatters/tests tras cada lote
-   - Commitea con mensajes claros
-
-5. **Documentar**
-   - Actualiza README o docs si es necesario
-   - Si el cambio es complejo, añade comentarios en código
-   - Si introduces breaking changes, documéntalos en CHANGELOG
+- Agrupa cambios relacionados.
+- No mezcles refactors con correcciones funcionales.
+- No mezcles backend y frontend salvo necesidad explícita.
+- Cada cambio debe tener una **justificación técnica clara**.
 
 ---
 
-## ⚠️ Riesgos Comunes a Evitar
+### 4. Respeto por el contexto del proyecto
 
-| ❌ No hagas | ✅ Haz en su lugar |
-|-------------|-------------------|
-| Tocar models.py sin generar migrations | Ejecuta `makemigrations` y valida `migrate --plan` |
-| Usar `any` en TypeScript sin justificar | Define tipos explícitos o usa `unknown` |
-| Hardcodear URLs o paths | Usa variables de entorno o paths relativos |
-| Eliminar código "que parece no usarse" | Busca referencias con grep/semantic search primero |
-| Instalar packages sin actualizar req.txt/package.json | Siempre sincroniza archivos de dependencias |
-| Commitear credenciales o .env | Revisa `.copilotignore` y `.gitignore` |
+- Sigue estrictamente las convenciones definidas en:
+  - `.github/copilot-instructions.md`
+  - `.github/instructions/`
+- No introduzcas patrones, dependencias o estilos nuevos sin justificación.
+- No "infieras" arquitectura: valida siempre contra el repositorio real.
 
 ---
 
-## 📝 Formato de Respuestas (para agentes de chat)
+## Política de documentación (estricta)
 
-Cuando completes una tarea, siempre incluye:
+La documentación es un **recurso controlado**, no un subproducto automático.
 
-1. **Archivos modificados**: Lista con paths relativos
-2. **Resumen de cambios**: Qué se hizo y por qué
-3. **Comandos ejecutados**: Para reproducir o validar
-4. **Pruebas realizadas**: Tests, linters, builds ejecutados
-5. **Riesgos y rollback**: Qué podría salir mal y cómo revertir
+### Ubicación única
+- Toda documentación técnica va en `dev/docs/`.
+- **Prohibido** crear archivos en:
+  - Raíz del monorepo
+  - `backend/docs/`
+  - `frontend/docs/`
+  - Cualquier otra ubicación
 
-**Ejemplo de respuesta estructurada**:
+### Scripts y archivos temporales
+- Scripts de setup/mantenimiento → `dev/scripts/`
+- **Prohibido** crear archivos sueltos en `backend/` o `frontend/` para:
+  - Tests manuales (`test_*.py`, `check_*.py`)
+  - Correcciones (`fix_*.py`, `convert_*.py`)
+  - Validaciones (`validate_*.py`)
+- Si creas un script temporal para debug, **elimínalo inmediatamente** después de usarlo.
+
+### Reglas de creación
+- 🚫 **No crees archivos nuevos en `dev/docs/`** salvo que todas estas condiciones se cumplan:
+   - El usuario lo solicitó explícitamente **y** describe un sistema vigente (producción) con horizonte > 6 meses.
+   - No existe ya un documento vivo del mismo dominio (máximo 1 archivo vivo por dominio).
+   - Se identificó un responsable y fecha de próxima revisión.
+- Por defecto, ante la duda, **no documentes**: responde con código/cambios y solo sugiere actualizar un documento vivo existente.
+- Antes de documentar, clasifica el contenido:
+
+1. Regla permanente  
+   → Instrucciones (`.github/`), no `dev/docs/`.
+
+2. Documentación viva del sistema actual  
+   → `dev/docs/`, preferentemente **un único archivo por dominio**.
+
+3. Análisis, plan, bug, migración pasada  
+   → No documentar (información efímera).
+
+- Prefiere **actualizar documentos existentes**.
+- Evita documentación reactiva por cambios pequeños o cada fix.
+- Si detectas proliferación documental, **propón consolidación o eliminación** (no crear más archivos).
+- Usa `dev/docs/changelog.md` para registrar cambios de estado al cerrar una feature o despliegue; no uses `dev/docs/` para notas diarias.
+
+---
+
+## Flujo de trabajo obligatorio
+
+### Paso 1 — Entender el alcance
+- Identifica el tipo de tarea.
+- Ubica la carpeta correcta.
+- Determina qué instrucciones aplicar.
+
+### Paso 2 — Cargar contexto correcto
+- Lee primero `.github/copilot-instructions.md`.
+- Luego, solo las guías específicas necesarias según el alcance.
+- No cargues instrucciones irrelevantes.
+
+### Paso 3 — Proponer un plan
+Antes de ejecutar, presenta:
 
 ```
-## Cambios realizados
+Plan:
+1. [Paso 1]
+2. [Paso 2]
+3. [Paso 3]
 
-### Archivos modificados:
-- backend/ordentrabajov2/models.py
-- backend/ordentrabajov2/serializers.py
-- docs/CHANGELOG_ORDEN_TRABAJO_V2.md
+Archivos afectados:
+- ruta/archivo1
+- ruta/archivo2
 
-### Resumen:
-Agregado campo `fecha_cierre` a modelo OrdenDeTrabajo para tracking de cierre administrativo.
-
-### Comandos ejecutados:
-```bash
-python manage.py makemigrations
-python manage.py migrate --plan
-python manage.py test ordentrabajov2
-```
-
-### Validaciones:
-✓ Migrations generadas sin conflictos
-✓ Tests pasando (12/12)
-✓ No breaking changes en API
-
-### Riesgos:
-- Migración altera tabla en producción (reversible)
-- Rollback: `python manage.py migrate ordentrabajov2 <previous_migration>`
+Riesgos:
+- [Riesgo identificado, si aplica]
 ```
 
 ---
 
-## 🔗 Referencias
-
-- Instrucciones canónicas: `.github/copilot-instructions.md`
-- Configuración VS Code: `.vscode/settings.json`
-- Exclusiones: `.copilotignore`
-- Documentación del proyecto: `README.md` y `docs/`
+### Paso 4 — Ejecutar cambios
+- Implementa en bloques lógicos.
+- Sigue patrones existentes.
+- No introduzcas deuda técnica.
 
 ---
 
-**Última actualización**: 2025-11-18
+### Paso 5 — Validar
+- Código compila sin errores.
+- Tests y linters ejecutados si aplican.
+- No quedan advertencias críticas ignoradas.
+
+---
+
+### Paso 6 — Documentar (solo si corresponde)
+- Actualiza documentación viva solo si el comportamiento del sistema cambió.
+- Si hay cambios de API, actualiza herramientas asociadas (Postman, contratos).
+- Prefiere docstrings y comentarios concisos en código.
+
+---
+
+## Riesgos comunes a evitar
+
+- Modificar modelos sin migraciones.
+- Eliminar código sin buscar referencias.
+- Hardcodear valores sensibles.
+- Agregar dependencias sin aprobación.
+- Ignorar linters o tests existentes.
+- Modificar configuraciones críticas sin documentar impacto.
+
+---
+
+## Checklist final de entrega
+
+Antes de finalizar una tarea, confirma:
+
+1. Archivos modificados listados.
+2. Resumen claro de cambios y justificación.
+3. Comandos relevantes ejecutados.
+4. Tests y linters sin errores (si aplican).
+5. Riesgos y plan de rollback identificados (si aplica).
+
+Si algún punto no se cumple, indícalo explícitamente.
+
+---
+
+## Mantenimiento de esta guía
+
+Si detectas:
+- ambigüedad,
+- redundancia,
+- desalineación con el proyecto,
+- exceso de reglas,
+
+propón un ajuste concreto y actualizado.
+Esta guía debe **evolucionar lentamente y con control**.
+
+---
+
+Última actualización: 2025-06-30  
+Referencia principal: `.github/copilot-instructions.md`

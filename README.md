@@ -8,46 +8,43 @@ Sistema ERP completo implementado con arquitectura monorepo. Separa responsabili
 
 ```
 monorepo_erp/
-├── backend/                # Django 5.1 + DRF + Celery + Channels
-│   ├── sw_erp/             # Proyecto principal (settings, celery, asgi)
-│   ├── <apps>/             # Apps por dominio (bodegas, cuentas, cotizaciones, etc.)
-│   ├── ENV/                # Entorno virtual Python (no versionado)
+├── .github/                     # 📚 Instrucciones para agentes AI
+│   ├── copilot-instructions.md  # Índice maestro para Copilot/AI
+│   └── instructions/            # Guías específicas por tecnología
+│       ├── architecture.md
+│       ├── backend-guide.md
+│       ├── frontend-guide.md
+│       ├── typescript.instructions.md
+│       ├── security.md
+│       ├── testing.md
+│       ├── deployment.md
+│       └── glossary.md
+├── backend/                     # Django 5.1 + DRF + Celery + Channels
+│   ├── sw_erp/                  # Proyecto principal (settings, celery, asgi)
+│   ├── <apps>/                  # Apps por dominio (bodegas, cuentas, cotizaciones, etc.)
+│   ├── ENV/                     # Entorno virtual Python (no versionado)
 │   ├── manage.py
-│   ├── req.txt             # Dependencias
-│   └── db.sqlite3          # BD local (desarrollo)
-├── frontend/               # Vite + React + TypeScript + TailwindCSS
+│   ├── req.txt                  # Dependencias
+│   └── db.sqlite3               # BD local (desarrollo)
+├── frontend/                    # Vite + React + TypeScript + TailwindCSS
 │   ├── src/
-│   │   ├── components/     # Componentes de presentación
-│   │   ├── pages/          # Páginas/rutas principales
-│   │   ├── services/       # Llamadas HTTP (BaseService.ts)
-│   │   ├── store/          # Redux slices y thunks
-│   │   ├── routes/         # Configuración de rutas
-│   │   └── hooks/          # Hooks personalizados
+│   │   ├── components/          # Componentes de presentación
+│   │   ├── pages/               # Páginas/rutas principales
+│   │   ├── services/            # Llamadas HTTP (ApiService.ts)
+│   │   ├── store/               # Redux slices y thunks
+│   │   ├── routes/              # Configuración de rutas
+│   │   └── hooks/               # Hooks personalizados
 │   ├── package.json
 │   └── vite.config.ts
-├── .github/                # 📚 Documentación y guías
-│   ├── copilot-instructions.md      # Índice principal de instrucciones
-│   ├── INICIALIZACION.md            # Guía completa de setup
-│   ├── EXPLORACION_EMPRESAS.md      # Módulo 1: Empresas (bugs y arquitectura)
-│   └── instructions/                # Módulos técnicos
-│       ├── backend-instructions.md
-│       ├── frontend-instructions.md
-│       ├── redux-thunks.md
-│       ├── store-structure.md
-│       ├── standards.md
-│       ├── security.md
-│       ├── pr-flow.md
-│       ├── ci-cd.md
-│       ├── testing.md
-│       ├── performance.md
-│       ├── observability.md
-│       ├── playbooks.md
-│       ├── glossary.md
-│       └── tasks.instructions.md
-└── scripts/                # Scripts de setup y mantenimiento
-    ├── setup/              # Inicialización (setup_superuser, seed_data, reset_db)
-    ├── development/        # Desarrollo (create_groups)
-    └── maintenance/        # Mantenimiento (backup_db)
+├── dev/                         # 🛠️ Recursos de desarrollo
+│   ├── docs/                    # Documentación técnica viva
+│   └── scripts/                 # Scripts de setup y mantenimiento
+│       ├── setup/               # Inicialización (setup_superuser, seed_data)
+│       ├── development/         # Desarrollo (reset_local_data)
+│       └── maintenance/         # Mantenimiento
+├── postman/                     # Colecciones Postman
+├── AGENTS.md                    # Guía operativa para agentes AI
+└── README.md                    # Este archivo
 ```
 
 ---
