@@ -1,0 +1,24 @@
+# Dockerfile optimizado (ERP Snabbit)
+# Objetivo: imagen más liviana para producción.
+# Nota: `req.txt` incluye dependencias de notebook/jupyter (útiles en dev). Aquí se instalan y luego se desinstalan.
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /codigo_proyecto
+
+COPY req.txt /codigo_proyecto/
+
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r req.txt \
+    && pip uninstall -y jupyter dj-notebook ipython notebook jupyterlab ipykernel 2>$null || true
+
+COPY . /codigo_proyecto/
+COPY entrypoint.sh /codigo_proyecto/entrypoint.sh
+RUN chmod +x /codigo_proyecto/entrypoint.sh
+
+ENTRYPOINT ["/codigo_proyecto/entrypoint.sh"]

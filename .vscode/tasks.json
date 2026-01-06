@@ -207,6 +207,122 @@
       "presentation": {
         "reveal": "always"
       }
+    },
+    {
+      "label": "Docker: Build+Push Backend (erpsnabbit-backend)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\build-and-push-backend.ps1",
+        "-Registry",
+        "${input:dockerRegistry}",
+        "-ImageName",
+        "erpsnabbit-backend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Build+Push Frontend (erpsnabbit-frontend)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\build-and-push-frontend.ps1",
+        "-Registry",
+        "${input:dockerRegistry}",
+        "-ImageName",
+        "erpsnabbit-frontend",
+        "-ViteApiUrl",
+        "${input:viteApiUrl}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Build+Push Backend (Optimized)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\build-and-push-backend.ps1",
+        "-Registry",
+        "${input:dockerRegistry}",
+        "-ImageName",
+        "erpsnabbit-backend",
+        "-UseOptimized"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: Build+Push Frontend (Optimized)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\build-and-push-frontend.ps1",
+        "-Registry",
+        "${input:dockerRegistry}",
+        "-ImageName",
+        "erpsnabbit-frontend",
+        "-ViteApiUrl",
+        "${input:viteApiUrl}",
+        "-UseOptimized"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "echo": true
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "dockerRegistry",
+      "type": "promptString",
+      "description": "Registry Docker (ej: contenedores.snabbit.cl)",
+      "default": "contenedores.snabbit.cl"
+    },
+    {
+      "id": "viteApiUrl",
+      "type": "promptString",
+      "description": "VITE_API_URL (opcional; vacío para no hornear)",
+      "default": ""
     }
   ]
 }
