@@ -23,6 +23,7 @@ TIPO_SEGUIMIENTO = [
     ("comentario_tecnico", "Comentario Técnico"),
     ("incidencia", "Incidencia"),
     ("comunicacion_usuario", "Comunicación al Usuario"),
+    ("actualizacion", "Actualización"),
 ]
 
 TIPO_ADJUNTO = [
@@ -46,4 +47,13 @@ CATEGORIAS_COMPRA_OT = [
     ("alimentacion", "Alimentación"),
     ("transporte", "Transporte"),
     ("otros", "Otros"),
+]
+
+# Estados del cierre administrativo y facturación de una OT
+ESTADOS_CIERRE_OT = [
+    ("borrador", "Borrador"),
+    ("en_revision", "En Revisión"),
+    ("aprobado", "Aprobado"),
+    ("facturado", "Facturado"),
+    ("pagado", "Pagado"),
 ]

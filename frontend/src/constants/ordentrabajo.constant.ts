@@ -22,4 +22,5 @@ export const TIPO_SEGUIMIENTO: { value: string; label: string; icon: string; col
 	{ value: 'comentario_tecnico', label: 'Comentario Técnico', icon: 'HeroWrenchScrewdriver', color: 'blue' },
 	{ value: 'incidencia', label: 'Incidencia', icon: 'HeroExclamationTriangle', color: 'red' },
 	{ value: 'comunicacion_usuario', label: 'Comunicación al Usuario', icon: 'HeroChatBubbleLeftRight', color: 'emerald' },
+	{ value: 'actualizacion', label: 'Actualización', icon: 'HeroArrowPath', color: 'amber' },
 ];

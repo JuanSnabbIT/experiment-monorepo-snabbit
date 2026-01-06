@@ -558,6 +558,20 @@ export const Pages = {
 				text: 'Mis Rendiciones',
 				icon: 'DuoDollar',
 				authority: []
+			},
+			listaFacturaciones: {
+				id: 'listaFacturaciones',
+				to: '/facturacion/lista-facturaciones',
+				text: 'Facturaciones',
+				icon: 'DuoReceipt',
+				authority: []
+			},
+			cierreOTDetalle: {
+				id: 'cierreOTDetalle',
+				to: '/facturacion/cierre-ot/:id',
+				text: 'Cierre OT Detalle',
+				icon: 'DuoReceipt',
+				authority: []
 			}
 		}
 	},

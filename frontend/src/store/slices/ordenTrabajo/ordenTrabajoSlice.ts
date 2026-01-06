@@ -1,25 +1,26 @@
 import { ICompra } from '@/interface/bodega.interface';
 import { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import {
-    IAdjuntoDeOrden,
-    ICheckCompletibilidad,
-    IDetalleGastoRendicionOT,
-    IDetalleOrdenDeTrabajo,
-    IDetalleOrdenDeTrabajoCompra,
-    IDetalleRetroalimentacionOT,
-    IHistorialCambiosOrden,
-    IHistorialSimple,
-    IInsumo,
-    IListaDetallesSeguimientosOT,
-    IListaTrabajosFiltrado,
-    IOrdenDeTrabajo,
-    IRetroalimentacionOT,
-    IRetroalimentacionSinPermisosOT,
-    ISeguimientoOrden,
-    IServicioEnOT,
-    ISoporteTecnico,
-    IUsuarioAsignadoSoporte,
-    IUsuarioVinculado,
+	IAdjuntoDeOrden,
+	ICheckCompletibilidad,
+	IDetalleGastoRendicionOT,
+	IDetalleOrdenDeTrabajo,
+	IDetalleOrdenDeTrabajoCompra,
+	IDetalleRetroalimentacionOT,
+	IHistorialCambiosOrden,
+	IHistorialSimple,
+	IInsumo,
+	IListaDetallesSeguimientosOT,
+	IListaTrabajosFiltrado,
+	IOrdenDeTrabajo,
+	IRetroalimentacionOT,
+	IRetroalimentacionSinPermisosOT,
+	ISeguimientoItemOT,
+	ISeguimientoOrden,
+	IServicioEnOT,
+	ISoporteTecnico,
+	IUsuarioAsignadoSoporte,
+	IUsuarioVinculado,
 } from '@/interface/ordenTrabajo.interface';
 import { IVisitaEnOT } from '@/interface/visitas.interface';
 import ApiService from '@/services/ApiService';
@@ -41,6 +42,7 @@ export interface OrdenTrabajoState {
 	listarSimpleHistorial: IHistorialSimple[];
 	listaSeguimientos: ISeguimientoOrden[];
 	detalleSeguimiento: ISeguimientoOrden | undefined;
+	listaSeguimientosOT: ISeguimientoItemOT[];
 	// listaGuiasDisponibles: IGuiaSalida[]
 	// listarInsumosCotizacion: IInsumoCotizacion[]
 	listaDetalleTrabajoSinInsumo: IDetalleOrdenDeTrabajo[];
@@ -82,6 +84,7 @@ const initialState: OrdenTrabajoState = {
 	listarSimpleHistorial: [],
 	listaSeguimientos: [],
 	detalleSeguimiento: undefined,
+	listaSeguimientosOT: [],
 	// listaGuiasDisponibles: [],
 	// listarInsumosCotizacion: [],
 	listaDetalleTrabajoSinInsumo: [],
@@ -477,6 +480,42 @@ export const listaInsumosThunk = createAsyncThunk<
 		return rejectWithValue(error.response.data || 'Error al obtener los insumos');
 	}
 });
+
+export const listarSeguimientosOTThunk = createAsyncThunk<
+	ISeguimientoItemOT[],
+	{
+		id_orden: string | number | undefined;
+		tipo?: string | null;
+		origen?: 'servicio' | 'soporte';
+		limit?: number;
+		offset?: number;
+	},
+	{ rejectValue: string }
+>(
+	'ordenTrabajo/listarSeguimientosOTThunk',
+	async ({ id_orden, tipo, origen, limit, offset }, { rejectWithValue }) => {
+		try {
+			const params = new URLSearchParams();
+			if (tipo) params.set('tipo', tipo);
+			if (origen) params.set('origen', origen);
+			if (limit) params.set('limit', String(limit));
+			if (offset) params.set('offset', String(offset));
+			const qs = params.toString();
+			const url = qs
+				? `/api/ordenes-de-trabajo/${id_orden}/seguimientos/?${qs}`
+				: `/api/ordenes-de-trabajo/${id_orden}/seguimientos/`;
+			const response = await ApiService.fetchData<ISeguimientoItemOT[]>({
+				url,
+				method: 'get',
+			});
+			return response.data;
+		} catch (error: any) {
+			return rejectWithValue(
+				error?.response?.data || 'Error al obtener los seguimientos de la orden',
+			);
+		}
+	},
+);
 
 // export const listaGuiasDisponiblesThunk = createAsyncThunk<IGuiaSalida[], {ordenTrabajoId: number}, {rejectValue: string}>(
 //     'ordenTrabajo/listaGuiasDisponiblesThunk',
@@ -986,6 +1025,17 @@ export const ordenTrabajoSlice = createSlice({
 				state.loading = false;
 				state.error = action.payload;
 			})
+			.addCase(listarSeguimientosOTThunk.pending, (state) => {
+				state.loading = true;
+			})
+			.addCase(listarSeguimientosOTThunk.fulfilled, (state, action) => {
+				state.loading = false;
+				state.listaSeguimientosOT = action.payload;
+			})
+			.addCase(listarSeguimientosOTThunk.rejected, (state, action) => {
+				state.loading = false;
+				state.error = action.payload;
+			})
 			// .addCase(listaGuiasDisponiblesThunk.pending, (state) => {
 			//     state.loading = true;
 			// })
@@ -1286,8 +1336,7 @@ export const ordenTrabajoSlice = createSlice({
 			.addCase(listaComprasEnOTThunk.rejected, (state, action) => {
 				state.loading = false;
 				state.error = action.payload as string;
-			})
-			;
+			});
 	},
 });
 export const {} = ordenTrabajoSlice.actions;

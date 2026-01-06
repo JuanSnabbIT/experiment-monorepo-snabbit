@@ -87,6 +87,20 @@ export interface ISeguimientoOrden {
 	nombre_usuario: string;
 }
 
+export interface ISeguimientoItemOT {
+	id: number;
+	servicio: number | null;
+	servicio_nombre: string | null;
+	soporte: number | null;
+	soporte_nombre: string | null;
+	usuario: number | null;
+	usuario_nombre: string | null;
+	tipo: string;
+	comentario: string | null;
+	fecha_creacion: string;
+	fecha_modificacion: string;
+}
+
 export interface IHistorialCambiosOrden {
 	id: number;
 	nombre_usuario: string;

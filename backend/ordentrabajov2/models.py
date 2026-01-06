@@ -326,6 +326,17 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
     resultado = models.JSONField(
         default=dict, blank=True, verbose_name="Resultado de validaciones"
     )
+    # Estructura JSON editable para facturación (cotizaciones, ejecutado, factura)
+    detalle = models.JSONField(
+        default=dict, blank=True, verbose_name="Detalle de facturación"
+    )
+    # Estado del cierre para el flujo de facturación
+    estado_cierre = models.CharField(
+        max_length=20,
+        choices=ESTADOS_CIERRE_OT,
+        default="borrador",
+        verbose_name="Estado del cierre",
+    )
     comentario = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -360,7 +371,7 @@ class SeguimientoItemOT(ModeloBase):
         related_name="seguimientos_ot_v2",
     )
     tipo = models.CharField(
-        max_length=30, choices=TIPO_SEGUIMIENTO, default="actualizacion"
+        max_length=30, choices=TIPO_SEGUIMIENTO, default="comentario_tecnico"
     )
     comentario = models.TextField(blank=True, null=True)
 

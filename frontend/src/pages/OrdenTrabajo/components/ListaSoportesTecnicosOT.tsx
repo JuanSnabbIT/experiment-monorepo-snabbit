@@ -409,10 +409,23 @@ function ListaSoportesTecnicosOT() {
 				if (isEnProceso) {
 					return (
 						<DropdownEstadoTrabajo
-							onSelectEstado={(estado) => {
-								setSelectedService(info.row.original);
-								setEstadoNuevo(estado);
-								setIsOpenEstado(true);
+							onSelectEstado={async (estado) => {
+								// Cambiar estado directamente sin modal
+								if (!detalleOrdenTrabajo) return;
+								try {
+									await ApiService.fetchData({
+										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${info.row.original.id}/`,
+										method: 'patch',
+										headers: { 'Content-Type': 'application/json' },
+										data: JSON.stringify({ estado }),
+									});
+									toast.success(`Estado cambiado a ${estado}`, { autoClose: 1000 });
+									dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+									dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+								} catch (e: any) {
+									const msg = Object.values(e?.response?.data || {}).flat().join(' ');
+									toast.error(msg || 'Error al cambiar el estado');
+								}
 							}}
 							disabled={!canStart}
 							tooltipText={tooltipText}
@@ -515,7 +528,7 @@ function ListaSoportesTecnicosOT() {
 									onClick={() => {
 										setSelectedService(info.row.original);
 										setComentarioSeguimiento('');
-										setTipoSeguimiento('comentario');
+											setTipoSeguimiento('comentario_tecnico');
 										setIsOpenSeguimiento(true);
 									}}
 								/>
@@ -731,7 +744,7 @@ function ListaSoportesTecnicosOT() {
 	const formikTecnico = useFormik({
 		enableReinitialize: true,
 		initialValues: {
-			tipo_seguimiento: 'actualizacion',
+			tipo_seguimiento: 'comentario_tecnico',
 			comentario: 'Técnico agregado',
 			tecnico_asignado: '',
 		},
@@ -795,14 +808,14 @@ function ListaSoportesTecnicosOT() {
 				data: JSON.stringify({
 					soporte_tecnico: selectedService.id,
 					usuario: null,
-					tipo: tipoSeguimiento || 'comentario',
+					tipo: tipoSeguimiento || 'comentario_tecnico',
 					comentario: comentarioSeguimiento,
 				}),
 			});
 			toast.success('Seguimiento creado', { autoClose: 1000 });
 			setIsOpenSeguimiento(false);
 			setComentarioSeguimiento('');
-			setTipoSeguimiento('comentario');
+			setTipoSeguimiento('comentario_tecnico');
 			fetchSeguimientosServicio(selectedService.id);
 		} catch (error: any) {
 			toast.error(error?.response?.data || 'Error al crear seguimiento');
@@ -1031,8 +1044,8 @@ function ListaSoportesTecnicosOT() {
 							<Badge>Tipo</Badge>
 							<SelectReact
 								name='tipoSeguimiento'
-								options={TIPO_SEGUIMIENTO.map(t => ({ value: t.value, label: t.label }))}
-								value={{ value: tipoSeguimiento, label: TIPO_SEGUIMIENTO.find(t => t.value === tipoSeguimiento)?.label || tipoSeguimiento }}
+								options={TIPO_SEGUIMIENTO.filter((t) => t.value !== 'actualizacion')}
+								value={TIPO_SEGUIMIENTO.find(t => t.value === tipoSeguimiento)}
 								onChange={(e: any) =>
 									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario_tecnico')
 								}
@@ -1056,11 +1069,11 @@ function ListaSoportesTecnicosOT() {
 							onClick={() => {
 								setIsOpenSeguimiento(false);
 								setComentarioSeguimiento('');
-								setTipoSeguimiento('comentario');
+								setTipoSeguimiento('comentario_tecnico');
 							}}>
 							Cancelar
 						</Button>
-						<Button variant='solid' onClick=_tecnico{crearSeguimientoManual}>
+						<Button variant='solid' onClick={crearSeguimientoManual}>
 							Guardar
 						</Button>
 					</ModalFooterChild>

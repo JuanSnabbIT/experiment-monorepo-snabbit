@@ -210,27 +210,12 @@ const DefaultAsideTemplate = () => {
 							<AuthorityCheckNav authority={Pages.rendiciones.subPages.listaMisRendiciones.authority} userAuthority={listaGrupos?.grupos}>
 								<NavItem text={Pages.rendiciones.subPages.listaMisRendiciones.text} to={Pages.rendiciones.subPages.listaMisRendiciones.to} icon={Pages.rendiciones.subPages.listaMisRendiciones.icon} id={Pages.rendiciones.subPages.listaMisRendiciones.id}></NavItem>
 							</AuthorityCheckNav>
-							{/* <AuthorityCheckNav authority={Pages.empresa.subPages.listaRendicionesSucursal.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.empresa.subPages.listaRendicionesSucursal.text} to={Pages.empresa.subPages.listaRendicionesSucursal.to} icon={Pages.empresa.subPages.listaRendicionesSucursal.icon} id={Pages.empresa.subPages.listaRendicionesSucursal.id}></NavItem>
-							</AuthorityCheckNav> */}
-						</NavCollapse>
-					</AuthorityCheckNav>
+						<AuthorityCheckNav authority={Pages.rendiciones.subPages.listaFacturaciones.authority} userAuthority={listaGrupos?.grupos}>
+							<NavItem text={Pages.rendiciones.subPages.listaFacturaciones.text} to={Pages.rendiciones.subPages.listaFacturaciones.to} icon={Pages.rendiciones.subPages.listaFacturaciones.icon} id={Pages.rendiciones.subPages.listaFacturaciones.id}></NavItem>
+						</AuthorityCheckNav>
+					</NavCollapse>
+				</AuthorityCheckNav>
 
-					<AuthorityCheckNav authority={Pages.listaInvitacionesEmpresas.authority} userAuthority={listaGrupos?.grupos}>
-						<NavItem text={Pages.listaInvitacionesEmpresas.text} to={Pages.listaInvitacionesEmpresas.to} icon={Pages.listaInvitacionesEmpresas.icon} id={Pages.listaInvitacionesEmpresas.id}></NavItem>
-					</AuthorityCheckNav>
-
-					<AuthorityCheckNav authority={Pages.listaDiasCalendario.authority} userAuthority={listaGrupos?.grupos}>
-						<NavItem text={Pages.listaDiasCalendario.text} to={Pages.listaDiasCalendario.to} icon={Pages.listaDiasCalendario.icon} id={Pages.listaDiasCalendario.id}></NavItem>
-					</AuthorityCheckNav>
-
-					{/* <AuthorityCheckNav authority={Pages.listaItem.authority} userAuthority={listaGrupos?.grupos}>
-						<NavItem text={Pages.listaItem.text} to={Pages.listaItem.to} icon={Pages.listaItem.icon} id={Pages.listaItem.id}></NavItem>
-					</AuthorityCheckNav> */}
-					
-					<AuthorityCheckNav authority={Pages.listaEquiposEmpresa.authority} userAuthority={listaGrupos?.grupos}>
-						<NavItem text={Pages.listaEquiposEmpresa.text} to={Pages.listaEquiposEmpresa.to} icon={Pages.listaEquiposEmpresa.icon} id={Pages.listaEquiposEmpresa.id}></NavItem>
-					</AuthorityCheckNav>
 
 					{/* <NavCollapse  text={"Empresas"} icon={'HeroDocument'} to={'/empresas'}>
 						{listaEmpresas.map(empresa => (

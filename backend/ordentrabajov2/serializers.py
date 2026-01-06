@@ -310,13 +310,17 @@ class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
 
 class SeguimientoItemOTSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.SerializerMethodField()
+    servicio_nombre = serializers.SerializerMethodField()
+    soporte_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = SeguimientoItemOT
         fields = [
             "id",
             "servicio",
+            "servicio_nombre",
             "soporte",
+            "soporte_nombre",
             "usuario",
             "usuario_nombre",
             "tipo",
@@ -329,4 +333,14 @@ class SeguimientoItemOTSerializer(serializers.ModelSerializer):
     def get_usuario_nombre(self, obj):
         if obj.usuario:
             return obj.usuario.usuario.get_nombre_completo()
+        return None
+
+    def get_servicio_nombre(self, obj):
+        if obj.servicio:
+            return obj.servicio.nombre
+        return None
+
+    def get_soporte_nombre(self, obj):
+        if obj.soporte:
+            return obj.soporte.nombre
         return None

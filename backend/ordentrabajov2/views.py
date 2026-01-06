@@ -225,6 +225,55 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
             )
         return Response(data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], url_path="seguimientos")
+    def seguimientos(self, request, pk=None):
+        """
+        Retorna todos los seguimientos de los servicios y soportes de una OT,
+        consolidados en un solo listado.
+        """
+        from django.db.models import Q
+        
+        orden = self.get_object()
+        
+        # Base queryset de seguimientos para la OT
+        qs = (
+            SeguimientoItemOT.objects.filter(
+                Q(servicio__orden=orden) | Q(soporte__orden=orden)
+            )
+            .select_related("usuario__usuario", "servicio", "soporte")
+            .order_by("-fecha_creacion")
+        )
+
+        # Filtros opcionales
+        tipo = request.query_params.get("tipo")
+        if tipo:
+            # Soportar coma-separado para múltiples tipos
+            tipos = [t.strip() for t in tipo.split(",") if t.strip()]
+            if tipos:
+                qs = qs.filter(tipo__in=tipos)
+
+        origen = request.query_params.get("origen")  # 'servicio' | 'soporte'
+        if origen == "servicio":
+            qs = qs.filter(servicio__isnull=False)
+        elif origen == "soporte":
+            qs = qs.filter(soporte__isnull=False)
+
+        # Paginación simple con limit/offset (opcional)
+        total_count = qs.count()
+        limit = request.query_params.get("limit")
+        offset = request.query_params.get("offset")
+        if limit is not None:
+            try:
+                lim = max(0, int(limit))
+                off = max(0, int(offset or 0))
+                qs = qs[off : off + lim]
+            except ValueError:
+                pass  # Ignorar paginación inválida
+
+        serializer = SeguimientoItemOTSerializer(qs, many=True)
+        headers = {"X-Total-Count": str(total_count)}
+        return Response(serializer.data, headers=headers, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["get"], url_path="guias-disponibles")
     def guias_disponibles(self, request, pk=None):
         orden = self.get_object()
@@ -510,6 +559,7 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
         """
         partial = kwargs.pop("partial", False)
         instance: SoporteTecnico = self.get_object()
+        estado_anterior = instance.estado
         nuevo_estado = request.data.get("estado", instance.estado)
         final_states = ("completado", "medianamente_completado")
 
@@ -582,16 +632,28 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
                 )
 
         resp = super().update(request, *args, partial=partial, **kwargs)
-        if (
-            resp.status_code in (status.HTTP_200_OK, status.HTTP_202_ACCEPTED)
-            and nuevo_estado == "en_proceso"
-        ):
+        if resp.status_code in (status.HTTP_200_OK, status.HTTP_202_ACCEPTED):
             instance.refresh_from_db()
-            if instance.orden.estado == "pendiente":
-                instance.orden.estado = "en_proceso"
-                instance.orden.save(update_fields=["estado"])
-            if instance.guia_salida_id:
-                actualizar_estado_guia_en_inicio_trabajo(instance.guia_salida)
+            
+            # Auto-crear seguimiento si cambió el estado
+            if estado_anterior != instance.estado:
+                try:
+                    usuario_empresa = obtener_usuario_empresa(request.user)
+                    SeguimientoItemOT.objects.create(
+                        soporte=instance,
+                        usuario=usuario_empresa,
+                        tipo="actualizacion",
+                        comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                    )
+                except Exception:
+                    pass
+            
+            if nuevo_estado == "en_proceso":
+                if instance.orden.estado == "pendiente":
+                    instance.orden.estado = "en_proceso"
+                    instance.orden.save(update_fields=["estado"])
+                if instance.guia_salida_id:
+                    actualizar_estado_guia_en_inicio_trabajo(instance.guia_salida)
         return resp
 
     def get_queryset(self):
@@ -747,6 +809,7 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
         """
         partial = kwargs.pop("partial", False)
         instance: ServicioEnOT = self.get_object()
+        estado_anterior = instance.estado
         nuevo_estado = request.data.get("estado", instance.estado)
         final_states = ("completado", "medianamente_completado")
 
@@ -775,16 +838,28 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
                     )
 
         resp = super().update(request, *args, partial=partial, **kwargs)
-        if (
-            resp.status_code in (status.HTTP_200_OK, status.HTTP_202_ACCEPTED)
-            and nuevo_estado == "en_proceso"
-        ):
+        if resp.status_code in (status.HTTP_200_OK, status.HTTP_202_ACCEPTED):
             instance.refresh_from_db()
-            if instance.orden.estado == "pendiente":
-                instance.orden.estado = "en_proceso"
-                instance.orden.save(update_fields=["estado"])
-            if instance.guia_salida_id:
-                actualizar_estado_guia_en_inicio_trabajo(instance.guia_salida)
+            
+            # Auto-crear seguimiento si cambió el estado
+            if estado_anterior != instance.estado:
+                try:
+                    usuario_empresa = obtener_usuario_empresa(request.user)
+                    SeguimientoItemOT.objects.create(
+                        servicio=instance,
+                        usuario=usuario_empresa,
+                        tipo="actualizacion",
+                        comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                    )
+                except Exception:
+                    pass
+            
+            if nuevo_estado == "en_proceso":
+                if instance.orden.estado == "pendiente":
+                    instance.orden.estado = "en_proceso"
+                    instance.orden.save(update_fields=["estado"])
+                if instance.guia_salida_id:
+                    actualizar_estado_guia_en_inicio_trabajo(instance.guia_salida)
         return resp
 
     def get_queryset(self):
@@ -1042,4 +1117,14 @@ class SeguimientoItemOTViewSet(BaseWriteViewSet):
             data["servicio_id"] = servicio_pk
         if soporte_pk:
             data["soporte_id"] = soporte_pk
+        
+        # Asignar usuario actual si no se envió
+        if not serializer.validated_data.get("usuario"):
+            try:
+                usuario_empresa = obtener_usuario_empresa(self.request.user)
+                if usuario_empresa:
+                    data["usuario"] = usuario_empresa
+            except Exception:
+                pass
+        
         serializer.save(**data)

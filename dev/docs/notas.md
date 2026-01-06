@@ -42,7 +42,7 @@ De esta manera, se puede buscar solamente las guias de salida de ese cliente en 
 
 # Reglon de facturización:
 - Traer detalles de cotizaciones y detalles de OTs.
-- modificar tabla CierreAdministrativoOT, agregar tabla de detalle y constraste, guardar estos datos para la correcta facturación en campos jsonfield
+- modificar tabla CierreAdministrativoOT, agregar campos de detalle y constraste, guardar estos datos para la correcta facturación en campos jsonfield
 
 # Rendiciones:
 - Crear tabla maestra dentro de Core/Models para la tabla "VariableRendicion" en donde preestablecer las categorias de rendición y sus respectivos montos de cargo, para que al momento de crear una rendición solo se seleccione la categoria y el sistema automáticamente asigne el monto correspondiente según la tabla maestra creada.

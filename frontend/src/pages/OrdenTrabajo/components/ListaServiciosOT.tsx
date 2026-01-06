@@ -426,10 +426,23 @@ function ListaServiciosOT() {
 				if (isEnProceso) {
 					return (
 						<DropdownEstadoTrabajo
-							onSelectEstado={(estado) => {
-								setSelectedService(info.row.original);
-								setEstadoNuevo(estado);
-								setIsOpenEstado(true);
+							onSelectEstado={async (estado) => {
+								// Cambiar estado directamente sin modal
+								if (!detalleOrdenTrabajo) return;
+								try {
+									await ApiService.fetchData({
+										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${info.row.original.id}/`,
+										method: 'patch',
+										headers: { 'Content-Type': 'application/json' },
+										data: JSON.stringify({ estado }),
+									});
+									toast.success(`Estado cambiado a ${estado}`, { autoClose: 1000 });
+									dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
+									dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+								} catch (e: any) {
+									const msg = Object.values(e?.response?.data || {}).flat().join(' ');
+									toast.error(msg || 'Error al cambiar el estado');
+								}
 							}}
 							disabled={!canStart}
 							tooltipText={tooltipText}
@@ -511,7 +524,7 @@ function ListaServiciosOT() {
 										onClick={() => {
 											setSelectedService(info.row.original);
 											setComentarioSeguimiento('');
-											setTipoSeguimiento('comentario');
+											setTipoSeguimiento('comentario_tecnico');
 											setIsOpenSeguimiento(true);
 										}}
 									/>
@@ -696,7 +709,7 @@ function ListaServiciosOT() {
 	const formikTecnico = useFormik({
 		enableReinitialize: true,
 		initialValues: {
-			tipo_seguimiento: 'actualizacion',
+			tipo_seguimiento: 'comentario_tecnico',
 			comentario: 'Técnico agregado',
 			tecnico_asignado: '',
 		},
@@ -760,14 +773,14 @@ function ListaServiciosOT() {
 				data: JSON.stringify({
 					servicio: selectedService.id,
 					usuario: null,
-					tipo: tipoSeguimiento || 'comentario',
+					tipo: tipoSeguimiento || 'comentario_tecnico',
 					comentario: comentarioSeguimiento,
 				}),
 			});
 			toast.success('Seguimiento creado', { autoClose: 1000 });
 			setIsOpenSeguimiento(false);
 			setComentarioSeguimiento('');
-			setTipoSeguimiento('comentario');
+			setTipoSeguimiento('comentario_tecnico');
 			fetchSeguimientosServicio(selectedService.id);
 		} catch (error: any) {
 			toast.error(error?.response?.data || 'Error al crear seguimiento');
@@ -989,14 +1002,10 @@ function ListaServiciosOT() {
 							<Badge>Tipo</Badge>
 							<SelectReact
 								name='tipoSeguimiento'
-								options={[
-									{ value: 'actualizacion', label: 'Actualización' },
-									{ value: 'comentario', label: 'Comentario' },
-									{ value: 'incidencia', label: 'Incidencia' },
-								]}
-								value={{ value: tipoSeguimiento, label: tipoSeguimiento }}
+								options={TIPO_SEGUIMIENTO.filter((t) => t.value !== 'actualizacion')}
+								value={TIPO_SEGUIMIENTO.find((t) => t.value === tipoSeguimiento)}
 								onChange={(e: any) =>
-									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario')
+									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario_tecnico')
 								}
 							/>
 						</div>
@@ -1018,7 +1027,7 @@ function ListaServiciosOT() {
 							onClick={() => {
 								setIsOpenSeguimiento(false);
 								setComentarioSeguimiento('');
-								setTipoSeguimiento('comentario');
+								setTipoSeguimiento('comentario_tecnico');
 							}}>
 							Cancelar
 						</Button>

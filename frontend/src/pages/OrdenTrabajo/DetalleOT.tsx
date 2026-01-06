@@ -35,7 +35,7 @@ import ComprasEnOT from './components/ComprasEnOT';
 import DevolucionesOT from './components/DevolucionesOT';
 import FotosAdjuntosOT from './components/FotosAdjuntosOT';
 import HistorialCambios from './components/HistorialCambios';
-import HistorialOT from './components/HistorialOT';
+import SeguimientosOT from './components/SeguimientosOT';
 import Insumos from './components/Insumos';
 import ListaServiciosOT from './components/ListaServiciosOT';
 import ListaSoportesTecnicosOT from './components/ListaSoportesTecnicosOT';
@@ -292,6 +292,16 @@ const DetalleOT = () => {
 										color='violet'
 										icon='HeroEye'
 										onClick={() => navigate(`/rendicion/detalle-rendicion/${detalleOrdenTrabajo.rendicion_asociada_id}`)}
+									/>
+								</Tooltip>
+							)}
+							{detalleOrdenTrabajo.estado === 'completada' && (
+								<Tooltip text='Ver Facturación'>
+									<Button 
+										variant='solid' 
+										color='blue'
+										icon='HeroReceipt'
+										onClick={() => navigate(`/facturacion/cierre-ot/${detalleOrdenTrabajo.id}`)}
 									/>
 								</Tooltip>
 							)}
@@ -874,7 +884,7 @@ const DetalleOT = () => {
 									Insumos
 								</Button>
 								<Button
-									{...(activeComponent === 'Historial OT'
+									{...(activeComponent === 'Seguimientos'
 										? {
 												size: 'sm',
 												rounded: 'rounded-full',
@@ -891,9 +901,9 @@ const DetalleOT = () => {
 												className: 'border',
 											})}
 									onClick={() => {
-										setActiveComponent('Historial OT');
+										setActiveComponent('Seguimientos');
 									}}>
-									Historial OT
+									Seguimientos
 								</Button>
 								<Button
 									{...(activeComponent === 'Fotos'
@@ -1019,8 +1029,8 @@ const DetalleOT = () => {
 						<HistorialCambios ordenId={detalleOrdenTrabajo?.id} />
 					)}
 					{activeComponent === 'Insumos' && <Insumos />}
-					{activeComponent === 'Historial OT' && (
-						<HistorialOT ordenId={detalleOrdenTrabajo?.id} />
+					{activeComponent === 'Seguimientos' && (
+						<SeguimientosOT ordenId={detalleOrdenTrabajo?.id} />
 					)}
 					{activeComponent === 'Fotos' && <FotosAdjuntosOT />}
 					{activeComponent === 'Usuarios' && <UsuariosVinculadosOT />}
