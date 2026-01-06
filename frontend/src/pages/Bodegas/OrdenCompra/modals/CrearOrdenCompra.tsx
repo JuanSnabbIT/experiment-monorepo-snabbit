@@ -44,7 +44,8 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
         if (listaProveedoresEmpresa.length > 0) {
             setOptionProveedores(listaProveedoresEmpresa.map((pro) => {
                 const monedas: {[key: string]: string} = {'1': 'USD', '2': 'CLP', '3': 'UF'}
-                const moneda = monedas[pro.tipo_moneda] || 'CLP'
+                const tipoMonedaKey = pro.tipo_moneda ? String(pro.tipo_moneda) : '2'
+                const moneda = monedas[tipoMonedaKey] || 'CLP'
                 return {
                     value: pro.id.toString(), 
                     label: `${pro.nombre} (${moneda})`

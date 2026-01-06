@@ -87,6 +87,7 @@
 		"slate": "^0.103.0",
 		"slate-history": "^0.100.0",
 		"slate-react": "^0.105.0",
+		"sweetalert2": "^11.26.17",
 		"swiper": "^11.2.5",
 		"tailwindcss": "^3.4.4",
 		"typescript": "^5.4.5",

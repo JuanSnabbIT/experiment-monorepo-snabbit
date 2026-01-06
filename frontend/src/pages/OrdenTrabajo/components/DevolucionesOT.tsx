@@ -1,7 +1,3 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import dayjs from 'dayjs'
-import { toast } from 'react-toastify'
 import {
     createColumnHelper,
     flexRender,
@@ -9,21 +5,27 @@ import {
     getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
-    type ColumnDef,
+    type CellContext,
     type SortingState,
 } from '@tanstack/react-table'
+import dayjs from 'dayjs'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 
-import Button from '@/components/ui/Button.tsx'
 import Badge from '@/components/ui/Badge.tsx'
+import Button from '@/components/ui/Button.tsx'
 import Card, { CardBody } from '@/components/ui/Card.tsx'
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table.tsx'
 import Tooltip from '@/components/ui/Tooltip.tsx'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2.tsx'
 import { IVoucherDevolucion } from '@/interface/bodega.interface.ts'
-import { downloadVoucherDevolucionPdf } from '@/utils/downloadHelpers.ts'
 import { listaVouchersThunk, useAppDispatch, useAppSelector } from '@/store/index.ts'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2.tsx'
+import { downloadVoucherDevolucionPdf } from '@/utils/downloadHelpers.ts'
 
 const columnHelper = createColumnHelper<IVoucherDevolucion>()
+
+type VoucherCellContext<TValue> = CellContext<IVoucherDevolucion, TValue>
 
 interface DevolucionesOTProps {
     ordenId?: number
@@ -55,23 +57,20 @@ const DevolucionesOT = ({ ordenId }: DevolucionesOTProps) => {
         }
     }
 
-    const columns: ColumnDef<IVoucherDevolucion>[] = [
+    const columns = [
         columnHelper.accessor('numero', {
             header: 'Numero',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: (info: any) => info.getValue(),
+            cell: (info: VoucherCellContext<string>) => info.getValue(),
             size: 120,
         }),
         columnHelper.accessor('fecha_creacion', {
             header: 'Fecha',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: (info: any) => dayjs(info.getValue()).format('DD/MM/YYYY'),
+            cell: (info: VoucherCellContext<string>) => dayjs(info.getValue()).format('DD/MM/YYYY'),
             size: 120,
         }),
         columnHelper.accessor('total_items_devueltos', {
             header: 'Items Devueltos',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: (info: any) => (
+            cell: (info: VoucherCellContext<number>) => (
                 <Badge color="blue" variant="solid">
                     {info.getValue() ?? 0} {info.getValue() === 1 ? 'item' : 'items'}
                 </Badge>
@@ -81,8 +80,7 @@ const DevolucionesOT = ({ ordenId }: DevolucionesOTProps) => {
         columnHelper.display({
             id: 'acciones',
             header: 'Acciones',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: (info: any) => (
+            cell: (info: VoucherCellContext<unknown>) => (
                 <div className="flex gap-2">
                     <Tooltip text="Ver detalle">
                         <Button

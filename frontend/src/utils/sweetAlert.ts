@@ -78,7 +78,7 @@ export const confirmCritical = async ({
 		confirmButtonText: confirmText,
 		cancelButtonText: cancelText,
 		reverseButtons: true,
-		inputValidator: (value) => {
+		inputValidator: (value: string) => {
 			if ((value || '').trim() !== confirmPhrase) {
 				return `Escriba ${confirmPhrase} para continuar`;
 			}

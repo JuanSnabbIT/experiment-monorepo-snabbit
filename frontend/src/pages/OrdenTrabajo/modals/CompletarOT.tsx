@@ -4,21 +4,21 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
-	ModalBody,
-	ModalFooter,
-	ModalFooterChild,
-	ModalHeader,
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import type { IBodega, ICompra, IItemEnCompra, IItemGuiaSalida, IVoucherDevolucion } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
 import {
-	checkCompletibilidadOTThunk,
-	detalleOrdenTrabajoThunk,
-	listaVouchersThunk,
-	listaSoportesTecnicosThunk,
-	useAppDispatch,
-	useAppSelector,
+    checkCompletibilidadOTThunk,
+    detalleOrdenTrabajoThunk,
+    listaSoportesTecnicosThunk,
+    listaVouchersThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -560,6 +560,7 @@ function CompletarOT() {
 																	</div>
 																	<div className='md:col-span-2'>
 																		<Input
+																			name={`compra_devolver_${item.itemId}`}
 																			type='number'
 																			min='0'
 																			max={item.cantidad_total}
@@ -626,6 +627,7 @@ function CompletarOT() {
 																	</div>
 																	<div className='md:col-span-2'>
 																		<Input
+																			name={`guia_devolver_${item.itemId}`}
 																			type='number'
 																			min='0'
 																			max={item.cantidad_disponible}

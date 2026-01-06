@@ -15,9 +15,8 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import Collapse from '@/components/utils/Collapse';
-import ApiService from '@/services/ApiService';
-import { confirmAlert } from '@/utils/sweetAlert';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
+import ApiService from '@/services/ApiService';
 import {
     actualizarSoporteTecnicoThunk,
     checkCompletibilidadOTThunk,
@@ -30,6 +29,7 @@ import {
     useAppSelector,
 } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -47,7 +47,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
-import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 

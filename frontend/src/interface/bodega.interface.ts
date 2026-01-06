@@ -96,7 +96,7 @@ export interface IGuiaSalida {
 	nombre_recibido_por: string | null;
 	firma_entrega?: string;
 	orden_trabajo?: number | null;
-	soporte_tecnico?: number | null;
+	soporte_tecnico?: number | { falta_datos?: boolean } | null;
 }
 
 export interface IItemGuiaSalida {

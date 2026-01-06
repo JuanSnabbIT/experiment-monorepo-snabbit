@@ -1,27 +1,27 @@
 import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import Tooltip from "@/components/ui/Tooltip"
+import { IGuiaSalida } from "@/interface/bodega.interface"
+import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
+import ApiService from "@/services/ApiService"
 import { LIMPIAR_LISTA_GUIA_SALIDA_POR_BODEGA, listaBodegasThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosDeMisClientesThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import dayjs from "dayjs"
 import { useEffect, useState } from "react"
-import Button from "@/components/ui/Button"
 import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
-import ApiService from "@/services/ApiService"
-import Tooltip from "@/components/ui/Tooltip"
-import { IGuiaSalida } from "@/interface/bodega.interface"
-import CrearGuiaSalidaBodega from "./modals/CrearGuiaSalidaBodega"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import AprobarGuiaSalida from "./modals/AprobarGuiaSalida"
+import CrearGuiaSalidaBodega from "./modals/CrearGuiaSalidaBodega"
 import FirmarEntregarGuia from "./modals/FirmarEntregarGuia"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import VolverAPendienteGuiaSalida from "./modals/VolverAPendienteGuiaSalida"
 
 
@@ -125,7 +125,7 @@ function ListaGuiaSalidaBodega() {
                     {info.row.original.estado === "ER" && (
                         (() => {
                             const soporte = info.row.original.soporte_tecnico;
-                            const faltaDatosSoporte = soporte && soporte.falta_datos;
+                            const faltaDatosSoporte = typeof soporte === 'object' && soporte !== null ? !!soporte.falta_datos : false;
                             const disabled = !!faltaDatosSoporte;
                             const tooltip = disabled ? "Faltan datos en la OT (asignar técnico y fecha)" : "Firmar para Aprobar Guia";
                             return (

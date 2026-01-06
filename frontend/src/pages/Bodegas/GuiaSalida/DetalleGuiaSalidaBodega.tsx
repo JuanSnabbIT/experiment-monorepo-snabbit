@@ -429,7 +429,7 @@ function DetalleGuiaSalidaBodega() {
                         {detalleGuiaSalidaBodega?.estado === "ER" && (
                             (() => {
                                 const soporte = detalleGuiaSalidaBodega?.soporte_tecnico;
-                                const faltaDatosSoporte = soporte && suporte.falta_datos;
+                                const faltaDatosSoporte = typeof soporte === 'object' && soporte !== null ? !!soporte.falta_datos : false;
                                 const disabled = !!faltaDatosSoporte;
                                 const tooltip = disabled ? "Faltan datos en la OT (asignar técnico y fecha)" : "Firmar para Aprobar Guia";
                                 return (

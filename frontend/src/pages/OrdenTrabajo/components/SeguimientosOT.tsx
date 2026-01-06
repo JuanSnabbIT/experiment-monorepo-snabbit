@@ -31,15 +31,17 @@ dispatch(listarSeguimientosOTThunk({ id_orden: ordenId }));
 }
 }, [dispatch, ordenId]);
 
-case 'comentario_tecnico':
-return 'HeroDocumentText';
-case 'incidencia':
-return 'HeroExclamationCircle';
-case 'comunicacion_usuario':
-return 'HeroChatBubbleLeftRight';
-default:
-return 'HeroChatBubbleLeft';
-}
+const obtenerIconoTipo = (tipo: string) => {
+	switch (tipo.toLowerCase()) {
+		case 'comentario_tecnico':
+			return 'HeroDocumentText';
+		case 'incidencia':
+			return 'HeroExclamationCircle';
+		case 'comunicacion_usuario':
+			return 'HeroChatBubbleLeftRight';
+		default:
+			return 'HeroChatBubbleLeft';
+	}
 };
 
 const obtenerColorTipo = (tipo: string): TColors => {
@@ -151,6 +153,7 @@ return (
 <Badge className="text-xl">Seguimientos de Trabajos</Badge>
 <div className="w-64">
 <Input
+name="buscar_seguimientos"
 type="text"
 placeholder="Buscar en seguimientos..."
 value={searchText}

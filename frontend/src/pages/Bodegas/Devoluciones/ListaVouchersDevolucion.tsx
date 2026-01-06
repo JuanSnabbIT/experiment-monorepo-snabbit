@@ -6,7 +6,7 @@ import {
     getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
-    type ColumnDef,
+    type CellContext,
     type SortingState,
 } from '@tanstack/react-table'
 import dayjs from 'dayjs'
@@ -23,7 +23,7 @@ type VoucherHeaderGroup = ReturnType<VoucherTableInstance['getHeaderGroups']>[nu
 type VoucherHeader = VoucherHeaderGroup['headers'][number]
 type VoucherRow = ReturnType<VoucherTableInstance['getRowModel']>['rows'][number]
 type VoucherCell = ReturnType<VoucherRow['getVisibleCells']>[number]
-type VoucherCellContext<TValue> = { getValue: () => TValue; row: { original: IVoucherDevolucion } }
+type VoucherCellContext<TValue> = CellContext<IVoucherDevolucion, TValue>
 
 import Input from '@/components/form/Input.tsx'
 import Icon from '@/components/icon/Icon.tsx'
@@ -37,9 +37,9 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table.tsx'
 import Tooltip from '@/components/ui/Tooltip.tsx'
 import { IVoucherDevolucion } from '@/interface/bodega.interface.ts'
 import ApiService from '@/services/ApiService.ts'
-import { downloadVoucherDevolucionPdf } from '@/utils/downloadHelpers.ts'
 import { listaVouchersThunk, useAppDispatch, useAppSelector } from '@/store/index.ts'
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2.tsx'
+import { downloadVoucherDevolucionPdf } from '@/utils/downloadHelpers.ts'
 
 const columnHelper = createColumnHelper<IVoucherDevolucion>()
 
@@ -175,7 +175,7 @@ const ListaVouchersDevolucion = () => {
             ),
             size: 150,
         }),
-    ] satisfies ColumnDef<IVoucherDevolucion>[]
+    ]
 
     const table = useReactTable<IVoucherDevolucion>({
         data: listaVouchers,

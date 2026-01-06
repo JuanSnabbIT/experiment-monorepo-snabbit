@@ -1,30 +1,30 @@
-import { useEffect, useState } from 'react'
-import { detalleRendicionThunk, listaItemsRendicionThunk, useAppDispatch, useAppSelector } from '@/store'
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
+import Input from '@/components/form/Input'
+import Textarea from '@/components/form/Textarea'
+import Validation from '@/components/form/Validation'
+import Icon from '@/components/icon/Icon'
+import Container from '@/components/layouts/Container/Container'
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
 import Badge from '@/components/ui/Badge'
-import Container from '@/components/layouts/Container/Container'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Icon from '@/components/icon/Icon'
-import { useParams, useNavigate } from 'react-router-dom'
-import { IItemRendicion } from '@/interface/rendicion.interface'
-import Input from '@/components/form/Input'
 import Button from '@/components/ui/Button'
-import { useFormik } from 'formik'
-import ApiService from '@/services/ApiService'
-import { toast } from 'react-toastify'
-import Validation from '@/components/form/Validation'
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
 import Tooltip from '@/components/ui/Tooltip'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
-import Textarea from '@/components/form/Textarea'
-import dayjs from 'dayjs'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
-import CrearItemRendicion from '../modals/CrearItemRendicion'
+import { IItemRendicion } from '@/interface/rendicion.interface'
+import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
+import ApiService from '@/services/ApiService'
+import { detalleRendicionThunk, listaItemsRendicionThunk, useAppDispatch, useAppSelector } from '@/store'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import dayjs from 'dayjs'
 import "dayjs/locale/es"
+import { useFormik } from 'formik'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import CambiarEstadoRendicion from '../modals/CambiarEstadoRendicion'
+import CrearItemRendicion from '../modals/CrearItemRendicion'
 
 
 const columnHelper = createColumnHelper<IItemRendicion>()
@@ -355,7 +355,7 @@ const DetalleRendicion = () => {
                                         <div className="ml-4 text-xs text-gray-500">Todo lo que gastó el técnico</div>
                                     </div>
                                     <div>
-                                        <Badge color="green">Total Facturable Cliente</Badge>
+                                            <Badge color="emerald">Total Facturable Cliente</Badge>
                                         <div className="ml-4 font-semibold text-green-600">
                                             $ {detalleRendicion?.total_facturable_cliente?.toLocaleString('es-CL') || 0}
                                         </div>

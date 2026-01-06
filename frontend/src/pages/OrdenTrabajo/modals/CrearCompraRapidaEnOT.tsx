@@ -6,24 +6,25 @@ import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
-	ModalBody,
-	ModalFooter,
-	ModalFooterChild,
-	ModalHeader,
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IItemEmpresa } from '@/interface/items.interface';
 import ApiService from '@/services/ApiService';
 import {
-	listaCategoriasThunk,
-	listaComprasEnOTThunk,
-	listaFabricanteThunk,
-	listaItemsEmpresaThunk,
-	useAppDispatch,
-	useAppSelector,
+    listaCategoriasThunk,
+    listaComprasEnOTThunk,
+    listaFabricanteThunk,
+    listaItemsEmpresaThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import { IDetectedBarcode, Scanner } from '@yudiel/react-qr-scanner';
 import { useFormik } from 'formik';
+import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
@@ -70,7 +71,10 @@ const getErrorMessage = (error: unknown): string => {
 	return 'Error al crear la compra';
 };
 
-const formatosPermitidos = ['ean_13', 'code_128', 'code_93', 'code_39', 'upc_a', 'upc_e'];
+type ScannerFormats = NonNullable<ComponentProps<typeof Scanner>['formats']>;
+type ScannerFormat = ScannerFormats[number];
+
+const formatosPermitidos: ScannerFormats = ['ean_13', 'code_128', 'code_93', 'code_39', 'upc_a', 'upc_e'];
 
 function CrearCompraRapidaEnOT() {
 	const dispatch = useAppDispatch();
@@ -118,7 +122,7 @@ function CrearCompraRapidaEnOT() {
 				const observaciones = values.notas
 					? `${values.descripcion}\nNotas: ${values.notas}`
 					: values.descripcion;
-				const response = await ApiService.fetchData({
+				const response = await ApiService.fetchData<{ id: number }>({
 					url: `/api/compras/`,
 					method: 'post',
 					data: {
@@ -325,7 +329,7 @@ function CrearCompraRapidaEnOT() {
 		}
 
 		for (const code of detectedCodes) {
-			if (!formatosPermitidos.includes(code.format)) {
+			if (!formatosPermitidos.includes(code.format as ScannerFormat)) {
 				toast.error('Formato de codigo de barras no soportado');
 				continue;
 			}
