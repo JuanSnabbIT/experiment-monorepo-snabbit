@@ -1,24 +1,26 @@
 ESTADOS_OC = (
-    ('-', 'Borrador'),
-    ('0', 'Pendiente de aprobación'),
-    ('1', 'Aprobada'),
-    ('2', 'Rechazada'),
-    ('3', 'Enviada al proveedor'),
+    ("-", "Borrador"),
+    ("0", "Pendiente de aprobación"),
+    ("1", "Aprobada"),
+    ("2", "Rechazada"),
+    ("3", "Enviada al proveedor"),
     # ('5', 'En espera'),
-    ('4', 'Parcialmente recibida'),
-    ('5', 'Completada'),
-    ('6', 'Cancelada'),
-    ('7', 'Cerrada')
+    ("4", "Parcialmente recibida"),
+    ("5", "Completada"),
+    ("6", "Cancelada"),
+    ("7", "Cerrada"),
 )
 
 ESTADO_CR = (
-    ('-', 'Borrador'),
-    ('1', 'Completada'),
+    ("-", "Borrador"),
+    ("P", "Pendiente de rendición"),
+    ("1", "Completada"),
 )
 
 ESTADOS_REBAJE = (
     ("P", "Pendiente"),
     ("ER", "Espera Firma Recibido"),
+    ("FR", "Firmada"),
     ("ET", "En Transito"),
     ("R", "Revertida"),
     ("PR", "Parcialmente Revertida"),
@@ -26,20 +28,14 @@ ESTADOS_REBAJE = (
     ("T", "Terminada"),
 )
 
-TIPO_COMPRA = (
-    ('nacional', 'Nacional'),
-    ('internacional', 'Internacional')
-)
+TIPO_COMPRA = (("nacional", "Nacional"), ("internacional", "Internacional"))
 
-TIPO_ARCHIVO = (
-    ('1', 'archivo'),
-    ('2', 'imagen')
-)
+TIPO_ARCHIVO = (("1", "archivo"), ("2", "imagen"))
 
 OPCIONES_ARCHIVO = (
-    ('boleta', 'Boleta'),
-    ('factura', 'Factura'),
-    ('informacion_adicional', 'Información Adicional')
+    ("boleta", "Boleta"),
+    ("factura", "Factura"),
+    ("informacion_adicional", "Información Adicional"),
 )
 
 MOVIMIENTOS_TIPO = (
@@ -48,19 +44,19 @@ MOVIMIENTOS_TIPO = (
     ("DEVOLUCION", "Devolución"),
     ("AJUSTE", "Ajuste Manual"),
     ("INICIAL", "Stock Inicial"),
-    ("AJUSTE_INVENTARIO", "Ajuste de Inventario")
+    ("AJUSTE_INVENTARIO", "Ajuste de Inventario"),
 )
 
 ESTADO_ITEM_INTEVENTARIADO = (
-    ('por_inventariar', 'Por Inventariar'),
-    ('inventariado', 'Inventariado'),
-    ('inventariado_observaciones', 'Inventariado Con Observaciones')
+    ("por_inventariar", "Por Inventariar"),
+    ("inventariado", "Inventariado"),
+    ("inventariado_observaciones", "Inventariado Con Observaciones"),
 )
 
 ESTADO_TOMA_INVENTARIO = (
-    ('pendiente', 'Pendiente'),
-    ('pausado', 'Pausado'),
-    ('en_proceso', 'En Proceso'),
-    ('terminado', 'Terminado'),
-    ('cerrado', 'Cerrado')
+    ("pendiente", "Pendiente"),
+    ("pausado", "Pausado"),
+    ("en_proceso", "En Proceso"),
+    ("terminado", "Terminado"),
+    ("cerrado", "Cerrado"),
 )

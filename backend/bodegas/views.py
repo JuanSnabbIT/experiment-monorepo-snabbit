@@ -12,7 +12,7 @@ from django.utils.timezone import now, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from dotenv import load_dotenv
 from empresas.models import Empresa, RelacionEmpresa, UsuarioEmpresa
-from items.models import ItemEmpresa
+from items.models import ItemEmpresa, Categoria
 from items.serializers import ImagenItemSerializer, ItemEmpresaSerializer
 from ordentrabajov2.models import OrdenDeTrabajo, SoporteTecnico
 from recursos.models import Equipo
@@ -1094,6 +1094,76 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = GuiaSalida.objects.all()
     serializer_class = GuiaSalidaSerializer
 
+    def create(self, request, *args, **kwargs):
+        cliente_id = request.data.get("cliente")
+        if not cliente_id:
+            return Response(
+                {"detail": "Debes seleccionar una empresa cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        usuario = obtener_usuario_empresa(request.user)
+        if not usuario or not usuario.sucursal_id:
+            return Response(
+                {"detail": "No tienes una sucursal principal asignada."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            cliente_id = int(cliente_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "El cliente debe ser un ID valido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        empresa_cliente = Empresa.objects.filter(pk=cliente_id).first()
+        if not empresa_cliente:
+            return Response(
+                {"detail": "La empresa cliente seleccionada no existe."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        empresa_prestador = usuario.sucursal.empresa
+        es_cliente = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa_prestador,
+            cliente=empresa_cliente,
+        ).exists()
+        if not es_cliente:
+            return Response(
+                {"detail": "La empresa cliente seleccionada no pertenece a tus clientes."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        entregado_a_id = request.data.get("entregado_a")
+        if entregado_a_id:
+            try:
+                entregado_a_id = int(entregado_a_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "El destinatario debe ser un ID valido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            usuario_entregado = (
+                UsuarioEmpresa.objects.select_related("sucursal__empresa")
+                .filter(pk=entregado_a_id)
+                .first()
+            )
+            if not usuario_entregado:
+                return Response(
+                    {"detail": "El destinatario seleccionado no existe."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if usuario_entregado.sucursal.empresa_id != empresa_cliente.id:
+                return Response(
+                    {"detail": "El destinatario no pertenece al cliente seleccionado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        return super().create(request, *args, **kwargs)
+
     def update(self, request, *args, **kwargs):
         """
         Actualiza la guía. Se eliminó la creación automática de OT para permitir
@@ -1112,6 +1182,11 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
 
         empresa_cliente = guia.entregado_a.sucursal.empresa
         empresa_prestador = usuario.sucursal.empresa
+
+        if guia.cliente_id and guia.cliente_id != empresa_cliente.id:
+            raise ValidationError(
+                "El usuario seleccionado no pertenece al cliente de la guia."
+            )
 
         es_cliente = RelacionEmpresa.objects.filter(
             prestador_servicios=empresa_prestador,
@@ -1218,31 +1293,6 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                         {"detail": "No puedes aprobar una guía sin items."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                if not guia_salida.entregado_a_id and not recibido_por:
-                    return Response(
-                        {
-                            "detail": "Debes definir un destinatario antes de aprobar la guía."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                soporte = SoporteTecnico.objects.filter(guia_salida=guia_salida).first()
-                if soporte:
-                    faltantes = []
-                    if not soporte.tecnico_asignado_id:
-                        faltantes.append("técnico")
-                    if not soporte.fecha_soporte:
-                        faltantes.append("fecha de soporte")
-                    if faltantes:
-                        return Response(
-                            {
-                                "detail": (
-                                    "Faltan datos en el soporte ligado: "
-                                    + ", ".join(faltantes)
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
 
                 # 1) Validar cantidades
                 for item_guia in ItemsGuiaSalida.objects.filter(
@@ -1315,13 +1365,6 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     return Response(
                         {
                             "detail": "La guía no tiene items. Agrega items antes de continuar."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                if not guia_salida.entregado_a_id:
-                    return Response(
-                        {
-                            "detail": "Debes asignar un destinatario antes de comprobar la guía."
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
@@ -1742,12 +1785,20 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
     serializer_class = ItemsGuiaSalidaSerializer
 
     def get_queryset(self):
-        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
-        sucursal = usuario_empresa.sucursal
-        empresa = usuario_empresa.empresa
-        
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=self.request.user
+        ).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return ItemsGuiaSalida.objects.none()
+
+        sucursal = personalizacion.sucursal_principal
+        empresa = sucursal.empresa
+
         guia = self.kwargs.get("guia_salida_bodega_pk")
-        qs = ItemsGuiaSalida.objects.filter(guia__bodega__sucursal=sucursal, guia__bodega__sucursal__empresa=empresa)
+        qs = ItemsGuiaSalida.objects.filter(
+            guia__bodega__sucursal=sucursal,
+            guia__bodega__sucursal__empresa=empresa,
+        )
         if guia:
             return qs.filter(guia_id=guia)
         return qs
@@ -2067,8 +2118,25 @@ class CompraViewSet(viewsets.ModelViewSet):
         if not sucursal:
             raise ValidationError({"sucursal": "No se pudo determinar la sucursal."})
 
+        # Explicitly pass through validated fields to avoid missing assignments
         creado_por = usuario_empresa or serializer.validated_data.get("creado_por")
-        serializer.save(creado_por=creado_por, sucursal=sucursal)
+        fecha_compra = serializer.validated_data.get("fecha_compra")
+        observaciones = serializer.validated_data.get("observaciones")
+        orden_trabajo = serializer.validated_data.get("orden_trabajo")
+
+        save_kwargs = {
+            "creado_por": creado_por,
+            "sucursal": sucursal,
+        }
+
+        if fecha_compra is not None:
+            save_kwargs["fecha_compra"] = fecha_compra
+        if observaciones is not None:
+            save_kwargs["observaciones"] = observaciones
+        if orden_trabajo is not None:
+            save_kwargs["orden_trabajo"] = orden_trabajo
+
+        serializer.save(**save_kwargs)
 
     @action(detail=True, methods=["post"], url_path="completar")
     def completar(self, request, pk=None):
@@ -2222,8 +2290,13 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
     serializer_class = ItemEnCompraSerializer
 
     def get_queryset(self):
-        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
-        sucursal = usuario_empresa.sucursal
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return ItemEnCompra.objects.none()
+        
+        sucursal = personalizacion.sucursal_principal
         
         compra = self.kwargs.get("compras_pk")
         qs = ItemEnCompra.objects.filter(compra__sucursal=sucursal)
@@ -2250,6 +2323,30 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
                     {"error": "No se han proporcionado datos para ItemEmpresa."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            # Normalizar posibles formatos de 'categoria' (string id, dict {value,label}, int)
+            try:
+                if "categoria" in item_empresa_data and item_empresa_data.get("categoria") is not None:
+                    cat_val = item_empresa_data.get("categoria")
+                    # Si viene como objeto {value,label}
+                    if isinstance(cat_val, dict):
+                        cat_val = cat_val.get("value") or cat_val.get("id")
+                    # Si viene como string numérica
+                    if isinstance(cat_val, str) and cat_val.isdigit():
+                        cat_val = int(cat_val)
+
+                    if cat_val:
+                        try:
+                            cat_obj = Categoria.objects.get(pk=cat_val)
+                            item_empresa_data["categoria"] = cat_obj.pk
+                        except Categoria.DoesNotExist:
+                            # No existe la categoria indicada; dejar en None para evitar error
+                            item_empresa_data["categoria"] = None
+                    else:
+                        item_empresa_data["categoria"] = None
+            except Exception:
+                # Si algo falla en la normalización, no interrumpimos la creación
+                item_empresa_data["categoria"] = None
 
             # Crear el ItemEmpresa a partir de sus datos
             item_empresa_serializer = ItemEmpresaSerializer(data=item_empresa_data)
@@ -2500,11 +2597,14 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Retorna vouchers de devolución filtrados por empresa/sucursal del usuario."""
-        usuario_empresa = PersonalizacionUsuario.objects.get(usuario=self.request.user)
-        sucursal = usuario_empresa.sucursal
-        empresa = usuario_empresa.empresa
-        
-        qs = self.queryset.filter(orden_trabajo__sucursal=sucursal, orden_trabajo__sucursal__empresa=empresa)
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=self.request.user
+        ).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return self.queryset.none()
+
+        empresa = personalizacion.sucursal_principal.empresa
+        qs = self.queryset.filter(orden_trabajo__empresa=empresa)
         try:
             sample = list(qs.values_list('id', flat=True)[:5])
             print(f"[DEBUG] vouchers queryset count={qs.count()} sample_ids={sample}")

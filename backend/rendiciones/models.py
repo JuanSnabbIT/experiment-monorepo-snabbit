@@ -22,33 +22,117 @@ class Rendicion(ModeloBase):
         null=True, blank=True, verbose_name="Observaciones"
     )
     estado = models.CharField(max_length=2, choices=ESTADOS_RENDICIONES, default="0")
+    
+    # BLOQUE 6 - Fase 2: Política de viáticos y relación con cliente
+    cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="Cliente",
+        help_text="Cliente al que pertenece esta rendición"
+    )
+    
+    politica_viaticos = models.CharField(
+        max_length=1,
+        choices=[
+            ('I', 'Incluidos (empresa asume)'),
+            ('F', 'Facturables al cliente'),
+        ],
+        null=True,
+        blank=True,
+        help_text="Deja vacío para usar política del cliente. Cambia solo si esta rendición es una excepción.",
+        verbose_name="Política de viáticos (override)"
+    )
+    
+    # BLOQUE 6 - Fase 6: Relación con OT (creación automática)
+    orden_trabajo = models.OneToOneField(
+        "ordentrabajov2.OrdenDeTrabajo",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rendicion_asociada",
+        verbose_name="Orden de Trabajo",
+        help_text="OT que generó automáticamente esta rendición al completarse"
+    )
 
     def __str__(self):
         return f"Rendición del {self.fecha_rendicion}"
+    
+    @property
+    def politica_viaticos_efectiva(self):
+        """Retorna la política efectiva (override o default del cliente)"""
+        if self.politica_viaticos:
+            return self.politica_viaticos
+        if self.cliente and hasattr(self.cliente, 'politica_viaticos_default'):
+            return self.cliente.politica_viaticos_default
+        return 'I'  # Por defecto incluidos
 
     @property
-    def total_rendicion(self):
+    def total_reembolso_tecnico(self):
+        """Total a reembolsar al técnico (todo lo que gastó)"""
         total = 0
         for item in self.items.all():
             det = item.detalle
-            # Si el objeto referenciado ya no existe, lo ignoramos
             if det is None:
                 continue
-
+            
             ct = item.content_type
-            # Gasto interno
+            
+            # Gastos operativos (RendicionEnOt o DetalleGastoRendicion)
             if ct.app_label == "rendiciones" and ct.model == "detallegastorendicion":
                 total += det.monto_total
-            # Gasto OT V2
             elif ct.app_label == "ordentrabajov2" and ct.model == "rendicionenot":
                 total += det.monto_total
-            # Compra
+            
+            # Compras (si técnico pagó de su bolsillo)
             elif ct.app_label == "bodegas" and ct.model == "compra":
                 total += sum(
-                    line.cantidad * line.precio for line in det.itemencompra_set.all()
+                    line.cantidad * line.precio 
+                    for line in det.itemencompra_set.all()
                 )
-
+        
         return total
+    
+    @property
+    def total_facturable_cliente(self):
+        """Total a facturar al cliente según política"""
+        total = 0
+        politica = self.politica_viaticos_efectiva
+        
+        for item in self.items.all():
+            det = item.detalle
+            if det is None:
+                continue
+            
+            ct = item.content_type
+            
+            # Gastos operativos: dependen de política
+            if ct.app_label == "rendiciones" and ct.model == "detallegastorendicion":
+                if politica == 'F':
+                    total += det.monto_total
+            elif ct.app_label == "ordentrabajov2" and ct.model == "rendicionenot":
+                if politica == 'F':
+                    total += det.monto_total
+            
+            # Compras: SIEMPRE facturables
+            elif ct.app_label == "bodegas" and ct.model == "compra":
+                total += sum(
+                    line.cantidad * line.precio 
+                    for line in det.itemencompra_set.all()
+                )
+        
+        return total
+    
+    @property
+    def total_no_facturable(self):
+        """Gastos operativos que empresa asume (no se cobran al cliente)"""
+        return self.total_reembolso_tecnico - self.total_facturable_cliente
+
+    @property
+    def total_rendicion(self):
+        """Mantener compatibilidad: retorna total reembolso"""
+        return self.total_reembolso_tecnico
 
     class Meta:
         verbose_name = "Rendicion"
@@ -112,4 +196,9 @@ class ItemRendicion(ModeloBase):
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"Item {self.detalle.detalle} - Rendicion N°{self.rendicion.pk}"
+        # Handle None detalle (cuando se intenta eliminar y hay referencias rotas)
+        if self.detalle is None:
+            return f"Item #{self.detalle_id} (referencia rota) - Rendicion N°{self.rendicion.pk}"
+        
+        detalle_str = getattr(self.detalle, 'detalle', str(self.detalle))
+        return f"Item {detalle_str} - Rendicion N°{self.rendicion.pk}"

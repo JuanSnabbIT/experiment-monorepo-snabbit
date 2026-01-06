@@ -18,7 +18,20 @@ export interface IRendicion {
     observaciones: string
     estado: string
     usuario: number
-    total: number
+        total: number  // Legacy: mantener compatibilidad
+    
+        // BLOQUE 6 - FASE 2/3: Política de viáticos
+        cliente: number | null
+        politica_viaticos: 'I' | 'F' | null
+        politica_viaticos_efectiva: 'I' | 'F'
+    
+        // BLOQUE 6 - FASE 2/3: Totales calculados
+        total_reembolso_tecnico: number
+        total_facturable_cliente: number
+        total_no_facturable: number
+    
+        // BLOQUE 6 - FASE 6: Relación con OT
+        orden_trabajo: number | null
 }
 
 // export interface IDetalleGasto {

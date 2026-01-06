@@ -24,7 +24,12 @@ from .functions import (
     generar_pdf_cotizacion,
     generar_pdf_cotizacion_desde_model,
 )
-from .models import Cotizacion, ItemCotizacion, SeguimientoCotizacion, SolicitanteCotizacion
+from .models import (
+    Cotizacion,
+    ItemCotizacion,
+    SeguimientoCotizacion,
+    SolicitanteCotizacion,
+)
 from .serializers import *
 
 
@@ -102,8 +107,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 {"detail": "Personalización del usuario no encontrada."}, status=404
             )
 
-        cotizaciones = self.queryset.filter(empresa=empresa).order_by("-numero_cotizacion")
-        cliente_ids = [value for value in request.query_params.getlist("cliente") if value]
+        cotizaciones = self.queryset.filter(empresa=empresa).order_by(
+            "-numero_cotizacion"
+        )
+        cliente_ids = [
+            value for value in request.query_params.getlist("cliente") if value
+        ]
         estados = [value for value in request.query_params.getlist("estado") if value]
 
         if cliente_ids:
@@ -182,7 +191,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="copias")
     def copias(self, request, pk=None):
         cotizacion = self.get_object()
-        copias = self.queryset.filter(copia_de=cotizacion).order_by("-numero_cotizacion")
+        copias = self.queryset.filter(copia_de=cotizacion).order_by(
+            "-numero_cotizacion"
+        )
         serializer = self.get_serializer(copias, many=True)
         return Response(serializer.data)
 

@@ -8,7 +8,7 @@ import Container from '@/components/layouts/Container/Container'
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
 import Icon from '@/components/icon/Icon'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { IItemRendicion } from '@/interface/rendicion.interface'
 import Input from '@/components/form/Input'
 import Button from '@/components/ui/Button'
@@ -31,6 +31,7 @@ const columnHelper = createColumnHelper<IItemRendicion>()
 
 const DetalleRendicion = () => {
     const dispatch = useAppDispatch()
+    const navigate = useNavigate()
     const { id } = useParams()
     const { detalleRendicion, listaItemsRendicion } = useAppSelector((state) => state.rendicion)
     const [sorting, setSorting] = useState<SortingState>([])
@@ -139,7 +140,19 @@ const DetalleRendicion = () => {
         columnHelper.display({
             id: "acciones",
             cell: (info) => (
-                <div>
+                <div className="flex gap-2 justify-end">
+                    {/* Ver Compra - solo si es de tipo Compra */}
+                    {"codigo" in info.row.original.detalle_data && (
+                        <Tooltip text="Ver Compra">
+                            <Button 
+                                variant="solid" 
+                                color="violet"
+                                icon="HeroEye"
+                                onClick={() => navigate(`/compras/detalle-compra/${info.row.original.detalle_data.id}`)}
+                            />
+                        </Tooltip>
+                    )}
+                    {/* Eliminar */}
                     <ModalEliminar 
                         mensaje={`Estas seguro que deseas eliminar el item ¿desea continuar?`} 
                         peticionUrl={`/api/rendiciones/${detalleRendicion?.id}/items-rendicion/${info.row.original.id}/`} 
@@ -184,7 +197,19 @@ const DetalleRendicion = () => {
                     <Badge className="text-xl">Detalle Rendición</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <CambiarEstadoRendicion />
+                    <div className="flex gap-2">
+                        {detalleRendicion?.orden_trabajo && (
+                            <Tooltip text="Ver Orden de Trabajo">
+                                <Button 
+                                    variant="solid" 
+                                    color="violet"
+                                    icon="HeroEye"
+                                    onClick={() => navigate(`/orden-trabajo/detalle-orden-trabajo/${detalleRendicion.orden_trabajo}`)}
+                                />
+                            </Tooltip>
+                        )}
+                        <CambiarEstadoRendicion />
+                    </div>
                 </SubheaderRight>
             </Subheader>
             <Container className="w-full h-full">
@@ -299,18 +324,49 @@ const DetalleRendicion = () => {
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
-                                <Badge className="text-xl">Total</Badge>
+                                    <Badge className="text-xl">Totales y Política</Badge>
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
-                            <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div>
                                     <Badge>Estado</Badge>
                                     <div className="ml-4">{detalleRendicion?.estado_label}</div>
                                 </div>
                                 <div>
-                                    <Badge>Total de Rendicion</Badge>
-                                    <div className="ml-4">$ {detalleRendicion?.total.toLocaleString() || 0}</div>
+                                        <Badge>Política de Viáticos</Badge>
+                                        <div className="ml-4">
+                                            {detalleRendicion?.politica_viaticos_efectiva === 'I' ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-sm font-medium">
+                                                    Incluidos (empresa asume)
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-800 text-sm font-medium">
+                                                    Facturables al cliente
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Badge color="blue">Total Reembolso Técnico</Badge>
+                                        <div className="ml-4 font-semibold text-blue-600">
+                                            $ {detalleRendicion?.total_reembolso_tecnico?.toLocaleString('es-CL') || 0}
+                                        </div>
+                                        <div className="ml-4 text-xs text-gray-500">Todo lo que gastó el técnico</div>
+                                    </div>
+                                    <div>
+                                        <Badge color="green">Total Facturable Cliente</Badge>
+                                        <div className="ml-4 font-semibold text-green-600">
+                                            $ {detalleRendicion?.total_facturable_cliente?.toLocaleString('es-CL') || 0}
+                                        </div>
+                                        <div className="ml-4 text-xs text-gray-500">Se cobra en factura</div>
+                                    </div>
+                                    <div>
+                                        <Badge color="amber">Total No Facturable</Badge>
+                                        <div className="ml-4 font-semibold text-amber-600">
+                                            $ {detalleRendicion?.total_no_facturable?.toLocaleString('es-CL') || 0}
+                                        </div>
+                                        <div className="ml-4 text-xs text-gray-500">Empresa asume (viáticos incluidos)</div>
                                 </div>
                             </div>
                         </CardBody>

@@ -17,6 +17,7 @@ import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoM
 import Collapse from '@/components/utils/Collapse';
 import ApiService from '@/services/ApiService';
 import { confirmAlert } from '@/utils/sweetAlert';
+import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 import {
     actualizarSoporteTecnicoThunk,
     checkCompletibilidadOTThunk,
@@ -46,7 +47,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
+import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
+import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 
 function ListaSoportesTecnicosOT() {
 	const dispatch = useAppDispatch();
@@ -76,10 +79,14 @@ function ListaSoportesTecnicosOT() {
 	const [cargandoSeguimientos, setCargandoSeguimientos] = useState<boolean>(false);
 	const [isOpenSeguimiento, setIsOpenSeguimiento] = useState<boolean>(false);
 	const [comentarioSeguimiento, setComentarioSeguimiento] = useState<string>('');
-	const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario');
+	const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario_tecnico');
 	// Para gestión de usuarios asignados
 	const [isOpenUsuarios, setIsOpenUsuarios] = useState<boolean>(false);
 	const [soporteIdUsuarios, setSoporteIdUsuarios] = useState<number | null>(null);
+	const [isOpenEntregaGuia, setIsOpenEntregaGuia] = useState<boolean>(false);
+	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
+	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
+	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<"E" | "PR">("E");
 
 	const requisitosGlobalesOk = useMemo(() => {
 		if (!listaSoportesTecnicos || listaSoportesTecnicos.length === 0) return false;
@@ -123,6 +130,79 @@ function ListaSoportesTecnicosOT() {
 		dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
 		dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
 		dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
+	};
+
+	const abrirModalEntregaGuia = (guia: any, estadoTrabajo: string) => {
+		if (!guia?.id) return;
+		setGuiaEntregaId(guia.id);
+		setClienteEntregaId(guia.cliente ?? null);
+		setEstadoEntregaGuia(estadoTrabajo === 'completado' ? 'E' : 'PR');
+		setIsOpenEntregaGuia(true);
+	};
+
+	const guardarCambioEstado = async (payload: any, requiresComment: boolean) => {
+		if (!detalleOrdenTrabajo || !selectedService) return;
+		try {
+			const resp = await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
+				method: 'patch',
+				headers: { 'Content-Type': 'application/json' },
+				data: JSON.stringify(payload),
+			});
+			if (resp.data) {
+				if (requiresComment && comentario && comentario.trim()) {
+					try {
+						await ApiService.fetchData({
+							url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
+							method: 'post',
+							headers: { 'Content-Type': 'application/json' },
+							data: JSON.stringify({
+								comentario,
+								tipo: 'incidencia',
+								usuario: null,
+								soporte_tecnico: selectedService.id,
+							}),
+						});
+						fetchSeguimientosServicio(selectedService.id);
+					} catch (e) {
+						// ignore seguimiento error
+					}
+				}
+				toast.success('Estado cambiado', { autoClose: 1000 });
+				dispatch(
+					listaSoportesTecnicosThunk({
+						id_orden: detalleOrdenTrabajo.id,
+					}),
+				);
+				dispatch(
+					checkCompletibilidadOTThunk({
+						id_orden: detalleOrdenTrabajo.id,
+					}),
+				);
+				setIsOpenEstado(false);
+				setEstadoNuevo(undefined);
+				setComentario(undefined);
+				setSelectedService(null);
+				setTecnicoSeleccionado(undefined);
+				setFechaEnModal(undefined);
+
+				if (
+					estadoNuevo === 'en_proceso' &&
+					detalleOrdenTrabajo.estado === 'pendiente'
+				) {
+					dispatch(
+						detalleOrdenTrabajoThunk({
+							id_ordenTrabajo: detalleOrdenTrabajo.id,
+						}),
+					);
+				}
+			}
+		} catch (e: any) {
+			const msg = Object.values(e?.response?.data || {})
+				.flat()
+				.join(' ');
+			toast.error(msg || 'Error al cambiar el estado');
+		}
 	};
 
 	useEffect(() => {
@@ -325,6 +405,22 @@ function ListaSoportesTecnicosOT() {
 									? 'HeroXMark'
 									: undefined;
 
+				// Si está en proceso, mostrar dropdown con estados finales
+				if (isEnProceso) {
+					return (
+						<DropdownEstadoTrabajo
+							onSelectEstado={(estado) => {
+								setSelectedService(info.row.original);
+								setEstadoNuevo(estado);
+								setIsOpenEstado(true);
+							}}
+							disabled={!canStart}
+							tooltipText={tooltipText}
+						/>
+					);
+				}
+
+				// Para pendiente y estados finales, mostrar botón simple
 				return (
 					<Tooltip text={tooltipText}>
 						<div className={!canStart ? 'inline-block' : ''}>
@@ -935,14 +1031,10 @@ function ListaSoportesTecnicosOT() {
 							<Badge>Tipo</Badge>
 							<SelectReact
 								name='tipoSeguimiento'
-								options={[
-									{ value: 'actualizacion', label: 'Actualización' },
-									{ value: 'comentario', label: 'Comentario' },
-									{ value: 'incidencia', label: 'Incidencia' },
-								]}
-								value={{ value: tipoSeguimiento, label: tipoSeguimiento }}
+								options={TIPO_SEGUIMIENTO.map(t => ({ value: t.value, label: t.label }))}
+								value={{ value: tipoSeguimiento, label: TIPO_SEGUIMIENTO.find(t => t.value === tipoSeguimiento)?.label || tipoSeguimiento }}
 								onChange={(e: any) =>
-									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario')
+									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario_tecnico')
 								}
 							/>
 						</div>
@@ -968,7 +1060,7 @@ function ListaSoportesTecnicosOT() {
 							}}>
 							Cancelar
 						</Button>
-						<Button variant='solid' onClick={crearSeguimientoManual}>
+						<Button variant='solid' onClick=_tecnico{crearSeguimientoManual}>
 							Guardar
 						</Button>
 					</ModalFooterChild>
@@ -1217,6 +1309,14 @@ function ListaSoportesTecnicosOT() {
 									);
 									return;
 								}
+								const requiereFirmaGuia =
+									(estadoNuevo === 'completado' ||
+										estadoNuevo === 'medianamente_completado') &&
+									!!selectedService.guia_salida;
+								if (requiereFirmaGuia) {
+									abrirModalEntregaGuia(selectedService.guia_salida, estadoNuevo);
+									return;
+								}
 
 								const requiresTecnico =
 									estadoNuevo === 'en_proceso' &&
@@ -1261,68 +1361,7 @@ function ListaSoportesTecnicosOT() {
 									}
 								}
 
-								try {
-									const resp = await ApiService.fetchData({
-										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
-										method: 'patch',
-										headers: { 'Content-Type': 'application/json' },
-										data: JSON.stringify(payload),
-									});
-									if (resp.data) {
-										if (requiresComment && comentario && comentario.trim()) {
-											try {
-												await ApiService.fetchData({
-													url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
-													method: 'post',
-													headers: { 'Content-Type': 'application/json' },
-													data: JSON.stringify({
-														comentario,
-														tipo: 'incidencia',
-														usuario: null,
-														soporte_tecnico: selectedService.id,
-													}),
-												});
-												fetchSeguimientosServicio(selectedService.id);
-											} catch (e) {
-												// ignore seguimiento error
-											}
-										}
-										toast.success('Estado cambiado', { autoClose: 1000 });
-										dispatch(
-											listaSoportesTecnicosThunk({
-												id_orden: detalleOrdenTrabajo.id,
-											}),
-										);
-										dispatch(
-											checkCompletibilidadOTThunk({
-												id_orden: detalleOrdenTrabajo.id,
-											}),
-										);
-										setIsOpenEstado(false);
-										setEstadoNuevo(undefined);
-										setComentario(undefined);
-										setSelectedService(null);
-										setTecnicoSeleccionado(undefined);
-										setFechaEnModal(undefined);
-
-										// Refresh OT details if we auto-started it
-										if (
-											estadoNuevo === 'en_proceso' &&
-											detalleOrdenTrabajo.estado === 'pendiente'
-										) {
-											dispatch(
-												detalleOrdenTrabajoThunk({
-													id_ordenTrabajo: detalleOrdenTrabajo.id,
-												}),
-											);
-										}
-									}
-								} catch (e: any) {
-									const msg = Object.values(e?.response?.data || {})
-										.flat()
-										.join(' ');
-									toast.error(msg || 'Error al cambiar el estado');
-								}
+								await guardarCambioEstado(payload, requiresComment);
 							}}>
 							Guardar
 						</Button>

@@ -41,8 +41,6 @@ def validar_guia_para_trabajo(
     """
     if not guia.itemsguiasalida_set.exists():
         return "La guía no tiene items."
-    if not guia.entregado_a_id:
-        return "La guía no tiene destinatario asignado."
     if guia.estado not in ("ER", "FR"):
         return "La guía debe estar en 'Espera Firma Recibido' o 'Firmada' para asociarla."
     # Reverse one-to-one relations on GuiaSalida are available as objects
@@ -115,7 +113,28 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         nuevo_estado = request.data.get("estado")
         if not nuevo_estado:
             return Response({"detail": 'Debe indicar "estado"'}, status=400)
+        
+        # Validar transiciones de estado permitidas
         estado_anterior = orden.estado
+        transiciones_validas = {
+            "pendiente": ["en_proceso", "cancelada"],
+            "en_proceso": ["completada", "cancelada"],
+            "completada": ["cerrada"],
+            "cerrada": ["facturada"],
+            "facturada": [],  # Estado final
+            "cancelada": [],  # Estado final
+        }
+        
+        estados_permitidos = transiciones_validas.get(estado_anterior, [])
+        if nuevo_estado not in estados_permitidos:
+            return Response(
+                {
+                    "detail": f"No se puede cambiar de '{estado_anterior}' a '{nuevo_estado}'. "
+                             f"Estados permitidos: {', '.join(estados_permitidos) if estados_permitidos else 'ninguno (estado final)'}"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
         orden.estado = nuevo_estado
         orden.save()
         if estado_anterior != orden.estado and orden.estado == "completada":
@@ -158,9 +177,59 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         se_puede_completar = len(razones) == 0
         return Response({"se_puede_completar": se_puede_completar, "razones": razones})
 
+    @action(detail=True, methods=["get"], url_path="history")
+    def history(self, request, pk=None):
+        """
+        Retorna un historial simple para compatibilidad con la UI legacy.
+        """
+        orden = self.get_object()
+        historial = (
+            HistorialCambiosOrden.objects.filter(orden=orden)
+            .select_related("usuario__usuario")
+            .order_by("-fecha_cambio", "-fecha_creacion")
+        )
+        data = []
+        for registro in historial:
+            usuario_nombre = None
+            usuario_empresa = registro.usuario
+            if usuario_empresa and getattr(usuario_empresa, "usuario", None):
+                user = usuario_empresa.usuario
+                if hasattr(user, "get_nombre_completo"):
+                    usuario_nombre = user.get_nombre_completo()
+                else:
+                    usuario_nombre = str(user)
+            elif usuario_empresa:
+                usuario_nombre = str(usuario_empresa)
+            elif request.user and request.user.is_authenticated:
+                user = request.user
+                if hasattr(user, "get_nombre_completo"):
+                    usuario_nombre = user.get_nombre_completo()
+                else:
+                    nombre = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+                    usuario_nombre = nombre or getattr(user, "username", None) or str(user)
+
+            fecha = registro.fecha_cambio or registro.fecha_creacion
+            data.append(
+                {
+                    "id": registro.id,
+                    "history_date": fecha.isoformat() if fecha else None,
+                    "history_user": usuario_nombre or "Desconocido",
+                    "model": "OrdenDeTrabajo",
+                    "detalle_cambio": registro.comentario or "Actualizacion de datos de OT",
+                    "valor_anterior": registro.estado_anterior,
+                    "valor_nuevo": registro.estado_actual,
+                    "accion": "Orden de Trabajo Modificado",
+                    "accion_tipo": "Modificado",
+                    "accion_modelo": "Orden de Trabajo",
+                }
+            )
+        return Response(data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["get"], url_path="guias-disponibles")
     def guias_disponibles(self, request, pk=None):
         orden = self.get_object()
+        if not orden.cliente_id:
+            return Response([], status=200)
 
         # Guías ya asociadas a servicios o soportes
         guias_servicios = ServicioEnOT.objects.exclude(guia_salida__isnull=True).values_list(
@@ -173,7 +242,10 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
         # Estados válidos para asociar (permitir en espera de firma, firmada, en tránsito, entregada, terminada)
         allowed_states = ["ER", "FR", "ET", "E", "T"]
-        guias_estado = GuiaSalida.objects.filter(estado__in=allowed_states)
+        guias_estado = GuiaSalida.objects.filter(
+            estado__in=allowed_states,
+            cliente_id=orden.cliente_id,
+        )
 
         # Excluir guías ya usadas o asociadas a otra orden
         guias_disponibles = guias_estado.exclude(pk__in=guias_usadas_ids).exclude(
@@ -223,30 +295,74 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
     @staticmethod
     def _sincronizar_relaciones_completada(orden: OrdenDeTrabajo) -> None:
-        guia_ids = set(orden.guias_salida.values_list("id", flat=True))
-        guia_ids.update(
-            ServicioEnOT.objects.filter(
-                orden=orden, guia_salida__isnull=False
-            ).values_list("guia_salida_id", flat=True)
-        )
-        guia_ids.update(
-            SoporteTecnico.objects.filter(
-                orden=orden, guia_salida__isnull=False
-            ).values_list("guia_salida_id", flat=True)
-        )
-
-        if guia_ids:
-            for guia in GuiaSalida.objects.filter(id__in=guia_ids):
-                nuevo_estado = calcular_estado_guia_por_devoluciones(guia)
-                if nuevo_estado and guia.estado != nuevo_estado:
-                    guia.estado = nuevo_estado
-                    guia.save(update_fields=["estado"])
-
+        """Sincroniza compras y crea Rendición automática al completar OT."""
+        from django.db import transaction
+        from django.utils import timezone
+        from rendiciones.models import Rendicion, ItemRendicion
+        from django.contrib.contenttypes.models import ContentType
+        
+        # 1. Sincronizar estado de compras (lógica original)
         compras = orden.compras_rapidas.filter(estado="-")
         for compra in compras:
             if compra.itemencompra_set.exists():
                 compra.estado = "P"
                 compra.save(update_fields=["estado"])
+        
+        # 2. Crear Rendición automática (BLOQUE 6 - FASE 6)
+        # Verificar si ya existe rendición para esta OT (idempotencia)
+        if hasattr(orden, 'rendicion_asociada') and orden.rendicion_asociada:
+            return  # Ya tiene rendición, no duplicar
+        
+        # Recolectar gastos y compras
+        gastos_ot = orden.rendicionenot_set.all()
+        compras_con_items = orden.compras_rapidas.filter(
+            itemencompra__isnull=False
+        ).distinct()
+        
+        # Solo crear rendición si hay gastos o compras
+        if not gastos_ot.exists() and not compras_con_items.exists():
+            return
+        
+        # Determinar usuario: técnico responsable o cliente solicitante
+        usuario_rendicion = orden.tecnico_responsable_ot or orden.cliente_solicitante
+        if not usuario_rendicion:
+            # Si no hay usuario asignado, no crear rendición automática
+            return
+        
+        # Crear rendición dentro de transacción atómica
+        with transaction.atomic():
+            rendicion = Rendicion.objects.create(
+                usuario=usuario_rendicion,
+                fecha_rendicion=timezone.now().date(),
+                estado="1",  # En Espera de Aprobación
+                cliente=orden.cliente,
+                observaciones=f"Rendición generada automáticamente desde OT #{orden.id}",
+                orden_trabajo=orden
+            )
+            
+            # Content types para ItemRendicion
+            ct_rendicion_ot = ContentType.objects.get(
+                app_label="ordentrabajov2", model="rendicionenot"
+            )
+            ct_compra = ContentType.objects.get(
+                app_label="bodegas", model="compra"
+            )
+            
+            # Crear ItemRendicion para cada gasto operativo
+            for gasto in gastos_ot:
+                ItemRendicion.objects.create(
+                    rendicion=rendicion,
+                    content_type=ct_rendicion_ot,
+                    detalle_id=gasto.id
+                )
+            
+            # Crear ItemRendicion para cada compra
+            for compra in compras_con_items:
+                ItemRendicion.objects.create(
+                    rendicion=rendicion,
+                    content_type=ct_compra,
+                    detalle_id=compra.id
+                )
 
     def _build_cambios_detalle(self, instance, original: dict) -> dict | None:
         """
@@ -315,21 +431,27 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
     @action(detail=True, methods=["get"], url_path="insumos")
     def insumos_en_ot(self, request, pk=None):
         """
-        Devuelve una lista combinada de Servicios y Soportes que ya tienen `guia_salida` asociada.
-        Frontend usa `?solo_con_guia=true` para filtrar; aquí siempre devolvemos solo los que tienen guía.
+        Devuelve una lista combinada de Servicios y Soportes con guia asociada.
+        Usa ?solo_pr=true para filtrar solo guias en estado parcialmente revertida (PR).
         """
         orden = self.get_object()
+        solo_pr = request.query_params.get("solo_pr")
+        filtrar_pr = str(solo_pr).lower() in ("1", "true", "yes")
 
-        servicios = (
-            ServicioEnOT.objects.filter(orden=orden, guia_salida__isnull=False)
-            .select_related("guia_salida")
-            .all()
+        servicios = ServicioEnOT.objects.filter(
+            orden=orden,
+            guia_salida__isnull=False,
         )
-        soportes = (
-            SoporteTecnico.objects.filter(orden=orden, guia_salida__isnull=False)
-            .select_related("guia_salida")
-            .all()
+        soportes = SoporteTecnico.objects.filter(
+            orden=orden,
+            guia_salida__isnull=False,
         )
+        if filtrar_pr:
+            servicios = servicios.filter(guia_salida__estado="PR")
+            soportes = soportes.filter(guia_salida__estado="PR")
+
+        servicios = servicios.select_related("guia_salida").all()
+        soportes = soportes.select_related("guia_salida").all()
 
         out = []
         for s in servicios:
@@ -389,6 +511,7 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
         partial = kwargs.pop("partial", False)
         instance: SoporteTecnico = self.get_object()
         nuevo_estado = request.data.get("estado", instance.estado)
+        final_states = ("completado", "medianamente_completado")
 
         if nuevo_estado == "en_proceso":
             if not instance.tecnico_asignado_id and not request.data.get(
@@ -413,6 +536,50 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        if nuevo_estado in final_states and instance.guia_salida_id:
+            guia = instance.guia_salida
+            estado_esperado = "E" if nuevo_estado == "completado" else "PR"
+            if not guia.entregado_a_id or not guia.firma_entrega:
+                return Response(
+                    {
+                        "detail": (
+                            "Debes registrar destinatario y firma en la guia antes de completar el soporte."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if guia.estado != estado_esperado:
+                return Response(
+                    {
+                        "detail": (
+                            "La guia debe estar en el estado correcto segun el trabajo completado."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if nuevo_estado in final_states and instance.guia_salida_id:
+            guia = instance.guia_salida
+            estado_esperado = "E" if nuevo_estado == "completado" else "PR"
+            if not guia.entregado_a_id or not guia.firma_entrega:
+                return Response(
+                    {
+                        "detail": (
+                            "Debes registrar destinatario y firma en la guia antes de completar el servicio."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if guia.estado != estado_esperado:
+                return Response(
+                    {
+                        "detail": (
+                            "La guia debe estar en el estado correcto segun el trabajo completado."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         resp = super().update(request, *args, partial=partial, **kwargs)
         if (
@@ -581,6 +748,7 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
         partial = kwargs.pop("partial", False)
         instance: ServicioEnOT = self.get_object()
         nuevo_estado = request.data.get("estado", instance.estado)
+        final_states = ("completado", "medianamente_completado")
 
         if nuevo_estado == "en_proceso":
             if not instance.tecnico_asignado_id and not request.data.get(

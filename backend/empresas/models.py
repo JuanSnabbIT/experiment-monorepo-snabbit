@@ -19,6 +19,18 @@ class Empresa(ModeloBase):
     telefono = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
+    
+    # BLOQUE 6 - Fase 2: Política de viáticos
+    politica_viaticos_default = models.CharField(
+        max_length=1,
+        choices=[
+            ('I', 'Incluidos (empresa asume)'),
+            ('F', 'Facturables al cliente'),
+        ],
+        default='I',
+        help_text="Define si los viáticos (transporte, comida, hospedaje) se cobran a este cliente por defecto",
+        verbose_name="Política de viáticos"
+    )
 
     class Meta:
         verbose_name = "Empresa"

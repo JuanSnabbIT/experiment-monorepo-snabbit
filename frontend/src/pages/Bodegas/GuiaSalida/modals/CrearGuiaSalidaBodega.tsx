@@ -12,7 +12,7 @@ import Tooltip from "@/components/ui/Tooltip"
 import { IGuiaSalida } from "@/interface/bodega.interface"
 import { IUsuarioEmpresa } from "@/interface/empresas.interface"
 import ApiService from "@/services/ApiService"
-import { listaBodegasThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store"
+import { listaBodegasThunk, listaGuiaSalidaPorBodegaThunk, listaMisClientesThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, SortingState, createColumnHelper, flexRender } from "@tanstack/react-table"
 import { useFormik } from "formik"
@@ -28,7 +28,7 @@ function CrearGuiaSalidaBodega() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { personalizacionUsuario, userMe } = useAppSelector((state) => state.auth)
-    const { usuarioEmpresaLogeado, listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa)
+    const { usuarioEmpresaLogeado, listaUsuariosTodaLaEmpresa, listaMisClientes } = useAppSelector((state) => state.empresa)
     const { listaBodegas } = useAppSelector((state) => state.bodega)
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [optBodegas, setOptBodegas] = useState<{value: string, label: string}[]>([])
@@ -40,6 +40,7 @@ function CrearGuiaSalidaBodega() {
     useEffect(() => {
         if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
             dispatch(listaBodegasThunk())
+            dispatch(listaMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
             dispatch(listaUsuariosTodaLaEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
             dispatch(usuarioEmpresaLogeadoThunk({id_usuario: userMe?.pk}))
         }
@@ -60,10 +61,12 @@ function CrearGuiaSalidaBodega() {
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
+            cliente: "",
             bodega: "",
             motivo: "",
         },
         validationSchema: Yup.object().shape({
+            cliente: Yup.string().required("Requerido").nonNullable("Requerido"),
             bodega: Yup.string().required("Requerido").nonNullable("Requerido"),
             motivo: Yup.string().nonNullable("No puede ser nulo").notRequired(),
         }),
@@ -156,6 +159,24 @@ function CrearGuiaSalidaBodega() {
                 <ModalBody>
                     <div className="flex flex-col gap-4">
                         <div className="w-full">
+                            <Badge>Cliente</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.cliente}
+                                invalidFeedback={formik.errors.cliente}
+                            >
+                                <SelectReact
+                                    name="cliente"
+                                    options={listaMisClientes.map(cliente => ({ value: cliente.info_cliente.id.toString(), label: cliente.info_cliente.nombre }))}
+                                    placeholder="Seleccione un Cliente"
+                                    value={listaMisClientes.map(cliente => ({ value: cliente.info_cliente.id.toString(), label: cliente.info_cliente.nombre })).find(option => option.value === formik.values.cliente)}
+                                    noOptionsMessage={(e) => `No existe ${e.inputValue}`}
+                                    onBlur={formik.handleBlur}
+                                    onChange={(e) => {formik.setFieldValue('cliente', (e as TSelectOption).value)}}
+                                />
+                            </Validation>
+                        </div>
+                        <div className="w-full">
                             <Badge>Bodega</Badge>
                             <Validation
                                 isValid={formik.isValid}
@@ -189,7 +210,8 @@ function CrearGuiaSalidaBodega() {
                             </Validation>
                         </div>
                         <div className="w-full">
-                            <div className="mb-2 justify-end flex">
+                            <div className="mb-2 flex items-center justify-between gap-4">
+                                <Badge>Recibido Por</Badge>
                                 <Input
                                     className="max-w-[200px]"
                                     name="globalFilter"

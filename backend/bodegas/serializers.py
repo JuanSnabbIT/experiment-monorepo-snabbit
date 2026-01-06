@@ -258,6 +258,7 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     nombre_creado_por = serializers.SerializerMethodField()
     nombre_recibido_por = serializers.SerializerMethodField()
+    cliente_nombre = serializers.SerializerMethodField()
     soporte_tecnico = serializers.SerializerMethodField()
 
     class Meta:
@@ -280,6 +281,11 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
             return obj.recibido_por.usuario.get_nombre_completo()
         else:
             "Sin Recibido Por"
+
+    def get_cliente_nombre(self, obj):
+        if obj.cliente:
+            return obj.cliente.nombre
+        return "Sin Cliente"
 
     def get_soporte_tecnico(self, obj):
         """

@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 from .views import (ArchivoCompraViewSet, BodegaViewSet, CompraViewSet, EstadoTomaInventarioViewSet, ImagenDeItemEnTomaInventarioViewSet, ItemEnCompraViewSet, ItemEnTomaInventarioViewSet, ItemsGuiaSalidaViewSet, GuiaSalidaViewSet, MovimientoStockViewSet, TomaInventarioViewSet, 
-                        OrdenCompraViewSet, ItemEnOrdenCompraViewSet, StockItemEnBodegaViewSet, ItemOrdenCompraEnStockViewSet)
+                        OrdenCompraViewSet, ItemEnOrdenCompraViewSet, StockItemEnBodegaViewSet, ItemOrdenCompraEnStockViewSet, VoucherDevolucionViewSet)
 
 router = DefaultRouter()
 router.register(r'bodegas', BodegaViewSet, basename='bodega')
@@ -15,6 +15,7 @@ router.register(r'items-guia', ItemsGuiaSalidaViewSet, basename='items-guias')
 router.register(r'compras', CompraViewSet, basename='compras')
 router.register(r'archivos-compras', ArchivoCompraViewSet, basename='archivos-compras')
 router.register(r'movimientos-stock', MovimientoStockViewSet, basename='movimientos-stock')
+router.register(r'vouchers-devolucion', VoucherDevolucionViewSet, basename='vouchers-devolucion')
 router.register(r'items-en-toma-inventario', ItemEnTomaInventarioViewSet, basename='item-en-toma-inventario')
 router.register(r'estados-toma-inventario', EstadoTomaInventarioViewSet, basename='estado-toma-inventario')
 router.register(r'imagenes-item-en-toma-inventario', ImagenDeItemEnTomaInventarioViewSet, basename='imagenes-item-en-toma-inventario')

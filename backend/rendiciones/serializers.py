@@ -36,16 +36,30 @@ class RendicionSerializer(serializers.ModelSerializer):
     detalles = DetalleGastoRendicionSerializer(
         many=True, read_only=True, source="detallegastorendicion_set"
     )
-    # total_rendicion = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    # gastos = DetalleGastoRendicionSerializer(read_only=True, many=True)
     datos_usuario = UsuarioEmpresaSerializer(source="usuario", read_only=True)
     estado_label = serializers.SerializerMethodField()
+    
+    # Campos legacy (mantener compatibilidad)
     total = serializers.SerializerMethodField()
+    
+    # Nuevos campos BLOQUE 6
+    politica_viaticos_efectiva = serializers.CharField(read_only=True)
+    total_reembolso_tecnico = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+    total_facturable_cliente = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+    total_no_facturable = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+    orden_trabajo = serializers.PrimaryKeyRelatedField(read_only=True)
 
     def get_estado_label(self, obj):
         return obj.get_estado_display()
 
     def get_total(self, obj):
+        """Legacy field - mantiene compatibilidad con frontend existente"""
         return obj.total_rendicion
 
     class Meta:

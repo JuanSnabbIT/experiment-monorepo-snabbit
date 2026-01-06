@@ -17,6 +17,7 @@ import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoM
 import Collapse from '@/components/utils/Collapse';
 import ApiService from '@/services/ApiService';
 import { confirmAlert } from '@/utils/sweetAlert';
+import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 import {
     checkCompletibilidadOTThunk,
     detalleOrdenTrabajoThunk,
@@ -44,7 +45,9 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearServicioEnOT from '../modals/CrearServicioEnOT';
+import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import VincularCotizacion from '../modals/VincularCotizacion';
+import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 
 function ListaServiciosOT() {
 	const dispatch = useAppDispatch();
@@ -75,13 +78,17 @@ function ListaServiciosOT() {
 	const [cargandoSeguimientos, setCargandoSeguimientos] = useState<boolean>(false);
 	const [isOpenSeguimiento, setIsOpenSeguimiento] = useState<boolean>(false);
 	const [comentarioSeguimiento, setComentarioSeguimiento] = useState<string>('');
-	const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario');
+	const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario_tecnico');
 
 	// Vincular guía
 	const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false);
 	const [guiaSeleccionada, setGuiaSeleccionada] = useState<string | null>(null);
 	const [guiasDisponibles, setGuiasDisponibles] = useState<{ value: string; label: string }[]>([]);
 	const [servicioParaGuia, setServicioParaGuia] = useState<number | null>(null);
+	const [isOpenEntregaGuia, setIsOpenEntregaGuia] = useState<boolean>(false);
+	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
+	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
+	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<"E" | "PR">("E");
 
 	const cargarGuiasDisponibles = async () => {
 		if (!detalleOrdenTrabajo) return;
@@ -139,6 +146,80 @@ function ListaServiciosOT() {
 		} catch (e: any) {
 			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
 			toast.error(msg);
+		}
+	};
+
+	const abrirModalEntregaGuia = (guia: any, estadoTrabajo: string) => {
+		if (!guia?.id) return;
+		setGuiaEntregaId(guia.id);
+		setClienteEntregaId(guia.cliente ?? null);
+		setEstadoEntregaGuia(estadoTrabajo === 'completado' ? 'E' : 'PR');
+		setIsOpenEntregaGuia(true);
+	};
+
+	const guardarCambioEstado = async (payload: any, requiresComment: boolean) => {
+		if (!detalleOrdenTrabajo || !selectedService) return;
+		try {
+			const resp = await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
+				method: 'patch',
+				headers: { 'Content-Type': 'application/json' },
+				data: JSON.stringify(payload),
+			});
+			if (resp.data) {
+				if (requiresComment && comentario && comentario.trim()) {
+					try {
+						await ApiService.fetchData({
+							url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
+							method: 'post',
+							headers: { 'Content-Type': 'application/json' },
+							data: JSON.stringify({
+								comentario,
+								tipo: 'incidencia',
+								usuario: null,
+								servicio: selectedService.id,
+							}),
+						});
+						fetchSeguimientosServicio(selectedService.id);
+					} catch (e) {
+						// ignore seguimiento error
+					}
+				}
+				toast.success('Estado cambiado', { autoClose: 1000 });
+				dispatch(
+					listaServiciosGeneralesThunk({
+						id_orden: detalleOrdenTrabajo.id,
+					}),
+				);
+				dispatch(
+					checkCompletibilidadOTThunk({
+						id_orden: detalleOrdenTrabajo.id,
+					}),
+				);
+				setIsOpenEstado(false);
+				setEstadoNuevo(undefined);
+				setComentario(undefined);
+				setSelectedService(null);
+				setTecnicoSeleccionado(undefined);
+				setFechaEnModal(undefined);
+
+				// Refresh OT details if we auto-started it
+				if (
+					estadoNuevo === 'en_proceso' &&
+					detalleOrdenTrabajo.estado === 'pendiente'
+				) {
+					dispatch(
+						detalleOrdenTrabajoThunk({
+							id_ordenTrabajo: detalleOrdenTrabajo.id,
+						}),
+					);
+				}
+			}
+		} catch (e: any) {
+			const msg = Object.values(e?.response?.data || {})
+				.flat()
+				.join(' ');
+			toast.error(msg || 'Error al cambiar el estado');
 		}
 	};
 
@@ -341,6 +422,22 @@ function ListaServiciosOT() {
 									? 'HeroXMark'
 									: undefined;
 
+				// Si está en proceso, mostrar dropdown con estados finales
+				if (isEnProceso) {
+					return (
+						<DropdownEstadoTrabajo
+							onSelectEstado={(estado) => {
+								setSelectedService(info.row.original);
+								setEstadoNuevo(estado);
+								setIsOpenEstado(true);
+							}}
+							disabled={!canStart}
+							tooltipText={tooltipText}
+						/>
+					);
+				}
+
+				// Para pendiente y estados finales, mostrar botón simple
 				return (
 					<Tooltip text={tooltipText}>
 						<div className={!canStart ? 'inline-block' : ''}>
@@ -1164,6 +1261,14 @@ function ListaServiciosOT() {
 									);
 									return;
 								}
+								const requiereFirmaGuia =
+									(estadoNuevo === 'completado' ||
+										estadoNuevo === 'medianamente_completado') &&
+									!!selectedService.guia_salida;
+								if (requiereFirmaGuia) {
+									abrirModalEntregaGuia(selectedService.guia_salida, estadoNuevo);
+									return;
+								}
 								const requiresTecnico =
 									estadoNuevo === 'en_proceso' &&
 									!selectedService.tecnico_asignado;
@@ -1207,74 +1312,29 @@ function ListaServiciosOT() {
 									}
 								}
 
-								try {
-									const resp = await ApiService.fetchData({
-										url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
-										method: 'patch',
-										headers: { 'Content-Type': 'application/json' },
-										data: JSON.stringify(payload),
-									});
-									if (resp.data) {
-										if (requiresComment && comentario && comentario.trim()) {
-											try {
-												await ApiService.fetchData({
-													url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
-													method: 'post',
-													headers: { 'Content-Type': 'application/json' },
-													data: JSON.stringify({
-														comentario,
-														tipo: 'incidencia',
-														usuario: null,
-														servicio: selectedService.id,
-													}),
-												});
-												fetchSeguimientosServicio(selectedService.id);
-											} catch (e) {
-												// ignore seguimiento error
-											}
-										}
-										toast.success('Estado cambiado', { autoClose: 1000 });
-										dispatch(
-											listaServiciosGeneralesThunk({
-												id_orden: detalleOrdenTrabajo.id,
-											}),
-										);
-										dispatch(
-											checkCompletibilidadOTThunk({
-												id_orden: detalleOrdenTrabajo.id,
-											}),
-										);
-										setIsOpenEstado(false);
-										setEstadoNuevo(undefined);
-										setComentario(undefined);
-										setSelectedService(null);
-										setTecnicoSeleccionado(undefined);
-										setFechaEnModal(undefined);
-
-										// Refresh OT details if we auto-started it
-										if (
-											estadoNuevo === 'en_proceso' &&
-											detalleOrdenTrabajo.estado === 'pendiente'
-										) {
-											dispatch(
-												detalleOrdenTrabajoThunk({
-													id_ordenTrabajo: detalleOrdenTrabajo.id,
-												}),
-											);
-										}
-									}
-								} catch (e: any) {
-									const msg = Object.values(e?.response?.data || {})
-										.flat()
-										.join(' ');
-									toast.error(msg || 'Error al cambiar el estado');
-								}
+								await guardarCambioEstado(payload, requiresComment);
 							}}>
 							Guardar
 						</Button>
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
+
+			<FirmarEntregarGuiaTrabajo
+				guiaId={guiaEntregaId}
+				clienteId={clienteEntregaId}
+				estadoDestino={estadoEntregaGuia}
+				isOpen={isOpenEntregaGuia}
+				setIsOpen={setIsOpenEntregaGuia}
+				onSuccess={async () => {
+					if (!estadoNuevo) return;
+					const requiresComment =
+						estadoNuevo === 'completado' ||
+						estadoNuevo === 'medianamente_completado' ||
+						estadoNuevo === 'no_realizado';
+					await guardarCambioEstado({ estado: estadoNuevo }, requiresComment);
+				}}
+			/>
 
 			<Modal isOpen={isOpenAsignarFecha} setIsOpen={setIsOpenAsignarFecha}>
 				<ModalHeader>

@@ -49,9 +49,9 @@ function CompletarOT() {
 	);
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 	const [tieneCompras, setTieneCompras] = useState<boolean>(false);
-	const [tieneGuias, setTieneGuias] = useState<boolean>(false);
+	const [tieneGuiasParciales, setTieneGuiasParciales] = useState<boolean>(false);
 	const [cargandoInsumos, setCargandoInsumos] = useState<boolean>(false);
-	const [todosItemsUsados, setTodosItemsUsados] = useState<boolean>(true);
+	const [todosItemsCompradosUsados, setTodosItemsCompradosUsados] = useState<boolean>(true);
 	const [procesando, setProcesando] = useState<boolean>(false);
 	const [comprasItems, setComprasItems] = useState<CompraItemDevolucion[]>([]);
 	const [guiasItems, setGuiasItems] = useState<GuiaItemDevolucion[]>([]);
@@ -105,7 +105,7 @@ function CompletarOT() {
 			setTieneCompras(itemsCompra.length > 0);
 
 			const insumosResponse = await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/insumos/`,
+				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/insumos/?solo_pr=true`,
 				method: 'get',
 			});
 			const insumos = Array.isArray(insumosResponse.data) ? insumosResponse.data : [];
@@ -142,7 +142,7 @@ function CompletarOT() {
 			});
 
 			setGuiasItems(itemsGuia);
-			setTieneGuias(itemsGuia.length > 0);
+			setTieneGuiasParciales(itemsGuia.length > 0);
 
 			const bodegasResponse = await ApiService.fetchData<IBodega[]>({
 				url: '/api/bodegas/',
@@ -154,7 +154,7 @@ function CompletarOT() {
 			setComprasItems([]);
 			setGuiasItems([]);
 			setTieneCompras(false);
-			setTieneGuias(false);
+			setTieneGuiasParciales(false);
 		} finally {
 			setCargandoInsumos(false);
 		}
@@ -184,12 +184,12 @@ function CompletarOT() {
 
 	useEffect(() => {
 		if (!isOpen) {
-			setTodosItemsUsados(true);
+			setTodosItemsCompradosUsados(true);
 			setComprasItems([]);
 			setGuiasItems([]);
 			setBodegaSeleccionada(null);
 			setTieneCompras(false);
-			setTieneGuias(false);
+			setTieneGuiasParciales(false);
 		}
 	}, [isOpen]);
 
@@ -389,7 +389,11 @@ function CompletarOT() {
 		try {
 			setProcesando(true);
 
-			if (!todosItemsUsados) {
+			const requiereDevoluciones =
+				(!todosItemsCompradosUsados && comprasItems.length > 0) ||
+				guiasItems.length > 0;
+
+			if (requiereDevoluciones) {
 				await procesarDevoluciones();
 				await crearVoucherDevolucion();
 				await completarOrden(false);
@@ -411,7 +415,6 @@ function CompletarOT() {
 		}
 	};
 
-	const tieneInsumos = tieneCompras || tieneGuias;
 	const tieneDevolucionesCompra = comprasItems.some((item) => item.seleccionado);
 
 	return (
@@ -444,30 +447,39 @@ function CompletarOT() {
 												Cargando insumos...
 											</div>
 										)}
-										{!cargandoInsumos && tieneInsumos && (
+										{!cargandoInsumos && tieneCompras && (
 											<div className='rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700'>
-												Esta OT tiene Compras/Guias de Salida registradas.
+												Esta OT tiene compras registradas.
 											</div>
 										)}
-										<div className='rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm'>
-											<label className='flex items-center gap-2'>
-												<input
-													type='checkbox'
-													checked={todosItemsUsados}
-													onChange={(e) =>
-														setTodosItemsUsados(e.target.checked)
-													}
-												/>
-												<span className='font-medium text-amber-700'>
-													Confirmo que todos los items asociados fueron
-													ocupados
-												</span>
-											</label>
-										</div>
+										{!cargandoInsumos && tieneGuiasParciales && (
+											<div className='rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700'>
+												Esta OT tiene Guias de Salida parcialmente revertidas.
+											</div>
+										)}
+										{tieneCompras && (
+											<div className='rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm'>
+												<label className='flex items-center gap-2'>
+													<input
+														type='checkbox'
+														checked={todosItemsCompradosUsados}
+														onChange={(e) =>
+															setTodosItemsCompradosUsados(
+																e.target.checked,
+															)
+														}
+													/>
+													<span className='font-medium text-amber-700'>
+														Confirmo que todos los items comprados fueron
+														utilizados
+													</span>
+												</label>
+											</div>
+										)}
 
-										{!todosItemsUsados && (
+										{(!todosItemsCompradosUsados || guiasItems.length > 0) && (
 											<div className='mt-4 flex flex-col gap-4'>
-												{comprasItems.length > 0 && (
+												{!todosItemsCompradosUsados && comprasItems.length > 0 && (
 													<div className='rounded-lg border border-gray-200 bg-gray-50 p-3'>
 														<div className='mb-3'>
 															<Badge>Items de Compras</Badge>
@@ -633,11 +645,6 @@ function CompletarOT() {
 													</div>
 												)}
 
-												{comprasItems.length === 0 && guiasItems.length === 0 && (
-													<div className='text-sm text-gray-500'>
-														No hay items para devolver en esta OT.
-													</div>
-												)}
 											</div>
 										)}
 									</div>

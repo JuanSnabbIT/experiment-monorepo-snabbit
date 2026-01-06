@@ -25,6 +25,7 @@ export interface IOrdenDeTrabajo {
 	soporte_tecnico_count?: number;
 	servicios_count?: number;
 	cierre_administrativo?: ICierreAdministrativoOT | null;
+	rendicion_asociada_id?: number | null;
 	// Campos legacy (mantener para compatibilidad temporal)
 	responsable_empresa?: null | number;
 	solicitante_empresa?: number | null;

@@ -87,6 +87,8 @@ export interface IGuiaSalida {
 	motivo: string;
 	estado: string;
 	bodega: number;
+	cliente: number | null;
+	cliente_nombre: string;
 	entregado_a: number | null;
 	recibido_por: number | null;
 	creado_por: number;

@@ -199,7 +199,6 @@ class ArchivoCompra(ModeloBase):
 
 class Compra(ModeloBaseHistorico):
     codigo = models.CharField(max_length=50, unique=True)
-    # Campo reservado para futuro uso.
     # tipo = models.CharField(
     #     max_length=50, choices=TIPO_COMPRA, default="nacional", null=True, blank=True
     # )
@@ -301,6 +300,13 @@ class ItemOrdenCompraEnStock(ModeloBase):
 
 class GuiaSalida(ModeloBaseHistorico):
     bodega = models.ForeignKey("bodegas.Bodega", on_delete=models.CASCADE)
+    cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="guias_salida_cliente",
+    )
     recibido_por = models.ForeignKey(
         "empresas.UsuarioEmpresa", on_delete=models.SET_NULL, null=True, blank=True
     )

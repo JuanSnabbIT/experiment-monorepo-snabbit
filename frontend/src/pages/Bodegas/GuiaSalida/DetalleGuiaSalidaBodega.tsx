@@ -1,7 +1,5 @@
 import Input from "@/components/form/Input"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Textarea from "@/components/form/Textarea"
-import Validation from "@/components/form/Validation"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
@@ -9,7 +7,6 @@ import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/S
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
 import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
@@ -17,8 +14,8 @@ import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
-import { listaUsuariosDeMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { confirmAlert } from "@/utils/sweetAlert"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useFormik } from "formik"
 import { useEffect, useRef, useState } from "react"
@@ -38,9 +35,6 @@ function DetalleGuiaSalidaBodega() {
     const navigate = useNavigate()
     const { id } = useParams()
     const { detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega, listaStockItemsEnBodega } = useAppSelector((state) => state.bodega)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaUsuariosDeMisClientes } = useAppSelector((state) => state.empresa)
-    const [isCompleting, setIsCompleting] = useState<boolean>(false)
     const [isEditting, setIsEditting] = useState<boolean>(false)
     const [sorting, setSorting] = useState<SortingState>([])
     const [globalFilter, setGlobalFilter] = useState<string>('')
@@ -52,8 +46,6 @@ function DetalleGuiaSalidaBodega() {
     const [itemStockSelected, setItemStockSelected] = useState<IStockItemEnBodega | undefined>()
     const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>()
     const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false)
-    const [isModalDestinoOpen, setIsModalDestinoOpen] = useState<boolean>(false)
-    const [destinoSeleccionado, setDestinoSeleccionado] = useState<string>("")
     const [completando, setCompletando] = useState<boolean>(false)
 
     const [isOpen, setIsOpen] = useState<boolean>(false)
@@ -77,11 +69,8 @@ function DetalleGuiaSalidaBodega() {
     useEffect(() => {
         if (detalleGuiaSalidaBodega && isPendiente) {
             dispatch(listaStockItemsEnBodegaThunk({id_bodega: detalleGuiaSalidaBodega.bodega}))
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaUsuariosDeMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
-            }
         }
-    }, [dispatch, detalleGuiaSalidaBodega, isPendiente, personalizacionUsuario])
+    }, [dispatch, detalleGuiaSalidaBodega, isPendiente])
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -387,20 +376,16 @@ function DetalleGuiaSalidaBodega() {
 
     const completarGuia = async () => {
         if (!id) return
-        if (!detalleGuiaSalidaBodega?.entregado_a && !destinoSeleccionado) {
-            setIsModalDestinoOpen(true)
-            return
-        }
+        const ok = await confirmAlert({
+            title: "Completar guia de salida",
+            text: "Estas seguro de completar la guia de salida?",
+            confirmText: "Completar",
+            cancelText: "Cancelar",
+            icon: "warning",
+        })
+        if (!ok) return
         setCompletando(true)
         try {
-            if (!detalleGuiaSalidaBodega?.entregado_a && destinoSeleccionado) {
-                await ApiService.fetchData({
-                    url: `/api/guia-salida/${id}/`,
-                    method: 'patch',
-                    headers: {'Content-Type': 'application/json'},
-                    data: JSON.stringify({entregado_a: destinoSeleccionado})
-                })
-            }
             const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/comprobar-guia/`, method: 'post'})
             if (response.data) {
                 toast.success("Guia completada", {autoClose: 1000})
@@ -411,7 +396,6 @@ function DetalleGuiaSalidaBodega() {
             toast.error(error.response?.data?.detail || "Error al completar la guia", {toastId: "Error al completar la guia"})
         }
         setCompletando(false)
-        setIsModalDestinoOpen(false)
     }
 
     return (
@@ -551,6 +535,10 @@ function DetalleGuiaSalidaBodega() {
                                                 <Badge>Recibido Por</Badge>
                                                 <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_recibido_por}</div>
                                             </div>
+                                            <div className="w-full">
+                                                <Badge>Cliente</Badge>
+                                                <div className="ml-4">{detalleGuiaSalidaBodega?.cliente_nombre}</div>
+                                            </div>
                                             <div className="col-span-full">
                                                 <Badge>Motivo</Badge>
                                                 <Textarea
@@ -574,6 +562,10 @@ function DetalleGuiaSalidaBodega() {
                                             <div className="w-full">
                                                 <Badge>Recibido Por</Badge>
                                                 <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_recibido_por}</div>
+                                            </div>
+                                            <div className="w-full">
+                                                <Badge>Cliente</Badge>
+                                                <div className="ml-4">{detalleGuiaSalidaBodega?.cliente_nombre}</div>
                                             </div>
                                             <div className="col-span-full">
                                                 <Badge>Motivo</Badge>
@@ -818,41 +810,6 @@ function DetalleGuiaSalidaBodega() {
                         </div>
                     )}
                 </div>
-                {isPendiente && (
-                    <Modal isOpen={isModalDestinoOpen} setIsOpen={setIsModalDestinoOpen} isStaticBackdrop={true}>
-                        <ModalHeader>
-                            <Badge className="text-xl">Destino de la Guia</Badge>
-                        </ModalHeader>
-                        <ModalBody>
-                            <div className="flex flex-col gap-4">
-                                <div className="w-full">
-                                    <Badge>Entregado a (cliente)</Badge>
-                                    <Validation
-                                        isValid={!!destinoSeleccionado}
-                                        isTouched
-                                        invalidFeedback={!destinoSeleccionado ? "Requerido" : ""}
-                                    >
-                                        <SelectReact
-                                            name="entregado_a"
-                                            options={listaUsuariosDeMisClientes.map(u => ({value: u.id.toString(), label: u.nombre_usuario}))}
-                                            placeholder="Seleccionar receptor"
-                                            isClearable
-                                            value={destinoSeleccionado ? {value: destinoSeleccionado, label: listaUsuariosDeMisClientes.find(u => u.id.toString() === destinoSeleccionado)?.nombre_usuario || ""} : null}
-                                            onChange={(e) => setDestinoSeleccionado((e as TSelectOption | null)?.value || "")}
-                                        />
-                                    </Validation>
-                                </div>
-                            </div>
-                        </ModalBody>
-                        <ModalFooter>
-                            <ModalFooterChild></ModalFooterChild>
-                            <ModalFooterChild>
-                                <Button color="red" onClick={() => {setIsModalDestinoOpen(false); setDestinoSeleccionado("")}}>Cancelar</Button>
-                                <Button variant="solid" isDisable={!destinoSeleccionado || completando} onClick={completarGuia}>Continuar</Button>
-                            </ModalFooterChild>
-                        </ModalFooter>
-                    </Modal>
-                )}
                 {isPendiente && (
                     <AsignarNumeroDeSerie isOpen={isOpenNumero} setIsOpen={setIsOpenNumero} itemRebajaSelected={itemRebajaSelected} setItemRebajaSelected={setItemRebajaSelected} />
                 )}

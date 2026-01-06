@@ -17,16 +17,30 @@ from .models import (
 class GuiaSalidaMiniSerializer(serializers.ModelSerializer):
     cantidad_items = serializers.SerializerMethodField()
     estado_label = serializers.SerializerMethodField()
+    cliente_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = GuiaSalida
-        fields = ("id", "motivo", "cantidad_items", "estado", "estado_label")
+        fields = (
+            "id",
+            "motivo",
+            "cantidad_items",
+            "estado",
+            "estado_label",
+            "cliente",
+            "cliente_nombre",
+        )
 
     def get_cantidad_items(self, obj):
         return obj.items.count()
 
     def get_estado_label(self, obj):
         return obj.get_estado_display()
+
+    def get_cliente_nombre(self, obj):
+        if obj.cliente:
+            return obj.cliente.nombre
+        return "Sin Cliente"
 
 
 class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
@@ -37,6 +51,7 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
         source="servicioenot_set.count", read_only=True
     )
     cierre_administrativo = serializers.SerializerMethodField()
+    rendicion_asociada_id = serializers.SerializerMethodField()
 
     empresa_nombre = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
@@ -84,6 +99,12 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
     def get_cierre_administrativo(self, obj):
         if hasattr(obj, "cierre_administrativo_v2"):
             return CierreAdministrativoOTSerializer(obj.cierre_administrativo_v2).data
+        return None
+
+    def get_rendicion_asociada_id(self, obj):
+        """Retorna el ID de la Rendición asociada si existe"""
+        if hasattr(obj, "rendicion_asociada") and obj.rendicion_asociada:
+            return obj.rendicion_asociada.id
         return None
 
     class Meta:
@@ -244,6 +265,10 @@ class AdjuntoDeOrdenSerializer(serializers.ModelSerializer):
 
 class RendicionEnOtSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
+    # Alias compatible con frontend (expected `nombre_categoria`)
+    nombre_categoria = serializers.CharField(source="categoria.nombre", read_only=True)
+    # Alias compatible con endpoint gastos-rendicion (expected `descripcion_categoria`)
+    descripcion_categoria = serializers.CharField(source="categoria.nombre", read_only=True)
 
     class Meta:
         model = RendicionEnOt
@@ -252,6 +277,8 @@ class RendicionEnOtSerializer(serializers.ModelSerializer):
             "orden",
             "categoria",
             "categoria_nombre",
+            "nombre_categoria",
+            "descripcion_categoria",
             "detalle",
             "cantidad",
             "monto_unitario",

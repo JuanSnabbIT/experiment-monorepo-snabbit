@@ -5,6 +5,7 @@ import Collapse from '@/components/utils/Collapse';
 import Button from '@/components/ui/Button';
 import dayjs from "dayjs";
 import "dayjs/locale/es"
+import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 
 const TimelineSeguimientos = ({ seguimientos }: { seguimientos: any }) => {
 	const [openItemIndex, setOpenItemIndex] = useState<number | null>(null);
@@ -21,6 +22,16 @@ const TimelineSeguimientos = ({ seguimientos }: { seguimientos: any }) => {
 		setTimeout(() => setIsOpening(false), 1000);
 	};
 
+	const obtenerIconoTipo = (tipo: string) => {
+		const tipoObj = TIPO_SEGUIMIENTO.find(t => t.value === tipo);
+		return tipoObj?.icon || 'HeroChatBubbleBottomCenterText';
+	};
+
+	const obtenerColorTipo = (tipo: string) => {
+		const tipoObj = TIPO_SEGUIMIENTO.find(t => t.value === tipo);
+		return tipoObj?.color || 'gray';
+	};
+
 	const ordenados = [...seguimientos].sort(
 		(a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
 	);
@@ -30,20 +41,8 @@ const TimelineSeguimientos = ({ seguimientos }: { seguimientos: any }) => {
 			{ordenados.map((seguimiento, index) => (
 				<div className="flex flex-col justify-between w-full mb-4" key={seguimiento.id}>
 					<TimelineItem
-						icon={
-							seguimiento.tipo === 'actualizacion' ? 
-									'HeroArrowPath'
-								: seguimiento.tipo === 'incidencia' ? 
-									'HeroExclamationCircle'
-								: 'HeroChatBubbleBottomCenterText'
-						}
-						color={
-							seguimiento.tipo === 'actualizacion' ?
-								'emerald'
-							: seguimiento.tipo === 'incidencia' ?
-								'red'
-							: 'amber'
-						}
+						icon={obtenerIconoTipo(seguimiento.tipo)}
+						color={obtenerColorTipo(seguimiento.tipo) as any}
 						colorShade="500"
 					>
 						<div className="flex items-start justify-between w-full">

@@ -27,7 +27,7 @@ import { selectEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import Adjuntos from './components/Adjuntos';
@@ -50,6 +50,7 @@ import FacturarOT from './modals/FacturarOT';
 
 const DetalleOT = () => {
 	const dispatch = useAppDispatch();
+	const navigate = useNavigate();
 	const { id } = useParams<{ id: string }>();
 	const { personalizacionUsuario, access } = useAppSelector((state) => state.auth);
 	const { detalleOrdenTrabajo, listaHistorialCambios } = useAppSelector(
@@ -283,11 +284,21 @@ const DetalleOT = () => {
 				</SubheaderLeft>
 				<SubheaderRight>
 					{detalleOrdenTrabajo && (
-						<>
+						<div className='flex gap-2'>
+							{detalleOrdenTrabajo.estado === 'completada' && detalleOrdenTrabajo.rendicion_asociada_id && (
+								<Tooltip text='Ver Rendición Asociada'>
+									<Button 
+										variant='solid' 
+										color='violet'
+										icon='HeroEye'
+										onClick={() => navigate(`/rendicion/detalle-rendicion/${detalleOrdenTrabajo.rendicion_asociada_id}`)}
+									/>
+								</Tooltip>
+							)}
 							{detalleOrdenTrabajo.estado === 'en_proceso' && <CompletarOT />}
 							{detalleOrdenTrabajo.estado === 'completada' && <CerrarOT />}
 							{detalleOrdenTrabajo.estado === 'cerrada' && <FacturarOT />}
-						</>
+						</div>
 					)}
 				</SubheaderRight>
 			</Subheader>

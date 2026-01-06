@@ -46,6 +46,24 @@ class RendicionViewSet(viewsets.ModelViewSet):
     queryset = Rendicion.objects.all()
     serializer_class = RendicionSerializer
 
+    def perform_create(self, serializer):
+        """
+        BLOQUE 6: Auto-herencia de política de viáticos desde el cliente.
+        
+        Si la rendición tiene un cliente asociado y NO se especificó una política 
+        explícita, heredamos la política por defecto del cliente.
+        """
+        cliente = serializer.validated_data.get('cliente')
+        politica_viaticos = serializer.validated_data.get('politica_viaticos')
+        
+        # Si hay cliente y NO se definió política explícita, heredar del cliente
+        if cliente and not politica_viaticos:
+            # La política efectiva se calcula automáticamente en la propiedad del modelo
+            # Aquí solo guardamos sin override
+            pass
+        
+        serializer.save()
+
     @action(detail=False, methods=["get"], url_path="mis-rendiciones")
     def mis_rendiciones(self, request):
         usuario = request.user
@@ -92,8 +110,7 @@ class RendicionViewSet(viewsets.ModelViewSet):
         # Creamos un buffer para almacenar el PDF
         buffer = io.BytesIO()
 
-        # Preparar los datos de la tabla para la rendición.
-        # La primera fila es el encabezado y luego cada detalle se agrega en una fila.
+        # Preparar datos de la tabla combinando todos los items (OT, gastos libres, compras)
         header = [
             "Categoría",
             "Detalle",
@@ -103,16 +120,63 @@ class RendicionViewSet(viewsets.ModelViewSet):
             "Fecha Gasto",
         ]
         datos_tabla = [header]
-        for detalle in rendicion.detallegastorendicion_set.all():
-            row = [
-                str(detalle.categoria.nombre) if detalle.categoria else "",
-                detalle.detalle or "",
-                str(detalle.cantidad),
-                f"${detalle.monto_unitario:.2f}",
-                f"${detalle.monto_total:.2f}",
-                detalle.fecha_gasto.strftime("%d-%m-%Y") if detalle.fecha_gasto else "",
-            ]
-            datos_tabla.append(row)
+
+        # Prefetch mínimo para evitar consultas adicionales por content_type
+        items_rendicion = rendicion.items.select_related("content_type").all()
+
+        for item in items_rendicion:
+            detalle = item.detalle
+
+            # Si hay referencias rotas, lo omitimos
+            if detalle is None:
+                continue
+
+            categoria = ""
+            texto_detalle = ""
+            cantidad = ""
+            monto_unitario = ""
+            monto_total = ""
+            fecha_gasto = ""
+
+            # Gasto libre (rendiciones.DetalleGastoRendicion)
+            if item.content_type.app_label == "rendiciones" and item.content_type.model == "detallegastorendicion":
+                categoria = str(detalle.categoria.nombre) if getattr(detalle, "categoria", None) else ""
+                texto_detalle = detalle.detalle or ""
+                cantidad = str(detalle.cantidad)
+                monto_unitario = f"${detalle.monto_unitario:.2f}"
+                monto_total = f"${detalle.monto_total:.2f}"
+                fecha_gasto = detalle.fecha_gasto.strftime("%d-%m-%Y") if detalle.fecha_gasto else ""
+
+            # Gasto de OT (ordentrabajov2.RendicionEnOt)
+            elif item.content_type.app_label == "ordentrabajov2" and item.content_type.model == "rendicionenot":
+                categoria = str(detalle.categoria.nombre) if getattr(detalle, "categoria", None) else ""
+                texto_detalle = detalle.detalle or ""
+                cantidad = str(detalle.cantidad)
+                monto_unitario = f"${detalle.monto_unitario:.2f}"
+                monto_total = f"${detalle.monto_total:.2f}" if detalle.monto_total is not None else ""
+                fecha_gasto = detalle.fecha_compra.strftime("%d-%m-%Y") if getattr(detalle, "fecha_compra", None) else ""
+
+            # Compra (bodegas.Compra)
+            elif item.content_type.app_label == "bodegas" and item.content_type.model == "compra":
+                categoria = "Compra"
+                texto_detalle = f"Compra {getattr(detalle, 'codigo', '')}".strip()
+                cantidad = f"{detalle.itemencompra_set.count()} items"
+                monto_unitario = "-"
+                monto_total = f"${detalle.total_compra:.2f}" if hasattr(detalle, "total_compra") else ""
+                fecha_gasto = detalle.fecha_compra.strftime("%d-%m-%Y") if getattr(detalle, "fecha_compra", None) else ""
+
+            else:
+                # Tipo no reconocido, omitimos
+                continue
+
+            datos_tabla.append([
+                categoria,
+                texto_detalle,
+                cantidad,
+                monto_unitario,
+                monto_total,
+                fecha_gasto,
+            ])
 
         # Datos de la empresa (puedes extraerlos de otro modelo o configuración)
         nombre_empresa = usuario_empresa.sucursal.empresa.nombre

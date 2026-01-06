@@ -67,7 +67,9 @@ def print_header(text: str) -> None:
     print("=" * 80)
 
 
-def print_step(step_num: int, total_steps: int, script_name: str, description: str) -> None:
+def print_step(
+    step_num: int, total_steps: int, script_name: str, description: str
+) -> None:
     """Imprime informacion del paso actual."""
     print(f"\n{'=' * 80}")
     print(f"PASO {step_num}/{total_steps}: {script_name}")
@@ -161,7 +163,9 @@ def normalize_header(value: Optional[str]) -> str:
         return ""
     text = str(value).strip().lower()
     text = "".join(
-        ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch)
+        ch
+        for ch in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(ch)
     )
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return " ".join(text.split())
@@ -788,8 +792,8 @@ def ensure_items_and_stock(
     fabricantes: Dict[str, object],
     proveedores: List[object],
 ) -> None:
-    from items.models import ItemEmpresa
     from bodegas.models import StockItemEnBodega
+    from items.models import ItemEmpresa
 
     items_data = [
         {
@@ -903,7 +907,7 @@ def ensure_equipos(
     clientes: List[Dict[str, object]],
     tecnico_usuario: object,
 ) -> List[object]:
-    from recursos.models import Equipo, AlmacenamientoEquipo, UsuarioEquipo
+    from recursos.models import AlmacenamientoEquipo, Equipo, UsuarioEquipo
 
     equipos_creados: List[object] = []
     equipos_data = [
@@ -960,7 +964,9 @@ def ensure_equipos(
                 AlmacenamientoEquipo.objects.get_or_create(
                     equipo=equipo,
                     almacenamiento=almacenamiento,
-                    defaults={"adicional": almacenamiento != data["almacenamientos"][0]},
+                    defaults={
+                        "adicional": almacenamiento != data["almacenamientos"][0]
+                    },
                 )
 
             if usuarios:
@@ -983,9 +989,9 @@ def ensure_equipos(
 
 
 def ensure_software_instalado(equipos: List[object], softwares: List[object]) -> None:
-    from recursos.models import SoftwareInstalado
-    from django.contrib.contenttypes.models import ContentType
     from core.models import Software
+    from django.contrib.contenttypes.models import ContentType
+    from recursos.models import SoftwareInstalado
 
     if not equipos or not softwares:
         return
@@ -1002,7 +1008,7 @@ def ensure_software_instalado(equipos: List[object], softwares: List[object]) ->
 
 
 def ensure_servicios_catalogo() -> None:
-    from contratos.models import Servicio, CaracteristicaServicio, PlanServicio
+    from contratos.models import CaracteristicaServicio, PlanServicio, Servicio
 
     caracteristicas = []
     for nombre in [
@@ -1049,7 +1055,7 @@ def ensure_servicios_catalogo() -> None:
 
 
 def ensure_contratos_catalogo() -> None:
-    from contratos.models import Visita, Licencia, CondicionEspecial
+    from contratos.models import CondicionEspecial, Licencia, Visita
 
     visitas = [
         "Visita de Mantenimiento Mensual",
@@ -1145,7 +1151,9 @@ def run_seed() -> None:
 
         bodegas = ensure_bodegas(empresa_base, sucursal_base)
         categorias, fabricantes, proveedores = ensure_catalogs(empresa_base)
-        ensure_items_and_stock(empresa_base, bodegas, categorias, fabricantes, proveedores)
+        ensure_items_and_stock(
+            empresa_base, bodegas, categorias, fabricantes, proveedores
+        )
 
         softwares = ensure_software_catalog()
         empresas_para_software = [empresa_base] + [c["empresa"] for c in clientes]
@@ -1168,8 +1176,12 @@ def main() -> int:
     print("\n> Scripts a ejecutar:")
     for i, script in enumerate(SEED_SCRIPTS, 1):
         status = "Requerido" if script["required"] else "Opcional"
-        condition_text = f" (Condicion: {script['condition']})" if script["condition"] else ""
-        print(f"   {i}. {script['name']:30} - {script['description']} [{status}]{condition_text}")
+        condition_text = (
+            f" (Condicion: {script['condition']})" if script["condition"] else ""
+        )
+        print(
+            f"   {i}. {script['name']:30} - {script['description']} [{status}]{condition_text}"
+        )
 
     missing_scripts = []
     for script in SEED_SCRIPTS:

@@ -7,16 +7,13 @@ import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import Validation from "@/components/form/Validation"
 import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
-import { listaUsuariosDeMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { confirmAlert } from "@/utils/sweetAlert"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
@@ -32,16 +29,12 @@ function CrearItemsGuiaSalidaBodega() {
     const navigate = useNavigate()
     const { id } = useParams()
     const { listaStockItemsEnBodega, detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega } = useAppSelector((state) => state.bodega)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaUsuariosDeMisClientes } = useAppSelector((state) => state.empresa)
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isCreating, setIsCreating] = useState<boolean>(false)
     const [itemStockSeleted, setItemStockSelected] = useState<IStockItemEnBodega | undefined>()
     const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>()
     const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false)
-    const [isModalDestinoOpen, setIsModalDestinoOpen] = useState<boolean>(false)
-    const [destinoSeleccionado, setDestinoSeleccionado] = useState<string>("")
     const [completando, setCompletando] = useState<boolean>(false)
 
     useEffect(() => {
@@ -60,30 +53,21 @@ function CrearItemsGuiaSalidaBodega() {
     useEffect(() => {
         if (detalleGuiaSalidaBodega) {
             dispatch(listaStockItemsEnBodegaThunk({id_bodega: detalleGuiaSalidaBodega.bodega}))
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaUsuariosDeMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
-            }
         }
-    }, [detalleGuiaSalidaBodega, personalizacionUsuario])
+    }, [detalleGuiaSalidaBodega])
 
     const completarGuia = async () => {
         if (!id) return
-        // Si no hay destinatario definido aún, pedirlo antes de completar
-        if (!detalleGuiaSalidaBodega?.entregado_a && !destinoSeleccionado) {
-            setIsModalDestinoOpen(true)
-            return
-        }
+        const ok = await confirmAlert({
+            title: "Completar guia de salida",
+            text: "Estas seguro de completar la guia de salida?",
+            confirmText: "Completar",
+            cancelText: "Cancelar",
+            icon: "warning",
+        })
+        if (!ok) return
         setCompletando(true)
         try {
-            // Si definimos destinatario ahora, primero persistimos
-            if (!detalleGuiaSalidaBodega?.entregado_a && destinoSeleccionado) {
-                await ApiService.fetchData({
-                    url: `/api/guia-salida/${id}/`,
-                    method: 'patch',
-                    headers: {'Content-Type': 'application/json'},
-                    data: JSON.stringify({entregado_a: destinoSeleccionado})
-                })
-            }
             const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/comprobar-guia/`, method: 'post'})
             if (response.data) {
                 toast.success("Guia completada", {autoClose: 1000})
@@ -94,7 +78,6 @@ function CrearItemsGuiaSalidaBodega() {
             toast.error(error.response?.data?.detail || "Error al completar la guia", {toastId: "Error al completar la guia"})
         }
         setCompletando(false)
-        setIsModalDestinoOpen(false)
     }
 
     const columns = [
@@ -631,39 +614,6 @@ function CrearItemsGuiaSalidaBodega() {
                         </Card>
                     </div>
                 </div>
-                <Modal isOpen={isModalDestinoOpen} setIsOpen={setIsModalDestinoOpen} isStaticBackdrop={true}>
-                    <ModalHeader>
-                        <Badge className="text-xl">Destino de la Guía</Badge>
-                    </ModalHeader>
-                    <ModalBody>
-                        <div className="flex flex-col gap-4">
-                            <div className="w-full">
-                                <Badge>Entregado a (cliente)</Badge>
-                                <Validation
-                                    isValid={!!destinoSeleccionado}
-                                    isTouched
-                                    invalidFeedback={!destinoSeleccionado ? "Requerido" : ""}
-                                >
-                                    <SelectReact
-                                        name="entregado_a"
-                                        options={listaUsuariosDeMisClientes.map(u => ({value: u.id.toString(), label: u.nombre_usuario}))}
-                                        placeholder="Seleccionar receptor"
-                                        isClearable
-                                        value={destinoSeleccionado ? {value: destinoSeleccionado, label: listaUsuariosDeMisClientes.find(u => u.id.toString() === destinoSeleccionado)?.nombre_usuario || ""} : null}
-                                        onChange={(e) => setDestinoSeleccionado((e as TSelectOption | null)?.value || "")}
-                                    />
-                                </Validation>
-                            </div>
-                        </div>
-                    </ModalBody>
-                    <ModalFooter>
-                        <ModalFooterChild></ModalFooterChild>
-                        <ModalFooterChild>
-                            <Button color="red" onClick={() => {setIsModalDestinoOpen(false); setDestinoSeleccionado("")}}>Cancelar</Button>
-                            <Button variant="solid" isDisable={!destinoSeleccionado || completando} onClick={completarGuia}>Continuar</Button>
-                        </ModalFooterChild>
-                    </ModalFooter>
-                </Modal>
                 <AsignarNumeroDeSerie isOpen={isOpenNumero} setIsOpen={setIsOpenNumero} itemRebajaSelected={itemRebajaSelected} setItemRebajaSelected={setItemRebajaSelected} />
             </Container>
         </PageWrapper>

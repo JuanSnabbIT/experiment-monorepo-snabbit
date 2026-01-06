@@ -165,3 +165,135 @@ def get_queryset(self):
 **Regla Aplicada:** Estándar del proyecto "SIEMPRE filtrar get_queryset() por PersonalizacionUsuario → empresa/sucursal"
 
 **Cumplimiento:** 100% en BLOQUEs 2 y 4; revisión en otros módulos pendiente
+---
+
+## BLOQUE 6: Análisis de Rendiciones (En Progreso) – 2026-01-05
+
+**Estado:** 🟢 FASES 1-3 COMPLETADAS | 🔵 FASE 4 EN CURSO
+
+### Aclaraciones de Alcance (2026-01-05)
+
+**⚠️ TERMINOLOGÍA CRÍTICA:**
+- **"Rendición"** (módulo `rendiciones`): Documento administrativo que consolida todos los gastos de una o más OTs para reembolso y facturación
+- **"Gastos en OT"** (modelo `RendicionEnOt` en `ordentrabajov2`): Gastos operativos registrados durante la ejecución de una OT específica
+- **Confusión anterior:** Se usaba "rendición" en ambos contextos → ahora usamos "Gastos" en OT para distinguir
+
+**FLUJO CORRECTO:**
+1. Técnico ejecuta OT → registra **Gastos** (`RendicionEnOt`) y hace **Compras** durante el trabajo
+2. OT pasa a estado "Completada" → **Sistema crea automáticamente Rendición** con todos los gastos y compras
+3. Administración revisa **Rendición** → Aprueba/Rechaza → Procesa reembolso y facturación
+
+**ARQUITECTURA ACTUAL (verificada 2026-01-05):**
+- ✅ Modelo `RendicionEnOt` existe en `ordentrabajov2` (gastos operativos de la OT)
+- ✅ Modelo `Compra` existe en `bodegas` (materiales/servicios facturables)
+- ✅ Modelo `Rendicion` existe en `rendiciones` (documento consolidado)
+- ✅ `ItemRendicion` usa GenericForeignKey para referenciar `RendicionEnOt`, `DetalleGastoRendicion`, `Compra`
+- ❌ **NO existe creación automática** de Rendición al completar OT (FASE 6 pendiente)
+- ❌ **NO existe FK** `Rendicion.orden_trabajo` (FASE 6 pendiente)
+- ✅ Existe hook `_sincronizar_relaciones_completada()` en OT (actualiza Compras, no crea Rendición)
+
+### Problema Identificado (Estado Actual)
+
+**Situación Actual:**
+- ❌ Sistema completamente manual: Usuario crea Rendición vacía, agrega gastos uno a uno
+- ❌ Sin relación OT ↔ Rendición: No hay FK entre modelos, imposible saber si OT está rendida
+- ✅ **RESUELTO (FASE 1):** Categorías limpiadas, solo operativas (18 categorías, materiales eliminados)
+- ✅ **RESUELTO (FASE 2):** Política de viáticos implementada (reembolsable vs facturable)
+- ❌ PDF incompleto: Solo muestra `DetalleGastoRendicion`, omite `RendicionEnOt` y `Compra` (FASE 5)
+- ❌ Sin validación: Técnicamente se puede rendir 2+ veces el mismo gasto (FASE 6)
+- ❌ Sin automatización: No se crea Rendición al completar OT (FASE 6)
+
+### Conceptos Profesionales Aclarados
+
+**Rendición de Gastos:** Documento que consolida TODOS los gastos de una OT, separados por propósito:
+
+1. **Gastos Operativos (reembolsables al técnico):**
+   - Pagador inicial: Técnico (de su bolsillo)
+   - Pagador final: Depende de **política de viáticos**:
+     - 'I' (Incluidos): Empresa asume, NO facturable
+     - 'F' (Facturables): Se cobran al cliente
+   - Ejemplos: Taxi, comida, hospedaje, peajes, llamadas
+   - Modelos: `RendicionEnOt`, `DetalleGastoRendicion`
+
+2. **Compras (SIEMPRE facturables al cliente):**
+   - Dinero de empresa / técnico con fondo
+   - Se cobran en factura al cliente
+   - Incluyen: Materiales inesperados, consumibles
+   - Modelo: `Compra` (siempre facturable, independiente de política)
+
+**Política de Viáticos:** Define si gastos operativos se reembolsan internamente o se facturan al cliente
+- `'I'` (Incluidos): Empresa asume gastos operativos (no se cobran)
+- `'F'` (Facturables): Cliente paga gastos operativos (se cobran en factura)
+
+### Solución Propuesta
+
+**Arquitectura:**
+
+```
+Empresa (Cliente):
+  └─ politica_viaticos_default: 'I' | 'F'
+       ↓ (heredado a todas sus OTs/Rendiciones)
+
+Rendición:
+  ├─ cliente: FK a Empresa
+  ├─ politica_viaticos: NULLABLE (override si es excepción)
+  └─ politica_viaticos_efectiva: Propiedad (usa override o heredado)
+       ↓
+  total_reembolso_tecnico = SUMA(todos los gastos, siempre)
+  total_facturable_cliente = SUMA(gastos operativos SI politica='F' + SIEMPRE Compras)
+  total_no_facturable = total_reembolso - total_facturable
+```
+
+**Categorías:**
+- ✅ SOLO operativos: Transporte, Alimentación, Hospedaje, Comunicaciones, Peajes, Servicios Admin
+- ❌ ELIMINAR materiales: Esos van a `Compra`
+
+**Cambios en Modelos:**
+1. `Empresa.politica_viaticos_default`: CharField choices ('I'/'F'), default='I'
+2. `Rendicion.cliente`: FK nullable (null=True, blank=True)
+3. `Rendicion.politica_viaticos`: CharField choices nullable (null=True, blank=True)
+4. `Rendicion` propiedades: `total_reembolso_tecnico`, `total_facturable_cliente`, `total_no_facturable`
+
+**Flujos Modificados:**
+1. Creación Rendición: Usuario selecciona cliente → hereda política automáticamente
+2. Edición: Puede override política (solo si Borrador)
+3. PDF: Separa gastos operativos vs materiales, muestra 3 totales
+4. Serializers: Retornan política efectiva y 3 totales
+
+**Validaciones Necesarias:**
+- Política debe ser válida al guardar ('I' o 'F')
+- Si cliente vacío, usar default 'I'
+- Impedir cambio de cliente si Rendición ya tiene aprobaciones
+
+**Opcional - Automatización (Fase 6):**
+- Cuando OT pasa a "completada": Crear automáticamente Rendición con todos los gastos
+- Estado inicial: "En Aprobación" (no Borrador)
+- FK `Rendicion.orden_trabajo`: OneToOneField
+- Validación: Una sola Rendición por OT
+
+### Decisión de Implementación
+
+**Opción elegida:** C (Híbrido - Cliente + Override en Rendición)
+- Rationale: Balance entre simplicidad (cliente default) y flexibilidad (override por rendición)
+- Previene error humano (olvido de marcar política)
+- Permite excepciones (mismo cliente, política diferente por proyecto)
+
+### Riesgos y Mitigaciones
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|-----------|
+| Data migration: Rendiciones existentes sin cliente | ALTO | Script post-migración: asignar cliente de usuario.sucursal.empresa |
+| Limpieza de categorías: Referencias huérfanas | MEDIO | Revisar si CategoriaGastoRendicion se usa en otros modelos |
+| Cambio en lógica de facturación: Facturas cliente | ALTO | Validar con negocio antes de implementar; documental cambio |
+| Compras duplicadas en rendición | BAJO | Validación frontend: mostrar gasto ya rendido como "no disponible" |
+
+### Documentación del Cambio (Antes/Después)
+
+Será actualizada en `changelog.md` al completar cada fase:
+- Qué se eliminó/agregó en modelos
+- Cambios en serializers
+- Cambios en cálculos
+- Cambios en UX/PDF
+- Impacto en facturas (si aplica)
+
+---

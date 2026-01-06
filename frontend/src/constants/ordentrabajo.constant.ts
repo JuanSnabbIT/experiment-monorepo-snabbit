@@ -18,8 +18,8 @@ export const ESTADOS_DETALLE_TRABAJO: { value: string; label: string }[] = [
 	{ value: 'no_realizado', label: 'No Realizado' },
 ];
 
-export const TIPO_SEGUIMIENTO: { value: string; label: string }[] = [
-	{ value: 'actualizacion', label: 'Actualización' },
-	{ value: 'incidencia', label: 'Incidencia' },
-	{ value: 'comentario', label: 'Comentario' },
+export const TIPO_SEGUIMIENTO: { value: string; label: string; icon: string; color: string }[] = [
+	{ value: 'comentario_tecnico', label: 'Comentario Técnico', icon: 'HeroWrenchScrewdriver', color: 'blue' },
+	{ value: 'incidencia', label: 'Incidencia', icon: 'HeroExclamationTriangle', color: 'red' },
+	{ value: 'comunicacion_usuario', label: 'Comunicación al Usuario', icon: 'HeroChatBubbleLeftRight', color: 'emerald' },
 ];

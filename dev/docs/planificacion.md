@@ -126,29 +126,101 @@ Propósito: Roadmap vivo de épicas activas y próximos pasos post-BLOQUE 5.
 
 ## Próximas Iniciativas (2026)
 
-### A. Integración Items ↔ GuiaSalida (Épica 1)
+### BLOQUE 6: Mejoras Sistema de Rendiciones (En Planificación)
+
+**Objetivo:** Rediseñar rendiciones para separar gastos reembolsables vs facturables, automatizar creación, y mejorar trazabilidad OT ↔ Rendición.
+
+**Contexto:**
+- Actualmente: Sistema de rendiciones es MANUAL (usuario crea rendición vacía y agrega gastos)
+- Problema: No hay relación OT → Rendición, no hay automación, categorías mezclan conceptos
+- Solución propuesta: Política de viáticos por cliente, automática al completar OT
+
+**Estado:** En diseño arquitectónico
+
+**Fases planificadas:**
+
+#### Fase 1: Limpieza de Categorías ✅ COMPLETADA (2026-01-05)
+- **Qué:** Eliminar categorías de materiales de `CategoriaGastoRendicion` (deben ser Compras)
+- **Resultados:**
+  - ✅ 8 categorías de materiales eliminadas (Cables, Herramientas, Material Eléctrico, etc.)
+  - ✅ 8 duplicados consolidados (sin tildes → con tildes correctas)
+  - ✅ 18 categorías operativas finales (Transporte, Alimentación, Hospedaje, etc.)
+  - ✅ 0 referencias huérfanas (ninguna categoría tenía gastos asociados)
+- **Archivos afectados:** Base de datos (16 categorías eliminadas)
+- **Scripts creados:**
+  - `dev/scripts/fase1_verificar_categorias.py`
+- **Estado:** ✅ COMPLETADA
+
+#### Fase 2: Modelo - Agregar Política de Viáticos (SEMANA 1-2)
+  - `Empresa`: Agregar `politica_viaticos_default` ('I'=Incluidos / 'F'=Facturables)
+  - `Rendicion`: Agregar FK a `cliente` + `politica_viaticos` (override nullable)
+  - `Rendicion`: Propiedades calculadas: `total_reembolso_tecnico`, `total_facturable_cliente`, `total_no_facturable`
+- **Estado:** NO INICIADO
+
+#### Fase 3: Serializers y Lógica Backend (SEMANA 2)
+- **Qué:** Actualizar serializers y vistas para soportar nuevos campos y cálculos
+- **Cambios:**
+  - `RendicionSerializer`: Agregar campos nuevos y propiedades calculadas
+
+#### Fase 4: Frontend - Creación y Edición (SEMANA 2-3)
+- **Qué:** Permitir al usuario seleccionar cliente (hereda política) y opcionalmente hacer override
+  - `CrearRendicion.tsx`: Agregar campo Cliente (selector)
+  - `DetalleRendicion.tsx`: Mostrar 3 totales separados (reembolso, facturable, no facturable)
+  - Mostrar política efectiva (heredada o override)
+  - Permitir edición de política_viaticos (solo si rendición en estado Borrador)
+- **Estado:** NO INICIADO
+
+  - Mostrar los 3 totales en resumen final
+- **Estado:** NO INICIADO
+
+- **Qué:** Cuando OT pasa a `completada`, crear automáticamente Rendición con todos los gastos
+- **Cambios:**
+  - Signal o método en `OrdenDeTrabajoViewSet.cambiar_estado()`: Crear Rendición automáticamente
+  - Agregar FK `Rendicion.orden_trabajo` (OneToOneField)
+  - Estado rendición inicial: 'En Aprobación' (no Borrador)
+- **Validaciones:** 
+
+**⚠️ ACLARACIÓN DE ALCANCE (2026-01-05):**
+- **Objetivo Final:** Sistema automático que crea Rendiciones al completar OTs con Gastos/Compras
+- **Terminología:** "Gastos en OT" (`RendicionEnOt`) ≠ "Rendición" (documento consolidado del módulo `rendiciones`)
+
+**Fases:**
+
+### ✅ FASE 1: Limpieza de Categorías (COMPLETADA 2026-01-05)
+- Eliminar categorías de materiales (8 categorías)
+- Dejar solo categorías operativas (18 categorías finales)
+- Scripts: `fase1_verificar_categorias.py`, `fase1_limpiar_categorias.py`
+- `Empresa.politica_viaticos_default`: campo con choices 'I'/'F'
+- `Rendicion.cliente`: FK a Empresa
+- `Rendicion.politica_viaticos`: override opcional
+- Migraciones: `empresas/0002`, `rendiciones/0003`
+
+- Agregar campos: `cliente`, `politica_viaticos`, `politica_viaticos_efectiva`
+- Agregar campos calculados: `total_reembolso_tecnico`, `total_facturable_cliente`, `total_no_facturable`
+- Modificar `RendicionViewSet.perform_create()` para auto-heredar política del cliente
+
+### 🔵 FASE 4: Frontend (EN CURSO)
+- Modificar `DetalleRendicion.tsx`: mostrar 3 totales + badge de política efectiva
+- Modificar listados: exponer política/totales en tablas admin
+- **NO crear modal CrearRendicion**: Rendiciones se crean automáticamente (FASE 6)
+- Estado: EN INICIO
+- Mostrar los 3 totales en PDF
+- Agregar nota explicativa de política
+- Estado: PENDIENTE
+
+### 🔴 FASE 6: Automatización (CRÍTICA - NO OPCIONAL)
+**⚠️ PRIORIDAD ALTA - Define flujo profesional correcto**
+- Cliente auto-asignado desde `OT.cotizacion.cliente`
+- Estado: **PENDIENTE (siguiente prioridad después FASE 4)**
+**Dependencias:** Ninguna (BLOQUEs 1-5 completos)  
+**Impacto:** CRÍTICO (define flujo operativo completo OT → Rendición automática)  
 **Prioridad:** ALTA  
 **Timeline:** Q1 2026  
-**Bloqueantes:** Ninguno (BLOQUEs 1-5 completos)
-
-### B. Reportería y Analytics
-**Objetivo:** Dashboard de vendido, costos, márgenes por cotización/OC/OT  
-**Prioridad:** MEDIA  
 **Timeline:** Q2 2026
 
-### C. API v2 + Mobile App Support
-**Objetivo:** Endpoints de lectura/escritura optimizados para mobile  
-**Prioridad:** BAJA  
-**Timeline:** Q3 2026
 
 ### D. Automatización Celery Tasks
 **Objetivo:** Tareas automáticas (expiración cotizaciones, recordatorios OT, etc.)  
-**Prioridad:** MEDIA  
-**Timeline:** Q2 2026
-
----
-
-## Reglas de Mantenimiento
 
 - Mantener este archivo como fuente única de planes vigentes
 - Al cerrar una iniciativa, mover el resultado a `changelog.md` (como se hizo con BLOQUEs 1-5)
@@ -158,14 +230,8 @@ Propósito: Roadmap vivo de épicas activas y próximos pasos post-BLOQUE 5.
 ---
 
 ## Métricas de Entrega (BLOQUEs 1-5)
-
 ```
 Commits:               50+
 Archivos modificados:  115
-Insertions:           22,838
-Deletions:             6,215
-Vulnerabilidades:         3 (data-leaks, todas corregidas)
-Tests:                Todos pasando ✅
 Build frontend:       Success ✅
-Documentation:        Consolidada en 5 archivos vivos
 ```
