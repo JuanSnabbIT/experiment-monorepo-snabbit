@@ -1,7 +1,7 @@
-import { IGuiaSalida } from "@/interface/bodega.interface"
 import { IEquipo, IUsuarioEquipo } from "@/interface/recursos.interface"
 import { IAsistenciaUsuario, IEntregaEquipo, IInsumoEnVisitaSoporte, IVisitaSoporte } from "@/interface/visitas.interface"
 import ApiService from "@/services/ApiService"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
 
 
@@ -61,8 +61,8 @@ export const listaVisitasSoporteThunk = createAsyncThunk<IVisitaSoporte[], undef
         try {
             const response = await ApiService.fetchData<IVisitaSoporte[]>({url: `/api/visitas-soporte/`, method:'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 )
@@ -73,8 +73,8 @@ export const detalleVisitaSoporteThunk = createAsyncThunk<IVisitaSoporte, {id_vi
         try {
             const response = await ApiService.fetchData<IVisitaSoporte>({url: `/api/visitas-soporte/${id_visita}/`, method:'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 )
@@ -85,8 +85,8 @@ export const listaAsistenciaUsuariosThunk = createAsyncThunk<IAsistenciaUsuario[
         try {
             const response = await ApiService.fetchData<IAsistenciaUsuario[]>({url: `/api/visitas-soporte/${id_visita}/asistencias-usuarios/`, method:'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 )
@@ -97,8 +97,8 @@ export const detalleAsistenciaUsuarioThunk = createAsyncThunk<IAsistenciaUsuario
         try {
             const response = await ApiService.fetchData<IAsistenciaUsuario>({url: `/api/visitas-soporte/${id_visita}/asistencias-usuarios/${id_usuario}/`, method:'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 )
@@ -109,8 +109,8 @@ export const listaUsuarioEquipoAsistenciaThunk = createAsyncThunk<IUsuarioEquipo
         try {
             const response = await ApiService.fetchData<IUsuarioEquipo[]>({url: `/api/visitas-soporte/${id_visita}/asistencias-usuarios/lista-usuarios-equipo/`,method: 'get'});
             return response.data;
-        } catch (error: any) {
-            return rejectWithValue(error.response.data);
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error));
         }
     }
 );
@@ -121,8 +121,8 @@ export const detalleUsuarioEquipoAsistenciaThunk = createAsyncThunk<IUsuarioEqui
         try {
             const response = await ApiService.fetchData<IUsuarioEquipo>({url: `/api/visitas-soporte/${id_visita}/asistencia-usuarios/${id_usuario}/`,method: 'get'});
             return response.data;
-        } catch (error: any) {
-            return rejectWithValue(error.response.data);
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error));
         }
     }
 );
@@ -133,8 +133,8 @@ export const listaEntregaEquipoThunk = createAsyncThunk<IEntregaEquipo[],{ id_vi
         try {
             const response = await ApiService.fetchData<IEntregaEquipo[]>({url: `/api/visitas-soporte/${id_visita}/entregas-equipos/`,method: 'get'});
             return response.data;
-        } catch (error: any) {
-            return rejectWithValue(error.response.data);
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error));
         }
     }
 );
@@ -145,8 +145,8 @@ export const detalleEntregaEquipoThunk = createAsyncThunk<IEntregaEquipo,{ id_vi
         try {
             const response = await ApiService.fetchData<IEntregaEquipo>({url: `/api/visitas-soporte/${id_visita}/entregas-equipos/${id_usuario}/`,method: 'get'});
             return response.data;
-        } catch (error: any) {
-            return rejectWithValue(error.response.data);
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error));
         }
     }
 );
@@ -157,8 +157,8 @@ export const listaInsumosEnVisitaSoporteThunk = createAsyncThunk<IInsumoEnVisita
         try {
             const response = await ApiService.fetchData<IInsumoEnVisitaSoporte[]>({url: `/api/visitas-soporte/${id_visita}/insumos-visitas/`, method: 'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data || "Error al obtener los insumos")
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 );
@@ -181,8 +181,8 @@ export const listaDeEquiposParaEntregarThunk = createAsyncThunk<IEquipo[], {id_g
         try {
             const response = await ApiService.fetchData<IEquipo[], string>({url: `/api/guia-salida/${id_guia_salida}/equipos-guia`, method: 'get'})
             return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data || "Error al obtener la lista de equipos")
+        } catch (error: unknown) {
+            return rejectWithValue(getErrorMessage(error))
         }
     }
 )

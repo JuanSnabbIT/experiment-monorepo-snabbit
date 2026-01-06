@@ -67,7 +67,9 @@ htmlcov/
 .pytest_cache/
 *.cover
 
-# Development notebooks (outputs only)
+# Development notebooks
 **/*.ipynb_checkpoints/
-backend/Pruebas_*.ipynb
-backend/Reportlab_*.ipynb
+backend/jupyter_notebooks/
+
+# Development data files (user imports, test data)
+dev/scripts/data/

@@ -100,11 +100,11 @@ class DiaCalendarioViewSet(viewsets.ModelViewSet):
     def generar_calendario_anual(self, request):
         anio = request.data.get('anio')
         if not anio:
-            return Response({'error': 'Debe proporcionar el año.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Debe proporcionar el año.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             anio = int(anio)
         except ValueError:
-            return Response({'error': 'El año proporcionado no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'El año proporcionado no es válido.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Obtener la empresa del usuario
         user = request.user
@@ -113,7 +113,7 @@ class DiaCalendarioViewSet(viewsets.ModelViewSet):
             sucursal = personalizacion.sucursal_principal
             empresa = sucursal.empresa
         except (PersonalizacionUsuario.DoesNotExist, AttributeError):
-            return Response({'error': 'No se pudo determinar la empresa del usuario.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'No se pudo determinar la empresa del usuario.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Llamamos a la función para generar los feriados del calendario
         self._generar_calendario_anual(anio, empresa)
@@ -129,15 +129,15 @@ class DiaCalendarioViewSet(viewsets.ModelViewSet):
                 defaults={'es_feriado': True, 'descripcion': descripcion}
             )
 
-    @action(detail=False, methods=['put', 'patch'], url_path='editar_por_fecha')
+    @action(detail=False, methods=['put', 'patch'], url_path='editar-por-fecha')
     def editar_por_fecha(self, request):
         fecha_str = request.data.get('fecha')
         if not fecha_str:
-            return Response({'error': 'Debe proporcionar la fecha en formato AAAA-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Debe proporcionar la fecha en formato AAAA-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             fecha = date.fromisoformat(fecha_str)
         except ValueError:
-            return Response({'error': 'La fecha proporcionada no es válida. Use el formato AAAA-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'La fecha proporcionada no es válida. Use el formato AAAA-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Obtener la empresa del usuario
         user = request.user
@@ -146,12 +146,12 @@ class DiaCalendarioViewSet(viewsets.ModelViewSet):
             sucursal = personalizacion.sucursal_principal
             empresa = sucursal.empresa
         except (PersonalizacionUsuario.DoesNotExist, AttributeError):
-            return Response({'error': 'No se pudo determinar la empresa del usuario.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'No se pudo determinar la empresa del usuario.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             dia_calendario = DiaCalendario.objects.get(fecha=fecha, empresa=empresa)
         except DiaCalendario.DoesNotExist:
-            return Response({'error': f'No se encontró un día con la fecha {fecha_str} para la empresa seleccionada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': f'No se encontró un día con la fecha {fecha_str} para la empresa seleccionada.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = DiaCalendarioSerializer(dia_calendario, data=request.data, partial=True)
         if serializer.is_valid():

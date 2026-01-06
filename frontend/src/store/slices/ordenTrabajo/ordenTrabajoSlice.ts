@@ -1,28 +1,29 @@
+import { ICompra } from '@/interface/bodega.interface';
 import { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import {
-	IAdjuntoDeOrden,
-	ICheckCompletibilidad,
-	IDetalleGastoRendicionOT,
-	IDetalleOrdenDeTrabajo,
-	IDetalleOrdenDeTrabajoCompra,
-	IDetalleRetroalimentacionOT,
-	IHistorialCambiosOrden,
-	IHistorialSimple,
-	IInsumo,
-	IListaDetallesSeguimientosOT,
-	IListaTrabajosFiltrado,
-	IOrdenDeTrabajo,
-	IRetroalimentacionOT,
-	IRetroalimentacionSinPermisosOT,
-	ISeguimientoOrden,
-	IServicioEnOT,
-	ISoporteTecnico,
-	IUsuarioAsignadoSoporte,
-	IUsuarioVinculado,
+    IAdjuntoDeOrden,
+    ICheckCompletibilidad,
+    IDetalleGastoRendicionOT,
+    IDetalleOrdenDeTrabajo,
+    IDetalleOrdenDeTrabajoCompra,
+    IDetalleRetroalimentacionOT,
+    IHistorialCambiosOrden,
+    IHistorialSimple,
+    IInsumo,
+    IListaDetallesSeguimientosOT,
+    IListaTrabajosFiltrado,
+    IOrdenDeTrabajo,
+    IRetroalimentacionOT,
+    IRetroalimentacionSinPermisosOT,
+    ISeguimientoOrden,
+    IServicioEnOT,
+    ISoporteTecnico,
+    IUsuarioAsignadoSoporte,
+    IUsuarioVinculado,
 } from '@/interface/ordenTrabajo.interface';
-import { ICompra } from '@/interface/bodega.interface';
 import { IVisitaEnOT } from '@/interface/visitas.interface';
 import ApiService from '@/services/ApiService';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 export interface OrdenTrabajoState {
@@ -118,8 +119,8 @@ export const detalleRetroalimentacionOTThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener la retroalimentacion');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -134,8 +135,8 @@ export const listaUsuariosVinculadosOTThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener la lista de usuarios');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -150,8 +151,8 @@ export const listaDetalleGastoRendicionOTDisponiblesThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener la lista de gastos');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -166,8 +167,8 @@ export const listaDetalleGastoRendicionOTThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener la lista de gastos');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -185,10 +186,8 @@ export const detalleSinPermisosRetroalimentacionOTThunk = createAsyncThunk<
 				isLoginRequest: true,
 			});
 			return response.data;
-		} catch (error: any) {
-			return rejectWithValue(
-				error.response.data || 'Error al obtener el detalle de retroalimentación',
-			);
+		} catch (error: unknown) {
+			return rejectWithValue(getErrorMessage(error));
 		}
 	},
 );
@@ -204,8 +203,8 @@ export const listaRetroalimentacionesOTThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener las retroalimentaciones');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -220,10 +219,8 @@ export const checkCompletibilidadOTThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(
-			error.response.data || 'Error al obtener el check de completibilidad',
-		);
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -238,8 +235,8 @@ export const listaTecnicosThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener los técnicos');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -254,8 +251,8 @@ export const listaComprasOrdenTrabajoThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data || 'Error al obtener las compras');
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 
@@ -270,8 +267,8 @@ export const listaOrdenTrabajoThunk = createAsyncThunk<
 			method: 'get',
 		});
 		return response.data;
-	} catch (error: any) {
-		return rejectWithValue(error.response.data);
+	} catch (error: unknown) {
+		return rejectWithValue(getErrorMessage(error));
 	}
 });
 

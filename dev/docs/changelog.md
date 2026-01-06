@@ -4,10 +4,58 @@ Uso: Registrar cambios de estado relevantes del sistema (implementaciones comple
 
 ---
 
+## 2026-01-06 — Refactor: Alineación de Instrucciones y Patrones Q1 2026
+
+**Status:** ✅ COMPLETADO
+
+### Resumen
+Corrección de inconsistencias entre instrucciones documentadas y código actual, refuerzo de patrones de diseño críticos.
+
+### Cambios Realizados
+
+#### Instrucciones Corregidas
+
+1. **frontend-guide.md**: Eliminada referencia a `OrdenTrabajoService.ts` en estructura de ejemplo (contradecía regla de NO crear servicios específicos por módulo).
+
+2. **typescript.instructions.md**: Agregada sección "Manejo de Errores (CRÍTICO)" con:
+   - Patrón obligatorio `unknown` + type guards (prohibido `any` en catch)
+   - Helper `getErrorMessage()` para crear en `utils/errorHandlers.ts`
+   - Ejemplos de código incorrecto vs correcto
+
+3. **backend-guide.md**: Reforzada sección "Convención CRÍTICA: PersonalizacionUsuario":
+   - Agregado ejemplo de antipatrón (filtrado solo por query_params)
+   - Agregado ejemplo de patrón correcto (filtrar multi-tenant PRIMERO)
+   - Nuevo checklist de validación para ViewSets
+
+4. **copilot-instructions.md**: Agregada sección "Archivos a Limpiar del Backend":
+   - Lista explícita de archivos residuales conocidos
+   - Regla: notebooks en `jupyter_notebooks/`, no en raíz
+
+### Violaciones Detectadas (Pendientes de Refactor)
+
+**Backend (Alta Prioridad - Seguridad):**
+- ~40% de ViewSets sin filtrado multi-tenant correcto
+- 3 `@action url_path` con snake_case en lugar de kebab-case
+- ~30% de respuestas de error usan `error` en lugar de `detail`
+
+**Frontend (Media Prioridad):**
+- 40+ usos de `any` en catch blocks de thunks
+
+**Limpieza (Baja Prioridad):**
+- 8+ archivos temporales en `backend/` (notebooks, xlsx, pdfs)
+
+### Próximos Pasos
+1. Crear `utils/errorHandlers.ts` en frontend
+2. Refactorizar thunks para usar `getErrorMessage()`
+3. Auditar y corregir ViewSets sin filtrado multi-tenant
+4. Limpiar archivos residuales del backend
+
+---
+
 ## 2026-01-05 — BLOQUE 6: Mejoras Sistema de Rendiciones (En Progreso)
 
 **Rama:** `feature/mejoras-rendiciones` (en progreso)  
-**Status:** 🟢 FASE 1 COMPLETADA | 🟢 FASE 2 COMPLETADA | 🟢 FASE 3 COMPLETADA | 🟢 FASE 4 COMPLETADA | � FASE 5 PENDIENTE | 🟢 FASE 6 COMPLETADA
+**Status:** 🟢 FASE 1 COMPLETADA | 🟢 FASE 2 COMPLETADA | 🟢 FASE 3 COMPLETADA | 🟢 FASE 4 COMPLETADA | 🔴 FASE 5 PENDIENTE | 🟢 FASE 6 COMPLETADA
 
 ### Resumen
 Rediseño del sistema de rendiciones para:

@@ -19,10 +19,10 @@ src/
 │   ├── DashboardPage.tsx
 │   ├── LoginPage.tsx
 │   └── ...
-├── services/             # Servicios HTTP
-│   ├── BaseService.ts    # Base de todos los servicios
-│   ├── OrdenTrabajoService.ts
-│   └── ...
+├── services/             # Servicios HTTP (usar ApiService, NO crear por módulo)
+│   ├── ApiService.ts     # Servicio único para llamadas HTTP
+│   ├── BaseService.ts    # Axios instance con interceptors
+│   └── RtkQueryService.ts # RTK Query (si aplica)
 ├── store/                # Redux state management
 │   ├── slices/           # Redux slices (features)
 │   │   ├── auth.slice.ts

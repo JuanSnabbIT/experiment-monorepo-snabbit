@@ -4,11 +4,8 @@
     {
       "label": "Backend: Runserver",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["manage.py", "runserver", "0.0.0.0:8000"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },
@@ -66,11 +63,8 @@
     {
       "label": "Backend: Celery Worker",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["-m", "celery", "-A", "sw_erp", "worker", "--loglevel=info"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },
@@ -97,11 +91,8 @@
     {
       "label": "Backend: Celery Beat",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["-m", "celery", "-A", "sw_erp", "beat", "--loglevel=info"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },
@@ -128,11 +119,8 @@
     {
       "label": "Backend: Make Migrations",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["manage.py", "makemigrations"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
         "cwd": "${workspaceFolder}/backend"
       }
@@ -140,11 +128,8 @@
     {
       "label": "Backend: Migrate",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["manage.py", "migrate"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
         "cwd": "${workspaceFolder}/backend"
       }
@@ -161,17 +146,10 @@
     {
       "label": "Backend: Setup Superuser",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["..\\dev\\scripts\\setup\\setup_superuser.py"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
-        "cwd": "${workspaceFolder}/backend",
-        "shell": {
-          "executable": "cmd.exe",
-          "args": ["/C"]
-        }
+        "cwd": "${workspaceFolder}/backend"
       },
       "presentation": {
         "reveal": "always",
@@ -183,17 +161,10 @@
     {
       "label": "Backend: Seed Base",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["..\\dev\\scripts\\setup\\seed_base.py"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
-        "cwd": "${workspaceFolder}/backend",
-        "shell": {
-          "executable": "cmd.exe",
-          "args": ["/C"]
-        }
+        "cwd": "${workspaceFolder}/backend"
       },
       "presentation": {
         "reveal": "always",
@@ -205,17 +176,10 @@
     {
       "label": "Backend: Reset DB",
       "type": "shell",
-      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
+      "command": "C:\\Users\\LuisRojasMolina\\.conda\\envs\\ENV-ERP\\python.exe",
       "args": ["..\\dev\\scripts\\setup\\reset_db.py"],
-      "windows": {
-        "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe"
-      },
       "options": {
-        "cwd": "${workspaceFolder}/backend",
-        "shell": {
-          "executable": "cmd.exe",
-          "args": ["/C"]
-        }
+        "cwd": "${workspaceFolder}/backend"
       },
       "presentation": {
         "reveal": "always",

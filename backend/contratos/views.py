@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from django.db import models
 from contratos.models import (
     ContratoEmpresaCliente,
     EnvioContratoFirmaUsuario,
@@ -59,9 +60,24 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoEmpresaClienteSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        # Aquí podrías aplicar filtrados según el usuario o permisos, si es necesario
-        return qs
+        """
+        Filtrar contratos por empresa del usuario (multi-tenant).
+        El usuario solo ve contratos donde su empresa es prestadora o cliente.
+        """
+        from core.models import PersonalizacionUsuario
+        
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return ContratoEmpresaCliente.objects.none()
+        
+        empresa = personalizacion.sucursal_principal.empresa
+        
+        # Contratos donde la empresa es prestadora o cliente
+        return ContratoEmpresaCliente.objects.filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_cliente=empresa)
+        )
 
     @action(detail=False, methods=['get'], url_path='filtrar-por-empresa-cliente/(?P<empresa_pk>[^/.]+)/(?P<cliente_pk>[^/.]+)')
     def filtrar_por_empresa_cliente(self, request, empresa_pk=None, cliente_pk=None):
@@ -288,13 +304,13 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
         if servicios_data is None:
             return Response(
-                {"error": "No se proporcionaron datos para 'servicios_genericos'."},
+                {"detail": "No se proporcionaron datos para 'servicios_genericos'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         if not isinstance(servicios_data, list):
             return Response(
-                {"error": "El campo 'servicios_genericos' debe ser una lista."},
+                {"detail": "El campo 'servicios_genericos' debe ser una lista."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -309,7 +325,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 object_id = item.get("object_id")
                 if not ct_id or not object_id:
                     return Response(
-                        {"error": "Cada elemento debe contener 'content_type' y 'object_id'."},
+                        {"detail": "Cada elemento debe contener 'content_type' y 'object_id'."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
@@ -317,14 +333,14 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     ct = ContentType.objects.get(id=ct_id)
                 except ContentType.DoesNotExist:
                     return Response(
-                        {"error": f"No se encontró ContentType con id {ct_id}."},
+                        {"detail": f"No se encontró ContentType con id {ct_id}."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
                 # Validar que el ContentType pertenezca a los modelos permitidos
                 if ct.model not in allowed_models:
                     return Response(
-                        {"error": f"El ContentType con id {ct_id} no pertenece a un modelo permitido (servicio, planservicio)."},
+                        {"detail": f"El ContentType con id {ct_id} no pertenece a un modelo permitido (servicio, planservicio)."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
@@ -612,7 +628,7 @@ def obtener_acuerdos_por_envio(request, uuid):
     try:
         envio = EnvioContratoFirmaUsuario.objects.get(uuid=uuid, enviado=True)
     except EnvioContratoFirmaUsuario.DoesNotExist:
-        return JsonResponse({'error': 'Envío no encontrado o no enviado aún.'}, status=404)
+        return JsonResponse({'detail': 'Envío no encontrado o no enviado aún.'}, status=404)
 
     # Asumimos que UsuarioVinculadoContrato tiene FK .contrato
     contrato = envio.usuario.contrato
@@ -646,7 +662,7 @@ def firmar_envio(request, uuid):
     try:
         envio = EnvioContratoFirmaUsuario.objects.get(uuid=uuid)
     except EnvioContratoFirmaUsuario.DoesNotExist:
-        return JsonResponse({'error': 'Envío no encontrado.'}, status=404)
+        return JsonResponse({'detail': 'Envío no encontrado.'}, status=404)
 
     # Parsear body JSON
     try:

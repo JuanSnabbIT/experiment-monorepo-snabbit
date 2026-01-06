@@ -32,12 +32,56 @@ applyTo: "**/*.{ts,tsx}"
           method: 'get'
         })
         return response.data
-      } catch (error: any) {
-        return rejectWithValue(error.response?.data || 'Error desconocido')
+      } catch (error: unknown) {
+        return rejectWithValue(getErrorMessage(error))
       }
     }
   )
   ```
+
+## ⚠️ Manejo de Errores (CRÍTICO)
+
+**PROHIBIDO usar `any` en catch blocks.** Usar `unknown` + type guard:
+
+```typescript
+// ❌ INCORRECTO - NO usar
+catch (error: any) {
+  return rejectWithValue(error.response?.data || 'Error')
+}
+
+// ✅ CORRECTO - Usar siempre
+import { isAxiosError } from 'axios'
+
+catch (error: unknown) {
+  return rejectWithValue(getErrorMessage(error))
+}
+```
+
+### Helper obligatorio (crear en `utils/errorHandlers.ts`):
+
+```typescript
+import { isAxiosError, AxiosError } from 'axios'
+
+interface ApiErrorResponse {
+  detail?: string
+  message?: string
+  [key: string]: unknown
+}
+
+export function getErrorMessage(error: unknown): string {
+  if (isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.detail 
+      ?? error.response?.data?.message 
+      ?? error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'Error desconocido'
+}
+```
+
+**Razón:** `any` rompe el type-safety y oculta errores en tiempo de compilación.
 
 ## Servicios y HTTP
 - **BaseService.ts**: Axios instance con JWT interceptors (auto-refresh).

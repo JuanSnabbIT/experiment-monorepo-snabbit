@@ -256,7 +256,7 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         )
 ```
 
-### ⚠️ Convención CRÍTICA: PersonalizacionUsuario
+### ⚠️ Convención CRÍTICA: PersonalizacionUsuario (Multi-Tenant)
 
 **Todos los ViewSets DEBEN filtrar por empresa/sucursal** usando el patrón:
 
@@ -274,7 +274,56 @@ def get_queryset(self):
     return self.model.objects.filter(empresa=empresa)
 ```
 
-**Riesgo:** Retornar `objects.all()` sin filtrar expone datos de otras empresas (data leak).
+**⚠️ RIESGO DE DATA LEAK:** Retornar `objects.all()` sin filtrar expone datos de otras empresas.
+
+#### ❌ Antipatrón (INCORRECTO):
+
+```python
+# ⚠️ PELIGRO: Esto expone datos de TODAS las empresas
+def get_queryset(self):
+    qs = super().get_queryset()
+    # Solo filtra por query_params - el cliente puede ver cualquier empresa
+    empresa = self.request.query_params.get("empresa")
+    if empresa:
+        qs = qs.filter(empresa_id=empresa)  # ❌ Cliente controla el filtro
+    return qs
+```
+
+#### ✅ Patrón Correcto:
+
+```python
+def get_queryset(self):
+    user = self.request.user
+    personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+    
+    if not personalizacion or not personalizacion.sucursal_principal:
+        return self.queryset.model.objects.none()
+    
+    empresa = personalizacion.sucursal_principal.empresa
+    qs = self.queryset.model.objects.filter(empresa=empresa)
+    
+    # Ahora sí puedes aplicar filtros adicionales de query_params
+    estado = self.request.query_params.get("estado")
+    if estado:
+        qs = qs.filter(estado=estado)
+    
+    return qs.select_related('usuario_asignado')  # Optimizar queries
+```
+
+---
+
+### 📋 Checklist de Validación ViewSet
+
+Antes de hacer merge de un ViewSet, verifica:
+
+- [ ] `get_queryset()` filtra por `PersonalizacionUsuario` → empresa/sucursal **PRIMERO**
+- [ ] NO hay `objects.all()` sin filtrar por empresa
+- [ ] Filtros de `query_params` se aplican **DESPUÉS** del filtro multi-tenant
+- [ ] `@action url_path` usa kebab-case: `cerrar-orden`, no `cerrar_orden`
+- [ ] Errores retornan `{'detail': 'mensaje'}`, no `{'error': ...}` ni `{'message': ...}`
+- [ ] Lógica pesada movida a `functions.py` (< 50 líneas por método en views)
+- [ ] Usa `select_related()` / `prefetch_related()` para evitar N+1
+- [ ] `transaction.atomic()` para operaciones multi-modelo
 
 ### Buenas Prácticas
 ✅ **Haz:**

@@ -50,7 +50,7 @@ class RetroalimentacionAplicadaViewSet(viewsets.GenericViewSet):
     serializer_class = RetroalimentacionAplicadaSerializer
     permission_classes = [AllowAny]
 
-    @action(detail=False, methods=['patch'], url_path='bulk_update', permission_classes=[])
+    @action(detail=False, methods=['patch'], url_path='bulk-update', permission_classes=[])
     def bulk_update(self, request):
         """
         Recibe un JSON con la clave "items" conteniendo una lista de objetos:

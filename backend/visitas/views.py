@@ -86,7 +86,7 @@ class EntregaDeEquipoViewSet(viewsets.ModelViewSet):
         try:
             visita = VisitaSoporte.objects.get(pk=visita_soporte_pk)
         except VisitaSoporte.DoesNotExist:
-            return Response({'error': 'Visita no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Visita no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
 
         # 2. Crear la EntregaDeEquipo
         data = request.data.copy()

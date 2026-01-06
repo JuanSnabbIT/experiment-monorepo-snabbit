@@ -82,6 +82,16 @@ monorepo_erp/
 - Si creas un script temporal para debug, **elimínalo inmediatamente** después de usarlo.
 - No dejar archivos huérfanos: `test_*.py`, `check_*.py`, `fix_*.py`, `validate_*.py`.
 
+### Archivos a Limpiar del Backend (Conocidos)
+Los siguientes archivos residuales **deben eliminarse** o moverse a ubicaciones apropiadas:
+- `backend/nombre_prueba` — Archivo sin extensión (eliminar)
+- `backend/*.xlsx` — Archivos Excel de importación (mover a `dev/scripts/data/` o eliminar)
+- `backend/Pruebas_*.ipynb` — Notebooks fuera de `jupyter_notebooks/` (mover o eliminar)
+- `backend/Reportlab_*.ipynb` — Notebooks fuera de `jupyter_notebooks/` (mover o eliminar)
+- `backend/pdf_*.pdf` — PDFs de prueba (eliminar)
+
+**Regla:** Los notebooks de desarrollo van en `backend/jupyter_notebooks/`, no en raíz de backend.
+
 ### Encoding
 - **Todos los archivos** deben ser UTF-8 (sin BOM).
 - Antes de crear archivos nuevos, verifica que tu editor guarde en UTF-8.

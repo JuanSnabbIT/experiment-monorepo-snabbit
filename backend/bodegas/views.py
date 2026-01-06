@@ -128,7 +128,7 @@ class BodegaViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Bodega.DoesNotExist:
             return Response(
-                {"error": "Bodega no encontrada."}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "Bodega no encontrada."}, status=status.HTTP_404_NOT_FOUND
             )
 
     @action(detail=True, methods=["get"], url_path="generar-pdf")
@@ -575,7 +575,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
             if not item_id:
                 return Response(
-                    {"error": "Se requiere item, cantidad y precio"},
+                    {"detail": "Se requiere item, cantidad y precio"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -601,12 +601,12 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             )
         except OrdenCompra.DoesNotExist:
             return Response(
-                {"error": "Orden de compra no encontrada"},
+                {"detail": "Orden de compra no encontrada"},
                 status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=False, methods=["get"])
@@ -663,7 +663,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
         if not email_destinatario:
             return Response(
-                {"error": "El campo email es requerido"},
+                {"detail": "El campo email es requerido"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -716,7 +716,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             )
         except Exception as e:
             return Response(
-                {"error": f"Error enviando el correo: {str(e)}"},
+                {"detail": f"Error enviando el correo: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -730,7 +730,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         # Validar estado
         if estado not in ["4", "5"]:
             return Response(
-                {"error": 'Estado inválido. Debe ser "4" (parcial) o "5" (completa).'},
+                {"detail": 'Estado inválido. Debe ser "4" (parcial) o "5" (completa).'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -738,7 +738,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         items_oc = ItemEnOrdenCompra.objects.filter(orden_compra=orden)
         if not items_oc.exists():
             return Response(
-                {"error": "La orden no tiene ítems asociados."},
+                {"detail": "La orden no tiene ítems asociados."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -751,7 +751,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
                 cantidad = item.get("cantidad")
                 if not item_oc_id or cantidad is None:
                     return Response(
-                        {"error": "Cada item debe tener item_oc_id y cantidad."},
+                        {"detail": "Cada item debe tener item_oc_id y cantidad."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 items_map[str(item_oc_id)] = cantidad
@@ -766,7 +766,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             if not item_oc_en_stock:
                 return Response(
                     {
-                        "error": f"No se encontró un registro en ItemOrdenCompraEnStock para el ítem {ioc.id}"
+                        "detail": f"No se encontró un registro en ItemOrdenCompraEnStock para el ítem {ioc.id}"
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -776,7 +776,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             if not bodega:
                 return Response(
                     {
-                        "error": f"El ítem {ioc.id} no tiene una bodega temporal asociada."
+                        "detail": f"El ítem {ioc.id} no tiene una bodega temporal asociada."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -788,7 +788,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             if cantidad_a_ingresar is None:
                 return Response(
                     {
-                        "error": f"No se proporcionó cantidad parcial para el ítem {ioc.id}"
+                        "detail": f"No se proporcionó cantidad parcial para el ítem {ioc.id}"
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -798,7 +798,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             except ValueError:
                 return Response(
                     {
-                        "error": f"La cantidad para el ítem {ioc.id} no es un número válido."
+                        "detail": f"La cantidad para el ítem {ioc.id} no es un número válido."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -841,14 +841,14 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
         if not item_id:
             return Response(
-                {"error": 'El parámetro "item_id" es obligatorio.'}, status=400
+                {"detail": 'El parámetro "item_id" es obligatorio.'}, status=400
             )
 
         try:
             dias = int(dias)
         except ValueError:
             return Response(
-                {"error": 'El parámetro "dias" debe ser un número entero.'}, status=400
+                {"detail": 'El parámetro "dias" debe ser un número entero.'}, status=400
             )
 
         # Obtener la sucursal principal del usuario
@@ -856,7 +856,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
         if not personalizacion or not personalizacion.sucursal_principal:
             return Response(
-                {"error": "No tiene una sucursal principal asignada."}, status=403
+                {"detail": "No tiene una sucursal principal asignada."}, status=403
             )
 
         fecha_limite = now() - timedelta(days=dias)
@@ -2725,7 +2725,7 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
             from bodegas.functions import generar_voucher_devolucion
         except ImportError:
             return Response(
-                {'error': 'Módulo de generación PDF no disponible'},
+                {'detail': 'Módulo de generación PDF no disponible'},
                 status=status.HTTP_501_NOT_IMPLEMENTED
             )
         
@@ -2739,6 +2739,6 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
         
         except Exception as e:
             return Response(
-                {'error': f'Error al generar PDF: {str(e)}'},
+                {'detail': f'Error al generar PDF: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
