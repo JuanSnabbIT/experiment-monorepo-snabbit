@@ -196,7 +196,7 @@ selectedTipo === tipo
 </CardHeader>
 <CardBody className="w-full h-full">
 {seguimientosFiltrados.length > 0 ? (
-<div className="h-full max-h-[50vh] overflow-auto">
+<div className="h-full overflow-auto pr-4">
 {(() => {
 const sorted = seguimientosFiltrados.slice().sort(
 (a, b) =>
@@ -258,7 +258,7 @@ colorShade="500">
 {comentario ? (
 <div className="relative">
 <div
-className={`p-2 bg-gray-50 rounded text-sm leading-relaxed whitespace-pre-wrap ${
+className={`p-3 bg-gray-50 rounded text-sm leading-relaxed whitespace-pre-wrap flex-1 ${
 !isExpanded && isLongComment ? 'line-clamp-3' : ''
 }`}>
 {highlightText(comentario, searchText)}

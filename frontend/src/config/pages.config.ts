@@ -572,15 +572,22 @@ export const Pages = {
 				text: 'Cierre OT Detalle',
 				icon: 'DuoReceipt',
 				authority: []
-			}
+		},
+		cierreContratoDetalle: {
+			id: 'cierreContratoDetalle',
+			to: '/facturacion/cierre-contrato/:id',
+			text: 'Detalle Facturación Contrato',
+			icon: 'DuoReceipt',
+			authority: []
 		}
-	},
+	}
+},
 
-	listaInvitacionesEmpresas: {
-		id: 'listaInvitacionesEmpresas',
-		to: '/invitaciones-empresas',
-		text: 'Invitaciones',
-		icon: 'DuoMailbox2',
+listaInvitacionesEmpresas: {
+	id: 'listaInvitacionesEmpresas',
+	to: '/invitaciones-empresas',
+	text: 'Invitaciones',
+	icon: 'DuoMailbox2',
 		authority: [],
 	},
 	listaDiasCalendario: {

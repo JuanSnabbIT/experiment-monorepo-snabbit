@@ -18,6 +18,8 @@ router = DefaultRouter()
 router.register(r'ordenes-de-trabajo', OrdenDeTrabajoViewSet, basename='orden-de-trabajo-v2')
 # Alias para compatibilidad con clientes que usan "ordenes-trabajo"
 router.register(r'ordenes-trabajo', OrdenDeTrabajoViewSet, basename='orden-trabajo-v2-alias')
+# Cierres de facturación por contrato (top-level, no requieren OT)
+router.register(r'cierres-facturacion', CierreAdministrativoOTViewSet, basename='cierres-facturacion')
 
 # Routers anidados bajo /ordenes-de-trabajo/{orden_trabajo_pk}/
 ordenes_router = NestedDefaultRouter(router, r'ordenes-de-trabajo', lookup='orden_trabajo')

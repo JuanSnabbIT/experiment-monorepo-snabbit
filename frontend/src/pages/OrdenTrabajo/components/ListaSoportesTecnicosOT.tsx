@@ -49,6 +49,7 @@ import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
 import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
+import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
 
 function ListaSoportesTecnicosOT() {
 	const dispatch = useAppDispatch();
@@ -86,6 +87,14 @@ function ListaSoportesTecnicosOT() {
 	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
 	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
 	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<"E" | "PR">("E");
+	
+	// Modal de firma para completar trabajo
+	const [isOpenFirmaModal, setIsOpenFirmaModal] = useState(false);
+	const [firmaTrabajoId, setFirmaTrabajoId] = useState<number>(0);
+	const [firmaTrabajoTipo, setFirmaTrabajoTipo] = useState<'servicio' | 'soporte'>('soporte');
+	const [firmaEstadoFinal, setFirmaEstadoFinal] = useState<'completado' | 'medianamente_completado'>('completado');
+	const [firmaTecnicoNombre, setFirmaTecnicoNombre] = useState<string>('Técnico');
+	const [firmaComentariosTecnicos, setFirmaComentariosTecnicos] = useState<any[]>([]);
 
 	const requisitosGlobalesOk = useMemo(() => {
 		if (!listaSoportesTecnicos || listaSoportesTecnicos.length === 0) return false;
@@ -409,7 +418,18 @@ function ListaSoportesTecnicosOT() {
 					return (
 						<DropdownEstadoTrabajo
 							onSelectEstado={async (estado) => {
-								// Cambiar estado directamente sin modal
+								// Para completado y medianamente_completado, el endpoint /completar-trabajo/
+								// ya actualizó el estado, solo necesitamos refrescar
+								if (estado === 'completado' || estado === 'medianamente_completado') {
+									// Solo refrescar los datos, el estado ya fue actualizado por el modal
+									if (detalleOrdenTrabajo) {
+										dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+										dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+									}
+									return;
+								}
+								
+								// Para otros estados (no_realizado), hacer el cambio normal
 								if (!detalleOrdenTrabajo) return;
 								try {
 									await ApiService.fetchData({
@@ -428,11 +448,23 @@ function ListaSoportesTecnicosOT() {
 							}}
 							disabled={!canStart}
 							tooltipText={tooltipText}
+							ordenId={detalleOrdenTrabajo?.id}
+							soporteId={info.row.original.id}
+							clienteId={detalleOrdenTrabajo?.cliente}
+							tecnicoNombre={info.row.original.nombre_tecnico || 'Técnico'}
+							// Props para controlar el modal desde el padre
+							onOpenModal={(trabajoId, tipo, estado, tecnico, comentarios) => {
+								setFirmaTrabajoId(trabajoId);
+								setFirmaTrabajoTipo(tipo);
+								setFirmaEstadoFinal(estado);
+								setFirmaTecnicoNombre(tecnico);
+								setFirmaComentariosTecnicos(comentarios);
+								setIsOpenFirmaModal(true);
+							}}
 						/>
 					);
 				}
 
-				// Para pendiente y estados finales, mostrar botón simple
 				return (
 					<Tooltip text={tooltipText}>
 						<div className={!canStart ? 'inline-block' : ''}>
@@ -445,7 +477,7 @@ function ListaSoportesTecnicosOT() {
 								isDisable={!canStart}
 								onClick={() => {
 									if (!canStart) return;
-									if (estadoLower === 'pendiente') {
+									if (estadoLower === 'en_proceso' || estadoLower === 'en proceso') {
 										iniciarSoporte(info.row.original);
 										return;
 									}
@@ -1450,6 +1482,26 @@ function ListaSoportesTecnicosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
+
+			{/* Modal Firmar y Completar Trabajo */}
+			<FirmarCompletarTrabajo
+				ordenId={detalleOrdenTrabajo?.id || 0}
+				trabajoId={firmaTrabajoId}
+				trabajoTipo={firmaTrabajoTipo}
+				estadoFinal={firmaEstadoFinal}
+				clienteId={detalleOrdenTrabajo?.cliente || 0}
+				tecnicoNombre={firmaTecnicoNombre}
+				comentariosTecnicos={firmaComentariosTecnicos}
+				isOpen={isOpenFirmaModal}
+				setIsOpen={setIsOpenFirmaModal}
+				onSuccess={() => {
+					setIsOpenFirmaModal(false);
+					if (detalleOrdenTrabajo) {
+						dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+						dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+					}
+				}}
+			/>
 
 			{/* Modal Gestionar Usuarios Asignados */}
 			{detalleOrdenTrabajo && soporteIdUsuarios && (

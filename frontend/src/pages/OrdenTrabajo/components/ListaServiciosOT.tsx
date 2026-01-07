@@ -48,6 +48,7 @@ import CrearServicioEnOT from '../modals/CrearServicioEnOT';
 import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import VincularCotizacion from '../modals/VincularCotizacion';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
+import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
 
 function ListaServiciosOT() {
 	const dispatch = useAppDispatch();
@@ -89,6 +90,14 @@ function ListaServiciosOT() {
 	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
 	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
 	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<"E" | "PR">("E");
+	
+	// Modal de firma para completar trabajo
+	const [isOpenFirmaModal, setIsOpenFirmaModal] = useState(false);
+	const [firmaTrabajoId, setFirmaTrabajoId] = useState<number>(0);
+	const [firmaTrabajoTipo, setFirmaTrabajoTipo] = useState<'servicio' | 'soporte'>('servicio');
+	const [firmaEstadoFinal, setFirmaEstadoFinal] = useState<'completado' | 'medianamente_completado'>('completado');
+	const [firmaTecnicoNombre, setFirmaTecnicoNombre] = useState<string>('Técnico');
+	const [firmaComentariosTecnicos, setFirmaComentariosTecnicos] = useState<any[]>([]);
 
 	const cargarGuiasDisponibles = async () => {
 		if (!detalleOrdenTrabajo) return;
@@ -263,7 +272,11 @@ function ListaServiciosOT() {
 				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioId}/seguimientos/`,
 				method: 'get',
 			});
-			setSeguimientos(resp.data || []);
+			// Filtrar seguimientos para excluir los de tipo 'actualizacion'
+			const seguimientosFiltrados = (resp.data || []).filter(
+				(seg: any) => seg.tipo !== 'actualizacion'
+			);
+			setSeguimientos(seguimientosFiltrados);
 		} catch (e) {
 			toast.error('No se pudieron cargar los seguimientos');
 		} finally {
@@ -427,7 +440,18 @@ function ListaServiciosOT() {
 					return (
 						<DropdownEstadoTrabajo
 							onSelectEstado={async (estado) => {
-								// Cambiar estado directamente sin modal
+								// Para completado y medianamente_completado, el endpoint /completar-trabajo/
+								// ya actualizó el estado, solo necesitamos refrescar
+								if (estado === 'completado' || estado === 'medianamente_completado') {
+									// Solo refrescar los datos, el estado ya fue actualizado por el modal
+									if (detalleOrdenTrabajo) {
+										dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
+										dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+									}
+									return;
+								}
+								
+								// Para otros estados (no_realizado), hacer el cambio normal
 								if (!detalleOrdenTrabajo) return;
 								try {
 									await ApiService.fetchData({
@@ -446,6 +470,19 @@ function ListaServiciosOT() {
 							}}
 							disabled={!canStart}
 							tooltipText={tooltipText}
+							ordenId={detalleOrdenTrabajo?.id}
+							servicioId={info.row.original.id}
+							clienteId={detalleOrdenTrabajo?.cliente}
+							tecnicoNombre={info.row.original.nombre_tecnico || 'Técnico'}
+							// Props para controlar el modal desde el padre
+							onOpenModal={(trabajoId, tipo, estado, tecnico, comentarios) => {
+								setFirmaTrabajoId(trabajoId);
+								setFirmaTrabajoTipo(tipo);
+								setFirmaEstadoFinal(estado);
+								setFirmaTecnicoNombre(tecnico);
+								setFirmaComentariosTecnicos(comentarios);
+								setIsOpenFirmaModal(true);
+							}}
 						/>
 					);
 				}
@@ -920,60 +957,80 @@ function ListaServiciosOT() {
 									</div>
 								</div>
 							</div>
-							<div className='col-span-2 mt-3'>
-								<div className='mb-2'>
-									<Badge>Seguimientos</Badge>
+							<div className='col-span-2 mt-4'>
+								<div className='mb-3 flex items-center justify-between'>
+									<Badge className='text-base'>Seguimientos del Trabajo</Badge>
+									<span className='text-xs text-gray-500'>
+										{seguimientos.length} registro{seguimientos.length !== 1 ? 's' : ''}
+									</span>
 								</div>
-								<div className='mt-2 max-h-48 overflow-auto rounded-lg border'>
+								<div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
 									{cargandoSeguimientos ? (
-										<div className='py-4 text-center text-sm text-gray-500'>
-											Cargando...
+										<div className='flex items-center justify-center py-8'>
+											<div className='text-sm text-gray-500'>Cargando seguimientos...</div>
 										</div>
 									) : seguimientos.length > 0 ? (
-										<ul className='divide-y'>
-											{seguimientos.map((seg, idx) => (
-												<li
-													key={seg.id}
-													className='p-3 transition-colors hover:bg-gray-50'>
-													<div className='flex items-start justify-between gap-2'>
-														<div className='flex-1'>
-															<div className='mb-1 flex items-center gap-2'>
-																<Badge
-																	color={
-																		seg.tipo === 'incidencia'
-																			? 'red'
-																			: seg.tipo ===
-																				  'actualizacion'
-																				? 'blue'
-																				: 'zinc'
-																	}
-																	className='text-xs'>
-																	{seg.tipo ?? 'seguimiento'}
-																</Badge>
-																{idx === 0 && (
-																	<span className='text-xs font-medium text-emerald-600'>
-																		Más reciente
-																	</span>
+										<ul className='divide-y divide-gray-200'>
+											{seguimientos.map((seg, idx) => {
+												const tipoConfig: Record<string, { color: any; bgColor: string; borderColor: string; textColor: string; icon: string }> = {
+													incidencia: { color: 'red', bgColor: 'bg-red-50', borderColor: 'border-red-200', textColor: 'text-red-700', icon: '⚠️' },
+													comentario_tecnico: { color: 'blue', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-700', icon: '🔧' },
+													comunicacion_usuario: { color: 'purple', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', textColor: 'text-purple-700', icon: '💬' },
+													default: { color: 'zinc', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', textColor: 'text-gray-700', icon: '📝' },
+												};
+												const config = tipoConfig[seg.tipo as keyof typeof tipoConfig] || tipoConfig.default;
+												return (
+													<li
+														key={seg.id}
+														className={`p-4 transition-all hover:bg-white ${config.bgColor} ${config.borderColor} border-l-4`}>
+														<div className='flex items-start gap-3'>
+															<span className='text-2xl'>{config.icon}</span>
+															<div className='flex-1'>
+																<div className='mb-2 flex items-center justify-between gap-2'>
+																	<div className='flex items-center gap-2'>
+																		<Badge
+																			color={config.color as any}
+																			className='text-xs font-semibold uppercase'>
+																			{TIPO_SEGUIMIENTO.find(t => t.value === seg.tipo)?.label || seg.tipo}
+																		</Badge>
+																		{idx === 0 && (
+																			<span className='text-xs font-semibold text-emerald-600 uppercase tracking-wide'>
+																				✓ Más reciente
+																			</span>
+																		)}
+																	</div>
+																	<div className='flex flex-col items-end gap-1'>
+																		<span className='text-xs font-medium text-gray-600'>
+																			{seg.fecha_creacion
+																				? dayjs(seg.fecha_creacion).locale('es').format('DD/MM/YYYY')
+																				: ''}
+																		</span>
+																		<span className='text-xs text-gray-500'>
+																			{seg.fecha_creacion
+																				? dayjs(seg.fecha_creacion).locale('es').format('HH:mm')
+																				: ''}
+																		</span>
+																	</div>
+																</div>
+																{seg.usuario_nombre && (
+																	<div className='mb-2 text-xs text-gray-600'>
+																		<span className='font-medium'>Por:</span> {seg.usuario_nombre}
+																	</div>
 																)}
+																<p className={`whitespace-pre-wrap text-sm leading-relaxed ${config.textColor}`}>
+																	{seg.comentario || 'Sin comentario'}
+																</p>
 															</div>
-															<p className='whitespace-pre-wrap text-sm text-gray-700'>
-																{seg.comentario || 'Sin comentario'}
-															</p>
 														</div>
-														<span className='whitespace-nowrap text-xs text-gray-500'>
-															{seg.fecha_creacion
-																? dayjs(seg.fecha_creacion)
-																		.locale('es')
-																		.format('DD/MM HH:mm')
-																: ''}
-														</span>
-													</div>
-												</li>
-											))}
+													</li>
+												);
+											})}
 										</ul>
 									) : (
-										<div className='py-4 text-center text-sm text-gray-500'>
-											No hay seguimientos registrados
+										<div className='flex flex-col items-center justify-center py-8'>
+											<span className='mb-2 text-4xl'>📋</span>
+											<p className='text-sm font-medium text-gray-600'>No hay seguimientos registrados</p>
+											<p className='text-xs text-gray-500'>Los seguimientos aparecerán aquí cuando se agreguen</p>
 										</div>
 									)}
 								</div>
@@ -1427,6 +1484,26 @@ function ListaServiciosOT() {
 							dispatch(
 								listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }),
 							);
+						}
+					}}
+				/>
+			)}
+			{/* Modal de firma para completar trabajo */}
+			{detalleOrdenTrabajo && (
+				<FirmarCompletarTrabajo
+					ordenId={detalleOrdenTrabajo.id}
+					trabajoId={firmaTrabajoId}
+					trabajoTipo={firmaTrabajoTipo}
+					estadoFinal={firmaEstadoFinal}
+					clienteId={detalleOrdenTrabajo.cliente}
+					tecnicoNombre={firmaTecnicoNombre}
+					comentariosTecnicos={firmaComentariosTecnicos}
+					isOpen={isOpenFirmaModal}
+					setIsOpen={setIsOpenFirmaModal}
+					onSuccess={() => {
+						if (detalleOrdenTrabajo) {
+							dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
+							dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
 						}
 					}}
 				/>

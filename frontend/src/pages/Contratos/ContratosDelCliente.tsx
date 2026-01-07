@@ -92,6 +92,8 @@ function ContratosDelCliente() {
     const [nuevaVisita, setNuevaVisita] = useState<string>("")
     const [nuevaLicencia, setNuevaLicencia] = useState<string>("")
     const [nuevoUsuario, setNuevoUsuario] = useState<string>("")
+    const [creandoFacturacion, setCreandoFacturacion] = useState<boolean>(false)
+    const [facturacionExistente, setFacturacionExistente] = useState<any | null>(null)
 
     useEffect(() => {
         if (id) {
@@ -114,11 +116,40 @@ function ContratosDelCliente() {
                 dispatch(listaContentTypeThunk())
             }
 
+            // Limpiar facturación previa al cambiar de cliente/contrato
+            setFacturacionExistente(null)
+
             return () => {
                 dispatch(LIMPIAR_DETALLE_CONTRATO())
             }
         }
     }, [detalleCliente])
+
+    // Traer facturación existente del contrato
+    useEffect(() => {
+        const fetchFacturacionContrato = async () => {
+            if (!detalleContratoEmpresaCliente) {
+                setFacturacionExistente(null)
+                return
+            }
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/cierres-facturacion/?contrato=${detalleContratoEmpresaCliente.id}`,
+                    method: "get",
+                })
+                const resultados = response?.data?.results || response?.data || []
+                if (Array.isArray(resultados) && resultados.length > 0) {
+                    setFacturacionExistente(resultados[0])
+                } else {
+                    setFacturacionExistente(null)
+                }
+            } catch (error) {
+                setFacturacionExistente(null)
+            }
+        }
+
+        fetchFacturacionContrato()
+    }, [detalleContratoEmpresaCliente])
 
     const formik = useFormik<IContratoEdicion>({
         enableReinitialize: true,
@@ -204,6 +235,34 @@ function ContratosDelCliente() {
             dispatch(listaUsuariosTodoElClienteThunk({id_empresa: detalleContratoEmpresaCliente.empresa_cliente}))
         }
     }, [detalleContratoEmpresaCliente, editando])
+
+    const crearFacturacionContrato = async () => {
+        if (!detalleContratoEmpresaCliente) return
+        setCreandoFacturacion(true)
+        try {
+            const response = await ApiService.fetchData({
+                url: `/api/cierres-facturacion/`,
+                method: "post",
+                headers: {"Content-Type": "application/json"},
+                data: JSON.stringify({
+                    contrato: detalleContratoEmpresaCliente.id,
+                }),
+            })
+            if (response.data) {
+                toast.success("Facturación creada en borrador")
+                setFacturacionExistente(response.data)
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data || "Error al crear facturación")
+        } finally {
+            setCreandoFacturacion(false)
+        }
+    }
+
+    const irAFacturacion = () => {
+        if (!facturacionExistente) return
+        navigate(`/facturacion/cierre-contrato/${facturacionExistente.id}`)
+    }
 
     return (
         <PageWrapper isProtectedRoute={true} name="Contratos del Cliente" title="Contratos del Cliente">
@@ -339,6 +398,31 @@ function ContratosDelCliente() {
                                             <>
                                                 <Button className="hidden md:flex" variant="solid" icon="HeroPencil" onClick={() => {setEditando(true)}}>Editar Contrato</Button>
                                                 <Button className="md:hidden" variant="solid" icon="HeroPencil" onClick={() => {setEditando(true)}}></Button>
+                                                {!facturacionExistente ? (
+                                                    <Tooltip text="Crear facturación para este contrato">
+                                                        <Button
+                                                            variant="solid"
+                                                            color="blue"
+                                                            icon="HeroDocumentPlus"
+                                                            isLoading={creandoFacturacion}
+                                                            isDisable={creandoFacturacion}
+                                                            onClick={crearFacturacionContrato}
+                                                        >
+                                                            Crear facturación
+                                                        </Button>
+                                                    </Tooltip>
+                                                ) : (
+                                                    <Tooltip text="Ver facturación creada para este contrato">
+                                                        <Button
+                                                            variant="solid"
+                                                            color="emerald"
+                                                            icon="HeroEye"
+                                                            onClick={irAFacturacion}
+                                                        >
+                                                            Ver facturación
+                                                        </Button>
+                                                    </Tooltip>
+                                                )}
                                             </>
                                         )}
                                         <DetalleConfidencialidadContrato />

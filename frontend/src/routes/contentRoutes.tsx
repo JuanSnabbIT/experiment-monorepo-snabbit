@@ -59,6 +59,7 @@ const DetalleBodega = lazy(() => import('@/pages/Bodegas/components/DetalleBodeg
 const ListaMisRendiciones = lazy(() => import('@/pages/Rendiciones/ListaMisRendiciones'))
 const FacturacionesList = lazy(() => import('@/pages/Facturacion/FacturacionesList'))
 const CierreOTDetalle = lazy(() => import('@/pages/Facturacion/CierreOTDetalle'))
+const CierreContratoDetalle = lazy(() => import('@/pages/Facturacion/CierreContratoDetalle'))
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
 // const ListaCotizaciones = lazy(() => import('@/pages/Cotizaciones/ListaCotizaciones'))
 const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/DetalleCotizacion'))
@@ -150,6 +151,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
 	{ path: Pages.rendiciones.subPages.listaMisRendiciones.to, element: <ListaMisRendiciones/>, authority: Pages.rendiciones.subPages.listaMisRendiciones.authority },
 	{ path: Pages.rendiciones.subPages.listaFacturaciones.to, element: <FacturacionesList />, authority: Pages.rendiciones.subPages.listaFacturaciones.authority },
 	{ path: Pages.rendiciones.subPages.cierreOTDetalle.to, element: <CierreOTDetalle />, authority: Pages.rendiciones.subPages.cierreOTDetalle.authority },
+	{ path: Pages.rendiciones.subPages.cierreContratoDetalle.to, element: <CierreContratoDetalle />, authority: Pages.rendiciones.subPages.cierreContratoDetalle.authority },
 	// { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
 
 	// Cotizaciones

@@ -292,15 +292,29 @@ class RendicionEnOtSerializer(serializers.ModelSerializer):
 
 
 class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
+    contrato_nombre = serializers.CharField(
+        source='contrato.nombre', read_only=True, allow_null=True
+    )
+    cliente_nombre = serializers.CharField(
+        source='contrato.empresa_cliente.nombre', read_only=True, allow_null=True
+    )
+    
     class Meta:
         model = CierreAdministrativoOT
         fields = [
             "id",
+            "contrato",
+            "contrato_nombre",
+            "cliente_nombre",
+            "periodo_desde",
+            "periodo_hasta",
             "orden",
             "usuario",
             "fecha_cierre",
             "valido",
             "resultado",
+            "detalle",
+            "estado_cierre",
             "comentario",
             "fecha_creacion",
             "fecha_modificacion",

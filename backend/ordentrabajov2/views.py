@@ -1,11 +1,16 @@
 from bodegas.models import GuiaSalida, ItemsGuiaSalida
 from bodegas.serializers import GuiaSalidaSerializer
+from cuentas.functions import obtener_usuario_empresa
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+import logging
 
+logger = logging.getLogger(__name__)
+
+from .functions import calcular_pactado_del_contrato, calcular_ejecutado_del_contrato
 from .models import (
     AdjuntoDeOrden,
     CierreAdministrativoOT,
@@ -637,16 +642,35 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
             
             # Auto-crear seguimiento si cambió el estado
             if estado_anterior != instance.estado:
-                try:
-                    usuario_empresa = obtener_usuario_empresa(request.user)
-                    SeguimientoItemOT.objects.create(
+                logger.info(f"Estado cambiado en soporte {instance.id}: '{estado_anterior}' -> '{instance.estado}'")
+                if request.user and request.user.is_authenticated:
+                    try:
+                        usuario_empresa = obtener_usuario_empresa(request.user)
+                        seguimiento = SeguimientoItemOT.objects.create(
+                            soporte=instance,
+                            usuario=usuario_empresa,
+                            tipo="actualizacion",
+                            comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                        )
+                        logger.info(f"✅ Seguimiento creado: ID={seguimiento.id}, Usuario={usuario_empresa}")
+                    except Exception as e:
+                        logger.error(f"❌ Error al crear seguimiento para soporte {instance.id}: {str(e)}")
+                        # Crear seguimiento sin usuario como fallback
+                        seguimiento = SeguimientoItemOT.objects.create(
+                            soporte=instance,
+                            usuario=None,
+                            tipo="actualizacion",
+                            comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                        )
+                        logger.warning(f"⚠️ Seguimiento creado sin usuario: ID={seguimiento.id}")
+                else:
+                    logger.warning(f"⚠️ Usuario no autenticado, creando seguimiento sin usuario para soporte {instance.id}")
+                    seguimiento = SeguimientoItemOT.objects.create(
                         soporte=instance,
-                        usuario=usuario_empresa,
+                        usuario=None,
                         tipo="actualizacion",
                         comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
                     )
-                except Exception:
-                    pass
             
             if nuevo_estado == "en_proceso":
                 if instance.orden.estado == "pendiente":
@@ -755,6 +779,106 @@ class SoporteTecnicoViewSet(BaseWriteViewSet):
             actualizar_estado_guia_en_inicio_trabajo(soporte.guia_salida)
         return Response(self.get_serializer(soporte).data)
 
+    @action(detail=True, methods=["post"], url_path="completar-trabajo")
+    def completar_trabajo(self, request, pk=None, orden_trabajo_pk=None):
+        """
+        Completa un soporte técnico:
+        1. Valida que exista al menos 1 comentario técnico
+        2. Requiere firma del usuario final (firma_entrega)
+        3. Requiere usuario que recibe (entregado_a)
+        4. Actualiza estado a 'completado' o 'medianamente_completado'
+        5. Si tiene guía, actualiza firma_entrega y entregado_a en la guía
+        
+        Body esperado:
+        {
+          "firma_entrega": "<base64 signature>",
+          "entregado_a": <usuario_empresa_id>,
+          "estado": "completado" | "medianamente_completado"  (opcional, default: completado)
+        }
+        """
+        soporte = self.get_object()
+        
+        # Validación 1: Ya debe estar en proceso
+        if soporte.estado != "en_proceso":
+            return Response(
+                {"detail": "El soporte debe estar 'en proceso' para completarlo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validación 2: Al menos un comentario técnico
+        tiene_comentario_tecnico = SeguimientoItemOT.objects.filter(
+            soporte=soporte,
+            tipo="comentario_tecnico"
+        ).exists()
+        
+        if not tiene_comentario_tecnico:
+            return Response(
+                {"detail": "Se requiere al menos un comentario técnico antes de completar el soporte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validación 3: Firma y usuario receptor
+        firma_entrega = request.data.get("firma_entrega", "").strip()
+        entregado_a_id = request.data.get("entregado_a")
+        estado_final = request.data.get("estado", "completado")  # Por defecto completado
+        
+        # Validar que el estado sea válido
+        if estado_final not in ("completado", "medianamente_completado"):
+            return Response(
+                {"detail": "El estado debe ser 'completado' o 'medianamente_completado'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if not firma_entrega:
+            return Response(
+                {"detail": "El campo 'firma_entrega' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if not entregado_a_id:
+            return Response(
+                {"detail": "El campo 'entregado_a' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            from empresas.models import UsuarioEmpresa
+            entregado_a = UsuarioEmpresa.objects.get(pk=entregado_a_id)
+        except UsuarioEmpresa.DoesNotExist:
+            return Response(
+                {"detail": "Usuario receptor no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Actualizar soporte con el estado especificado
+        soporte.estado = estado_final
+        soporte.save(update_fields=["estado"])
+        
+        # Si tiene guía asociada, actualizar firma de entrega
+        if soporte.guia_salida_id:
+            guia = soporte.guia_salida
+            guia.firma_entrega = firma_entrega
+            guia.entregado_a = entregado_a
+            guia.estado = "E"  # Entregada
+            guia.save(update_fields=["firma_entrega", "entregado_a", "estado"])
+            logger.info(f"✅ Guía #{guia.id} actualizada con firma de entrega y estado 'E'")
+        
+        # Crear seguimiento automático
+        if request.user and request.user.is_authenticated:
+            try:
+                usuario_empresa = obtener_usuario_empresa(request.user)
+                SeguimientoItemOT.objects.create(
+                    soporte=soporte,
+                    usuario=usuario_empresa,
+                    tipo="actualizacion",
+                    comentario=f"Soporte marcado como '{estado_final}' y firmado por {entregado_a.usuario.get_full_name() or entregado_a.usuario.username}"
+                )
+            except Exception as e:
+                logger.error(f"❌ Error al crear seguimiento de completado: {str(e)}")
+        
+        logger.info(f"✅ Soporte #{soporte.id} marcado como '{estado_final}' exitosamente")
+        return Response(self.get_serializer(soporte).data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["get"], url_path="usuarios-asignados")
     def usuarios_asignados(self, request, pk=None, orden_trabajo_pk=None):
         """
@@ -843,16 +967,35 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
             
             # Auto-crear seguimiento si cambió el estado
             if estado_anterior != instance.estado:
-                try:
-                    usuario_empresa = obtener_usuario_empresa(request.user)
-                    SeguimientoItemOT.objects.create(
+                logger.info(f"Estado cambiado en servicio {instance.id}: '{estado_anterior}' -> '{instance.estado}'")
+                if request.user and request.user.is_authenticated:
+                    try:
+                        usuario_empresa = obtener_usuario_empresa(request.user)
+                        seguimiento = SeguimientoItemOT.objects.create(
+                            servicio=instance,
+                            usuario=usuario_empresa,
+                            tipo="actualizacion",
+                            comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                        )
+                        logger.info(f"✅ Seguimiento creado: ID={seguimiento.id}, Usuario={usuario_empresa}")
+                    except Exception as e:
+                        logger.error(f"❌ Error al crear seguimiento para servicio {instance.id}: {str(e)}")
+                        # Crear seguimiento sin usuario como fallback
+                        seguimiento = SeguimientoItemOT.objects.create(
+                            servicio=instance,
+                            usuario=None,
+                            tipo="actualizacion",
+                            comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
+                        )
+                        logger.warning(f"⚠️ Seguimiento creado sin usuario: ID={seguimiento.id}")
+                else:
+                    logger.warning(f"⚠️ Usuario no autenticado, creando seguimiento sin usuario para servicio {instance.id}")
+                    seguimiento = SeguimientoItemOT.objects.create(
                         servicio=instance,
-                        usuario=usuario_empresa,
+                        usuario=None,
                         tipo="actualizacion",
                         comentario=f"Estado cambiado de '{estado_anterior}' a '{instance.estado}'"
                     )
-                except Exception:
-                    pass
             
             if nuevo_estado == "en_proceso":
                 if instance.orden.estado == "pendiente":
@@ -946,6 +1089,106 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
             guia.orden_trabajo = None
             guia.save(update_fields=["orden_trabajo"])
 
+        return Response(self.get_serializer(servicio).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="completar-trabajo")
+    def completar_trabajo(self, request, pk=None, orden_trabajo_pk=None):
+        """
+        Completa un servicio general:
+        1. Valida que exista al menos 1 comentario técnico
+        2. Requiere firma del usuario final (firma_entrega)
+        3. Requiere usuario que recibe (entregado_a)
+        4. Actualiza estado a 'completado' o 'medianamente_completado'
+        5. Si tiene guía, actualiza firma_entrega y entregado_a en la guía
+        
+        Body esperado:
+        {
+          "firma_entrega": "<base64 signature>",
+          "entregado_a": <usuario_empresa_id>,
+          "estado": "completado" | "medianamente_completado"  (opcional, default: completado)
+        }
+        """
+        servicio = self.get_object()
+        
+        # Validación 1: Ya debe estar en proceso
+        if servicio.estado != "en_proceso":
+            return Response(
+                {"detail": "El servicio debe estar 'en proceso' para completarlo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validación 2: Al menos un comentario técnico
+        tiene_comentario_tecnico = SeguimientoItemOT.objects.filter(
+            servicio=servicio,
+            tipo="comentario_tecnico"
+        ).exists()
+        
+        if not tiene_comentario_tecnico:
+            return Response(
+                {"detail": "Se requiere al menos un comentario técnico antes de completar el servicio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validación 3: Firma y usuario receptor
+        firma_entrega = request.data.get("firma_entrega", "").strip()
+        entregado_a_id = request.data.get("entregado_a")
+        estado_final = request.data.get("estado", "completado")  # Por defecto completado
+        
+        # Validar que el estado sea válido
+        if estado_final not in ("completado", "medianamente_completado"):
+            return Response(
+                {"detail": "El estado debe ser 'completado' o 'medianamente_completado'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if not firma_entrega:
+            return Response(
+                {"detail": "El campo 'firma_entrega' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if not entregado_a_id:
+            return Response(
+                {"detail": "El campo 'entregado_a' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            from empresas.models import UsuarioEmpresa
+            entregado_a = UsuarioEmpresa.objects.get(pk=entregado_a_id)
+        except UsuarioEmpresa.DoesNotExist:
+            return Response(
+                {"detail": "Usuario receptor no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Actualizar servicio con el estado especificado
+        servicio.estado = estado_final
+        servicio.save(update_fields=["estado"])
+        
+        # Si tiene guía asociada, actualizar firma de entrega
+        if servicio.guia_salida_id:
+            guia = servicio.guia_salida
+            guia.firma_entrega = firma_entrega
+            guia.entregado_a = entregado_a
+            guia.estado = "E"  # Entregada
+            guia.save(update_fields=["firma_entrega", "entregado_a", "estado"])
+            logger.info(f"✅ Guía #{guia.id} actualizada con firma de entrega y estado 'E'")
+        
+        # Crear seguimiento automático
+        if request.user and request.user.is_authenticated:
+            try:
+                usuario_empresa = obtener_usuario_empresa(request.user)
+                SeguimientoItemOT.objects.create(
+                    servicio=servicio,
+                    usuario=usuario_empresa,
+                    tipo="actualizacion",
+                    comentario=f"Servicio marcado como '{estado_final}' y firmado por {entregado_a.usuario.get_full_name() or entregado_a.usuario.username}"
+                )
+            except Exception as e:
+                logger.error(f"❌ Error al crear seguimiento de completado: {str(e)}")
+        
+        logger.info(f"✅ Servicio #{servicio.id} marcado como '{estado_final}' exitosamente")
         return Response(self.get_serializer(servicio).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="actualizar-estado")
@@ -1059,7 +1302,7 @@ class RendicionEnOtViewSet(BaseWriteViewSet):
 class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     queryset = (
-        CierreAdministrativoOT.objects.select_related("orden")
+        CierreAdministrativoOT.objects.select_related("orden", "contrato")
         .all()
         .order_by("-fecha_creacion")
     )
@@ -1067,10 +1310,11 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
     http_method_names = [
         "get",
+        "post",
         "patch",
         "head",
         "options",
-    ]  # evitar crear/borrar manualmente
+    ]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1082,7 +1326,47 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         orden = self.request.query_params.get("orden")
         if orden:
             qs = qs.filter(orden_id=orden)
+        contrato = self.request.query_params.get("contrato")
+        if contrato:
+            qs = qs.filter(contrato_id=contrato)
         return qs
+
+    def perform_create(self, serializer):
+        # Si no envían periodo, asumimos ciclo estándar 26 → 25 alrededor de hoy
+        data = serializer.validated_data
+        periodo_desde = data.get("periodo_desde")
+        periodo_hasta = data.get("periodo_hasta")
+        if not periodo_desde or not periodo_hasta:
+            from datetime import date, timedelta
+
+            hoy = date.today()
+            # Tomamos 25 como fin, 26 del mes anterior como inicio
+            periodo_hasta = periodo_hasta or hoy.replace(day=25)
+            if hoy.day < 26:
+                # Estamos antes del 26, usamos mes anterior para inicio
+                inicio_tmp = (periodo_hasta - timedelta(days=40)).replace(day=26)
+            else:
+                inicio_tmp = periodo_hasta.replace(day=26)
+            periodo_desde = periodo_desde or inicio_tmp
+
+        # Auto-llenar pactado y ejecutado si no vienen en POST
+        resultado = data.get("resultado") or {}
+        if data.get("contrato"):
+            contrato = data.get("contrato")
+            
+            if "pactado" not in resultado:
+                resultado["pactado"] = calcular_pactado_del_contrato(contrato)
+            
+            if "ejecutado" not in resultado:
+                resultado["ejecutado"] = calcular_ejecutado_del_contrato(
+                    contrato, periodo_desde, periodo_hasta
+                )
+        
+        serializer.save(
+            periodo_desde=periodo_desde,
+            periodo_hasta=periodo_hasta,
+            resultado=resultado
+        )
 
 
 class SeguimientoItemOTViewSet(BaseWriteViewSet):

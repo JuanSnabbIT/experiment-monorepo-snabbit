@@ -309,9 +309,32 @@ class RendicionEnOt(ModeloBase):
 
 
 class CierreAdministrativoOT(ModeloBaseHistorico):
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="cierres_administrativos_ot",
+    )
+    # Período de facturación (del 26 del mes anterior al 25 del mes actual)
+    periodo_desde = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Inicio del período",
+        help_text="Fecha de inicio del período a facturar (típicamente día 26)",
+    )
+    periodo_hasta = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fin del período",
+        help_text="Fecha de fin del período a facturar (típicamente día 25)",
+    )
+    # OT opcional - para cierres legacy individuales por OT (deprecado para facturación)
     orden = models.OneToOneField(
         OrdenDeTrabajo,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="cierre_administrativo_v2",
     )
     usuario = models.ForeignKey(
@@ -323,12 +346,13 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
     )
     fecha_cierre = models.DateTimeField(auto_now_add=True)
     valido = models.BooleanField(default=False, verbose_name="Cierre válido")
+    # JSON principal para facturación: pactado, ejecutado, vinculaciones, factura
     resultado = models.JSONField(
-        default=dict, blank=True, verbose_name="Resultado de validaciones"
+        default=dict, blank=True, verbose_name="Resultado de validaciones y facturación"
     )
-    # Estructura JSON editable para facturación (cotizaciones, ejecutado, factura)
+    # Deprecado: usar solo resultado
     detalle = models.JSONField(
-        default=dict, blank=True, verbose_name="Detalle de facturación"
+        default=dict, blank=True, verbose_name="Detalle de facturación (deprecado)"
     )
     # Estado del cierre para el flujo de facturación
     estado_cierre = models.CharField(
@@ -340,12 +364,25 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
     comentario = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Cierre Administrativo de OT"
-        verbose_name_plural = "Cierres Administrativos de OT"
+        verbose_name = "Cierre Administrativo de OT / Facturación"
+        verbose_name_plural = "Cierres Administrativos de OT / Facturaciones"
+        indexes = [
+            models.Index(fields=["contrato", "periodo_desde", "periodo_hasta"]),
+            models.Index(fields=["estado_cierre"]),
+        ]
 
     def __str__(self):
-        estado = "Válido" if self.valido else "Observado"
-        return f"Cierre OT #{self.orden_id} - {estado}"
+        if self.contrato:
+            periodo = (
+                f"{self.periodo_desde} - {self.periodo_hasta}"
+                if self.periodo_desde
+                else "Sin período"
+            )
+            return f"Facturación Contrato #{self.contrato_id} ({periodo})"
+        elif self.orden:
+            estado = "Válido" if self.valido else "Observado"
+            return f"Cierre OT #{self.orden_id} - {estado}"
+        return f"Cierre #{self.id}"
 
 
 class SeguimientoItemOT(ModeloBase):
@@ -401,5 +438,3 @@ class SeguimientoItemOT(ModeloBase):
     def __str__(self):
         destino = self.servicio_id or self.soporte_id or "sin destino"
         return f"Seguimiento OT item #{destino}"
-
-
