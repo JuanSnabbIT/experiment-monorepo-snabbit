@@ -137,6 +137,7 @@ export interface IItemOrdenCompraEnStock {
 	stock_item: null | number;
 	bodega_temporal: null | number;
 	nombre_bodega: string;
+	bodega_stock_id?: number | null;
 	id_documento: number | null;
 	tipo_documento: string | null;
 }

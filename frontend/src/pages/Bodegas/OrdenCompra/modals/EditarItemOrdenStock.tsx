@@ -30,6 +30,8 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
     const { listaBodegasPorEmpresa, detalleOrdenCompra } = useAppSelector((state) => state.bodega)
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [optionsBodega, setOptionsBodega] = useState<{value: string, label: string}[]>([])
+    const bodegaStockId = item_stock?.bodega_stock_id ? item_stock.bodega_stock_id.toString() : ""
+    const bodegaBloqueada = Boolean(bodegaStockId)
 
     const validationSchema = Yup.object({
         inputs: Yup.array().of(
@@ -48,7 +50,7 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
         enableReinitialize: true,
         initialValues: {
             inputs: item_stock && item_stock.numeros_serie.numeros_serie && item_stock.numeros_serie.numeros_serie.length > 0 ? item_stock.numeros_serie.numeros_serie.map(itm => {return {value: itm.serie}}) : [],
-            bodega: item_stock?.bodega_temporal?.toString() || "",
+            bodega: bodegaStockId || item_stock?.bodega_temporal?.toString() || "",
             cantidad: item_stock?.cantidad || 0
         },
         validationSchema,
@@ -145,8 +147,14 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
                                     onBlur={formik.handleBlur}
                                     onChange={(e) => {formik.setFieldValue('bodega', (e as TSelectOption).value)}}
                                     value={{value: formik.values.bodega, label: optionsBodega.find(bode => bode.value === formik.values.bodega)?.label || ""}}
+                                    disabled={bodegaBloqueada}
                                 />
                             </Validation>
+                            {bodegaBloqueada && (
+                                <div className="mt-2 text-xs text-zinc-500">
+                                    La bodega ya esta definida por stock existente.
+                                </div>
+                            )}
                         </div>
                         <div className="w-full">
                             <Badge>Cantidad Esperada</Badge>

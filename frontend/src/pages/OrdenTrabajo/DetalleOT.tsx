@@ -90,8 +90,10 @@ const DetalleOT = () => {
 
 	useEffect(() => {
 		if (personalizacionUsuario && personalizacionUsuario.empresa) {
-			dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: id }));
-			dispatch(listaHistorialCambiosThunk({ id_orden: id }));
+			if (id) {
+				dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: id }));
+				dispatch(listaHistorialCambiosThunk({ id_orden: id }));
+			}
 		}
 	}, [personalizacionUsuario, id, dispatch]);
 
@@ -249,6 +251,26 @@ const DetalleOT = () => {
 		},
 	});
 
+	const handlePdf = async () => {
+		if (!id) return;
+		try {
+			const response = await ApiService.fetchData({
+				url: `/api/ordenes-de-trabajo/${id}/pdf/`,
+				method: 'get',
+				responseType: 'blob',
+			});
+			const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+			const link = document.createElement('a');
+			link.href = url;
+			link.setAttribute('download', `OrdenTrabajo_${id}.pdf`);
+			document.body.appendChild(link);
+			link.click();
+		} catch (error: any) {
+			console.error(error);
+			toast.error('Error al generar el PDF');
+		}
+	};
+
 	useEffect(() => {
 		if (detalleOrdenTrabajo && isEditing) {
 			formik.setValues({
@@ -320,6 +342,16 @@ const DetalleOT = () => {
 							{detalleOrdenTrabajo.estado === 'en_proceso' && <CompletarOT />}
 							{detalleOrdenTrabajo.estado === 'completada' && <CerrarOT />}
 							{detalleOrdenTrabajo.estado === 'cerrada' && <FacturarOT />}
+							{detalleOrdenTrabajo.estado !== 'pendiente' && (
+								<Tooltip text='Ver PDF'>
+									<Button
+										variant='solid'
+										color='red'
+										icon='HeroDocumentText'
+										onClick={handlePdf}
+									/>
+								</Tooltip>
+							)}
 						</div>
 					)}
 				</SubheaderRight>

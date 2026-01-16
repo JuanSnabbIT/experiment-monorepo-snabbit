@@ -80,9 +80,10 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
         /* Agrupar por stock_item */
         const agrupados = listaMovimientosStock.reduce<Record<number, IDataPoint[]>>((acc, mov) => {
             const key = mov.stock_item
+            const saldo = mov.saldo_acumulado ?? mov.cantidad
             const punto: IDataPoint = {
                 x: new Date(mov.fecha_creacion).getTime(),
-                y: mov.cantidad,
+                y: saldo,
                 meta: mov,                    // ⬅️ guardar el movimiento completo
             }
             acc[key] = acc[key] ? [...acc[key], punto] : [punto]
@@ -137,7 +138,7 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
                     },
                 },
                 xaxis: { type: 'datetime', title: { text: 'Fecha' }, tooltip: { enabled: false } },
-                yaxis: { title: { text: 'Cantidad' } },
+                yaxis: { title: { text: 'Cantidad en stock' } },
                 markers: { size: 8 },
                 stroke: { curve: 'smooth' },
                 dataLabels: {
@@ -157,13 +158,15 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
                             id, tipo_movimiento, descripcion,
                             cantidad, fecha_creacion, nombre_usuario, stock_item,
                         } = punto.meta
+                        const saldo = punto.meta.saldo_acumulado ?? cantidad
 
                         /*  ⬇️ string HTML puro: usa class, no className  */
                         return `
                             <div class="p-3 rounded-lg shadow-lg bg-black text-sm">
                                 <div class="font-semibold text-indigo-400">Stock #${stock_item}</div>
                                 <div><span class="font-medium">Fecha:</span> ${new Date(fecha_creacion).toLocaleString()}</div>
-                                <div><span class="font-medium">Cantidad:</span> ${cantidad}</div>
+                                <div><span class="font-medium">Cantidad en stock:</span> ${saldo}</div>
+                                <div><span class="font-medium">Movimiento:</span> ${cantidad}</div>
                                 <div><span class="font-medium">Tipo:</span> ${tipo_movimiento}</div>
                                 <div><span class="font-medium">Descripción:</span> ${descripcion ?? '-'}</div>
                                 <div class="text-xs text-gray-400">Movimiento ID ${id}</div>

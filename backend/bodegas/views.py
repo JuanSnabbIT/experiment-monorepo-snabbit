@@ -32,6 +32,8 @@ from .functions import (
     generar_orden_de_compra,
     generar_pdf_bodega,
     generar_pdf_bodega_resumido,
+    obtener_guia_pendiente_por_cotizacion,
+    recepcionar_oc_y_crear_guia,
 )
 from .models import (
     ArchivoCompra,
@@ -805,8 +807,13 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
             # Obtener o crear el stock del ítem en la bodega
             stock_item, created = StockItemEnBodega.objects.get_or_create(
-                bodega=bodega, item=ioc.item, defaults={"cantidad": 0, "pmp": 0}
+                item=ioc.item, defaults={"bodega": bodega, "cantidad": 0, "pmp": 0}
             )
+            if not created and stock_item.bodega_id != bodega.id:
+                return Response(
+                    {"detail": f"El item {ioc.id} ya existe en otra bodega."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Actualizar la relación de ItemOrdenCompraEnStock con el nuevo StockItemEnBodega
             item_oc_en_stock.stock_item = stock_item
@@ -830,6 +837,64 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             {"message": "Orden completada con éxito", "estado": estado},
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["get"], url_path="guia-pendiente")
+    def guia_pendiente(self, request, pk=None):
+        orden = self.get_object()
+        bodega_id = request.query_params.get("bodega_id")
+
+        if not bodega_id:
+            return Response(
+                {"detail": "Se requiere bodega_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            bodega_id = int(bodega_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "bodega_id debe ser un numero valido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        bodega = Bodega.objects.filter(pk=bodega_id).first()
+        if not bodega:
+            return Response(
+                {"detail": "Bodega no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        cotizacion = orden.relacion_cotizacion
+        if not cotizacion:
+            return Response({"existe": False, "guia_id": None})
+
+        cliente = cotizacion.cliente
+        guia = obtener_guia_pendiente_por_cotizacion(cotizacion, bodega, cliente)
+
+        return Response(
+            {"existe": bool(guia), "guia_id": guia.id if guia else None},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="completar-y-crear-guia")
+    def completar_y_crear_guia(self, request, pk=None):
+        orden = self.get_object()
+        estado = request.data.get("estado")
+        items_data = request.data.get("items", [])
+        usuario_empresa = obtener_usuario_empresa(request.user)
+
+        try:
+            resultado = recepcionar_oc_y_crear_guia(
+                orden_compra=orden,
+                estado=estado,
+                items_data=items_data,
+                usuario=usuario_empresa,
+            )
+            return Response(resultado, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=["get"], url_path="recientes-por-item")
     def recientes_por_item(self, request):
@@ -934,50 +999,65 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
         # Obtener los ítems relacionados con la orden de compra
         items = ItemEnOrdenCompra.objects.filter(orden_compra=orden)
+        
+        # Obtener moneda del proveedor
+        moneda_str = "CLP"
+        if orden.proveedor and orden.proveedor.tipo_moneda == "1":
+            moneda_str = "USD"
+        elif orden.proveedor and orden.proveedor.tipo_moneda == "3":
+            moneda_str = "UF"
 
         # Crear la tabla de datos dinámicamente
         datos_tabla = [
             ["ARTÍCULO", "DESCRIPCIÓN", "CANTIDAD", "PRECIO UNITARIO", "TOTAL"]
         ]
+        total_items = 0
         for item in items:
+            total_item = item.cantidad * item.precio
+            total_items += total_item
             datos_tabla.append(
                 [
-                    item.item.pk,  # ID o código del artículo
-                    item.item.nombre,  # Nombre del artículo
-                    item.cantidad,  # Cantidad del artículo
-                    f"${item.precio:,.0f}",  # Precio unitario formateado
-                    f"${item.cantidad * item.precio:,.0f}",  # Total por artículo formateado
+                    item.item.pk,
+                    item.item.nombre,
+                    item.cantidad,
+                    f"${item.precio:,.0f} {moneda_str}",
+                    f"${total_item:,.0f} {moneda_str}",
                 ]
             )
 
         # Calcular totales
-        neto_orden = sum(item.cantidad * item.precio for item in items)
-        iva_orden = neto_orden * 0.19  # Suponiendo 19% de IVA
+        neto_orden = total_items
+        iva_orden = neto_orden * 0.19
         total_orden = neto_orden + iva_orden
 
         # Llamar a la función `generar_orden_de_compra`
-        buffer = BytesIO()  # Crear el buffer para el PDF
+        buffer = BytesIO()
         generar_orden_de_compra(
-            nombre_empresa=orden.oc_empresa.nombre,
-            rut_empresa=orden.oc_empresa.rut_empresa,
-            direccion_empresa=orden.oc_empresa.direccion_principal,
-            telefono_empresa=orden.oc_empresa.telefono,
-            email_empresa=orden.oc_empresa.email,
-            sitio_web_empresa=orden.oc_empresa.sitio_web,
+            nombre_empresa=orden.oc_empresa.nombre if orden.oc_empresa else "Snabbit",
+            rut_empresa=orden.oc_empresa.rut_empresa if orden.oc_empresa else "",
+            direccion_empresa=orden.oc_empresa.direccion_principal if orden.oc_empresa else "",
+            telefono_empresa=orden.oc_empresa.telefono if orden.oc_empresa else "",
+            email_empresa=orden.oc_empresa.email if orden.oc_empresa else "",
+            sitio_web_empresa=orden.oc_empresa.sitio_web if orden.oc_empresa else "",
             fecha_orden=orden.fecha_creacion.strftime("%d-%m-%Y"),
             codigo_orden=orden.codigo,
-            nombre_cliente=orden.oc_cliente.nombre,
-            telefono_cliente=orden.oc_cliente.telefono,
-            direccion_cliente=orden.oc_cliente.direccion_principal,
-            rut_cliente=orden.oc_cliente.rut_empresa,
-            email_cliente=orden.oc_cliente.email,
+            # DATOS DEL PROVEEDOR (Corregido: antes usaba oc_cliente)
+            nombre_proveedor=orden.proveedor.nombre if orden.proveedor else "N/A",
+            telefono_proveedor=orden.proveedor.telefono if orden.proveedor else "",
+            direccion_proveedor=orden.proveedor.direccion if orden.proveedor else "",
+            rut_proveedor=orden.proveedor.rut if orden.proveedor else "",
+            email_proveedor=orden.proveedor.email_ejecutivo if orden.proveedor else "",
             datos_tabla=datos_tabla,
-            neto_orden=f"${neto_orden:,.0f}",
-            subtotal_orden=f"${neto_orden:,.0f}",  # En este caso el neto y subtotal son iguales
-            iva_orden=f"${iva_orden:,.0f}",
-            total_orden=f"${total_orden:,.0f}",
+            neto_orden=f"${neto_orden:,.0f} {moneda_str}",
+            subtotal_orden=f"${neto_orden:,.0f} {moneda_str}",
+            iva_orden=f"${iva_orden:,.0f} {moneda_str}",
+            total_orden=f"${total_orden:,.0f} {moneda_str}",
             comentarios_orden=orden.observaciones or "Sin observaciones",
             buffer=buffer,
+            # NUEVOS PARÁMETROS
+            estado_orden=orden.get_estado_display(),
+            nombre_cliente=orden.oc_cliente.nombre if orden.oc_cliente else None,
+            rut_cliente=orden.oc_cliente.rut_empresa if orden.oc_cliente else None,
         )
 
         # Devolver el PDF como respuesta
@@ -1070,24 +1150,83 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
         """
         Action para obtener todos los ItemOrdenCompraEnStock de una orden de compra específica.
         """
+        if not orden_compra_pk:
+            return Response(
+                {"detail": "Falta el ID de la orden de compra."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        orden_compra = OrdenCompra.objects.filter(pk=orden_compra_pk).first()
+        if not orden_compra:
+            return Response(
+                {"detail": "Orden de compra no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         # Obtener el ContentType para ItemEnOrdenCompra
         content_type_oc = ContentType.objects.get(
             app_label="bodegas", model="itemenordencompra"
         )
 
         # Obtener los IDs de los items en la orden de compra específica
-        item_en_orden_ids = ItemEnOrdenCompra.objects.filter(
-            orden_compra_id=orden_compra_pk
-        ).values_list("id", flat=True)
+        items_en_orden = list(
+            ItemEnOrdenCompra.objects.filter(orden_compra_id=orden_compra_pk).select_related(
+                "item"
+            )
+        )
+        item_oc_ids = [item.id for item in items_en_orden]
+        item_ids = [item.item_id for item in items_en_orden]
+
+        if orden_compra.estado in ("1", "3", "4"):
+            stock_items = {
+                stock_item.item_id: stock_item
+                for stock_item in StockItemEnBodega.objects.filter(
+                    item_id__in=item_ids
+                ).select_related("bodega")
+            }
+            for item in items_en_orden:
+                item_stock, _ = ItemOrdenCompraEnStock.objects.get_or_create(
+                    content_type=content_type_oc,
+                    item_oc_id=item.id,
+                    defaults={"cantidad": item.cantidad},
+                )
+                stock_item = stock_items.get(item.item_id)
+                if stock_item and item_stock.bodega_temporal_id != stock_item.bodega_id:
+                    item_stock.bodega_temporal = stock_item.bodega
+                    item_stock.save(update_fields=["bodega_temporal"])
 
         # Filtrar los elementos de ItemOrdenCompraEnStock que coincidan con estos IDs
         items_oc = self.get_queryset().filter(
-            content_type=content_type_oc, item_oc_id__in=item_en_orden_ids
+            content_type=content_type_oc, item_oc_id__in=item_oc_ids
         )
 
         # Serializar y devolver la respuesta
         serializer = self.get_serializer(items_oc, many=True)
         return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        bodega_temporal = request.data.get("bodega_temporal")
+
+        if bodega_temporal not in (None, ""):
+            try:
+                bodega_temporal_id = int(bodega_temporal)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "La bodega temporal debe ser un ID valido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            item_oc = instance.item_oc
+            if item_oc and hasattr(item_oc, "item"):
+                stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
+                if stock_item and stock_item.bodega_id != bodega_temporal_id:
+                    return Response(
+                        {"detail": "La bodega ya esta definida por stock existente."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        return super().partial_update(request, *args, **kwargs)
 
 
 class GuiaSalidaViewSet(viewsets.ModelViewSet):

@@ -3,6 +3,7 @@ import logging
 from bodegas.models import GuiaSalida, ItemsGuiaSalida
 from bodegas.serializers import GuiaSalidaSerializer
 from cuentas.functions import obtener_usuario_empresa
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -15,6 +16,7 @@ from .functions import (
     calcular_ejecutado_de_ots_seleccionadas,
     calcular_ejecutado_del_contrato,
     calcular_pactado_del_contrato,
+    generar_pdf_orden_trabajo,
 )
 from .models import (
     AdjuntoDeOrden,
@@ -320,6 +322,31 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
         serializer = GuiaSalidaSerializer(guias_disponibles, many=True)
         return Response(serializer.data, status=200)
+
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def get_pdf(self, request, pk=None):
+        orden = self.get_object()
+
+        # Reunir toda la data necesaria para los módulos
+        servicios = orden.servicioenot_set.all()
+        soportes = orden.soportetecnico_set.all().prefetch_related("seguimientos")
+        guias = (
+            orden.guias_salida.all()
+            .select_related("bodega", "entregado_a")
+            .prefetch_related("itemsguiasalida_set__stock_item__item")
+        )
+        gastos = orden.gastooperativoenot_set.all().select_related("categoria")
+        adjuntos = AdjuntoDeOrden.objects.filter(orden=orden)
+
+        buffer = generar_pdf_orden_trabajo(
+            orden, servicios, soportes, guias, gastos, adjuntos
+        )
+
+        response = HttpResponse(buffer, content_type="application/pdf")
+        filename = f"Orden_Trabajo_{orden.id}.pdf"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        return response
 
     def update(self, request, *args, **kwargs):
         """

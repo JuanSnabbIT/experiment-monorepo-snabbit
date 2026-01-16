@@ -35,7 +35,7 @@ from .models import (
 
 @receiver(post_save, sender=OrdenCompra)
 def create_items_in_stock(sender, instance, **kwargs):
-    if instance.estado == "3":
+    if instance.estado in ("1", "3"):
         # Eliminar todos los ItemOrdenCompraEnStock relacionados con esta orden de compra
         # ItemOrdenCompraEnStock.objects.filter(
         #     content_type__app_label='bodegas',

@@ -8,19 +8,19 @@ import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
+import Collapse from "@/components/utils/Collapse"
 import { IStockItemEnBodega } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
 import { detalleBodegaThunk, listaStockItemsEnBodegaThunk, listaUsuariosDeMisClientesThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, SortingState, createColumnHelper, flexRender } from "@tanstack/react-table"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useFormik } from "formik"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "react-toastify"
 import * as Yup from 'yup'
 import CrearGuiaSalidaEnDetalleBodega from "../modals/CrearGuiaSalidaEnDetalleBodega"
-import Collapse from "@/components/utils/Collapse"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import CrearMovimientoStockAjusteEnBodega from "../modals/CrearMovimientoStockAjusteEnBodega"
 
 
@@ -100,8 +100,8 @@ function DetalleBodega() {
                         }} />
                         <Collapse isOpen={num === info.row.original.id.toString()} className="transition-opacity">
                             <ul className="list-disc list-inside">
-                                {info.row.original.numeros_series.map(numero => (
-                                    <li>{numero}</li>
+                                {info.row.original.numeros_series.map((numero, index) => (
+                                    <li key={`${numero}-${index}`}>{numero}</li>
                                 ))}
                             </ul>
                         </Collapse>

@@ -204,6 +204,7 @@ class StockItemEnBodegaSerializer(serializers.ModelSerializer):
 
 class ItemOrdenCompraEnStockSerializer(serializers.ModelSerializer):
     nombre_bodega = serializers.SerializerMethodField()
+    bodega_stock_id = serializers.SerializerMethodField()
     id_documento   = serializers.SerializerMethodField()
     tipo_documento = serializers.SerializerMethodField()
 
@@ -212,10 +213,26 @@ class ItemOrdenCompraEnStockSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_nombre_bodega(self, obj):
+        if obj.stock_item and obj.stock_item.bodega:
+            return obj.stock_item.bodega.nombre
+        item_oc = getattr(obj, "item_oc", None)
+        if item_oc and hasattr(item_oc, "item"):
+            stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
+            if stock_item:
+                return stock_item.bodega.nombre
         if obj.bodega_temporal:
             return obj.bodega_temporal.nombre
-        else:
-            return "Sin Bodega"
+        return "Sin Bodega"
+
+    def get_bodega_stock_id(self, obj):
+        if obj.stock_item and obj.stock_item.bodega_id:
+            return obj.stock_item.bodega_id
+        item_oc = getattr(obj, "item_oc", None)
+        if item_oc and hasattr(item_oc, "item"):
+            stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
+            if stock_item:
+                return stock_item.bodega_id
+        return None
 
     def get_id_documento(self, obj):
         """
@@ -259,7 +276,6 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
     nombre_creado_por = serializers.SerializerMethodField()
     nombre_recibido_por = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
-    soporte_tecnico = serializers.SerializerMethodField()
 
     class Meta:
         model = GuiaSalida
@@ -285,21 +301,7 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
             return obj.cliente.nombre
         return "Sin Cliente"
 
-    def get_soporte_tecnico(self, obj):
-        """
-        Devuelve un resumen del soporte técnico vinculado (si existe) para validar en frontend.
-        """
-        soporte = getattr(obj, "soporte_tecnico", None)
-        if not soporte:
-            return None
 
-        return {
-            "id": soporte.id,
-            "estado": soporte.estado,
-            "tecnico_asignado": soporte.tecnico_asignado_id,
-            "fecha_soporte": soporte.fecha_soporte,
-            "falta_datos": not (soporte.tecnico_asignado_id and soporte.fecha_soporte),
-        }
 
 class ArchivoCompraSerializer(serializers.ModelSerializer):
     nombre_archivo = serializers.SerializerMethodField()

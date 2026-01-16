@@ -411,7 +411,7 @@ const DetalleCotizacion = () => {
 			<Subheader>
 				<SubheaderLeft>
 					<Badge className='text-xl'>
-						Cotizacion N┬░{detalleCotizacion?.numero_cotizacion}
+						Cotización Nº{detalleCotizacion?.numero_cotizacion}
 					</Badge>
 				</SubheaderLeft>
 				<SubheaderRight>

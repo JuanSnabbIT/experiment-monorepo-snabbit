@@ -78,7 +78,7 @@ function DetalleOrdenCompraV2() {
 	const [isLoadingCompra, setIsLoadingCompra] = useState<boolean>(false);
 	const [mostrarCompletar, setMostrarCompletar] = useState<boolean>(false);
 	const modoCompletarDisponible =
-		detalleOrdenCompra?.estado === '3' || detalleOrdenCompra?.estado === '4';
+		detalleOrdenCompra?.estado === '1' || detalleOrdenCompra?.estado === '3' || detalleOrdenCompra?.estado === '4';
 	const estaCompletandoOC = modoCompletarDisponible && mostrarCompletar;
 
 	const refrescarDetalle = () => {
@@ -110,7 +110,7 @@ function DetalleOrdenCompraV2() {
 	useEffect(() => {
 		if (detalleOrdenCompra) {
 			dispatch(listaItemsEnOrdenCompraThunk({ id_orden: detalleOrdenCompra.id }));
-			if (detalleOrdenCompra.estado === '3' || detalleOrdenCompra.estado === '4') {
+			if (detalleOrdenCompra.estado === '1' || detalleOrdenCompra.estado === '3' || detalleOrdenCompra.estado === '4') {
 				dispatch(listaItemsOrdenCompraEnStockThunk({ id_orden: detalleOrdenCompra.id }));
 				if (detalleOrdenCompra.oc_empresa) {
 					dispatch(
@@ -365,86 +365,62 @@ function DetalleOrdenCompraV2() {
 				</SubheaderLeft>
 				<SubheaderRight>
 					<div className='flex flex-wrap gap-2'>
-						{tieneCotizacion && (
-							<Tooltip text='Cotización previa'>
-								<Button
-									variant='solid'
-									color='blue'
-									icon='DuoArrowLeft'
-									onClick={handleIrACotizacion}>
-									Cotización previa
-								</Button>
-							</Tooltip>
-						)}
-						{detalleOrdenCompra?.estado === '-' && (
-							<TerminarBorradorOC id_orden={id} onSuccess={refrescarDetalle} />
-						)}
-						{detalleOrdenCompra?.estado === '0' && (
+						{/* Botones que NO aparecen en modo recepción */}
+						{!estaCompletandoOC && (
 							<>
-								<AceptarORechazarOrdenCompra
-									id_orden={id}
-									onSuccess={refrescarDetalle}
-								/>
-								{isStaff && (
-									<ModalVolverABorradorOC
-										id_orden={id as string}
+								{tieneCotizacion && (
+									<Tooltip text='Cotización previa'>
+										<Button
+											variant='solid'
+											color='blue'
+											icon='DuoArrowLeft'
+											onClick={handleIrACotizacion}>
+											Cotización previa
+										</Button>
+									</Tooltip>
+								)}
+								{detalleOrdenCompra?.estado === '-' && (
+									<TerminarBorradorOC id_orden={id} onSuccess={refrescarDetalle} />
+								)}
+								{detalleOrdenCompra?.estado === '0' && (
+									<>
+										<AceptarORechazarOrdenCompra
+											id_orden={id}
+											onSuccess={refrescarDetalle}
+										/>
+										{isStaff && (
+											<ModalVolverABorradorOC
+												id_orden={id as string}
+												onSuccess={refrescarDetalle}
+											/>
+										)}
+									</>
+								)}
+								{detalleOrdenCompra?.estado === '1' && (
+									<ModalEnviarProveedor
+										id_empresa={detalleOrdenCompra?.oc_empresa}
+										id_proveedor={detalleOrdenCompra?.proveedor}
+										id_orden={detalleOrdenCompra?.id}
+										onSuccess={refrescarDetalle}
+									/>
+								)}
+								{detalleOrdenCompra?.estado === '3' && (
+									<ModalReenviarAlProveedor
+										id_orden={detalleOrdenCompra?.id}
+										id_empresa={detalleOrdenCompra?.oc_empresa}
+										id_proveedor={detalleOrdenCompra?.proveedor}
 										onSuccess={refrescarDetalle}
 									/>
 								)}
 							</>
 						)}
-						{detalleOrdenCompra?.estado === '1' && (
-							<>
-								<ModalEnviarProveedor
-									id_empresa={detalleOrdenCompra?.oc_empresa}
-									id_proveedor={detalleOrdenCompra?.proveedor}
-									id_orden={detalleOrdenCompra?.id}
-									onSuccess={refrescarDetalle}
-								/>
-								{isStaff && (
-									<ModalVolverABorradorOC
-										id_orden={id as string}
-										onSuccess={refrescarDetalle}
-									/>
-								)}
-							</>
-						)}
-						{detalleOrdenCompra?.estado === '3' && (
-							<>
-								<ModalReenviarAlProveedor
-									id_orden={detalleOrdenCompra?.id}
-									id_empresa={detalleOrdenCompra?.oc_empresa}
-									id_proveedor={detalleOrdenCompra?.proveedor}
-									onSuccess={refrescarDetalle}
-								/>
-								<Tooltip
-									text={
-										mostrarCompletar
-											? 'Ocultar completar'
-											: 'Completar Orden de Compra'
-									}>
-									<Button
-										variant='solid'
-										color={mostrarCompletar ? 'zinc' : 'sky'}
-										icon='DuoBox2'
-										onClick={() =>
-											setMostrarCompletar((prev) => !prev)
-										}></Button>
-								</Tooltip>
-								{isStaff && (
-									<ModalVolverABorradorOC
-										id_orden={id as string}
-										onSuccess={refrescarDetalle}
-									/>
-								)}
-							</>
-						)}
-						{detalleOrdenCompra?.estado === '4' && (
+						{/* Botón de recepción (estados 1, 3, 4) */}
+						{modoCompletarDisponible && (
 							<Tooltip
 								text={
 									mostrarCompletar
-										? 'Ocultar completar'
-										: 'Completar Orden de Compra'
+										? 'Cancelar y volver'
+										: 'Recepcionar items de la compra'
 								}>
 								<Button
 									variant='solid'
@@ -453,40 +429,42 @@ function DetalleOrdenCompraV2() {
 									onClick={() => setMostrarCompletar((prev) => !prev)}></Button>
 							</Tooltip>
 						)}
-						{(detalleOrdenCompra?.estado === '3' ||
-							detalleOrdenCompra?.estado === '4') &&
-							mostrarCompletar && (
-								<ConfirmarRecibirOrden itemsARecibir={itemsARecibir} />
-							)}
-						<Tooltip text='Ver PDF'>
-							<Button
-								variant='solid'
-								color='red'
-								icon='HeroDocumentText'
-								onClick={async () => {
-									try {
-										const response = await ApiService.fetchData<BlobPart>({
-											url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/pdf/`,
-											method: 'get',
-											headers: { 'Content-Type': 'application/pdf' },
-										});
-										const url = window.URL.createObjectURL(
-											new Blob([response.data]),
-										);
-										const a = document.createElement('a');
-										a.href = url;
-										a.download = `orden_compra_${detalleOrdenCompra?.id}.pdf`;
-										document.body.appendChild(a);
-										a.click();
-										a.remove();
-										window.URL.revokeObjectURL(url);
-									} catch (error: any) {
-										toast.error(
-											error.response?.data || 'No se pudo descargar la OC',
-										);
-									}
-								}}></Button>
-						</Tooltip>
+						{/* Botón confirmar recepción (solo en modo recepción) */}
+						{estaCompletandoOC && (
+							<ConfirmarRecibirOrden itemsARecibir={itemsARecibir} />
+						)}
+						{/* Botón PDF (solo fuera de modo recepción) */}
+						{!estaCompletandoOC && (
+							<Tooltip text='Ver PDF'>
+								<Button
+									variant='solid'
+									color='red'
+									icon='HeroDocumentText'
+									onClick={async () => {
+										try {
+											const response = await ApiService.fetchData<BlobPart>({
+												url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/pdf/`,
+												method: 'get',
+												headers: { 'Content-Type': 'application/pdf' },
+											});
+											const url = window.URL.createObjectURL(
+												new Blob([response.data]),
+											);
+											const a = document.createElement('a');
+											a.href = url;
+											a.download = `orden_compra_${detalleOrdenCompra?.id}.pdf`;
+											document.body.appendChild(a);
+											a.click();
+											a.remove();
+											window.URL.revokeObjectURL(url);
+										} catch (error: any) {
+											toast.error(
+												error.response?.data || 'No se pudo descargar la OC',
+											);
+										}
+									}}></Button>
+							</Tooltip>
+						)}
 					</div>
 				</SubheaderRight>
 			</Subheader>

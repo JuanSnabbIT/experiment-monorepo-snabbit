@@ -3,8 +3,23 @@ Funciones para el módulo de Ordenes de Trabajo (Cierres Administrativos/Factura
 """
 
 from decimal import Decimal
-
+import io
+import os
+from datetime import datetime
+from django.conf import settings
 from django.db.models import Q
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from core.pdf.engine import create_pdf_engine
+from core.pdf.styles import get_pdf_styles, BRAND_BLUE, LIGHT_GRAY, TEXT_DARK, success_color_by_state
+from core.pdf.components import get_header_flowable, draw_footer, create_info_table, create_data_table, create_signature_block
+from core.pdf.utils import format_currency
+
+
+def format_currency(value):
+    if value is None:
+        return "$0"
+    return f"${value:,.0f}".replace(",", ".")
+
 
 
 def calcular_pactado_del_contrato(contrato):
@@ -602,3 +617,175 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
             "gastos_operativos": count_gastos,
         },
     }
+
+
+def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjuntos):
+    """
+    Genera un PDF profesional para una Orden de Trabajo con estructura por módulos.
+    Utiliza el motor compartido core.pdf.
+    """
+    buffer = io.BytesIO()
+    doc = create_pdf_engine(buffer)
+
+    story = []
+    styles = get_pdf_styles()
+    
+    # 1. Header (Logo y Datos)
+    # En SimpleDocTemplate con Flowables, podemos poner el encabezado como primer elemento
+    # O usar un PageTemplate. Por simplicidad y consistencia visual con el resto,
+    # lo añadimos como tabla al principio del flujo.
+    story.append(get_header_flowable())
+    story.append(Spacer(1, 0.5 * cm))
+
+    # 2. Título del Documento
+    story.append(Paragraph(f"ORDEN DE TRABAJO Nº {orden.id}", styles["DocTitle"]))
+    
+    # Estado (Color coded)
+    estado_text = f'<b>Estado:</b> <font color="{success_color_by_state(orden.estado).hexval()}">{orden.get_estado_display().upper()}</font>'
+    story.append(Paragraph(estado_text, styles["DataRight"]))
+    story.append(Spacer(1, 0.5 * cm))
+
+    # 3. Información General (Tabla Key-Value)
+    info_data = [
+        ["FECHA EMISIÓN:", orden.fecha_creacion.strftime("%d/%m/%Y"), "PRIORIDAD:", orden.get_prioridad_display()],
+        ["CLIENTE:", orden.cliente.nombre, "SOLICITANTE:", orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "N/A"],
+        ["TIPO SERVICIO:", orden.get_tipo_servicio_display(), "RESPONSABLE:", orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else "N/A"],
+        ["FECHA INICIO:", orden.fecha_inicio_ot.strftime("%d/%m/%Y") if orden.fecha_inicio_ot else "N/A", "FECHA FIN:", orden.fecha_finalizacion_ot.strftime("%d/%m/%Y") if orden.fecha_finalizacion_ot else "N/A"],
+    ]
+    story.append(create_info_table(info_data))
+    story.append(Spacer(1, 0.5 * cm))
+
+    # 4. Descripción
+    story.append(Paragraph("DESCRIPCIÓN DEL REQUERIMIENTO", styles["SectionHead"]))
+    story.append(Paragraph(orden.descripcion, styles["BodyText"]))
+    story.append(Spacer(1, 1 * cm))
+
+    # 5. Resumen Ejecutivo
+    resumen_headers = ["RESUMEN EJECUTIVO", ""]
+    resumen_data = [
+        ["Servicios/Soportes registrados:", str(len(servicios) + len(soportes))],
+        ["Guías de Salida asociadas:", str(len(guias))],
+        ["Gastos Operativos totales:", format_currency(sum(g.monto_total for g in gastos))],
+    ]
+    # Usamos create_data_table pero adaptado para resumen (sin header row explícito en data si usamos el helper)
+    # Ajuste manual para la tabla de resumen que es simple
+    resumen_table = Table([resumen_headers] + resumen_data, colWidths=[8 * cm, 4 * cm])
+    resumen_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("ALIGN", (1, 1), (1, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+    ]))
+    story.append(resumen_table)
+    story.append(PageBreak())
+
+    # --- MÓDULO 2: SERVICIOS Y SOPORTES ---
+    if servicios or soportes:
+        story.append(Paragraph("SERVICIOS Y SOPORTES TÉCNICOS", styles["ModuleTitle"]))
+
+        # Soportes (Iterar y mostrar detalles)
+        for sop in soportes:
+            story.append(Paragraph(f"{sop.nombre} (Soporte Técnico)", styles["SectionHead"]))
+            sop_info = [
+                ["Fecha:", sop.fecha_soporte.strftime("%d/%m/%Y") if sop.fecha_soporte else "N/A", "Estado:", sop.get_estado_display()],
+                ["Técnico:", sop.tecnico_asignado.usuario.get_nombre_completo() if sop.tecnico_asignado else "No asignado", "Guía:", f"GS-{sop.guia_salida.id}" if sop.guia_salida else "N/A"],
+            ]
+            story.append(create_info_table(sop_info))
+            story.append(Spacer(1, 0.2 * cm))
+            story.append(Paragraph(f"<b>Descripción:</b> {sop.descripcion}", styles["BodyText"]))
+            story.append(Spacer(1, 0.5 * cm))
+            
+            # Firma Placeholder (Simplificado)
+            story.append(create_signature_block([("Ejecución", "Firma Técnico"), ("Validación", "Firma Cliente")]))
+            story.append(Spacer(1, 1 * cm))
+
+        # Servicios
+        for serv in servicios:
+            story.append(Paragraph(f"{serv.nombre} (Servicio General)", styles["SectionHead"]))
+            serv_info = [
+                ["Fecha:", serv.fecha_servicio.strftime("%d/%m/%Y") if serv.fecha_servicio else "N/A", "Estado:", serv.get_estado_display()],
+                ["Técnico:", serv.tecnico_asignado.usuario.get_nombre_completo() if serv.tecnico_asignado else "No asignado", "Resuelto:", "SÍ" if serv.resuelto else "NO"],
+            ]
+            story.append(create_info_table(serv_info))
+            story.append(Spacer(1, 0.2 * cm))
+            story.append(Paragraph(f"<b>Descripción:</b> {serv.descripcion}", styles["BodyText"]))
+            story.append(Spacer(1, 0.5 * cm))
+            story.append(create_signature_block([("Ejecución", "Firma Técnico"), ("Validación", "Firma Cliente")]))
+            story.append(Spacer(1, 1 * cm))
+
+        story.append(PageBreak())
+
+    # --- MÓDULO 3: GUÍAS DE SALIDA ---
+    if guias:
+        story.append(Paragraph("GUÍAS DE SALIDA Y MATERIALES", styles["ModuleTitle"]))
+        for guia in guias:
+            story.append(Paragraph(f"GUÍA DE SALIDA Nº {guia.id}", styles["SectionHead"]))
+            guia_info = [
+                ["FECHA:", guia.fecha_creacion.strftime("%d/%m/%Y"), "BODEGA:", guia.bodega.nombre],
+                ["ENTREGADO A:", guia.entregado_a.usuario.get_nombre_completo() if guia.entregado_a else "N/A", "MOTIVO:", guia.motivo or "Sin motivo"],
+            ]
+            story.append(create_info_table(guia_info))
+            story.append(Spacer(1, 0.5 * cm))
+
+            # Items Table
+            headers = ["ITEM / MATERIAL", "CANT.", "NUM. SERIE"]
+            data_items = []
+            for item in guia.itemsguiasalida_set.all():
+                nombre = item.stock_item.item.nombre if item.stock_item and item.stock_item.item else "Desconocido"
+                data_items.append([nombre, str(item.cantidad_rebajada), str(item.numero_serie or "N/A")])
+            
+            story.append(create_data_table(headers, data_items, [9 * cm, 3 * cm, 6 * cm]))
+            story.append(Spacer(1, 0.5 * cm))
+            story.append(create_signature_block([("Entregó", "Bodega"), ("Recibió", "Técnico")]))
+            story.append(Spacer(1, 1 * cm))
+        
+        story.append(PageBreak())
+
+    # --- MÓDULO 4: GASTOS ---
+    if gastos:
+        story.append(Paragraph("GASTOS OPERATIVOS", styles["ModuleTitle"]))
+        headers = ["FECHA", "CATEGORÍA", "DETALLE", "CANT.", "TOTAL"]
+        data_gastos = []
+        for gasto in gastos:
+            data_gastos.append([
+                gasto.fecha_compra.strftime("%d/%m/%Y") if gasto.fecha_compra else "N/A",
+                gasto.categoria.nombre if gasto.categoria else "N/A",
+                gasto.detalle or "-",
+                str(gasto.cantidad),
+                format_currency(gasto.monto_total),
+            ])
+        # Total Row
+        data_gastos.append(["", "", "TOTAL GASTOS:", "", format_currency(sum(g.monto_total for g in gastos))])
+        
+        story.append(create_data_table(headers, data_gastos, [2.5 * cm, 3.5 * cm, 8 * cm, 1.5 * cm, 2.5 * cm]))
+        story.append(PageBreak())
+
+    # --- CIERRE ---
+    story.append(Paragraph("CIERRE Y VALIDACIÓN FINAL", styles["ModuleTitle"]))
+    story.append(Spacer(1, 1 * cm))
+    story.append(Paragraph("ESTADO FINAL DE TRABAJOS", styles["SectionHead"]))
+    
+    headers_resumen = ["TRABAJO / SERVICIO", "ESTADO", "RESUELTO"]
+    data_resumen = []
+    for sop in soportes:
+        data_resumen.append([sop.nombre, sop.get_estado_display(), "SÍ" if sop.estado == "completado" else "NO"])
+    for serv in servicios:
+        data_resumen.append([serv.nombre, serv.get_estado_display(), "SÍ" if serv.resuelto else "NO"])
+        
+    story.append(create_data_table(headers_resumen, data_resumen, [10 * cm, 5 * cm, 3 * cm]))
+    story.append(Spacer(1, 2 * cm))
+
+    # Firmas Finales
+    story.append(create_signature_block([
+        ("Técnico Responsable", orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else ""),
+        ("Validación Cliente", orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "")
+    ]))
+    
+    story.append(Spacer(1, 1 * cm))
+    story.append(create_signature_block([("Aprobación Administrativa", "")] ))
+
+    # Build
+    doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
+    buffer.seek(0)
+    return buffer
