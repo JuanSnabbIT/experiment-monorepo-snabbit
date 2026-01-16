@@ -3,9 +3,9 @@ from django.contrib import admin
 from .models import (
     AdjuntoDeOrden,
     CierreAdministrativoOT,
+    GastoOperativoEnOt,
     HistorialCambiosOrden,
     OrdenDeTrabajo,
-    RendicionEnOt,
     SeguimientoItemOT,
     ServicioEnOT,
     SoporteTecnico,
@@ -131,8 +131,8 @@ class AdjuntoDeOrdenAdmin(admin.ModelAdmin):
     raw_id_fields = ["orden"]
 
 
-@admin.register(RendicionEnOt)
-class RendicionEnOtAdmin(admin.ModelAdmin):
+@admin.register(GastoOperativoEnOt)
+class GastoOperativoEnOtAdmin(admin.ModelAdmin):
     list_display = [
         "id",
         "orden",
@@ -151,11 +151,16 @@ class RendicionEnOtAdmin(admin.ModelAdmin):
 
 @admin.register(CierreAdministrativoOT)
 class CierreAdministrativoOTAdmin(admin.ModelAdmin):
-    list_display = ["id", "orden", "usuario", "fecha_cierre", "valido"]
-    list_filter = ["valido", "fecha_cierre"]
-    search_fields = ["orden__id", "comentario"]
-    readonly_fields = ["fecha_cierre", "fecha_creacion", "fecha_modificacion"]
-    raw_id_fields = ["orden", "usuario"]
+    list_display = ["id", "cliente", "estado_cierre", "fecha_creacion"]
+    list_filter = ["estado_cierre", "fecha_creacion"]
+    search_fields = ["cliente__nombre", "comentario"]
+    readonly_fields = [
+        "fecha_creacion",
+        "fecha_modificacion",
+        "creado_por",
+        "actualizado_por",
+    ]
+    raw_id_fields = ["cliente", "creado_por", "actualizado_por"]
 
 
 @admin.register(SeguimientoItemOT)
@@ -165,5 +170,3 @@ class SeguimientoItemOTAdmin(admin.ModelAdmin):
     search_fields = ["servicio__id", "soporte__id", "comentario"]
     readonly_fields = ["fecha_creacion", "fecha_modificacion"]
     raw_id_fields = ["servicio", "soporte", "usuario"]
-
-

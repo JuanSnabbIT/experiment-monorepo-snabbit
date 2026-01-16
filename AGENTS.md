@@ -20,11 +20,29 @@ Tu responsabilidad es:
 
 ---
 
+## Prioridad de Prompt Files Operacionales
+
+Cuando el usuario ejecuta un **prompt file operacional** (por ejemplo: `/Implementar`, `/Validar`, `/Auditar`, `/CurarDocumentacion` u otros prompts estructurados):
+
+- Asume que **la planificación ya existe o está implícita** en el prompt.
+- **NO generes un nuevo plan** salvo que el prompt lo solicite explícitamente.
+- **NO solicites confirmación inicial** para comenzar si el prompt indica ejecución directa.
+- Ejecuta el flujo definido por el prompt como **fuente de verdad prioritaria**.
+
+Las reglas de “planificación antes de ejecución” aplican **solo** cuando:
+- El usuario da instrucciones libres, o
+- El prompt activo no define un proceso operativo claro.
+
+
+---
+
 ## Principios obligatorios
 
 ### 1. Planificación antes de ejecución
 
-- Antes de modificar múltiples archivos o lógica relevante, **propón un plan explícito**.
+- Antes de modificar múltiples archivos o lógica relevante, **propón un plan explícito**,
+  **excepto** cuando el prompt activo sea un prompt operacional que ya define el proceso
+  (por ejemplo: `/Implementar`, `/Validar`, `/Auditar`).
 - El plan debe:
   - Estar numerado.
   - Indicar carpetas y archivos afectados.
@@ -86,27 +104,48 @@ La documentación es un **recurso controlado**, no un subproducto automático.
   - Validaciones (`validate_*.py`)
 - Si creas un script temporal para debug, **elimínalo inmediatamente** después de usarlo.
 
-### Reglas de creación
-- 🚫 **No crees archivos nuevos en `dev/docs/`** salvo que todas estas condiciones se cumplan:
-   - El usuario lo solicitó explícitamente **y** describe un sistema vigente (producción) con horizonte > 6 meses.
-   - No existe ya un documento vivo del mismo dominio (máximo 1 archivo vivo por dominio).
-   - Se identificó un responsable y fecha de próxima revisión.
-- Por defecto, ante la duda, **no documentes**: responde con código/cambios y solo sugiere actualizar un documento vivo existente.
-- Antes de documentar, clasifica el contenido:
+### Reglas de creación (ESTRICTAS)
 
-1. Regla permanente  
-   → Instrucciones (`.github/`), no `dev/docs/`.
+🚫 **PROHIBICIÓN ABSOLUTA:** NO crees archivos nuevos en `dev/docs/` a menos que **TODAS** las condiciones siguientes se cumplan **SIMULTÁNEAMENTE**:
 
-2. Documentación viva del sistema actual  
-   → `dev/docs/`, preferentemente **un único archivo por dominio**.
+```
+✓ El usuario lo solicitó EXPLÍCITAMENTE (no implícito, no inferido)
+✓ El contenido describe un SISTEMA VIGENTE (en producción, no análisis/plan)
+✓ El horizonte es > 6 meses (no efímero ni reactivo)
+✓ No existe ya un documento vivo del mismo dominio (máximo 1 por dominio)
+✓ Se identificó un responsable Y fecha de próxima revisión
+```
 
-3. Análisis, plan, bug, migración pasada  
-   → No documentar (información efímera).
+**Si falta CUALQUIERA de estas 5 condiciones: NO DOCUMENTES.**
 
-- Prefiere **actualizar documentos existentes**.
-- Evita documentación reactiva por cambios pequeños o cada fix.
-- Si detectas proliferación documental, **propón consolidación o eliminación** (no crear más archivos).
-- Usa `dev/docs/changelog.md` para registrar cambios de estado al cerrar una feature o despliegue; no uses `dev/docs/` para notas diarias.
+**Alternativa correcta (SIEMPRE):**
+- Responde con código/cambios directos (sin `.md` nuevo)
+- Si hay contexto útil, SUGIERE actualizar un documento vivo existente
+- El usuario decide si actualiza o no
+
+**Clasificación del contenido (para auto-validación):**
+
+1. Regla permanente → Instrucciones (`.github/`), nunca `dev/docs/`
+2. Documentación viva del sistema actual → `dev/docs/`, máximo 1 archivo por dominio
+3. Análisis, plan, bug, migración pasada → **NO DOCUMENTAR** (información efímera)
+
+**Prácticas obligatorias:**
+- Prefiere **actualizar documentos existentes**
+- Evita documentación reactiva por cambios pequeños
+- Si detectas proliferación documental, **propón consolidación o eliminación**
+- Usa `dev/docs/changelog.md` solo para cambios de estado al cerrar features/releases
+- **Nunca** uses `dev/docs/` para notas diarias o análisis puntuales
+
+**Checklist obligatorio ANTES de crear cualquier `.md` en `dev/docs/`:**
+```
+[ ] ¿El usuario pidió EXPLÍCITAMENTE este documento? (no lo infiero)
+[ ] ¿Describe un SISTEMA VIGENTE en producción? (no análisis/plan/hallazgo)
+[ ] ¿Es información para > 6 meses? (no efímera ni reactiva)
+[ ] ¿NO existe ya otro `.md` del mismo dominio? (máximo 1 vivo)
+[ ] ¿Está identificado responsable + fecha de próxima revisión?
+
+Si TODAS las casillas NO están ✓ → RECHAZA la creación
+```
 
 ---
 
@@ -122,7 +161,13 @@ La documentación es un **recurso controlado**, no un subproducto automático.
 - Luego, solo las guías específicas necesarias según el alcance.
 - No cargues instrucciones irrelevantes.
 
-### Paso 3 — Proponer un plan
+### Paso 3 — Proponer un plan (solo si aplica)
+
+Este paso es obligatorio **únicamente** cuando:
+- El prompt activo no define un flujo operativo, o
+- El usuario no ha entregado un plan previo.
+
+Si el prompt activo ya define fases o pasos, **omite este paso y ejecuta directamente**.
 Antes de ejecutar, presenta:
 
 ```
@@ -159,6 +204,25 @@ Riesgos:
 - Actualiza documentación viva solo si el comportamiento del sistema cambió.
 - Si hay cambios de API, actualiza herramientas asociadas (Postman, contratos).
 - Prefiere docstrings y comentarios concisos en código.
+
+---
+
+## Política Anti-Inflación Documental (Explícita)
+
+**CASOS QUE NUNCA GENERAN DOCUMENTACIÓN:**
+
+- ❌ Análisis técnico sin solicitud explícita → NO documentar
+- ❌ Hallazgos críticos o decisiones técnicas → NO documentar (son efímeros)
+- ❌ Planes, roadmaps, épicas futuras → Usa `planificacion.md` si el usuario pide actualizar
+- ❌ Bugs, fixes puntuales → NO documentar
+- ❌ Migraciones pasadas, contexto histórico → NO documentar
+- ❌ Especificaciones de modelos/APIs (sin solicitud explícita) → NO documentar (usa comentarios/docstrings)
+- ❌ \"Notas personales\" o \"contexto para después\" → **PROHIBIDO ABSOLUTAMENTE**
+
+**Única excepción legítima:**
+- El usuario pide explícitamente: \"*Documenta en `dev/docs/` que...*\"
+- Cumplen **TODAS** las 5 condiciones del checklist anterior
+- Incluso entonces, **valida antes de crear**
 
 ---
 

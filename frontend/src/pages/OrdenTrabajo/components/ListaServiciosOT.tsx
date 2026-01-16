@@ -651,29 +651,33 @@ function ListaServiciosOT() {
 								</Tooltip>
 							</>
 						)}
-						{!info.row.original.guia_salida ? (
-							<Tooltip text='Vincular Guía de Salida'>
-								<Button
-									variant='solid'
-									color='emerald'
-									icon='HeroLink'
-									onClick={() => {
-										setServicioParaGuia(info.row.original.id);
-										setGuiaSeleccionada(null);
-										setIsOpenGuia(true);
-										cargarGuiasDisponibles();
-									}}
-								/>
-							</Tooltip>
-						) : (
-							<Tooltip text='Desvincular Guía de Salida'>
-								<Button
-									variant='solid'
-									color='red'
-									icon='HeroLink'
-									onClick={() => desvincularGuia(info.row.original.id)}
-								/>
-							</Tooltip>
+						{isPendiente && (
+							<>
+								{!info.row.original.guia_salida ? (
+									<Tooltip text='Vincular Guía de Salida'>
+										<Button
+											variant='solid'
+											color='emerald'
+											icon='HeroLink'
+											onClick={() => {
+												setServicioParaGuia(info.row.original.id);
+												setGuiaSeleccionada(null);
+												setIsOpenGuia(true);
+												cargarGuiasDisponibles();
+											}}
+										/>
+									</Tooltip>
+								) : (
+									<Tooltip text='Desvincular Guía de Salida'>
+										<Button
+											variant='solid'
+											color='red'
+											icon='HeroLink'
+											onClick={() => desvincularGuia(info.row.original.id)}
+										/>
+									</Tooltip>
+								)}
+							</>
 						)}
 					</div>
 				);
@@ -844,7 +848,7 @@ function ListaServiciosOT() {
 				</CardHeaderChild>
 			</CardHeader>
 			<CardBody>
-				<div className='mt-2 overflow-auto'>
+				<div className='mt-2 overflow-y-scroll'>
 					{serviciosFiltrados && serviciosFiltrados.length > 0 ? (
 						<>
 							<Table className='min-w-[800px] table-fixed'>

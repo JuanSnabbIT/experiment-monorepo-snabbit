@@ -58,12 +58,18 @@ BaseService.interceptors.response.use(
                     return BaseService(originalRequest);
                 } catch (refreshError) {
                     // Manejar el fallo del refresco del token
-                    toast.error("Sesion Expirada", {toastId: "Error de refresco de token"})
+                    toast.error("Sesión Expirada", {toastId: "Error de refresco de token"})
                     store.dispatch(LOGOUT())
+                    // Redirigir al login
+                    window.location.href = '/auth-pages/login';
                     return Promise.reject(refreshError);
                 }
             } else {
                 // No hay token de refresco disponible
+                toast.error("Sesión Expirada", {toastId: "Sin token de refresco"})
+                store.dispatch(LOGOUT())
+                // Redirigir al login
+                window.location.href = '/auth-pages/login';
                 return Promise.reject(error);
             }
         }

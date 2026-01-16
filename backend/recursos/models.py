@@ -69,6 +69,14 @@ class Equipo(ModeloBase):
     nombre_equipo = models.CharField("Nombre del Equipo", max_length=50, blank=True, null=True)
     contraseña_administrador = models.CharField("Contraseña del administrador", max_length=50, null=True, blank=True)
     cliente = models.ForeignKey("empresas.Empresa", on_delete=models.CASCADE, related_name='equipos_cliente', null=True, blank=True)
+    empresa_propietaria = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="equipos_propietarios",
+        null=True,
+        blank=True,
+        verbose_name="Empresa propietaria",
+    )
     registrado_por = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE, related_name='equipos_registrados')
     tipo_equipo = models.CharField("Tipo de equipo", max_length=20, choices=TIPO_EQUIPO, default="ESCRITORIO")
     marca = models.CharField("Marca", max_length=20, choices=MARCA_EQUIPO, default="OTRA") #

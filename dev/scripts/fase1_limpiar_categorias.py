@@ -9,17 +9,19 @@ ACCIONES:
 
 EJECUTAR CON: backend\ENV\Scripts\python.exe dev\scripts\fase1_limpiar_categorias.py
 """
+
 import os
 import sys
+
 import django
 
 # Setup Django
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sw_erp.settings')
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sw_erp.settings")
 django.setup()
 
-from rendiciones.models import CategoriaGastoRendicion, DetalleGastoRendicion
 from ordentrabajov2.models import RendicionEnOt
+from rendiciones.models import CategoriaGastoRendicion, DetalleGastoRendicion
 
 print("=" * 80)
 print("BLOQUE 6 - FASE 1: LIMPIEZA DE CATEGORÍAS")
@@ -58,16 +60,13 @@ consolidaciones = [
     # Transporte
     ([25], 6, "Arriendo de Vehículo"),  # Mantener con tilde
     ([24], 5, "Transporte Público (Metro/Bus)"),  # Mantener con tildes
-    
     # Alimentación
     ([26], 7, "Desayuno"),  # Eliminar "Desayuno / Almuerzo / Cena", mantener individual
     ([27], 10, "Colación"),  # Mantener con tilde
     ([33], 20, "Capacitación"),  # Mantener con tilde
-    
     # Comunicaciones
     ([32], 19, "Internet Móvil"),  # Mantener con tilde
     ([31], 18, "Llamadas Telefónicas"),  # Mantener con tildes
-    
     # Servicios
     ([34], 22, "Envío de Documentos"),  # Mantener con tilde
 ]
@@ -78,41 +77,43 @@ eliminadas_dupl = 0
 for ids_eliminar, id_mantener, nombre_final in consolidaciones:
     try:
         cat_mantener = CategoriaGastoRendicion.objects.get(id=id_mantener)
-        
+
         # Actualizar nombre si es necesario
         if cat_mantener.nombre != nombre_final:
             cat_mantener.nombre = nombre_final
             cat_mantener.save()
             print(f"  ✓ Actualizado nombre: ID {id_mantener} → '{nombre_final}'")
-        
+
         # Migrar referencias y eliminar duplicados
         for id_elim in ids_eliminar:
             try:
                 cat_elim = CategoriaGastoRendicion.objects.get(id=id_elim)
-                
+
                 # Migrar DetalleGastoRendicion
                 detalles = DetalleGastoRendicion.objects.filter(categoria=cat_elim)
                 count_detalles = detalles.count()
                 if count_detalles > 0:
                     detalles.update(categoria=cat_mantener)
                     migradas += count_detalles
-                
+
                 # Migrar RendicionEnOt
                 rend_ot = RendicionEnOt.objects.filter(categoria=cat_elim)
                 count_rend = rend_ot.count()
                 if count_rend > 0:
                     rend_ot.update(categoria=cat_mantener)
                     migradas += count_rend
-                
+
                 # Eliminar duplicado
                 nombre_elim = cat_elim.nombre
                 cat_elim.delete()
                 eliminadas_dupl += 1
-                print(f"  ✓ Eliminado duplicado: ID {id_elim} '{nombre_elim}' → ID {id_mantener}")
-                
+                print(
+                    f"  ✓ Eliminado duplicado: ID {id_elim} '{nombre_elim}' → ID {id_mantener}"
+                )
+
             except CategoriaGastoRendicion.DoesNotExist:
                 pass
-                
+
     except CategoriaGastoRendicion.DoesNotExist:
         print(f"  ⚠  ID {id_mantener} no existe, no se puede consolidar")
 
@@ -126,7 +127,7 @@ print()
 print("PASO 3: Categorías finales (OPERATIVAS)...")
 print("-" * 80)
 
-categorias_finales = CategoriaGastoRendicion.objects.all().order_by('nombre')
+categorias_finales = CategoriaGastoRendicion.objects.all().order_by("nombre")
 
 print(f"\n✓ Total categorías: {categorias_finales.count()}\n")
 

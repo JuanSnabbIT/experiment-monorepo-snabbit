@@ -1,15 +1,701 @@
+---
+Responsable: -
+Email: -
+Proxima_revision: -
+Estado: canonical
+---
+
 # Análisis – Monorepo ERP
 
-Fecha: 2025-12-31  
-Propósito: Decisiones técnicas, hallazgos de bloques y resolución de vulnerabilidades (análisis activos e histórico de implementación).
+**Propósito único:** Registrar decisiones técnicas, hallazgos críticos y análisis profundos de problemas/soluciones en el sistema.
 
-## Uso y mantenimiento
-- Registrar análisis técnicos: decisiones arquitectónicas, hallazgos críticos, resoluciones de seguridad.
-- Mantener histórico de BLOQUEs implementados como referencia técnica.
-- Al cerrar análisis en curso, documentar resultado final aquí.
-- No duplicar información que ya esté en changelog (timestamps) o planificación (roadmap).
+**Qué va aquí:**
+- Decisiones arquitectónicas con justificación
+- Hallazgos de vulnerabilidades/bugs con impacto
+- Análisis detallado de BLOQUEs implementados (patrones, riesgos, validaciones)
+- Análisis activos con status de progreso
+- Documentación de soluciones complejas (políticas, algoritmos, migraciones)
+
+**Qué NO va aquí:**
+- ❌ Timeline o fechas de entregas → usa `changelog.md`
+- ❌ Roadmap o épicas futuras → usa `planificacion.md`
+- ❌ Notas diarias o snippets → usa `notas.md`
+- ❌ Procedimientos operativos paso a paso → usa `flujos_operativos.md`
+
+**Mantenimiento:**
+- Actualizar al cerrar análisis activos (mover a sección de completados con fecha)
+- Un análisis por tema (no mezclar dominios)
+- Incluir siempre: contexto, problema, impacto, solución propuesta, validación
 
 ---
+
+## Estructura por Módulos
+
+- Cada análisis debe comenzar con una nota de contexto breve y luego agruparse por módulo.
+- Módulos sugeridos: `recursos`, `bodegas`, `ordentrabajov2`, `rendiciones`, `cotizaciones`, `facturacion`, `infra`.
+- Para cada módulo incluir: problema, impacto, solución propuesta, cambios requeridos (migrations, views, serializers), pruebas necesarias.
+
+## Módulo: Recursos y Activos
+
+
+## Anexos Importados
+
+Los siguientes análisis y especificaciones se integran aquí desde documentos temporales encontrados en el repositorio. Se conservaron títulos, fechas y contenido técnico para trazabilidad.
+ 
+---
+
+# Análisis: Propiedad vs Ubicación del Equipo
+
+**Fecha:** 2026-01-12  
+**Contexto:** Clarificar el modelo de negocio para gestión de equipos en Soportes Técnicos
+
+---
+
+## El Problema
+
+El usuario planteó una pregunta crítica:
+
+> "Se supone que si estamos registrando items en este sistema y luego registramos también equipos a clientes en este sistema, quiere decir que los equipos NO son de propiedad de los clientes, sino que son propiedad de la empresa de mi superior, pero que están siendo asignados y dejados en la empresa del cliente... el sistema debería reflejar una forma de poder ver todos los equipos de la empresa de mi superior, ¿no?"
+
+**Análisis del problema:**
+1. Existen **dos roles de Empresa** en el flujo:
+   - **Empresa Superior** (propietaria) → compra, registra, posee inventario
+   - **Cliente** (destino) → recibe equipo en préstamo/asignación temporal
+2. El modelo actual NO distingue entre estos roles
+3. El usuario NO PUEDE ver "todos sus equipos" (los de su empresa)
+4. Los equipos aparecen asociados al cliente, no al propietario
+
+---
+
+## Casos de Uso del Mundo Real
+
+### Caso 1: Empresa de Soporte Técnico
+```
+SuperiorIT (empresa propietaria de equipos)
+├── Compra 50 laptops
+├── Registra en bodega
+├── Envía lote a Cliente A (implementación)
+├── Asigna laptops a usuarios de Cliente A
+├── 6 meses después, Cliente A devuelve 48 laptops
+│   └── 2 laptops quedan dañadas, no devueltas
+├── Las 48 se regresan a bodega SuperiorIT
+├── Posteriormente, asigna 45 de esas 48 a Cliente B
+└── [Historial completo: SuperiorIT → Cliente A → SuperiorIT → Cliente B]
+```
+
+**Necesidades del negocio:**
+- ✅ SuperiorIT debe ver: "Tengo 50 laptops, 45 en Cliente B, 5 en bodega"
+- ✅ SuperiorIT debe ver historial: "Esta laptop estuvo en Cliente A del 2024-06 al 2025-01"
+- ✅ SuperiorIT debe poder: devolver equipo a bodega → reasignar a otro cliente
+- ✅ SuperiorIT debe saber: "Cliente A devolvió equipos el 2025-01-10"
+
+### Caso 2: Empresa de Outsourcing de Equipos
+```
+TechLease (empresa que ALQUILA equipos)
+├── Compra inventario de equipos
+├── Cliente X alquila 20 desktops (contrato 12 meses)
+├── TechLease rastrea: ubicación física, desgaste, mantenimiento
+├── Mes 6: Cliente X solicita reemplazo de 3 equipos defectuosos
+│   └── TechLease envía 3 nuevos, retira 3 dañados
+├── Mes 12: Cliente X devuelve los 20 equipos
+│   └── TechLease inspecciona, documenta condición
+├── Los 17 equipos sin daño se almacenan/reasingan
+└── Los 3 equipos dañados se reparan/descartan
+```
+
+**Necesidades del negocio:**
+- ✅ Control de activos por empresa propietaria
+- ✅ Auditoría de movimientos (entrada/salida)
+- ✅ Condición de equipo al retornar
+- ✅ Billing basado en equipos/mes en cliente
+
+### Caso 3: Empresa con Múltiples Clientes y Equipos Compartidos
+```
+ProyectosGlobal (empresa propietaria)
+├── Equipo SN#ABC123 (camaras profesionales)
+│   ├── Proyecto X (Cliente A): 2024-01 a 2024-03
+│   ├── Proyecto Y (Cliente B): 2024-04 a 2024-06
+│   └── Bodega: 2024-07 a presente
+├── Equipo SN#DEF456 (laptop)
+│   ├── Cliente A: 2024-01 a presente (12 meses)
+```
+
+**Necesidades del negocio:**
+- ✅ Historial completo de dónde estuvo cada equipo
+- ✅ Detectar "equipos en limbo" (sin cliente, sin bodega)
+- ✅ Costo de propiedad por equipo (amortización)
+
+---
+
+## Análisis del Modelo Actual
+
+### Estructura Django
+
+```python
+class Equipo(ModeloBase):
+    cliente = FK(Empresa, null=True, blank=True)  # ← ¿Propietario o ubicación?
+    registrado_por = FK(UsuarioEmpresa)  # ← Usuario que lo crea (implies empresa)
+    numero_serie = CharField(unique=True)
+    tipo_equipo = CharField()
+    # ... otros campos
+```
+
+```python
+class UsuarioEquipo(ModeloBaseHistorico):
+    equipo = FK(Equipo)
+    usuario = FK(UsuarioEmpresa)  # Usuario del cliente
+```
+
+---
+
+### Interpretación Actual del Modelo
+
+**Campo `cliente`:**
+- Nombre sugiere: "El cliente propietario del equipo"
+- Lógica implícita: `Equipo` pertenece a `cliente`
+- Pero en el código: **NUNCA se asigna en `crear_equipos_para_items_guia()`**
+- Resultado: `cliente = NULL` siempre
+
+**Campo `registrado_por`:**
+- Registro de auditoría: "¿Quién lo creó?"
+- Se puede inferir propietario: `registrado_por.usuario_empresa.empresa`
+- Pero es indirecto, NO es explícito
+
+### Vistas / Filtros Actuales
+
+```python
+# backend/recursos/views.py
+class EquipoViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        empresa_id = self.kwargs.get('empresa_pk')
+        if empresa_id:
+            # BUSCA: "Equipos donde cliente tiene relación con esta empresa"
+            return Equipo.objects.filter(
+                cliente__relaciones_como_cliente__prestador_servicios=empresa_id
+            )
+        return Equipo.objects.all()  # ← SIN FILTRO (¡peligro!)
+```
+
+**Lo que hace:**
+- Busca `Equipo.cliente` que tenga una relación comercial con `empresa_id`
+- Asume que `cliente` = propietario
+
+**El problema:**
+- `cliente = NULL` siempre, así que este filtro retorna NADA
+- El usuario NO puede ver sus propios equipos
+- El system permite ver equipos de otros (security issue)
+
+---
+
+## Interpretaciones Posibles
+
+### Interpretación 1: Cliente = Propietario (Diseño Actual - Fallido)
+
+```
+┌─────────────────────┐
+│  Equipo             │
+│  ├── cliente ──────→│ Empresa (propietaria)
+│  └── registrado_por │ UsuarioEmpresa
+└─────────────────────┘
+
+UsuarioEquipo
+├── equipo → Equipo
+├── usuario → UsuarioEmpresa (de cliente)
+```
+
+**Problemas:**
+- `cliente = NULL` siempre
+- No hay forma de especificar ubicación diferente del propietario
+- No soporta préstamos entre clientes
+- UsuarioEquipo no especifica "en qué empresa estoy usando esto"
+
+### Interpretación 2: registrado_por.empresa = Propietario (Actual - Implícita)
+
+```
+┌─────────────────────┐
+│  Equipo             │
+│  ├── cliente ───→ NULL
+│  └── registrado_por─→ UsuarioEmpresa (de empresa propietaria)
+└─────────────────────┘
+
+registrado_por.usuario_empresa.empresa = PROPIETARIO
+```
+
+**Ventajas:**
+- Inferir propietario de `registrado_por` (pero implícito)
+- Almacenar `cliente` para ubicación (pero NO se usa)
+
+**Problemas:**
+- Confuso, no es obvio
+- Si usuario de Empresa A crea equipo, pero se asigna a Empresa B, ¿quién es propietario?
+- Vistas actuales rompen: filtro por cliente no funciona
+
+### Interpretación 3: Propietario = Empresa Explícita (RECOMENDADA)
+
+```
+┌──────────────────────────┐
+│  Equipo (NUEVA)          │
+│  ├── empresa_propietaria─→ Empresa (who owns it)
+│  ├── cliente ────────────→ Empresa o NULL (ubicación actual)
+│  └── registrado_por──────→ UsuarioEmpresa (audit)
+└──────────────────────────┘
+
+UsuarioEquipo
+├── equipo → Equipo
+├── usuario → UsuarioEmpresa (de cliente)
+├── empresa_ubicacion → Empresa (where it's located)  // NUEVA
+```
+
+**Ventajas:**
+- Explícito y claro
+- Separa propiedad de ubicación
+- Soporta cambios de ubicación
+- Soporta "sin cliente" (en bodega)
+- Historial de movimientos fácil de rastrear
+
+**Cambios necesarios:**
+- Agregar campo `empresa_propietaria` a Equipo
+- Actualizar `crear_equipos_para_items_guia()` para asignar propietario
+- Cambiar vistas: filtrar por `empresa_propietaria`, no `cliente`
+- Opcionalmente, agregar modelo `MovimientoEquipo` para auditoría
+
+---
+
+## Comparativa: Mundo Real vs Actual
+
+| Aspecto | Mundo Real | Sistema Actual | ¿Funciona? |
+|---------|-----------|-----------------|-----------|
+| **Propiedad del equipo** | Empresa Superior posee | `cliente=NULL` o inferred | ❌ No |
+| **Ubicación del equipo** | Ubicado en Cliente A | `cliente=NULL` | ❌ No |
+| **Cambio de ubicación** | A→B→C, registrado | No hay mecanismo | ❌ No |
+| **Ver todos mis equipos** | "Dame todos, adonde sea" | No hay filtro correcto | ❌ No |
+| **Usuario que lo usa** | Especificado en cliente | `UsuarioEquipo.usuario` | ✅ Sí |
+| **Auditoría** | Quién lo registró | `registrado_por` | ✅ Sí (parcial) |
+| **Equipo sin cliente** | En bodega, sin asignar | `cliente=NULL` | ⚠️ Ambiguo |
+| **Equipo desvinculado** | Sin usuario, ubicado | Sin mecanismo | ❌ No |
+
+---
+
+## Flujos Afectados
+
+### Flujo Actual (Incompleto)
+```
+Bodega (SuperiorIT)
+    ↓
+GuiaSalida (individualizado)
+    ↓
+comprobar_guia()
+    ↓
+crear_equipos_para_items_guia()
+    → Equipo.create(numero_serie=X, cliente=NULL, registrado_por=user)
+    ↓
+??? El equipo "flota" sin ubicación
+```
+
+### Flujo Recomendado (Propuesto)
+```
+Bodega (SuperiorIT)
+    ↓
+GuiaSalida (individualizado, destino=ClienteA)
+    ↓
+comprobar_guia()
+    ↓
+crear_equipos_para_items_guia()
+    → Equipo.create(
+        numero_serie=X,
+        empresa_propietaria=user.empresa,  // NUEVA
+        cliente=guia.orden.cliente,        // NUEVA: de la OT
+        registrado_por=user
+      )
+    ↓
+UsuarioEquipo.create(
+    equipo=E,
+    usuario=user_cliente,
+    empresa_ubicacion=cliente,  // NUEVA
+    fecha_asignacion=today
+)
+    ↓
+Equipo rastreable: propiedad, ubicación, usuario
+```
+
+---
+
+## Recomendación Final
+
+**Decisión:** Usar **Interpretación 3** (Propietario Explícito)
+
+**Por qué:**
+1. ✅ Refleja realidad del negocio (propiedad vs ubicación)
+2. ✅ Permite responder: "¿Dónde están TODOS mis equipos?"
+3. ✅ Soporta préstamos/traslados entre clientes
+4. ✅ Auditoría clara y rastreable
+5. ✅ Escalable a múltiples propietarios (future-proof)
+
+**Cambios mínimos:**
+- Agregar `empresa_propietaria = FK(Empresa)`
+- Actualizar `crear_equipos_para_items_guia()` (2-3 líneas)
+- Cambiar filtros en vistas (3-4 líneas)
+- Opcionalmente: modelo `MovimientoEquipo` para historial
+
+**Cambios no invasivos:**
+- `cliente` sigue siendo nullable (para bodega sin ubicación)
+- `registrado_por` sigue igual (auditoría)
+- `UsuarioEquipo` sigue igual (usuarios del equipo)
+
+**Próximos pasos:**
+1. Consenso en diseño (propietario explícito)
+2. Crear migración
+3. Actualizar lógica en `crear_equipos_para_items_guia()`
+4. Actualizar vistas y serializers
+5. Probar con datos reales
+
+---
+
+**Autor:** Análisis para planificación (sin implementación)  
+**Estado:** Pendiente decisión del usuario
+
+---
+
+# Módulo: Facturación
+# Especificación: CierreAdministrativoOT
+
+**Versión**: 1.0  
+**Fecha**: 2026-01-12  
+**Propósito**: Documentar estructura exacta de prefacturas y JSON para facturación manual por OTs
+
+---
+
+## Modelo Django
+
+```python
+# backend/ordentrabajov2/models.py
+
+class CierreAdministrativoOT(ModeloBase):
+    """
+    Representa una prefactura manual de OT(s).
+    Guarda todos los items considerados (facturados + no facturados) para auditoría.
+    """
+    cliente = models.ForeignKey(
+        'empresas.Empresa',
+        on_delete=models.CASCADE,
+        related_name='cierres_administrativos'
+    )
+    ots_incluidas = models.JSONField(
+        default=list,
+        help_text="Array de IDs de OTs: [7, 8, 9]"
+    )
+    items_facturables = models.JSONField(
+        default=list,
+        help_text="Array de items a considerar para factura"
+    )
+    resumen = models.JSONField(
+        default=dict,
+        help_text="Totales: total_items, total_facturar, total_excluidos"
+    )
+    estado_cierre = models.CharField(
+        max_length=20,
+        choices=[
+            ('borrador', 'Borrador - Editando'),
+            ('finalizado', 'Finalizado - Listo para facturar'),
+            ('facturado', 'Facturado - Factura real generada'),
+        ],
+        default='borrador'
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    creado_por = models.ForeignKey(
+        'empresas.UsuarioEmpresa',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    
+    # Auditoría
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(
+        'empresas.UsuarioEmpresa',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cierres_actualizados'
+    )
+
+    class Meta:
+        verbose_name = "Cierre Administrativo OT"
+        verbose_name_plural = "Cierres Administrativos OT"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Cierre {self.id} - Cliente {self.cliente.nombre} - Estado {self.estado_cierre}"
+```
+
+---
+
+## Estructura del JSON - Detalle Completo
+
+### POST /api/cierres-administrativos/ (Crear Prefactura)
+
+**Request Body:**
+```json
+{
+  "cliente_id": 15,
+  "ots_incluidas": [7, 8],
+  "items_facturables": [
+    {
+      "ot_id": 7,
+      "item_id": 23,
+      "tipo": "servicio_ot",
+      "cantidad": 1,
+      "precio_total": 0,
+      "precio_ajustado": 0,
+      "facturar": true,
+      "comentario": "Servicio inicial de la OT"
+    },
+    {
+      "ot_id": 7,
+      "item_id": 6,
+      "tipo": "guia_salida",
+      "cantidad": 4,
+      "precio_total": 0,
+      "precio_ajustado": 0,
+      "facturar": true,
+      "comentario": "Camara Domo 2MP"
+    },
+    {
+      "ot_id": 7,
+      "item_id": 45,
+      "tipo": "rendicion",
+      "cantidad": 1,
+      "precio_total": 2500,
+      "precio_ajustado": 2500,
+      "facturar": false,
+      "comentario": "Gasto de viático (excluido)"
+    },
+    {
+      "ot_id": 7,
+      "item_id": 88,
+      "tipo": "compra",
+      "cantidad": 1,
+      "precio_total": 2500,
+      "precio_ajustado": 3000,
+      "facturar": true,
+      "comentario": "Precio ajustado por cliente solicitud especial"
+    }
+  ],
+  "resumen": {
+    "total_items": 4,
+    "total_facturar": 3000,
+    "total_excluidos": 2500
+  }
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": 42,
+  "cliente_id": 15,
+  "ots_incluidas": [7, 8],
+  "items_facturables": [...],
+  "resumen": {...},
+  "estado_cierre": "borrador",
+  "fecha_creacion": "2026-01-12T10:30:00Z",
+  "creado_por_id": 5,
+  "mensaje": "Prefactura creada exitosamente. ID: 42"
+}
+```
+
+---
+
+## Campos de Item
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `ot_id` | integer | ✅ | ID de la OrdenDeTrabajo |
+| `item_id` | integer | ✅ | ID del item específico (no compuesto) |
+| `tipo` | string | ✅ | Tipo de modelo: `servicio_ot`, `soporte_tecnico`, `guia_salida`, `rendicion`, `compra` |
+| `cantidad` | integer | ✅ | Cantidad del item |
+| `precio_total` | float | ✅ | Precio original (del contrato o OT) - lectura solamente |
+| `precio_ajustado` | float | ✅ | Precio ajustado por admin (puede ≠ precio_total) |
+| `facturar` | boolean | ✅ | ¿Se incluirá en factura real? |
+| `comentario` | string | ❌ | Contexto adicional (max 500 caracteres) |
+
+---
+
+## Validaciones Backend
+
+### Al Crear Prefactura (POST)
+
+1. **Cliente existe**: `cliente_id` debe ser válido
+2. **OTs pertenecen al cliente**: Todas las OTs en `ots_incluidas` deben estar del cliente
+3. **Items existen**: Para cada item:
+   - `ot_id` + `item_id` + `tipo` deben referenciar un item existente en BD
+   - Si `tipo=servicio_ot` → buscar en ServicioEnOT
+   - Si `tipo=soporte_tecnico` → buscar en SoporteTecnico
+   - Si `tipo=guia_salida` → buscar en GuiaSalida
+   - Si `tipo=rendicion` → buscar en Rendicion
+   - Si `tipo=compra` → buscar en Compra
+4. **Precio ajustado válido**: 
+   - `precio_ajustado >= 0` (sin negativos, o con regla especial)
+   - Si `precio_ajustado ≠ precio_total` → comentario es recomendado
+5. **Al menos un item con facturar=true**
+
+### Al Actualizar Prefactura (PATCH/PUT)
+
+1. Solo permitir si `estado_cierre = 'borrador'`
+2. Solo se puede modificar:
+   - `precio_ajustado`
+   - `facturar` (checkbox)
+   - `comentario`
+3. NO se puede modificar:
+   - `ot_id`, `item_id`, `tipo`, `cantidad`, `precio_total`
+4. Recalcular `resumen` automáticamente
+
+### Al Finalizar Prefactura (cambiar a finalizado)
+
+1. Validar que al menos 1 item tiene `facturar=true`
+2. Bloquear ediciones posteriores (estado finalizado)
+
+---
+
+## Cálculo del Resumen
+
+```python
+# Pseudocódigo
+total_items = len(items_facturables)
+total_facturar = sum(item['precio_ajustado'] for item in items_facturables if item['facturar'] == True)
+total_excluidos = sum(item['precio_ajustado'] for item in items_facturables if item['facturar'] == False)
+
+resumen = {
+    "total_items": total_items,
+    "total_facturar": total_facturar,
+    "total_excluidos": total_excluidos
+}
+```
+
+---
+
+## Flujos de Estado
+
+```
+CREACIÓN:
+POST /api/cierres-administrativos/
+└─ estado = 'borrador'
+
+EDICIÓN (solo en borrador):
+PATCH /api/cierres-administrativos/{id}/
+└─ estado sigue siendo 'borrador'
+
+FINALIZACIÓN:
+PATCH /api/cierres-administrativos/{id}/
+body: { "estado_cierre": "finalizado" }
+└─ estado = 'finalizado' → BLOQUEA futuras ediciones
+
+FACTURACIÓN (futuro):
+POST /api/cierres-administrativos/{id}/generar-factura/
+└─ estado = 'facturado'
+└─ crea Factura real en sistema fiscal
+```
+
+---
+
+## Tipos de Items Soportados
+
+### 1. `servicio_ot`
+- Referencia: ServicioEnOT
+- ID: servicio_en_ot.id
+- Cantidad: 1 (siempre)
+- Precio: Generalmente $0 (a menos que haya sobrevalor)
+
+### 2. `soporte_tecnico`
+- Referencia: SoporteTecnico
+- ID: soporte_tecnico.id
+- Cantidad: 1 (siempre)
+- Precio: Generalmente $0
+
+### 3. `guia_salida`
+- Referencia: ItemsGuiaSalida (items dentro de GuiaSalida)
+- ID: items_guia_salida.id (del registro de item en la guía)
+- Cantidad: cantidad_entregada
+- Precio: $0 (factura de productos, no servicios)
+
+### 4. `rendicion`
+- Referencia: RendicionItem (gastos dentro de Rendición)
+- ID: rendicion_item.id
+- Cantidad: 1 (siempre)
+- Precio: monto_total del gasto
+
+### 5. `compra`
+- Referencia: ItemEnCompra (ítems de una compra)
+- ID: item_en_compra.id
+- Cantidad: cantidad
+- Precio: precio_unitario * cantidad
+
+---
+
+## Ejemplo de Uso Completo
+
+### 1. Usuario crea prefactura
+```typescript
+// Frontend: FacturacionesComparativa.tsx
+const prefacturaJSON = {
+  cliente_id: 15,
+  ots_incluidas: [7],
+  items_facturables: [
+    { ot_id: 7, item_id: 23, tipo: 'servicio_ot', cantidad: 1, precio_total: 0, precio_ajustado: 0, facturar: true, comentario: 'Servicio inicial' },
+    { ot_id: 7, item_id: 6, tipo: 'guia_salida', cantidad: 4, precio_total: 0, precio_ajustado: 0, facturar: true, comentario: 'Cámara Domo 2MP' }
+  ],
+  resumen: { total_items: 2, total_facturar: 0, total_excluidos: 0 }
+};
+
+// POST a backend
+ApiService.fetchData({
+  url: '/api/cierres-administrativos/',
+  method: 'post',
+  data: prefacturaJSON
+});
+```
+
+### 2. Backend guarda en BD
+```python
+# Backend: CierreAdministrativoOTViewSet.create()
+# Valida todos los items, guarda en BD
+# Retorna: { id: 42, estado: 'borrador', ... }
+```
+
+### 3. Usuario ve prefactura en listado
+```
+GET /api/cierres-administrativos/
+→ Tabla con todas las prefacturas del usuario
+```
+
+### 4. Usuario edita prefactura
+```typescript
+// Cambiar precio_ajustado o marca como no facturar
+PATCH /api/cierres-administrativos/42/
+body: {
+  items_facturables: [
+    { ...mismo item..., precio_ajustado: 2500 },  // Ajustó precio
+    { ...mismo item..., facturar: false }          // Decidió no facturar
+  ]
+}
+```
+
+### 5. Usuario finaliza
+```
+PATCH /api/cierres-administrativos/42/
+body: { "estado_cierre": "finalizado" }
+```
+
+---
+
+## Próximas Fases (Futuro)
+
+- [ ] Generar Factura Real desde CierreAdministrativoOT finalizado
+- [ ] Integración con sistema fiscal
+- [ ] PDF/Descarga de prefactura
+- [ ] Auditoría de cambios en préstamos
+- [ ] Política de bloqueo de precios (no permitir cambios si hay regla)
+
 
 ## Decisiones Técnicas Críticas
 
@@ -107,6 +793,7 @@ Propósito: Decisiones técnicas, hallazgos de bloques y resolución de vulnerab
 
 ---
 
+## Módulo: Órdenes de Trabajo
 ### BLOQUE 5: Órdenes Trabajo V2 ✅
 
 **Estado:** Sistema completo con refactores frontend
@@ -167,6 +854,7 @@ def get_queryset(self):
 **Cumplimiento:** 100% en BLOQUEs 2 y 4; revisión en otros módulos pendiente
 ---
 
+## Módulo: Rendiciones
 ## BLOQUE 6: Análisis de Rendiciones (En Progreso) – 2026-01-05
 
 **Estado:** 🟢 FASES 1-3 COMPLETADAS | 🔵 FASE 4 EN CURSO
@@ -175,19 +863,19 @@ def get_queryset(self):
 
 **⚠️ TERMINOLOGÍA CRÍTICA:**
 - **"Rendición"** (módulo `rendiciones`): Documento administrativo que consolida todos los gastos de una o más OTs para reembolso y facturación
-- **"Gastos en OT"** (modelo `RendicionEnOt` en `ordentrabajov2`): Gastos operativos registrados durante la ejecución de una OT específica
-- **Confusión anterior:** Se usaba "rendición" en ambos contextos → ahora usamos "Gastos" en OT para distinguir
+- **"Gastos Operativos"** (modelo `GastoOperativoEnOt` en `ordentrabajov2`): Gastos operativos registrados durante la ejecución de una OT específica
+- **Histórico:** Se usaba "RendicionEnOt" hasta v0.XX; renombrado a `GastoOperativoEnOt` para eliminar ambigüedad
 
 **FLUJO CORRECTO:**
-1. Técnico ejecuta OT → registra **Gastos** (`RendicionEnOt`) y hace **Compras** durante el trabajo
+1. Técnico ejecuta OT → registra **Gastos Operativos** (`GastoOperativoEnOt`) y hace **Compras** durante el trabajo
 2. OT pasa a estado "Completada" → **Sistema crea automáticamente Rendición** con todos los gastos y compras
 3. Administración revisa **Rendición** → Aprueba/Rechaza → Procesa reembolso y facturación
 
-**ARQUITECTURA ACTUAL (verificada 2026-01-05):**
-- ✅ Modelo `RendicionEnOt` existe en `ordentrabajov2` (gastos operativos de la OT)
+**ARQUITECTURA ACTUAL (verificada 2026-01-13):**
+- ✅ Modelo `GastoOperativoEnOt` existe en `ordentrabajov2` (gastos operativos de la OT)
 - ✅ Modelo `Compra` existe en `bodegas` (materiales/servicios facturables)
 - ✅ Modelo `Rendicion` existe en `rendiciones` (documento consolidado)
-- ✅ `ItemRendicion` usa GenericForeignKey para referenciar `RendicionEnOt`, `DetalleGastoRendicion`, `Compra`
+- ✅ `ItemRendicion` usa GenericForeignKey para referenciar `GastoOperativoEnOt`, `DetalleGastoRendicion`, `Compra`
 - ❌ **NO existe creación automática** de Rendición al completar OT (FASE 6 pendiente)
 - ❌ **NO existe FK** `Rendicion.orden_trabajo` (FASE 6 pendiente)
 - ✅ Existe hook `_sincronizar_relaciones_completada()` en OT (actualiza Compras, no crea Rendición)
@@ -199,7 +887,7 @@ def get_queryset(self):
 - ❌ Sin relación OT ↔ Rendición: No hay FK entre modelos, imposible saber si OT está rendida
 - ✅ **RESUELTO (FASE 1):** Categorías limpiadas, solo operativas (18 categorías, materiales eliminados)
 - ✅ **RESUELTO (FASE 2):** Política de viáticos implementada (reembolsable vs facturable)
-- ❌ PDF incompleto: Solo muestra `DetalleGastoRendicion`, omite `RendicionEnOt` y `Compra` (FASE 5)
+- ❌ PDF incompleto: Solo muestra `DetalleGastoRendicion`, omite `GastoOperativoEnOt` y `Compra` (FASE 5)
 - ❌ Sin validación: Técnicamente se puede rendir 2+ veces el mismo gasto (FASE 6)
 - ❌ Sin automatización: No se crea Rendición al completar OT (FASE 6)
 
@@ -213,7 +901,7 @@ def get_queryset(self):
      - 'I' (Incluidos): Empresa asume, NO facturable
      - 'F' (Facturables): Se cobran al cliente
    - Ejemplos: Taxi, comida, hospedaje, peajes, llamadas
-   - Modelos: `RendicionEnOt`, `DetalleGastoRendicion`
+   - Modelos: `GastoOperativoEnOt`, `DetalleGastoRendicion`
 
 2. **Compras (SIEMPRE facturables al cliente):**
    - Dinero de empresa / técnico con fondo
@@ -295,5 +983,49 @@ Será actualizada en `changelog.md` al completar cada fase:
 - Cambios en cálculos
 - Cambios en UX/PDF
 - Impacto en facturas (si aplica)
+
+---
+
+## Matching Manual para Facturación (importado desde `dev/docs/matching-manual.md`)
+
+**Propósito único:** Documentar estrategia y UI de emparejamiento manual de OTs pactadas vs ejecutadas para facturación.
+
+**Resumen:** Se decidió arrancar con un proceso de matching 100% manual por la alta complejidad contextual de las OTs. El admin realizará vinculación visual entre lo pactado (contrato) y lo ejecutado (OTs), asignando precios y clasificando items/extras.
+
+### Decisión: 100% Manual (Justificación)
+
+La dinámica real de los trabajos en OT es demasiado variable para automatizar sin perder control:
+
+- No siempre 1 OT presencial = 1 visita
+- No siempre 1 servicio pactado = 1 trabajo ejecutado
+- Los usuarios dentro de la OT afectan el matching (p.ej. visita a [Juan, Pepe] ≠ visita a [Juan, Pepe, Diego])
+
+### Ejemplos de Complejidad (resumen)
+
+- Visita incompleta: faltó usuario → puede generar nueva visita/extra
+- Servicio extra en la misma visita: se factura como extra
+- Guías y rendiciones dentro de la misma OT: separarlos en materiales vs gastos operativos
+
+(Los ejemplos completos y bloques de código se mantienen en `dev/docs/matching-manual.md` mientras revisamos la integración de UI)
+
+### Estrategia de UI (alto nivel)
+
+- Implementar `MatchingPanel` con dos columnas (Pactado | Ejecutado)
+- Dropdowns y controles para vincular items, asignar precio, marcar extras
+- Componente frontend sugerido: `MatchingPanel.tsx` con estado `MatchingState` y `vinculaciones`
+
+### Implicaciones técnicas (resumen)
+
+- Endpoint backend sugerido: `POST /api/cierres-facturacion/crear-con-matching/` que reciba `ots_ids`, `contrato_id` y `vinculaciones`
+- Modelo `CierreAdministrativoOT` debe aceptar `ordenes_vinculadas` (M2M) y un JSONField `analisis_matching`
+- Frontend: `MatchingPanel.tsx`, lógica para cálculos dinámicos y UI de vinculación
+
+### Siguientes pasos sugeridos
+
+1. Mantener `dev/docs/matching-manual.md` como fuente temporal mientras se implementa MVP visual.
+2. Implementar `MatchingPanel.tsx` en frontend (MVP) y endpoint backend mínimo.
+3. Migrar ejemplos clave y la estructura de vinculaciones al `analisis.md` si se estabilizan los casos.
+
+---
 
 ---

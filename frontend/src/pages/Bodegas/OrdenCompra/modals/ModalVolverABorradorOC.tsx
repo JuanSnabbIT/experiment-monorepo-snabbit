@@ -10,7 +10,7 @@ import { toast } from "react-toastify"
 
 
 
-function ModalVolverABorradorOC({id_orden, onSuccess} : {id_orden: string | number, onSuccess?: () => void}) {
+function ModalVolverABorradorOC({id_orden, onSuccess, disabled} : {id_orden: string | number, onSuccess?: () => void, disabled?: boolean}) {
     const dispatch = useAppDispatch()
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
     const [isOpen, setIsOpen] = useState<boolean>(false)
@@ -18,7 +18,7 @@ function ModalVolverABorradorOC({id_orden, onSuccess} : {id_orden: string | numb
     return (
         <>
             <Tooltip text="Volver a estado borrador">
-                <Button variant="solid" icon="HeroArrowUturnLeft" color="zinc" onClick={() => {setIsOpen(true)}}></Button>
+                <Button variant="solid" icon="HeroArrowUturnLeft" color="zinc" isDisable={!!disabled} onClick={() => { if (!disabled) setIsOpen(true) }}></Button>
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>

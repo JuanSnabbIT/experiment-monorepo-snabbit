@@ -254,7 +254,7 @@ class ItemsGuiaSalidaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class GuiaSalidaSerializer(serializers.ModelSerializer):
-    items = ItemsGuiaSalidaSerializer(many=True, read_only=True, source="items_guia_salida_set")
+    items = ItemsGuiaSalidaSerializer(many=True, read_only=True, source="itemsguiasalida_set")
     estado_label = serializers.SerializerMethodField()
     nombre_creado_por = serializers.SerializerMethodField()
     nombre_recibido_por = serializers.SerializerMethodField()
@@ -273,14 +273,12 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
     def get_nombre_creado_por(self, obj):
         if obj.creado_por:
             return obj.creado_por.usuario.get_nombre_completo()
-        else:
-            "Sin Creado Por"
+        return "Sin Creado Por"
 
     def get_nombre_recibido_por(self, obj):
         if obj.recibido_por:
             return obj.recibido_por.usuario.get_nombre_completo()
-        else:
-            "Sin Recibido Por"
+        return "Sin Recibido Por"
 
     def get_cliente_nombre(self, obj):
         if obj.cliente:
@@ -348,6 +346,7 @@ class CompraSerializer(serializers.ModelSerializer):
     nombre_creado_por = serializers.SerializerMethodField()
     archivos = ArchivoCompraSerializer(many=True, read_only=True)
     total_compra = serializers.SerializerMethodField()
+    itemencompra_set = serializers.SerializerMethodField()
 
     class Meta:
         model = Compra
@@ -361,6 +360,10 @@ class CompraSerializer(serializers.ModelSerializer):
 
     def get_total_compra(self, obj):
         return obj.total_compra
+    
+    def get_itemencompra_set(self, obj):
+        items = obj.itemencompra_set.all()
+        return ItemEnCompraSerializer(items, many=True).data
 
 class ItemEnCompraSerializer(serializers.ModelSerializer):
     nombre_item = serializers.SerializerMethodField()

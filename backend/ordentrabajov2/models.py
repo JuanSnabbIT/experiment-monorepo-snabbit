@@ -268,7 +268,7 @@ class AdjuntoDeOrden(ModeloBaseHistorico):
         verbose_name_plural = "Adjuntos de Ordenes de Trabajo"
 
 
-class RendicionEnOt(ModeloBase):
+class GastoOperativoEnOt(ModeloBase):
     orden = models.ForeignKey(
         OrdenDeTrabajo, on_delete=models.CASCADE, verbose_name="Orden de trabajo"
     )
@@ -300,8 +300,8 @@ class RendicionEnOt(ModeloBase):
         super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = "Detalle Gasto Rendición OT"
-        verbose_name_plural = "Detalles Gastos Rendiciones OT"
+        verbose_name = "Gasto Operativo en OT"
+        verbose_name_plural = "Gastos Operativos en OT"
         ordering = ["-fecha_creacion"]
 
     def __str__(self):
@@ -309,80 +309,74 @@ class RendicionEnOt(ModeloBase):
 
 
 class CierreAdministrativoOT(ModeloBaseHistorico):
-    contrato = models.ForeignKey(
-        "contratos.ContratoEmpresaCliente",
+    """
+    Prefactura manual para facturación por OT(s).
+    Guarda:
+    - Metadatos: cliente, estado, auditoría
+    - JSON exportable: OTs, items, resumen (todo lo necesario para generar factura real)
+    """
+
+    # RELACIÓN CRÍTICA
+    cliente = models.ForeignKey(
+        "empresas.Empresa",
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name="cierres_administrativos_ot",
-    )
-    # Período de facturación (del 26 del mes anterior al 25 del mes actual)
-    periodo_desde = models.DateField(
+        verbose_name="Cliente",
         null=True,
         blank=True,
-        verbose_name="Inicio del período",
-        help_text="Fecha de inicio del período a facturar (típicamente día 26)",
     )
-    periodo_hasta = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Fin del período",
-        help_text="Fecha de fin del período a facturar (típicamente día 25)",
-    )
-    # OT opcional - para cierres legacy individuales por OT (deprecado para facturación)
-    orden = models.OneToOneField(
-        OrdenDeTrabajo,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="cierre_administrativo_v2",
-    )
-    usuario = models.ForeignKey(
-        "empresas.UsuarioEmpresa",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="cierres_administrativos_ot_v2",
-    )
-    fecha_cierre = models.DateTimeField(auto_now_add=True)
-    valido = models.BooleanField(default=False, verbose_name="Cierre válido")
-    # JSON principal para facturación: pactado, ejecutado, vinculaciones, factura
-    resultado = models.JSONField(
-        default=dict, blank=True, verbose_name="Resultado de validaciones y facturación"
-    )
-    # Deprecado: usar solo resultado
-    detalle = models.JSONField(
-        default=dict, blank=True, verbose_name="Detalle de facturación (deprecado)"
-    )
-    # Estado del cierre para el flujo de facturación
+    # CONTROL DE FLUJO
     estado_cierre = models.CharField(
         max_length=20,
         choices=ESTADOS_CIERRE_OT,
         default="borrador",
         verbose_name="Estado del cierre",
+        help_text="Flujo: borrador → en_revision → aprobado → facturado → pagado",
     )
-    comentario = models.TextField(blank=True, null=True)
+    # AUDITORÍA
+    creado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cierres_administrativos_ot_creados",
+        verbose_name="Creado por",
+    )
+    actualizado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cierres_administrativos_ot_actualizados",
+        verbose_name="Actualizado por",
+    )
+    # DATOS EXPORTABLES (JSON COMPLETO)
+    resultado = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Resultado factura",
+        help_text="JSON con: cliente_id, ots_incluidas, items[], resumen{}",
+    )
+    # NOTAS INTERNAS
+    comentario = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Comentario interno",
+    )
 
     class Meta:
-        verbose_name = "Cierre Administrativo de OT / Facturación"
-        verbose_name_plural = "Cierres Administrativos de OT / Facturaciones"
+        verbose_name = "Cierre Administrativo de OT (Manual)"
+        verbose_name_plural = "Cierres Administrativos de OT (Manual)"
+        ordering = ["-fecha_creacion"]
         indexes = [
-            models.Index(fields=["contrato", "periodo_desde", "periodo_hasta"]),
+            models.Index(fields=["cliente", "estado_cierre"]),
             models.Index(fields=["estado_cierre"]),
+            models.Index(fields=["-fecha_creacion"]),
         ]
 
     def __str__(self):
-        if self.contrato:
-            periodo = (
-                f"{self.periodo_desde} - {self.periodo_hasta}"
-                if self.periodo_desde
-                else "Sin período"
-            )
-            return f"Facturación Contrato #{self.contrato_id} ({periodo})"
-        elif self.orden:
-            estado = "Válido" if self.valido else "Observado"
-            return f"Cierre OT #{self.orden_id} - {estado}"
-        return f"Cierre #{self.id}"
+        cliente_nombre = self.cliente.nombre if self.cliente else "Sin cliente"
+        return f"Cierre #{self.id} - Cliente {cliente_nombre} - {self.get_estado_cierre_display()}"
 
 
 class SeguimientoItemOT(ModeloBase):

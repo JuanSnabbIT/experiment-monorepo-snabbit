@@ -4,9 +4,9 @@ from rest_framework import serializers
 from .models import (
     AdjuntoDeOrden,
     CierreAdministrativoOT,
+    GastoOperativoEnOt,
     HistorialCambiosOrden,
     OrdenDeTrabajo,
-    RendicionEnOt,
     SeguimientoItemOT,
     ServicioEnOT,
     SoporteTecnico,
@@ -263,15 +263,17 @@ class AdjuntoDeOrdenSerializer(serializers.ModelSerializer):
         ]
 
 
-class RendicionEnOtSerializer(serializers.ModelSerializer):
+class GastoOperativoEnOtSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source="categoria.nombre", read_only=True)
     # Alias compatible con frontend (expected `nombre_categoria`)
     nombre_categoria = serializers.CharField(source="categoria.nombre", read_only=True)
     # Alias compatible con endpoint gastos-rendicion (expected `descripcion_categoria`)
-    descripcion_categoria = serializers.CharField(source="categoria.nombre", read_only=True)
+    descripcion_categoria = serializers.CharField(
+        source="categoria.nombre", read_only=True
+    )
 
     class Meta:
-        model = RendicionEnOt
+        model = GastoOperativoEnOt
         fields = [
             "id",
             "orden",
@@ -292,34 +294,39 @@ class RendicionEnOtSerializer(serializers.ModelSerializer):
 
 
 class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
-    contrato_nombre = serializers.CharField(
-        source='contrato.nombre', read_only=True, allow_null=True
-    )
     cliente_nombre = serializers.CharField(
-        source='contrato.empresa_cliente.nombre', read_only=True, allow_null=True
+        source="cliente.nombre", read_only=True, allow_null=True
     )
-    
+    # Exponer directamente el JSON `resultado`
+    resultado = serializers.JSONField(required=False)
+
     class Meta:
         model = CierreAdministrativoOT
         fields = [
             "id",
-            "contrato",
-            "contrato_nombre",
+            "cliente",
             "cliente_nombre",
-            "periodo_desde",
-            "periodo_hasta",
-            "orden",
-            "usuario",
-            "fecha_cierre",
-            "valido",
-            "resultado",
-            "detalle",
             "estado_cierre",
+            "resultado",
+            "creado_por",
+            "actualizado_por",
             "comentario",
             "fecha_creacion",
             "fecha_modificacion",
         ]
-        read_only_fields = ["fecha_cierre", "fecha_creacion", "fecha_modificacion"]
+        read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+    def validate_resultado(self, value):
+        # Normalizar y asegurar llaves esperadas
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            return {}
+        value.setdefault("cliente_id", None)
+        value.setdefault("ots_incluidas", [])
+        value.setdefault("items", [])
+        value.setdefault("resumen", {})
+        return value
 
 
 class SeguimientoItemOTSerializer(serializers.ModelSerializer):

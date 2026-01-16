@@ -70,36 +70,30 @@ function ListaMisOrdenesCompra() {
                             )}
                         </>
                     )}
-                    {info.row.original.estado === "1" && (
+                    {String(info.row.original.estado) === "1" && (
                         <>
                             <ModalEnviarProveedor id_empresa={info.row.original.oc_empresa} id_proveedor={info.row.original.proveedor} id_orden={info.row.original.id} />
-                            {useAuthority(listaGrupos?.grupos, ["staff"]) && (
-                                <ModalVolverABorradorOC id_orden={info.row.original.id} />
-                            )}
-                            <Tooltip text="No Enviar al Proveedor">
-                                <Button variant="solid" color="sky" icon="HeroXCircle" onClick={async () => {
-                                    try {
-                                        const response = await ApiService.fetchData({url: `/api/ordenes-compra/${info.row.original.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "3"})})
-                                        if (response.data) {
-                                            toast.success("Orden de compra cambiada de estado", {autoClose: 1000})
-                                            dispatch(listaMisOrdenesDeCompraThunk())
-                                        }
-                                    } catch (error: any) {
-                                        const mensajesError = Object.values(error.response.data).flat().join(" ");
-                                        toast.error(mensajesError || "Error al cambiar el estado de la OC", {toastId: "Error al cambiar el estado de la OC"})
-                                    }
-                                }} />
+                            <Tooltip text="Recibir Items de la compra">
+                                <Button variant="solid" icon="DuoBox2" color="sky" onClick={() => {navigate(`/compras/completar-orden-compra/${info.row.original.id}`)}}></Button>
                             </Tooltip>
+                        </>
+                    )}
+                    {String(info.row.original.estado) === "3" && (
+                        <>
+                            <Tooltip text="Recibir Items de la compra">
+                                <Button variant="solid" icon="DuoBox2" color="sky" onClick={() => {navigate(`/compras/completar-orden-compra/${info.row.original.id}`)}}></Button>
+                            </Tooltip>
+                            <ModalReenviarAlProveedor id_orden={info.row.original.id} id_empresa={info.row.original.oc_empresa} id_proveedor={info.row.original.proveedor} />
                         </>
                     )}
                     {info.row.original.estado === "3" && (
                         <>
-                            <Tooltip text="Completar Orden de Compra">
+                            <Tooltip text="Recibir Items de la compra">
                                 <Button variant="solid" icon="DuoBox2" color="sky" onClick={() => {navigate(`/compras/completar-orden-compra/${info.row.original.id}`)}}></Button>
                             </Tooltip>
                             <ModalReenviarAlProveedor id_orden={info.row.original.id} id_empresa={info.row.original.oc_empresa} id_proveedor={info.row.original.proveedor} />
                             {useAuthority(listaGrupos?.grupos, ["staff"]) && (
-                                <ModalVolverABorradorOC id_orden={info.row.original.id} />
+                                <ModalVolverABorradorOC id_orden={info.row.original.id} disabled={String(info.row.original.estado) !== '0'} />
                             )}
                         </>
                     )}

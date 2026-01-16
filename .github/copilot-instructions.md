@@ -16,6 +16,47 @@ Este archivo **no es documentación técnica** ni manual operativo.
 
 ---
 
+## 📚 Política Obligatoria: Archivos de Documentación Viva
+
+**Archivos canónicos para documentación (ÚNICOS):**
+```
+dev/docs/
+├── analisis.md              # Decisiones técnicas y hallazgos críticos
+├── changelog.md             # Timeline de entregas completadas
+├── flujos_operativos.md     # Procesos de negocio paso a paso
+├── matching-manual.md       # Estrategia de emparejamiento para facturación
+├── notas.md                 # Pautas operativas y próximos pasos (cortos)
+├── orden_trabajo_ui_permissions.md  # Matriz de permisos de UI
+├── planificacion.md         # Roadmap vivo de épicas activas
+└── sistemas.md              # Inventario de sistemas vivos en producción
+```
+
+**⚠️ POLÍTICA CENTRALIZADA EN `AGENTS.md`**
+
+Por favor consulta `AGENTS.md` → Sección "Reglas de creación (ESTRICTAS)" para la política completa de documentación.
+
+Resumen:
+- ✅ **Actualizar** un archivo existente si la información ya está documentada
+- ❌ **PROHIBIDO** crear nuevos archivos sin solicitud explícita del usuario
+- ❌ **NO dumpear** contenido al final de un archivo
+
+**Ubicación de contenidos (referencia rápida):**
+
+| Contenido | Archivo | ¿Crear sin solicitud? |
+|-----------|---------|---|
+| Decisión técnica, hallazgo crítico, análisis | `analisis.md` | ❌ NO |
+| Fecha de entrega, release completada | `changelog.md` | ❌ NO |
+| Procedimiento operativo: paso 1, paso 2, paso 3 | `flujos_operativos.md` | ❌ NO |
+| Especificación de UI/matching de facturación | `matching-manual.md` | ❌ NO |
+| Item pendiente, checklist, próxima acción corta | `notas.md` | ❌ NO |
+| Matriz de permisos por estado/acción | `orden_trabajo_ui_permissions.md` | ❌ NO |
+| Épica planificada, roadmap, timeline futuro | `planificacion.md` | ❌ NO (actualiza si existe) |
+| Sistema en producción, patterns técnicos, módulos | `sistemas.md` | ❌ NO |
+
+**REGLA ÚNICA:** El usuario debe pedir explícitamente "Documenta en `dev/docs/` que..." para crear un archivo nuevo.
+
+---
+
 ## Estructura del Monorepo (Real)
 
 ```

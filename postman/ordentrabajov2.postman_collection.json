@@ -822,9 +822,9 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-operativos/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-operativos", ""]
 						}
 					}
 				},
@@ -843,9 +843,9 @@
 							"raw": "{\n  \"categoria\": \"hardware\",\n  \"detalle\": \"Cable de red categoría 6 (50 metros)\",\n  \"cantidad\": 2,\n  \"monto_unitario\": 15000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T14:30:00Z\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-operativos/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-operativos", ""]
 						},
 						"description": "monto_total se calcula automáticamente (cantidad * monto_unitario)"
 					}
@@ -865,9 +865,9 @@
 							"raw": "{\n  \"categoria\": \"transporte\",\n  \"detalle\": \"Taxi para visita a cliente en zona remota\",\n  \"cantidad\": 1,\n  \"monto_unitario\": 45000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T16:00:00Z\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-operativos/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", ""]
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-operativos", ""]
 						}
 					}
 				},
@@ -886,9 +886,9 @@
 							"raw": "{\n  \"detalle\": \"Cable de red categoría 6 (50 metros) - Proveedor actualizado\",\n  \"cantidad\": 3\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/1/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-operativos/1/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", "1", ""]
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-operativos", "1", ""]
 						}
 					}
 				},
@@ -898,9 +898,9 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-rendicion/1/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/{{orden_id}}/gastos-operativos/1/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-rendicion", "1", ""]
+							"path": ["ordenes-de-trabajo", "{{orden_id}}", "gastos-operativos", "1", ""]
 						}
 					}
 				}
@@ -1028,9 +1028,9 @@
 							"raw": "{\n  \"categoria\": \"alimentacion\",\n  \"detalle\": \"Almuerzo durante atención de emergencia fuera de horario\",\n  \"cantidad\": 1,\n  \"monto_unitario\": 12000,\n  \"usuario_comprador\": 5,\n  \"fecha_compra\": \"2025-11-17T13:30:00Z\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/ordenes-de-trabajo/1/gastos-rendicion/",
+							"raw": "{{base_url}}/ordenes-de-trabajo/1/gastos-operativos/",
 							"host": ["{{base_url}}"],
-							"path": ["ordenes-de-trabajo", "1", "gastos-rendicion", ""]
+							"path": ["ordenes-de-trabajo", "1", "gastos-operativos", ""]
 						}
 					}
 				},

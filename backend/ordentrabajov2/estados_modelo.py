@@ -56,4 +56,5 @@ ESTADOS_CIERRE_OT = [
     ("aprobado", "Aprobado"),
     ("facturado", "Facturado"),
     ("pagado", "Pagado"),
+    ("anulado", "Anulado"),
 ]

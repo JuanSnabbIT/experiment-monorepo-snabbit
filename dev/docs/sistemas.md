@@ -1,9 +1,40 @@
+---
+Responsable: -
+Email: -
+Proxima_revision: -
+Estado: canonical
+---
+
 # Sistemas – Monorepo ERP
 
-Fecha: 2025-12-31  
-Propósito: Inventario de sistemas vivos en producción (arquitectura, módulos, patterns técnicos).
+**Propósito único:** Inventario de sistemas vivos en producción (módulos, patterns técnicos, integraciones).
+
+**Qué va aquí:**
+- Módulos activos con localizaciones (modelos, views, servicios)
+- Patterns técnicos reutilizables (PersonalizacionUsuario filtering, confirmAlert, etc.)
+- Sistemas de generación (PDFs, reportes, etc.)
+- Integraciones recomendadas (futuras, contexto de la arquitectura)
+- Reglas de mantenimiento por módulo
+
+**Qué NO va aquí:**
+- ❌ Decisiones de diseño → usa `analisis.md`
+- ❌ Cambios planificados → usa `planificacion.md`
+- ❌ Notas de desarrollo → usa `notas.md`
+- ❌ Procedimientos paso a paso → usa `flujos_operativos.md`
+
+**Mantenimiento:**
+- Actualizar cuando un sistema nuevo entre en producción
+- Mantener solo sistemas VIVOS (archivados no incluyen)
+- Enlazar a análisis detallados en `analisis.md` cuando sea necesario
+- Una sección por módulo/sistema
 
 ---
+
+## Estructura por Módulos
+
+- Módulos (ejemplos): `bodegas`, `ordentrabajov2`, `rendiciones`, `cotizaciones`, `items`, `recursos`, `empresas`, `frontend`.
+- Para cada módulo: ubicar modelos, viewsets, serializers, endpoints críticos y estado (prod/legacy/experimental).
+- Mantener una subsección con acciones pendientes y enlaces a `analisis.md` cuando aplique.
 
 ## Generación de PDFs
 
@@ -25,6 +56,7 @@ Propósito: Inventario de sistemas vivos en producción (arquitectura, módulos,
 
 ---
 
+## Módulo: Bodegas
 ## Sistema de Devoluciones
 
 **Backend:** `backend/bodegas`
@@ -44,6 +76,7 @@ Propósito: Inventario de sistemas vivos en producción (arquitectura, módulos,
 
 ---
 
+## Módulo: Rendiciones/Compras
 ## Rendiciones y Compras
 
 **Modelos clave (bodegas):**
@@ -65,6 +98,7 @@ Propósito: Inventario de sistemas vivos en producción (arquitectura, módulos,
 
 ---
 
+## Módulo: Órdenes de Trabajo
 ## Órdenes de Trabajo V2
 
 **Backend:** `backend/ordentrabajov2` (reemplaza `ordentrabajo`)
@@ -84,6 +118,7 @@ Propósito: Inventario de sistemas vivos en producción (arquitectura, módulos,
 
 ---
 
+## Módulo: Frontend
 ## Patrón Frontend: confirmAlert (SweetAlert2)
 
 **Uso:** Confirmaciones de acciones críticas (eliminación, cambios de estado)
@@ -202,3 +237,40 @@ def get_queryset(self):
 - Al cambiar un sistema, actualizar aquí + registrar en `changelog.md`
 - No incluir planes: esos van en `planificacion.md`
 - No detallar análisis: esos van en `analisis.md`
+ 
+---
+
+## Matriz de permisos UI — Órdenes de Trabajo (importado desde `dev/docs/orden_trabajo_ui_permissions.md`)
+
+Este apartado resume las reglas de visibilidad/habilitación en la UI para Órdenes de Trabajo. Las reglas descritas aquí fueron importadas desde `orden_trabajo_ui_permissions.md` y deben servir como contrato visual para implementaciones frontend.
+
+### Convención encontrada
+
+- Checks inline en JSX: ternarios/condicionales en markup
+- Estados por componente: cada componente verifica `detalleOrdenTrabajo.estado`
+- No existe centralización actual (cada componente decide)
+
+### Cambios puntuales recomendados (resumen)
+
+1. `ListaOT` — Botón `Eliminar OT`: mostrar solo si `estado === 'pendiente'` (envolver `ModalEliminar` con check)
+2. `ListaServiciosOT` / `ListaSoportesTecnicosOT` — Vincular/Desvincular Guías: mostrar solo en `pendiente`
+3. `ComprasEnOT` / `RendicionesOT` — Crear Compra/Rendición: permitir solo en `en_proceso`
+4. `Adjuntos` / `Fotos` — Permitir creación en `pendiente|en_proceso|completada` (verificar consistencia)
+
+### Tabla de cambios (resumen)
+
+| Componente | Acción | Recomendación |
+|---|---:|---|
+| ListaOT | Eliminar OT | Mostrar solo en `pendiente` |
+
+---
+| ListaServiciosOT | Vincular/Desvincular Guía | Mostrar solo en `pendiente` |
+| ComprasEnOT | Crear Compra | Permitir solo en `en_proceso` |
+| RendicionesOT | Crear Rendición | Permitir solo en `en_proceso` |
+
+### Implementación (nota)
+
+- Seguir patrón existente: cambios mínimos por componente (inline checks)
+- Antes de aplicar cambios masivos, validar con mantenedor ya que algunas condiciones pueden depender de workflows locales
+
+---

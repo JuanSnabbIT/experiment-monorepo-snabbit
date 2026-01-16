@@ -12,7 +12,7 @@ from django.utils.timezone import now, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from dotenv import load_dotenv
 from empresas.models import Empresa, RelacionEmpresa, UsuarioEmpresa
-from items.models import ItemEmpresa, Categoria
+from items.models import Categoria, ItemEmpresa
 from items.serializers import ImagenItemSerializer, ItemEmpresaSerializer
 from ordentrabajov2.models import OrdenDeTrabajo, SoporteTecnico
 from recursos.models import Equipo
@@ -20,9 +20,9 @@ from recursos.serializers import EquipoSerializer
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from .estados_modelo import ESTADOS_OC
@@ -45,12 +45,12 @@ from .models import (
     ItemEnTomaInventario,
     ItemOrdenCompraEnStock,
     ItemsGuiaSalida,
+    MovimientoEnVoucher,
     MovimientoStock,
     OrdenCompra,
     StockItemEnBodega,
     TomaInventario,
     VoucherDevolucion,
-    MovimientoEnVoucher,
 )
 from .movimientos import (
     registrar_ajuste_inventario,
@@ -72,6 +72,7 @@ from .serializers import (
     ItemEnTomaInventarioSerializer,
     ItemOrdenCompraEnStockSerializer,
     ItemsGuiaSalidaSerializer,
+    MovimientoEnVoucherSerializer,
     MovimientoStockSerializer,
     MultipleImagenesSerializer,
     OrdenCompraCreateSerializer,
@@ -81,7 +82,6 @@ from .serializers import (
     TomaInventarioCrearSerializer,
     TomaInventarioSerializer,
     VoucherDevolucionSerializer,
-    MovimientoEnVoucherSerializer,
 )
 
 load_dotenv()
@@ -1131,7 +1131,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         ).exists()
         if not es_cliente:
             return Response(
-                {"detail": "La empresa cliente seleccionada no pertenece a tus clientes."},
+                {
+                    "detail": "La empresa cliente seleccionada no pertenece a tus clientes."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1317,7 +1319,6 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 # 2) Rebajar cantidad_no_disponible (ya NO se registra salida aquí, se hizo al agregar items)
                 for item_guia in ItemsGuiaSalida.objects.filter(guia=guia_salida):
                     stock_item = item_guia.stock_item
-
 
                     stock_item.cantidad_no_disponible = max(
                         0,
@@ -1779,6 +1780,16 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["get"], url_path="items")
+    def items(self, request, pk=None):
+        """
+        Obtiene todos los items asociados a una guía de salida.
+        """
+        guia = self.get_object()
+        items_guia = ItemsGuiaSalida.objects.filter(guia=guia).select_related('stock_item', 'stock_item__item')
+        serializer = ItemsGuiaSalidaSerializer(items_guia, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = ItemsGuiaSalida.objects.all()
@@ -2112,8 +2123,12 @@ class CompraViewSet(viewsets.ModelViewSet):
             if usuario_empresa and getattr(usuario_empresa, "sucursal_id", None):
                 sucursal = usuario_empresa.sucursal
             else:
-                personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
-                sucursal = personalizacion.sucursal_principal if personalizacion else None
+                personalizacion = PersonalizacionUsuario.objects.filter(
+                    usuario=user
+                ).first()
+                sucursal = (
+                    personalizacion.sucursal_principal if personalizacion else None
+                )
 
         if not sucursal:
             raise ValidationError({"sucursal": "No se pudo determinar la sucursal."})
@@ -2151,7 +2166,9 @@ class CompraViewSet(viewsets.ModelViewSet):
         items_compra = ItemEnCompra.objects.filter(compra=compra)
 
         if not items_compra.exists():
-            raise ValidationError({"detail": "La compra no tiene items para completar."})
+            raise ValidationError(
+                {"detail": "La compra no tiene items para completar."}
+            )
 
         if items_compra.filter(Q(cantidad__lte=0) | Q(precio__lte=0)).exists():
             raise ValidationError(
@@ -2168,7 +2185,9 @@ class CompraViewSet(viewsets.ModelViewSet):
 
             bodega_id = request.data.get("bodega")
             if not bodega_id:
-                raise ValidationError({"detail": "Debe indicar bodega para completar la compra."})
+                raise ValidationError(
+                    {"detail": "Debe indicar bodega para completar la compra."}
+                )
 
             bodega = Bodega.objects.filter(pk=bodega_id).first()
             if not bodega:
@@ -2202,6 +2221,16 @@ class CompraViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(compra)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], url_path="items")
+    def items(self, request, pk=None):
+        """
+        Obtiene todos los items asociados a una compra.
+        """
+        compra = self.get_object()
+        items_compra = ItemEnCompra.objects.filter(compra=compra)
+        serializer = ItemEnCompraSerializer(items_compra, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=["post"], url_path="devolver-a-bodega")
     @transaction.atomic
     def devolver_a_bodega(self, request, pk=None):
@@ -2223,7 +2252,9 @@ class CompraViewSet(viewsets.ModelViewSet):
         items_data = request.data.get("items", [])
 
         if not bodega_id:
-            raise ValidationError({"detail": "Debe indicar bodega para devolver items."})
+            raise ValidationError(
+                {"detail": "Debe indicar bodega para devolver items."}
+            )
 
         if not isinstance(items_data, list) or not items_data:
             raise ValidationError({"detail": "Debe enviar items a devolver."})
@@ -2238,7 +2269,9 @@ class CompraViewSet(viewsets.ModelViewSet):
         )
 
         if items_qs.count() != len(item_ids):
-            raise ValidationError({"detail": "Uno o mas items no existen en esta compra."})
+            raise ValidationError(
+                {"detail": "Uno o mas items no existen en esta compra."}
+            )
 
         for item in items_qs:
             data = next(
@@ -2253,7 +2286,9 @@ class CompraViewSet(viewsets.ModelViewSet):
             cantidad = int(data.get("cantidad_a_devolver", 0))
             if cantidad <= 0:
                 raise ValidationError(
-                    {"detail": f"La cantidad a devolver debe ser mayor a 0 para item {item.pk}."}
+                    {
+                        "detail": f"La cantidad a devolver debe ser mayor a 0 para item {item.pk}."
+                    }
                 )
 
             if cantidad > item.cantidad:
@@ -2292,12 +2327,12 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
-        
+
         if not personalizacion or not personalizacion.sucursal_principal:
             return ItemEnCompra.objects.none()
-        
+
         sucursal = personalizacion.sucursal_principal
-        
+
         compra = self.kwargs.get("compras_pk")
         qs = ItemEnCompra.objects.filter(compra__sucursal=sucursal)
         if compra:
@@ -2326,7 +2361,10 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
 
             # Normalizar posibles formatos de 'categoria' (string id, dict {value,label}, int)
             try:
-                if "categoria" in item_empresa_data and item_empresa_data.get("categoria") is not None:
+                if (
+                    "categoria" in item_empresa_data
+                    and item_empresa_data.get("categoria") is not None
+                ):
                     cat_val = item_empresa_data.get("categoria")
                     # Si viene como objeto {value,label}
                     if isinstance(cat_val, dict):
@@ -2569,7 +2607,7 @@ class MovimientoStockViewSet(viewsets.ModelViewSet):
 class VoucherDevolucionViewSet(viewsets.ModelViewSet):
     """
     ViewSet de solo lectura para VoucherDevolucion.
-    
+
     Endpoints:
     - GET /api/vouchers-devolucion/ → listar (filtrable por orden_trabajo)
     - GET /api/vouchers-devolucion/{id}/ → detalle JSON
@@ -2582,19 +2620,21 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
         page_size_query_param = "page_size"
         max_page_size = 100
 
-    queryset = VoucherDevolucion.objects.select_related('orden_trabajo').prefetch_related(
-        'movimientos_voucher__movimiento__stock_item__item',
-        'movimientos_voucher__movimiento__stock_item__bodega',
-        'movimientos_voucher__movimiento__usuario__usuario'
+    queryset = VoucherDevolucion.objects.select_related(
+        "orden_trabajo"
+    ).prefetch_related(
+        "movimientos_voucher__movimiento__stock_item__item",
+        "movimientos_voucher__movimiento__stock_item__bodega",
+        "movimientos_voucher__movimiento__usuario__usuario",
     )
     serializer_class = VoucherDevolucionSerializer
     pagination_class = VoucherDevolucionPagination
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['orden_trabajo']
-    search_fields = ['numero', 'orden_trabajo__id']
+    filterset_fields = ["orden_trabajo"]
+    search_fields = ["numero", "orden_trabajo__id"]
     http_method_names = ["get", "post", "head", "options"]
-    
+
     def get_queryset(self):
         """Retorna vouchers de devolución filtrados por empresa/sucursal del usuario."""
         personalizacion = PersonalizacionUsuario.objects.filter(
@@ -2606,41 +2646,45 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
         empresa = personalizacion.sucursal_principal.empresa
         qs = self.queryset.filter(orden_trabajo__empresa=empresa)
         try:
-            sample = list(qs.values_list('id', flat=True)[:5])
+            sample = list(qs.values_list("id", flat=True)[:5])
             print(f"[DEBUG] vouchers queryset count={qs.count()} sample_ids={sample}")
         except Exception as exc:  # pragma: no cover
             print(f"[DEBUG] vouchers queryset error: {exc}")
         return qs
-    
+
     def _movimientos_para_orden(self, orden: OrdenDeTrabajo):
         """Obtiene movimientos de devolución asociados a la OT y no ligados a vouchers."""
         ct_guia = ContentType.objects.get_for_model(ItemsGuiaSalida)
         ct_compra = ContentType.objects.get_for_model(ItemEnCompra)
 
-        guia_ids = ItemsGuiaSalida.objects.filter(guia__orden_trabajo=orden).values_list('id', flat=True)
-        compra_ids = ItemEnCompra.objects.filter(compra__orden_trabajo=orden).values_list('id', flat=True)
+        guia_ids = ItemsGuiaSalida.objects.filter(
+            guia__orden_trabajo=orden
+        ).values_list("id", flat=True)
+        compra_ids = ItemEnCompra.objects.filter(
+            compra__orden_trabajo=orden
+        ).values_list("id", flat=True)
 
         return (
-            MovimientoStock.objects.filter(tipo_movimiento='DEVOLUCION')
+            MovimientoStock.objects.filter(tipo_movimiento="DEVOLUCION")
             .filter(
                 Q(content_type=ct_guia, object_id__in=guia_ids)
                 | Q(content_type=ct_compra, object_id__in=compra_ids)
             )
             .exclude(vouchers__orden_trabajo=orden)
             .select_related(
-                'stock_item__item', 'stock_item__bodega', 'usuario__usuario'
+                "stock_item__item", "stock_item__bodega", "usuario__usuario"
             )
-            .order_by('fecha_creacion', 'id')
+            .order_by("fecha_creacion", "id")
         )
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        orden_id = request.data.get('orden_trabajo')
-        observaciones = request.data.get('observaciones', '')
+        orden_id = request.data.get("orden_trabajo")
+        observaciones = request.data.get("observaciones", "")
 
         if not orden_id:
             return Response(
-                {'detail': 'Debe indicar orden_trabajo'},
+                {"detail": "Debe indicar orden_trabajo"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2648,15 +2692,15 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
             orden = OrdenDeTrabajo.objects.get(pk=orden_id)
         except OrdenDeTrabajo.DoesNotExist:
             return Response(
-                {'detail': 'Orden de trabajo no encontrada'},
+                {"detail": "Orden de trabajo no encontrada"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if hasattr(orden, 'voucher_devolucion'):
+        if hasattr(orden, "voucher_devolucion"):
             return Response(
                 {
-                    'detail': 'Ya existe un voucher para esta orden',
-                    'voucher_id': orden.voucher_devolucion.id,
+                    "detail": "Ya existe un voucher para esta orden",
+                    "voucher_id": orden.voucher_devolucion.id,
                 },
                 status=status.HTTP_409_CONFLICT,
             )
@@ -2665,7 +2709,9 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
 
         if not movimientos:
             return Response(
-                {'detail': 'No hay devoluciones registradas para esta orden de trabajo.'},
+                {
+                    "detail": "No hay devoluciones registradas para esta orden de trabajo."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2687,58 +2733,67 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(voucher)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def html(self, request, pk=None):
         """
         Retorna vista HTML previa del voucher.
-        
+
         GET /api/vouchers-devolucion/{id}/html/
         """
         voucher = self.get_object()
         serializer = self.get_serializer(voucher)
-        
+
         # Renderizar template HTML
-        from django.template.loader import render_to_string
         from django.http import HttpResponse
-        
-        html_content = render_to_string('vouchers/devolucion.html', {
-            'voucher': voucher,
-            'movimientos_agrupados': serializer.data['movimientos_agrupados'],
-            'total_items': serializer.data['total_items_devueltos'],
-        })
-        
-        return HttpResponse(html_content, content_type='text/html')
-    
-    @action(detail=True, methods=['get'])
+        from django.template.loader import render_to_string
+
+        html_content = render_to_string(
+            "vouchers/devolucion.html",
+            {
+                "voucher": voucher,
+                "movimientos_agrupados": serializer.data["movimientos_agrupados"],
+                "total_items": serializer.data["total_items_devueltos"],
+            },
+        )
+
+        return HttpResponse(html_content, content_type="text/html")
+
+    @action(detail=True, methods=["get"])
     def pdf(self, request, pk=None):
         """
         Genera y descarga PDF del voucher.
-        
+
         GET /api/vouchers-devolucion/{id}/pdf/
         """
         voucher = self.get_object()
-        
+
         # Importar función desde functions.py (patrón del sistema)
         try:
             from bodegas.functions import generar_voucher_devolucion
         except ImportError:
             return Response(
-                {'detail': 'Módulo de generación PDF no disponible'},
-                status=status.HTTP_501_NOT_IMPLEMENTED
+                {"detail": "Módulo de generación PDF no disponible"},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
             )
-        
+
         # Generar PDF
         try:
             pdf_buffer = generar_voucher_devolucion(voucher.id)
-            
-            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="voucher_{voucher.numero}.pdf"'
+
+            response = HttpResponse(
+                pdf_buffer.getvalue(), content_type="application/pdf"
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="voucher_{voucher.numero}.pdf"'
+            )
             return response
-        
+
         except Exception as e:
             return Response(
-                {'detail': f'Error al generar PDF: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": f"Error al generar PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

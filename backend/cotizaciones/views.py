@@ -362,50 +362,6 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # # Preparar los datos para el PDF y el cuerpo del correo
-        # datos_cotizacion = {
-        #     "numero_cotizacion": cotizacion.numero_cotizacion,
-        #     "fecha_vencimiento": cotizacion.fecha_vencimiento.strftime('%Y-%m-%d') if cotizacion.fecha_vencimiento else 'N/A',
-        #     "estado": cotizacion.estado,
-        #     "total_estimado": f"${cotizacion.total_estimado:.2f}",
-        #     "observaciones": cotizacion.observaciones or "",
-        #     "items": [
-        #         {
-        #             "nombre": item.item_empresa.nombre if item.item_empresa else item.nombre,
-        #             # "descripcion": item.item_empresa.descripcion_corta if item.item_empresa else item.descripcion,
-        #             "descripcion": item.descripcion,
-        #             "cantidad": item.cantidad,
-        #             "precio_unitario": float(item.precio_unitario),
-        #             "costo_total": float(item.costo_total)
-        #         }
-        #         for item in cotizacion.detalles.all()
-        #     ]
-        # }
-
-        # # Datos de la empresa y del cliente
-        # empresa = cotizacion.empresa
-        # cliente = cotizacion.cliente
-        # nombre_empresa = empresa.nombre
-        # rut_empresa = getattr(empresa, 'rut_empresa', 'N/A')
-        # direccion_empresa = getattr(empresa, 'direccion', 'N/A')
-        # telefono_empresa = getattr(empresa, 'telefono', 'N/A')
-        # email_empresa = getattr(empresa, 'email', 'N/A')
-        # sitio_web_empresa = getattr(empresa, 'sitio_web', '')
-
-        # nombre_cliente = cliente.nombre
-        # rut_cliente = getattr(cliente, 'rut_empresa', 'N/A')
-        # direccion_cliente = getattr(cliente, 'direccion', 'N/A')
-        # telefono_cliente = getattr(cliente, 'telefono', 'N/A')
-        # email_cliente = getattr(cliente, 'email', 'N/A')
-
-        # # Generar PDF
-        # pdf_bytes = generar_pdf_cotizacion(
-        #     datos_cotizacion,
-        #     nombre_empresa, rut_empresa, direccion_empresa, telefono_empresa,
-        #     email_empresa, sitio_web_empresa, nombre_cliente, telefono_cliente,
-        #     direccion_cliente, rut_cliente, email_cliente
-        # )
-
         pdf_bytes = generar_pdf_cotizacion_desde_model(cotizacion_id=cotizacion.pk)
         pdf_filename = (
             f"Coti_{cotizacion.numero_cotizacion}_{cotizacion.cliente.nombre}.pdf"

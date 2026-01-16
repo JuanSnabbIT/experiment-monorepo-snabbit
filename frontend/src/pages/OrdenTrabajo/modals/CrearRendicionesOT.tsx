@@ -62,7 +62,7 @@ function CrearRendicionesOT() {
 		onSubmit: async (values) => {
 			try {
 				const response = await ApiService.fetchData({
-					url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-rendicion/`,
+					url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/`,
 					method: 'post',
 					headers: { 'Content-Type': 'application/json' },
 					data: JSON.stringify({
@@ -71,7 +71,7 @@ function CrearRendicionesOT() {
 					}),
 				});
 				if (response.data) {
-					toast.success('Crear rendiciones', { autoClose: 1000 });
+					toast.success('Gasto Operativo creado', { autoClose: 1000 });
 					formik.resetForm();
 					setIsOpen(false);
 					dispatch(
@@ -89,7 +89,7 @@ function CrearRendicionesOT() {
 
 	return (
 		<>
-			<Tooltip text='Rendiciones'>
+			<Tooltip text='Gastos Operativos'>
 				<Button
 					variant='solid'
 					icon='HeroPlus'
@@ -99,7 +99,7 @@ function CrearRendicionesOT() {
 			</Tooltip>
 			<Modal isOpen={isOpen} setIsOpen={setIsOpen}>
 				<ModalHeader>
-					<Badge className='text-xl'>Rendiciones</Badge>
+					<Badge className='text-xl'>Crear Gasto Operativo</Badge>
 				</ModalHeader>
 				<ModalBody>
 					<div className='grid grid-cols-2 gap-4'>

@@ -2,20 +2,22 @@
 Script para verificar categorías de materiales en CategoriaGastoRendicion
 Parte de BLOQUE 6 - Fase 1: Limpieza de Categorías
 """
+
 import os
 import sys
+
 import django
 
 # Setup Django
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sw_erp.settings')
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sw_erp.settings")
 django.setup()
 
-from rendiciones.models import CategoriaGastoRendicion, DetalleGastoRendicion
 from ordentrabajov2.models import RendicionEnOt
+from rendiciones.models import CategoriaGastoRendicion, DetalleGastoRendicion
 
 # Palabras clave para categorías de materiales (deben eliminarse)
-keywords_materiales = ['cable', 'herramienta', 'material', 'tornill', 'consumible']
+keywords_materiales = ["cable", "herramienta", "material", "tornill", "consumible"]
 
 print("=" * 80)
 print("BLOQUE 6 - FASE 1: Verificación de Categorías de Materiales")
@@ -39,10 +41,12 @@ referencias_encontradas = False
 for cat in cats_materiales:
     detalles_count = DetalleGastoRendicion.objects.filter(categoria=cat).count()
     rend_ot_count = RendicionEnOt.objects.filter(categoria=cat).count()
-    
+
     print(f"  ID {cat.id:2d} - {cat.nombre}")
     if detalles_count > 0 or rend_ot_count > 0:
-        print(f"       ⚠️  REFERENCIAS: {detalles_count} DetalleGastoRendicion, {rend_ot_count} RendicionEnOt")
+        print(
+            f"       ⚠️  REFERENCIAS: {detalles_count} DetalleGastoRendicion, {rend_ot_count} RendicionEnOt"
+        )
         referencias_encontradas = True
 
 print("\n" + "=" * 80)
@@ -60,7 +64,7 @@ print("-" * 80)
 
 cats_operativas = CategoriaGastoRendicion.objects.exclude(
     id__in=[c.id for c in cats_materiales]
-).order_by('nombre')
+).order_by("nombre")
 
 for cat in cats_operativas:
     detalles_count = DetalleGastoRendicion.objects.filter(categoria=cat).count()

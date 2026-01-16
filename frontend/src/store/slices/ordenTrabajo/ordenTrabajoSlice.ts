@@ -166,7 +166,7 @@ export const listaDetalleGastoRendicionOTThunk = createAsyncThunk<
 >('ordenTrabajo/listaDetalleGastoRendicionOTThunk', async ({ id_orden }, { rejectWithValue }) => {
 	try {
 		const response = await ApiService.fetchData<[]>({
-			url: `/api/ordenes-de-trabajo/${id_orden}/gastos-rendicion/`,
+			url: `/api/ordenes-de-trabajo/${id_orden}/gastos-operativos/`,
 			method: 'get',
 		});
 		return response.data;

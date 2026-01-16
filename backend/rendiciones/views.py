@@ -10,8 +10,8 @@ from empresas.models import UsuarioEmpresa
 
 # from ordentrabajo.models import DetalleGastoRendicionOT  # TEMPORAL - V1 desactivada
 # from ordentrabajo.serializers import DetalleGastoRendicionOTSerializer  # TEMPORAL - V1 desactivada
-from ordentrabajov2.models import RendicionEnOt  # V2
-from ordentrabajov2.serializers import RendicionEnOtSerializer  # V2
+from ordentrabajov2.models import GastoOperativoEnOt  # V2
+from ordentrabajov2.serializers import GastoOperativoEnOtSerializer  # V2
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -49,19 +49,12 @@ class RendicionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """
         BLOQUE 6: Auto-herencia de política de viáticos desde el cliente.
-        
-        Si la rendición tiene un cliente asociado y NO se especificó una política 
+
+        Si la rendición tiene un cliente asociado y NO se especificó una política
         explícita, heredamos la política por defecto del cliente.
         """
-        cliente = serializer.validated_data.get('cliente')
-        politica_viaticos = serializer.validated_data.get('politica_viaticos')
-        
-        # Si hay cliente y NO se definió política explícita, heredar del cliente
-        if cliente and not politica_viaticos:
-            # La política efectiva se calcula automáticamente en la propiedad del modelo
-            # Aquí solo guardamos sin override
-            pass
-        
+        cliente = serializer.validated_data.get("cliente")
+
         serializer.save()
 
     @action(detail=False, methods=["get"], url_path="mis-rendiciones")
@@ -139,44 +132,83 @@ class RendicionViewSet(viewsets.ModelViewSet):
             fecha_gasto = ""
 
             # Gasto libre (rendiciones.DetalleGastoRendicion)
-            if item.content_type.app_label == "rendiciones" and item.content_type.model == "detallegastorendicion":
-                categoria = str(detalle.categoria.nombre) if getattr(detalle, "categoria", None) else ""
+            if (
+                item.content_type.app_label == "rendiciones"
+                and item.content_type.model == "detallegastorendicion"
+            ):
+                categoria = (
+                    str(detalle.categoria.nombre)
+                    if getattr(detalle, "categoria", None)
+                    else ""
+                )
                 texto_detalle = detalle.detalle or ""
                 cantidad = str(detalle.cantidad)
                 monto_unitario = f"${detalle.monto_unitario:.2f}"
                 monto_total = f"${detalle.monto_total:.2f}"
-                fecha_gasto = detalle.fecha_gasto.strftime("%d-%m-%Y") if detalle.fecha_gasto else ""
+                fecha_gasto = (
+                    detalle.fecha_gasto.strftime("%d-%m-%Y")
+                    if detalle.fecha_gasto
+                    else ""
+                )
 
-            # Gasto de OT (ordentrabajov2.RendicionEnOt)
-            elif item.content_type.app_label == "ordentrabajov2" and item.content_type.model == "rendicionenot":
-                categoria = str(detalle.categoria.nombre) if getattr(detalle, "categoria", None) else ""
+            # Gasto de OT (ordentrabajov2.GastoOperativoEnOt)
+            elif (
+                item.content_type.app_label == "ordentrabajov2"
+                and item.content_type.model == "gastooperativoenot"
+            ):
+                categoria = (
+                    str(detalle.categoria.nombre)
+                    if getattr(detalle, "categoria", None)
+                    else ""
+                )
                 texto_detalle = detalle.detalle or ""
                 cantidad = str(detalle.cantidad)
                 monto_unitario = f"${detalle.monto_unitario:.2f}"
-                monto_total = f"${detalle.monto_total:.2f}" if detalle.monto_total is not None else ""
-                fecha_gasto = detalle.fecha_compra.strftime("%d-%m-%Y") if getattr(detalle, "fecha_compra", None) else ""
+                monto_total = (
+                    f"${detalle.monto_total:.2f}"
+                    if detalle.monto_total is not None
+                    else ""
+                )
+                fecha_gasto = (
+                    detalle.fecha_compra.strftime("%d-%m-%Y")
+                    if getattr(detalle, "fecha_compra", None)
+                    else ""
+                )
 
             # Compra (bodegas.Compra)
-            elif item.content_type.app_label == "bodegas" and item.content_type.model == "compra":
+            elif (
+                item.content_type.app_label == "bodegas"
+                and item.content_type.model == "compra"
+            ):
                 categoria = "Compra"
                 texto_detalle = f"Compra {getattr(detalle, 'codigo', '')}".strip()
                 cantidad = f"{detalle.itemencompra_set.count()} items"
                 monto_unitario = "-"
-                monto_total = f"${detalle.total_compra:.2f}" if hasattr(detalle, "total_compra") else ""
-                fecha_gasto = detalle.fecha_compra.strftime("%d-%m-%Y") if getattr(detalle, "fecha_compra", None) else ""
+                monto_total = (
+                    f"${detalle.total_compra:.2f}"
+                    if hasattr(detalle, "total_compra")
+                    else ""
+                )
+                fecha_gasto = (
+                    detalle.fecha_compra.strftime("%d-%m-%Y")
+                    if getattr(detalle, "fecha_compra", None)
+                    else ""
+                )
 
             else:
                 # Tipo no reconocido, omitimos
                 continue
 
-            datos_tabla.append([
-                categoria,
-                texto_detalle,
-                cantidad,
-                monto_unitario,
-                monto_total,
-                fecha_gasto,
-            ])
+            datos_tabla.append(
+                [
+                    categoria,
+                    texto_detalle,
+                    cantidad,
+                    monto_unitario,
+                    monto_total,
+                    fecha_gasto,
+                ]
+            )
 
         # Datos de la empresa (puedes extraerlos de otro modelo o configuración)
         nombre_empresa = usuario_empresa.sucursal.empresa.nombre
@@ -220,19 +252,19 @@ class RendicionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="detalles-ot-libres")
     def detalles_ot_libres(self, request):
         """
-        Listado de RendicionEnOt (V2) que aún no han sido rendidos
+        Listado de GastoOperativoEnOt (V2) que aún no han sido rendidos
         (es decir, no existen en ningún ItemRendicion).
         """
-        # obtengo el ContentType para RendicionEnOt
-        ct_ot = ContentType.objects.get_for_model(RendicionEnOt)
-        # IDs de RendicionEnOt ya usados en algún ItemRendicion
+        # obtengo el ContentType para GastoOperativoEnOt
+        ct_ot = ContentType.objects.get_for_model(GastoOperativoEnOt)
+        # IDs de GastoOperativoEnOt ya usados en algún ItemRendicion
         usados = ItemRendicion.objects.filter(content_type=ct_ot).values_list(
             "detalle_id", flat=True
         )
         # filtro los que NO estén en esa lista
-        libres = RendicionEnOt.objects.exclude(pk__in=usados)
+        libres = GastoOperativoEnOt.objects.exclude(pk__in=usados)
 
-        serializer = RendicionEnOtSerializer(libres, many=True)
+        serializer = GastoOperativoEnOtSerializer(libres, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="compras-libres")
@@ -294,7 +326,7 @@ class ItemRendicionViewSet(viewsets.ModelViewSet):
 
             # Gastos OT V2 o internos: uso directo de detalle_id
             if (ct.app_label, ct.model) in {
-                ("ordentrabajov2", "rendicionenot"),  # V2
+                ("ordentrabajov2", "gastooperativoenot"),  # V2
                 ("rendiciones", "detallegastorendicion"),
             }:
                 detalle_id = request.data.get("detalle_id")

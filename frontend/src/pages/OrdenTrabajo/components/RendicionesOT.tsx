@@ -76,7 +76,7 @@ function RendicionesOT() {
 								}),
 							);
 						}}
-						peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-rendicion/${info.row.original.id}/`}></ModalEliminar>
+						peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/${info.row.original.id}/`}></ModalEliminar>
 				</div>
 			),
 			header: '',
@@ -103,10 +103,10 @@ function RendicionesOT() {
 		<Card>
 			<CardHeader>
 				<CardHeaderChild>
-					<Badge className='text-xl'>Gastos de Rendiciones de OT</Badge>
+					<Badge className='text-xl'>Gastos Operativos de la OT</Badge>
 				</CardHeaderChild>
 				<CardHeaderChild>
-					<CrearRendicionesOT />
+				{detalleOrdenTrabajo?.estado === 'en_proceso' && <CrearRendicionesOT />}
 				</CardHeaderChild>
 			</CardHeader>
 			<CardBody className='z-0'>

@@ -60,6 +60,8 @@ def crear_equipos_para_items_guia(guia_salida, usuario_empresa):
             numero_serie=serie,
             defaults={
                 "registrado_por": usuario_empresa,
+                "empresa_propietaria": getattr(usuario_empresa.sucursal, "empresa", None) if usuario_empresa else None,
+                "cliente": getattr(guia_salida, "cliente", None),
                 "fecha_compra": getattr(orden_compra, "fecha_compra", None),
             },
         )
@@ -315,5 +317,112 @@ def calcular_saldo_historico_stock(stock_item):
                 "descripcion": movimiento.descripcion,
             }
         )
+
+    return resultado
+
+
+def add_oc_items_to_guia(guia, orden_compra, usuario=None):
+    """
+    Añade los items de una `OrdenCompra` a una `GuiaSalida`.
+
+    Reglas:
+    - Si ya existe un `ItemsGuiaSalida` con `source_item` igual al item de la OC,
+      se suma la cantidad.
+    - Si existe un `ItemsGuiaSalida` con el mismo `stock_item` pero sin `source_item`,
+      se suma la cantidad y se asigna `source_item` si está vacío.
+    - Si no existe, se crea un nuevo `ItemsGuiaSalida` y se registra la salida.
+
+    Devuelve un dict resumen con conteos y listas de errores.
+    """
+    from django.db import transaction, IntegrityError
+    from bodegas.models import (
+        ItemsGuiaSalida,
+        StockItemEnBodega,
+        ItemEnOrdenCompra,
+    )
+    from bodegas.movimientos import registrar_salida
+
+    resultado = {
+        "added": 0,
+        "summed": 0,
+        "skipped_missing_stock": [],
+        "errors": [],
+    }
+
+    with transaction.atomic():
+        guia = guia.__class__.objects.select_for_update().get(pk=guia.pk)
+
+        for item_oc in orden_compra.itemenordencompra_set.all():
+            try:
+                stock_item = StockItemEnBodega.objects.get(
+                    bodega=guia.bodega, item=item_oc.item
+                )
+            except StockItemEnBodega.DoesNotExist:
+                resultado["skipped_missing_stock"].append(item_oc.pk)
+                continue
+
+            try:
+                # Prefer match by source_item (explicit trace)
+                existente = ItemsGuiaSalida.objects.filter(
+                    guia=guia, source_item=item_oc
+                ).select_for_update().first()
+
+                if existente:
+                    existente.cantidad_rebajada = (
+                        existente.cantidad_rebajada + item_oc.cantidad
+                    )
+                    existente.save(update_fields=["cantidad_rebajada"])
+                    resultado["summed"] += 1
+                    continue
+
+                # Fallback: match by stock_item
+                existente_stock = ItemsGuiaSalida.objects.filter(
+                    guia=guia, stock_item=stock_item
+                ).select_for_update().first()
+
+                if existente_stock:
+                    existente_stock.cantidad_rebajada = (
+                        existente_stock.cantidad_rebajada + item_oc.cantidad
+                    )
+                    if not existente_stock.source_item:
+                        existente_stock.source_item = item_oc
+                    existente_stock.save(update_fields=["cantidad_rebajada", "source_item"])
+                    resultado["summed"] += 1
+                    continue
+
+                # Crear nuevo item en la guia
+                item_guia = ItemsGuiaSalida.objects.create(
+                    guia=guia,
+                    stock_item=stock_item,
+                    cantidad_original=stock_item.cantidad,
+                    cantidad_rebajada=item_oc.cantidad,
+                    source_item=item_oc,
+                )
+
+                # Reservar cantidad y registrar salida
+                stock_item.cantidad_no_disponible = (
+                    stock_item.cantidad_no_disponible + item_oc.cantidad
+                )
+                stock_item.save(update_fields=["cantidad_no_disponible"])
+
+                registrar_salida(
+                    stock_item=stock_item,
+                    cantidad=item_oc.cantidad,
+                    origen=item_guia,
+                    usuario=usuario,
+                    descripcion=f"Items añadidos desde OC {orden_compra.pk}",
+                )
+
+                resultado["added"] += 1
+
+            except IntegrityError:
+                # Constraint unique: already exists concurrently — tratar como idempotente
+                resultado["errors"].append(
+                    f"IntegrityError al procesar item OC {item_oc.pk}"
+                )
+                continue
+            except Exception as e:
+                resultado["errors"].append(str(e))
+                continue
 
     return resultado

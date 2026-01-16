@@ -15,8 +15,13 @@ class EquipoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         empresa_id = self.kwargs.get('empresa_pk')  # Obtener empresa_id desde la URL
         if empresa_id:
-            return Equipo.objects.filter(cliente__relaciones_como_cliente__prestador_servicios=empresa_id)
-        return Equipo.objects.all()
+            return Equipo.objects.filter(empresa_propietaria_id=empresa_id)
+
+        usuario_empresa = getattr(self.request.user, "usuarioempresa", None)
+        if usuario_empresa and getattr(usuario_empresa, "sucursal", None):
+            return Equipo.objects.filter(empresa_propietaria=usuario_empresa.sucursal.empresa)
+
+        return Equipo.objects.none()
 
     @action(detail=True, methods=['get'], url_path='usuario-equipo')
     def usuario_equipo(self, request, pk=None):

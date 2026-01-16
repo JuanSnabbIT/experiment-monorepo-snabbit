@@ -18,16 +18,16 @@ import {
 	listaUsuariosTodaLaEmpresaThunk,
 	listaUsuariosTodoElClienteThunk,
 	listaVouchersThunk,
+	obtenerPersonalizacionThunk,
 	useAppDispatch,
 	useAppSelector,
 	usuarioEmpresaLogeadoThunk,
-	obtenerPersonalizacionThunk,
 } from '@/store';
 import { selectEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import Adjuntos from './components/Adjuntos';
@@ -35,10 +35,10 @@ import ComprasEnOT from './components/ComprasEnOT';
 import DevolucionesOT from './components/DevolucionesOT';
 import FotosAdjuntosOT from './components/FotosAdjuntosOT';
 import HistorialCambios from './components/HistorialCambios';
-import SeguimientosOT from './components/SeguimientosOT';
 import Insumos from './components/Insumos';
 import ListaServiciosOT from './components/ListaServiciosOT';
 import ListaSoportesTecnicosOT from './components/ListaSoportesTecnicosOT';
+import SeguimientosOT from './components/SeguimientosOT';
 
 import MarqueeCompletibilidad from './components/MarqueeCompletibilidad';
 import RendicionesOT from './components/RendicionesOT';
@@ -142,7 +142,13 @@ const DetalleOT = () => {
 				})();
 			}
 		}
-	}, [detalleOrdenTrabajo?.id, dispatch, selectEmpresas, personalizacionUsuario?.sucursal_principal, access]);
+	}, [
+		detalleOrdenTrabajo?.id,
+		dispatch,
+		selectEmpresas,
+		personalizacionUsuario?.sucursal_principal,
+		access,
+	]);
 
 	useEffect(() => {
 		if (isEditing && detalleOrdenTrabajo) {
@@ -189,8 +195,7 @@ const DetalleOT = () => {
 						? Number(values.responsable_empresa)
 						: null;
 					const hasManualHistorial =
-						Boolean(values.estado_actual?.trim()) ||
-						Boolean(values.comentario?.trim());
+						Boolean(values.estado_actual?.trim()) || Boolean(values.comentario?.trim());
 
 					if (hasManualHistorial) {
 						const responseHistorial = await ApiService.fetchData({
@@ -231,9 +236,7 @@ const DetalleOT = () => {
 						toast.success('Orden de trabajo actualizada', { autoClose: 1000 });
 						dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: id }));
 						dispatch(listaHistorialCambiosThunk({ id_orden: detalleOrdenTrabajo?.id }));
-						dispatch(
-							listarSimpleHistorialThunk({ id: detalleOrdenTrabajo?.id || 0 }),
-						);
+						dispatch(listarSimpleHistorialThunk({ id: detalleOrdenTrabajo?.id || 0 }));
 						setIsEditing(false);
 						formik.resetForm();
 					}
@@ -285,23 +288,32 @@ const DetalleOT = () => {
 				<SubheaderRight>
 					{detalleOrdenTrabajo && (
 						<div className='flex gap-2'>
-							{detalleOrdenTrabajo.estado === 'completada' && detalleOrdenTrabajo.rendicion_asociada_id && (
-								<Tooltip text='Ver Rendición Asociada'>
-									<Button 
-										variant='solid' 
-										color='violet'
-										icon='HeroEye'
-										onClick={() => navigate(`/rendicion/detalle-rendicion/${detalleOrdenTrabajo.rendicion_asociada_id}`)}
-									/>
-								</Tooltip>
-							)}
+							{detalleOrdenTrabajo.estado === 'completada' &&
+								detalleOrdenTrabajo.rendicion_asociada_id && (
+									<Tooltip text='Ver Rendición Asociada'>
+										<Button
+											variant='solid'
+											color='violet'
+											icon='HeroEye'
+											onClick={() =>
+												navigate(
+													`/rendicion/detalle-rendicion/${detalleOrdenTrabajo.rendicion_asociada_id}`,
+												)
+											}
+										/>
+									</Tooltip>
+								)}
 							{detalleOrdenTrabajo.estado === 'completada' && (
 								<Tooltip text='Ver Facturación'>
-									<Button 
-										variant='solid' 
+									<Button
+										variant='solid'
 										color='blue'
 										icon='HeroReceipt'
-										onClick={() => navigate(`/facturacion/cierre-ot/${detalleOrdenTrabajo.id}`)}
+										onClick={() =>
+											navigate(
+												`/facturacion/cierre-ot/${detalleOrdenTrabajo.id}`,
+											)
+										}
 									/>
 								</Tooltip>
 							)}
@@ -718,18 +730,20 @@ const DetalleOT = () => {
 												<Badge>Instrucción Inicial</Badge>
 												<div className='ml-4'>
 													{renderDetalleListado(
-														detalleOrdenTrabajo?.ultimo_historial?.estado_anterior,
+														detalleOrdenTrabajo?.ultimo_historial
+															?.estado_anterior,
 														'Sin Instrucción Inicial',
-														)}
+													)}
 												</div>
 											</div>
 											<div className='w-full'>
 												<Badge>Nueva Instrucción</Badge>
 												<div className='ml-4'>
 													{renderDetalleListado(
-														detalleOrdenTrabajo?.ultimo_historial?.estado_actual,
+														detalleOrdenTrabajo?.ultimo_historial
+															?.estado_actual,
 														'Sin Nueva Instrucción',
-														)}
+													)}
 												</div>
 											</div>
 											<div className='w-full'>
@@ -973,7 +987,7 @@ const DetalleOT = () => {
 								</Button>
 
 								<Button
-									{...(activeComponent === 'Rendiciones'
+									{...(activeComponent === 'GastosOperativos'
 										? {
 												size: 'sm',
 												rounded: 'rounded-full',
@@ -990,9 +1004,9 @@ const DetalleOT = () => {
 												className: 'border',
 											})}
 									onClick={() => {
-										setActiveComponent('Rendiciones');
+										setActiveComponent('GastosOperativos');
 									}}>
-									Rendiciones
+									Gastos Operativos
 								</Button>
 								<Button
 									{...(activeComponent === 'Devoluciones'
@@ -1035,7 +1049,7 @@ const DetalleOT = () => {
 					{activeComponent === 'Fotos' && <FotosAdjuntosOT />}
 					{activeComponent === 'Usuarios' && <UsuariosVinculadosOT />}
 					{activeComponent === 'Retroalimentaciones' && <RetroalimentacionesOT />}
-					{activeComponent === 'Rendiciones' && <RendicionesOT />}
+					{activeComponent === 'GastosOperativos' && <RendicionesOT />}
 					{activeComponent === 'Devoluciones' && (
 						<DevolucionesOT ordenId={detalleOrdenTrabajo?.id} />
 					)}

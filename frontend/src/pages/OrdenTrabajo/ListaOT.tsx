@@ -153,12 +153,14 @@ const ListaOT = () => {
 							}}
 							icon='HeroEye'></Button>
 					</Tooltip>
-					<ModalEliminar
-						mensaje={`Estas a punto de eliminar la orden de trabajo #${info.row.original.id}${info.row.original.fecha_inicio_ot ? ` del ${dayjs(info.row.original.fecha_inicio_ot).format('DD/MM/YYYY')}` : ''} ¿desea continuar?`}
-						peticionUrl={`/api/ordenes-de-trabajo/${info.row.original.id}/`}
-						onDispatch={() => dispatch(listaOrdenTrabajoThunk())}>
-						Eliminar
-					</ModalEliminar>
+					{info.row.original.estado === 'pendiente' && (
+						<ModalEliminar
+							mensaje={`Estas a punto de eliminar la orden de trabajo #${info.row.original.id}${info.row.original.fecha_inicio_ot ? ` del ${dayjs(info.row.original.fecha_inicio_ot).format('DD/MM/YYYY')}` : ''} ¿desea continuar?`}
+							peticionUrl={`/api/ordenes-de-trabajo/${info.row.original.id}/`}
+							onDispatch={() => dispatch(listaOrdenTrabajoThunk())}>
+							Eliminar
+						</ModalEliminar>
+					)}
 				</div>
 			),
 		}),

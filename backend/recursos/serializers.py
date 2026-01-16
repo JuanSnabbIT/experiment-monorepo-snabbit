@@ -54,6 +54,7 @@ class EquipoSerializer(serializers.ModelSerializer):
     datos_monitor = MonitorEquipoSerializer(source="monitorequipo_set", read_only=True, many=True)
     datos_software = SoftwareInstaladoSerializer(source="softwareinstalado_set", read_only=True, many=True)
     nombre_usuario_asignado = serializers.SerializerMethodField()
+    empresa_propietaria_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Equipo
@@ -64,6 +65,14 @@ class EquipoSerializer(serializers.ModelSerializer):
         if usuario_equipo:
             return usuario_equipo.usuario.usuario.get_nombre_completo()
         return None 
+
+    def get_empresa_propietaria_nombre(self, obj):
+        if obj.empresa_propietaria:
+            return obj.empresa_propietaria.nombre
+        registrado_por = getattr(obj, "registrado_por", None)
+        if registrado_por and getattr(registrado_por, "sucursal", None):
+            return registrado_por.sucursal.empresa.nombre
+        return None
 
     def get_tipo_equipo_label(self, obj):
         return obj.get_tipo_equipo_display()

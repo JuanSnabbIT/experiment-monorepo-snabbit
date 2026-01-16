@@ -1,13 +1,45 @@
-# Flujos de los procesos: Cotizacion -> OC -> Guia -> OT
+---
+Responsable: -
+Email: -
+Proxima_revision: -
+Estado: canonical
+---
 
-Documento de referencia rapida (QA/UX). Estructurado por estados y acciones permitidas; casos de uso al final.
+# Flujos Operativos – Monorepo ERP
 
-## Prerrequisitos generales
+**Propósito único:** Documentar paso a paso los procesos de negocio (flujos de usuario, estados, transiciones, validaciones).
+
+**Qué va aquí:**
+- Procesos operativos completos (Cotización → OC → Guía → OT → Facturación)
+- Estados y transiciones permitidas
+- Validaciones y reglas por estado
+- Casos de uso reales
+- Checklists de validación
+
+**Qué NO va aquí:**
+- ❌ Decisiones arquitectónicas → usa `analisis.md`
+- ❌ Planes de mejora futuro → usa `planificacion.md`
+- ❌ Detalles técnicos de implementación → usa `sistemas.md`
+
+- **Mantenimiento:**
+- Actualizar cuando estados/transiciones cambien
+- Usar diagramas de estado cuando sea necesario
+- Incluir siempre: prerequisitos, acciones, transiciones, requisitos para avanzar
+
+---
+
+## Estructura por Módulos
+
+- Secciones por módulo: `cotizaciones`, `compras`, `bodegas`, `guias`, `ordentrabajo`, `rendiciones`.
+- En cada módulo: estados clave, transiciones permitidas, checklists rápidos y pruebas recomendadas.
+
+## Referencia Rápida: Cotización → OC → Guía → OT
 - Empresas y relacion prestador/cliente creadas.
 - Proveedores de la empresa (ProveedorEmpresa).
 - Items de la empresa (ItemEmpresa) asociados a proveedores.
 - Usuario autenticado con empresa principal configurada (PersonalizacionUsuario).
 
+## Módulo: Cotizaciones
 ## Cotizacion (estado a estado)
 ### Flujo de creacion desde la lista
 - Ingresar a `Cotizacion > Cotizaciones Clientes` (lista). Boton `+` / “Añadir cotizacion” abre el modal “Crear Cotización”.
@@ -78,6 +110,7 @@ Documento de referencia rapida (QA/UX). Estructurado por estados y acciones perm
 - Acciones: solo consulta; no se crean OC ni se editan campos.
 - Transiciones: manual si se requiere reabrir.
 
+## Módulo: Compras
 ## Orden de Compra (OC)
 
 ### Creacion de OC (lista o desde cotizacion)
@@ -144,6 +177,7 @@ Estados relevantes: `-` borrador, `0` pendiente de aprobacion, `1` aprobada, `2`
 - Si se salta `pasar_enviado_proveedor`, no hay placeholders y `completar_orden_compra` falla.
 - Sin `bodega_temporal` en placeholders, no se puede completar (4/5).
 
+## Módulo: Bodegas/Guias
 ## Guia de Salida (estado a estado)
 Estados: P pendiente, ER revisada, ET en transito, E entregada, T terminada; retrocesos R revertida, PR parcialmente revertida.
 
@@ -178,6 +212,7 @@ Estados: P pendiente, ER revisada, ET en transito, E entregada, T terminada; ret
 - Actual: cada guia crea su propia OT y soporte (1:1); no se pueden ligar varias guias a una misma OT.
 - Propuesto: no crear OT automatica; permitir GS y OT por separado y vincular una o varias GS a trabajos (Servicio/Soporte) en la OT, soportando multiples GS por OT y entregas parciales/multiples viajes.
 
+## Módulo: Ordenes de Trabajo
 ## Orden de Trabajo (OT) y soportes (estado a estado)
 Estados OT: pendiente, en_proceso, completada, cerrada, facturada/cancelada.
 - Estado `pendiente`: entrada por creacion manual de OT (soporte inicial o servicio) o creacion automatica desde GS (flujo actual 1:1). Acciones: asignar tecnico/cliente solicitante, agregar servicios/soportes, adjuntos, seguimientos. Transicion: `en_proceso` cuando un soporte pasa a `en_proceso` (requiere tecnico y fecha; si tiene guia, que este ET/E/T).
@@ -244,3 +279,4 @@ npm run lint
 ✅ **Sistema completo:** `ordentrabajov2` activo, refactores frontend presentes
 - No requiere migración adicional (ya en main)
 - Refactores cosméticos deferred a próximo sprint
+---

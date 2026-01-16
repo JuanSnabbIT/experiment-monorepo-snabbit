@@ -4,7 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from empresas.serializers import UsuarioEmpresaSerializer
 
 # from ordentrabajo.serializers import DetalleGastoRendicionOTSerializer  # V1 desactivada
-from ordentrabajov2.serializers import RendicionEnOtSerializer  # V2
+from ordentrabajov2.serializers import GastoOperativoEnOtSerializer  # V2
 from rest_framework import serializers
 
 from .models import (
@@ -38,12 +38,11 @@ class RendicionSerializer(serializers.ModelSerializer):
     )
     datos_usuario = UsuarioEmpresaSerializer(source="usuario", read_only=True)
     estado_label = serializers.SerializerMethodField()
-    
+
     # Campos legacy (mantener compatibilidad)
     total = serializers.SerializerMethodField()
-    
+
     # Nuevos campos BLOQUE 6
-    politica_viaticos_efectiva = serializers.CharField(read_only=True)
     total_reembolso_tecnico = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -106,8 +105,8 @@ class ItemRendicionSerializer(serializers.ModelSerializer):
             return DetalleGastoRendicionSerializer(obj.detalle).data
 
         # Gasto OT V2
-        if ct.app_label == "ordentrabajov2" and ct.model == "rendicionenot":
-            return RendicionEnOtSerializer(obj.detalle).data
+        if ct.app_label == "ordentrabajov2" and ct.model == "gastooperativoenot":
+            return GastoOperativoEnOtSerializer(obj.detalle).data
 
         # Compra
         if ct.app_label == "bodegas" and ct.model == "compra":

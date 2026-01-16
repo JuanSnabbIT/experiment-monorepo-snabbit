@@ -396,10 +396,23 @@ class ItemsGuiaSalida(ModeloBaseHistorico):
     cantidad_devuelta = models.IntegerField(default=0)
     numero_serie = models.JSONField(default=dict, blank=True)
     individualizado = models.BooleanField(default=False)
+    source_item = models.ForeignKey(
+        "bodegas.ItemEnOrdenCompra",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Referencia al item de la Orden de Compra origen (trazabilidad a nivel item)",
+    )
 
     class Meta:
         verbose_name = "Item en Guia de Salida"
         verbose_name_plural = "Items en Guias de Salidas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["guia", "source_item"],
+                name="uniq_guia_source_item",
+            )
+        ]
 
     def __str__(self):
         return f"Item {self.stock_item.item} - Rebajado: {self.cantidad_rebajada}, Devuelto: {self.cantidad_devuelta}"

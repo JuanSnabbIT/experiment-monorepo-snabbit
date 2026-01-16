@@ -637,29 +637,33 @@ function ListaSoportesTecnicosOT() {
 								</Tooltip>
 							</>
 						)}
-						{!tieneGuia ? (
-							<Tooltip text='Vincular Guía de Salida'>
-								<Button
-									variant='solid'
-									color='emerald'
-									icon='HeroLink'
-									onClick={() => {
-										setSoporteParaGuia(info.row.original.id);
-										setGuiaSeleccionada(null);
-										setIsOpenGuia(true);
-										cargarGuiasDisponibles();
-									}}
-								/>
-							</Tooltip>
-						) : (
-							<Tooltip text='Desvincular Guía de Salida'>
-								<Button
-									variant='solid'
-									color='red'
-									icon='HeroLink'
-									onClick={() => desvincularGuia(info.row.original.id)}
-								/>
-							</Tooltip>
+						{isPendiente && (
+							<>
+								{!tieneGuia ? (
+									<Tooltip text='Vincular Guía de Salida'>
+										<Button
+											variant='solid'
+											color='emerald'
+											icon='HeroLink'
+											onClick={() => {
+												setSoporteParaGuia(info.row.original.id);
+												setGuiaSeleccionada(null);
+												setIsOpenGuia(true);
+												cargarGuiasDisponibles();
+											}}
+										/>
+									</Tooltip>
+								) : (
+									<Tooltip text='Desvincular Guía de Salida'>
+										<Button
+											variant='solid'
+											color='red'
+											icon='HeroLink'
+											onClick={() => desvincularGuia(info.row.original.id)}
+										/>
+									</Tooltip>
+								)}
+							</>
 						)}
 					</div>
 				);
