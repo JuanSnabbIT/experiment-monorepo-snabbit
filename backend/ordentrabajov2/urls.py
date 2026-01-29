@@ -7,6 +7,7 @@ from .views import (
     CierreAdministrativoOTViewSet,
     GastoOperativoEnOtViewSet,
     HistorialCambiosOrdenViewSet,
+    InsumoViewSet,
     OrdenDeTrabajoViewSet,
     SeguimientoItemOTViewSet,
     ServicioEnOTViewSet,
@@ -59,6 +60,9 @@ ordenes_router.register(
 )
 ordenes_router.register(
     r"cierre-administrativo", CierreAdministrativoOTViewSet, basename="orden-v2-cierre"
+)
+ordenes_router.register(
+    r"insumos", InsumoViewSet, basename="orden-v2-insumos"
 )
 
 # Seguimientos anidados bajo servicios y soportes (OT V2)

@@ -1,4 +1,6 @@
 import os
+import threading
+from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 
 from core.models import PersonalizacionUsuario
@@ -8,6 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Count, F, Q
 from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.timezone import now, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from dotenv import load_dotenv
@@ -17,6 +20,7 @@ from items.serializers import ImagenItemSerializer, ItemEmpresaSerializer
 from ordentrabajov2.models import OrdenDeTrabajo, SoporteTecnico
 from recursos.models import Equipo
 from recursos.serializers import EquipoSerializer
+from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -87,6 +91,38 @@ from .serializers import (
 )
 
 load_dotenv()
+
+
+def _has_manual_dolar(data):
+    value = data.get("dolar_observado", None)
+    return value not in (None, "", "null")
+
+
+def _run_dolar_update(orden_id, fecha_compra, dolar_actual):
+    def run_dolar_update():
+        try:
+            valor_dolar, _ = obtener_tipo_cambio_mindicador_con_fallback(
+                "dolar",
+                fecha_compra,
+            )
+        except Exception:
+            return
+
+        if valor_dolar is None:
+            return
+
+        nuevo_dolar = int(
+            Decimal(valor_dolar).to_integral_value(rounding=ROUND_HALF_UP)
+        )
+        qs = OrdenCompra.objects.filter(pk=orden_id)
+        if dolar_actual is None:
+            qs = qs.filter(dolar_observado__isnull=True)
+        else:
+            qs = qs.filter(dolar_observado=dolar_actual)
+        qs.update(dolar_observado=nuevo_dolar)
+
+    hilo = threading.Thread(target=run_dolar_update)
+    hilo.start()
 
 
 class BodegaViewSet(viewsets.ModelViewSet):
@@ -511,6 +547,16 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             return OrdenCompraCreateSerializer  # Serializador que excluye el campo 'codigo'
         return OrdenCompraSerializer  # Serializador principal para las demás acciones
 
+    def perform_update(self, serializer):
+        orden = serializer.save()
+        manual_dolar = _has_manual_dolar(self.request.data)
+        fecha_compra = serializer.validated_data.get("fecha_compra", orden.fecha_compra)
+
+        if not manual_dolar and fecha_compra:
+            _run_dolar_update(orden.id, fecha_compra, orden.dolar_observado)
+
+        return orden
+
     @action(detail=False, methods=["get"], url_path="ultimos-eventos")
     def ultimos_eventos(self, request):
         """
@@ -896,6 +942,18 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=["get"], url_path="guia-por-orden")
+    def guia_por_orden(self, request, pk=None):
+        orden = self.get_object()
+        guia = (
+            ItemsGuiaSalida.objects.filter(source_item__orden_compra=orden)
+            .select_related("guia")
+            .values_list("guia_id", flat=True)
+            .order_by("-guia_id")
+            .first()
+        )
+        return Response({"guia_id": guia})
+
     @action(detail=False, methods=["get"], url_path="recientes-por-item")
     def recientes_por_item(self, request):
         """
@@ -1032,6 +1090,9 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
         # Llamar a la función `generar_orden_de_compra`
         buffer = BytesIO()
+        estado_pdf = (
+            "Aprobada" if orden.estado == "3" else orden.get_estado_display()
+        )
         generar_orden_de_compra(
             nombre_empresa=orden.oc_empresa.nombre if orden.oc_empresa else "Snabbit",
             rut_empresa=orden.oc_empresa.rut_empresa if orden.oc_empresa else "",
@@ -1055,7 +1116,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             comentarios_orden=orden.observaciones or "Sin observaciones",
             buffer=buffer,
             # NUEVOS PARÁMETROS
-            estado_orden=orden.get_estado_display(),
+            estado_orden=estado_pdf,
             nombre_cliente=orden.oc_cliente.nombre if orden.oc_cliente else None,
             rut_cliente=orden.oc_cliente.rut_empresa if orden.oc_cliente else None,
         )
@@ -1471,6 +1532,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 # 3) Marcar guía firmada (el tránsito lo dispara el inicio del trabajo) y guardar firma
                 guia_salida.estado = "FR"
                 guia_salida.firma_recibido_por = firma_recibido_por
+                guia_salida.fecha_firma_recibido_por = timezone.now()
                 if recibido_por:
                     user_recibido = UsuarioEmpresa.objects.get(pk=recibido_por)
                     guia_salida.recibido_por = user_recibido
@@ -1641,7 +1703,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
     #     except Exception as e:
     #         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="devolver-a-bodega")
     @transaction.atomic
     def devolver_a_bodega(self, request, pk=None):
         """
@@ -1734,11 +1796,12 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             all_items = ItemsGuiaSalida.objects.filter(guia=guia)
             total_reb = sum(i.cantidad_rebajada for i in all_items)
             total_dev = sum(i.cantidad_devuelta for i in all_items)
-            if total_dev == total_reb:
-                guia.estado = "R"
-            elif 0 < total_dev < total_reb:
-                guia.estado = "PR"
-            guia.save()
+            if guia.estado != "ET":
+                if total_dev == total_reb:
+                    guia.estado = "R"
+                elif 0 < total_dev < total_reb:
+                    guia.estado = "PR"
+                guia.save()
 
             serializer = GuiaSalidaSerializer(guia, context={"request": request})
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1753,6 +1816,124 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 {"detail": "Cantidad inválida."}, status=status.HTTP_400_BAD_REQUEST
             )
         # Cualquier otra excepción provocará rollback automático
+
+    @action(detail=True, methods=["post"], url_path="confirmar-recepcion")
+    def confirmar_recepcion(self, request, pk=None):
+        """
+        Confirma la recepción de los items de la guía por parte del cliente responsable.
+        Guarda firma_entrega y fecha_firma_entrega en el modelo GuiaSalida.
+        
+        Espera en el body:
+        {
+            "confirmado_por_id": <id del usuario cliente que confirma>,
+            "firma": "<base64 de la firma>" (opcional)
+        }
+        """
+        guia_salida = self.get_object()
+        confirmado_por_id = request.data.get("confirmado_por_id")
+        firma = request.data.get("firma", "")
+        items_data = request.data.get("items", None)
+        usuario_empresa = obtener_usuario_empresa(request.user)
+        
+        if not confirmado_por_id:
+            return Response(
+                {"detail": "Debe proporcionar confirmado_por_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            from empresas.models import UsuarioEmpresa
+            confirmado_por = UsuarioEmpresa.objects.get(pk=confirmado_por_id)
+        except UsuarioEmpresa.DoesNotExist:
+            return Response(
+                {"detail": "El usuario especificado no existe"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        with transaction.atomic():
+            guia_salida = GuiaSalida.objects.select_for_update().get(pk=pk)
+            # Guardar firma de cliente en la guia
+            guia_salida.firma_entrega = firma
+            guia_salida.fecha_firma_entrega = timezone.now()
+            guia_salida.entregado_a = confirmado_por
+
+            if isinstance(items_data, list):
+                ids = [int(d.get("item_guia_id")) for d in items_data if d.get("item_guia_id") is not None]
+                items_qs = ItemsGuiaSalida.objects.select_for_update().filter(
+                    guia=guia_salida, pk__in=ids
+                )
+                for item in items_qs:
+                    data = next(
+                        (
+                            d
+                            for d in items_data
+                            if int(d.get("item_guia_id")) == item.pk
+                        ),
+                        None,
+                    )
+                    if not data:
+                        return Response(
+                            {"detail": f"Item {item.pk} no enviado correctamente."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    devolver = int(data.get("cantidad_a_devolver", 0))
+                    if devolver <= 0:
+                        continue
+                    max_dev = item.cantidad_rebajada - item.cantidad_devuelta
+                    if devolver > max_dev:
+                        return Response(
+                            {
+                                "detail": f"No puedes devolver mas de lo rebajado en item {item.pk}."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                    stock = item.stock_item
+                    item.cantidad_devuelta += devolver
+                    item.save()
+
+                    registrar_devolucion(
+                        stock_item=stock,
+                        cantidad=devolver,
+                        usuario=usuario_empresa or confirmado_por,
+                        origen=item,
+                        descripcion="Devolucion desde guia de salida",
+                    )
+
+                    serie = item.numero_serie.get("serie")
+                    if serie:
+                        Equipo.objects.filter(numero_serie=serie).delete()
+                        oc_qs = ItemOrdenCompraEnStock.objects.select_for_update().filter(
+                            numeros_serie__icontains=serie
+                        )
+                        for oc in oc_qs:
+                            series_list = oc.numeros_serie.get("numeros_serie", [])
+                            for s in series_list:
+                                if (
+                                    s.get("serie") == serie
+                                    and s.get("modelo") == item._meta.model_name
+                                    and s.get("object_id") == item.pk
+                                ):
+                                    s["modelo"] = ""
+                                    s["object_id"] = 0
+                            oc.numeros_serie["numeros_serie"] = series_list
+                            oc.save()
+
+            items = ItemsGuiaSalida.objects.filter(guia=guia_salida)
+            total_reb = sum(i.cantidad_rebajada for i in items)
+            total_dev = sum(i.cantidad_devuelta for i in items)
+
+            if total_dev <= 0:
+                guia_salida.estado = "E"
+            elif total_dev >= total_reb:
+                guia_salida.estado = "R"
+            else:
+                guia_salida.estado = "PR"
+
+            guia_salida.save(update_fields=["firma_entrega", "fecha_firma_entrega", "entregado_a", "estado"])
+
+        serializer = self.get_serializer(guia_salida)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="agregar-item")
     def agregar_item(self, request, pk=None):

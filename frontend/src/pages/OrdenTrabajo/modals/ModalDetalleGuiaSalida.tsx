@@ -1,17 +1,51 @@
 import Icon from "@/components/icon/Icon"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalHeader } from "@/components/ui/Modal"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import { useAppSelector } from "@/store"
+import { detalleGuiaSalidaBodegaThunk, listaItemsEnGuiaSalidaBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
+import { confirmAlert } from "@/utils/sweetAlert"
 import { Dispatch, SetStateAction, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Fragment } from "react/jsx-runtime"
+import { toast } from "react-toastify"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch } from "@/store"
+import ModalConfirmarRecepcionGuia from "./ModalConfirmarRecepcionGuia"
 
 
 function ModalDetalleGuiaSalida({isOpen, setIsOpen} : {isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>}) {
     const navigate = useNavigate()
+        const dispatch = useAppDispatch()
     const { detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega } = useAppSelector((state) => state.bodega)
+    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo)
+    const [isOpenConfirmar, setIsOpenConfirmar] = useState(false)
 
+    const [completando, setCompletando] = useState<boolean>(false)
+
+    const completarGuia = async () => {
+        if (!detalleGuiaSalidaBodega?.id) return
+        const ok = await confirmAlert({
+            title: "Completar guía de salida",
+            text: "¿Estás seguro de que deseas completar esta guía de salida?",
+            confirmText: "Completar",
+            cancelText: "Cancelar",
+            icon: "warning",
+        })
+        if (!ok) return
+        setCompletando(true)
+        try {
+            const response = await ApiService.fetchData({url: `/api/guia-salida/${detalleGuiaSalidaBodega.id}/comprobar-guia/`, method: 'post'})
+            if (response.data) {
+                toast.success("Guía completada", {autoClose: 1000})
+                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: detalleGuiaSalidaBodega.id}))
+                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: detalleGuiaSalidaBodega.id}))
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.detail || "Error al completar la guía", {toastId: "Error al completar guia"})
+        }
+        setCompletando(false)
+    }
     return (
         <>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
@@ -87,7 +121,53 @@ function ModalDetalleGuiaSalida({isOpen, setIsOpen} : {isOpen: boolean, setIsOpe
                         <div> No se encontro la guia de salida.</div>
                     )}
                 </ModalBody>
+                <ModalFooter>
+                    {detalleGuiaSalidaBodega && (detalleGuiaSalidaBodega.estado === "FR" || detalleGuiaSalidaBodega.estado === "ET") ? (
+                        <>
+                            <ModalFooterChild>
+                                <Button variant="outline" color="red" onClick={() => setIsOpen(false)}>
+                                    Cerrar
+                                </Button>
+                            </ModalFooterChild>
+                            <ModalFooterChild>
+                                <Button
+                                    variant="outline"
+                                    color="emerald"
+                                    isDisable={completando}
+                                    onClick={completarGuia}
+                                >
+                                    Completar Guía
+                                </Button>
+                            </ModalFooterChild>
+                            <ModalFooterChild>
+                                <Button
+                                    variant="solid"
+                                    color="blue"
+                                    onClick={() => {
+                                        setIsOpen(false)
+                                        setIsOpenConfirmar(true)
+                                    }}
+                                >
+                                    Confirmar Recepción
+                                </Button>
+                            </ModalFooterChild>
+                        </>
+                    ) : null}
+                </ModalFooter>
             </Modal>
+
+            {detalleGuiaSalidaBodega && detalleOrdenTrabajo && (
+                <ModalConfirmarRecepcionGuia
+                    isOpen={isOpenConfirmar}
+                    setIsOpen={setIsOpenConfirmar}
+                    guiaId={detalleGuiaSalidaBodega.id}
+                    clienteSolicitanteId={detalleOrdenTrabajo.cliente_solicitante}
+                    clienteSolicitanteNombre={detalleOrdenTrabajo.nombre_solicitante}
+                    onSuccess={() => {
+                        setIsOpenConfirmar(false)
+                    }}
+                />
+            )}
         </>
     )
 }

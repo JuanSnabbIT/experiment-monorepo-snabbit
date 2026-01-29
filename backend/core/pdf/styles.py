@@ -1,15 +1,15 @@
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 # --- COLOR PALETTE (Based on Cotizaciones) ---
-BRAND_BLUE = colors.HexColor("#003366")    # Cotizaciones Header Background
+BRAND_BLUE = colors.HexColor("#003366")    # Legacy Blue (kept for compatibility)
 ACTION_BLUE = colors.HexColor("#3b82f6")   # Links / En Proceso
 SUCCESS_GREEN = colors.HexColor("#10b981") # Completada
 ALERT_RED = colors.HexColor("#ef4444")     # Cancelada / Errors
 LIGHT_GRAY = colors.whitesmoke             # Table Alternates
 TEXT_DARK = colors.black                   # Main Text
-TEXT_GRAY = colors.HexColor("#6b7280")     # Labels
+TEXT_GRAY = colors.HexColor("#404040")     # Labels (Darkened from #6b7280 for better visibility)
 
 # --- FONTS ---
 # Helvetica is standard for PDF compatibility
@@ -23,29 +23,27 @@ def get_pdf_styles():
     """
     styles = getSampleStyleSheet()
     
-    # 1. Document Title (e.g., "ORDEN DE TRABAJO")
+    # 1. Document Title (legacy cotizaciones)
     styles.add(ParagraphStyle(
         name="DocTitle",
         parent=styles["Heading1"],
         fontName=FONT_BOLD,
-        fontSize=18,
-        textColor=BRAND_BLUE,
+        fontSize=14,
+        textColor=TEXT_DARK,
         alignment=TA_CENTER,
-        spaceAfter=15,
+        spaceAfter=10,
     ))
 
-    # 2. Module Title (Section Headers with Background)
+    # 2. Module Title (simple, legacy-friendly)
     styles.add(ParagraphStyle(
         name="ModuleTitle",
         parent=styles["Heading1"],
         fontName=FONT_BOLD,
-        fontSize=14,
-        textColor=colors.white,
-        backColor=BRAND_BLUE,
+        fontSize=12,
+        textColor=TEXT_DARK,
         alignment=TA_CENTER,
         spaceBefore=10,
         spaceAfter=10,
-        borderPadding=6,
     ))
 
     # 3. Section Head (Subtitles within a module)
@@ -53,21 +51,27 @@ def get_pdf_styles():
         name="SectionHead",
         parent=styles["Heading2"],
         fontName=FONT_BOLD,
-        fontSize=14,
-        textColor=BRAND_BLUE,
+        fontSize=10,
+        textColor=TEXT_DARK,
         spaceBefore=12,
         spaceAfter=6,
     ))
 
     # 4. Standard Body Text
-    styles.add(ParagraphStyle(
-        name="BodyText",
-        parent=styles["Normal"],
-        fontName=FONT_NORMAL,
-        fontSize=10,
-        textColor=TEXT_DARK,
-        leading=12,
-    ))
+    if "BodyText" in styles:
+        styles["BodyText"].fontName = FONT_NORMAL
+        styles["BodyText"].fontSize = 10
+        styles["BodyText"].textColor = TEXT_DARK
+        styles["BodyText"].leading = 12
+    else:
+        styles.add(ParagraphStyle(
+            name="BodyText",
+            parent=styles["Normal"],
+            fontName=FONT_NORMAL,
+            fontSize=10,
+            textColor=TEXT_DARK,
+            leading=12,
+        ))
 
     # 5. Table Label (Bold metadata keys)
     styles.add(ParagraphStyle(
@@ -89,17 +93,28 @@ def get_pdf_styles():
         leading=12,
     ))
 
-    # 7. Small Print / Footer
+    # 7. Small Print / Fixed Text (legacy)
     styles.add(ParagraphStyle(
         name="SmallPrint",
         parent=styles["Normal"],
+        fontName="Helvetica-Oblique",
+        fontSize=9,
+        textColor=TEXT_DARK,
+        leading=11,
+    ))
+
+    # 8. Footer (legacy)
+    styles.add(ParagraphStyle(
+        name="Footer",
+        parent=styles["Normal"],
         fontName=FONT_NORMAL,
         fontSize=8,
-        textColor=TEXT_GRAY,
+        textColor=TEXT_DARK,
+        alignment=TA_CENTER,
         leading=10,
     ))
 
-    # 8. Right Aligned Data (e.g. Status)
+    # 9. Right Aligned Data (e.g. Status)
     styles.add(ParagraphStyle(
         name="DataRight",
         parent=styles["Normal"],

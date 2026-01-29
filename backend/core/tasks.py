@@ -19,6 +19,8 @@ def send_email_task(
     text_boton,
     cc=[],
     pdf_attachment=None,
+    on_success_cotizacion_id=None,
+    on_success_correos_externos=None,
 ):
     """
     Tarea compartida para enviar correos electrónicos con variables dinámicas.
@@ -174,6 +176,18 @@ def send_email_task(
             email.attach(pdf_attachment[0], pdf_attachment[1], "application/pdf")
 
         email.send()
+
+        if on_success_cotizacion_id:
+            Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
+            EnvioCorreoCotizacion = apps.get_model("cotizaciones", "EnvioCorreoCotizacion")
+            correos_externos = on_success_correos_externos or ""
+            if isinstance(correos_externos, list):
+                correos_externos = ", ".join([email for email in correos_externos if email])
+            Cotizacion.objects.filter(id=on_success_cotizacion_id).update(estado="enviada")
+            EnvioCorreoCotizacion.objects.create(
+                cotizacion_id=on_success_cotizacion_id,
+                correos_externos=correos_externos,
+            )
         return f"Correo enviado a: {recipient_list}"
     except Exception as e:
         return f"Error enviando correo: {str(e)}"

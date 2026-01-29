@@ -1,5 +1,7 @@
 from collections import defaultdict
+from datetime import datetime
 from io import BytesIO
+import os
 from textwrap import wrap
 
 from django.utils import timezone
@@ -8,9 +10,29 @@ from recursos.models import Equipo
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+# Core PDF Engine Imports
+from core.pdf.engine import create_pdf_engine, NumberedCanvas
+from core.pdf.styles import get_pdf_styles
+from core.pdf.components import LOGO_PATH, draw_footer, create_data_table, create_info_table
+from core.pdf.utils import format_currency
 
+MESES_ES = [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+]
 
 # Stub functions (not yet implemented or to be removed)
 def generar_orden_de_compra(
@@ -39,248 +61,193 @@ def generar_orden_de_compra(
     rut_cliente=None,
 ):
     """
-    Genera un PDF de Orden de Compra con formato profesional.
+    Genera un PDF de Orden de Compra profesional usando core.pdf components.
     """
-    from reportlab.lib.units import inch
+    from reportlab.lib.units import cm
+    ubicacion = "Santiago"
 
-    # Configuración de página
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    ancho, alto = letter
-    margen_x = 40
-    margen_y = 40
-    y_pos = alto - margen_y
+    # 1. Setup Engine
+    doc = create_pdf_engine(buffer)
+    story = []
+    styles = get_pdf_styles()
 
-    # Colores
-    COLOR_PRIMARIO = colors.HexColor("#1e3a5f")
-    COLOR_SECUNDARIO = colors.HexColor("#3b82f6")
-    COLOR_TEXTO = colors.HexColor("#374151")
-    COLOR_FONDO_HEADER = colors.HexColor("#f3f4f6")
-    COLOR_ALERTA = colors.HexColor("#dc2626")  # Rojo para estados negativos
+    def _format_fecha_larga(fecha):
+        if not fecha:
+            return ""
+        for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y"):
+            try:
+                parsed = datetime.strptime(fecha, fmt)
+                return f"{parsed.day} de {MESES_ES[parsed.month - 1]} de {parsed.year}"
+            except ValueError:
+                continue
+        return fecha
 
-    # ============= ENCABEZADO EMPRESA =============
-    pdf.setFont("Helvetica-Bold", 20)
-    pdf.setFillColor(COLOR_PRIMARIO)
-    pdf.drawString(margen_x, y_pos, nombre_empresa or "Empresa")
-    y_pos -= 18
+    def _draw_header_footer(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        width, height = doc_obj.pagesize
+        mx = doc_obj.leftMargin
+        my = doc_obj.topMargin
 
-    pdf.setFont("Helvetica", 9)
-    pdf.setFillColor(COLOR_TEXTO)
-    if rut_empresa:
-        pdf.drawString(margen_x, y_pos, f"RUT: {rut_empresa}")
-        y_pos -= 12
-    if direccion_empresa:
-        pdf.drawString(margen_x, y_pos, direccion_empresa)
-        y_pos -= 12
-    if telefono_empresa:
-        pdf.drawString(margen_x, y_pos, f"Teléfono: {telefono_empresa}")
-        y_pos -= 12
-    if email_empresa:
-        pdf.drawString(margen_x, y_pos, f"Email: {email_empresa}")
-        y_pos -= 12
+        fecha_larga = _format_fecha_larga(fecha_orden)
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.drawString(mx, height - my + 1, f"{ubicacion}, {fecha_larga}")
 
-    # ============= TÍTULO ORDEN DE COMPRA (derecha) =============
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.setFillColor(COLOR_SECUNDARIO)
-    pdf.drawRightString(ancho - margen_x, alto - margen_y, "ORDEN DE COMPRA")
+        if os.path.exists(LOGO_PATH):
+            try:
+                img = ImageReader(LOGO_PATH)
+                iw, ih = img.getSize()
+                w_logo = 120
+                h_logo = w_logo * (ih / iw)
+                canvas_obj.drawImage(
+                    img,
+                    width - mx - w_logo,
+                    height - my - h_logo,
+                    width=w_logo,
+                    height=h_logo,
+                    mask="auto",
+                )
+            except Exception:
+                pass
 
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.setFillColor(COLOR_PRIMARIO)
-    pdf.drawRightString(ancho - margen_x, alto - margen_y - 20, f"Nº {codigo_orden}")
+        draw_footer(canvas_obj, doc_obj)
+        canvas_obj.restoreState()
 
-    # Mostrar Estado si está presente
+    # 3. Document Title
+    story.append(Spacer(1, 1.4 * cm))
+    story.append(Paragraph(f"Orden de Compra N° {codigo_orden}", styles["DocTitle"]))
+    story.append(Spacer(1, 0.2 * cm))
+
     if estado_orden:
-        pdf.setFont("Helvetica-Bold", 10)
-        # Colorear según el estado si es crítico
-        col_estado = COLOR_SECUNDARIO
-        if any(x in estado_orden.lower() for x in ["cancelada", "rechazada"]):
-            col_estado = COLOR_ALERTA
-        pdf.setFillColor(col_estado)
-        pdf.drawRightString(ancho - margen_x, alto - margen_y - 36, f"Estado: {estado_orden.upper()}")
-        pdf.setFont("Helvetica", 10)
-        pdf.setFillColor(COLOR_TEXTO)
-        pdf.drawRightString(ancho - margen_x, alto - margen_y - 50, f"Fecha: {fecha_orden}")
+        story.append(
+            Paragraph(f"<b>Estado:</b> {estado_orden.upper()}", styles["Data"])
+        )
+        story.append(Spacer(1, 0.15 * cm))
     else:
-        pdf.setFont("Helvetica", 10)
-        pdf.setFillColor(COLOR_TEXTO)
-        pdf.drawRightString(ancho - margen_x, alto - margen_y - 36, f"Fecha: {fecha_orden}")
+        story.append(Spacer(1, 0.15 * cm))
 
-    # ============= LÍNEA DIVISORIA =============
-    y_pos = min(y_pos, alto - margen_y - 65)
-    pdf.setStrokeColor(COLOR_SECUNDARIO)
-    pdf.setLineWidth(2)
-    pdf.line(margen_x, y_pos, ancho - margen_x, y_pos)
-    y_pos -= 25
-
-    # ============= SECCIÓN DATOS (PROVEEDOR Y CLIENTE) =============
-    pdf.setFont("Helvetica-Bold", 11)
-    pdf.setFillColor(COLOR_PRIMARIO)
-    pdf.drawString(margen_x, y_pos, "PROVEEDOR:")
-    
-    if nombre_cliente:
-        pdf.drawString(ancho/2 + 20, y_pos, "CLIENTE FINAL / SOLICITANTE:")
-    
-    y_pos -= 15
-    pdf.setFont("Helvetica", 9)
-    pdf.setFillColor(COLOR_TEXTO)
-    
-    y_prov = y_pos
-    if nombre_proveedor:
-        pdf.drawString(margen_x, y_prov, nombre_proveedor)
-        y_prov -= 12
-    if rut_proveedor:
-        pdf.drawString(margen_x, y_prov, f"RUT: {rut_proveedor}")
-        y_prov -= 12
-    if direccion_proveedor:
-        pdf.drawString(margen_x, y_prov, f"Dirección: {direccion_proveedor}")
-        y_prov -= 12
-    if telefono_proveedor:
-        pdf.drawString(margen_x, y_prov, f"Teléfono: {telefono_proveedor}")
-        y_prov -= 12
-    if email_proveedor:
-        pdf.drawString(margen_x, y_prov, f"Email: {email_proveedor}")
-        y_prov -= 12
+    # 4. Proveedor & Cliente Info
+    story.append(Paragraph("Datos del proveedor", styles["Label"]))
+    info_col_widths = [
+        0.13 * doc.width,
+        0.45 * doc.width,
+        0.12 * doc.width,
+        0.30 * doc.width,
+    ]
+    info_prov = [
+        ["Nombre:", nombre_proveedor or "", "Rut:", rut_proveedor or ""],
+        ["Dirección:", direccion_proveedor or "", "Teléfono:", telefono_proveedor or ""],
+        ["Email:", email_proveedor or "", "", ""],
+    ]
+    tabla_prov = create_info_table(info_prov, col_widths=info_col_widths)
+    tabla_prov.setStyle(
+        TableStyle(
+            [
+                ("LEFTPADDING", (0, 0), (-1, -1), 1),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]
+        )
+    )
+    story.append(tabla_prov)
+    story.append(Spacer(1, 0.2 * cm))
 
     if nombre_cliente:
-        y_cli = y_pos
-        pdf.drawString(ancho/2 + 20, y_cli, nombre_cliente)
-        y_cli -= 12
-        if rut_cliente:
-            pdf.drawString(ancho/2 + 20, y_cli, f"RUT: {rut_cliente}")
-            y_cli -= 12
-        y_pos = min(y_prov, y_cli) - 10
-    else:
-        y_pos = y_prov - 10
+        story.append(Paragraph("Cliente final / solicitante", styles["Label"]))
+        info_cli = [
+            ["Nombre:", nombre_cliente or "", "Rut:", rut_cliente or ""],
+        ]
+        tabla_cli = create_info_table(info_cli, col_widths=info_col_widths)
+        tabla_cli.setStyle(
+            TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 1),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                ]
+            )
+        )
+        story.append(tabla_cli)
+        story.append(Spacer(1, 0.2 * cm))
 
-    # ============= TABLA DE ÍTEMS =============
+    # 5. Items Table
     if datos_tabla and len(datos_tabla) > 1:
-        ancho_tabla = ancho - (2 * margen_x)
+        header_map = {
+            "ARTICULO": "Artículo",
+            "ARTÍCULO": "Artículo",
+            "DESCRIPCION": "Descripción",
+            "DESCRIPCIÓN": "Descripción",
+            "CANTIDAD": "Cantidad",
+            "PRECIO UNITARIO": "Precio Unit.",
+            "PRECIO UNIT": "Precio Unit.",
+            "TOTAL": "Total",
+            "TOTAL NETO": "Total Neto",
+        }
+        headers = [
+            header_map.get(str(header).strip().upper(), header)
+            for header in datos_tabla[0]
+        ]
+        data = datos_tabla[1:]
+        
+        # Estimate column widths for 5 columns
+        ancho_total = doc.width
+        # Distribute: [12%, 43%, 12%, 15%, 18%]
         col_widths = [
-            0.10 * ancho_tabla,
-            0.45 * ancho_tabla,
-            0.12 * ancho_tabla,
-            0.16 * ancho_tabla,
-            0.17 * ancho_tabla,
+            0.12 * ancho_total,
+            0.43 * ancho_total,
+            0.12 * ancho_total,
+            0.15 * ancho_total,
+            0.18 * ancho_total,
         ]
 
-        tabla = Table(datos_tabla, colWidths=col_widths)
-        tabla.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), COLOR_PRIMARIO),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 9),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-            ("TOPPADDING", (0, 0), (-1, 0), 8),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 8),
-            ("ALIGN", (0, 1), (0, -1), "CENTER"),
-            ("ALIGN", (2, 1), (2, -1), "CENTER"),
-            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, COLOR_FONDO_HEADER]),
-            ("TOPPADDING", (0, 1), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ]))
+        tabla_items = create_data_table(headers, data, col_widths)
+        tabla_items.setStyle(
+            TableStyle(
+                [
+                    ("FONTSIZE", (0, 0), (-1, 0), 9),
+                    ("TOPPADDING", (0, 0), (-1, 0), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+        story.append(tabla_items)
+        story.append(Spacer(1, 0.35 * cm))
 
-        table_width, table_height = tabla.wrap(0, 0)
-        if y_pos - table_height < 100:
-            pdf.showPage()
-            y_pos = alto - margen_y
-            
-        table_y = y_pos - table_height
-        tabla.drawOn(pdf, margen_x, table_y)
-        y_pos = table_y - 20
+    # 6. Totales
+    totales_data = [
+        ["Neto:", neto_orden],
+        ["IVA:", iva_orden],
+        ["TOTAL:", total_orden]
+    ]
+    t_totales = Table(totales_data, colWidths=[3.5*cm, 4*cm], hAlign="RIGHT")
+    t_totales.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
+        ("LINEABOVE", (0, 2), (-1, 2), 0.5, colors.black),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    story.append(t_totales)
+    story.append(Spacer(1, 0.6 * cm))
 
-    # ============= TOTALES =============
-    totales_x = ancho - margen_x - 180
-
-    pdf.setFont("Helvetica", 10)
-    pdf.setFillColor(COLOR_TEXTO)
-
-    pdf.drawString(totales_x, y_pos, "Neto:")
-    pdf.drawRightString(ancho - margen_x, y_pos, neto_orden)
-    y_pos -= 14
-
-    pdf.drawString(totales_x, y_pos, "IVA (19%):")
-    pdf.drawRightString(ancho - margen_x, y_pos, iva_orden)
-    y_pos -= 14
-
-    pdf.setStrokeColor(COLOR_TEXTO)
-    pdf.setLineWidth(0.5)
-    pdf.line(totales_x, y_pos + 2, ancho - margen_x, y_pos + 2)
-
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.setFillColor(COLOR_PRIMARIO)
-    pdf.drawString(totales_x, y_pos - 10, "TOTAL:")
-    pdf.drawRightString(ancho - margen_x, y_pos - 10, total_orden)
-    y_pos -= 45
-
-    # ============= OBSERVACIONES =============
+    # 7. Observaciones
     if comentarios_orden and comentarios_orden != "Sin observaciones":
-        pdf.setFont("Helvetica-Bold", 10)
-        pdf.setFillColor(COLOR_PRIMARIO)
-        pdf.drawString(margen_x, y_pos, "Observaciones:")
-        y_pos -= 14
-
-        pdf.setFont("Helvetica", 9)
-        pdf.setFillColor(COLOR_TEXTO)
-
-        max_chars = 95
-        texto = comentarios_orden
-        while texto:
-            linea = texto[:max_chars]
-            if len(texto) > max_chars:
-                ultimo_espacio = linea.rfind(' ')
-                if ultimo_espacio > 0:
-                    linea = texto[:ultimo_espacio]
-                    texto = texto[ultimo_espacio + 1:]
-                else:
-                    texto = texto[max_chars:]
-            else:
-                texto = ""
-            pdf.drawString(margen_x, y_pos, linea)
-            y_pos -= 12
-        y_pos -= 20
-
-    # ============= BLOQUES DE FIRMA =============
-    if y_pos < 120:
-        pdf.showPage()
-        y_pos = alto - 100
-
-    f_ancho = 180
-    y_firma = 100
-    if y_pos < 150:
-        y_firma = y_pos - 60
+        story.append(Paragraph("Observaciones:", styles["Label"]))
+        story.append(Paragraph(comentarios_orden, styles["BodyText"]))
+        story.append(Spacer(1, 0.6 * cm))
     
-    pdf.setStrokeColor(COLOR_TEXTO)
-    pdf.setLineWidth(0.5)
-    pdf.line(margen_x, y_firma, margen_x + f_ancho, y_firma)
-    pdf.setFont("Helvetica", 8)
-    pdf.drawCentredString(margen_x + f_ancho/2, y_firma - 12, "AUTORIZADO POR")
-    
-    pdf.line(ancho - margen_x - f_ancho, y_firma, ancho - margen_x, y_firma)
-    pdf.drawCentredString(ancho - margen_x - f_ancho/2, y_firma - 12, "RECIBIDO CONFORME PROVEEDOR")
-
-    # ============= PIE DE PÁGINA =============
-    pdf.setStrokeColor(COLOR_SECUNDARIO)
-    pdf.setLineWidth(1)
-    pdf.line(margen_x, margen_y + 30, ancho - margen_x, margen_y + 30)
-
-    pdf.setFont("Helvetica", 8)
-    pdf.setFillColor(COLOR_TEXTO)
-    pdf.drawCentredString(
-        ancho / 2,
-        margen_y + 15,
-        f"Documento generado automáticamente - {nombre_empresa}"
+    # 9. Build with NumberedCanvas
+    doc.build(
+        story,
+        onFirstPage=_draw_header_footer,
+        onLaterPages=_draw_header_footer,
+        canvasmaker=NumberedCanvas,
     )
-    if sitio_web_empresa:
-        pdf.drawCentredString(ancho / 2, margen_y + 5, sitio_web_empresa)
-
-    pdf.save()
     buffer.seek(0)
+    return buffer
 
 
 def generar_pdf_bodega(*args, **kwargs):
@@ -291,7 +258,6 @@ def generar_pdf_bodega(*args, **kwargs):
 def generar_pdf_bodega_resumido(*args, **kwargs):
     """Placeholder for generar_pdf_bodega_resumido."""
     return BytesIO()
-
 
 def crear_equipos_para_items_guia(guia_salida, usuario_empresa):
     """

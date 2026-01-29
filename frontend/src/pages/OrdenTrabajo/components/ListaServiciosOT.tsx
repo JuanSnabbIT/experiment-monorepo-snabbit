@@ -6,37 +6,37 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
+	ModalBody,
+	ModalFooter,
+	ModalFooterChild,
+	ModalHeader,
 } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import Collapse from '@/components/utils/Collapse';
 import ApiService from '@/services/ApiService';
-import { confirmAlert } from '@/utils/sweetAlert';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 import {
-    checkCompletibilidadOTThunk,
-    detalleOrdenTrabajoThunk,
-    eliminarServicioGeneralThunk,
-    listaServiciosGeneralesThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
+	checkCompletibilidadOTThunk,
+	detalleOrdenTrabajoThunk,
+	eliminarServicioGeneralThunk,
+	listaServiciosGeneralesThunk,
+	listaTecnicosThunk,
+	useAppDispatch,
+	useAppSelector,
 } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    SortingState,
-    useReactTable,
+	createColumnHelper,
+	flexRender,
+	getCoreRowModel,
+	getFilteredRowModel,
+	getPaginationRowModel,
+	getSortedRowModel,
+	SortingState,
+	useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -45,10 +45,15 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearServicioEnOT from '../modals/CrearServicioEnOT';
+import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
 import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import VincularCotizacion from '../modals/VincularCotizacion';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
-import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
+
+// ⚠️ DEPRECATED NOTICE (2026-01):
+// La funcionalidad de vincular guías directamente a servicios está deprecada.
+// Las guías deben vincularse a la OT, no a servicios/soportes individuales.
+// Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
 
 function ListaServiciosOT() {
 	const dispatch = useAppDispatch();
@@ -84,21 +89,28 @@ function ListaServiciosOT() {
 	// Vincular guía
 	const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false);
 	const [guiaSeleccionada, setGuiaSeleccionada] = useState<string | null>(null);
-	const [guiasDisponibles, setGuiasDisponibles] = useState<{ value: string; label: string }[]>([]);
+	const [guiasDisponibles, setGuiasDisponibles] = useState<{ value: string; label: string }[]>(
+		[],
+	);
 	const [servicioParaGuia, setServicioParaGuia] = useState<number | null>(null);
 	const [isOpenEntregaGuia, setIsOpenEntregaGuia] = useState<boolean>(false);
 	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
 	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
-	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<"E" | "PR">("E");
-	
+	const [estadoEntregaGuia, setEstadoEntregaGuia] = useState<'E' | 'PR'>('E');
+
 	// Modal de firma para completar trabajo
 	const [isOpenFirmaModal, setIsOpenFirmaModal] = useState(false);
 	const [firmaTrabajoId, setFirmaTrabajoId] = useState<number>(0);
 	const [firmaTrabajoTipo, setFirmaTrabajoTipo] = useState<'servicio' | 'soporte'>('servicio');
-	const [firmaEstadoFinal, setFirmaEstadoFinal] = useState<'completado' | 'medianamente_completado'>('completado');
+	const [firmaEstadoFinal, setFirmaEstadoFinal] = useState<
+		'completado' | 'medianamente_completado'
+	>('completado');
 	const [firmaTecnicoNombre, setFirmaTecnicoNombre] = useState<string>('Técnico');
 	const [firmaComentariosTecnicos, setFirmaComentariosTecnicos] = useState<any[]>([]);
 
+	// ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+	// Para reactivar carga de guías para servicios, descomenta:
+	/*
 	const cargarGuiasDisponibles = async () => {
 		if (!detalleOrdenTrabajo) return;
 		try {
@@ -115,7 +127,11 @@ function ListaServiciosOT() {
 			toast.error(e?.response?.data?.detail || 'No se pudieron cargar las guías disponibles');
 		}
 	};
+	*/
 
+	// ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+	// Para reactivar vinculación de guías a servicios, descomenta:
+	/*
 	const vincularGuia = async () => {
 		if (!detalleOrdenTrabajo || !servicioParaGuia || !guiaSeleccionada) return;
 		try {
@@ -133,7 +149,11 @@ function ListaServiciosOT() {
 			toast.error(msg);
 		}
 	};
+	*/
 
+	// ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+	// Para reactivar desvinculación de guías de servicios, descomenta:
+	/*
 	const desvincularGuia = async (servicioId: number) => {
 		if (!detalleOrdenTrabajo) return;
 		const ok = await confirmAlert({
@@ -156,7 +176,8 @@ function ListaServiciosOT() {
 			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
 			toast.error(msg);
 		}
-	};
+	}
+	*/
 
 	const abrirModalEntregaGuia = (guia: any, estadoTrabajo: string) => {
 		if (!guia?.id) return;
@@ -186,7 +207,6 @@ function ListaServiciosOT() {
 								comentario,
 								tipo: 'incidencia',
 								usuario: null,
-								servicio: selectedService.id,
 							}),
 						});
 						fetchSeguimientosServicio(selectedService.id);
@@ -213,10 +233,7 @@ function ListaServiciosOT() {
 				setFechaEnModal(undefined);
 
 				// Refresh OT details if we auto-started it
-				if (
-					estadoNuevo === 'en_proceso' &&
-					detalleOrdenTrabajo.estado === 'pendiente'
-				) {
+				if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
 					dispatch(
 						detalleOrdenTrabajoThunk({
 							id_ordenTrabajo: detalleOrdenTrabajo.id,
@@ -253,7 +270,8 @@ function ListaServiciosOT() {
 			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
 			dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
 		} catch (e: any) {
-			const msg = e?.response?.data?.detail || e?.message || 'No se pudo iniciar el servicio.';
+			const msg =
+				e?.response?.data?.detail || e?.message || 'No se pudo iniciar el servicio.';
 			toast.error(msg);
 		}
 	};
@@ -272,11 +290,7 @@ function ListaServiciosOT() {
 				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioId}/seguimientos/`,
 				method: 'get',
 			});
-			// Filtrar seguimientos para excluir los de tipo 'actualizacion'
-			const seguimientosFiltrados = (resp.data || []).filter(
-				(seg: any) => seg.tipo !== 'actualizacion'
-			);
-			setSeguimientos(seguimientosFiltrados);
+			setSeguimientos(resp.data || []);
 		} catch (e) {
 			toast.error('No se pudieron cargar los seguimientos');
 		} finally {
@@ -396,22 +410,30 @@ function ListaServiciosOT() {
 					estadoLower === 'medianamente completado';
 				const isNoRealizado =
 					estadoLower === 'no_realizado' || estadoLower === 'no realizado';
+				const isFinalState = isCompletado || isMedianamenteCompletado || isNoRealizado;
+
 				const hasTecnico = !!info.row.original.tecnico_asignado;
 				const hasFecha = !!info.row.original.fecha_servicio;
 				const requierePrereqs = isPendiente;
-				const guia = info.row.original.guia_salida;
-				const guiaListo = !guia || ['FR', 'ET', 'E', 'T'].includes(guia.estado);
+				// Validar TODAS las guías de la OT (no solo per-trabajo)
+				const guiasOT = detalleOrdenTrabajo?.guias_salida || [];
+				const guiasTodosFirmadas =
+					guiasOT.length === 0 || guiasOT.every((g: any) => ['FR', 'ET', 'E', 'T'].includes(g.estado));
+				const guiaListo = guiasTodosFirmadas;
 				const faltaBasicos = !hasTecnico || !hasFecha;
 
 				// Validación OT Padre (Normalización de estados)
 				const hasOTFecha = !!detalleOrdenTrabajo?.fecha_inicio_ot;
 				// Verificar responsable: puede estar en responsable_empresa O tecnico_responsable_ot
-				const hasOTResponsable = !!(detalleOrdenTrabajo?.responsable_empresa || detalleOrdenTrabajo?.tecnico_responsable_ot);
+				const hasOTResponsable = !!(
+					detalleOrdenTrabajo?.responsable_empresa ||
+					detalleOrdenTrabajo?.tecnico_responsable_ot
+				);
 				const faltaOTConfig = !hasOTFecha || !hasOTResponsable;
 
 				const canStart = !requierePrereqs || (!faltaBasicos && guiaListo && !faltaOTConfig);
 
-				let tooltipText = 'Cambiar estado';
+				let tooltipText = 'Confirmar y pasar a En proceso';
 				if (!canStart && requierePrereqs) {
 					if (faltaOTConfig) {
 						tooltipText =
@@ -419,7 +441,8 @@ function ListaServiciosOT() {
 					} else if (faltaBasicos) {
 						tooltipText = 'Requiere técnico asignado y fecha de servicio para iniciar';
 					} else if (!guiaListo) {
-						tooltipText = 'Debes firmar la Guía de Salida (Firmada/En Tránsito) para iniciar';
+						tooltipText =
+							'Todas las Guías de Salida de la OT deben estar firmadas (Firmada/En Tránsito) para iniciar';
 					}
 				}
 
@@ -435,23 +458,50 @@ function ListaServiciosOT() {
 									? 'HeroXMark'
 									: undefined;
 
-				// Si está en proceso, mostrar dropdown con estados finales
+				// CASO 1: Estados finales (Completado, Medianamente Completado, No Realizado)
+				// → Botón gris deshabilitado, SIN Tooltip, SIN onClick
+				if (isFinalState) {
+					return (
+						<Button
+							size='sm'
+							variant='solid'
+							rounded='rounded-full'
+							color={estadoBadgeColor(estadoStr)}
+							icon={estadoIcon}
+							aria-disabled
+							tabIndex={-1}
+							className='cursor-not-allowed pointer-events-none'>
+							{estadoStr}
+						</Button>
+					);
+				}
+
+				// CASO 2: En proceso
+				// → Renderizar DropdownEstadoTrabajo para cambiar a estados finales
 				if (isEnProceso) {
 					return (
 						<DropdownEstadoTrabajo
 							onSelectEstado={async (estado) => {
-								// Para completado y medianamente_completado, el endpoint /completar-trabajo/
-								// ya actualizó el estado, solo necesitamos refrescar
-								if (estado === 'completado' || estado === 'medianamente_completado') {
-									// Solo refrescar los datos, el estado ya fue actualizado por el modal
+								// Para completado y medianamente_completado, el endpoint ya actualizó el estado
+								if (
+									estado === 'completado' ||
+									estado === 'medianamente_completado'
+								) {
 									if (detalleOrdenTrabajo) {
-										dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-										dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+										dispatch(
+											listaServiciosGeneralesThunk({
+												id_orden: detalleOrdenTrabajo.id,
+											}),
+										);
+										dispatch(
+											checkCompletibilidadOTThunk({
+												id_orden: detalleOrdenTrabajo.id,
+											}),
+										);
 									}
 									return;
 								}
-								
-								// Para otros estados (no_realizado), hacer el cambio normal
+								// Para no_realizado, hacer el cambio normal
 								if (!detalleOrdenTrabajo) return;
 								try {
 									await ApiService.fetchData({
@@ -460,11 +510,23 @@ function ListaServiciosOT() {
 										headers: { 'Content-Type': 'application/json' },
 										data: JSON.stringify({ estado }),
 									});
-									toast.success(`Estado cambiado a ${estado}`, { autoClose: 1000 });
-									dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-									dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+									toast.success(`Estado cambiado a ${estado}`, {
+										autoClose: 1000,
+									});
+									dispatch(
+										listaServiciosGeneralesThunk({
+											id_orden: detalleOrdenTrabajo.id,
+										}),
+									);
+									dispatch(
+										checkCompletibilidadOTThunk({
+											id_orden: detalleOrdenTrabajo.id,
+										}),
+									);
 								} catch (e: any) {
-									const msg = Object.values(e?.response?.data || {}).flat().join(' ');
+									const msg = Object.values(e?.response?.data || {})
+										.flat()
+										.join(' ');
 									toast.error(msg || 'Error al cambiar el estado');
 								}
 							}}
@@ -474,11 +536,14 @@ function ListaServiciosOT() {
 							servicioId={info.row.original.id}
 							clienteId={detalleOrdenTrabajo?.cliente}
 							tecnicoNombre={info.row.original.nombre_tecnico || 'Técnico'}
-							// Props para controlar el modal desde el padre
 							onOpenModal={(trabajoId, tipo, estado, tecnico, comentarios) => {
 								setFirmaTrabajoId(trabajoId);
 								setFirmaTrabajoTipo(tipo);
-								setFirmaEstadoFinal(estado);
+								setFirmaEstadoFinal(
+									estado === 'completado'
+										? 'completado'
+										: 'medianamente_completado',
+								);
 								setFirmaTecnicoNombre(tecnico);
 								setFirmaComentariosTecnicos(comentarios);
 								setIsOpenFirmaModal(true);
@@ -487,7 +552,8 @@ function ListaServiciosOT() {
 					);
 				}
 
-				// Para pendiente y estados finales, mostrar botón simple
+				// CASO 3: Pendiente
+				// → Tooltip + Button que llama a iniciarServicio() con confirmación
 				return (
 					<Tooltip text={tooltipText}>
 						<div className={!canStart ? 'inline-block' : ''}>
@@ -495,17 +561,12 @@ function ListaServiciosOT() {
 								size='sm'
 								variant={!canStart ? 'outline' : 'solid'}
 								rounded='rounded-full'
-								color={!canStart ? 'amber' : estadoBadgeColor(estadoStr)}
+								color={!canStart ? 'amber' : 'amber'}
 								icon={estadoIcon}
 								isDisable={!canStart}
 								onClick={() => {
 									if (!canStart) return;
-									if (estadoLower === 'pendiente') {
-										iniciarServicio(info.row.original);
-										return;
-									}
-									setSelectedService(info.row.original);
-									setIsOpenEstado(true);
+									iniciarServicio(info.row.original);
 								}}
 								aria-label={estadoStr}
 								title={estadoStr}
@@ -651,33 +712,36 @@ function ListaServiciosOT() {
 								</Tooltip>
 							</>
 						)}
-						{isPendiente && (
-							<>
-								{!info.row.original.guia_salida ? (
-									<Tooltip text='Vincular Guía de Salida'>
-										<Button
-											variant='solid'
-											color='emerald'
-											icon='HeroLink'
-											onClick={() => {
-												setServicioParaGuia(info.row.original.id);
-												setGuiaSeleccionada(null);
-												setIsOpenGuia(true);
-												cargarGuiasDisponibles();
-											}}
-										/>
-									</Tooltip>
-								) : (
-									<Tooltip text='Desvincular Guía de Salida'>
-										<Button
-											variant='solid'
-											color='red'
-											icon='HeroLink'
-											onClick={() => desvincularGuia(info.row.original.id)}
-										/>
-									</Tooltip>
-								)}
-							</>
+						{!info.row.original.guia_salida ? (
+							// ⚠️ DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
+							// Para reactivar: descomentar y verificar que modal esté actualizado
+							/*
+							<Tooltip text='Vincular Guía de Salida'>
+								<Button
+									variant='solid'
+									color='emerald'
+									icon='HeroLink'
+									onClick={() => {
+										setServicioParaGuia(info.row.original.id);
+										setGuiaSeleccionada(null);
+										setIsOpenGuia(true);
+										cargarGuiasDisponibles();
+									}}
+								/>
+							</Tooltip>
+							*/
+							null
+						) : (
+							// ⚠️ DESHABILITADO: Botón de desvinculación antigua comentado
+							// Para reactivar: descomentar onClick
+							<Tooltip text='Desvincular Guía de Salida [DESHABILITADO]'>
+								<Button
+									variant='solid'
+									color='red'
+									icon='HeroLink'
+									// onClick={() => desvincularGuia(info.row.original.id)}
+								/>
+							</Tooltip>
 						)}
 					</div>
 				);
@@ -750,7 +814,7 @@ function ListaServiciosOT() {
 	const formikTecnico = useFormik({
 		enableReinitialize: true,
 		initialValues: {
-			tipo_seguimiento: 'comentario_tecnico',
+			tipo_seguimiento: 'actualizacion',
 			comentario: 'Técnico agregado',
 			tecnico_asignado: '',
 		},
@@ -812,7 +876,6 @@ function ListaServiciosOT() {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				data: JSON.stringify({
-					servicio: selectedService.id,
 					usuario: null,
 					tipo: tipoSeguimiento || 'comentario_tecnico',
 					comentario: comentarioSeguimiento,
@@ -848,7 +911,7 @@ function ListaServiciosOT() {
 				</CardHeaderChild>
 			</CardHeader>
 			<CardBody>
-				<div className='mt-2 overflow-y-scroll'>
+				<div className='mt-2 overflow-auto'>
 					{serviciosFiltrados && serviciosFiltrados.length > 0 ? (
 						<>
 							<Table className='min-w-[800px] table-fixed'>
@@ -961,80 +1024,60 @@ function ListaServiciosOT() {
 									</div>
 								</div>
 							</div>
-							<div className='col-span-2 mt-4'>
-								<div className='mb-3 flex items-center justify-between'>
-									<Badge className='text-base'>Seguimientos del Trabajo</Badge>
-									<span className='text-xs text-gray-500'>
-										{seguimientos.length} registro{seguimientos.length !== 1 ? 's' : ''}
-									</span>
+							<div className='col-span-2 mt-3'>
+								<div className='mb-2'>
+									<Badge>Seguimientos</Badge>
 								</div>
-								<div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+								<div className='mt-2 max-h-48 overflow-auto rounded-lg border'>
 									{cargandoSeguimientos ? (
-										<div className='flex items-center justify-center py-8'>
-											<div className='text-sm text-gray-500'>Cargando seguimientos...</div>
+										<div className='py-4 text-center text-sm text-gray-500'>
+											Cargando...
 										</div>
 									) : seguimientos.length > 0 ? (
-										<ul className='divide-y divide-gray-200'>
-											{seguimientos.map((seg, idx) => {
-												const tipoConfig: Record<string, { color: any; bgColor: string; borderColor: string; textColor: string; icon: string }> = {
-													incidencia: { color: 'red', bgColor: 'bg-red-50', borderColor: 'border-red-200', textColor: 'text-red-700', icon: '⚠️' },
-													comentario_tecnico: { color: 'blue', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-700', icon: '🔧' },
-													comunicacion_usuario: { color: 'purple', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', textColor: 'text-purple-700', icon: '💬' },
-													default: { color: 'zinc', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', textColor: 'text-gray-700', icon: '📝' },
-												};
-												const config = tipoConfig[seg.tipo as keyof typeof tipoConfig] || tipoConfig.default;
-												return (
-													<li
-														key={seg.id}
-														className={`p-4 transition-all hover:bg-white ${config.bgColor} ${config.borderColor} border-l-4`}>
-														<div className='flex items-start gap-3'>
-															<span className='text-2xl'>{config.icon}</span>
-															<div className='flex-1'>
-																<div className='mb-2 flex items-center justify-between gap-2'>
-																	<div className='flex items-center gap-2'>
-																		<Badge
-																			color={config.color as any}
-																			className='text-xs font-semibold uppercase'>
-																			{TIPO_SEGUIMIENTO.find(t => t.value === seg.tipo)?.label || seg.tipo}
-																		</Badge>
-																		{idx === 0 && (
-																			<span className='text-xs font-semibold text-emerald-600 uppercase tracking-wide'>
-																				✓ Más reciente
-																			</span>
-																		)}
-																	</div>
-																	<div className='flex flex-col items-end gap-1'>
-																		<span className='text-xs font-medium text-gray-600'>
-																			{seg.fecha_creacion
-																				? dayjs(seg.fecha_creacion).locale('es').format('DD/MM/YYYY')
-																				: ''}
-																		</span>
-																		<span className='text-xs text-gray-500'>
-																			{seg.fecha_creacion
-																				? dayjs(seg.fecha_creacion).locale('es').format('HH:mm')
-																				: ''}
-																		</span>
-																	</div>
-																</div>
-																{seg.usuario_nombre && (
-																	<div className='mb-2 text-xs text-gray-600'>
-																		<span className='font-medium'>Por:</span> {seg.usuario_nombre}
-																	</div>
+										<ul className='divide-y'>
+											{seguimientos.map((seg, idx) => (
+												<li
+													key={seg.id}
+													className='p-3 transition-colors hover:bg-gray-50'>
+													<div className='flex items-start justify-between gap-2'>
+														<div className='flex-1'>
+															<div className='mb-1 flex items-center gap-2'>
+																<Badge
+																	color={
+																		seg.tipo === 'incidencia'
+																			? 'red'
+																			: seg.tipo ===
+																				  'actualizacion'
+																				? 'blue'
+																				: 'zinc'
+																	}
+																	className='text-xs'>
+																	{seg.tipo ?? 'seguimiento'}
+																</Badge>
+																{idx === 0 && (
+																	<span className='text-xs font-medium text-emerald-600'>
+																		Más reciente
+																	</span>
 																)}
-																<p className={`whitespace-pre-wrap text-sm leading-relaxed ${config.textColor}`}>
-																	{seg.comentario || 'Sin comentario'}
-																</p>
 															</div>
+															<p className='whitespace-pre-wrap text-sm text-gray-700'>
+																{seg.comentario || 'Sin comentario'}
+															</p>
 														</div>
-													</li>
-												);
-											})}
+														<span className='whitespace-nowrap text-xs text-gray-500'>
+															{seg.fecha_creacion
+																? dayjs(seg.fecha_creacion)
+																		.locale('es')
+																		.format('DD/MM HH:mm')
+																: ''}
+														</span>
+													</div>
+												</li>
+											))}
 										</ul>
 									) : (
-										<div className='flex flex-col items-center justify-center py-8'>
-											<span className='mb-2 text-4xl'>📋</span>
-											<p className='text-sm font-medium text-gray-600'>No hay seguimientos registrados</p>
-											<p className='text-xs text-gray-500'>Los seguimientos aparecerán aquí cuando se agreguen</p>
+										<div className='py-4 text-center text-sm text-gray-500'>
+											No hay seguimientos registrados
 										</div>
 									)}
 								</div>
@@ -1063,10 +1106,12 @@ function ListaServiciosOT() {
 							<Badge>Tipo</Badge>
 							<SelectReact
 								name='tipoSeguimiento'
-								options={TIPO_SEGUIMIENTO.filter((t) => t.value !== 'actualizacion')}
+								options={TIPO_SEGUIMIENTO}
 								value={TIPO_SEGUIMIENTO.find((t) => t.value === tipoSeguimiento)}
 								onChange={(e: any) =>
-									setTipoSeguimiento((e as TSelectOption)?.value || 'comentario_tecnico')
+									setTipoSeguimiento(
+										(e as TSelectOption)?.value || 'comentario_tecnico',
+									)
 								}
 							/>
 						</div>
@@ -1161,6 +1206,8 @@ function ListaServiciosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
+			{/* ⚠️ MODAL ANTIGUO DESHABILITADO (2026-01)
+			Para reactivar modal de vinculación de guías a servicios, descomenta y reinstancia la lógica de cargar guías disponibles y vincular.
 			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
 				<ModalHeader>
 					<Badge>Vincular Guía de Salida</Badge>
@@ -1195,6 +1242,7 @@ function ListaServiciosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
+			*/}
 
 			{/* Modal para cambio de estado (Servicios Generales) */}
 			<Modal isOpen={isOpenEstado} setIsOpen={setIsOpenEstado}>
@@ -1492,26 +1540,28 @@ function ListaServiciosOT() {
 					}}
 				/>
 			)}
-			{/* Modal de firma para completar trabajo */}
-			{detalleOrdenTrabajo && (
-				<FirmarCompletarTrabajo
-					ordenId={detalleOrdenTrabajo.id}
-					trabajoId={firmaTrabajoId}
-					trabajoTipo={firmaTrabajoTipo}
-					estadoFinal={firmaEstadoFinal}
-					clienteId={detalleOrdenTrabajo.cliente}
-					tecnicoNombre={firmaTecnicoNombre}
-					comentariosTecnicos={firmaComentariosTecnicos}
-					isOpen={isOpenFirmaModal}
-					setIsOpen={setIsOpenFirmaModal}
-					onSuccess={() => {
-						if (detalleOrdenTrabajo) {
-							dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-							dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-						}
-					}}
-				/>
-			)}
+
+			{/* Modal Firmar y Completar Trabajo */}
+			<FirmarCompletarTrabajo
+				ordenId={detalleOrdenTrabajo?.id || 0}
+				trabajoId={firmaTrabajoId}
+				trabajoTipo={firmaTrabajoTipo}
+				estadoFinal={firmaEstadoFinal}
+				clienteId={detalleOrdenTrabajo?.cliente || 0}
+				tecnicoNombre={firmaTecnicoNombre}
+				comentariosTecnicos={firmaComentariosTecnicos}
+				isOpen={isOpenFirmaModal}
+				setIsOpen={setIsOpenFirmaModal}
+				onSuccess={() => {
+					setIsOpenFirmaModal(false);
+					if (detalleOrdenTrabajo) {
+						dispatch(
+							listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }),
+						);
+						dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+					}
+				}}
+			/>
 		</Card>
 	);
 }

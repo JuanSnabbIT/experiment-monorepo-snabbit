@@ -1,4 +1,4 @@
-import { ICompra } from './bodega.interface';
+import { ICompra, IItemGuiaSalida } from './bodega.interface';
 import { ICotizacion } from './cotizaciones.interface';
 import { IVisitaSoporte } from './visitas.interface';
 
@@ -26,6 +26,7 @@ export interface IOrdenDeTrabajo {
 	servicios_count?: number;
 	cierre_administrativo?: ICierreAdministrativoOT | null;
 	rendicion_asociada_id?: number | null;
+	guias_salida?: Array<{ id: number; estado: string }>;
 	// Campos legacy (mantener para compatibilidad temporal)
 	responsable_empresa?: null | number;
 	solicitante_empresa?: number | null;
@@ -89,6 +90,7 @@ export interface ISeguimientoOrden {
 
 export interface ISeguimientoItemOT {
 	id: number;
+	orden?: number | null;
 	servicio: number | null;
 	servicio_nombre: string | null;
 	soporte: number | null;
@@ -195,11 +197,16 @@ export interface IInsumo {
 		id: number;
 		motivo: string;
 		cantidad_items: number;
+		cantidad_rebajada_total: number;
+		cantidad_devuelta_total: number;
+		nombre_usuario_creador: string;
+		cliente_nombre: string;
 		estado: string;
 		estado_label: string;
 	} | null;
 	estado_label: string;
-	tipo?: 'soporte' | 'servicio';
+	tipo?: 'soporte' | 'servicio' | 'guia_directa';
+	items?: IItemGuiaSalida[];
 }
 
 export interface ICheckCompletibilidad {
@@ -345,12 +352,15 @@ export interface IServicioEnOT {
 export interface IUsuarioAsignadoSoporte {
 	id: number;
 	soporte_tecnico: number;
-	usuario_equipo: number;
+	usuario_equipo: number | null;
+	usuario_empresa?: number | null;
 	nombre_usuario: string;
-	numero_serie_equipo: string;
-	tipo_equipo: string;
+	numero_serie_equipo?: string | null;
+	tipo_equipo?: string | null;
+	equipo_id?: number | null;
 	trabajo_realizado: string;
 	resuelto: boolean;
+	cache_asignacion?: Record<string, unknown> | null;
 	fecha_creacion: string;
 	fecha_modificacion: string;
 }

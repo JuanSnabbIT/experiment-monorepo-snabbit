@@ -10,7 +10,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import type { IBodega, ICompra, IItemEnCompra, IItemGuiaSalida, IVoucherDevolucion } from '@/interface/bodega.interface';
+import type { IBodega, ICompra, IItemEnCompra, IVoucherDevolucion } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
 import {
     checkCompletibilidadOTThunk,
@@ -32,16 +32,6 @@ type CompraItemDevolucion = {
 	seleccionado: boolean;
 };
 
-type GuiaItemDevolucion = {
-	guiaId: number;
-	itemId: number;
-	nombre: string;
-	cantidad_total: number;
-	cantidad_disponible: number;
-	cantidad_a_devolver: number;
-	seleccionado: boolean;
-};
-
 function CompletarOT() {
 	const dispatch = useAppDispatch();
 	const { detalleOrdenTrabajo, checkCompletibilidadOT, listaSoportesTecnicos } = useAppSelector(
@@ -49,12 +39,10 @@ function CompletarOT() {
 	);
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 	const [tieneCompras, setTieneCompras] = useState<boolean>(false);
-	const [tieneGuiasParciales, setTieneGuiasParciales] = useState<boolean>(false);
 	const [cargandoInsumos, setCargandoInsumos] = useState<boolean>(false);
 	const [todosItemsCompradosUsados, setTodosItemsCompradosUsados] = useState<boolean>(true);
 	const [procesando, setProcesando] = useState<boolean>(false);
 	const [comprasItems, setComprasItems] = useState<CompraItemDevolucion[]>([]);
-	const [guiasItems, setGuiasItems] = useState<GuiaItemDevolucion[]>([]);
 	const [listaBodegas, setListaBodegas] = useState<IBodega[]>([]);
 	const [bodegaSeleccionada, setBodegaSeleccionada] = useState<number | null>(null);
 
@@ -104,46 +92,6 @@ function CompletarOT() {
 			setComprasItems(itemsCompra);
 			setTieneCompras(itemsCompra.length > 0);
 
-			const insumosResponse = await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/insumos/?solo_pr=true`,
-				method: 'get',
-			});
-			const insumos = Array.isArray(insumosResponse.data) ? insumosResponse.data : [];
-			const guiaIds = Array.from(
-				new Set(insumos.map((item) => item?.guia?.id).filter(Boolean)),
-			) as number[];
-
-			const guiasConItems = await Promise.all(
-				guiaIds.map(async (guiaId) => {
-					const itemsResponse = await ApiService.fetchData<IItemGuiaSalida[]>({
-						url: `/api/guia-salida/${guiaId}/items-guia/`,
-						method: 'get',
-					});
-					return { guiaId, items: itemsResponse.data || [] };
-				}),
-			);
-
-			const itemsGuia: GuiaItemDevolucion[] = [];
-			guiasConItems.forEach((guiaData) => {
-				guiaData.items.forEach((item) => {
-					const disponible = item.cantidad_rebajada - item.cantidad_devuelta;
-					if (disponible > 0) {
-						itemsGuia.push({
-							guiaId: guiaData.guiaId,
-							itemId: item.id,
-							nombre: item.datos_stock?.datos_item?.nombre || 'Item sin nombre',
-							cantidad_total: item.cantidad_rebajada,
-							cantidad_disponible: disponible,
-							cantidad_a_devolver: 0,
-							seleccionado: false,
-						});
-					}
-				});
-			});
-
-			setGuiasItems(itemsGuia);
-			setTieneGuiasParciales(itemsGuia.length > 0);
-
 			const bodegasResponse = await ApiService.fetchData<IBodega[]>({
 				url: '/api/bodegas/',
 				method: 'get',
@@ -186,10 +134,8 @@ function CompletarOT() {
 		if (!isOpen) {
 			setTodosItemsCompradosUsados(true);
 			setComprasItems([]);
-			setGuiasItems([]);
 			setBodegaSeleccionada(null);
 			setTieneCompras(false);
-			setTieneGuiasParciales(false);
 		}
 	}, [isOpen]);
 
@@ -223,41 +169,10 @@ function CompletarOT() {
 		);
 	};
 
-	const actualizarGuiaCantidad = (itemId: number, value: number) => {
-		setGuiasItems((prev) =>
-			prev.map((item) =>
-				item.itemId === itemId
-					? {
-							...item,
-							cantidad_a_devolver: Math.max(
-								0,
-								Math.min(value, item.cantidad_disponible),
-							),
-						}
-					: item,
-			),
-		);
-	};
-
-	const toggleGuiaSeleccion = (itemId: number, seleccionado: boolean) => {
-		setGuiasItems((prev) =>
-			prev.map((item) =>
-				item.itemId === itemId
-					? {
-							...item,
-							seleccionado,
-							cantidad_a_devolver: seleccionado ? item.cantidad_a_devolver : 0,
-						}
-					: item,
-			),
-		);
-	};
-
 	const procesarDevoluciones = async () => {
 		const devolucionesCompras = comprasItems.filter((item) => item.seleccionado);
-		const devolucionesGuias = guiasItems.filter((item) => item.seleccionado);
 
-		if (devolucionesCompras.length === 0 && devolucionesGuias.length === 0) {
+		if (devolucionesCompras.length === 0) {
 			throw new Error('Debes indicar al menos un item para devolver.');
 		}
 
@@ -277,42 +192,8 @@ function CompletarOT() {
 				);
 			}
 		});
-		devolucionesGuias.forEach((item) => {
-			if (item.cantidad_a_devolver <= 0) {
-				errores.push(`Item ${item.nombre}: indica una cantidad a devolver.`);
-				return;
-			}
-			if (item.cantidad_a_devolver > item.cantidad_disponible) {
-				errores.push(
-					`Item ${item.nombre}: cantidad a devolver excede lo disponible.`,
-				);
-			}
-		});
-
 		if (errores.length > 0) {
 			throw new Error(errores.join('\n'));
-		}
-
-		const devolucionesPorGuia = devolucionesGuias.reduce<
-			Record<number, { item_guia_id: number; cantidad_a_devolver: number }[]>
-		>((acc, item) => {
-			if (!acc[item.guiaId]) {
-				acc[item.guiaId] = [];
-			}
-			acc[item.guiaId].push({
-				item_guia_id: item.itemId,
-				cantidad_a_devolver: item.cantidad_a_devolver,
-			});
-			return acc;
-		}, {});
-
-		for (const guiaId of Object.keys(devolucionesPorGuia)) {
-			await ApiService.fetchData({
-				url: `/api/guia-salida/${guiaId}/devolver_a_bodega/`,
-				method: 'post',
-				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({ items: devolucionesPorGuia[Number(guiaId)] }),
-			});
 		}
 
 		const devolucionesPorCompra = devolucionesCompras.reduce<
@@ -390,8 +271,7 @@ function CompletarOT() {
 			setProcesando(true);
 
 			const requiereDevoluciones =
-				(!todosItemsCompradosUsados && comprasItems.length > 0) ||
-				guiasItems.length > 0;
+				!todosItemsCompradosUsados && comprasItems.length > 0;
 
 			if (requiereDevoluciones) {
 				await procesarDevoluciones();
@@ -452,11 +332,6 @@ function CompletarOT() {
 												Esta OT tiene compras registradas.
 											</div>
 										)}
-										{!cargandoInsumos && tieneGuiasParciales && (
-											<div className='rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700'>
-												Esta OT tiene Guias de Salida parcialmente revertidas.
-											</div>
-										)}
 										{tieneCompras && (
 											<div className='rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm'>
 												<label className='flex items-center gap-2'>
@@ -477,9 +352,9 @@ function CompletarOT() {
 											</div>
 										)}
 
-										{(!todosItemsCompradosUsados || guiasItems.length > 0) && (
+										{!todosItemsCompradosUsados && (
 											<div className='mt-4 flex flex-col gap-4'>
-												{!todosItemsCompradosUsados && comprasItems.length > 0 && (
+												{comprasItems.length > 0 && (
 													<div className='rounded-lg border border-gray-200 bg-gray-50 p-3'>
 														<div className='mb-3'>
 															<Badge>Items de Compras</Badge>
@@ -579,74 +454,6 @@ function CompletarOT() {
 														</div>
 													</div>
 												)}
-
-												{guiasItems.length > 0 && (
-													<div className='rounded-lg border border-gray-200 bg-gray-50 p-3'>
-														<div className='mb-3'>
-															<Badge>Items de Guias de Salida</Badge>
-														</div>
-														<div className='grid grid-cols-1 gap-2 text-sm text-gray-500 md:grid-cols-12'>
-															<div className='md:col-span-6'>Item</div>
-															<div className='md:col-span-2 text-center'>
-																Disponible
-															</div>
-															<div className='md:col-span-2 text-center'>
-																Seleccionar
-															</div>
-															<div className='md:col-span-2 text-center'>
-																Devolver
-															</div>
-														</div>
-														<div className='mt-2 flex flex-col gap-2'>
-															{guiasItems.map((item) => (
-																<div
-																	key={`guia-${item.itemId}`}
-																	className='grid grid-cols-1 gap-2 rounded border border-gray-200 bg-white p-2 md:grid-cols-12'>
-																	<div className='md:col-span-6'>
-																		<div className='font-medium'>
-																			{item.nombre}
-																		</div>
-																		<div className='text-xs text-gray-500'>
-																			Guia #{item.guiaId}
-																		</div>
-																	</div>
-																	<div className='md:col-span-2 text-center'>
-																		{item.cantidad_disponible}
-																	</div>
-																	<div className='md:col-span-2 flex justify-center'>
-																		<input
-																			type='checkbox'
-																			checked={item.seleccionado}
-																			onChange={(e) =>
-																				toggleGuiaSeleccion(
-																					item.itemId,
-																					e.target.checked,
-																				)
-																			}
-																		/>
-																	</div>
-																	<div className='md:col-span-2'>
-																		<Input
-																			name={`guia_devolver_${item.itemId}`}
-																			type='number'
-																			min='0'
-																			max={item.cantidad_disponible}
-																			value={item.cantidad_a_devolver}
-																			disabled={!item.seleccionado}
-																			onChange={(e) =>
-																				actualizarGuiaCantidad(
-																					item.itemId,
-																					Number(e.target.value),
-																				)
-																			}
-																		/>
-																	</div>
-																</div>
-															))}
-														</div>
-													</div>
-												)}
-
 											</div>
 										)}
 									</div>

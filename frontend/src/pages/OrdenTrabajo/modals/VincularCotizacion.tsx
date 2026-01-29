@@ -2,15 +2,23 @@ import SelectReact, { TSelectOption } from "@/components/form/SelectReact";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
-import TablaItemsTecnico from "@/pages/Cotizaciones/components/TablaItemsTecnico";
 import CrearCotizacion from "@/pages/Cotizaciones/modals/CrearCotizacion";
 import CrearItemCotizacion from "@/pages/Cotizaciones/modals/CrearItemCotizacion";
 import ApiService from "@/services/ApiService";
-import { detalleCotizacionThunk, listaCotizacionesThunk, useAppDispatch, useAppSelector } from "@/store";
-import { useEffect, useState } from "react";
+import { listaCotizacionesThunk, useAppDispatch, useAppSelector } from "@/store";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { getErrorMessage } from "@/utils/errorHandlers";
+import { ICotizacion } from "@/interface/cotizaciones.interface";
 
-type EntityType = 'servicio-general' | 'detalle-trabajo';
+type EntityType = 'servicio-general' | 'detalle-trabajo' | 'orden-trabajo';
+type ItemResumen = {
+    id: number;
+    item_id: number | null;
+    item_nombre: string;
+    cantidad_pedida: number;
+    cantidad_recibida: number;
+};
 
 interface VincularCotizacionProps {
     isOpen: boolean;
@@ -20,6 +28,7 @@ interface VincularCotizacionProps {
     ordenId: number;
     entityName?: string;
     onSuccess?: () => void;
+    clienteId?: number;
 }
 
 const VincularCotizacion = ({ 
@@ -29,12 +38,43 @@ const VincularCotizacion = ({
     entityId, 
     ordenId,
     entityName = "Servicio",
-    onSuccess 
+    onSuccess,
+    clienteId,
 }: VincularCotizacionProps) => {
     const dispatch = useAppDispatch();
-    const { listaCotizaciones, detalleCotizacion, listaItemsEnCotizacion } = useAppSelector((state) => state.cotizacion);
-    const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+    const { listaCotizaciones } = useAppSelector((state) => state.cotizacion);
+    const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const isOrdenTrabajo = entityType === 'orden-trabajo';
+    const [cotizacionesOt, setCotizacionesOt] = useState<ICotizacion[]>([]);
+    const [loadingCotizacionesOt, setLoadingCotizacionesOt] = useState(false);
+    const [itemsResumen, setItemsResumen] = useState<Record<string, ItemResumen[]>>({});
+    const [loadingItemsResumen, setLoadingItemsResumen] = useState(false);
+
+    const cotizacionesDisponibles = useMemo(() => {
+        const base = isOrdenTrabajo ? cotizacionesOt : listaCotizaciones;
+        if (!base) return [];
+        if (!isOrdenTrabajo) return base;
+        return base.filter((cotizacion) => {
+            if (cotizacion.estado !== 'aceptada') return false;
+            if (clienteId && cotizacion.cliente !== clienteId) return false;
+            return true;
+        });
+    }, [listaCotizaciones, cotizacionesOt, isOrdenTrabajo, clienteId]);
+
+    const cotizacionOptions = useMemo(
+        () =>
+            cotizacionesDisponibles.map((cotizacion) => ({
+                value: cotizacion.id.toString(),
+                label: `N°${cotizacion.numero_cotizacion} - ${cotizacion.nombre} (${cotizacion.cliente_nombre})`,
+            })),
+        [cotizacionesDisponibles],
+    );
+
+    const selectedOptions = useMemo(() => {
+        if (!selectedQuoteIds.length) return [];
+        return cotizacionOptions.filter((opt) => selectedQuoteIds.includes(opt.value));
+    }, [cotizacionOptions, selectedQuoteIds]);
 
     // Construct API endpoint based on entity type
     const getEntityEndpoint = () => {
@@ -47,43 +87,62 @@ const VincularCotizacion = ({
 
     useEffect(() => {
         if (isOpen) {
-            dispatch(listaCotizacionesThunk());
-            setSelectedQuoteId(null);
+            setSelectedQuoteIds([]);
+            if (isOrdenTrabajo) {
+                setLoadingCotizacionesOt(true);
+                ApiService.fetchData<ICotizacion[]>({
+                    url: `/api/ordenes-de-trabajo/${ordenId}/cotizaciones-elegibles/`,
+                    method: 'get',
+                })
+                    .then((response) => {
+                        setCotizacionesOt(response.data ?? []);
+                    })
+                    .catch((error: unknown) => {
+                        console.error(error);
+                        toast.error(
+                            getErrorMessage(error) || "Error al cargar cotizaciones elegibles"
+                        );
+                        setCotizacionesOt([]);
+                    })
+                    .finally(() => setLoadingCotizacionesOt(false));
+            } else {
+                dispatch(listaCotizacionesThunk());
+            }
         } else {
-            setSelectedQuoteId(null);
+            setSelectedQuoteIds([]);
         }
-    }, [isOpen]);
+    }, [isOpen, isOrdenTrabajo, ordenId, dispatch]);
 
     useEffect(() => {
-        if (selectedQuoteId) {
-            dispatch(detalleCotizacionThunk({ id_cotizacion: parseInt(selectedQuoteId) }));
+        if (!selectedQuoteIds.length) {
+            setItemsResumen({});
+            return;
         }
-    }, [selectedQuoteId]);
-
-    // Calculate total from items
-    const calculateTotal = () => {
-        if (!listaItemsEnCotizacion || listaItemsEnCotizacion.length === 0) {
-            return 0;
-        }
-        return listaItemsEnCotizacion.reduce((sum, item) => {
-            const itemTotal = parseFloat(item.costo_total) || (parseFloat(item.precio_unitario) * item.cantidad) || 0;
-            return sum + itemTotal;
-        }, 0);
-    };
-
-    const formatCurrency = (amount: number, tipoMoneda: string) => {
-        const formatted = amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-        if (tipoMoneda === "1") {
-            return `${formatted} USD`;
-        } else if (tipoMoneda === "3") {
-            return `${formatted} UF`;
-        } else {
-            return `$${formatted}`;
-        }
-    };
+        setLoadingItemsResumen(true);
+        Promise.all(
+            selectedQuoteIds.map((id) =>
+                ApiService.fetchData<ItemResumen[]>({
+                    url: `/api/cotizaciones/${id}/items-resumen/`,
+                    method: 'get',
+                }).then((response) => ({ id, data: response.data ?? [] }))
+            )
+        )
+            .then((responses) => {
+                const mapped: Record<string, ItemResumen[]> = {};
+                responses.forEach((resp) => {
+                    mapped[resp.id] = resp.data;
+                });
+                setItemsResumen(mapped);
+            })
+            .catch((error: unknown) => {
+                console.error(error);
+                toast.error(getErrorMessage(error) || "Error al cargar resumen de items");
+            })
+            .finally(() => setLoadingItemsResumen(false));
+    }, [selectedQuoteIds]);
 
     const handleVincular = async () => {
-        if (!selectedQuoteId) {
+        if (!selectedQuoteIds.length) {
             toast.error("Debe seleccionar una cotización");
             return;
         }
@@ -91,10 +150,14 @@ const VincularCotizacion = ({
         setIsLoading(true);
         try {
             const response = await ApiService.fetchData({
-                url: getEntityEndpoint(),
-                method: 'PATCH',
+                url: isOrdenTrabajo
+                    ? `/api/ordenes-de-trabajo/${ordenId}/vincular-cotizaciones-generar-guias/`
+                    : getEntityEndpoint(),
+                method: isOrdenTrabajo ? 'POST' : 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({ cotizacion: parseInt(selectedQuoteId) })
+                data: isOrdenTrabajo
+                    ? { cotizaciones_ids: selectedQuoteIds.map((id) => parseInt(id)) }
+                    : JSON.stringify({ cotizacion: parseInt(selectedQuoteIds[0]) }),
             });
 
             if (response.data) {
@@ -102,15 +165,18 @@ const VincularCotizacion = ({
                 if (onSuccess) onSuccess();
                 setIsOpen(false);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            toast.error("Error al vincular la cotización");
+            toast.error(getErrorMessage(error) || "Error al vincular la cotización");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const totalNeto = calculateTotal();
+    const selectedCotizaciones = useMemo(
+        () => cotizacionesDisponibles.filter((c) => selectedQuoteIds.includes(c.id.toString())),
+        [cotizacionesDisponibles, selectedQuoteIds],
+    );
 
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} size="xl" isStaticBackdrop={true}>
@@ -125,52 +191,113 @@ const VincularCotizacion = ({
                             <Badge>Seleccionar Cotización</Badge>
                             <SelectReact
                                 name="cotizacion"
-                                options={listaCotizaciones.map(c => ({ 
-                                    value: c.id.toString(), 
-                                    label: `N°${c.numero_cotizacion} - ${c.nombre} (${c.cliente_nombre})` 
-                                }))}
-                                value={selectedQuoteId ? listaCotizaciones.map(c => ({ 
-                                    value: c.id.toString(), 
-                                    label: `N°${c.numero_cotizacion} - ${c.nombre} (${c.cliente_nombre})` 
-                                })).find(opt => opt.value === selectedQuoteId) : null}
-                                onChange={(option) => setSelectedQuoteId((option as TSelectOption)?.value)}
+                                options={cotizacionOptions}
+                                value={isOrdenTrabajo ? selectedOptions : selectedOptions[0] ?? null}
+                                onChange={(option) => {
+                                    if (Array.isArray(option)) {
+                                        setSelectedQuoteIds(
+                                            (option as TSelectOption[]).map((opt) => opt.value),
+                                        );
+                                        return;
+                                    }
+                                    const selected = option as TSelectOption | null;
+                                    setSelectedQuoteIds(selected?.value ? [selected.value] : []);
+                                }}
                                 placeholder="Buscar cotización..."
                                 isClearable
+                                isMulti={isOrdenTrabajo}
+                                isLoading={isOrdenTrabajo && loadingCotizacionesOt}
+                                noOptionsMessage={() => (
+                                    <span className="text-xs">
+                                        {isOrdenTrabajo
+                                            ? 'No hay cotizaciones elegibles para generar guías.'
+                                            : 'No hay cotizaciones disponibles.'}
+                                    </span>
+                                )}
                             />
                         </div>
-                        <div className="col-span-2 flex justify-end">
-                            <CrearCotizacion 
-                                empresa={false} 
-                                onSuccess={(newQuote) => {
-                                    setSelectedQuoteId(newQuote.id.toString());
-                                }} 
-                            />
-                        </div>
+                        {!isOrdenTrabajo && (
+                            <div className="col-span-2 flex justify-end">
+                                <CrearCotizacion 
+                                    empresa={false} 
+                                    onSuccess={(newQuote) => {
+                                        setSelectedQuoteIds([newQuote.id.toString()]);
+                                    }} 
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Details Section */}
-                    {selectedQuoteId && detalleCotizacion && (
-                        <div className="flex flex-col gap-4 border-t pt-4">
-                            <div className="flex justify-between items-center">
-                                <div className="flex gap-4">
-                                    <div>
-                                        <Badge>Cliente</Badge>
-                                        <div className="font-semibold">{detalleCotizacion.cliente_nombre}</div>
-                                    </div>
-                                    <div>
-                                        <Badge>Total Neto</Badge>
-                                        <div className="font-semibold">
-                                            {formatCurrency(totalNeto, detalleCotizacion.tipo_moneda)}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <CrearItemCotizacion />
+                    {selectedQuoteIds.length > 0 && (
+                        <div className="flex flex-col gap-3 border-t pt-4">
+                            <div className="flex items-center justify-between">
+                                <Badge>Detalle de cotizaciones</Badge>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm text-gray-500">
+                                        {selectedQuoteIds.length} cotizaciones
+                                    </span>
+                                    {loadingItemsResumen && (
+                                        <span className="text-xs text-gray-400">
+                                            Actualizando...
+                                        </span>
+                                    )}
+                                    {!isOrdenTrabajo && <CrearItemCotizacion />}
                                 </div>
                             </div>
-
-                            <div className="w-full overflow-auto">
-                                <TablaItemsTecnico />
+                            <div className="w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                Item
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                Cant. pedida
+                                            </th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                Cant. recibida
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {selectedCotizaciones.map((cot) => {
+                                            const items = itemsResumen[cot.id.toString()] ?? [];
+                                            const totalPedido = items.reduce((sum, item) => sum + (item.cantidad_pedida || 0), 0);
+                                            const totalRecibido = items.reduce((sum, item) => sum + (item.cantidad_recibida || 0), 0);
+                                            return (
+                                                <Fragment key={cot.id}>
+                                                    <tr className="bg-blue-50">
+                                                        <td className="px-4 py-3 text-sm font-semibold text-slate-800" colSpan={3}>
+                                                            N°{cot.numero_cotizacion} - {cot.nombre} · Pedido {totalPedido} · Recibido {totalRecibido} · OCs {cot.oc_recibidas_count ?? 0}/{cot.oc_count ?? 0} · Guías {cot.guias_count ?? 0}
+                                                        </td>
+                                                    </tr>
+                                                    {items.length ? (
+                                                        items.map((item) => (
+                                                            <tr key={`${cot.id}-${item.id}`}>
+                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                    {item.item_nombre}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                    {item.cantidad_pedida}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                    {item.cantidad_recibida}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td className="px-4 py-3 text-sm text-gray-500" colSpan={3}>
+                                                                Sin items para mostrar.
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}
@@ -184,7 +311,7 @@ const VincularCotizacion = ({
                         variant="solid" 
                         onClick={handleVincular} 
                         isLoading={isLoading}
-                        isDisable={!selectedQuoteId}
+                        isDisable={!selectedQuoteIds.length}
                     >
                         Vincular
                     </Button>

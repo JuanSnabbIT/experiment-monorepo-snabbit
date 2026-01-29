@@ -4,59 +4,21 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { IItemCotizacion } from "@/interface/cotizaciones.interface"
-import { listaItemsEnCotizacionThunk, useAppDispatch, useAppSelector } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { formatCurrency } from '@/utils/currency'
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 
 const columnHelper = createColumnHelper<IItemCotizacion>();
 
-function TablaImpuestos() {
-    const dispatch = useAppDispatch()
-    const { detalleCotizacion, listaItemsEnCotizacion } = useAppSelector((state) => state.cotizacion)
+function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    const monedaCotizacion: 'CLP' | 'USD' | 'UF' =
-        detalleCotizacion?.tipo_moneda === '1'
-            ? 'USD'
-            : detalleCotizacion?.tipo_moneda === '3'
-                ? 'UF'
-                : 'CLP';
+    // Forzado a CLP para la pestaña de impuestos (uso interno)
+    const monedaImpuestos = 'CLP';
 
-    const obtenerFactorConversion = (item: IItemCotizacion): number => {
-        if (monedaCotizacion === 'USD') {
-            const totalUsd = Number(item.precio_total_backend.usd || 0);
-            const totalClp = Number(item.precio_total_backend.clp || 0);
-            const fallback = Number(detalleCotizacion?.dolar_observado || 1);
-            if (totalUsd > 0) {
-                const ratio = totalClp / totalUsd;
-                return ratio || fallback || 1;
-            }
-            return fallback || 1;
-        }
-
-        if (monedaCotizacion === 'UF') {
-            return Number(detalleCotizacion?.valor_uf || 1) || 1;
-        }
-
-        return 1; // CLP, sin conversión
-    };
-
-    const convertirAMonedaCotizacion = (item: IItemCotizacion, montoCLP: number): number => {
-        const factor = obtenerFactorConversion(item);
-        if (monedaCotizacion === 'CLP') return montoCLP;
-        if (factor === 0) return montoCLP;
-        return montoCLP / factor;
-    };
-
-    useEffect(() => {
-        if (detalleCotizacion) {
-            dispatch(listaItemsEnCotizacionThunk({id_cotizacion: detalleCotizacion.id}));
-        }
-    }, [detalleCotizacion])
 
     const columns = [
         columnHelper.accessor("nombre_item", {
@@ -71,60 +33,50 @@ function TablaImpuestos() {
         columnHelper.display({
             cell: (info) => {
                 const item = info.row.original;
-                const monto =
-                    monedaCotizacion === 'CLP'
-                        ? item.precio_total_backend.clp
-                        : monedaCotizacion === 'USD'
-                            ? item.precio_total_backend.usd || convertirAMonedaCotizacion(item, Number(item.precio_total_backend.clp || 0))
-                            : convertirAMonedaCotizacion(item, Number(item.precio_total_backend.clp || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = item.precio_total_backend.clp;
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "Total Neto"
         }),
         columnHelper.accessor("recargo_iva_venta", {
             cell: (info) => {
-                const item = info.row.original;
-                const monto = convertirAMonedaCotizacion(item, Number(info.getValue() || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = Number(info.getValue() || 0);
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "IVA Venta"
         }),
         columnHelper.accessor("iva_compra", {
             cell: (info) => {
-                const item = info.row.original;
-                const monto = convertirAMonedaCotizacion(item, Number(info.getValue() || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = Number(info.getValue() || 0);
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "IVA Compra"
         }),
         columnHelper.accessor("valor_ppm", {
             cell: (info) => {
-                const item = info.row.original;
-                const monto = convertirAMonedaCotizacion(item, Number(info.getValue() || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = Number(info.getValue() || 0);
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "PPM"
         }),
         columnHelper.accessor("total_impuesto", {
             cell: (info) => {
-                const item = info.row.original;
-                const monto = convertirAMonedaCotizacion(item, Number(info.getValue() || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = Number(info.getValue() || 0);
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "Total Impuesto"
         }),
         columnHelper.accessor("ganancia", {
             cell: (info) => {
-                const item = info.row.original;
-                const monto = convertirAMonedaCotizacion(item, Number(info.getValue() || 0));
-                return <div>{formatCurrency(monto, monedaCotizacion)}</div>;
+                const monto = Number(info.getValue() || 0);
+                return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
             header: "Ganancia"
         })
     ]
 
     const table = useReactTable({
-        data: listaItemsEnCotizacion,
+        data: items,
         columns: columns,
         state: {
             sorting: sorting,

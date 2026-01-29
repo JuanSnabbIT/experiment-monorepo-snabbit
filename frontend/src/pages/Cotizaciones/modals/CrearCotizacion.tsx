@@ -65,6 +65,14 @@ function CrearCotizacion({empresa, onSuccess} : {empresa: boolean, onSuccess?: (
                     data: JSON.stringify({...values, empresa: personalizacionUsuario?.empresa})
                 });
                 if (response.data) {
+                    // Refrescar tipo de cambio en segundo plano
+                    ApiService.fetchData({
+                        url: `/api/cotizaciones/${response.data.id}/refrescar-tipo-cambio/`,
+                        method: 'post',
+                    }).catch(() => {
+                        // Silenciar error, no es crítico
+                    });
+
                     toast.success("Cotización creada", {autoClose: 1000});
                     if (empresa) {
                         dispatch(listaCotizacionesSucursalThunk(undefined))
@@ -127,7 +135,7 @@ function CrearCotizacion({empresa, onSuccess} : {empresa: boolean, onSuccess?: (
                             >
                                 <SelectReact
                                     name="cliente"
-                                    id="cliente"
+                                    id="crear-cotizacion-cliente"
                                     placeholder="Seleccione un Cliente"
                                     noOptionsMessage={(e) => (`No existe ${e.inputValue}`)}
                                     options={listaMisClientes.map(cliente => ({ value: cliente.info_cliente.id.toString(), label: cliente.info_cliente.nombre }))}

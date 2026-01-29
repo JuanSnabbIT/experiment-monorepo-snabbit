@@ -1,6 +1,7 @@
-import store, { GUARDAR_TOKEN, LOGOUT } from "@/store";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { toast } from "react-toastify";
+import { authPages } from "@/config/pages.config";
+import store, { GUARDAR_TOKEN, LOGOUT } from "@/store";
 
 // Extender la interfaz de configuración para incluir isLoginRequest y _retry
 interface CustomAxiosRequestConfig<D = any> extends InternalAxiosRequestConfig<D> {
@@ -61,7 +62,7 @@ BaseService.interceptors.response.use(
                     toast.error("Sesión Expirada", {toastId: "Error de refresco de token"})
                     store.dispatch(LOGOUT())
                     // Redirigir al login
-                    window.location.href = '/auth-pages/login';
+                    window.location.href = authPages.loginPage.to;
                     return Promise.reject(refreshError);
                 }
             } else {
@@ -69,7 +70,7 @@ BaseService.interceptors.response.use(
                 toast.error("Sesión Expirada", {toastId: "Sin token de refresco"})
                 store.dispatch(LOGOUT())
                 // Redirigir al login
-                window.location.href = '/auth-pages/login';
+                window.location.href = authPages.loginPage.to;
                 return Promise.reject(error);
             }
         }

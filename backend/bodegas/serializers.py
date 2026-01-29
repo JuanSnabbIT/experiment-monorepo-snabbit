@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from bodegas.estados_modelo import MOVIMIENTOS_TIPO
 from items.models import ItemEmpresa
@@ -141,6 +143,7 @@ class OrdenCompraSerializer(serializers.ModelSerializer):
     nombre_cliente = serializers.SerializerMethodField()
     tipo_moneda = serializers.SerializerMethodField()
     tipo_moneda_label = serializers.SerializerMethodField()
+    dolar_final = serializers.SerializerMethodField()
 
     class Meta:
         model = OrdenCompra
@@ -174,6 +177,16 @@ class OrdenCompraSerializer(serializers.ModelSerializer):
         if obj.proveedor:
             return obj.proveedor.get_tipo_moneda_display()
         return None
+
+    def get_dolar_final(self, obj):
+        if obj.dolar_observado is None:
+            return None
+
+        recargo = 0
+        if obj.proveedor and obj.proveedor.recargo_dolar is not None:
+            recargo = obj.proveedor.recargo_dolar
+
+        return int(Decimal(obj.dolar_observado) + Decimal(recargo))
 
 class ItemEmpresaEnStockSerializer(serializers.ModelSerializer):
     datos_categoria = CategoriaSerializer(source="categoria", read_only=True)
@@ -276,6 +289,8 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
     nombre_creado_por = serializers.SerializerMethodField()
     nombre_recibido_por = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
+    cantidad_items_total = serializers.SerializerMethodField()
+    descripcion_items = serializers.SerializerMethodField()
 
     class Meta:
         model = GuiaSalida
@@ -300,6 +315,39 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
         if obj.cliente:
             return obj.cliente.nombre
         return "Sin Cliente"
+
+    def get_cantidad_items_total(self, obj):
+        """
+        Retorna la suma total de cantidades disponibles para uso/vínculo.
+        Usamos cantidad_rebajada (lo realmente retirado de bodega). Si no
+        existe rebaja aún, cae a cantidad_original.
+        """
+        items = obj.itemsguiasalida_set.all()
+        total_cantidades = 0
+        for item in items:
+            cantidad_base = item.cantidad_rebajada or item.cantidad_original
+            if item.individualizado:
+                total_cantidades += 1 if cantidad_base is None else cantidad_base
+            else:
+                total_cantidades += cantidad_base
+        return total_cantidades
+
+    def get_descripcion_items(self, obj):
+        """
+        Retorna una descripción legible:
+        "<n_items> items, <total_cantidades> cantidades"
+        """
+        items = obj.itemsguiasalida_set.all()
+        n_items = items.count()
+        total_cantidades = 0
+        for item in items:
+            cantidad_base = item.cantidad_rebajada or item.cantidad_original
+            if item.individualizado:
+                total_cantidades += 1 if cantidad_base is None else cantidad_base
+            else:
+                total_cantidades += cantidad_base
+
+        return f"{n_items} items, {total_cantidades} cantidades"
 
 
 

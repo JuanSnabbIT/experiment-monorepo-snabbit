@@ -1,36 +1,31 @@
 import Badge from "@/components/ui/Badge";
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card";
-import { listaItemsEnCotizacionThunk, useAppDispatch, useAppSelector } from "@/store";
 import { formatCurrency } from '@/utils/currency';
 import classNames from "classnames";
-import { useEffect } from "react";
 
-function TablaVenta() {
-    const dispatch = useAppDispatch();
-    const { detalleCotizacion, listaItemsEnCotizacion } = useAppSelector((state) => state.cotizacion);
+import { ICotizacion, IItemCotizacion } from "@/interface/cotizaciones.interface";
+
+function TablaVenta({ 
+    items = [], 
+    cotizacion 
+}: { 
+    items: IItemCotizacion[], 
+    cotizacion: ICotizacion | undefined 
+}) {
     const monedaCotizacion: 'CLP' | 'USD' | 'UF' =
-        detalleCotizacion?.tipo_moneda === '1'
+        cotizacion?.tipo_moneda === '1'
             ? 'USD'
-            : detalleCotizacion?.tipo_moneda === '3'
+            : cotizacion?.tipo_moneda === '3'
                 ? 'UF'
                 : 'CLP';
 
-    useEffect(() => {
-        if (detalleCotizacion) {
-            dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion.id }));
-        }
-    }, [detalleCotizacion, dispatch]);
 
-    const obtenerPrecioUnitario = (item: typeof listaItemsEnCotizacion[number]) => {
-        if (monedaCotizacion === 'USD') return Number(item.precio_unitario_backend.usd || 0);
-        if (monedaCotizacion === 'UF') return Number(item.precio_venta_neta_unitario_moneda_base || 0);
-        return Number(item.precio_unitario_backend.clp || 0);
+    const obtenerPrecioUnitario = (item: IItemCotizacion) => {
+        return Number(item.precio_venta_neta_unitario_moneda_base || 0);
     };
 
-    const obtenerPrecioTotal = (item: typeof listaItemsEnCotizacion[number]) => {
-        if (monedaCotizacion === 'USD') return Number(item.precio_total_backend.usd || 0);
-        if (monedaCotizacion === 'UF') return Number(item.precio_venta_neta_total_moneda_base || 0);
-        return Number(item.precio_total_backend.clp || 0);
+    const obtenerPrecioTotal = (item: IItemCotizacion) => {
+        return Number(item.precio_venta_neta_total_moneda_base || 0);
     };
 
     const valorUnitarioLabel =
@@ -56,8 +51,8 @@ function TablaVenta() {
             <CardBody className="z-0">
                 <div className="overflow-auto">
                     <div className="flex flex-col gap-2 min-w-[760px]">
-                        {detalleCotizacion && (
-                            listaItemsEnCotizacion.length > 0 ? (
+                        {cotizacion && (
+                            items.length > 0 ? (
                                 <>
                                     <div className="grid grid-cols-5 gap-4">
                                         <div className="col-span-2 text-center">
@@ -73,25 +68,25 @@ function TablaVenta() {
                                             <Badge>{totalLabel}</Badge>
                                         </div>
                                     </div>
-                                    {listaItemsEnCotizacion.map((item, index) => (
+                                    {items.map((item, index) => (
                                         <div
                                             key={index}
                                             className={classNames(
-                                                "grid grid-cols-5 gap-4 border border-blue-500 rounded-xl text-white transition-colors",
-                                                "odd:bg-sky-400 odd:hover:bg-sky-500",
-                                                "even:bg-emerald-400 even:hover:bg-emerald-500",
+                                                "grid grid-cols-5 gap-4 border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all duration-200",
+                                                "odd:bg-zinc-50 dark:odd:bg-zinc-900/40",
+                                                "hover:bg-blue-50/50 dark:hover:bg-blue-900/10 hover:border-blue-200 dark:hover:border-blue-800",
                                             )}>
-                                            <div className="col-span-2 border-r border-r-blue-500 p-4">
-                                                <div>{item.nombre_item}</div>
-                                                <div className='text-xs'>{item.descripcion}</div>
+                                            <div className="col-span-2 border-r border-zinc-200 dark:border-zinc-800 p-4">
+                                                <div className="font-medium text-zinc-900 dark:text-zinc-100">{item.nombre_item}</div>
+                                                <div className='text-xs text-zinc-500 dark:text-zinc-400 mt-1'>{item.descripcion}</div>
                                             </div>
-                                            <div className="col-span-1 border-r border-r-blue-500 p-4">
+                                            <div className="col-span-1 border-r border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-center text-zinc-700 dark:text-zinc-300">
                                                 {item.cantidad}
                                             </div>
-                                            <div className="col-span-1 border-r border-r-blue-500 p-4">
+                                            <div className="col-span-1 border-r border-zinc-200 dark:border-zinc-800 p-4 flex items-center justify-center font-mono text-zinc-700 dark:text-zinc-300">
                                                 {formatCurrency(obtenerPrecioUnitario(item), monedaCotizacion)}
                                             </div>
-                                            <div className="col-span-1 border-r border-r-blue-500 p-4">
+                                            <div className="col-span-1 p-4 flex items-center justify-center font-semibold text-zinc-900 dark:text-zinc-100">
                                                 {formatCurrency(obtenerPrecioTotal(item), monedaCotizacion)}
                                             </div>
                                         </div>
@@ -102,12 +97,12 @@ function TablaVenta() {
                             )
                         )}
                     </div>
-                    {detalleCotizacion && listaItemsEnCotizacion.length > 0 && (
-                        <div className="mt-4 flex min-w-[760px] flex-wrap justify-end gap-6 text-right">
-                            <div>
-                                <Badge>Total:</Badge>
-                                <div className='font-semibold'>
-                                    {formatCurrency(listaItemsEnCotizacion.reduce((acc, item) => acc + obtenerPrecioTotal(item), 0), monedaCotizacion)}
+                    {cotizacion && items.length > 0 && (
+                        <div className="mt-8 flex min-w-[760px] flex-wrap justify-end gap-6 text-right">
+                            <div className="bg-zinc-100 dark:bg-zinc-800/50 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 min-w-[240px]">
+                                <div className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Total Cotización</div>
+                                <div className='text-3xl font-bold text-zinc-900 dark:text-zinc-50'>
+                                    {formatCurrency(items.reduce((acc, item) => acc + obtenerPrecioTotal(item), 0), monedaCotizacion)}
                                 </div>
                             </div>
                         </div>

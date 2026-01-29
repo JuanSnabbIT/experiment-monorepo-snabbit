@@ -9,6 +9,17 @@ from rendiciones.models import CategoriaGastoRendicion
 from .estados_modelo import *
 
 
+def default_firmas_ot():
+    return {
+        "firmas_usuarios": [],
+        "firmas_subtrabajos": [],
+    }
+
+
+def default_cache_asignacion():
+    return {}
+
+
 class OrdenDeTrabajo(ModeloBase):
     empresa = models.ForeignKey(
         "empresas.Empresa",
@@ -21,6 +32,12 @@ class OrdenDeTrabajo(ModeloBase):
         on_delete=models.CASCADE,
         verbose_name="cliente_orden_trabajo",
         related_name="cliente_ot_v2",
+    )
+    cotizaciones = models.ManyToManyField(
+        "cotizaciones.Cotizacion",
+        blank=True,
+        related_name="ordenes_trabajo_v2",
+        verbose_name="Cotizaciones vinculadas",
     )
     tipo_servicio = models.CharField(
         max_length=50,
@@ -62,6 +79,31 @@ class OrdenDeTrabajo(ModeloBase):
         blank=True,
         verbose_name="Cliente Solicitante",
         related_name="solicitante_ot_v2",
+    )
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        estado_anterior = None
+        if self.pk and (update_fields is None or "estado" in update_fields):
+            estado_anterior = (
+                OrdenDeTrabajo.objects.filter(pk=self.pk)
+                .values_list("estado", flat=True)
+                .first()
+            )
+
+        super().save(*args, **kwargs)
+
+        if (
+            estado_anterior
+            and estado_anterior != self.estado
+            and self.estado == "en_proceso"
+        ):
+            # Avanzar guias vinculadas a la OT a "En transito" si estaban firmadas.
+            self.guias_salida.filter(estado="FR").update(estado="ET")
+    firmas_ot = models.JSONField(
+        default=default_firmas_ot,
+        blank=True,
+        verbose_name="Firmas OT",
     )
 
     class Meta:
@@ -109,6 +151,9 @@ class SoporteTecnico(ModeloBase):
     fecha_soporte = models.DateField(
         null=True, blank=True, verbose_name="Fecha del soporte"
     )
+    # ⚠️ DEPRECATED (2026-01): No usar para vincular guías.
+    # Las guías deben vincularse directamente a la OT.
+    # Ver ordentrabajov2/DEPRECATION_NOTICE.md
     guia_salida = models.OneToOneField(
         "bodegas.GuiaSalida",
         on_delete=models.SET_NULL,
@@ -141,20 +186,30 @@ class UsuarioAsignadoSoporte(ModeloBase):
     soporte_tecnico = models.ForeignKey(
         SoporteTecnico,
         on_delete=models.CASCADE,
-        verbose_name="Detalle del Soporte Técnico",
+        verbose_name="Detalle del Soporte Tecnico",
     )
     usuario_equipo = models.ForeignKey(
         "recursos.UsuarioEquipo",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         verbose_name="Usuario con Equipo asociado",
+    )
+    usuario_empresa = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Usuario Empresa",
+        related_name="usuarios_asignados_soporte",
     )
     trabajo_realizado = models.TextField("Trabajo realizado", blank=True)
     resuelto = models.BooleanField("Trabajo resuelto", default=False)
+    cache_asignacion = models.JSONField(default=default_cache_asignacion, blank=True)
 
     def __str__(self):
-        return (
-            f"Asignación de {self.usuario_equipo} al Detalle #{self.soporte_tecnico.id}"
-        )
+        usuario = self.usuario_equipo or self.usuario_empresa
+        return f"Asignacion de {usuario} al Detalle #{self.soporte_tecnico.id}"
 
     class Meta:
         verbose_name = "Usuario Asignado a Detalle de OT"
@@ -181,6 +236,9 @@ class ServicioEnOT(ModeloBase):
         null=True,
         blank=True,
     )
+    # ⚠️ DEPRECATED (2026-01): No usar para vincular guías.
+    # Las guías deben vincularse directamente a la OT.
+    # Ver ordentrabajov2/DEPRECATION_NOTICE.md
     guia_salida = models.OneToOneField(
         "bodegas.GuiaSalida",
         on_delete=models.SET_NULL,
@@ -380,6 +438,13 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
 
 
 class SeguimientoItemOT(ModeloBase):
+    orden = models.ForeignKey(
+        OrdenDeTrabajo,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="seguimientos_ot",
+    )
     servicio = models.ForeignKey(
         ServicioEnOT,
         on_delete=models.CASCADE,
@@ -413,8 +478,21 @@ class SeguimientoItemOT(ModeloBase):
         constraints = [
             models.CheckConstraint(
                 check=(
-                    (Q(servicio__isnull=False) & Q(soporte__isnull=True))
-                    | (Q(servicio__isnull=True) & Q(soporte__isnull=False))
+                    (
+                        Q(servicio__isnull=False)
+                        & Q(soporte__isnull=True)
+                        & Q(orden__isnull=True)
+                    )
+                    | (
+                        Q(servicio__isnull=True)
+                        & Q(soporte__isnull=False)
+                        & Q(orden__isnull=True)
+                    )
+                    | (
+                        Q(servicio__isnull=True)
+                        & Q(soporte__isnull=True)
+                        & Q(orden__isnull=False)
+                    )
                 ),
                 name="seguimiento_item_ot_un_solo_origen",
             )
@@ -424,11 +502,19 @@ class SeguimientoItemOT(ModeloBase):
         super().clean()
         tiene_servicio = self.servicio_id is not None
         tiene_soporte = self.soporte_id is not None
-        if tiene_servicio == tiene_soporte:
+        tiene_orden = self.orden_id is not None
+        if sum([tiene_servicio, tiene_soporte, tiene_orden]) != 1:
             raise ValidationError(
-                "Debe asociar el seguimiento a solo un servicio o a un soporte."
+                "Debe asociar el seguimiento a solo un servicio, soporte o a la orden."
             )
 
     def __str__(self):
-        destino = self.servicio_id or self.soporte_id or "sin destino"
+        if self.servicio_id:
+            destino = f"servicio {self.servicio_id}"
+        elif self.soporte_id:
+            destino = f"soporte {self.soporte_id}"
+        elif self.orden_id:
+            destino = f"orden {self.orden_id}"
+        else:
+            destino = "sin destino"
         return f"Seguimiento OT item #{destino}"

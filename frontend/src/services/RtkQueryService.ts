@@ -1,7 +1,7 @@
-import { createApi } from '@reduxjs/toolkit/query/react'
-import BaseService from './BaseService'
 import type { BaseQueryFn } from '@reduxjs/toolkit/query'
-import type { AxiosRequestConfig, AxiosError } from 'axios'
+import { createApi } from '@reduxjs/toolkit/query/react'
+import type { AxiosError, AxiosRequestConfig } from 'axios'
+import BaseService from './BaseService'
 
 const axiosBaseQuery =
     (): BaseQueryFn<
@@ -34,6 +34,7 @@ const axiosBaseQuery =
 const RtkQueryService = createApi({
     reducerPath: 'rtkApi',
     baseQuery: axiosBaseQuery(),
+    tagTypes: ['Cotizaciones', 'CotizacionesItems', 'CotizacionesSolicitantes', 'CotizacionesSeguimiento'] as const,
     endpoints: () => ({}),
 })
 

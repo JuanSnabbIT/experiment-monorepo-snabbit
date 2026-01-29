@@ -53,6 +53,7 @@ const columnHelperRecepcion = createColumnHelper<{
 	item_orden: IItemEnOrdenCompra;
 	item_stock: IItemOrdenCompraEnStock | undefined;
 }>();
+const estadosPdfPermitidos = new Set(['0', '1', '2', '3', '4', '5']);
 
 function DetalleOrdenCompraV2() {
 	const dispatch = useAppDispatch();
@@ -80,6 +81,11 @@ function DetalleOrdenCompraV2() {
 	const modoCompletarDisponible =
 		detalleOrdenCompra?.estado === '1' || detalleOrdenCompra?.estado === '3' || detalleOrdenCompra?.estado === '4';
 	const estaCompletandoOC = modoCompletarDisponible && mostrarCompletar;
+	const puedeDescargarPdf = Boolean(
+		detalleOrdenCompra?.estado && estadosPdfPermitidos.has(detalleOrdenCompra.estado),
+	);
+	const fechaCompraDefault = dayjs().format('YYYY-MM-DD');
+	const [guiaSalidaId, setGuiaSalidaId] = useState<number | null>(null);
 
 	const refrescarDetalle = () => {
 		if (id) {
@@ -118,10 +124,31 @@ function DetalleOrdenCompraV2() {
 					);
 				}
 			}
-			setFechaCompra(detalleOrdenCompra.fecha_compra || '');
+			setFechaCompra(detalleOrdenCompra.fecha_compra || fechaCompraDefault);
 			setDolarObservado(detalleOrdenCompra.dolar_observado || 0);
 		}
 	}, [detalleOrdenCompra]);
+
+	useEffect(() => {
+		const obtenerGuiaSalida = async () => {
+			if (!detalleOrdenCompra?.id) {
+				setGuiaSalidaId(null);
+				return;
+			}
+
+			try {
+				const response = await ApiService.fetchData<{ guia_id: number | null }>({
+					url: `/api/ordenes-compra/${detalleOrdenCompra.id}/guia-por-orden/`,
+					method: 'get',
+				});
+				setGuiaSalidaId(response.data.guia_id);
+			} catch (error: unknown) {
+				setGuiaSalidaId(null);
+			}
+		};
+
+		obtenerGuiaSalida();
+	}, [detalleOrdenCompra?.id]);
 
 	const columns = [
 		columnHelper.accessor('item_empresa.nombre', {
@@ -368,15 +395,28 @@ function DetalleOrdenCompraV2() {
 						{/* Botones que NO aparecen en modo recepción */}
 						{!estaCompletandoOC && (
 							<>
+								{guiaSalidaId && (
+									<Tooltip text='Guía de salida'>
+										<Button
+											variant='solid'
+											color='emerald'
+											icon='HeroEye'
+											onClick={() => {
+												navigate(
+													`/bodega/detalle-guia-salida-bodega/${guiaSalidaId}`,
+												);
+											}}
+										/>
+									</Tooltip>
+								)}
 								{tieneCotizacion && (
 									<Tooltip text='Cotización previa'>
 										<Button
 											variant='solid'
 											color='blue'
 											icon='DuoArrowLeft'
-											onClick={handleIrACotizacion}>
-											Cotización previa
-										</Button>
+											onClick={handleIrACotizacion}
+										/>
 									</Tooltip>
 								)}
 								{detalleOrdenCompra?.estado === '-' && (
@@ -433,8 +473,8 @@ function DetalleOrdenCompraV2() {
 						{estaCompletandoOC && (
 							<ConfirmarRecibirOrden itemsARecibir={itemsARecibir} />
 						)}
-						{/* Botón PDF (solo fuera de modo recepción) */}
-						{!estaCompletandoOC && (
+						{/* Botón PDF (solo fuera de modo recepción y estados permitidos) */}
+						{!estaCompletandoOC && puedeDescargarPdf && (
 							<Tooltip text='Ver PDF'>
 								<Button
 									variant='solid'
@@ -564,6 +604,8 @@ function DetalleOrdenCompraV2() {
 													onClick={async () => {
 														setIsLoadingCompra(true);
 														try {
+															const necesitaRefreshDolar =
+																!dolarManual && Boolean(fechaCompra);
 															const payload: any = {
 																fecha_compra: fechaCompra,
 															};
@@ -587,6 +629,22 @@ function DetalleOrdenCompraV2() {
 																	{ autoClose: 1000 },
 																);
 																refrescarDetalle();
+																if (necesitaRefreshDolar) {
+																	let intentos = 0;
+																	const maxIntentos = 3;
+																	const baseDelayMs = 800;
+																	const refrescar = () => {
+																		intentos += 1;
+																		refrescarDetalle();
+																		if (intentos < maxIntentos) {
+																			setTimeout(
+																				refrescar,
+																				baseDelayMs * intentos,
+																			);
+																		}
+																	};
+																	setTimeout(refrescar, baseDelayMs);
+																}
 															}
 														} catch (error: any) {
 															toast.error(
@@ -609,7 +667,8 @@ function DetalleOrdenCompraV2() {
 													onClick={() => {
 														setIsEdittingCompra(false);
 														setFechaCompra(
-															detalleOrdenCompra?.fecha_compra || '',
+															detalleOrdenCompra?.fecha_compra ||
+																fechaCompraDefault,
 														);
 														setDolarObservado(
 															detalleOrdenCompra?.dolar_observado ||

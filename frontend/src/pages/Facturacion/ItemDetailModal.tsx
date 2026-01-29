@@ -188,44 +188,49 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 					console.error('Error fetching compra', err);
 					setError('No se pudo cargar el detalle de la compra');
 				}
-			} else if (tipo === 'gasto_operativo' && itemId) {
-				// Fetch gasto operativo detail
-				// Sin content_type en el JSON, intentamos ambos endpoints
-				try {
-					let gastoResp;
-					let url = '';
-					
-					try {
-						// Intentar primero: GastoOperativoEnOt from ordentrabajov2 app (más común en OTs)
-						const otId = (item as any).ot_id;
-						url = `/api/ordenes-de-trabajo/${otId}/gastos-operativos/${itemId}/`;
-						gastoResp = await ApiService.fetchData({ 
-							url: url, 
-							method: 'get' 
-						});
-					} catch (err1) {
-						// Si falla, intentar: DetalleGastoRendicion from rendiciones app
+				} else if (tipo === 'gasto_operativo') {
+					const itemId = item.item_id ?? item.id;
+					const otId = item.ot_id;
+					if (!itemId) {
+						setError('No se pudo cargar el detalle del gasto operativo');
+						return;
+					}
+
+					const urls: string[] = [];
+					const contentType = (item as any).content_type ?? '';
+
+					if (otId && contentType.includes('ordentrabajov2')) {
+						urls.push(`/api/ordenes-de-trabajo/${otId}/gastos-operativos/${itemId}/`);
+					}
+					if (contentType.includes('rendiciones')) {
+						urls.push(`/api/detalles-gasto/${itemId}/`);
+					}
+					if (!urls.includes(`/api/detalles-gasto/${itemId}/`)) {
+						urls.push(`/api/detalles-gasto/${itemId}/`);
+					}
+
+					let lastError: any = null;
+					let gastoResp: any = null;
+
+					for (const url of urls) {
 						try {
-							url = `/api/detalles-gasto/${itemId}/`;
-							gastoResp = await ApiService.fetchData({ 
-								url: url, 
-								method: 'get' 
-							});
-						} catch (err2) {
-							console.error('Error en ambos endpoints:', { err1, err2 });
-							throw new Error('No se encontró el gasto operativo en ningún endpoint');
+							gastoResp = await ApiService.fetchData({ url, method: 'get' });
+							break;
+						} catch (err) {
+							lastError = err;
 						}
 					}
-					
-					if (!mounted) return;
-					setData(gastoResp.data);
-				} catch (err) {
-					console.error('Error fetching gasto operativo', err);
+
+					if (gastoResp && mounted) {
+						setData(gastoResp.data);
+						return;
+					}
+
+					console.error('Error fetching gasto operativo', lastError);
 					setError('No se pudo cargar el detalle del gasto operativo');
+				} else {
+					setData(null);
 				}
-			} else {
-				setData(null);
-			}
 			} catch (err: any) {
 				console.error('Error fetching item detail', err);
 				if (!mounted) return;

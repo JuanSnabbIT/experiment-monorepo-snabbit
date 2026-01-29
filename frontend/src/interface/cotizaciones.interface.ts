@@ -19,12 +19,18 @@ export interface ICotizacion {
     fecha_facturacion: string
     dolar_observado: string
     valor_uf: string
+    fecha_tipo_cambio?: string
     ppm: string
     empresa: number
     cliente: number
     items: number[]
     solicitantes: number[]
     copias_count?: number
+    oc_count?: number
+    oc_recibidas_count?: number
+    guias_count?: number
+    total_pedido?: number
+    total_recibido?: number
 }
 
 export interface IItemCotizacion {
@@ -68,9 +74,10 @@ export interface IItemCotizacion {
 export interface ISeguimientoCotizacion {
     id: number;
     cotizacion: number;
-    fecha: Date;
+    fecha: string;
     comentario: string;
-    usuario: number; 
+    tipo: string;
+    usuario: number;
     usuario_nombre: string;
 }
 
@@ -87,12 +94,3 @@ export interface ISolicitanteCotizacion     {
     content_type: number
 }
 
-export interface IComentarioCotizacion {
-    id: number
-    nombre_creado_por: string
-    fecha_creacion: string
-    fecha_modificacion: string
-    comentario: string
-    cotizacion: number
-    creado_por: number
-}

@@ -3,21 +3,27 @@ import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
-import { detalleCotizacionThunk, listaSolicitantesCotizacionThunk, useAppDispatch, useAppSelector } from "@/store"
-import { useEffect, useState } from "react"
+import { useAppDispatch } from "@/store"
+import { useState } from "react"
 import { toast } from "react-toastify"
 
 
-function EnviarCotizacionParaAprobar() {
+import { ICotizacion, IItemCotizacion, ISolicitanteCotizacion } from "@/interface/cotizaciones.interface"
+
+function EnviarCotizacionParaAprobar({ 
+    cotizacion, 
+    solicitantes = [], 
+    items = [],
+    onEnviarChange
+}: { 
+    cotizacion: ICotizacion, 
+    solicitantes: ISolicitanteCotizacion[], 
+    items: IItemCotizacion[],
+    onEnviarChange?: () => void
+}) {
     const dispatch = useAppDispatch()
-    const { detalleCotizacion, listaSolicitantesCotizacion, listaItemsEnCotizacion } = useAppSelector((state) => state.cotizacion)
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
-    useEffect(() => {
-        if (isOpen) {
-            dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: detalleCotizacion?.id}))
-        }
-    }, [isOpen])
 
     return (
         <>
@@ -32,7 +38,7 @@ function EnviarCotizacionParaAprobar() {
                     <div className="flex flex-col gap-4">
                         <div className="w-full">La cotización se enviara a estos correos: </div>
                         <div className="w-full flex flex-col gap-4">
-                            {listaSolicitantesCotizacion && listaSolicitantesCotizacion.length > 0 ? listaSolicitantesCotizacion.map((soli, index) => (
+                            {solicitantes && solicitantes.length > 0 ? solicitantes.map((soli, index) => (
                                 <div key={index} className="grid grid-cols-2 gap-4">
                                     <div>
                                         <Badge>Email</Badge>
@@ -46,7 +52,7 @@ function EnviarCotizacionParaAprobar() {
                             )) : (
                                 <Badge className="text-xl">Sin Solicitantes</Badge>
                             )}
-                            {listaItemsEnCotizacion.length === 0 && (
+                            {items.length === 0 && (
                                 <Badge className="text-xl">Sin Items en la Cotización</Badge>
                             )}
                         </div>
@@ -57,12 +63,12 @@ function EnviarCotizacionParaAprobar() {
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
                         <Button variant="solid" onClick={async () => {
-                            if (listaSolicitantesCotizacion.length > 0 && listaItemsEnCotizacion.length > 0) {
+                            if (solicitantes.length > 0 && items.length > 0) {
                                 try {
-                                    const response = await ApiService.fetchData<{detail: string}>({url: `/api/cotizaciones/${detalleCotizacion?.id}/enviar-cotizacion-solicitantes/`, method: 'post'})
+                                    const response = await ApiService.fetchData<{detail: string}>({url: `/api/cotizaciones/${cotizacion?.id}/enviar-cotizacion-solicitantes/`, method: 'post'})
                                     if (response.data) {
                                         toast.success(response.data.detail, {autoClose: 1000})
-                                        dispatch(detalleCotizacionThunk({id_cotizacion: detalleCotizacion?.id}))
+                                        if (onEnviarChange) onEnviarChange()
                                         setIsOpen(false)
                                     }
                                 } catch (error: any) {

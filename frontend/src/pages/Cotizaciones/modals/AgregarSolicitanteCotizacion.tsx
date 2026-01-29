@@ -4,23 +4,35 @@ import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Validation from "@/components/form/Validation"
 import Badge from "@/components/ui/Badge"
 import ApiService from "@/services/ApiService"
-import { listaSolicitantesCotizacionThunk, listaUsuariosParaSolicitanteThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useAppSelector } from "@/store"
+import { useGetUsuariosParaSolicitanteQuery } from "@/store/slices/cotizaciones/cotizacionApi"
 import { useFormik } from "formik"
 import { Dispatch, SetStateAction, useEffect, useState } from "react"
 import { toast } from "react-toastify"
 import * as Yup from 'yup'
 
 
-function AgregarSolicitanteCotizacion({isEditing, setIsEditing, creandoSolicitante, setCreandoSolicitante} : {setIsEditing: Dispatch<SetStateAction<boolean>>, isEditing: boolean, setCreandoSolicitante: Dispatch<SetStateAction<boolean>>, creandoSolicitante: boolean}) {
-    const dispatch = useAppDispatch()
-    const { detalleCotizacion, listaUsuariosParaSolicitante } = useAppSelector((state) => state.cotizacion)
-    const { listaContentType } = useAppSelector((state) => state.core)
+function AgregarSolicitanteCotizacion({
+    isEditing, 
+    setIsEditing, 
+    creandoSolicitante, 
+    setCreandoSolicitante,
+    cotizacionId,
+    onSolicitanteChange
+} : {
+    setIsEditing: Dispatch<SetStateAction<boolean>>, 
+    isEditing: boolean, 
+    setCreandoSolicitante: Dispatch<SetStateAction<boolean>>, 
+    creandoSolicitante: boolean,
+    cotizacionId: number | undefined;
+    onSolicitanteChange?: () => void;
+}) {
+    const { data: listaUsuariosParaSolicitante = [] } = useGetUsuariosParaSolicitanteQuery(cotizacionId || '', { skip: !isEditing || !cotizacionId })
+    const { listaContentType } = useAppSelector((state: any) => state.core)
     const [isUser, setIsUser] = useState<boolean>(false)
 
     useEffect(() => {
-        if (isEditing) {
-            dispatch(listaUsuariosParaSolicitanteThunk({id_cotizacion: detalleCotizacion?.id}))
-        } else {
+        if (!isEditing) {
             formik.resetForm()
         }
     }, [isEditing])
@@ -47,24 +59,26 @@ function AgregarSolicitanteCotizacion({isEditing, setIsEditing, creandoSolicitan
         validationSchema,
         onSubmit: async (values) => {
             try {
-                let data: {} = {cotizacion: detalleCotizacion?.id}
+                let data: {} = {cotizacion: cotizacionId}
                 if (isUser) {
-                    data = {...data, usuario_id: values.usuario, content_type: listaContentType.find(ct => ct.model === "usuarioempresa")?.id}
+                    data = {...data, usuario_id: values.usuario, content_type: listaContentType.find((ct: any) => ct.model === "usuarioempresa")?.id}
                     const response = await ApiService.fetchData({url: `/api/solicitantes-cotizacion/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(data)})
                     if (response.data) {
                         toast.success("Solicitante Creado", {autoClose: 1000})
                         setIsEditing(false)
-                        dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: detalleCotizacion?.id}));
+                        // dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: cotizacionId}));
+                        if (onSolicitanteChange) onSolicitanteChange();
                     }
                 } else {
                     const responseExterno = await ApiService.fetchData<{email: string, nombre: string, id: number}, string>({url: `/api/solicitantes-externos/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({nombre: values.nombre, email: values.email})})
                     if (responseExterno.data) {
-                        data = {...data, nombre: values.nombre, email: values.email, content_type: listaContentType.find(ct => ct.model === "solicitanteexterno")?.id, usuario_id: responseExterno.data.id}
+                        data = {...data, nombre: values.nombre, email: values.email, content_type: listaContentType.find((ct: any) => ct.model === "solicitanteexterno")?.id, usuario_id: responseExterno.data.id}
                         const response = await ApiService.fetchData({url: `/api/solicitantes-cotizacion/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(data)})
                         if (response.data) {
                             toast.success("Solicitante Creado", {autoClose: 1000})
                             setIsEditing(false)
-                            dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: detalleCotizacion?.id}));
+                            // dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: cotizacionId}));
+                            if (onSolicitanteChange) onSolicitanteChange();
                         }
                     }
                 }

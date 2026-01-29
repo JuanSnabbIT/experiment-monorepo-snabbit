@@ -4,14 +4,16 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardTitle } from '@/components/ui/Card';
+import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
 import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { listaContratosDeEmpresaYClienteThunk } from '@/store/slices/contratos/contratoSlice';
 import { listaOrdenTrabajoThunk } from '@/store/slices/ordenTrabajo/ordenTrabajoSlice';
+import { formatCurrency } from '@/utils/currency';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 interface ItemEjecutado {
@@ -33,6 +35,19 @@ interface ItemPrefactura {
 	precioAjustado?: number | null;
 }
 
+interface CotizacionRelacionada {
+	id: number;
+	numero_cotizacion: number;
+	nombre: string;
+	estado: string;
+	estado_label?: string;
+	cliente_id?: number;
+	cliente_nombre?: string;
+	total_estimado: number;
+	fecha_vencimiento?: string | null;
+	dolar_observado?: number | null;
+}
+
 interface IComparativaData {
 	pactado: {
 		items: any[];
@@ -48,6 +63,7 @@ interface IComparativaData {
 			guias: number;
 			rendiciones: number;
 		};
+		cotizaciones?: CotizacionRelacionada[];
 	};
 	diferencia: number;
 }
@@ -55,6 +71,7 @@ interface IComparativaData {
 const FacturacionesComparativa = () => {
 	const dispatch = useAppDispatch();
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const { listaOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
 	const { listaContratosDeEmpresaYCliente } = useAppSelector((state) => state.contrato);
 
@@ -75,9 +92,30 @@ const FacturacionesComparativa = () => {
 	const [ejecutadoData, setEjecutadoData] = useState<any>(null);
 	const [loadingPactado, setLoadingPactado] = useState<boolean>(false);
 	const [loadingEjecutado, setLoadingEjecutado] = useState<boolean>(false);
+	const [cotizacionItemsById, setCotizacionItemsById] = useState<
+		Record<number, IItemCotizacion[]>
+	>({});
+	const [cotizacionDetallesById, setCotizacionDetallesById] = useState<
+		Record<number, ICotizacion>
+	>({});
+	const cotizacionesItemsCargadasRef = useRef<Set<number>>(new Set());
+	const cotizacionesDetallesCargadasRef = useRef<Set<number>>(new Set());
+	const [loadingCotizaciones, setLoadingCotizaciones] = useState<boolean>(false);
 
 	// Estado para controles de prefactura (por item)
 	const [itemsConfig, setItemsConfig] = useState<Map<string, ItemPrefactura>>(new Map());
+	// Cotizaciones relacionadas (se usan en varias funciones). Declarar temprano para evitar TDZ
+	const cotizacionesRelacionadas = useMemo<CotizacionRelacionada[]>(
+		() =>
+			Array.isArray(ejecutadoData?.ejecutado?.cotizaciones)
+				? ejecutadoData.ejecutado.cotizaciones
+				: [],
+		[ejecutadoData],
+	);
+	const cotizacionesRelacionadasKey = useMemo(
+		() => cotizacionesRelacionadas.map((cotizacion) => cotizacion.id).join(','),
+		[cotizacionesRelacionadas],
+	);
 
 	const [creatingPrefactura, setCreatingPrefactura] = useState<boolean>(false);
 
@@ -147,6 +185,8 @@ const FacturacionesComparativa = () => {
 
 			if (response.status === 201 && prefacturaId) {
 				toast.success(`Prefactura #${prefacturaId} creada exitosamente`);
+				// Recargar la lista de OTs para reflejar el cambio de estado
+				dispatch(listaOrdenTrabajoThunk(undefined));
 				// Esperar un poco y luego navegar a la prefactura
 				setTimeout(() => {
 					navigate(`/facturacion/facturas/${prefacturaId}`);
@@ -161,6 +201,26 @@ const FacturacionesComparativa = () => {
 			setCreatingPrefactura(false);
 		}
 	};
+
+	// Inicializar con parámetros desde URL (cliente_id y ot_id)
+	useEffect(() => {
+		const clienteIdParam = searchParams.get('cliente_id');
+		const otIdParam = searchParams.get('ot_id');
+
+		if (clienteIdParam) {
+			const clienteId = parseInt(clienteIdParam, 10);
+			if (!isNaN(clienteId)) {
+				setSelectedEmpresaClienteId(clienteId);
+			}
+		}
+
+		if (otIdParam) {
+			const otId = parseInt(otIdParam, 10);
+			if (!isNaN(otId)) {
+				setSelectedOts([otId]);
+			}
+		}
+	}, [searchParams]);
 
 	// Cargar OTs al montar
 	useEffect(() => {
@@ -438,6 +498,92 @@ const FacturacionesComparativa = () => {
 		[otasDisponibles, selectedOts],
 	);
 
+	const getPrecioUnitario = (item: IItemCotizacion, moneda: 'CLP' | 'USD' | 'UF') => {
+		if (moneda === 'USD') return Number(item.precio_unitario_backend?.usd || 0);
+		if (moneda === 'UF') return Number(item.precio_venta_neta_unitario_moneda_base || 0);
+		return Number(item.precio_unitario_backend?.clp || 0);
+	};
+
+	const getPrecioTotal = (item: IItemCotizacion, moneda: 'CLP' | 'USD' | 'UF') => {
+		if (moneda === 'USD') return Number(item.precio_total_backend?.usd || 0);
+		if (moneda === 'UF') return Number(item.precio_venta_neta_total_moneda_base || 0);
+		return Number(item.precio_total_backend?.clp || 0);
+	};
+
+	// Calcular valores para items ejecutados según moneda activa (visual)
+const computeItemValues = (item: any, moneda: 'CLP' | 'USD') => {
+	const cantidad = item.cantidad ?? 1;
+	if (moneda === 'CLP') {
+		const unit = Number(item.precio_unitario ?? item.precio_unitario_clp ?? 0);
+		const total = Number(item.total ?? unit * cantidad);
+		return { unit, total };
+	}
+
+		// USD: intentar extraer valores ya disponibles
+		const unitUsdCandidates = [
+			item.precio_unitario_usd,
+			item.precio_unitario_backend?.usd,
+		];
+		for (const cand of unitUsdCandidates) {
+			if (cand !== undefined && cand !== null) {
+				const unit = Number(cand);
+				const total = Number(item.total_usd ?? item.precio_total_usd ?? unit * cantidad);
+				return { unit, total };
+			}
+		}
+
+		// Si hay dolar observado en el item o en cotizacion relacionada, convertir
+		const dolarObservado =
+			item.dolar_observado ||
+			(cotizacionesRelacionadas.length > 0 &&
+				(cotizacionDetallesById[cotizacionesRelacionadas[0].id]?.dolar_observado ??
+					cotizacionesRelacionadas[0].dolar_observado));
+
+		if (dolarObservado && (item.precio_unitario || item.total)) {
+			const unidad = Number(item.precio_unitario ?? 0) / Number(dolarObservado);
+			const total = Number(item.total ?? (item.precio_unitario ?? 0) * cantidad) / Number(dolarObservado);
+			return { unit: unidad, total };
+		}
+
+		// Intentar buscar en items de cotizacion por coincidencia de nombre / ids
+		try {
+			const cotId = item.cotizacion_id ?? item.cotizacion;
+			if (cotId && cotizacionItemsById[cotId]) {
+				const match = (cotizacionItemsById[cotId] as any[]).find(
+					(ci) => ci.id === item.item_cotizacion_id || ci.nombre_item === item.nombre,
+				);
+				if (match) {
+					const unit = getPrecioUnitario(match as any, 'USD');
+					const total = getPrecioTotal(match as any, 'USD');
+					return { unit, total };
+				}
+			}
+			// buscar por nombre en todas
+			for (const list of Object.values(cotizacionItemsById)) {
+				const match = (list as any[]).find((ci) => ci.nombre_item === item.nombre || ci.nombre_item === item.descripcion);
+				if (match) {
+					const unit = getPrecioUnitario(match as any, 'USD');
+					const total = getPrecioTotal(match as any, 'USD');
+					return { unit, total };
+				}
+			}
+		} catch (err) {
+			// ignore
+		}
+
+		// Fallback: devolver valores CLP para evitar NaN
+		const unit = Number(item.precio_unitario ?? 0);
+		const total = Number(item.total ?? unit * cantidad);
+		return { unit, total };
+	};
+
+	const getMonedaCotizacion = (cotizacion: Partial<ICotizacion>) => {
+		const tipo = cotizacion.tipo_moneda;
+		if (tipo === '1') return 'USD' as const;
+		if (tipo === '3') return 'UF' as const;
+		return 'CLP' as const;
+	};
+
 	// Calcular totales dinámicamente
 	const totales = useMemo(() => {
 		let totalFacturable = 0;
@@ -449,10 +595,8 @@ const FacturacionesComparativa = () => {
 			const config = itemsConfig.get(itemKey);
 			if (config?.facturar !== false) {
 				const cantidad = item.cantidad ?? 1;
-				const totalBase =
-					typeof item.total === 'number'
-						? item.total
-						: (item.precio_unitario ?? 0) * cantidad;
+				const computed = computeItemValues(item as any, 'CLP');
+				const totalBase = typeof computed.total === 'number' ? computed.total : (computed.unit ?? 0) * cantidad;
 				const totalLinea = config?.precioAsignado ?? totalBase;
 				totalFacturable += totalLinea;
 				countFacturables++;
@@ -467,7 +611,113 @@ const FacturacionesComparativa = () => {
 			countNoFacturables,
 			totalItems: ejecutadoData?.ejecutado?.items?.length || 0,
 		};
-	}, [ejecutadoData, itemsConfig]);
+	}, [ejecutadoData, itemsConfig, cotizacionesRelacionadasKey, cotizacionItemsById]);
+
+
+
+	useEffect(() => {
+		let mounted = true;
+		const fetchCotizaciones = async () => {
+			if (cotizacionesRelacionadas.length === 0) {
+				if (mounted) {
+					setCotizacionItemsById({});
+					setCotizacionDetallesById({});
+					cotizacionesItemsCargadasRef.current.clear();
+					cotizacionesDetallesCargadasRef.current.clear();
+				}
+				return;
+			}
+
+			const missingDetalleIds = cotizacionesRelacionadas
+				.map((cotizacion) => cotizacion.id)
+				.filter((id) => !cotizacionesDetallesCargadasRef.current.has(id));
+			const missingItemsIds = cotizacionesRelacionadas
+				.map((cotizacion) => cotizacion.id)
+				.filter((id) => !cotizacionesItemsCargadasRef.current.has(id));
+
+			if (missingDetalleIds.length === 0 && missingItemsIds.length === 0) {
+				return;
+			}
+
+			setLoadingCotizaciones(true);
+			try {
+				const detallePromises = missingDetalleIds.map(async (id) => {
+					const response = await ApiService.fetchData<ICotizacion>({
+						url: `/api/cotizaciones/${id}/`,
+						method: 'get',
+					});
+					return { id, data: response.data };
+				});
+
+				const itemsPromises = missingItemsIds.map(async (id) => {
+					const response = await ApiService.fetchData<any>({
+						url: `/api/cotizaciones/${id}/items/`,
+						method: 'get',
+					});
+					const items = Array.isArray(response.data)
+						? response.data
+						: response.data?.results ?? [];
+					return { id, items };
+				});
+
+				const [detalles, items] = await Promise.all([
+					Promise.all(detallePromises),
+					Promise.all(itemsPromises),
+				]);
+
+				if (!mounted) return;
+
+				if (detalles.length > 0) {
+					setCotizacionDetallesById((prev) => {
+						const next = { ...prev };
+						detalles.forEach(({ id, data }) => {
+							if (data) {
+								next[id] = data;
+								cotizacionesDetallesCargadasRef.current.add(id);
+							}
+						});
+						return next;
+					});
+				}
+
+				if (items.length > 0) {
+					setCotizacionItemsById((prev) => {
+						const next = { ...prev };
+						items.forEach(({ id, items: list }) => {
+							next[id] = list;
+							cotizacionesItemsCargadasRef.current.add(id);
+						});
+						return next;
+					});
+				}
+			} catch (error) {
+				console.warn('Error cargando cotizaciones relacionadas', error);
+			} finally {
+				if (mounted) {
+					setLoadingCotizaciones(false);
+				}
+			}
+		};
+
+		fetchCotizaciones();
+
+		return () => {
+			mounted = false;
+		};
+	}, [cotizacionesRelacionadasKey]);
+
+
+
+	const formatInfoValue = (value: string | number | null | undefined) => {
+		if (value === null || value === undefined || value === '') return '-';
+		return String(value);
+	};
+
+	const formatFecha = (value?: string | null) => {
+		if (!value) return '-';
+		return dayjs(value).format('DD/MM/YYYY');
+	};
+
 
 	// Manejar selección de contrato
 	const handleSelectContrato = (contratoId: number | '') => {
@@ -908,6 +1158,174 @@ const FacturacionesComparativa = () => {
 									</CardBody>
 								</Card>
 							</Container>
+							{selectedOts.length > 0 && (
+								<Container className='mt-4'>
+									<Card className='shadow-md'>
+										<CardBody className='space-y-3'>
+											<CardTitle>
+												<h3 className='text-sm font-bold text-blue-600'>
+													Cotizaciones relacionadas
+												</h3>
+											</CardTitle>
+									{loadingCotizaciones && (
+										<div className='text-xs text-gray-500'>
+											Cargando cotizaciones...
+										</div>
+									)}
+									{cotizacionesRelacionadas.length > 0 ? (
+										<div className='space-y-4'>
+											{cotizacionesRelacionadas.map((cotizacion) => {
+												const detalle =
+													cotizacionDetallesById[cotizacion.id] ??
+													cotizacion;
+												const moneda = getMonedaCotizacion(detalle);
+												const items =
+													cotizacionItemsById[cotizacion.id] ?? [];
+												const totalItems = items.reduce(
+													(acc, item) =>
+														acc + getPrecioTotal(item, moneda),
+													0,
+												);
+												const titulo = `Nro${detalle.numero_cotizacion ?? cotizacion.numero_cotizacion} - ${
+													detalle.nombre ?? cotizacion.nombre
+												}`;
+
+												return (
+													<div
+														key={cotizacion.id}
+														className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
+														<div className='flex flex-wrap items-start justify-between gap-2'>
+															<div>
+																<p className='text-sm font-semibold text-gray-800'>
+																	{titulo}
+																</p>
+																<p className='text-xs text-gray-500'>
+																	Estado:{' '}
+																	{detalle.estado_label ??
+																		cotizacion.estado_label ??
+																		detalle.estado ??
+																		cotizacion.estado}
+																</p>
+															</div>
+															<span className='text-xs text-gray-500'>
+																{items.length} items
+															</span>
+														</div>
+
+														<div className='mt-3 grid grid-cols-1 gap-2 text-xs text-gray-700 md:grid-cols-2'>
+															<div>
+																<span className='font-semibold'>Descripcion:</span>{' '}
+																{formatInfoValue(detalle.descripcion)}
+															</div>
+															<div>
+																<span className='font-semibold'>Moneda de venta:</span>{' '}
+																{detalle.tipo_moneda_label ?? moneda}
+															</div>
+															<div>
+																<span className='font-semibold'>Dolar observado:</span>{' '}
+																{formatInfoValue(detalle.dolar_observado)}
+															</div>
+															<div>
+																<span className='font-semibold'>UF:</span>{' '}
+																{formatInfoValue(detalle.valor_uf)}
+															</div>
+															<div>
+																<span className='font-semibold'>PPM:</span>{' '}
+																{formatInfoValue(detalle.ppm)}
+															</div>
+															<div>
+																<span className='font-semibold'>Fecha facturacion:</span>{' '}
+																{formatFecha(detalle.fecha_facturacion)}
+															</div>
+															<div className='md:col-span-2'>
+																<span className='font-semibold'>Observaciones:</span>{' '}
+																{formatInfoValue(detalle.observaciones)}
+															</div>
+														</div>
+
+														<div className='mt-4 overflow-x-auto rounded-md border border-gray-200'>
+															<table className='w-full text-xs'>
+																<thead className='bg-gray-100 text-gray-700'>
+																	<tr>
+																		<th className='px-3 py-2 text-left font-semibold'>
+																			Nombre
+																		</th>
+																		<th className='px-3 py-2 text-right font-semibold'>
+																			Cantidad
+																		</th>
+																		<th className='px-3 py-2 text-right font-semibold'>
+																			Valor Unit.
+																		</th>
+																		<th className='px-3 py-2 text-right font-semibold'>
+																			Total
+																		</th>
+																	</tr>
+																</thead>
+																<tbody className='divide-y bg-white'>
+																	{items.length > 0 ? (
+																		items.map((item) => (
+																			<tr
+																				key={item.id}
+																				className='text-gray-800'>
+																				<td className='px-3 py-2'>
+																					<div className='font-medium'>
+																						{item.nombre_item}
+																					</div>
+																					{item.descripcion && (
+																						<div className='text-[11px] text-gray-500'>
+																							{item.descripcion}
+																						</div>
+																					)}
+																				</td>
+																				<td className='px-3 py-2 text-right'>
+																					{item.cantidad}
+																				</td>
+																				<td className='px-3 py-2 text-right'>
+																					{formatCurrency(
+																						getPrecioUnitario(item, moneda),
+																						moneda,
+																					)}
+																				</td>
+																				<td className='px-3 py-2 text-right font-semibold text-gray-800'>
+																					{formatCurrency(
+																						getPrecioTotal(item, moneda),
+																						moneda,
+																					)}
+																				</td>
+																			</tr>
+																		))
+																	) : (
+																		<tr>
+																			<td
+																				colSpan={4}
+																				className='px-3 py-4 text-center text-xs text-gray-500'>
+																				Sin items en la cotizacion
+																			</td>
+																		</tr>
+																	)}
+																</tbody>
+															</table>
+														</div>
+
+														<div className='mt-3 text-right text-xs text-gray-600'>
+															Total:{' '}
+															<span className='font-semibold text-gray-800'>
+																{formatCurrency(totalItems, moneda)}
+															</span>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									) : (
+										<div className='py-4 text-center text-xs text-gray-500'>
+											Sin cotizaciones vinculadas
+										</div>
+									)}
+</CardBody>
+									</Card>
+								</Container>
+							)}
 						</div>
 					</div>
 
@@ -958,24 +1376,24 @@ const FacturacionesComparativa = () => {
 											<h3 className='mb-3 text-base font-semibold'>
 												Acciones
 											</h3>
-											<div className='flex flex-wrap items-center gap-3'>
-												<Button
-													isDisable={
-														totales.countFacturables === 0 ||
-														creatingPrefactura
-													}
-													color={
-														totales.countFacturables > 0
-															? 'blue'
-															: 'gray'
-													}
-													onClick={handleCrearPrefactura}>
-													Crear Prefactura ({totales.countFacturables}{' '}
-													items)
-												</Button>
-												{totales.countNoFacturables > 0 && (
-													<span className='text-sm text-gray-600'>
-														{totales.countNoFacturables} items excluidos
+					<div className='flex flex-wrap items-center gap-3'>
+						<Button
+							isDisable={
+								totales.countFacturables === 0 ||
+								creatingPrefactura
+							}
+							color={
+								totales.countFacturables > 0
+									? 'blue'
+									: 'gray'
+							}
+							onClick={handleCrearPrefactura}>
+							Crear Prefactura ({totales.countFacturables}{' '}
+							items)
+						</Button>
+						{totales.countNoFacturables > 0 && (
+							<span className='text-sm text-gray-600'>
+								{totales.countNoFacturables} items excluidos
 													</span>
 												)}
 											</div>
@@ -1007,11 +1425,11 @@ const FacturacionesComparativa = () => {
 															<th className='border-l-2 border-gray-300 p-2 text-center font-semibold'>
 																Facturar
 															</th>
-															<th className='p-2 text-left font-semibold'>
-																Comentario
-															</th>
 															<th className='p-2 text-right font-semibold'>
 																P.Ajustado
+															</th>
+															<th className='p-2 text-left font-semibold'>
+																Comentario
 															</th>
 														</tr>
 													</thead>
@@ -1170,15 +1588,15 @@ const FacturacionesComparativa = () => {
 																							}
 																						</td>
 																						<td className='p-2 text-right'>
-																							$
-																							{item.precio_unitario.toLocaleString(
-																								'es-CL',
+																							{formatCurrency(
+																								computeItemValues(item as any, 'CLP').unit,
+																								'CLP',
 																							)}
 																						</td>
 																						<td className='p-2 text-right font-semibold text-green-600'>
-																							$
-																							{item.total.toLocaleString(
-																								'es-CL',
+																							{formatCurrency(
+																								computeItemValues(item as any, 'CLP').total,
+																								'CLP',
 																							)}
 																						</td>
 																						<td className='border-l-2 border-gray-300 p-2 text-center'>
@@ -1202,30 +1620,6 @@ const FacturacionesComparativa = () => {
 																									)
 																								}
 																								className='h-4 w-4 cursor-pointer'
-																							/>
-																						</td>
-																						<td className='p-2'>
-																							<input
-																								type='text'
-																								placeholder='Comentario...'
-																								value={
-																									config?.comentario ??
-																									''
-																								}
-																								onChange={(
-																									e,
-																								) =>
-																									updateItemConfig(
-																										itemId,
-																										{
-																											comentario:
-																												e
-																													.target
-																													.value,
-																										},
-																									)
-																								}
-																								className='w-full rounded border px-2 py-1 text-xs'
 																							/>
 																						</td>
 																						<td className='p-2'>
@@ -1256,6 +1650,30 @@ const FacturacionesComparativa = () => {
 																									)
 																								}
 																								className='w-20 rounded border px-2 py-1 text-right text-xs'
+																							/>
+																						</td>
+																						<td className='p-2'>
+																							<input
+																								type='text'
+																								placeholder='Comentario...'
+																								value={
+																									config?.comentario ??
+																									''
+																								}
+																								onChange={(
+																									e,
+																								) =>
+																									updateItemConfig(
+																										itemId,
+																										{
+																											comentario:
+																												e
+																													.target
+																													.value,
+																										},
+																									)
+																								}
+																								className='w-full rounded border px-2 py-1 text-xs'
 																							/>
 																						</td>
 																					</tr>,
@@ -1302,10 +1720,7 @@ const FacturacionesComparativa = () => {
 															Total
 														</p>
 														<p className='text-lg font-bold text-purple-600'>
-															$
-															{totales.totalFacturable.toLocaleString(
-																'es-CL',
-															)}
+															{formatCurrency(totales.totalFacturable, 'CLP')}
 														</p>
 													</div>
 												</div>

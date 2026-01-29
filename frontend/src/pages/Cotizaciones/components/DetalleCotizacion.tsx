@@ -15,30 +15,32 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { TIPO_MONEDA } from '@/constants/cotizacion.constant';
-import { IIndicadorDolar } from '@/interface/bodega.interface';
 import { IItemCotizacion } from '@/interface/cotizaciones.interface';
 import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import {
-    detalleCotizacionPorNumeroThunk,
-    detalleCotizacionThunk,
-    listaContentTypeThunk,
-    listaItemsEnCotizacionThunk,
-    listaSolicitantesCotizacionThunk,
-    useAppDispatch,
-    useAppSelector,
+	listaContentTypeThunk,
+	useAppDispatch,
+	useAppSelector
 } from '@/store';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import { formatPrice } from '@/utils/currency';
 import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    SortingState,
-    useReactTable,
+	useGetDetalleCotizacionPorNumeroQuery,
+	useGetItemsEnCotizacionQuery,
+	useGetSeguimientoCotizacionQuery,
+	useGetSolicitantesCotizacionQuery,
+} from '@/store/slices/cotizaciones/cotizacionApi';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { formatCurrency, formatPrice } from '@/utils/currency';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import {
+	createColumnHelper,
+	flexRender,
+	getCoreRowModel,
+	getFilteredRowModel,
+	getPaginationRowModel,
+	getSortedRowModel,
+	SortingState,
+	useReactTable,
 } from '@tanstack/react-table';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -66,137 +68,98 @@ const columnHelper = createColumnHelper<IItemCotizacion>();
 const DetalleCotizacion = () => {
 	const dispatch = useAppDispatch();
 	const { numero_cotizacion } = useParams();
-	const { listaGrupos } = useAppSelector((state) => state.auth);
+	const numeroKey = numero_cotizacion ? String(numero_cotizacion) : '';
+
+	// RTK Query Hooks
+	const { 
+		data: detalleCotizacion, 
+		isFetching: fetchingDetalle,
+		isLoading: loadingDetalle,
+		refetch
+	} = useGetDetalleCotizacionPorNumeroQuery(numeroKey, { skip: !numeroKey });
+
+	const idKey = detalleCotizacion?.id ? String(detalleCotizacion.id) : '';
+	
+	const { 
+		data: itemsEnCotizacion = [], 
+		isFetching: fetchingItems,
+		refetch: refetchItems 
+	} = useGetItemsEnCotizacionQuery(idKey, { skip: !idKey });
+
+	const { 
+		data: solicitantesCotizacion = [], 
+		isFetching: fetchingSolicitantes,
+		refetch: refetchSolicitantes
+	} = useGetSolicitantesCotizacionQuery(idKey, { skip: !idKey });
+	
 	const {
-		detalleCotizacion: detalleCotizacionGlobal,
-		detallesPorNumero,
-		listaItemsEnCotizacion,
-		itemsPorCotizacion,
-		listaSolicitantesCotizacion,
-		solicitantesPorCotizacion,
-	} = useAppSelector((state) => state.cotizacion);
+		data: listaSeguimientoCotizacion = [],
+		isFetching: fetchingSeguimiento,
+		refetch: refetchSeguimiento
+	} = useGetSeguimientoCotizacionQuery(idKey, { skip: !idKey });
+
+	const { listaGrupos } = useAppSelector((state) => state.auth);
 	const { listaContentType } = useAppSelector((state) => state.core);
+	
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [globalFilter, setGlobalFilter] = useState<string>('');
 	const [isEditing, setIsEditing] = useState<boolean>(false);
 	const [activeComponent, setActiveComponent] = useState<string>('Preparación');
 	const [crearSolicitante, setCrearSolicitante] = useState<boolean>(false);
 	const [creandoSolicitante, setCreandoSolicitante] = useState<boolean>(false);
+	const [refrescandoTipoCambio, setRefrescandoTipoCambio] = useState<boolean>(false);
 
-	const numeroKey = numero_cotizacion ? String(numero_cotizacion) : '';
-	const detalleCotizacion = numeroKey
-		? (detallesPorNumero[numeroKey] ??
-			(detalleCotizacionGlobal?.numero_cotizacion &&
-			String(detalleCotizacionGlobal.numero_cotizacion) === numeroKey
-				? detalleCotizacionGlobal
-				: undefined))
-		: detalleCotizacionGlobal;
-	const idKey = detalleCotizacion?.id ? String(detalleCotizacion.id) : '';
-	const itemsCotizacion = idKey
-		? (itemsPorCotizacion[idKey] ?? listaItemsEnCotizacion)
-		: listaItemsEnCotizacion;
-	const solicitantesCotizacion = idKey
-		? (solicitantesPorCotizacion[idKey] ?? listaSolicitantesCotizacion)
-		: listaSolicitantesCotizacion;
-	const [indicadoresActualizados, setIndicadoresActualizados] = useState<boolean>(false);
-
-	useEffect(() => {
-		if (numero_cotizacion) {
-			dispatch(detalleCotizacionPorNumeroThunk({ numero_cotizacion }));
-		}
-	}, [numero_cotizacion]);
-
-	useEffect(() => {
-		if (detalleCotizacion) {
-			dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion.id }));
-			dispatch(listaSolicitantesCotizacionThunk({ id_cotizacion: detalleCotizacion.id }));
-		}
-	}, [detalleCotizacion]);
-
-	useEffect(() => {
-		if (listaContentType.length === 0) {
-			dispatch(listaContentTypeThunk());
-		}
-	}, [listaContentType]);
-
-	useEffect(() => {
-		if (isEditing) {
-			formik.setValues({
-				nombre: detalleCotizacion?.nombre || '',
-				cliente: detalleCotizacion?.cliente || '',
-				descripcion: detalleCotizacion?.descripcion || '',
-				observaciones: detalleCotizacion?.observaciones || '',
-				fecha_facturacion: detalleCotizacion?.fecha_facturacion || '',
-				ppm: detalleCotizacion?.ppm || 0.001,
-				dolar_observado: detalleCotizacion?.dolar_observado || 0,
-				valor_uf: detalleCotizacion?.valor_uf || 0,
-				tipo_moneda: detalleCotizacion?.tipo_moneda || '2',
+	async function handleRefrescarValores() {
+		if (!detalleCotizacion?.id) return;
+		setRefrescandoTipoCambio(true);
+		try {
+			await ApiService.fetchData({
+				url: `/api/cotizaciones/${detalleCotizacion.id}/refrescar-tipo-cambio/`,
+				method: 'post',
 			});
+			refetch();
+			refetchItems();
+			// El polling se encargará de los siguientes 3 segundos para asegurar que el thread terminó
+		} catch (error: any) {
+			toast.error('Error al refrescar valores');
+			setRefrescandoTipoCambio(false);
 		}
-	}, [isEditing, detalleCotizacion]);
+	}
 
+
+	// Polling para refrescar tipo de cambio
 	useEffect(() => {
-		const asignar_valores = async () => {
-			try {
-				let valor_dolar: number = 0;
-				let valor_uf: number = 0;
-				const fechaBase =
-					detalleCotizacion?.fecha_facturacion || dayjs().format('YYYY-MM-DD');
-				const responseDolar = await ApiService.fetchData<IIndicadorDolar>({
-					baseURL: 'https://mindicador.cl/',
-					url: `api/dolar/${dayjs(fechaBase).format('DD-MM-YYYY')}`,
-					method: 'get',
-					isLoginRequest: true,
-				});
-				if (responseDolar.data) {
-					valor_dolar = Number(responseDolar.data.serie[0].valor.toFixed(1));
+		let interval: NodeJS.Timeout;
+		if (refrescandoTipoCambio) {
+			let attempts = 0;
+			// Primer refresco inmediato
+			refetch();
+			refetchItems();
+			
+			interval = setInterval(() => {
+				attempts++;
+				refetch();
+				refetchItems();
+				
+				// Detener después de 3 intentos (9 segundos aprox)
+				if (attempts >= 3) {
+					setRefrescandoTipoCambio(false);
 				}
-				if (detalleCotizacion?.tipo_moneda === '3') {
-					const responseUF = await ApiService.fetchData<IIndicadorDolar>({
-						baseURL: 'https://mindicador.cl/',
-						url: `api/uf/${dayjs(fechaBase).format('DD-MM-YYYY')}`,
-						method: 'get',
-						isLoginRequest: true,
-					});
-					if (responseUF) {
-						valor_uf = Number(responseUF.data.serie[0].valor.toFixed(0));
-					}
-				}
-				const response = await ApiService.fetchData({
-					url: `/api/cotizaciones/${detalleCotizacion?.id}/`,
-					method: 'patch',
-					headers: { 'Content-Type': 'application/json' },
-					data: JSON.stringify({
-						dolar_observado: valor_dolar,
-						valor_uf: valor_uf,
-					}),
-				});
-				if (response.data) {
-					dispatch(detalleCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }));
-					setIndicadoresActualizados(true);
-				}
-			} catch (error: any) {
-				toast.error(error || 'Error al obtener el dolar observado y el valor uf', {
-					toastId: 'Error al obtener el dolar observado y el valor uf',
-				});
-			}
-		};
-		if (detalleCotizacion) {
-			const dolarInvalido =
-				!detalleCotizacion.dolar_observado ||
-				Number(detalleCotizacion.dolar_observado) <= 0;
-			const ufInvalida =
-				detalleCotizacion.tipo_moneda === '3' &&
-				(!detalleCotizacion.valor_uf || Number(detalleCotizacion.valor_uf) <= 0);
-
-			if ((dolarInvalido || ufInvalida) && !indicadoresActualizados) {
-				asignar_valores();
-			}
-			if (!dolarInvalido && (!ufInvalida || detalleCotizacion.tipo_moneda !== '3')) {
-				setIndicadoresActualizados(true);
-			}
+			}, 3000);
 		}
-	}, [detalleCotizacion, indicadoresActualizados]);
+		return () => clearInterval(interval);
+	}, [refrescandoTipoCambio, refetch, refetchItems]);
+
+
+	const isFutureDate = detalleCotizacion?.fecha_facturacion && dayjs(detalleCotizacion.fecha_facturacion).isAfter(dayjs(), 'day');
+
+	const fechaTipoCambio = detalleCotizacion?.fecha_tipo_cambio;
+	const fechaTipoCambioLabel = fechaTipoCambio
+		? dayjs(fechaTipoCambio).format('DD/MM/YYYY')
+		: '';
+	const tipoCambioTooltip = fechaTipoCambioLabel
+		? `Tipo de cambio corresponde al día ${fechaTipoCambioLabel}`
+		: '';
 
 	const formik = useFormik({
 	enableReinitialize: true,
@@ -233,66 +196,36 @@ const DetalleCotizacion = () => {
 	}),
 	onSubmit: async (values) => {
 		try {
-			const necesitaIndicadores =
-				values.fecha_facturacion !== detalleCotizacion?.fecha_facturacion ||
-				!values.dolar_observado ||
-				Number(values.dolar_observado) <= 0 ||
-				(values.tipo_moneda === '3' && (!values.valor_uf || Number(values.valor_uf) <= 0)) ||
-				values.tipo_moneda !== detalleCotizacion?.tipo_moneda;
-
-			let payload = { ...values };
-
-			if (necesitaIndicadores) {
-				let valor_dolar: number = 0;
-				let valor_uf: number = 0;
-				const fechaBase =
-					values.fecha_facturacion ||
-					detalleCotizacion?.fecha_facturacion ||
-					dayjs().format('YYYY-MM-DD');
-				const responseDolar = await ApiService.fetchData<IIndicadorDolar>({
-					baseURL: 'https://mindicador.cl/',
-					url: `api/dolar/${dayjs(fechaBase).format('DD-MM-YYYY')}`,
-					method: 'get',
-					isLoginRequest: true,
-				});
-				if (responseDolar.data) {
-					valor_dolar = Number(responseDolar.data.serie[0].valor.toFixed(0));
-				}
-				if (values.tipo_moneda === '3') {
-					const responseUF = await ApiService.fetchData<IIndicadorDolar>({
-						baseURL: 'https://mindicador.cl/',
-						url: `api/uf/${dayjs(fechaBase).format('DD-MM-YYYY')}`,
-						method: 'get',
-						isLoginRequest: true,
-					});
-					if (responseUF) {
-						valor_uf = Number(responseUF.data.serie[0].valor.toFixed(0));
-					}
-				}
-				payload = {
-					...values,
-					dolar_observado: valor_dolar,
-					valor_uf: valor_uf,
-				};
-			}
-
 			const response = await ApiService.fetchData({
 				url: `/api/cotizaciones/${detalleCotizacion?.id}/`,
 				method: 'patch',
 				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify(payload),
+				data: JSON.stringify(values),
 			});
 			if (response.data) {
-				toast.success('Cotizacion actualizada', { autoClose: 1000 });
-				dispatch(detalleCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }));
-				dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }));
+				toast.success('Cotización actualizada', { autoClose: 1000 });
+				
+				// Refresco inmediato de la UI
+				refetch();
+				refetchItems();
+				
+				// Si cambió fecha o moneda, la tarea de Celery se está ejecutando en el backend.
+				// Hacemos un segundo refresco a los 2 segundos para capturar los nuevos valores del dólar/UF
+				// sin que el usuario tenga que recargar manualmente.
+				if (
+					values.fecha_facturacion !== detalleCotizacion?.fecha_facturacion ||
+					values.tipo_moneda !== detalleCotizacion?.tipo_moneda
+				) {
+					setRefrescandoTipoCambio(true);
+				}
+
 				formik.resetForm();
 				setIsEditing(false);
 			} else {
-				toast.error('Error al actualizar la cotizacion');
+				toast.error('Error al actualizar la cotización');
 			}
-		} catch (error: any) {
-			const mensajesError = Object.values(error.response.data).flat().join(' ');
+		} catch (error: unknown) {
+			const mensajesError = getErrorMessage(error);
 			toast.error(mensajesError || 'Error al actualizar la cotizacion', {
 				toastId: 'Error al actualizar la cotizacion',
 			});
@@ -300,6 +233,45 @@ const DetalleCotizacion = () => {
 	},
 });
 
+
+	// Refrescar automáticamente si cambia la fecha mientras se edita (debounce)
+	useEffect(() => {
+		if (isEditing && formik.values.fecha_facturacion && formik.values.fecha_facturacion !== detalleCotizacion?.fecha_facturacion) {
+			const timer = setTimeout(() => {
+				handleRefrescarValores();
+			}, 1500);
+			return () => clearTimeout(timer);
+		}
+	}, [formik.values.fecha_facturacion, isEditing, detalleCotizacion]);
+
+
+	const descargarCotizacionPDF = async () => {
+		if (!detalleCotizacion) return;
+		try {
+			const response = await ApiService.fetchData<BlobPart>({
+				url: `/api/cotizaciones/${detalleCotizacion.id}/descargar-pdf`,
+				method: 'get',
+			});
+			if (response.data) {
+				const url = window.URL.createObjectURL(new Blob([response.data]));
+				const link = document.createElement('a');
+				link.href = url;
+				link.setAttribute(
+					'download',
+					`Coti_${detalleCotizacion.numero_cotizacion}_${detalleCotizacion.cliente_nombre}.pdf`,
+				);
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(url);
+			}
+		} catch (error: any) {
+			const mensajesError = getErrorMessage(error);
+			toast.error(mensajesError || 'No se pudo obtener el PDF', {
+				toastId: 'No se pudo obtener el PDF',
+			});
+		}
+	};
 
 	const columns = [
 		columnHelper.accessor('nombre_item', {
@@ -320,40 +292,35 @@ const DetalleCotizacion = () => {
 			header: 'Cantidad',
 		}),
 		columnHelper.accessor('precio_unitario', {
-			cell: (info) => (
-				<div>
-					{info.row.original.tipo_moneda_proveedor === '1'
-						? `$${formatPrice(info.row.original.precio_unitario)} USD`
-						: info.row.original.tipo_moneda_proveedor === '3'
-							? `${formatPrice(info.row.original.precio_unitario)} UF`
-							: `$${formatPrice(info.row.original.precio_unitario)} CLP`}
-					<Tooltip text='Porcentaje de Recargo' placement='bottom'>
-						<div>
-							<Balance
-								status={
-									info.row.original.porcentaje_recargo
-										? info.row.original.porcentaje_recargo > 0
-											? 'positive'
+			cell: (info) => {
+				const porcentajeRecargo = detalleCotizacion?.recargo_cliente ?? 0;
+				return (
+					<div>
+						{formatCurrency(info.row.original.precio_unitario, info.row.original.tipo_moneda_proveedor)}
+						<Tooltip text='Porcentaje de Recargo' placement='bottom'>
+							<div>
+								<Balance
+									status={
+										porcentajeRecargo
+											? porcentajeRecargo > 0
+												? 'positive'
+												: 'fixed'
 											: 'fixed'
-										: 'fixed'
-								}
-								value={`${info.row.original.porcentaje_recargo}%`}
-							/>
-						</div>
-					</Tooltip>
-				</div>
-			),
+									}
+									value={`${porcentajeRecargo}%`}
+								/>
+							</div>
+						</Tooltip>
+					</div>
+				);
+			},
 			header: 'Precio Unitario',
 		}),
 		columnHelper.display({
 			id: 'total_neto',
 			cell: (info) => (
 				<div>
-					{info.row.original.tipo_moneda_proveedor === '1'
-						? `$${formatPrice(info.row.original.costo_total)} USD`
-						: info.row.original.tipo_moneda_proveedor === '3'
-							? `${formatPrice(info.row.original.costo_total)} UF`
-							: `$${formatPrice(info.row.original.costo_total)} CLP`}
+					{formatCurrency(info.row.original.costo_total, info.row.original.tipo_moneda_proveedor)}
 				</div>
 			),
 			header: 'Total Neto',
@@ -363,18 +330,18 @@ const DetalleCotizacion = () => {
 			cell: (info) => (
 				<div className='flex flex-wrap justify-center gap-2'>
 					{detalleCotizacion?.estado === 'pendiente' && (
-						<EditarItemEnCotizacion item={info.row.original} />
+						<EditarItemEnCotizacion 
+							item={info.row.original} 
+							cotizacion={detalleCotizacion} 
+							onItemChange={refetchItems} 
+						/>
 					)}
 					{(detalleCotizacion?.estado == 'pendiente') && (
 						<ModalEliminar
 							mensaje={`Estas seguro que deseas eliminar el ${info.row.original.nombre}?`}
 							peticionUrl={`/api/cotizaciones/${detalleCotizacion.id}/items/${info.row.original.id}/`}
 							onDispatch={() =>
-								dispatch(
-									listaItemsEnCotizacionThunk({
-										id_cotizacion: detalleCotizacion.id,
-									}),
-								)
+								refetchItems()
 							}
 						/>
 					)}
@@ -385,7 +352,7 @@ const DetalleCotizacion = () => {
 	];
 
 	const table = useReactTable({
-		data: itemsCotizacion,
+		data: itemsEnCotizacion,
 		columns: columns,
 		state: {
 			sorting: sorting,
@@ -401,17 +368,23 @@ const DetalleCotizacion = () => {
 	});
 
 	useEffect(() => {
-		if (detalleCotizacion && activeComponent === 'Preparación') {
-			dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion.id }));
+		if (numeroKey) {
+			setActiveComponent('Preparación');
 		}
-	}, [activeComponent, detalleCotizacion?.id]);
+	}, [numeroKey]);
+
+	useEffect(() => {
+		if (listaContentType.length === 0) {
+			dispatch(listaContentTypeThunk());
+		}
+	}, [listaContentType, dispatch]);
 
 	return (
 		<PageWrapper isProtectedRoute={true} name='Detalle Cotizacion' title='Detalle Cotizacion'>
 			<Subheader>
 				<SubheaderLeft>
 					<Badge className='text-xl'>
-						Cotización Nº{detalleCotizacion?.numero_cotizacion}
+						{loadingDetalle ? 'Cargando...' : `Cotización Nº${detalleCotizacion?.numero_cotizacion}`}
 					</Badge>
 				</SubheaderLeft>
 				<SubheaderRight>
@@ -425,12 +398,25 @@ const DetalleCotizacion = () => {
 								detalleCotizacion.estado === 'pendiente'
 							) && <EnviarCotizacion cotizacion={detalleCotizacion} />}
 							{detalleCotizacion.estado === 'pendiente' && (
-								<EnviarCotizacionParaAprobar />
+								<EnviarCotizacionParaAprobar
+									cotizacion={detalleCotizacion}
+									solicitantes={solicitantesCotizacion}
+									items={itemsEnCotizacion}
+									onEnviarChange={refetch}
+								/>
 							)}
 							{detalleCotizacion.estado === 'enviada' && (
 								<>
-									<AprobarCotizacion />
-									<RechazarCotizacion />
+									<AprobarCotizacion
+										cotizacion={detalleCotizacion}
+										solicitantes={solicitantesCotizacion}
+										items={itemsEnCotizacion}
+										onAprobarChange={refetchItems} 
+									/>
+									<RechazarCotizacion 
+										cotizacionId={detalleCotizacion?.id} 
+										onRechazarChange={refetch} 
+									/>
 								</>
 							)}
 							{detalleCotizacion.estado === 'aceptada' && (
@@ -440,43 +426,12 @@ const DetalleCotizacion = () => {
 											variant='solid'
 											color='red'
 											icon='HeroDocumentArrowDown'
-											onClick={async () => {
-												try {
-													const response =
-														await ApiService.fetchData<BlobPart>({
-															url: `/api/cotizaciones/${detalleCotizacion.id}/descargar-pdf`,
-															method: 'get',
-														});
-													if (response.data) {
-														const url = window.URL.createObjectURL(
-															new Blob([response.data]),
-														);
-														const link = document.createElement('a');
-														link.href = url;
-														link.setAttribute(
-															'download',
-															`Coti_${detalleCotizacion.numero_cotizacion}_${detalleCotizacion.cliente_nombre}.pdf`,
-														);
-														document.body.appendChild(link);
-														link.click();
-														link.remove();
-														window.URL.revokeObjectURL(url);
-													}
-												} catch (error: any) {
-													const mensajesError = Object.values(
-														error.response.data,
-													)
-														.flat()
-														.join(' ');
-													toast.error(
-														mensajesError ||
-															'No se pudo obtener el PDF',
-														{ toastId: 'No se pudo obtener el PDF' },
-													);
-												}
-											}}></Button>
+											onClick={descargarCotizacionPDF}></Button>
 									</Tooltip>
-									<CrearOCDeCotizacion />
+									<CrearOCDeCotizacion
+										cotizacion={detalleCotizacion}
+										items={itemsEnCotizacion}
+									/>
 								</>
 							)}
 							{detalleCotizacion?.estado === 'pendiente' && (
@@ -516,13 +471,23 @@ const DetalleCotizacion = () => {
 									)}
 								</div>
 							)}
-							<SeguimientoCotizacion cotizacionId={detalleCotizacion.id} />
+								<SeguimientoCotizacion 
+									cotizacionId={detalleCotizacion?.id} 
+									seguimientos={listaSeguimientoCotizacion} 
+									loading={fetchingSeguimiento} 
+									onSeguimientoChange={refetchSeguimiento} 
+								/>
 						</AuthorityCheckNav>
 					)}
 				</SubheaderRight>
 			</Subheader>
 			<Container className='h-full w-full'>
-				<div className='grid grid-cols-1 gap-4'>
+				{loadingDetalle ? (
+					<div className="flex h-64 items-center justify-center">
+						<div className="text-zinc-500 animate-pulse">Cargando datos de cotización...</div>
+					</div>
+				) : (
+					<div className='grid grid-cols-1 gap-4'>
 					{/* Nombre, cliente, estado, descripcion, observaciones */}
 					{/* PPM, Recargo Cliente, Tipo de Moneda, Recargo por Dolar, Dolar Observado, fecha facturacion */}
 
@@ -539,10 +504,10 @@ const DetalleCotizacion = () => {
 									</CardHeader>
 									<CardBody>
 										<div className='flex flex-col gap-4'>
-											<div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>
+											<div className='grid grid-cols-3 gap-4 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/30 dark:bg-zinc-900/10'>
 												<div>
 													<Badge>Cliente</Badge>
-													<div className='ml-4'>
+													<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
 														{detalleCotizacion?.cliente_nombre}
 													</div>
 												</div>
@@ -562,14 +527,14 @@ const DetalleCotizacion = () => {
 															/>
 														</Validation>
 													) : (
-														<div className='ml-4'>
+														<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
 															{detalleCotizacion?.nombre}
 														</div>
 													)}
 												</div>
 												<div>
 													<Badge>Estado</Badge>
-													<div className='ml-4'>
+													<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
 														{detalleCotizacion?.estado_label}
 													</div>
 												</div>
@@ -630,10 +595,19 @@ const DetalleCotizacion = () => {
 										<Badge className='text-xl'>Uso Interno</Badge>
 									</CardHeader>
 									<CardBody>
+										{isFutureDate && (
+											<div className='mb-4 rounded-lg border-l-4 border-yellow-500 bg-yellow-100 p-3 text-sm text-yellow-800'>
+												<div className='flex items-center gap-2 font-bold'>
+													<Icon icon='HeroExclamationTriangle' />
+													Cotización Proyectada
+												</div>
+												Esta cotización tiene fecha futura. Los valores de moneda son estimados.
+											</div>
+										)}
 										<div className='flex flex-col gap-4'>
 											<div
 												className={classNames(
-													'grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4',
+													'grid grid-cols-2 gap-4 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50/30 dark:bg-zinc-900/10',
 												)}>
 												<div>
 													<Badge>Moneda de Venta</Badge>
@@ -662,51 +636,66 @@ const DetalleCotizacion = () => {
 															/>
 														</Validation>
 													) : (
-														<div className='ml-4'>
+														<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
 															{detalleCotizacion?.tipo_moneda_label}
 														</div>
 													)}
 												</div>
-												{(isEditing
-													? formik.values.tipo_moneda !== '3'
-													: detalleCotizacion?.tipo_moneda !== '3') && (
-													<>
-														<div>
-															<Badge>Dolar Observado</Badge>
-															{isEditing ? (
-																<Validation
-																	isValid={formik.isValid}
-																	isTouched={
-																		formik.touched
-																			.dolar_observado
-																	}
-																	invalidFeedback={
-																		formik.errors
-																			.dolar_observado
-																	}>
-																	<Input
-																		name='dolar_observado'
-																		type='number'
-																		onChange={
-																			formik.handleChange
-																		}
-																		onBlur={formik.handleBlur}
-																		value={
-																			formik.values
-																				.dolar_observado
-																		}
-																	/>
-																</Validation>
-															) : (
-																<div className='ml-4'>
-																	{
-																		detalleCotizacion?.dolar_observado
-																	}
-																</div>
-															)}
+												<div>
+										<Badge>Dolar Observado</Badge>
+										{isEditing ? (
+											<Validation
+												isValid={formik.isValid}
+												isTouched={
+													formik.touched
+														.dolar_observado
+												}
+												invalidFeedback={
+													formik.errors
+														.dolar_observado
+												}>
+												<div className='relative'>
+													<Input
+														name='dolar_observado'
+														type='number'
+														onChange={
+															formik.handleChange
+														}
+														onBlur={formik.handleBlur}
+														value={
+															formik.values
+																.dolar_observado
+														}
+													/>
+													<div className='absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1'>
+														<Tooltip text='Refrescar Dólar ahora'>
+															<Button
+																variant='default'
+																size='xs'
+																icon='HeroArrowPath'
+																className={classNames('!p-1', refrescandoTipoCambio ? 'animate-spin text-primary' : 'text-zinc-400')}
+																onClick={handleRefrescarValores}
+															/>
+														</Tooltip>
+													</div>
+												</div>
+											</Validation>
+										) : (
+											<>
+												{tipoCambioTooltip ? (
+													<Tooltip text={tipoCambioTooltip}>
+														<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+															$ {formatPrice(detalleCotizacion?.dolar_observado, 2, 0)}
 														</div>
-													</>
+													</Tooltip>
+												) : (
+													<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+														$ {formatPrice(detalleCotizacion?.dolar_observado, 2, 0)}
+													</div>
 												)}
+											</>
+										)}
+									</div>
 												<div>
 													<Badge>Fecha de Facturación</Badge>
 													{isEditing ? (
@@ -736,11 +725,8 @@ const DetalleCotizacion = () => {
 														</div>
 													)}
 												</div>
-												{(isEditing
-													? formik.values.tipo_moneda === '3'
-													: detalleCotizacion?.tipo_moneda === '3') && (
-													<div>
-														<Badge>Valor UF</Badge>
+												<div>
+														<Badge>UF Observado</Badge>
 														{isEditing ? (
 															<Validation
 																isValid={formik.isValid}
@@ -748,20 +734,42 @@ const DetalleCotizacion = () => {
 																invalidFeedback={
 																	formik.errors.valor_uf
 																}>
-																<Input
-																	name='valor_uf'
-																	onChange={formik.handleChange}
-																	onBlur={formik.handleBlur}
-																	value={formik.values.valor_uf}
-																/>
+																<div className='relative'>
+																	<Input
+																		name='valor_uf'
+																		onChange={formik.handleChange}
+																		onBlur={formik.handleBlur}
+																		value={formik.values.valor_uf}
+																	/>
+																	<div className='absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1'>
+																		<Tooltip text='Refrescar UF ahora'>
+																			<Button
+																				variant='default'
+																				size='xs'
+																				icon='HeroArrowPath'
+																				className={classNames('!p-1', refrescandoTipoCambio ? 'animate-spin text-primary' : 'text-zinc-400')}
+																				onClick={handleRefrescarValores}
+																			/>
+																		</Tooltip>
+																	</div>
+																</div>
 															</Validation>
 														) : (
-															<div className='ml-4'>
-																{detalleCotizacion?.valor_uf}
-															</div>
+															<>
+																{tipoCambioTooltip ? (
+																	<Tooltip text={tipoCambioTooltip}>
+																		<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+																			$ {formatPrice(detalleCotizacion?.valor_uf, 2, 0)}
+																		</div>
+																	</Tooltip>
+																) : (
+																	<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+																		$ {formatPrice(detalleCotizacion?.valor_uf, 2, 0)}
+																	</div>
+																)}
+															</>
 														)}
 													</div>
-												)}
 												<div>
 													<Badge>PPM</Badge>
 													{isEditing ? (
@@ -783,8 +791,8 @@ const DetalleCotizacion = () => {
 															/>
 														</Validation>
 													) : (
-														<div className='ml-4'>
-															{detalleCotizacion?.ppm}%
+														<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+															{formatPrice(detalleCotizacion?.ppm, 2)}%
 														</div>
 													)}
 												</div>
@@ -897,15 +905,17 @@ const DetalleCotizacion = () => {
 									setIsEditing={setCrearSolicitante}
 									creandoSolicitante={creandoSolicitante}
 									setCreandoSolicitante={setCreandoSolicitante}
+									cotizacionId={detalleCotizacion?.id}
+									onSolicitanteChange={refetchSolicitantes}
 								/>
 								{solicitantesCotizacion.length > 0 ? (
 									solicitantesCotizacion.map((solicitante) => (
 										<div
-											className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'
+											className='grid grid-cols-2 gap-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/10 p-4'
 											key={solicitante.id}>
 											<div>
 												<Badge>Nombre</Badge>
-												<div className='ml-4 flex items-center gap-2'>
+												<div className='ml-4 flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100'>
 													{solicitante.nombre_usuario}{' '}
 													{solicitante.aprobo && (
 														<Tooltip
@@ -922,7 +932,7 @@ const DetalleCotizacion = () => {
 											<div className='flex flex-row items-center justify-between'>
 												<div>
 													<Badge>Email</Badge>
-													<div className='ml-4'>
+													<div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
 														{solicitante.email_usuario}
 													</div>
 												</div>
@@ -932,11 +942,7 @@ const DetalleCotizacion = () => {
 														<ModalEliminar
 															mensaje='┬┐Estas seguro(a) de eliminar al solicitante?'
 															onDispatch={() => {
-																dispatch(
-																	detalleCotizacionPorNumeroThunk({
-																		numero_cotizacion,
-																	}),
-																);
+																refetchSolicitantes();
 															}}
 															peticionUrl={`/api/solicitantes-cotizacion/${solicitante.id}/`}
 															nombre='Solicitante'
@@ -1091,9 +1097,12 @@ const DetalleCotizacion = () => {
 										setGlobalFilter={setGlobalFilter}
 										anchoInput={140}>
 										{detalleCotizacion &&
-											detalleCotizacion.es_vigente &&
 											(detalleCotizacion.estado === 'pendiente') && (
-												<CrearItemCotizacion />
+												<CrearItemCotizacion 
+													cotizacion={detalleCotizacion} 
+													items={itemsEnCotizacion} 
+													onItemChange={refetchItems} 
+												/>
 											)}
 									</AnimacionDeInputModoMovil>
 								</CardHeaderChild>
@@ -1172,15 +1181,35 @@ const DetalleCotizacion = () => {
 						</Card>
 					)}
 
-					{activeComponent === 'Impuestos' && <TablaImpuestos />}
+					{activeComponent === 'Impuestos' && (
+						<TablaImpuestos items={itemsEnCotizacion} />
+					)}
 
-					{activeComponent === 'Cotización Final' && <TablaVenta />}
+					{activeComponent === 'Cotización Final' && (
+						<TablaVenta 
+							items={itemsEnCotizacion} 
+							cotizacion={detalleCotizacion} 
+						/>
+					)}
 
-					{activeComponent === 'Comentarios' && <TablaComentarios />}
+					{activeComponent === 'Comentarios' && (
+						<TablaComentarios 
+							cotizacion={detalleCotizacion} 
+							comentarios={listaSeguimientoCotizacion} 
+							loading={fetchingSeguimiento} 
+							onComentarioChange={refetchSeguimiento} 
+						/>
+					)}
 
-					{activeComponent === 'Items' && <TablaItemsTecnico />}
+					{activeComponent === 'Items' && (
+						<TablaItemsTecnico 
+							items={itemsEnCotizacion} 
+							cotizacion={detalleCotizacion} 
+						/>
+					)}
 				</div>
-			</Container>
+			)}
+		</Container>
 		</PageWrapper>
 	);
 };

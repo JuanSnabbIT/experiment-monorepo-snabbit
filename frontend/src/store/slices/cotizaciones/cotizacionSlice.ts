@@ -1,5 +1,5 @@
 import { IOrdenCompra } from "@/interface/bodega.interface";
-import { IComentarioCotizacion, ICotizacion, IItemCotizacion, ISeguimientoCotizacion, ISolicitanteCotizacion } from "@/interface/cotizaciones.interface";
+import { ICotizacion, IItemCotizacion, ISeguimientoCotizacion, ISolicitanteCotizacion } from "@/interface/cotizaciones.interface";
 import { IUsuarioEmpresa } from "@/interface/empresas.interface";
 import ApiService from "@/services/ApiService";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
@@ -22,7 +22,6 @@ export interface CotizacionState {
     solicitantesPorCotizacion: Record<string, ISolicitanteCotizacion[]>;
     copiasPorCotizacion: Record<string, ICotizacion[]>;
     listaUsuariosParaSolicitante: IUsuarioEmpresa[];
-    listaComentariosCotizacion: IComentarioCotizacion[];
     listaOrdenesDeCompraCotizacion: IOrdenCompra[]
 }
 
@@ -43,7 +42,6 @@ const initialState: CotizacionState = {
     solicitantesPorCotizacion: {},
     copiasPorCotizacion: {},
     listaUsuariosParaSolicitante: [],
-    listaComentariosCotizacion: [],
     listaOrdenesDeCompraCotizacion: []
 }
 
@@ -216,6 +214,9 @@ export const detalleSeguimientoCotizacionThunk = createAsyncThunk<ISeguimientoCo
 export const listaSolicitantesCotizacionThunk = createAsyncThunk<ISolicitanteCotizacion[], {id_cotizacion: string | number | undefined}, {rejectValue: string}>(
     'cotizacion/listaSolicitantesCotizacionThunk',
     async ({id_cotizacion}, {rejectWithValue}) => {
+        if (!id_cotizacion) {
+            return []
+        }
         try {
             const response = await ApiService.fetchData<ISolicitanteCotizacion[]>({url: `/api/cotizaciones/${id_cotizacion}/solicitantes-cotizacion/`, method: 'get'})
             return response.data
@@ -237,17 +238,6 @@ export const listaUsuariosParaSolicitanteThunk = createAsyncThunk<IUsuarioEmpres
     }
 )
 
-export const listaComentarioCotizacionThunk = createAsyncThunk<IComentarioCotizacion[], {id_cotizacion: string | number | undefined}, {rejectValue: string}>(
-    'cotizacion/listaComentarioCotizacionThunk',
-    async ({id_cotizacion}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IComentarioCotizacion[]>({url: `/api/cotizaciones/${id_cotizacion}/comentarios-cotizacion/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data || "Error al obtener la lista de comentarios")
-        }
-    }
-)
 
 export const listaOrdenesDeCompraCotizacionThunk = createAsyncThunk<IOrdenCompra[], {id_cotizacion: number | string | undefined}, {rejectValue: string}>(
     'cotizacion/listaOrdenesDeCompraCotizacionThunk',
@@ -410,17 +400,6 @@ const cotizacionSlice = createSlice({
                 state.listaUsuariosParaSolicitante = action.payload
             })
             .addCase(listaUsuariosParaSolicitanteThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
-            })
-            .addCase(listaComentarioCotizacionThunk.pending, (state) => {
-                state.loading = true
-            })
-            .addCase(listaComentarioCotizacionThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaComentariosCotizacion = action.payload
-            })
-            .addCase(listaComentarioCotizacionThunk.rejected, (state, action) => {
                 state.loading = false
                 state.error = action.payload
             })

@@ -3,7 +3,7 @@ ESTADOS_ORDEN = [
     ("en_proceso", "En Proceso"),
     ("completada", "Completada"),
     ("cerrada", "Validada y Cerrada"),
-    ("facturada", "Facturada"),
+    ("facturada", "En proceso Factura"),
     ("cancelada", "Cancelada"),
 ]
 

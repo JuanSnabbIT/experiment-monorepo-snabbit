@@ -1,4 +1,5 @@
 import Input from "@/components/form/Input"
+import SelectReact from "@/components/form/SelectReact"
 import Textarea from "@/components/form/Textarea"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
@@ -12,7 +13,7 @@ import Tooltip from "@/components/ui/Tooltip"
 import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
 import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
+import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { confirmAlert } from "@/utils/sweetAlert"
@@ -35,6 +36,8 @@ function DetalleGuiaSalidaBodega() {
     const navigate = useNavigate()
     const { id } = useParams()
     const { detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega, listaStockItemsEnBodega } = useAppSelector((state) => state.bodega)
+    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa)
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
     const [isEditting, setIsEditting] = useState<boolean>(false)
     const [sorting, setSorting] = useState<SortingState>([])
     const [globalFilter, setGlobalFilter] = useState<string>('')
@@ -76,13 +79,23 @@ function DetalleGuiaSalidaBodega() {
         enableReinitialize: true,
         initialValues: {
             motivo: "",
+            recibido_por: "",
         },
         validationSchema: Yup.object().shape({
-            motivo: Yup.string().notRequired().nullable()
+            motivo: Yup.string().notRequired().nullable(),
+            recibido_por: Yup.string().notRequired().nullable(),
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(values)})
+                const payload: Record<string, unknown> = {
+                    motivo: values.motivo,
+                }
+
+                if (values.recibido_por) {
+                    payload.recibido_por = Number(values.recibido_por)
+                }
+
+                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(payload)})
                 if (response.data) {
                     setIsEditting(false)
                     dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
@@ -98,8 +111,29 @@ function DetalleGuiaSalidaBodega() {
     useEffect(() => {
         if (isEditting && detalleGuiaSalidaBodega) {
             formik.setFieldValue("motivo", detalleGuiaSalidaBodega.motivo)
+            formik.setFieldValue(
+                "recibido_por",
+                detalleGuiaSalidaBodega.recibido_por
+                    ? detalleGuiaSalidaBodega.recibido_por.toString()
+                    : "",
+            )
         }
     }, [isEditting, detalleGuiaSalidaBodega])
+
+    useEffect(() => {
+        if (isEditting && personalizacionUsuario?.empresa) {
+            dispatch(listaUsuariosTodaLaEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
+        }
+    }, [dispatch, isEditting, personalizacionUsuario?.empresa])
+
+    const recibidoPorOptions = listaUsuariosTodaLaEmpresa.map((user) => ({
+        value: user.id.toString(),
+        label: user.nombre_usuario,
+    }))
+
+    const recibidoPorSeleccionado = recibidoPorOptions.find(
+        (option) => option.value === formik.values.recibido_por,
+    )
 
     const columnsReadOnly = [
         columnHelperItem.accessor("datos_stock.datos_item.nombre", {
@@ -533,7 +567,19 @@ function DetalleGuiaSalidaBodega() {
                                             </div>
                                             <div className="w-full">
                                                 <Badge>Recibido Por</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_recibido_por}</div>
+                                                <SelectReact
+                                                    name="recibido_por"
+                                                    placeholder="Seleccione un usuario"
+                                                    options={recibidoPorOptions}
+                                                    value={recibidoPorSeleccionado}
+                                                    onChange={(option) => {
+                                                        formik.setFieldValue(
+                                                            "recibido_por",
+                                                            option ? option.value : "",
+                                                        )
+                                                    }}
+                                                    onBlur={formik.handleBlur}
+                                                />
                                             </div>
                                             <div className="w-full">
                                                 <Badge>Cliente</Badge>

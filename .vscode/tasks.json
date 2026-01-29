@@ -64,7 +64,16 @@
       "label": "Backend: Celery Worker",
       "type": "shell",
       "command": "${workspaceFolder}\\backend\\ENV\\Scripts\\python.exe",
-      "args": ["-m", "celery", "-A", "sw_erp", "worker", "--loglevel=info"],
+      "args": [
+        "-m",
+        "celery",
+        "-A",
+        "sw_erp",
+        "worker",
+        "--loglevel=info",
+        "--pool=solo",
+        "--concurrency=1"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/backend"
       },

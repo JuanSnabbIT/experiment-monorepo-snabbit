@@ -9,36 +9,44 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 
 
-function CrearOCDeCotizacion() {
+import { ICotizacion, IItemCotizacion } from "@/interface/cotizaciones.interface"
+
+function CrearOCDeCotizacion({ 
+    cotizacion, 
+    items = [] 
+}: { 
+    cotizacion: ICotizacion, 
+    items: IItemCotizacion[] 
+}) {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
-    const { detalleCotizacion, listaItemsEnCotizacion, listaOrdenesDeCompraCotizacion } = useAppSelector((state) => state.cotizacion)
+    const { listaOrdenesDeCompraCotizacion } = useAppSelector((state) => state.cotizacion)
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [proveedores, setProveedores] = useState<{id: string, nombre: string, moneda: string}[]>([])
     const [creandoOCProveedor, setCreandoOCProveedor] = useState<string | null>(null)
     const [creandoTodas, setCreandoTodas] = useState<boolean>(false)
 
     useEffect(() => {
-        if (detalleCotizacion?.id) {
-            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
+        if (cotizacion?.id) {
+            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: cotizacion.id}))
         }
         // Limpiar proveedores al cambiar de cotización
         return () => {
             setProveedores([])
         }
-    }, [detalleCotizacion?.id])
+    }, [cotizacion?.id, dispatch])
 
     useEffect(() => {
-        if (isOpen && detalleCotizacion) {
-            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
-            dispatch(listaItemsEnCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
+        if (isOpen && cotizacion) {
+            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: cotizacion.id}))
+            dispatch(listaItemsEnCotizacionThunk({id_cotizacion: cotizacion.id}))
         }
-    }, [isOpen, detalleCotizacion])
+    }, [isOpen, cotizacion, dispatch])
 
     useEffect(() => {
-        if (listaItemsEnCotizacion.length > 0 && listaItemsEnCotizacion.filter(item => item.item_empresa).length > 0 && isOpen) {
+        if (items.length > 0 && items.filter(item => item.item_empresa).length > 0 && isOpen) {
             let lista_proveedores: {id: string, nombre: string, moneda: string}[] = []
-            listaItemsEnCotizacion.filter(item => item.item_empresa && item.aprobado).forEach(item => {
+            items.filter(item => item.item_empresa && item.aprobado).forEach(item => {
                 if (item.proveedor_empresa && item.nombre_proveedor) {
                     if (!lista_proveedores.some(pro => pro.id === item.proveedor_empresa?.toString())) {
                         lista_proveedores = [...lista_proveedores, {
@@ -51,15 +59,15 @@ function CrearOCDeCotizacion() {
             })
             setProveedores(lista_proveedores)
         }
-    }, [listaItemsEnCotizacion, isOpen])
+    }, [items, isOpen])
 
     const handleCrearOCProveedor = async (proveedorId: string) => {
-        if (!detalleCotizacion) return
+        if (!cotizacion) return
         try {
             if (creandoTodas) return
             setCreandoOCProveedor(proveedorId)
             const response = await ApiService.fetchData<{id: number}>({
-                url: `/api/cotizaciones/${detalleCotizacion.id}/crear-orden-compra/`,
+                url: `/api/cotizaciones/${cotizacion.id}/crear-orden-compra/`,
                 method: 'post',
                 headers: {'Content-Type': 'application/json'},
                 data: {proveedor_id: proveedorId}
@@ -82,14 +90,14 @@ function CrearOCDeCotizacion() {
     const mostrarCrearTodas = proveedoresPendientes.length > 1
 
     const handleCrearTodasOCs = async () => {
-        if (!detalleCotizacion || proveedoresPendientes.length === 0 || creandoTodas) return
+        if (!cotizacion || proveedoresPendientes.length === 0 || creandoTodas) return
         try {
             setCreandoTodas(true)
             for (const proveedor of proveedoresPendientes) {
                 setCreandoOCProveedor(proveedor.id)
                 try {
                     const response = await ApiService.fetchData<{id: number}>({
-                        url: `/api/cotizaciones/${detalleCotizacion.id}/crear-orden-compra/`,
+                        url: `/api/cotizaciones/${cotizacion.id}/crear-orden-compra/`,
                         method: 'post',
                         headers: {'Content-Type': 'application/json'},
                         data: {proveedor_id: proveedor.id}
@@ -101,7 +109,7 @@ function CrearOCDeCotizacion() {
                     toast.error(error?.response?.data?.error || 'Error al crear la orden de compra')
                 }
             }
-            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: detalleCotizacion.id}))
+            dispatch(listaOrdenesDeCompraCotizacionThunk({id_cotizacion: cotizacion.id}))
         } finally {
             setCreandoOCProveedor(null)
             setCreandoTodas(false)
@@ -120,7 +128,7 @@ function CrearOCDeCotizacion() {
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
-                    <Badge className="text-xl">Órdenes de Compra - Cotización #{detalleCotizacion?.numero_cotizacion}</Badge>
+                    <Badge className="text-xl">Órdenes de Compra - Cotización #{cotizacion?.numero_cotizacion}</Badge>
                 </ModalHeader>
                 <ModalBody>
                     <div className="flex flex-col gap-3">
@@ -159,7 +167,7 @@ function CrearOCDeCotizacion() {
                                              <div className="mt-2 text-xs text-gray-500">
                                                 <strong>Items aprobados:</strong>
                                                 <ul className="list-disc pl-4 mt-1">
-                                                    {listaItemsEnCotizacion
+                                                    {items
                                                         .filter(item => 
                                                             item.proveedor_empresa?.toString() === prov.id && 
                                                             item.aprobado

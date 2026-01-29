@@ -2,8 +2,6 @@ from .models import *
 from rest_framework import serializers
 from django.utils import timezone
 
-from .tasks import obtener_tipo_cambio_mindicador
-
 
 class ItemCotizacionSerializer(serializers.ModelSerializer):
     ppm = serializers.SerializerMethodField()
@@ -130,58 +128,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
         model = Cotizacion
         fields = '__all__'
 
-    def validate_fecha_facturacion(self, value):
-        if value is None:
-            return value
-
-        hoy = timezone.localdate()
-        if value > hoy:
-            raise serializers.ValidationError('No se permite una fecha de facturaci├│n futura.')
-        return value
-
     def update(self, instance, validated_data):
-        fecha_objetivo = validated_data.get('fecha_facturacion', instance.fecha_facturacion)
-        tipo_moneda_objetivo = validated_data.get('tipo_moneda', instance.tipo_moneda)
-
-        fecha_cambio = (
-            'fecha_facturacion' in validated_data and
-            fecha_objetivo is not None and
-            fecha_objetivo != instance.fecha_facturacion
-        )
-        tipo_moneda_cambio = (
-            'tipo_moneda' in validated_data and
-            tipo_moneda_objetivo != instance.tipo_moneda
-        )
-
-        necesita_dolar = (
-            fecha_objetivo is not None and
-            'dolar_observado' not in validated_data and
-            (fecha_cambio or tipo_moneda_cambio or not instance.dolar_observado or instance.dolar_observado <= 0)
-        )
-
-        if necesita_dolar:
-            try:
-                validated_data['dolar_observado'] = obtener_tipo_cambio_mindicador('dolar', fecha_objetivo)
-            except Exception:
-                raise serializers.ValidationError({
-                    'dolar_observado': 'No fue posible obtener el d├│lar observado para la fecha. Ingresa el tipo de cambio manualmente.'
-                })
-
-        necesita_uf = (
-            tipo_moneda_objetivo == '3' and
-            fecha_objetivo is not None and
-            'valor_uf' not in validated_data and
-            (fecha_cambio or tipo_moneda_cambio or not instance.valor_uf or instance.valor_uf <= 0)
-        )
-
-        if necesita_uf:
-            try:
-                validated_data['valor_uf'] = obtener_tipo_cambio_mindicador('uf', fecha_objetivo)
-            except Exception:
-                raise serializers.ValidationError({
-                    'valor_uf': 'No fue posible obtener el valor UF para la fecha. Ingresa el valor manualmente.'
-                })
-
         return super().update(instance, validated_data)
 
     def create(self, validated_data):
@@ -192,23 +139,6 @@ class CotizacionSerializer(serializers.ModelSerializer):
             validated_data["porcentaje_recargo"] = cliente.recargo
 
         fecha_facturacion = validated_data.get('fecha_facturacion')
-        tipo_moneda = validated_data.get('tipo_moneda', '2')
-
-        if fecha_facturacion is not None and 'dolar_observado' not in validated_data:
-            try:
-                validated_data['dolar_observado'] = obtener_tipo_cambio_mindicador('dolar', fecha_facturacion)
-            except Exception:
-                raise serializers.ValidationError({
-                    'dolar_observado': 'No fue posible obtener el d├│lar observado para la fecha. Ingresa el tipo de cambio manualmente.'
-                })
-
-        if fecha_facturacion is not None and tipo_moneda == '3' and 'valor_uf' not in validated_data:
-            try:
-                validated_data['valor_uf'] = obtener_tipo_cambio_mindicador('uf', fecha_facturacion)
-            except Exception:
-                raise serializers.ValidationError({
-                    'valor_uf': 'No fue posible obtener el valor UF para la fecha. Ingresa el valor manualmente.'
-                })
         if fecha_facturacion is None:
             validated_data['fecha_facturacion'] = timezone.localdate()
         return super().create(validated_data)
@@ -254,12 +184,3 @@ class SolicitanteExternoSerializer(serializers.ModelSerializer):
         model = SolicitanteExterno
         fields = '__all__'
 
-class ComentarioCotizacionSerializer(serializers.ModelSerializer):
-    nombre_creado_por = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ComentarioCotizacion
-        fields = '__all__'
-
-    def get_nombre_creado_por(self, obj):
-        return obj.creado_por.usuario.get_nombre_completo()

@@ -11,3 +11,9 @@ TIPOS_MONEDA = [
     ('2', 'CLP'),
     ('3', 'UF'),
 ]
+
+TIPO_SEGUIMIENTO_COTIZACION = [
+    ('comentario', 'Comentario'),
+    ('incidencia', 'Incidencia'),
+    ('actualizacion', 'Actualizacion'),
+]

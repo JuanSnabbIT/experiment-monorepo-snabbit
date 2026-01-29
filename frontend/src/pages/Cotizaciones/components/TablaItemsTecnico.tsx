@@ -5,11 +5,7 @@ import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table";
 import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil";
 import { IItemCotizacion } from "@/interface/cotizaciones.interface";
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2";
-import {
-    listaItemsEnCotizacionThunk,
-    useAppDispatch,
-    useAppSelector,
-} from "@/store";
+import { formatCurrency } from "@/utils/currency";
 import {
     createColumnHelper,
     flexRender,
@@ -20,23 +16,23 @@ import {
     SortingState,
     useReactTable,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const columnHelper = createColumnHelper<IItemCotizacion>();
 
-function TablaItemsTecnico() {
-    const dispatch = useAppDispatch()
-    const { listaItemsEnCotizacion, detalleCotizacion } = useAppSelector((state) => state.cotizacion)
+import { ICotizacion } from "@/interface/cotizaciones.interface";
+
+function TablaItemsTecnico({ 
+    items = [], 
+    cotizacion 
+}: { 
+    items: IItemCotizacion[], 
+    cotizacion: ICotizacion | undefined 
+}) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    useEffect(() => {
-        if (detalleCotizacion) {
-            dispatch(listaItemsEnCotizacionThunk({id_cotizacion: detalleCotizacion.id}));
-        }
-    }, [detalleCotizacion, dispatch])
-
-    const tipoMoneda = detalleCotizacion?.tipo_moneda;
+    const tipoMoneda = cotizacion?.tipo_moneda;
 
     const columns = useMemo(
         () => [
@@ -60,31 +56,13 @@ function TablaItemsTecnico() {
             header: "Cantidad"
         }),
         columnHelper.accessor("precio_unitario", {
-            cell: (info) => {
-                const precio = parseFloat(info.getValue() || "0");
-                const formatted = precio.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                if (tipoMoneda === "1") {
-                    return `${formatted} USD`;
-                } else if (tipoMoneda === "3") {
-                    return `${formatted} UF`;
-                } else {
-                    return `$${formatted}`;
-                }
-            },
+            cell: (info) => formatCurrency(info.getValue(), info.row.original.tipo_moneda_proveedor),
             header: "Precio Unitario"
         }),
         columnHelper.accessor("costo_total", {
             cell: (info) => {
-                const costoTotal = parseFloat(info.getValue() || "0");
-                const calculado = costoTotal || (parseFloat(info.row.original.precio_unitario || "0") * info.row.original.cantidad);
-                const formatted = calculado.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                if (tipoMoneda === "1") {
-                    return `${formatted} USD`;
-                } else if (tipoMoneda === "3") {
-                    return `${formatted} UF`;
-                } else {
-                    return `$${formatted}`;
-                }
+                const costoTotal = info.getValue() || (parseFloat(info.row.original.precio_unitario || "0") * info.row.original.cantidad);
+                return formatCurrency(costoTotal, info.row.original.tipo_moneda_proveedor);
             },
             header: "Total Neto"
         }),
@@ -93,7 +71,7 @@ function TablaItemsTecnico() {
     );
 
     const table = useReactTable({
-        data: listaItemsEnCotizacion || [],
+        data: items || [],
         columns: columns,
         state: {
             sorting: sorting,

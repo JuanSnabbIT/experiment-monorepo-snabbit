@@ -69,10 +69,8 @@ class Cotizacion(ModeloBase):
     valor_uf = models.DecimalField(
         null=True, blank=True, decimal_places=2, max_digits=10
     )
+    fecha_tipo_cambio = models.DateField(null=True, blank=True)
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
-    comentarios = models.ManyToManyField(
-        "self", through="cotizaciones.ComentarioCotizacion"
-    )
     copia_de = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -98,17 +96,19 @@ class Cotizacion(ModeloBase):
         for item in self.items.all():
             # precio_total_backend devuelve { 'clp': ..., 'usd': ... } con el precio final (con margen)
             precios = item.precio_total_backend
-            
-            if self.tipo_moneda == '1': # USD
-                total += precios['usd']
-            elif self.tipo_moneda == '2': # CLP
-                total += precios['clp']
-            elif self.tipo_moneda == '3': # UF
+
+            if self.tipo_moneda == "1":  # USD
+                total += precios["usd"]
+            elif self.tipo_moneda == "2":  # CLP
+                total += precios["clp"]
+            elif self.tipo_moneda == "3":  # UF
                 # Convertir CLP a UF usando el valor UF de la cotización
                 valor_uf = Decimal(self.valor_uf or 1)
-                total += precios['clp'] / valor_uf
-                
-        return total.quantize(Decimal("0.01"))
+                total += precios["clp"] / valor_uf
+
+        # UF requiere mas precision (4 decimales) para que el total en la lista coincida con el detalle
+        div = Decimal("0.0001") if self.tipo_moneda == "3" else Decimal("0.01")
+        return total.quantize(div)
 
     @property
     def es_vigente(self):
@@ -320,30 +320,66 @@ class ItemCotizacion(ModeloBase):
     @property
     def precio_venta_neta_unitario_moneda_base(self) -> Decimal:
         """
-        Este valor está en la moneda base (USD, CLP o UF), y representa:
-          precio_unitario + (precio_unitario * porcentaje_recargo/100)
-        - Si tipo_moneda=="1": precio_base está en USD.
-        - Si tipo_moneda=="2": precio_base está en CLP.
-        - Si tipo_moneda=="3": precio_base está en UF.
-        Redondeado a 2 decimales.
+        Devuelve el precio de venta neto unitario (Costo + Recargo)
+        en la moneda de la COTIZACIÓN (CLP, USD o UF).
         """
-        base = Decimal(self.precio_unitario or 0)
+        costo_unitario_clp = (
+            self._costo_total_en_clp / Decimal(self.cantidad)
+            if self.cantidad
+            else Decimal("0.00")
+        )
         factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
-        precio_neto = base + (base * factor_rec) if factor_rec else base
+        venta_unitario_clp = (
+            costo_unitario_clp * (Decimal("1.00") + factor_rec)
+            if factor_rec
+            else costo_unitario_clp
+        )
 
-        return precio_neto.quantize(Decimal("0.01"))
+        moneda_coti = self.cotizacion.tipo_moneda
+        if moneda_coti == "1":  # Venta en USD
+            # Para la VENTA en USD usamos el dolar_observado de la cotización
+            # (precio "limpio" para el cliente), aunque el costo CLP ya incluya el margen.
+            tasa_venda_usd = Decimal(self.cotizacion.dolar_observado or 1)
+            if tasa_venda_usd > 0:
+                return (venta_unitario_clp / tasa_venda_usd).quantize(Decimal("0.01"))
+            return Decimal("0.00")
+        elif moneda_coti == "3":  # Venta en UF
+            tasa_uf = self._tasa_uf_clp()
+            if tasa_uf > 0:
+                return (venta_unitario_clp / tasa_uf).quantize(Decimal("0.0001"))
+            return Decimal("0.00")
+
+        # Venta en CLP (Default)
+        return venta_unitario_clp.quantize(Decimal("0.01"))
 
     @property
     def precio_venta_neta_total_moneda_base(self) -> Decimal:
-        base = Decimal(self.precio_unitario or 0)
+        """
+        Devuelve el precio de venta neto total (Costo + Recargo) * Cantidad
+        en la moneda de la COTIZACIÓN (CLP, USD o UF).
+        """
+        costo_total_clp = self._costo_total_en_clp
         factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
-        precio_neto = (
-            (base + (base * factor_rec)) * self.cantidad
+        venta_total_clp = (
+            costo_total_clp * (Decimal("1.00") + factor_rec)
             if factor_rec
-            else base * self.cantidad
+            else costo_total_clp
         )
 
-        return precio_neto.quantize(Decimal("0.01"))
+        moneda_coti = self.cotizacion.tipo_moneda
+        if moneda_coti == "1":  # Venta en USD
+            tasa_venda_usd = Decimal(self.cotizacion.dolar_observado or 1)
+            if tasa_venda_usd > 0:
+                return (venta_total_clp / tasa_venda_usd).quantize(Decimal("0.01"))
+            return Decimal("0.00")
+        elif moneda_coti == "3":  # Venta en UF
+            tasa_uf = self._tasa_uf_clp()
+            if tasa_uf > 0:
+                return (venta_total_clp / tasa_uf).quantize(Decimal("0.0001"))
+            return Decimal("0.00")
+
+        # Venta en CLP (Default)
+        return venta_total_clp.quantize(Decimal("0.01"))
 
     #
     # ——————————————————————
@@ -354,60 +390,26 @@ class ItemCotizacion(ModeloBase):
     @property
     def precio_unitario_backend(self) -> dict:
         """
-        Devuelve un dict con el "precio neto por unidad" convertido a CLP y USD:
-          {
-            "clp": Decimal(...),
-            "usd": Decimal(...)
-          }
-
-        Lógica:
-        1) Calculamos primero el precio neto por unidad en la moneda base:
-            neto_base = self.precio_venta_neta_unitario_moneda_base
-           - Si tipo_moneda=="1" → neto_base en USD
-           - Si tipo_moneda=="2" → neto_base en CLP
-           - Si tipo_moneda=="3" → neto_base en UF
-
-        2) Convertimos neto_base → CLP y USD según:
-           • Si base es USD (tipo=="1"):
-               clp = neto_base * (_tasa_usd_clp())
-               usd = neto_base
-           • Si base es CLP (tipo=="2"):
-               clp = neto_base
-               usd = clp / (dolar_observado)   # SIN recargo_dolar
-           • Si base es UF  (tipo=="3"):
-               clp = neto_base * (_tasa_uf_clp())
-               usd = (clp) / (dolar_observado) # SIN recargo_dolar
-
-        Siempre redondeamos a 2 decimales.
-
-        NOTA: tipo_moneda ahora se obtiene del proveedor_empresa, no de la cotización.
+        Devuelve un dict con el "precio neto por unidad" (Costo + Recargo)
+        convertido a CLP y USD para propósitos de impuestos y márgenes internos.
         """
-        neto_base = self.precio_venta_neta_unitario_moneda_base
-        tipo = self._get_tipo_moneda()
+        costo_unitario_clp = (
+            self._costo_total_en_clp / Decimal(self.cantidad)
+            if self.cantidad
+            else Decimal("0.00")
+        )
+        factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        venta_unitario_clp = (
+            costo_unitario_clp * (Decimal("1.00") + factor_rec)
+            if factor_rec
+            else costo_unitario_clp
+        )
+
         dolar_obs = Decimal(self.cotizacion.dolar_observado or 0)
-        tasa_usd = self._tasa_usd_clp()
-        tasa_uf = self._tasa_uf_clp()
-
-        unit_clp = Decimal("0.00")
-        unit_usd = Decimal("0.00")
-
-        if tipo == "1":
-            # base en USD
-            unit_usd = neto_base
-            if tasa_usd > 0:
-                unit_clp = (unit_usd * tasa_usd).quantize(Decimal("0.01"))
-
-        elif tipo == "2":
-            # base en CLP
-            unit_clp = neto_base
-            if dolar_obs > 0:
-                unit_usd = (unit_clp / dolar_obs).quantize(Decimal("0.01"))
-
-        else:  # tipo == "3"
-            # base en UF
-            unit_clp = (neto_base * tasa_uf).quantize(Decimal("0.01"))
-            if dolar_obs > 0:
-                unit_usd = (unit_clp / dolar_obs).quantize(Decimal("0.01"))
+        unit_clp = venta_unitario_clp
+        unit_usd = (
+            venta_unitario_clp / dolar_obs if dolar_obs > 0 else Decimal("0.00")
+        )
 
         return {
             "clp": unit_clp.quantize(Decimal("0.01")),
@@ -457,6 +459,12 @@ class SeguimientoCotizacion(models.Model):
         related_name="seguimientos",
         on_delete=models.CASCADE,
         verbose_name="Cotización",
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_SEGUIMIENTO_COTIZACION,
+        default="actualizacion",
+        verbose_name="Tipo de seguimiento",
     )
     fecha = models.DateTimeField(
         auto_now_add=True, verbose_name="Fecha del seguimiento"
@@ -547,15 +555,3 @@ class SolicitanteExterno(ModeloBase):
         return f"{self.email} {self.nombre}"
 
 
-class ComentarioCotizacion(ModeloBase):
-    comentario = models.TextField()
-    cotizacion = models.ForeignKey(Cotizacion, on_delete=models.CASCADE)
-    creado_por = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE)
-
-    class Meta:
-        verbose_name = "Comentario de Cotización"
-        verbose_name_plural = "Comentarios de Cotizaciónes"
-        ordering = ["-fecha_creacion"]
-
-    def __str__(self):
-        return f"{self.pk} {self.creado_por.usuario}"

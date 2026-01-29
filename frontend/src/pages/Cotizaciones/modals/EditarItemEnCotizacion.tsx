@@ -4,24 +4,32 @@ import Validation from "@/components/form/Validation"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
-import { IItemCotizacion } from "@/interface/cotizaciones.interface"
+import { ICotizacion, IItemCotizacion } from "@/interface/cotizaciones.interface"
 import ApiService from "@/services/ApiService"
-import { listaItemsEnCotizacionThunk, listaProveedoresDelItemThunk, listaProveedoresEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
+import { listaProveedoresDelItemThunk, listaProveedoresEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import { useFormik } from "formik"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
 
-
-function EditarItemEnCotizacion({item} : {item: IItemCotizacion}) {
-    const dispatch = useAppDispatch()
-    const { detalleCotizacion } = useAppSelector((state) => state.cotizacion)
-    const { listaProveedoresEmpresa, listaProveedoresDelItem } = useAppSelector((state) => state.item)
+function EditarItemEnCotizacion({
+	item,
+	cotizacion,
+	onItemChange,
+}: {
+	item: IItemCotizacion;
+	cotizacion: ICotizacion | undefined;
+	onItemChange?: () => void;
+}) {
+	const dispatch = useAppDispatch();
+	const { listaProveedoresEmpresa, listaProveedoresDelItem } = useAppSelector(
+		(state) => state.item,
+	);
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
     useEffect(() => {
         if (isOpen && item) {
             if (!item.item_empresa) {
-                dispatch(listaProveedoresEmpresaThunk({id_empresa: detalleCotizacion?.empresa}))
+                dispatch(listaProveedoresEmpresaThunk({id_empresa: cotizacion?.empresa}))
             }
             if (item.item_empresa) {
                 dispatch(listaProveedoresDelItemThunk({id_item: item.item_empresa}))
@@ -54,7 +62,7 @@ function EditarItemEnCotizacion({item} : {item: IItemCotizacion}) {
                 if (response.data) {
                     toast.success("Item editado", {autoClose: 1000})
                     setIsOpen(false)
-                    dispatch(listaItemsEnCotizacionThunk({id_cotizacion: item.cotizacion}))
+                    if (onItemChange) onItemChange()
                 }
             } catch (error: any) {
                 toast.error(error.response.data || "Error al editar el item", {toastId: "Error al editar el item"})

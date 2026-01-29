@@ -8,33 +8,41 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { ICompra, IItemEnCompra } from '@/interface/bodega.interface';
 import { IItemRendicion } from '@/interface/rendicion.interface';
 import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import {
-	detalleRendicionThunk,
-	listaItemsRendicionThunk,
-	useAppDispatch,
-	useAppSelector,
+    detalleRendicionThunk,
+    listaItemsRendicionThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import {
-	createColumnHelper,
-	flexRender,
-	getCoreRowModel,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	SortingState,
-	useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CambiarEstadoRendicion from '../modals/CambiarEstadoRendicion';
@@ -51,12 +59,73 @@ const DetalleRendicion = () => {
 	const [globalFilter, setGlobalFilter] = useState<string>('');
 	const [editando, setEditando] = useState<boolean>(false);
 
+	// Modal State
+	const [isOpenDetail, setIsOpenDetail] = useState(false);
+	const [selectedCompra, setSelectedCompra] = useState<ICompra | null>(null);
+	const [itemsCompra, setItemsCompra] = useState<IItemEnCompra[]>([]);
+	const [cargandoItems, setCargandoItems] = useState(false);
+
+	// Cache for table items
+	const [itemsCache, setItemsCache] = useState<Record<number, IItemEnCompra[]>>({});
+
+	const fetchItemsCompra = async (compraId: number) => {
+		setCargandoItems(true);
+		try {
+			const resp = await ApiService.fetchData<IItemEnCompra[]>({
+				url: `/api/compras/${compraId}/items/`,
+				method: 'get',
+			});
+			setItemsCompra(resp.data || []);
+			// Also update cache when we fetch for modal
+			setItemsCache(prev => ({ ...prev, [compraId]: resp.data || [] }));
+		} catch (error: unknown) {
+			toast.error(getErrorMessage(error) || 'No se pudieron cargar los items de la compra');
+		} finally {
+			setCargandoItems(false);
+		}
+	};
+
+	useEffect(() => {
+		if (isOpenDetail && selectedCompra?.id) {
+			fetchItemsCompra(selectedCompra.id);
+		}
+		if (!isOpenDetail) {
+			setItemsCompra([]);
+		}
+	}, [isOpenDetail, selectedCompra]);
+
 	useEffect(() => {
 		if (id) {
 			dispatch(detalleRendicionThunk({ id_rendicion: id }));
 			dispatch(listaItemsRendicionThunk({ id_rendicion: id }));
 		}
 	}, [id]);
+
+	// Fetch items for all purchases in the list
+	useEffect(() => {
+		const fetchAllMissingItems = async () => {
+			if (!listaItemsRendicion) return;
+
+			for (const item of listaItemsRendicion) {
+				const det = item?.detalle_data;
+				if (isObject(det) && 'codigo' in det && typeof det.id === 'number') {
+					// It's a purchase. Check if we have items in cache
+					if (!itemsCache[det.id]) {
+						try {
+							const resp = await ApiService.fetchData<IItemEnCompra[]>({
+								url: `/api/compras/${det.id}/items/`,
+								method: 'get',
+							});
+							setItemsCache(prev => ({ ...prev, [det.id]: resp.data || [] }));
+						} catch (error) {
+							console.error(`Failed to fetch items for compra ${det.id}`, error);
+						}
+					}
+				}
+			}
+		};
+		fetchAllMissingItems();
+	}, [listaItemsRendicion]); // We intentionally do not include itemsCache to avoid loops, only when list changes
 
 	const formik = useFormik({
 		enableReinitialize: true,
@@ -104,123 +173,224 @@ const DetalleRendicion = () => {
 	//     }
 	// })
 
+	const isObject = (v: any): v is Record<string, any> => typeof v === 'object' && v !== null
+
+	const flattenedData = useMemo(() => {
+		const rows: any[] = []
+		;(listaItemsRendicion || []).forEach((item) => {
+			const det = item?.detalle_data
+			if (isObject(det) && 'codigo' in det && Array.isArray(det.items)) {
+				// push a parent header row
+				rows.push({
+					id: `compra-${det.id}`,
+					is_parent: true,
+					detalle_data: det,
+				})
+				// then push each item as its own row (child)
+				// Use fetched items from cache instead of the ID list
+				const childItems = itemsCache[det.id] || [];
+				
+				if (childItems.length === 0 && det.items.length > 0) {
+					// We verify if we are verifying that we have ids but no cache yet
+					// Maybe show a skeleton or just wait? 
+					// For now we just don't render them until loaded to avoid "Sin nombre" errors
+				}
+
+				childItems.forEach((sub: any, idx: number) => {
+					rows.push({
+						id: `${det.id}-${idx}`,
+						parent_compra_id: det.id,
+						is_subitem: true,
+						detalle_data: sub,
+					})
+				})
+			} else {
+				rows.push(item)
+			}
+		})
+		return rows
+	}, [listaItemsRendicion, itemsCache])
+
 	const columns = [
 		columnHelper.accessor('id', {
-			cell: (info) => info.getValue(),
+			cell: (info) => {
+				const original = info.row.original as any;
+				if (original.is_parent) return null; // Parent row doesn't show in this column
+				// For sub-items, show the item's ID from detalle_data
+				if (original.is_subitem) {
+					return <div>{original.detalle_data?.id || '-'}</div>;
+				}
+				return info.getValue();
+			},
 			header: 'N°',
 			size: 20,
 		}),
 		columnHelper.display({
 			id: 'detalle',
-			cell: (info) => (
-				<div>
-					{'codigo' in info.row.original.detalle_data
-						? info.row.original.detalle_data.codigo
-						: 'detalle' in info.row.original.detalle_data
-							? info.row.original.detalle_data.detalle
-							: 'Sin detalle'}
-				</div>
-			),
+			cell: (info) => {
+				const original = info.row.original as any
+				const detObj = original.detalle_data
+				const indent = original.is_subitem ? 24 : 0
+				
+				// Determine text to show
+				let text = 'Sin detalle';
+				if (original.is_subitem) {
+					// For sub-items, detObj IS the item itself
+					text = detObj?.nombre_item || 'Sin nombre'; 
+				} else if (detObj && 'codigo' in detObj) {
+					// For parent compra rows (shouldn't render here)
+					text = detObj.codigo;
+				} else if (detObj && detObj.detalle) {
+					// For regular expense items
+					text = detObj.detalle;
+				}
+
+				return (
+					<div style={{ paddingLeft: `${indent}px` }}>
+						<div>{text}</div>
+					</div>
+				)
+			},
 			header: 'Detalle',
 		}),
 		columnHelper.display({
 			id: 'categoria',
-			cell: (info) => (
-				<div>
-					{'codigo' in info.row.original.detalle_data
-						? 'Compra'
-						: info.row.original.detalle_data.nombre_categoria}
-				</div>
-			),
+			cell: (info) => {
+				const det = info.row.original.detalle_data
+				const detObj = typeof det === 'object' && det !== null ? det : null
+				if (detObj && 'codigo' in detObj) return <div>Compra</div>;
+				return <div>{detObj?.nombre_categoria || '-'}</div>;
+			},
 			header: 'Categoria',
 		}),
 		columnHelper.display({
 			id: 'cantidad',
-			cell: (info) => (
-				<div>
-					{'codigo' in info.row.original.detalle_data
-						? `${info.row.original.detalle_data.items.length} Items`
-						: info.row.original.detalle_data.cantidad}
-				</div>
-			),
+			cell: (info) => {
+				const original = info.row.original as any;
+				const detObj = original.detalle_data;
+				
+				if (original.is_subitem) {
+					// For sub-items, detObj IS the item
+					return <div>{detObj?.cantidad ?? '-'}</div>
+				}
+				
+				if (detObj && 'codigo' in detObj) {
+					// For parent compra rows (shouldn't render here)
+					return <div>{`${(detObj.items || []).length} Items`}</div>
+				}
+				// For regular expense items
+				return <div>{detObj?.cantidad ?? '-'}</div>
+			},
 			header: 'Cantidad',
 		}),
 		columnHelper.display({
 			id: 'monto_unitario',
-			cell: (info) => (
-				<div>
-					{'codigo' in info.row.original.detalle_data
-						? 'No Disponible'
-						: `$${info.row.original.detalle_data.monto_unitario}`}
-				</div>
-			),
+			cell: (info) => {
+				const original = info.row.original as any;
+				const detObj = original.detalle_data;
+				
+				if (original.is_subitem) {
+					// For sub-items, use 'precio' property
+					const precio = detObj?.precio;
+					if (precio === undefined || precio === null) return <div>-</div>;
+					return <div>${precio.toLocaleString('es-CL')}</div>
+				}
+
+				// For parent compra or regular items
+				if (detObj && 'codigo' in detObj) {
+					return <div>-</div>
+				}
+				const monto = detObj?.monto_unitario;
+				if (monto === undefined || monto === null) return <div>-</div>;
+				return <div>${monto.toLocaleString('es-CL')}</div>
+			},
 			header: 'Monto Unitario',
 		}),
 		columnHelper.display({
 			id: 'Monto Total',
-			cell: (info) => (
-				<div>
-					$
-					{'codigo' in info.row.original.detalle_data
-						? info.row.original.detalle_data.total_compra
-						: info.row.original.detalle_data.monto_total}
-				</div>
-			),
+			cell: (info) => {
+				const original = info.row.original as any
+				const det = original.detalle_data
+				const detObj = typeof det === 'object' && det !== null ? det : null
+				
+				if (original.is_subitem) {
+					// subitem detObj is the item object. 
+					const precio = (detObj as any)?.precio || 0;
+					const cantidad = (detObj as any)?.cantidad || 0;
+					if (!precio && !cantidad) return <div>-</div>;
+					return <div>$ {(precio * cantidad).toLocaleString('es-CL')}</div>;
+				}
+
+				if (detObj && 'codigo' in detObj) {
+					return <div>$ {(detObj.total_compra || 0).toLocaleString('es-CL')}</div>
+				}
+
+				const total = detObj?.monto_total;
+				if (total === undefined || total === null) return <div>-</div>;
+				return <div>$ {total.toLocaleString('es-CL')}</div>
+			},
 			header: 'Monto Total',
 		}),
 		columnHelper.display({
 			id: 'fecha_gasto',
-			cell: (info) => (
-				<div>
-					{dayjs(
-						'codigo' in info.row.original.detalle_data
-							? info.row.original.detalle_data.fecha_creacion
-							: info.row.original.detalle_data.fecha_gasto,
-					)
-						.locale('es')
-						.format('DD/MM/YYYY')}
-				</div>
-			),
+			cell: (info) => { 
+				const original = info.row.original as any;
+				const detObj = original.detalle_data;
+				
+				// For sub-items, use the parent purchase's fecha_creacion
+				if (original.is_subitem && original.parent_compra_id) {
+					// Find the parent purchase in listaItemsRendicion
+					const parentItem = listaItemsRendicion?.find(
+						(item: any) => item?.detalle_data?.id === original.parent_compra_id
+					);
+					const parentCompra = parentItem?.detalle_data;
+					if (parentCompra?.fecha_creacion) {
+						return <div>{dayjs(parentCompra.fecha_creacion).format('DD/MM/YYYY')}</div>;
+					}
+					return <div>-</div>;
+				}
+				
+				// For regular expense items: fecha_gasto is in detalle_data (IDetalleGasto)
+				const fecha = (detObj as any)?.fecha_gasto;
+				if (!fecha) return <div>-</div>;
+				return <div>{dayjs(fecha).format('DD/MM/YYYY')}</div>
+			},
 			header: 'Fecha del Gasto',
 		}),
 		columnHelper.display({
 			id: 'acciones',
-			cell: (info) => (
-				<div className='flex justify-end gap-2'>
-					{/* Ver Compra - solo si es de tipo Compra */}
-					{'codigo' in info.row.original.detalle_data && (
-						<Tooltip text='Ver Compra'>
-							<Button
-								variant='solid'
-								color='violet'
-								icon='HeroEye'
-								onClick={() =>
-									navigate(
-										`/compras/detalle-compra/${info.row.original.detalle_data.id}`,
-									)
-								}
+			cell: (info) => {
+				const original = info.row.original as any
+				// Logic for parent/subitem actions
+				if (original.is_parent) return null; // Parent handled in row render
+				
+				// For subitems, we do NOT want "Ver Compra" button.
+				// For non-subitems (regular expenses), we might show delete or other actions.
+				if (original.is_subitem) return null;
+
+				return (
+					<div className='flex justify-end gap-2'>
+						{!original.is_subitem && !original.is_parent && (
+							<ModalEliminar
+								mensaje={`Estas seguro que deseas eliminar el item ¿desea continuar?`}
+								peticionUrl={`/api/rendiciones/${detalleRendicion?.id}/items-rendicion/${info.row.original.id}/`}
+								onDispatch={() => {
+									dispatch(detalleRendicionThunk({ id_rendicion: detalleRendicion?.id }));
+									dispatch(
+										listaItemsRendicionThunk({ id_rendicion: detalleRendicion?.id }),
+									);
+								}}
 							/>
-						</Tooltip>
-					)}
-					{/* Eliminar */}
-					<ModalEliminar
-						mensaje={`Estas seguro que deseas eliminar el item ¿desea continuar?`}
-						peticionUrl={`/api/rendiciones/${detalleRendicion?.id}/items-rendicion/${info.row.original.id}/`}
-						onDispatch={() => {
-							dispatch(detalleRendicionThunk({ id_rendicion: detalleRendicion?.id }));
-							dispatch(
-								listaItemsRendicionThunk({ id_rendicion: detalleRendicion?.id }),
-							);
-						}}
-					/>
-				</div>
-			),
+						)}
+					</div>
+				)
+			},
 			header: '',
 		}),
 	];
 
 	const table = useReactTable({
-		data: listaItemsRendicion,
+		data: flattenedData,
 		columns: columns,
 		state: {
 			sorting: sorting,
@@ -427,60 +597,14 @@ const DetalleRendicion = () => {
 													'Sin Rut'}
 											</div>
 										</div>
+										<div className='w-full'>
+											<Badge>Estado</Badge>
+											<div className='ml-4'>{detalleRendicion?.estado_label}</div>
+										</div>
 									</>
 								)}
 							</div>
-						</CardBody>
-					</Card>
-					<Card>
-						<CardHeader>
-							<CardHeaderChild>
-								<Badge className='text-xl'>Totales y Política</Badge>
-							</CardHeaderChild>
-						</CardHeader>
-						<CardBody>
-							<div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
-								<div>
-									<Badge>Estado</Badge>
-									<div className='ml-4'>{detalleRendicion?.estado_label}</div>
-								</div>
-								<div>
-									<Badge color='blue'>Total Reembolso Técnico</Badge>
-									<div className='ml-4 font-semibold text-blue-600'>
-										${' '}
-										{detalleRendicion?.total_reembolso_tecnico?.toLocaleString(
-											'es-CL',
-										) || 0}
-									</div>
-									<div className='ml-4 text-xs text-gray-500'>
-										Todo lo que gastó el técnico
-									</div>
-								</div>
-								<div>
-									<Badge color='emerald'>Total Facturable Cliente</Badge>
-									<div className='ml-4 font-semibold text-green-600'>
-										${' '}
-										{detalleRendicion?.total_facturable_cliente?.toLocaleString(
-											'es-CL',
-										) || 0}
-									</div>
-									<div className='ml-4 text-xs text-gray-500'>
-										Se cobra en factura
-									</div>
-								</div>
-								<div>
-									<Badge color='amber'>Total No Facturable</Badge>
-									<div className='ml-4 font-semibold text-amber-600'>
-										${' '}
-										{detalleRendicion?.total_no_facturable?.toLocaleString(
-											'es-CL',
-										) || 0}
-									</div>
-									<div className='ml-4 text-xs text-gray-500'>
-										Empresa asume (viáticos incluidos)
-									</div>
-								</div>
-							</div>
+
 						</CardBody>
 					</Card>
 					<Card>
@@ -553,10 +677,82 @@ const DetalleRendicion = () => {
 										))}
 									</THead>
 									<TBody>
-										{table.getRowModel().rows.map((row) => (
-											<Tr key={row.id}>
+										{table.getRowModel().rows.map((row) => {
+											const original = row.original as any;
+											if (original.is_parent) {
+												const compra = original.detalle_data;
+												return (
+													<Tr
+														key={row.id}
+														className='bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500'>
+														<Td colSpan={table.getVisibleFlatColumns().length} className='py-3 px-4'>
+															<div className='flex flex-wrap items-center justify-between gap-4'>
+																<div className='flex flex-wrap items-center gap-4'>
+																	<div className='flex items-center gap-2'>
+																		<Icon
+																			icon='HeroShoppingCart'
+																			className='text-emerald-600'
+																			size='text-lg'
+																		/>
+																		<span className='text-base font-bold text-slate-800'>
+																			Compra {compra.codigo || `#${compra.id}`}
+																		</span>
+																	</div>
+
+																	<div className='h-6 w-px bg-slate-300' />
+
+																	<div className='flex flex-wrap items-center gap-4 text-xs'>
+																		<div className='flex flex-col'>
+																			<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																				Items
+																			</span>
+																			<span className='text-sm font-bold text-slate-700'>
+																				{(compra.items || []).length}
+																			</span>
+																		</div>
+																		<div className='flex flex-col'>
+																			<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																				Total
+																			</span>
+																			<span className='text-sm font-bold text-slate-700'>
+																				${(compra.total_compra || 0).toLocaleString('es-CL')}
+																			</span>
+																		</div>
+																	</div>
+																</div>
+
+																<div className='flex items-center gap-2'>
+																	<Tooltip text='Ver detalles de la compra'>
+																		<Button
+																			variant='solid'
+																			size='sm'
+																			color='violet'
+																			icon='HeroEye'
+																			onClick={() => {
+																				setSelectedCompra(compra as ICompra);
+																				setIsOpenDetail(true);
+																			}}>
+																			Detalle
+																		</Button>
+																	</Tooltip>
+																</div>
+															</div>
+														</Td>
+													</Tr>
+												);
+											}
+
+											return (
+											<Tr 
+												key={row.id} 
+												className={
+													original.is_subitem 
+														? 'bg-blue-50/60 hover:bg-blue-100/70 border-l-2 border-blue-300' 
+														: 'hover:bg-gray-50'
+												}
+											>
 												{row.getVisibleCells().map((cell) => (
-													<Td key={cell.id}>
+													<Td key={cell.id} className={original.is_subitem ? 'py-2' : ''}>
 														{flexRender(
 															cell.column.columnDef.cell,
 															cell.getContext(),
@@ -564,7 +760,8 @@ const DetalleRendicion = () => {
 													</Td>
 												))}
 											</Tr>
-										))}
+										);
+										})}
 									</TBody>
 								</Table>
 								<div className='mt-2 min-w-[800px]'>
@@ -575,6 +772,157 @@ const DetalleRendicion = () => {
 					</Card>
 				</div>
 			</Container>
+
+			{/* Modal de Detalle de Compra - Copied from ComprasEnOT */}
+			<Modal isOpen={isOpenDetail} setIsOpen={setIsOpenDetail}>
+				<ModalHeader className='flex justify-between items-center'>
+					<Badge>Detalle Compra</Badge>
+					{selectedCompra && (
+						<Tooltip text='Ver detalle completo de la compra'>
+							<Button
+								color='blue'
+								variant='solid'
+								size='sm'
+								icon='HeroArrowTopRightOnSquare'
+								onClick={() => {
+									navigate(`/compras/detalle-compra/${selectedCompra.id}`);
+									setIsOpenDetail(false);
+								}}
+							>
+								Ir a
+							</Button>
+						</Tooltip>
+					)}
+				</ModalHeader>
+				<ModalBody>
+					{selectedCompra ? (
+						<>
+							<div className='grid grid-cols-2 gap-4'>
+								<div>
+									<Badge>Código</Badge>
+									<div className='ml-4'>{selectedCompra.codigo}</div>
+								</div>
+								<div>
+									<Badge>Estado</Badge>
+									<div className='ml-4'>
+										<Button
+											size='sm'
+											variant='solid'
+											color='blue'
+											isDisable={true}>
+											{selectedCompra.estado_label || selectedCompra.estado}
+										</Button>
+									</div>
+								</div>
+								<div>
+									<Badge>Fecha Compra</Badge>
+									<div className='ml-4'>
+										{selectedCompra.fecha_compra ? (
+											dayjs(selectedCompra.fecha_compra)
+												.locale('es')
+												.format('DD/MM/YYYY')
+										) : (
+											<span className='italic text-gray-400'>Sin fecha</span>
+										)}
+									</div>
+								</div>
+								<div>
+									<Badge>Total</Badge>
+									<div className='ml-4'>
+										{selectedCompra.total_compra ? (
+											`$${selectedCompra.total_compra.toLocaleString('es-CL')}`
+										) : (
+											'$0'
+										)}
+									</div>
+								</div>
+								<div>
+									<Badge>Comprador</Badge>
+									<div className='ml-4'>
+										{selectedCompra.nombre_creado_por || '-'}
+									</div>
+								</div>
+								<div>
+									<Badge>Descripción</Badge>
+									<div className='ml-4'>
+										{selectedCompra.observaciones || '-'}
+									</div>
+								</div>
+							</div>
+							<div className='col-span-2 mt-4'>
+								<div className='mb-3 flex items-center justify-between'>
+									<Badge className='text-base'>Items de la Compra</Badge>
+									<span className='text-xs text-gray-500'>
+										{itemsCompra.length} item{itemsCompra.length !== 1 ? 's' : ''}
+									</span>
+								</div>
+								<div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+									{cargandoItems ? (
+										<div className='flex items-center justify-center py-8'>
+											<div className='text-sm text-gray-500'>Cargando items...</div>
+										</div>
+									) : itemsCompra.length > 0 ? (
+										<div className='overflow-x-auto'>
+											<table className='min-w-full divide-y divide-gray-200'>
+												<thead className='bg-gray-100'>
+													<tr>
+														<th className='px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider'>
+															Nombre
+														</th>
+														<th className='px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider'>
+															Cantidad
+														</th>
+														<th className='px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider'>
+															Precio Unitario
+														</th>
+														<th className='px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider'>
+															Subtotal
+														</th>
+													</tr>
+												</thead>
+												<tbody className='bg-white divide-y divide-gray-200'>
+													{itemsCompra.map((item, idx) => (
+														<tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+															<td className='px-4 py-3 text-sm text-gray-900'>
+																{item.nombre_item}
+															</td>
+															<td className='px-4 py-3 text-sm text-gray-900'>
+																{item.cantidad}
+															</td>
+															<td className='px-4 py-3 text-sm text-gray-900'>
+																${item.precio.toLocaleString('es-CL')}
+															</td>
+															<td className='px-4 py-3 text-sm font-semibold text-gray-900'>
+																${(item.cantidad * item.precio).toLocaleString('es-CL')}
+															</td>
+														</tr>
+													))}
+												</tbody>
+											</table>
+										</div>
+									) : (
+										<div className='flex flex-col items-center justify-center py-8'>
+											<span className='mb-2 text-4xl'>📦</span>
+											<p className='text-sm font-medium text-gray-600'>No hay items registrados</p>
+											<p className='text-xs text-gray-500'>Esta compra no tiene items asociados</p>
+										</div>
+									)}
+								</div>
+							</div>
+						</>
+					) : (
+						<div>No hay detalle seleccionado.</div>
+					)}
+				</ModalBody>
+				<ModalFooter>
+					<ModalFooterChild />
+					<ModalFooterChild>
+						<Button color='red' onClick={() => setIsOpenDetail(false)}>
+							Cerrar
+						</Button>
+					</ModalFooterChild>
+				</ModalFooter>
+			</Modal>
 		</PageWrapper>
 	);
 };

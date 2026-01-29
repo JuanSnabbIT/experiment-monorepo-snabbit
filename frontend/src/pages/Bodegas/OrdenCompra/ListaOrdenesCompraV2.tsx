@@ -12,21 +12,25 @@ import Tooltip from "@/components/ui/Tooltip"
 import { ESTADOS_OC } from "@/constants/bodegas.constant"
 import { IOrdenCompra } from "@/interface/bodega.interface"
 import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
+import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
 import { detalleEmpresaThunk, listaMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { formatPrice } from '@/utils/currency'
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import dayjs from "dayjs"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { MultiValue } from "react-select"
+import { toast } from "react-toastify"
 import CrearOrdenCompra from "./modals/CrearOrdenCompra"
 import SubirCotizacion from "./modals/SubirCotizacion"
 
 
 const columnHelper = createColumnHelper<IOrdenCompra>()
+const estadosPdfPermitidos = new Set(["0", "1", "2", "3", "4", "5"])
 
 function ListaOrdenesCompraV2() {
     const dispatch = useAppDispatch()
@@ -55,6 +59,26 @@ function ListaOrdenesCompraV2() {
             setOptionEmpresa(options.concat(listaMisClientes.map(emp => {return {value: emp.cliente.toString(), label: emp.info_cliente.nombre}})))
         }
     }, [detalleEmpresa, listaMisClientes])
+
+    const handleDescargarPdf = async (ordenId: number) => {
+        try {
+            const response = await ApiService.fetchData<BlobPart>({
+                url: `/api/ordenes-compra/${ordenId}/pdf/`,
+                method: "get",
+                headers: { "Content-Type": "application/pdf" },
+            })
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const a = document.createElement("a")
+            a.href = url
+            a.download = `orden_compra_${ordenId}.pdf`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(url)
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || "No se pudo descargar la OC")
+        }
+    }
 
     const columns = [
         columnHelper.accessor("codigo", {
@@ -132,6 +156,17 @@ function ListaOrdenesCompraV2() {
                     <Tooltip text="Detalle Orden de Compra">
                         <Button variant="solid" color="violet" onClick={() => {navigate(`/compras/detalle-orden-compra/${info.row.original.id}`)}} icon="HeroEye"></Button>
                     </Tooltip>
+                    {estadosPdfPermitidos.has(String(info.row.original.estado)) && (
+                        <Tooltip text="Ver PDF">
+                            <Button
+                                variant="solid"
+                                color="red"
+                                icon="HeroDocumentText"
+                                onClick={() => {
+                                    handleDescargarPdf(info.row.original.id)
+                                }}></Button>
+                        </Tooltip>
+                    )}
                     <SubirCotizacion id_empresa={info.row.original.oc_empresa} cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
                     <ModalEliminar
                         mensaje={`Esta Seguro que desea eliminar la orden N°${info.row.original.codigo}`}

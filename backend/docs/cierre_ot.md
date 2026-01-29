@@ -155,4 +155,24 @@ Checklist de UI al confirmar cierres forzados:
 
 ---
 
+## Contraste con la implementación actual de rendiciones/facturación
+
+En paralelo al flujo de cierre administrativo descrito arriba, actualmente existe un sistema que permite facturar manualmente y transparentar las rendiciones (compras/gastos operativos) al final de la vida de una OT. La documentación original se centraba en el cierre “automático” de una OT, mientras que hoy se agrega una capa de matching manual que se basa en prefacturas, comparativas y detalles enriquecidos de cada ítem.
+
+1. **Matching manual (prefactura y comparativa)**  
+   - `CierreAdministrativoOTViewSet` (`backend/ordentrabajov2/views.py`) expone `/api/cierres-administrativos/` (alias `/api/cierres-facturacion/`) para listar/detallar/crear/editar (solo borrador)/finalizar (aprobado) y anular prefacturas. Al crear una prefactura se guarda el JSON `resultado` con `ots_incluidas`, `items` (cada uno con `tipo`, `facturar`, `parent_id`, `comentario`, etc.) y un `resumen` con totales; además se marca el estado de las OTs incluidas como `"facturada"`.
+   - Las funciones `calcular_pactado_del_contrato` y `calcular_ejecutado_de_ots_seleccionadas` en `backend/ordentrabajov2/functions.py` nutren la acción `comparativa` (`/api/cierres-facturacion/comparativa/`). El primer helper arma los servicios/licencias pactadas de un contrato, mientras que el segundo recorre soportes, servicios, guías y rendiciones de OTs completadas para formar una lista de items ejecutados, sumar totales y vincular cotizaciones relacionadas.
+
+2. **Interfaces centradas en la prefactura manual**  
+   - `frontend/src/pages/Facturacion/FacturacionesComparativa.tsx` permite seleccionar uno o varios contratos y/o OTs, obtiene la comparativa (pactado vs ejecutado) y construye un `itemsConfig` editable que define si un item se factura, su comentario y precio ajustado antes de crear la prefactura.  
+   - `ListaFacturas.tsx` muestra las prefacturas existentes con filtros por estado y totales que extrae del JSON `resultado`.  
+   - `DetalleFactura.tsx` y el modal `ItemDetailModal.tsx` permiten explorar cada item (servicio, soporte, guía, compra, gasto operativo) para verificar su origen y ver seguimientos, guías y compras relacionadas mediante llamadas a los endpoints de órdenes de trabajo, guías y rendiciones.
+
+3. **Puntos abiertos para alinear ambos flujos**  
+   - Aunque la documentación original menciona validaciones de cotización, visita y compra, el payload `resultado` ya incorpora banderas, detalles y refs que podrían usarse para reflejar esas validaciones. ¿Se aprovecha esa información hoy para habilitar/denegar cierres?  
+   - ¿Debemos habilitar la generación de `CierreAdministrativoOT` contenido dentro del matching manual (ej. registrar el cierre al crear una prefactura) o mantener esos procesos independientes?  
+   - Para preparar próximos cambios convendría definir cuáles validaciones pertenecen al cierre estándar y cuáles se replican/muestran en la vista de prefacturas, de modo que ambas capas compartan el mismo esquema documental y puedan detectar automáticamente cuándo debe generarse una prefactura.
+
+---
+
 ¿Requieres que el endpoint `POST /cerrar` devuelva `409` cuando ya existe cierre y `forzar=false`? Puedo ajustar la vista para normalizar este comportamiento.

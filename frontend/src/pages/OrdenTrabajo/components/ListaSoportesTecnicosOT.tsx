@@ -47,9 +47,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
-import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
-import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
+
+// ⚠️ DEPRECATED NOTICE (2026-01):
+// La funcionalidad de vincular guías directamente a soportes está deprecada.
+// Las guías deben vincularse a la OT, no a servicios/soportes individuales.
+// Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
+import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
+import ModalVincularGuia from '../modals/ModalVincularGuia';
+import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 
 function ListaSoportesTecnicosOT() {
 	const dispatch = useAppDispatch();
@@ -83,6 +89,8 @@ function ListaSoportesTecnicosOT() {
 	// Para gestión de usuarios asignados
 	const [isOpenUsuarios, setIsOpenUsuarios] = useState<boolean>(false);
 	const [soporteIdUsuarios, setSoporteIdUsuarios] = useState<number | null>(null);
+	const [soporteEstadoUsuarios, setSoporteEstadoUsuarios] = useState<string | null>(null);
+	const [soporteTecnicoUsuarios, setSoporteTecnicoUsuarios] = useState<string | null>(null);
 	const [isOpenEntregaGuia, setIsOpenEntregaGuia] = useState<boolean>(false);
 	const [guiaEntregaId, setGuiaEntregaId] = useState<number | undefined>();
 	const [clienteEntregaId, setClienteEntregaId] = useState<number | null | undefined>();
@@ -168,7 +176,6 @@ function ListaSoportesTecnicosOT() {
 								comentario,
 								tipo: 'incidencia',
 								usuario: null,
-								soporte_tecnico: selectedService.id,
 							}),
 						});
 						fetchSeguimientosServicio(selectedService.id);
@@ -225,26 +232,8 @@ function ListaSoportesTecnicosOT() {
 
 	// Vincular guía
 	const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false);
-	const [guiaSeleccionada, setGuiaSeleccionada] = useState<string | null>(null);
-	const [guiasDisponibles, setGuiasDisponibles] = useState<{ value: string; label: string }[]>([]);
 	const [soporteParaGuia, setSoporteParaGuia] = useState<number | null>(null);
 
-	const cargarGuiasDisponibles = async () => {
-		if (!detalleOrdenTrabajo) return;
-		try {
-			const resp = await ApiService.fetchData<any[]>({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/guias-disponibles/`,
-				method: 'get',
-			});
-			const opciones = (resp.data || []).map((g) => ({
-				value: g.id.toString(),
-				label: `#${g.id} - ${g.motivo || 'Sin motivo'} (${g.estado_label}) - ${g.cantidad_items} ítems`,
-			}));
-			setGuiasDisponibles(opciones);
-		} catch (e: any) {
-			toast.error(e?.response?.data?.detail || 'No se pudieron cargar las guías disponibles');
-		}
-	};
 
 	const fetchSeguimientosServicio = async (soporteId: number) => {
 		if (!detalleOrdenTrabajo) return;
@@ -412,6 +401,7 @@ function ListaSoportesTecnicosOT() {
 								: isNoRealizado
 									? 'HeroXMark'
 									: undefined;
+				const isFinalState = estadoLower !== 'pendiente' && estadoLower !== 'en_proceso' && estadoLower !== 'en proceso';
 
 				// Si está en proceso, mostrar dropdown con estados finales
 				if (isEnProceso) {
@@ -421,14 +411,12 @@ function ListaSoportesTecnicosOT() {
 								// Para completado y medianamente_completado, el endpoint /completar-trabajo/
 								// ya actualizó el estado, solo necesitamos refrescar
 								if (estado === 'completado' || estado === 'medianamente_completado') {
-									// Solo refrescar los datos, el estado ya fue actualizado por el modal
 									if (detalleOrdenTrabajo) {
 										dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
 										dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
 									}
 									return;
 								}
-								
 								// Para otros estados (no_realizado), hacer el cambio normal
 								if (!detalleOrdenTrabajo) return;
 								try {
@@ -451,12 +439,14 @@ function ListaSoportesTecnicosOT() {
 							ordenId={detalleOrdenTrabajo?.id}
 							soporteId={info.row.original.id}
 							clienteId={detalleOrdenTrabajo?.cliente}
-							tecnicoNombre={info.row.original.nombre_tecnico || 'Técnico'}
+							tecnicoNombre={info.row.original.nombre_tecnico || 'Tecnico'}
+							usuariosAsignadosTotal={info.row.original.usuarios_asignados_total}
+							usuariosAsignadosResueltos={info.row.original.usuarios_asignados_resueltos}
 							// Props para controlar el modal desde el padre
 							onOpenModal={(trabajoId, tipo, estado, tecnico, comentarios) => {
 								setFirmaTrabajoId(trabajoId);
 								setFirmaTrabajoTipo(tipo);
-								setFirmaEstadoFinal(estado);
+								setFirmaEstadoFinal(estado === 'completado' ? 'completado' : 'medianamente_completado');
 								setFirmaTecnicoNombre(tecnico);
 								setFirmaComentariosTecnicos(comentarios);
 								setIsOpenFirmaModal(true);
@@ -465,6 +455,23 @@ function ListaSoportesTecnicosOT() {
 					);
 				}
 
+				if (isFinalState) {
+					return (
+						<Button
+							size='sm'
+							variant='solid'
+							rounded='rounded-full'
+							color={estadoBadgeColor(estadoStr)}
+							icon={estadoIcon}
+							aria-disabled
+							tabIndex={-1}
+							className='cursor-not-allowed pointer-events-none'>
+							{estadoStr}
+						</Button>
+					);
+				}
+
+				// Únicamente pendiente llega aquí
 				return (
 					<Tooltip text={tooltipText}>
 						<div className={!canStart ? 'inline-block' : ''}>
@@ -477,12 +484,7 @@ function ListaSoportesTecnicosOT() {
 								isDisable={!canStart}
 								onClick={() => {
 									if (!canStart) return;
-									if (estadoLower === 'en_proceso' || estadoLower === 'en proceso') {
-										iniciarSoporte(info.row.original);
-										return;
-									}
-									setSelectedService(info.row.original);
-									setIsOpenEstado(true);
+									iniciarSoporte(info.row.original);
 								}}
 								aria-label={estadoStr}
 								title={estadoStr}
@@ -505,18 +507,20 @@ function ListaSoportesTecnicosOT() {
 			cell: (info) => (
 				<div className='flex items-center gap-2'>
 					<span>{info.getValue() ?? 0}</span>
-					<Tooltip text='Gestionar usuarios asignados'>
-						<Button
-							variant='solid'
-							color='violet'
-							icon='HeroUsers'
-							size='xs'
-							onClick={() => {
-								setSoporteIdUsuarios(info.row.original.id);
-								setIsOpenUsuarios(true);
-							}}
-						/>
-					</Tooltip>
+						<Tooltip text='Gestionar usuarios asignados'>
+							<Button
+								variant='solid'
+								color='violet'
+								icon='HeroUsers'
+								size='xs'
+								onClick={() => {
+									setSoporteIdUsuarios(info.row.original.id);
+									setSoporteEstadoUsuarios(info.row.original.estado || null);
+									setSoporteTecnicoUsuarios(info.row.original.nombre_tecnico || null);
+									setIsOpenUsuarios(true);
+								}}
+							/>
+						</Tooltip>
 				</div>
 			),
 			header: 'Usuarios Asignados',
@@ -640,6 +644,9 @@ function ListaSoportesTecnicosOT() {
 						{isPendiente && (
 							<>
 								{!tieneGuia ? (
+									// ⚠️ DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
+									// Para reactivar: descomentar
+									/*
 									<Tooltip text='Vincular Guía de Salida'>
 										<Button
 											variant='solid'
@@ -647,19 +654,21 @@ function ListaSoportesTecnicosOT() {
 											icon='HeroLink'
 											onClick={() => {
 												setSoporteParaGuia(info.row.original.id);
-												setGuiaSeleccionada(null);
 												setIsOpenGuia(true);
-												cargarGuiasDisponibles();
 											}}
 										/>
 									</Tooltip>
+									*/
+									null
 								) : (
-									<Tooltip text='Desvincular Guía de Salida'>
+									// ⚠️ DESHABILITADO: Botón de desvinculación antigua comentado
+									// Para reactivar: descomentar onClick
+									<Tooltip text='Desvincular Guía de Salida [DESHABILITADO]'>
 										<Button
 											variant='solid'
 											color='red'
 											icon='HeroLink'
-											onClick={() => desvincularGuia(info.row.original.id)}
+											// onClick={() => desvincularGuia(info.row.original.id)}
 										/>
 									</Tooltip>
 								)}
@@ -687,38 +696,10 @@ function ListaSoportesTecnicosOT() {
 		getPaginationRowModel: getPaginationRowModel(),
 	});
 
-	const vincularGuia = async () => {
-		if (!detalleOrdenTrabajo || !soporteParaGuia || !guiaSeleccionada) return;
-		try {
-			await ApiService.fetchData({
-				url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${soporteParaGuia}/asociar-guia/`,
-				method: 'post',
-				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({ guia_salida: guiaSeleccionada }),
-			});
-		} catch (e: any) {
-			const msg = e?.response?.data?.detail || 'Error al vincular guía';
-			toast.error(msg);
-			return;
-		}
 
-		let refrescoOk = true;
-		try {
-			await dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-			await dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
-		} catch (e) {
-			refrescoOk = false;
-			console.warn('No se pudo refrescar soportes/insumos tras vincular guía', e);
-		}
-
-		if (refrescoOk) {
-			toast.success('Guía vinculada');
-		} else {
-			toast.warning('Guía vinculada, pero no se pudo refrescar la lista');
-		}
-		setIsOpenGuia(false);
-	};
-
+	// ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+	// Para reactivar desvinculación de guías de soportes, descomenta:
+	/*
 	const desvincularGuia = async (soporteId: number) => {
 		if (!detalleOrdenTrabajo) return;
 		const ok = await confirmAlert({
@@ -755,7 +736,8 @@ function ListaSoportesTecnicosOT() {
 		} else {
 			toast.warning('Guía desvinculada, pero no se pudo refrescar la lista');
 		}
-	};
+	}
+	*/
 
 	useEffect(() => {
 		if (isOpenTecnico) {
@@ -841,7 +823,6 @@ function ListaSoportesTecnicosOT() {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				data: JSON.stringify({
-					soporte_tecnico: selectedService.id,
 					usuario: null,
 					tipo: tipoSeguimiento || 'comentario_tecnico',
 					comentario: comentarioSeguimiento,
@@ -1114,51 +1095,19 @@ function ListaSoportesTecnicosOT() {
 					</ModalFooterChild>
 				</ModalFooter>
 			</Modal>
-			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
-				<ModalHeader>
-					<Badge className='text-xl'>Vincular Guía de Salida</Badge>
-				</ModalHeader>
-				<ModalBody>
-					<div className='flex flex-col gap-4'>
-						<div>
-							<div className='mb-1 text-sm font-semibold'>Guía disponible</div>
-							<SelectReact
-								name='guia'
-								options={guiasDisponibles}
-								placeholder='Selecciona una guía'
-								value={
-									guiaSeleccionada
-										? guiasDisponibles.find((g) => g.value === guiaSeleccionada)
-										: null
-								}
-								onChange={(opt) => setGuiaSeleccionada((opt as TSelectOption).value)}
-							/>
-						</div>
-						{guiasDisponibles.length === 0 && (
-							<div className='text-sm text-gray-500'>
-								No hay guías disponibles (Estados ER/ET/E/T, sin vínculo previo).
-							</div>
-						)}
-					</div>
-				</ModalBody>
-				<ModalFooter>
-					<ModalFooterChild>
-						<Button variant='outline' onClick={() => setIsOpenGuia(false)}>
-							Cancelar
-						</Button>
-					</ModalFooterChild>
-					<ModalFooterChild>
-						<Button
-							variant='solid'
-							color='emerald'
-							isDisable={!guiaSeleccionada}
-							onClick={vincularGuia}
-						>
-							Vincular
-						</Button>
-					</ModalFooterChild>
-				</ModalFooter>
-			</Modal>
+			{detalleOrdenTrabajo && (
+				<ModalVincularGuia
+					isOpen={isOpenGuia}
+					setIsOpen={setIsOpenGuia}
+					otId={detalleOrdenTrabajo.id}
+					targetType='soporte'
+					targetId={soporteParaGuia ?? undefined}
+					onSuccess={() => {
+						dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+						dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+					}}
+				/>
+			)}
 			<Modal isOpen={isOpenTecnico} setIsOpen={setIsOpenTecnico} isStaticBackdrop={true}>
 				<ModalHeader>
 					<Badge className='text-xl'>Asignar Técnico</Badge>
@@ -1512,11 +1461,15 @@ function ListaSoportesTecnicosOT() {
 				<ListaUsuarioEquipoOT
 					ordenId={detalleOrdenTrabajo.id}
 					soporteId={soporteIdUsuarios}
+					soporteEstado={soporteEstadoUsuarios}
+					tecnicoNombre={soporteTecnicoUsuarios}
 					clienteId={detalleOrdenTrabajo.cliente}
 					isOpen={isOpenUsuarios}
 					onClose={() => {
 						setIsOpenUsuarios(false);
 						setSoporteIdUsuarios(null);
+						setSoporteEstadoUsuarios(null);
+						setSoporteTecnicoUsuarios(null);
 					}}
 					onSaved={() => {
 						dispatch(
@@ -1527,6 +1480,26 @@ function ListaSoportesTecnicosOT() {
 					}}
 				/>
 			)}
+
+			{/* Modal Firmar y Completar Trabajo */}
+			<FirmarCompletarTrabajo
+				ordenId={detalleOrdenTrabajo?.id || 0}
+				trabajoId={firmaTrabajoId}
+				trabajoTipo={firmaTrabajoTipo}
+				estadoFinal={firmaEstadoFinal}
+				clienteId={detalleOrdenTrabajo?.cliente || 0}
+				tecnicoNombre={firmaTecnicoNombre}
+				comentariosTecnicos={firmaComentariosTecnicos}
+				isOpen={isOpenFirmaModal}
+				setIsOpen={setIsOpenFirmaModal}
+				onSuccess={() => {
+					setIsOpenFirmaModal(false);
+					if (detalleOrdenTrabajo) {
+						dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
+						dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+					}
+				}}
+			/>
 		</Card>
 	);
 }

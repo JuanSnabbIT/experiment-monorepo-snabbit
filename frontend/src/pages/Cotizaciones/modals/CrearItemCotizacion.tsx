@@ -17,17 +17,26 @@ import {
 	listaCamposAdicionalesItemThunk,
 	listaCategoriasThunk,
 	listaItemsEmpresaFiltroThunk,
-	listaItemsEnCotizacionThunk,
 	listaProveedoresEmpresaThunk,
 	useAppDispatch,
-	useAppSelector,
+	useAppSelector
 } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
-function CrearItemCotizacion() {
+import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
+
+function CrearItemCotizacion({
+	cotizacion,
+	items = [],
+	onItemChange,
+}: {
+	cotizacion: ICotizacion | undefined;
+	items: IItemCotizacion[];
+	onItemChange?: () => void;
+}) {
 	const dispatch = useAppDispatch();
 	const {
 		listaItemsEmpresaFiltro,
@@ -35,9 +44,6 @@ function CrearItemCotizacion() {
 		listaProveedoresEmpresa,
 		listaCamposAdicionalesItem,
 	} = useAppSelector((state) => state.item);
-	const { detalleCotizacion, listaItemsEnCotizacion, itemsPorCotizacion } = useAppSelector(
-		(state) => state.cotizacion,
-	);
 	const [itemSeleccionado, setItemSeleccionado] = useState<IItemEmpresa | undefined>();
 	const [proveedorSeleccionado, setProveedorSeleccionado] = useState<
 		IProveedorEmpresa | undefined
@@ -51,9 +57,7 @@ function CrearItemCotizacion() {
 	const [showCategoria, setShowCategoria] = useState<boolean>(false);
 	const [isService, setIsService] = useState<boolean>(false);
 
-	const itemsEnPreparacion = detalleCotizacion?.id
-		? (itemsPorCotizacion[String(detalleCotizacion.id)] ?? listaItemsEnCotizacion)
-		: listaItemsEnCotizacion;
+	const itemsEnPreparacion = items;
 
 	const itemsEmpresaDisponibles = listaItemsEmpresaFiltro.filter(
 		(item) =>
@@ -106,11 +110,11 @@ function CrearItemCotizacion() {
 				} else {
 					try {
 						const response = await ApiService.fetchData({
-							url: `/api/cotizaciones/${detalleCotizacion?.id}/items/`,
+							url: `/api/cotizaciones/${cotizacion?.id}/items/`,
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
 							data: JSON.stringify({
-								cotizacion: detalleCotizacion?.id,
+								cotizacion: cotizacion?.id,
 								cantidad: values.cantidad,
 								precio_unitario: values.precio_unitario,
 								item_empresa: itemSeleccionado.id,
@@ -121,11 +125,7 @@ function CrearItemCotizacion() {
 						});
 						if (response.data) {
 							toast.success('Item creado', { autoClose: 1000 });
-							dispatch(
-								listaItemsEnCotizacionThunk({
-									id_cotizacion: detalleCotizacion?.id,
-								}),
-							);
+							if (onItemChange) onItemChange();
 							setIsOpen(false);
 							formik.resetForm();
 						}
@@ -146,16 +146,16 @@ function CrearItemCotizacion() {
 							nombre: values.nombre,
 							descripcion_corta: values.descripcion,
 							proveedores_empresa: [proveedorSeleccionado?.id],
-							empresa: detalleCotizacion?.empresa,
+							empresa: cotizacion?.empresa,
 						}),
 					});
 					if (response.data) {
 						const responseCoti = await ApiService.fetchData({
-							url: `/api/cotizaciones/${detalleCotizacion?.id}/items/`,
+							url: `/api/cotizaciones/${cotizacion?.id}/items/`,
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
 							data: JSON.stringify({
-								cotizacion: detalleCotizacion?.id,
+								cotizacion: cotizacion?.id,
 								cantidad: values.cantidad,
 								precio_unitario: values.precio_unitario,
 								item_empresa: response.data.id,
@@ -166,11 +166,7 @@ function CrearItemCotizacion() {
 						});
 						if (responseCoti.data) {
 							toast.success('Item creado', { autoClose: 1000 });
-							dispatch(
-								listaItemsEnCotizacionThunk({
-									id_cotizacion: detalleCotizacion?.id,
-								}),
-							);
+							if (onItemChange) onItemChange();
 							setIsOpen(false);
 							formik.resetForm();
 						}
@@ -184,20 +180,18 @@ function CrearItemCotizacion() {
 			} else {
 				try {
 					const response = await ApiService.fetchData({
-						url: `/api/cotizaciones/${detalleCotizacion?.id}/items/`,
+						url: `/api/cotizaciones/${cotizacion?.id}/items/`,
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						data: JSON.stringify({
-							cotizacion: detalleCotizacion?.id,
+							cotizacion: cotizacion?.id,
 							proveedor_empresa: proveedorSeleccionado?.id,
 							...values,
 						}),
 					});
 					if (response.data) {
 						toast.success('Item creado', { autoClose: 1000 });
-						dispatch(
-							listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }),
-						);
+						if (onItemChange) onItemChange();
 						setIsOpen(false);
 						formik.resetForm();
 					}
@@ -212,10 +206,10 @@ function CrearItemCotizacion() {
 	});
 
 	useEffect(() => {
-		if (isOpen) {
-			dispatch(listaCamposAdicionalesItemThunk({ id_empresa: detalleCotizacion?.empresa }));
-			dispatch(listaItemsEmpresaFiltroThunk({ id_empresa: detalleCotizacion?.empresa }));
-			dispatch(listaProveedoresEmpresaThunk({ id_empresa: detalleCotizacion?.empresa }));
+		if (isOpen && cotizacion?.empresa) {
+			dispatch(listaCamposAdicionalesItemThunk({ id_empresa: cotizacion.empresa }));
+			dispatch(listaItemsEmpresaFiltroThunk({ id_empresa: cotizacion.empresa }));
+			dispatch(listaProveedoresEmpresaThunk({ id_empresa: cotizacion.empresa }));
 			dispatch(listaCategoriasThunk());
 		} else {
 			formik.resetForm();
@@ -272,7 +266,7 @@ function CrearItemCotizacion() {
 												);
 												dispatch(
 													listaItemsEmpresaFiltroThunk({
-														id_empresa: detalleCotizacion?.empresa,
+														id_empresa: cotizacion?.empresa,
 														filtro: params,
 													}),
 												);
@@ -281,7 +275,7 @@ function CrearItemCotizacion() {
 											} else {
 												dispatch(
 													listaItemsEmpresaFiltroThunk({
-														id_empresa: detalleCotizacion?.empresa,
+														id_empresa: cotizacion?.empresa,
 													}),
 												);
 												setItemSeleccionado(undefined);
@@ -379,9 +373,15 @@ function CrearItemCotizacion() {
 														(e as TSelectOption).value,
 												);
 												setItemSeleccionado(sel);
-												setProveedorSeleccionado(
-													sel?.datos_proveedores?.[0],
-												);
+												const primerProveedor = sel?.datos_proveedores?.[0];
+												setProveedorSeleccionado(primerProveedor);
+												// Auto-fill recargo_dolar if provider has USD currency
+												if (primerProveedor?.tipo_moneda === '1') {
+													formik.setFieldValue(
+														'recargo_dolar',
+														primerProveedor.recargo_dolar || 0,
+													);
+												}
 											} else {
 												setItemSeleccionado(undefined);
 												setProveedorSeleccionado(undefined);

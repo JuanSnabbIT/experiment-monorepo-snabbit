@@ -33,6 +33,7 @@ class OrdenDeTrabajoAdmin(admin.ModelAdmin):
         "cliente",
         "tecnico_responsable_ot",
         "cliente_solicitante",
+        "cotizaciones",
     ]
 
     fieldsets = (
@@ -46,6 +47,8 @@ class OrdenDeTrabajoAdmin(admin.ModelAdmin):
             "Estado y Responsables",
             {"fields": ("estado", "tecnico_responsable_ot", "cliente_solicitante")},
         ),
+        ("Firmas OT", {"fields": ("firmas_ot",), "classes": ("collapse",)}),
+        ("Cotizaciones", {"fields": ("cotizaciones",), "classes": ("collapse",)}),
         (
             "Metadatos",
             {

@@ -8,7 +8,6 @@ import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/compon
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import ItemDetailModal from '@/pages/Facturacion/ItemDetailModal';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
@@ -25,6 +24,7 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { confirmAlert } from '@/utils/sweetAlert';
 
 interface PrefacturaResumen {
 	total_items?: number;
@@ -137,6 +137,33 @@ const DetalleFactura = () => {
 			.finally(() => setLoading(false));
 	};
 
+	const handleEliminarPrefactura = async () => {
+		if (!factura || factura.estado_cierre !== 'anulado') return;
+
+		const ok = await confirmAlert({
+			title: 'Eliminar prefactura',
+			text: `¿Confirmas eliminar la prefactura #${factura.id}? Se podrá volver a crear una nueva.`,
+			confirmText: 'Eliminar',
+			cancelText: 'Cancelar',
+			icon: 'warning',
+			confirmColor: '#dc2626',
+		});
+		if (!ok) return;
+
+		try {
+			await ApiService.fetchData({
+				url: `/api/cierres-administrativos/${factura.id}/`,
+				method: 'delete',
+			});
+			toast.success(`Prefactura #${factura.id} eliminada`);
+			navigate('/facturacion/facturas');
+		} catch (error: any) {
+			const message =
+				error?.response?.data?.detail || error?.message || 'Error al eliminar prefactura';
+			toast.error(message);
+		}
+	};
+
 	// Enriquecer items: fetch SOLO los datos que faltan (nombre del item, etc)
 	const enrichItemsData = async (items: PrefacturaItem[]) => {
 		setEnriching(true);
@@ -207,9 +234,17 @@ const DetalleFactura = () => {
 						label = 'Guía';
 						color = 'amber';
 						break;
+					case 'compra':
+						label = 'Compra';
+						color = 'violet';
+						break;
 					case 'rendicion_gasto':
 						label = 'Gasto Operativo';
 						color = 'blue';
+						break;
+					case 'gasto_operativo':
+						label = 'Gasto Operativo';
+						color = 'amber';
 						break;
 					case 'compra_material':
 						label = 'Compra';
@@ -513,18 +548,17 @@ const DetalleFactura = () => {
 					</Button>
 				</SubheaderLeft>
 				<SubheaderRight>
-					{/* Deleting prefacturas via API is not supported (server returns 405). */}
-					{factura ? (
-						// Show disabled delete with tooltip and explanation to avoid calling DELETE
-						<Tooltip text='Eliminación no permitida por la API (405). Contacte a administrador.'>
-							<Button variant='outline' color='red' icon='HeroTrash' isDisable>
+					{factura?.estado_cierre === 'anulado' && (
+						<Tooltip text='Eliminar prefactura anulada'>
+							<Button
+								variant='outline'
+								color='red'
+								icon='HeroTrash'
+								onClick={handleEliminarPrefactura}
+							>
 								Eliminar
 							</Button>
 						</Tooltip>
-					) : (
-						<Button variant='outline' color='red' icon='HeroTrash' isDisable>
-							Eliminar
-						</Button>
 					)}
 
 					{factura && factura.estado_cierre !== 'anulado' && (
@@ -533,7 +567,15 @@ const DetalleFactura = () => {
 							color='amber'
 							onClick={async () => {
 								if (!factura) return;
-								if (!window.confirm(`Confirma ANULAR la prefactura #${factura.id}? Esta acción permitirá volver a facturar las OTs.`)) return;
+								const ok = await confirmAlert({
+									title: 'Anular prefactura',
+									text: `¿Confirmas dejar en estado anulada la prefactura #${factura.id}? Las OTs podrán volver a seleccionarse.`,
+									confirmText: 'Anular',
+									cancelText: 'Cancelar',
+									icon: 'warning',
+									confirmColor: '#dc2626',
+								});
+								if (!ok) return;
 								try {
 									await ApiService.fetchData({ url: `/api/cierres-administrativos/${factura.id}/anular/`, method: 'post' });
 									toast.success(`Prefactura #${factura.id} anulada`);

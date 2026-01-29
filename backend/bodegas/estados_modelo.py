@@ -19,8 +19,8 @@ ESTADO_CR = (
 
 ESTADOS_REBAJE = (
     ("P", "Pendiente"),
-    ("ER", "Espera Firma Recibido"),
-    ("FR", "Firmada"),
+    ("ER", "Espera firma tecnico"),
+    ("FR", "Firmada por tecnico"),
     ("ET", "En Transito"),
     ("R", "Revertida"),
     ("PR", "Parcialmente Revertida"),

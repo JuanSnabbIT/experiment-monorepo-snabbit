@@ -12,21 +12,28 @@ import Modal, {
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
 import {
-    detalleCotizacionThunk,
-    listaItemsEnCotizacionThunk,
-    listaSolicitantesCotizacionThunk,
-    useAppDispatch,
-    useAppSelector,
+    useAppDispatch
 } from '@/store';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { Fragment, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
-function AprobarCotizacion() {
+import { ICotizacion, IItemCotizacion, ISolicitanteCotizacion } from '@/interface/cotizaciones.interface';
+
+function AprobarCotizacion({ 
+	cotizacion, 
+	solicitantes = [], 
+	items = [],
+	onAprobarChange
+}: { 
+	cotizacion: ICotizacion; 
+	solicitantes: ISolicitanteCotizacion[]; 
+	items: IItemCotizacion[];
+	onAprobarChange?: () => void;
+}) {
 	const dispatch = useAppDispatch();
-	const { detalleCotizacion, listaSolicitantesCotizacion, listaItemsEnCotizacion } =
-		useAppSelector((state) => state.cotizacion);
+	// Eliminado useAppSelector innecesario que causaba stale data
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 	const [isAllItems, setIsAllItems] = useState<boolean>(false);
 	const [itemsSeleccionado, setItemsSeleccionado] = useState<string[]>([]);
@@ -44,7 +51,7 @@ function AprobarCotizacion() {
 				}
 
 				const itemIds = isAllItems
-					? listaItemsEnCotizacion.map((item) => item.id)
+					? items.map((item) => item.id)
 					: itemsSeleccionado.map((id) => Number(id)).filter((id) => !Number.isNaN(id));
 
 				if (itemIds.length === 0) {
@@ -59,14 +66,14 @@ function AprobarCotizacion() {
 				};
 
 				const response = await ApiService.fetchData({
-					url: `/api/cotizaciones/${detalleCotizacion?.id}/aprobar-cotizacion/`,
+					url: `/api/cotizaciones/${cotizacion?.id}/aprobar-cotizacion/`,
 					method: 'post',
 					headers: { 'Content-Type': 'application/json' },
 					data: JSON.stringify(payload),
 				});
 				if (response.data) {
 					toast.success('Cotización Aprobada', { autoClose: 1000 });
-					dispatch(detalleCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }));
+					if (onAprobarChange) onAprobarChange();
 					setIsOpen(false);
 				}
 			} catch (error: any) {
@@ -77,14 +84,6 @@ function AprobarCotizacion() {
 		},
 	});
 
-	useEffect(() => {
-		if (isOpen) {
-			dispatch(listaSolicitantesCotizacionThunk({ id_cotizacion: detalleCotizacion?.id }));
-			if (detalleCotizacion?.id) {
-				dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: detalleCotizacion.id }));
-			}
-		}
-	}, [isOpen]);
 	useEffect(() => {
 		if (isOpen) {
 			formik.resetForm();
@@ -105,10 +104,10 @@ function AprobarCotizacion() {
 		if (!isOpen) {
 			return;
 		}
-		if (!formik.values.solicitante && listaSolicitantesCotizacion.length > 0) {
-			formik.setFieldValue('solicitante', listaSolicitantesCotizacion[0].id.toString());
+		if (!formik.values.solicitante && solicitantes.length > 0) {
+			formik.setFieldValue('solicitante', solicitantes[0].id.toString());
 		}
-	}, [isOpen, listaSolicitantesCotizacion, formik]);
+	}, [isOpen, solicitantes, formik]);
 
 
 	return (
@@ -133,7 +132,7 @@ function AprobarCotizacion() {
 							<Badge>Solicitante</Badge>
 							<SelectReact
 								name='solicitante'
-								options={listaSolicitantesCotizacion.map((soli) => ({
+								options={solicitantes.map((soli) => ({
 									value: soli.id.toString(),
 									label: soli.nombre_usuario,
 								}))}
@@ -142,7 +141,7 @@ function AprobarCotizacion() {
 								value={{
 									value: formik.values.solicitante,
 									label:
-										listaSolicitantesCotizacion.find(
+										solicitantes.find(
 											(soli) =>
 												soli.id.toString() === formik.values.solicitante,
 										)?.nombre_usuario || '',
@@ -163,7 +162,7 @@ function AprobarCotizacion() {
 								value={formik.values.fecha_aprobacion}
 							/>
 						</div>
-						{listaItemsEnCotizacion.length > 0 && (
+						{items.length > 0 && (
 							<div className='flex flex-col gap-4'>
 								<div className='flex flex-row gap-4'>
 									<Badge className='text-xl'>Aprobar Items</Badge>
@@ -174,7 +173,7 @@ function AprobarCotizacion() {
 											setIsAllItems(e.target.checked);
 											if (e.target.checked) {
 												setItemsSeleccionado(
-													listaItemsEnCotizacion.map((it) =>
+													items.map((it) =>
 														it.id.toString(),
 													),
 												);
@@ -186,7 +185,7 @@ function AprobarCotizacion() {
 									/>
 								</div>
 								<div className='grid grid-cols-3 gap-4'>
-									{listaItemsEnCotizacion.map((item, index) => (
+									{items.map((item, index) => (
 										<Fragment key={index}>
 											<div>
 												<Badge>

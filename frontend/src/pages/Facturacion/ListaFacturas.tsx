@@ -22,10 +22,11 @@ import {
 	useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MultiValue } from 'react-select';
 import { toast } from 'react-toastify';
+import { confirmAlert } from '@/utils/sweetAlert';
 
 interface PrefacturaResumen {
 	total_items?: number;
@@ -72,37 +73,63 @@ const ListaFacturas = () => {
 	const [globalFilter, setGlobalFilter] = useState<string>('');
 	const [filtroEstado, setFiltroEstado] = useState<string[]>([]);
 
-	useEffect(() => {
-		fetchFacturas();
+	const fetchFacturas = useCallback(async () => {
+		setLoading(true);
+		try {
+			const params = new URLSearchParams();
+			filtroEstado.forEach((estado) => params.append('estado_cierre', estado));
+
+			const url = params.toString()
+				? `/api/cierres-administrativos/?${params.toString()}`
+				: '/api/cierres-administrativos/';
+
+			const response = await ApiService.fetchData<{ results: Prefactura[] }>({
+				url,
+				method: 'get',
+			});
+
+			if (Array.isArray(response.data)) {
+				setFacturas(response.data);
+			} else if (response.data?.results) {
+				setFacturas(response.data.results);
+			}
+		} catch (error: any) {
+			const message =
+				error?.response?.data?.detail || error?.message || 'Error al cargar prefacturas';
+			toast.error(message);
+		} finally {
+			setLoading(false);
+		}
 	}, [filtroEstado]);
 
-	const fetchFacturas = () => {
-		setLoading(true);
+	useEffect(() => {
+		fetchFacturas();
+	}, [filtroEstado, fetchFacturas]);
 
-		const params = new URLSearchParams();
-		filtroEstado.forEach((estado) => params.append('estado_cierre', estado));
+	const handleEliminarPrefactura = async (prefactura: Prefactura) => {
+		if (prefactura.estado_cierre !== 'anulado') return;
 
-		const url = params.toString()
-			? `/api/cierres-administrativos/?${params.toString()}`
-			: '/api/cierres-administrativos/';
+		const ok = await confirmAlert({
+			title: 'Eliminar prefactura',
+			text: `¿Confirmas eliminar la prefactura #${prefactura.id}?`,
+			confirmText: 'Eliminar',
+			cancelText: 'Cancelar',
+			icon: 'warning',
+			confirmColor: '#dc2626',
+		});
 
-		ApiService.fetchData<{ results: Prefactura[] }>({
-			url,
-			method: 'get',
-		})
-			.then((response) => {
-				if (Array.isArray(response.data)) {
-					setFacturas(response.data);
-				} else if (response.data?.results) {
-					setFacturas(response.data.results);
-				}
-			})
-			.catch((error) => {
-				const message =
-					error?.response?.data?.detail || error?.message || 'Error al cargar facturas';
-				toast.error(message);
-			})
-			.finally(() => setLoading(false));
+		if (!ok) return;
+
+		try {
+			await ApiService.fetchData({
+				url: `/api/cierres-administrativos/${prefactura.id}/`,
+				method: 'delete',
+			});
+			toast.success(`Prefactura #${prefactura.id} eliminada`);
+			fetchFacturas();
+		} catch (error: any) {
+			toast.error(error?.response?.data?.detail || 'Error al eliminar prefactura');
+		}
 	};
 
 	const columns = [
@@ -120,6 +147,28 @@ const ListaFacturas = () => {
 			),
 			header: 'Cliente',
 		}),
+		columnHelper.accessor(
+			(row) => row.resultado?.ots_incluidas ?? [],
+			{
+				id: 'ots',
+				cell: (info) => {
+					const ots = info.getValue();
+					if (!ots || ots.length === 0) {
+						return <div className='text-sm text-gray-500'>—</div>;
+					}
+					return (
+						<div className='flex flex-wrap gap-1'>
+							{ots.map((otId) => (
+								<Badge key={otId} variant='outline' color='gray' className='text-xs'>
+									OT #{otId}
+								</Badge>
+							))}
+						</div>
+					);
+				},
+				header: 'OTs',
+			},
+		),
 		columnHelper.accessor('estado_cierre', {
 			cell: (info) => {
 						const estado = info.getValue();
@@ -202,28 +251,41 @@ const ListaFacturas = () => {
 			},
 			header: 'Fecha',
 		}),
-		columnHelper.display({
-			id: 'acciones',
-			cell: (info) => {
-				const factura = info.row.original;
-				return (
-					<div className='flex gap-2'>
-						<Tooltip text='Ver detalle'>
+	columnHelper.display({
+		id: 'acciones',
+		cell: (info) => {
+			const factura = info.row.original;
+			return (
+				<div className='flex gap-2'>
+					<Tooltip text='Ver detalle'>
+						<Button
+							variant='solid'
+							color='blue'
+							icon='HeroEye'
+							onClick={(e) => {
+								e.stopPropagation();
+								navigate(`/facturacion/facturas/${factura.id}`);
+							}}
+						/>
+					</Tooltip>
+					{factura.estado_cierre === 'anulado' && (
+						<Tooltip text='Eliminar prefactura anulada'>
 							<Button
-								variant='solid'
-								color='blue'
-								icon='HeroEye'
+								variant='outline'
+								color='red'
+								icon='HeroTrash'
 								onClick={(e) => {
 									e.stopPropagation();
-									navigate(`/facturacion/facturas/${factura.id}`);
+									handleEliminarPrefactura(factura);
 								}}
 							/>
 						</Tooltip>
-					</div>
-				);
-			},
-			header: 'Acciones',
-		}),
+					)}
+				</div>
+			);
+		},
+		header: 'Acciones',
+	}),
 	];
 
 	const table = useReactTable({
@@ -254,7 +316,7 @@ const ListaFacturas = () => {
 		<PageWrapper>
 			<Subheader>
 				<SubheaderLeft>
-					<h2 className='text-2xl font-bold'>Facturas</h2>
+					<h2 className='text-2xl font-bold'>Prefacturación</h2>
 				</SubheaderLeft>
 				<SubheaderRight>
 					<Button

@@ -16,6 +16,7 @@ import { listaComprasEnOTThunk, useAppDispatch, useAppSelector } from '@/store';
 import ApiService from '@/services/ApiService';
 import { toast } from 'react-toastify';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import {
 	createColumnHelper,
 	flexRender,
@@ -28,12 +29,28 @@ import {
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CrearCompraRapidaEnOT from '../modals/CrearCompraRapidaEnOT';
 import VincularCompraEnOT from '../modals/VincularCompraEnOT';
 
-const columnHelper = createColumnHelper<ICompra>();
+type CompraItemRow = {
+	compraId: number;
+	compraCodigo: string;
+	compraFecha: string | null;
+	compraTotal: number;
+	compraEstadoLabel: string;
+	compraComprador: string;
+	itemId: number;
+	itemNombre: string;
+	cantidad: number;
+	precio: number;
+	subtotal: number;
+	isPlaceholder?: boolean;
+	placeholderLabel?: string;
+};
+
+const columnHelper = createColumnHelper<CompraItemRow>();
 
 function ComprasEnOT() {
 	const dispatch = useAppDispatch();
@@ -46,12 +63,56 @@ function ComprasEnOT() {
 	const [selectedCompra, setSelectedCompra] = useState<ICompra | null>(null);
 	const [itemsCompra, setItemsCompra] = useState<IItemEnCompra[]>([]);
 	const [cargandoItems, setCargandoItems] = useState(false);
+	const [itemsPorCompra, setItemsPorCompra] = useState<Record<number, IItemEnCompra[]>>({});
+	const [loadingItemsPorCompra, setLoadingItemsPorCompra] = useState<Record<number, boolean>>({});
 
 	useEffect(() => {
 		if (detalleOrdenTrabajo) {
 			dispatch(listaComprasEnOTThunk({ id_orden: detalleOrdenTrabajo.id }));
 		}
 	}, [detalleOrdenTrabajo, dispatch]);
+
+	useEffect(() => {
+		const cargarItems = async () => {
+			if (!listaComprasEnOT.length) {
+				setItemsPorCompra({});
+				setLoadingItemsPorCompra({});
+				return;
+			}
+
+			const nuevasCargas: Record<number, boolean> = {};
+			listaComprasEnOT.forEach((compra) => {
+				nuevasCargas[compra.id] = true;
+			});
+			setLoadingItemsPorCompra(nuevasCargas);
+
+			try {
+				const respuestas = await Promise.all(
+					listaComprasEnOT.map(async (compra) => {
+						const resp = await ApiService.fetchData<IItemEnCompra[]>({
+							url: `/api/compras/${compra.id}/items/`,
+							method: 'get',
+						});
+						return { compraId: compra.id, items: resp.data || [] };
+					}),
+				);
+
+				const itemsMap: Record<number, IItemEnCompra[]> = {};
+				const loadingMap: Record<number, boolean> = {};
+				respuestas.forEach(({ compraId, items }) => {
+					itemsMap[compraId] = items;
+					loadingMap[compraId] = false;
+				});
+				setItemsPorCompra(itemsMap);
+				setLoadingItemsPorCompra(loadingMap);
+			} catch (error: unknown) {
+				toast.error(getErrorMessage(error) || 'No se pudieron cargar los items');
+				setLoadingItemsPorCompra({});
+			}
+		};
+
+		cargarItems();
+	}, [listaComprasEnOT]);
 
 	const hayDevolucionesDesdeCompras = useMemo(() => {
 		if (!detalleOrdenTrabajo) return false;
@@ -71,8 +132,9 @@ function ComprasEnOT() {
 				method: 'get',
 			});
 			setItemsCompra(resp.data || []);
-		} catch (e) {
-			toast.error('No se pudieron cargar los items de la compra');
+			setItemsPorCompra((prev) => ({ ...prev, [compraId]: resp.data || [] }));
+		} catch (error: unknown) {
+			toast.error(getErrorMessage(error) || 'No se pudieron cargar los items de la compra');
 		} finally {
 			setCargandoItems(false);
 		}
@@ -93,58 +155,82 @@ function ComprasEnOT() {
 	}, [isOpenDetail, selectedCompra]);
 
 	const columns = [
-		columnHelper.accessor('codigo', {
-			cell: (info) => info.getValue(),
-			header: 'Código',
+		columnHelper.accessor('itemNombre', {
+			cell: (info) =>
+				info.row.original.isPlaceholder
+					? info.row.original.placeholderLabel || 'Sin items'
+					: info.getValue(),
+			header: 'Item',
 		}),
-		columnHelper.accessor('observaciones', {
-			cell: (info) => info.getValue() || '-',
-			header: 'Descripción',
+		columnHelper.accessor('cantidad', {
+			cell: (info) => (info.row.original.isPlaceholder ? '-' : info.getValue()),
+			header: 'Cantidad',
 		}),
-		columnHelper.accessor('fecha_compra', {
+		columnHelper.accessor('precio', {
 			cell: (info) => {
-				const fecha = info.getValue();
-				if (!fecha) return '-';
-				return dayjs(fecha).locale('es').format('DD/MM/YYYY');
+				if (info.row.original.isPlaceholder) return '-';
+				const precio = info.getValue();
+				return `$${precio.toLocaleString('es-CL')}`;
 			},
-			header: 'Fecha Compra',
+			header: 'Precio Unitario',
 		}),
-		columnHelper.accessor('total_compra', {
+		columnHelper.accessor('subtotal', {
 			cell: (info) => {
-				const total = info.getValue();
-				return total ? `$${total.toLocaleString('es-CL')}` : '$0';
+				if (info.row.original.isPlaceholder) return '-';
+				const subtotal = info.getValue();
+				return `$${subtotal.toLocaleString('es-CL')}`;
 			},
-			header: 'Total',
-		}),
-		columnHelper.accessor('estado_label', {
-			cell: (info) => info.getValue(),
-			header: 'Estado',
-		}),
-		columnHelper.accessor('nombre_creado_por', {
-			cell: (info) => info.getValue() || '-',
-			header: 'Comprador',
-		}),
-		columnHelper.display({
-			id: 'acciones',
-			cell: (info) => (
-				<div className='flex flex-wrap gap-2'>
-					<Tooltip text='Ver detalles de la compra'>
-						<Button
-							variant='solid'
-							size='sm'
-							color='violet'
-							icon='HeroEye'
-							onClick={() => openDetail(info.row.original)}
-						/>
-					</Tooltip>
-				</div>
-			),
-			header: '',
+			header: 'Subtotal',
 		}),
 	];
 
+	const dataFiltrada: CompraItemRow[] = useMemo(() => {
+		if (!listaComprasEnOT.length) return [];
+		const filas: CompraItemRow[] = [];
+		listaComprasEnOT.forEach((compra) => {
+			const items = itemsPorCompra[compra.id] || [];
+			const estaCargando = loadingItemsPorCompra[compra.id];
+			if (!items.length) {
+				filas.push({
+					compraId: compra.id,
+					compraCodigo: compra.codigo,
+					compraFecha: compra.fecha_compra,
+					compraTotal: compra.total_compra,
+					compraEstadoLabel: compra.estado_label || compra.estado,
+					compraComprador: compra.nombre_creado_por || '-',
+					itemId: -compra.id,
+					itemNombre: estaCargando ? 'Cargando items...' : 'Sin items',
+					cantidad: 0,
+					precio: 0,
+					subtotal: 0,
+					isPlaceholder: true,
+					placeholderLabel: estaCargando ? 'Cargando items...' : 'Sin items',
+				});
+				return;
+			}
+
+			items.forEach((item) => {
+				const subtotal = item.cantidad * item.precio;
+				filas.push({
+					compraId: compra.id,
+					compraCodigo: compra.codigo,
+					compraFecha: compra.fecha_compra,
+					compraTotal: compra.total_compra,
+					compraEstadoLabel: compra.estado_label || compra.estado,
+					compraComprador: compra.nombre_creado_por || '-',
+					itemId: item.id,
+					itemNombre: item.nombre_item,
+					cantidad: item.cantidad,
+					precio: item.precio,
+					subtotal,
+				});
+			});
+		});
+		return filas;
+	}, [itemsPorCompra, listaComprasEnOT, loadingItemsPorCompra]);
+
 	const table = useReactTable({
-		data: listaComprasEnOT || [],
+		data: dataFiltrada,
 		columns: columns,
 		state: {
 			sorting: sorting,
@@ -158,6 +244,66 @@ function ComprasEnOT() {
 		getFilteredRowModel: getFilteredRowModel(),
 		getPaginationRowModel: getPaginationRowModel(),
 	});
+
+	const paginatedRows = table.getRowModel().rows;
+	const columnCount = table.getVisibleFlatColumns().length;
+
+	const groupedRows = useMemo(() => {
+		const map = new Map<
+			number,
+			{
+				compraId: number;
+				compraCodigo: string;
+				compraFecha: string | null;
+				compraTotal: number;
+				compraEstadoLabel: string;
+				compraComprador: string;
+				rows: typeof paginatedRows;
+				totalItems: number;
+				totalCantidad: number;
+				totalSubtotal: number;
+			}
+		>();
+
+		paginatedRows.forEach((row) => {
+			const {
+				compraId,
+				compraCodigo,
+				compraFecha,
+				compraTotal,
+				compraEstadoLabel,
+				compraComprador,
+				cantidad,
+				subtotal,
+				isPlaceholder,
+			} = row.original;
+
+			if (!map.has(compraId)) {
+				map.set(compraId, {
+					compraId,
+					compraCodigo,
+					compraFecha,
+					compraTotal,
+					compraEstadoLabel,
+					compraComprador,
+					rows: [],
+					totalItems: 0,
+					totalCantidad: 0,
+					totalSubtotal: 0,
+				});
+			}
+
+			const grupo = map.get(compraId)!;
+			grupo.rows.push(row);
+			if (!isPlaceholder) {
+				grupo.totalItems += 1;
+				grupo.totalCantidad += cantidad;
+				grupo.totalSubtotal += subtotal;
+			}
+		});
+
+		return Array.from(map.values());
+	}, [paginatedRows]);
 
 	return (
 		<>
@@ -247,17 +393,121 @@ function ComprasEnOT() {
 									))}
 								</THead>
 								<TBody>
-									{table.getRowModel().rows.map((row) => (
-										<Tr key={row.id}>
-											{row.getVisibleCells().map((cell) => (
-												<Td key={cell.id}>
-													{flexRender(
-														cell.column.columnDef.cell,
-														cell.getContext(),
-													)}
+									{groupedRows.map((group) => (
+										<Fragment key={`compra-${group.compraId}`}>
+											<Tr className='bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500'>
+												<Td colSpan={columnCount} className='py-3 px-4'>
+													<div className='flex flex-wrap items-center justify-between gap-4'>
+														<div className='flex flex-wrap items-center gap-4'>
+															<div className='flex items-center gap-2'>
+																<Icon
+																	icon='HeroShoppingCart'
+																	className='text-emerald-600'
+																	size='text-lg'
+																/>
+																<span className='text-base font-bold text-slate-800'>
+																	Compra {group.compraCodigo || `#${group.compraId}`}
+																</span>
+															</div>
+
+															<div className='h-6 w-px bg-slate-300' />
+
+															<div className='flex flex-wrap items-center gap-3'>
+																<Badge color='zinc' variant='solid' className='font-medium'>
+																	{group.compraEstadoLabel || 'Sin estado'}
+																</Badge>
+																<div className='flex items-center gap-1.5 text-sm text-slate-600'>
+																	<Icon icon='HeroUser' size='text-sm' />
+																	<span className='font-medium'>
+																		{group.compraComprador || '-'}
+																	</span>
+																</div>
+																{group.compraFecha && (
+																	<div className='flex items-center gap-1.5 text-sm text-slate-600'>
+																		<Icon icon='HeroCalendarDays' size='text-sm' />
+																		<span className='font-medium'>
+																			{dayjs(group.compraFecha)
+																				.locale('es')
+																				.format('DD/MM/YYYY')}
+																		</span>
+																	</div>
+																)}
+															</div>
+
+															<div className='h-6 w-px bg-slate-300' />
+
+															<div className='flex flex-wrap items-center gap-4 text-xs'>
+																<div className='flex flex-col'>
+																	<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																		Items
+																	</span>
+																	<span className='text-sm font-bold text-slate-700'>
+																		{group.totalItems}
+																	</span>
+																</div>
+																<div className='flex flex-col'>
+																	<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																		Cantidad
+																	</span>
+																	<span className='text-sm font-bold text-slate-700'>
+																		{group.totalCantidad}
+																	</span>
+																</div>
+																<div className='flex flex-col'>
+																	<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																		Subtotal
+																	</span>
+																	<span className='text-sm font-bold text-emerald-700'>
+																		${group.totalSubtotal.toLocaleString('es-CL')}
+																	</span>
+																</div>
+																<div className='flex flex-col'>
+																	<span className='text-slate-500 text-[10px] uppercase tracking-wide'>
+																		Total
+																	</span>
+																	<span className='text-sm font-bold text-slate-700'>
+																		${group.compraTotal.toLocaleString('es-CL')}
+																	</span>
+																</div>
+															</div>
+														</div>
+
+														<div className='flex items-center gap-2'>
+															<Tooltip text='Ver detalles de la compra'>
+																<Button
+																	variant='solid'
+																	size='sm'
+																	color='violet'
+																	icon='HeroEye'
+																	onClick={() => {
+																		const compra = listaComprasEnOT.find(
+																			(item) => item.id === group.compraId,
+																		);
+																		if (compra) {
+																			openDetail(compra);
+																		}
+																	}}
+																>
+																	Detalle
+																</Button>
+															</Tooltip>
+														</div>
+													</div>
 												</Td>
+											</Tr>
+											{group.rows.map((row) => (
+												<Tr key={row.id}>
+													{row.getVisibleCells().map((cell) => (
+														<Td key={cell.id}>
+															{flexRender(
+																cell.column.columnDef.cell,
+																cell.getContext(),
+															)}
+														</Td>
+													))}
+												</Tr>
 											))}
-										</Tr>
+										</Fragment>
 									))}
 								</TBody>
 							</Table>

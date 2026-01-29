@@ -1,5 +1,7 @@
-from bodegas.models import GuiaSalida
+from django.db.models import Q
 from rest_framework import serializers
+
+from bodegas.models import GuiaSalida
 
 from .models import (
     AdjuntoDeOrden,
@@ -52,6 +54,7 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
     )
     cierre_administrativo = serializers.SerializerMethodField()
     rendicion_asociada_id = serializers.SerializerMethodField()
+    guias_salida = serializers.SerializerMethodField()
 
     empresa_nombre = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
@@ -107,6 +110,12 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
             return obj.rendicion_asociada.id
         return None
 
+    def get_guias_salida(self, obj):
+        """Retorna lista de guías con su ID y estado para validación frontend"""
+        from bodegas.models import GuiaSalida
+        guias = GuiaSalida.objects.filter(orden_trabajo=obj).values('id', 'estado')
+        return list(guias)
+
     class Meta:
         model = OrdenDeTrabajo
         fields = "__all__"
@@ -116,6 +125,8 @@ class SoporteTecnicoSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     nombre_tecnico = serializers.SerializerMethodField()
     usuarios_asignados_count = serializers.SerializerMethodField()
+    usuarios_asignados_total = serializers.SerializerMethodField()
+    usuarios_asignados_resueltos = serializers.SerializerMethodField()
     guia_salida = GuiaSalidaMiniSerializer(read_only=True)
 
     def get_estado_label(self, obj):
@@ -128,6 +139,12 @@ class SoporteTecnicoSerializer(serializers.ModelSerializer):
 
     def get_usuarios_asignados_count(self, obj):
         return obj.usuarioasignadosoporte_set.filter(resuelto=False).count()
+
+    def get_usuarios_asignados_total(self, obj):
+        return obj.usuarioasignadosoporte_set.count()
+
+    def get_usuarios_asignados_resueltos(self, obj):
+        return obj.usuarioasignadosoporte_set.filter(resuelto=True).count()
 
     class Meta:
         model = SoporteTecnico
@@ -143,6 +160,8 @@ class SoporteTecnicoSerializer(serializers.ModelSerializer):
             "fecha_soporte",
             "guia_salida",
             "usuarios_asignados_count",
+            "usuarios_asignados_total",
+            "usuarios_asignados_resueltos",
             "fecha_creacion",
             "fecha_modificacion",
         ]
@@ -152,15 +171,65 @@ class UsuarioAsignadoSoporteSerializer(serializers.ModelSerializer):
     nombre_usuario = serializers.SerializerMethodField()
     numero_serie_equipo = serializers.SerializerMethodField()
     tipo_equipo = serializers.SerializerMethodField()
+    equipo_id = serializers.SerializerMethodField()
 
     def get_nombre_usuario(self, obj):
-        return obj.usuario_equipo.usuario.usuario.get_nombre_completo()
+        if obj.usuario_equipo:
+            return obj.usuario_equipo.usuario.usuario.get_nombre_completo()
+        if obj.usuario_empresa:
+            return obj.usuario_empresa.usuario.get_nombre_completo()
+        return None
 
     def get_numero_serie_equipo(self, obj):
-        return obj.usuario_equipo.equipo.numero_serie
+        if obj.usuario_equipo:
+            return obj.usuario_equipo.equipo.numero_serie
+        return None
 
     def get_tipo_equipo(self, obj):
-        return obj.usuario_equipo.equipo.get_tipo_equipo_display()
+        if obj.usuario_equipo:
+            return obj.usuario_equipo.equipo.get_tipo_equipo_display()
+        return None
+
+    def get_equipo_id(self, obj):
+        if obj.usuario_equipo:
+            return obj.usuario_equipo.equipo_id
+        return None
+
+    def validate(self, attrs):
+        if self.instance is None:
+            if not attrs.get("usuario_equipo") and not attrs.get("usuario_empresa"):
+                raise serializers.ValidationError(
+                    "Debe indicar 'usuario_equipo' o 'usuario_empresa'."
+                )
+            soporte = attrs.get("soporte_tecnico")
+            if not soporte:
+                view = self.context.get("view")
+                soporte_pk = (
+                    view.kwargs.get("soporte_tecnico_pk") if view and hasattr(view, "kwargs") else None
+                )
+                if soporte_pk:
+                    soporte = SoporteTecnico.objects.filter(pk=soporte_pk).first()
+
+            usuario_empresa = attrs.get("usuario_empresa")
+            usuario_equipo = attrs.get("usuario_equipo")
+            if soporte and (usuario_empresa or usuario_equipo):
+                usuario_empresa_id = (
+                    usuario_empresa.id if usuario_empresa else usuario_equipo.usuario_id
+                )
+                existe = UsuarioAsignadoSoporte.objects.filter(
+                    soporte_tecnico__orden=soporte.orden,
+                    resuelto=False,
+                ).exclude(
+                    soporte_tecnico=soporte
+                ).filter(
+                    Q(usuario_empresa_id=usuario_empresa_id)
+                    | Q(usuario_equipo__usuario_id=usuario_empresa_id)
+                )
+                if existe.exists():
+                    raise serializers.ValidationError(
+                        "El usuario ya esta asignado a otro subtrabajo pendiente en esta OT."
+                    )
+        return attrs
 
     class Meta:
         model = UsuarioAsignadoSoporte
@@ -168,11 +237,14 @@ class UsuarioAsignadoSoporteSerializer(serializers.ModelSerializer):
             "id",
             "soporte_tecnico",
             "usuario_equipo",
+            "usuario_empresa",
             "nombre_usuario",
             "numero_serie_equipo",
             "tipo_equipo",
+            "equipo_id",
             "trabajo_realizado",
             "resuelto",
+            "cache_asignacion",
             "fecha_creacion",
             "fecha_modificacion",
         ]
@@ -338,6 +410,7 @@ class SeguimientoItemOTSerializer(serializers.ModelSerializer):
         model = SeguimientoItemOT
         fields = [
             "id",
+            "orden",
             "servicio",
             "servicio_nombre",
             "soporte",

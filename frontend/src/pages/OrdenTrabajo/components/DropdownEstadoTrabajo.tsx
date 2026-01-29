@@ -18,6 +18,8 @@ interface DropdownEstadoTrabajoProps {
 	soporteId?: number;
 	clienteId?: number;
 	tecnicoNombre?: string;
+	usuariosAsignadosTotal?: number;
+	usuariosAsignadosResueltos?: number;
 	// Callback para abrir el modal desde el padre
 	onOpenModal?: (
 		trabajoId: number,
@@ -36,7 +38,9 @@ const DropdownEstadoTrabajo = ({
 	servicioId,
 	soporteId,
 	clienteId,
-	tecnicoNombre = 'Técnico',
+	tecnicoNombre = 'Tecnico',
+	usuariosAsignadosTotal,
+	usuariosAsignadosResueltos,
 	onOpenModal,
 }: DropdownEstadoTrabajoProps) => {
 	const [isOpenFirmaModal, setIsOpenFirmaModal] = useState(false);
@@ -63,6 +67,25 @@ const DropdownEstadoTrabajo = ({
 			icon: 'HeroXMark',
 		},
 	];
+
+	const buildRestriccion = (estado: EstadoFinal) => {
+		if (usuariosAsignadosTotal === undefined || usuariosAsignadosResueltos === undefined) {
+			return null;
+		}
+		if (usuariosAsignadosTotal <= 0) return null;
+		const resueltos = usuariosAsignadosResueltos;
+		const total = usuariosAsignadosTotal;
+		if (estado === 'completado' && resueltos < total) {
+			return 'Se requiere de todos los usuarios resueltos';
+		}
+		if (estado === 'medianamente_completado' && resueltos < 1) {
+			return 'Se requiere de al menos 1 usuario resuelto';
+		}
+		if (estado === 'no_realizado' && resueltos > 0) {
+			return 'Solo disponible cuando ningun usuario esta resuelto';
+		}
+		return null;
+	};
 
 	/**
 	 * Valida que el trabajo tenga al menos un seguimiento de tipo 'comentario_tecnico'
@@ -224,16 +247,30 @@ setComentariosTecnicos(comentariosDelTrabajo);
 				</Button>
 			</DropdownToggle>
 			<DropdownMenu placement='bottom-end'>
-				{opciones.map((opcion) => (
-					<DropdownItem
-						key={opcion.value}
-						onClick={() => handleSelectEstado(opcion.value)}
-						icon={opcion.icon}>
-						<span className={`font-medium text-${opcion.color}-600`}>
-							{opcion.label}
-						</span>
-					</DropdownItem>
-				))}
+				{opciones.map((opcion) => {
+					const restriccion = buildRestriccion(opcion.value);
+					const item = (
+						<DropdownItem
+							key={opcion.value}
+							onClick={() => {
+								if (restriccion) return;
+								handleSelectEstado(opcion.value);
+							}}
+							icon={opcion.icon}
+							className={restriccion ? 'cursor-not-allowed opacity-60' : undefined}>
+							<span className={`font-medium text-${opcion.color}-600`}>
+								{opcion.label}
+							</span>
+						</DropdownItem>
+					);
+					return restriccion ? (
+						<Tooltip key={opcion.value} text={restriccion}>
+							{item}
+						</Tooltip>
+					) : (
+						item
+					);
+				})}
 			</DropdownMenu>
 		</Dropdown>
 		</>

@@ -1,7 +1,6 @@
 def format_currency(value):
     """
-    Standard currency formatter for PDFs (CLP style).
-    $1.500.000
+    Standard CLP: $1.500.000
     """
     if value is None:
         return "$0"
@@ -9,12 +8,22 @@ def format_currency(value):
 
 def format_currency_usd(value):
     """
-    Standard currency formatter for USD.
-    1,500.00 USD
+    Standard USD Chilean format: 1.500,0 USD
     """
     if value is None:
-        return "0.00 USD"
-    return f"{value:,.2f} USD"
+        return "0,0 USD"
+    # Format to 1 decimal with comma as decimal and dot as thousands
+    s = f"{value:,.1f}" # 1,250.5
+    return s.replace(",", "X").replace(".", ",").replace("X", ".") + " USD"
+
+def format_currency_uf(value):
+    """
+    Standard UF format: 1.500,22 UF
+    """
+    if value is None:
+        return "0,00 UF"
+    s = f"{value:,.2f}" # 1,250.55
+    return s.replace(",", "X").replace(".", ",").replace("X", ".") + " UF"
 
 def clean_text(text):
     """

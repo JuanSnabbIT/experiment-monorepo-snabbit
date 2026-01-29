@@ -317,6 +317,7 @@ class GuiaSalida(ModeloBaseHistorico):
         related_name="creado_por_guia",
     )
     firma_recibido_por = models.TextField(blank=True)
+    fecha_firma_recibido_por = models.DateTimeField(null=True, blank=True)
     motivo = models.TextField(blank=True)
     estado = models.CharField(max_length=2, choices=ESTADOS_REBAJE, default="P")
     items = models.ManyToManyField(
@@ -325,6 +326,7 @@ class GuiaSalida(ModeloBaseHistorico):
         related_name="items_guia",
     )
     firma_entrega = models.TextField(blank=True)
+    fecha_firma_entrega = models.DateTimeField(null=True, blank=True)
     entregado_a = models.ForeignKey(
         "empresas.UsuarioEmpresa",
         on_delete=models.SET_NULL,

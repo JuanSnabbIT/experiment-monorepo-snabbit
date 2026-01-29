@@ -32,7 +32,6 @@ import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import Adjuntos from './components/Adjuntos';
 import ComprasEnOT from './components/ComprasEnOT';
-import DevolucionesOT from './components/DevolucionesOT';
 import FotosAdjuntosOT from './components/FotosAdjuntosOT';
 import HistorialCambios from './components/HistorialCambios';
 import Insumos from './components/Insumos';
@@ -44,6 +43,7 @@ import MarqueeCompletibilidad from './components/MarqueeCompletibilidad';
 import RendicionesOT from './components/RendicionesOT';
 import RetroalimentacionesOT from './components/RetroalimentacionesOT';
 import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
+import SeguimientoOTDropdown from './components/SeguimientoOTDropdown';
 import CerrarOT from './modals/CerrarOT';
 import CompletarOT from './modals/CompletarOT';
 import FacturarOT from './modals/FacturarOT';
@@ -310,8 +310,8 @@ const DetalleOT = () => {
 				<SubheaderRight>
 					{detalleOrdenTrabajo && (
 						<div className='flex gap-2'>
-							{detalleOrdenTrabajo.estado === 'completada' &&
-								detalleOrdenTrabajo.rendicion_asociada_id && (
+							{detalleOrdenTrabajo.rendicion_asociada_id &&
+								detalleOrdenTrabajo.estado !== 'pendiente' && (
 									<Tooltip text='Ver Rendición Asociada'>
 										<Button
 											variant='solid'
@@ -325,22 +325,34 @@ const DetalleOT = () => {
 										/>
 									</Tooltip>
 								)}
-							{detalleOrdenTrabajo.estado === 'completada' && (
-								<Tooltip text='Ver Facturación'>
+							{detalleOrdenTrabajo.cierre_administrativo?.id && (
+								<Tooltip text={`Ir a prefactura #${detalleOrdenTrabajo.cierre_administrativo.id}`}>
 									<Button
 										variant='solid'
-										color='blue'
-										icon='HeroReceipt'
+										color='sky'
+										icon='HeroReceiptPercent'
+										onClick={() =>
+											navigate(`/facturacion/facturas/${detalleOrdenTrabajo.cierre_administrativo?.id}`)
+										}
+									/>
+								</Tooltip>
+							)}
+							{detalleOrdenTrabajo.estado === 'completada' && (
+								<Tooltip text='Crear prefactura'>
+									<Button
+										variant='solid'
+										color='emerald'
+										icon='HeroPlusCircle'
 										onClick={() =>
 											navigate(
-												`/facturacion/cierre-ot/${detalleOrdenTrabajo.id}`,
+												`/facturacion/facturas/crear?cliente_id=${detalleOrdenTrabajo.cliente}&ot_id=${detalleOrdenTrabajo.id}`,
 											)
 										}
 									/>
 								</Tooltip>
 							)}
 							{detalleOrdenTrabajo.estado === 'en_proceso' && <CompletarOT />}
-							{detalleOrdenTrabajo.estado === 'completada' && <CerrarOT />}
+							{detalleOrdenTrabajo.estado === 'facturada' && <CerrarOT />}
 							{detalleOrdenTrabajo.estado === 'cerrada' && <FacturarOT />}
 							{detalleOrdenTrabajo.estado !== 'pendiente' && (
 								<Tooltip text='Ver PDF'>
@@ -352,6 +364,7 @@ const DetalleOT = () => {
 									/>
 								</Tooltip>
 							)}
+							<SeguimientoOTDropdown ordenId={detalleOrdenTrabajo.id} />
 						</div>
 					)}
 				</SubheaderRight>
@@ -930,7 +943,7 @@ const DetalleOT = () => {
 									Insumos
 								</Button>
 								<Button
-									{...(activeComponent === 'Seguimientos'
+									{...(activeComponent === 'Comentarios'
 										? {
 												size: 'sm',
 												rounded: 'rounded-full',
@@ -947,9 +960,9 @@ const DetalleOT = () => {
 												className: 'border',
 											})}
 									onClick={() => {
-										setActiveComponent('Seguimientos');
+										setActiveComponent('Comentarios');
 									}}>
-									Seguimientos
+									Comentarios
 								</Button>
 								<Button
 									{...(activeComponent === 'Fotos'
@@ -1040,28 +1053,7 @@ const DetalleOT = () => {
 									}}>
 									Gastos Operativos
 								</Button>
-								<Button
-									{...(activeComponent === 'Devoluciones'
-										? {
-												size: 'sm',
-												rounded: 'rounded-full',
-												className: 'border',
-												isActive: true,
-												color: 'blue',
-												colorIntensity: '500',
-												variant: 'solid',
-											}
-										: {
-												size: 'sm',
-												color: 'zinc',
-												rounded: 'rounded-full',
-												className: 'border',
-											})}
-									onClick={() => {
-										setActiveComponent('Devoluciones');
-									}}>
-									Devoluciones
-								</Button>
+
 							</div>
 						</CardBody>
 					</Card>
@@ -1075,16 +1067,13 @@ const DetalleOT = () => {
 						<HistorialCambios ordenId={detalleOrdenTrabajo?.id} />
 					)}
 					{activeComponent === 'Insumos' && <Insumos />}
-					{activeComponent === 'Seguimientos' && (
+					{activeComponent === 'Comentarios' && (
 						<SeguimientosOT ordenId={detalleOrdenTrabajo?.id} />
 					)}
 					{activeComponent === 'Fotos' && <FotosAdjuntosOT />}
 					{activeComponent === 'Usuarios' && <UsuariosVinculadosOT />}
 					{activeComponent === 'Retroalimentaciones' && <RetroalimentacionesOT />}
 					{activeComponent === 'GastosOperativos' && <RendicionesOT />}
-					{activeComponent === 'Devoluciones' && (
-						<DevolucionesOT ordenId={detalleOrdenTrabajo?.id} />
-					)}
 				</div>
 			</Container>
 		</PageWrapper>

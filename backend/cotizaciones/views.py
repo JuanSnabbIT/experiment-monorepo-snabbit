@@ -1,22 +1,31 @@
+import logging
 import os
 import threading
 from datetime import datetime
 
-from bodegas.models import ItemEnOrdenCompra, OrdenCompra
-from bodegas.serializers import OrdenCompraSerializer
-from core.models import PersonalizacionUsuario
-from core.tasks import send_email_task, update_dolar_task
-from cuentas.functions import obtener_usuario_empresa
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from empresas.models import Empresa, UsuarioEmpresa
-from empresas.serializers import UsuarioEmpresaSerializer
-from items.models import ItemEmpresa, ProveedorEmpresa
+from django.utils import timezone
+
+from celery.exceptions import CeleryError
+from kombu.exceptions import OperationalError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
+from bodegas.models import ItemEnOrdenCompra, ItemOrdenCompraEnStock, MovimientoStock, OrdenCompra
+from bodegas.serializers import OrdenCompraSerializer
+from core.models import PersonalizacionUsuario
+from core.tasks import send_email_task
+from cuentas.functions import obtener_usuario_empresa
+from empresas.models import Empresa, UsuarioEmpresa
+from empresas.serializers import UsuarioEmpresaSerializer
+from items.models import ItemEmpresa, ProveedorEmpresa
+
+logger = logging.getLogger(__name__)
 
 from .functions import (
     crear_orden_compra_para_proveedor,
@@ -31,6 +40,27 @@ from .models import (
     SolicitanteCotizacion,
 )
 from .serializers import *
+from .tasks import actualizar_tipo_cambio_cotizacion
+
+
+def _has_manual_tipo_cambio(data):
+    def _provided(key):
+        value = data.get(key, None)
+        return value not in (None, '', 'null')
+
+    return _provided('dolar_observado'), _provided('valor_uf')
+
+
+def _run_tipo_cambio_update(cotizacion_id, actualizar_dolar=True, actualizar_uf=True):
+    def run_tipo_cambio_update():
+        actualizar_tipo_cambio_cotizacion(
+            cotizacion_id,
+            actualizar_dolar=actualizar_dolar,
+            actualizar_uf=actualizar_uf,
+        )
+
+    hilo = threading.Thread(target=run_tipo_cambio_update)
+    hilo.start()
 
 
 class CotizacionViewSet(viewsets.ModelViewSet):
@@ -56,22 +86,24 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
         cotizacion = serializer.save(**extra_kwargs)
 
-        # Actualizar valor del dolar en segundo plano usando threading
-        # Esto evita problemas si Celery/Redis no están configurados correctamente
-        try:
-            # update_dolar_task es una funcion compartida, podemos llamarla directamente
-            # pero como tiene el decorador shared_task, en algunos contextos podria requerir .delay()
-            # Sin embargo, para ir a la segura, usamos un thread sobre una funcion envoltorio o directa si es posible.
-            # Nota: Celery tasks son llamables sincronamente.
+        manual_dolar, manual_uf = _has_manual_tipo_cambio(self.request.data)
+        if manual_dolar or manual_uf:
+            fecha_referencia = cotizacion.fecha_facturacion or timezone.localdate()
+            if cotizacion.tipo_moneda == '3' and manual_uf:
+                cotizacion.fecha_tipo_cambio = fecha_referencia
+                cotizacion.save(update_fields=['fecha_tipo_cambio'])
+            if cotizacion.tipo_moneda != '3' and manual_dolar:
+                cotizacion.fecha_tipo_cambio = fecha_referencia
+                cotizacion.save(update_fields=['fecha_tipo_cambio'])
 
-            # Definimos una funcion simple wrapper para el thread
-            def run_dolar_update(coti_id):
-                update_dolar_task(coti_id)
+        # Al crear, ejecutar de forma asíncrona para no bloquear la respuesta
+        if not (manual_dolar and manual_uf):
+            _run_tipo_cambio_update(
+                cotizacion.id,
+                actualizar_dolar=not manual_dolar,
+                actualizar_uf=not manual_uf,
+            )
 
-            hilo = threading.Thread(target=run_dolar_update, args=(cotizacion.id,))
-            hilo.start()
-        except Exception:
-            pass
         usuario_empresa = UsuarioEmpresa.objects.get(usuario=self.request.user)
         crear_seguimiento_cotizacion(
             cotizacion_id=cotizacion.id,
@@ -81,7 +113,57 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """Interceptar la edición para agregar seguimiento"""
+        # Capturar la instancia original antes de guardar
+        instance_original = self.get_object()
+        fecha_facturacion_original = instance_original.fecha_facturacion
+        tipo_moneda_original = instance_original.tipo_moneda
+        
         cotizacion = serializer.save()
+        
+        # Detección inteligente de cambio manual
+        # Si el valor enviado es distinto al original, es un cambio manual.
+        # Si es igual, asumimos que es el valor que ya estaba y permitimos auto-refresco.
+        
+        data = self.request.data
+        manual_dolar = False
+        manual_uf = False
+        
+        if 'dolar_observado' in data:
+            val_env = data.get('dolar_observado')
+            if val_env not in (None, '', 'null'):
+                try:
+                    if Decimal(str(val_env)) != instance_original.dolar_observado:
+                        manual_dolar = True
+                except:
+                    pass
+                    
+        if 'valor_uf' in data:
+            val_env = data.get('valor_uf')
+            if val_env not in (None, '', 'null'):
+                try:
+                    if Decimal(str(val_env)) != instance_original.valor_uf:
+                        manual_uf = True
+                except:
+                    pass
+
+        # Si cambió la fecha_facturacion y no es manual, forzar refresco
+        forzar_refresco = fecha_facturacion_original != cotizacion.fecha_facturacion
+
+        if manual_dolar or manual_uf:
+            fecha_referencia = cotizacion.fecha_facturacion or timezone.localdate()
+            if manual_uf:
+                cotizacion.fecha_tipo_cambio = fecha_referencia
+            if manual_dolar:
+                cotizacion.fecha_tipo_cambio = fecha_referencia
+            cotizacion.save(update_fields=['fecha_tipo_cambio'])
+
+        # Ejecutar actualización asíncrona si no es manual o si forzamos por cambio de fecha
+        if not (manual_dolar and manual_uf) or forzar_refresco:
+            _run_tipo_cambio_update(
+                cotizacion.id,
+                actualizar_dolar=not manual_dolar or forzar_refresco,
+                actualizar_uf=not manual_uf or forzar_refresco,
+            )
         usuario_empresa = UsuarioEmpresa.objects.get(usuario=self.request.user)
         crear_seguimiento_cotizacion(
             cotizacion_id=cotizacion.id,
@@ -121,6 +203,23 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             cotizaciones = cotizaciones.filter(estado__in=estados)
         serializer = self.get_serializer(cotizaciones, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="refrescar-tipo-cambio")
+    def refrescar_tipo_cambio(self, request, pk=None):
+        """
+        Actualiza manualmente el tipo de cambio (dolar/UF) de la cotización.
+        Útil cuando el usuario cambia la fecha de facturación en el frontend.
+        """
+        cotizacion = self.get_object()
+        
+        _run_tipo_cambio_update(
+            cotizacion.id,
+            actualizar_dolar=True,
+            actualizar_uf=True,
+        )
+        cotizacion.refresh_from_db()
+        serializer = self.get_serializer(cotizacion)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="duplicar")
     def duplicar(self, request, pk=None):
@@ -207,6 +306,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         - `usuarios_empresa`: Lista de `pks` de usuarios de empresa a guardar en `EnvioCorreoCotizacion` y agregar en copia.
         """
         cotizacion = get_object_or_404(Cotizacion, pk=pk)
+
+        # Validación de Fecha Futura
+        hoy = timezone.localdate()
+        if cotizacion.fecha_facturacion and cotizacion.fecha_facturacion > hoy:
+            return Response(
+                {"detail": "No se puede enviar una cotización con fecha de facturación futura. Espere a la fecha indicada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Obtener datos desde el request
         # email_principal = request.data.get("email_principal")
@@ -337,6 +444,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         """
         cotizacion = get_object_or_404(Cotizacion, pk=pk)
 
+        # Validación de Fecha Futura
+        hoy = timezone.localdate()
+        if cotizacion.fecha_facturacion and cotizacion.fecha_facturacion > hoy:
+            return Response(
+                {"detail": "No se puede enviar una cotización con fecha de facturación futura. Espere a la fecha indicada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Recopilar los correos de los solicitantes
         solicitantes = cotizacion.solicitantes.all()
         correos_solicitantes = [
@@ -375,28 +490,34 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         <p>Observaciones: {cotizacion.observaciones}</p>
         <p>Para ver más detalles, haga clic en el siguiente enlace:</p>
         """
-        url_cotizacion = f"{os.getenv('FRONTEND_URL')}/cotizacion/detalle-cotizacion/{cotizacion.numero_cotizacion}"
-
-        # Primero, enviar el correo utilizando send_email_task.delay
-        resultado = send_email_task.delay(
-            subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",
-            recipient_list=recipient_emails,
-            html_body=html_body,
-            titulo=f"Cotización {cotizacion.numero_cotizacion}",
-            url_boton=url_cotizacion,
-            text_boton="Ver Cotización",
-            cc=[],  # Todos los correos son destinatarios principales
-            pdf_attachment=(pdf_filename, pdf_bytes),
+        url_cotizacion = (
+            f"{os.getenv('FRONTEND_URL')}/cotizacion/detalle-cotizacion/{cotizacion.numero_cotizacion}"
         )
 
-        # Solo si el envío se programa correctamente (la tarea es asíncrona), se procede a actualizar:
-        cotizacion.estado = "enviada"
-        cotizacion.save()
-
-        envio = EnvioCorreoCotizacion.objects.create(
-            cotizacion=cotizacion, correos_externos=", ".join(recipient_emails)
-        )
-        envio.save()
+        try:
+            send_email_task.delay(
+                subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",
+                recipient_list=recipient_emails,
+                html_body=html_body,
+                titulo=f"Cotización {cotizacion.numero_cotizacion}",
+                url_boton=url_cotizacion,
+                text_boton="Ver Cotización",
+                cc=[],
+                pdf_attachment=(pdf_filename, pdf_bytes),
+                on_success_cotizacion_id=cotizacion.pk,
+                on_success_correos_externos=recipient_emails,
+            )
+        except (OperationalError, CeleryError) as exc:
+            logger.error(
+                "No se pudo encolar el envío de correo de cotización",
+                exc_info=exc,
+            )
+            return Response(
+                {
+                    "detail": "No se pudo programar el envío. Verifique que Celery y Redis estén disponibles."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
             {"detail": "Cotización enviada y registrada exitosamente."},
@@ -416,6 +537,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         }
         """
         cotizacion = self.get_object()
+
+        # Validación de Fecha Futura
+        hoy = timezone.localdate()
+        if cotizacion.fecha_facturacion and cotizacion.fecha_facturacion > hoy:
+            return Response(
+                {"detail": "No se puede aprobar una cotización con fecha de facturación futura. Espere a la fecha indicada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # -------- Validaciones básicas --------
         solicitante_id = request.data.get("solicitante_id")
@@ -493,6 +622,71 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             ordenes, many=True, context={"request": request}
         )
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="items-resumen")
+    def items_resumen(self, request, pk=None):
+        """
+        Retorna un resumen de items con cantidad pedida y recibida (segÃºn recepciones).
+        """
+        cotizacion = self.get_object()
+        items = list(cotizacion.items.select_related("item_empresa"))
+        item_empresa_ids = [item.item_empresa_id for item in items if item.item_empresa_id]
+        if not item_empresa_ids:
+            data = [
+                {
+                    "id": item.id,
+                    "item_id": item.item_empresa_id,
+                    "item_nombre": item.item_empresa.nombre if item.item_empresa else (item.nombre or "Sin nombre"),
+                    "cantidad_pedida": item.cantidad,
+                    "cantidad_recibida": 0,
+                }
+                for item in items
+            ]
+            return Response(data, status=status.HTTP_200_OK)
+
+        item_oc_rows = ItemEnOrdenCompra.objects.filter(
+            orden_compra__relacion_cotizacion=cotizacion,
+            item_id__in=item_empresa_ids,
+        ).values("id", "item_id")
+        item_oc_ids = [row["id"] for row in item_oc_rows]
+        item_oc_to_item = {row["id"]: row["item_id"] for row in item_oc_rows}
+
+        recibidos_por_item = {item_id: 0 for item_id in item_empresa_ids}
+        if item_oc_ids:
+            ct_item_oc = ContentType.objects.get_for_model(ItemEnOrdenCompra)
+            oc_stock_rows = ItemOrdenCompraEnStock.objects.filter(
+                content_type=ct_item_oc,
+                item_oc_id__in=item_oc_ids,
+            ).values("id", "item_oc_id")
+            oc_stock_to_item = {
+                row["id"]: item_oc_to_item.get(row["item_oc_id"]) for row in oc_stock_rows
+            }
+            oc_stock_ids = list(oc_stock_to_item.keys())
+            if oc_stock_ids:
+                ct_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
+                movs = MovimientoStock.objects.filter(
+                    content_type=ct_oc_stock,
+                    object_id__in=oc_stock_ids,
+                    tipo_movimiento="ENTRADA",
+                ).values("object_id").annotate(total=Sum("cantidad"))
+                for row in movs:
+                    item_id = oc_stock_to_item.get(row["object_id"])
+                    if item_id:
+                        recibidos_por_item[item_id] = recibidos_por_item.get(item_id, 0) + (row["total"] or 0)
+
+        data = []
+        for item in items:
+            item_id = item.item_empresa_id
+            data.append(
+                {
+                    "id": item.id,
+                    "item_id": item_id,
+                    "item_nombre": item.item_empresa.nombre if item.item_empresa else (item.nombre or "Sin nombre"),
+                    "cantidad_pedida": item.cantidad,
+                    "cantidad_recibida": recibidos_por_item.get(item_id, 0) if item_id else 0,
+                }
+            )
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="crear-orden-compra")
     def crear_orden_compra(self, request, pk=None):
@@ -761,12 +955,3 @@ class SolicitanteExternoViewSet(viewsets.ModelViewSet):
     queryset = SolicitanteExterno.objects.all()
 
 
-class ComentarioCotizacionViewSet(viewsets.ModelViewSet):
-    serializer_class = ComentarioCotizacionSerializer
-    queryset = ComentarioCotizacion.objects.all()
-
-    def get_queryset(self):
-        cotizacion_id = self.kwargs.get("cotizacion_pk")
-        if cotizacion_id:
-            return ComentarioCotizacion.objects.filter(cotizacion_id=cotizacion_id)
-        return ComentarioCotizacion.objects.all()

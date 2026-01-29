@@ -20,13 +20,19 @@ const Validation: FC<IValidationProps> = (props) => {
 		invalidFeedback,
 		validFeedback,
 	} = props;
+	const isIntrinsicElement = typeof children.type === 'string';
 	return (
 		<>
-			{cloneElement(children, {
-				isValid,
-				isTouched,
-				invalidFeedback,
-			})}
+			{cloneElement(
+				children,
+				isIntrinsicElement
+					? {}
+					: {
+							isValid,
+							isTouched,
+							invalidFeedback,
+						},
+			)}
 			{isValidMessage && !isValid && isTouched && (
 				<>
 					{invalidFeedback && (
