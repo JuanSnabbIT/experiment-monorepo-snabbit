@@ -1,5 +1,5 @@
 from celery import shared_task
-from ordentrabajo.models import OrdenDeTrabajo
+from ordentrabajov2.models import OrdenDeTrabajo
 from retroalimentacion.utils import crear_retroalimentacion_y_enviar_correo
 
 @shared_task

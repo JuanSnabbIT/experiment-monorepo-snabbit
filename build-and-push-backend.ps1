@@ -45,7 +45,7 @@ Write-Host ""
 if ($UseOptimized) {
     docker build -f .\backend\Dockerfile.optimized -t ${ImageName}:dev .\backend\
 } else {
-    docker build -t ${ImageName}:dev .\backend\
+    docker build --no-cache  -t ${ImageName}:dev .\backend\
 }
 
 if ($LASTEXITCODE -ne 0) {

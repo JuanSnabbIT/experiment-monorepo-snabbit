@@ -28,3 +28,4 @@ channels_redis
 holidays
 reportlab
 django-prometheus
+Twisted[http2,tls]

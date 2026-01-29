@@ -3,7 +3,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from core.models import ModeloBase
 import uuid
-from ordentrabajo.models import OrdenDeTrabajo
+from ordentrabajov2.models import OrdenDeTrabajo
 from core.models import PreguntaEnRetroalimentacion
 
 
@@ -23,16 +23,13 @@ class Retroalimentacion(ModeloBase):
         verbose_name_plural="Retroalimentaciones de OT"
 
     def generar_preguntas_aplicables(self):
-        from ordentrabajo.models import DetalleTrabajo  # evitar circular import
+        from ordentrabajov2.models import SoporteTecnico  # evitar circular import
 
-        detalles = DetalleTrabajo.objects.filter(orden=self.orden_trabajo)
+        # En v2, SoporteTecnico es el "trabajo" directamente
+        soportes = SoporteTecnico.objects.filter(orden=self.orden_trabajo)
 
-        for detalle in detalles:
-            trabajo = detalle.trabajo
-            if not trabajo:
-                continue
-
-            content_type = ContentType.objects.get_for_model(trabajo)
+        for soporte in soportes:
+            content_type = ContentType.objects.get_for_model(soporte)
             preguntas = PreguntaEnRetroalimentacion.objects.filter(
                 content_type=content_type,
                 activo=True
@@ -42,7 +39,7 @@ class Retroalimentacion(ModeloBase):
                 RetroalimentacionAplicada.objects.get_or_create(
                     retroalimentacion=self,
                     content_type=content_type,
-                    object_id=trabajo.pk,
+                    object_id=soporte.pk,
                     pregunta=pregunta
                 )
 
