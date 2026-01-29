@@ -104,7 +104,7 @@ function AsignarNumeroDeSerie({
                 <ModalFooterChild></ModalFooterChild>
                 <ModalFooterChild>
                     <Button
-                        color='red'
+                        color='zinc'
                         onClick={() => {
                             setIsOpen(false);
                             setItemRebajaSelected(undefined);
@@ -113,6 +113,7 @@ function AsignarNumeroDeSerie({
                     </Button>
                     <Button
                         variant='solid'
+                        color='emerald'
                         onClick={() => {
                             formik.handleSubmit();
                         }}>

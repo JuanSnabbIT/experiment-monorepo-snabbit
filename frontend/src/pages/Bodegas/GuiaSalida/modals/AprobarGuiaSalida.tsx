@@ -101,7 +101,7 @@ function AprobarGuiaSalida({
                                     }}
                                 />
                             </div>
-                            <Button className='mt-2' variant='solid' onClick={clear}>
+                            <Button className='mt-2' variant='solid' color='zinc' onClick={clear}>
                                 Limpiar
                             </Button>
                         </div>
@@ -111,7 +111,7 @@ function AprobarGuiaSalida({
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button
-                            color='red'
+                            color='zinc'
                             onClick={() => {
                                 setIsOpen(false);
                                 clear();
@@ -120,6 +120,7 @@ function AprobarGuiaSalida({
                         </Button>
                         <Button
                             variant='solid'
+                            color='emerald'
                             onClick={async () => {
                                 if (!id_guia) return;
                                 try {

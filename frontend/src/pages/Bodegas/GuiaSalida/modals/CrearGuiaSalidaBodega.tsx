@@ -168,6 +168,7 @@ function CrearGuiaSalidaBodega() {
             <Tooltip text='Crear Guia de Salida'>
                 <Button
                     variant='solid'
+                    color='blue'
                     onClick={() => {
                         setIsOpen(true);
                     }}
@@ -333,7 +334,7 @@ function CrearGuiaSalidaBodega() {
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button
-                            color='red'
+                            color='zinc'
                             onClick={() => {
                                 formik.resetForm();
                                 setIsOpen(false);
@@ -342,6 +343,7 @@ function CrearGuiaSalidaBodega() {
                         </Button>
                         <Button
                             variant='solid'
+                            color='emerald'
                             onClick={() => {
                                 formik.handleSubmit();
                             }}>

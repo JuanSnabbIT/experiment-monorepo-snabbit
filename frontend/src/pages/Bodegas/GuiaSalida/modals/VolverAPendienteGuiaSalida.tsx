@@ -1,16 +1,9 @@
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
-} from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IGuiaSalida } from '@/interface/bodega.interface';
 import { useVolverPendienteMutation } from '@/store/slices/bodega/guiaSalidaApi';
-import { useState } from 'react';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 
 function VolverAPendienteGuiaSalida({
     guia_salida,
@@ -19,61 +12,42 @@ function VolverAPendienteGuiaSalida({
     onSuccess?: () => void;
 }) {
     const [volverPendiente] = useVolverPendienteMutation();
-    const [isOpen, setIsOpen] = useState<boolean>(false);
 
     return (
-        <>
-            <Tooltip text='Volver a Pendiente'>
-                <Button
-                    variant='solid'
-                    icon='HeroArrowUturnLeft'
-                    color='zinc'
-                    onClick={() => {
-                        setIsOpen(true);
-                    }}
-                />
-            </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className='text-xl'>Volver a Pendiente</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div>¿Esta seguro(a) de regresar a un estado anterior a la Guia de Salida?</div>
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button
-                            icon='red'
-                            onClick={() => {
-                                setIsOpen(false);
-                            }}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant='solid'
-                            onClick={async () => {
-                                try {
-                                    await volverPendiente(guia_salida.id).unwrap();
-                                    toast.success('Guia devuelta a estado pendiente', {
-                                        autoClose: 1000,
-                                    });
-                                    setIsOpen(false);
-                                } catch (error: any) {
-                                    const mensajesError = error.data
-                                        ? Object.values(error.data).flat().join(' ')
-                                        : 'Error al regresar a pendiente';
-                                    toast.error(mensajesError, {
-                                        toastId: 'Error al regresar a pendiente la guia de salida',
-                                    });
-                                }
-                            }}>
-                            Aceptar
-                        </Button>
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
-        </>
+        <Tooltip text='Volver a Pendiente'>
+            <Button
+                variant='solid'
+                icon='HeroArrowUturnLeft'
+                color='zinc'
+                onClick={async () => {
+                    const result = await Swal.fire({
+                        title: '¿Regresar a Pendiente?',
+                        text: '¿Está seguro(a) de regresar a un estado anterior a la Guía de Salida?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#10b981',
+                    });
+
+                    if (result.isConfirmed) {
+                        try {
+                            await volverPendiente(guia_salida.id).unwrap();
+                            toast.success('Guía devuelta a estado pendiente', {
+                                autoClose: 1000,
+                            });
+                        } catch (error: any) {
+                            const mensajesError = error.data
+                                ? Object.values(error.data).flat().join(' ')
+                                : 'Error al regresar a pendiente';
+                            toast.error(mensajesError, {
+                                toastId: 'Error al regresar a pendiente la guia de salida',
+                            });
+                        }
+                    }
+                }}
+            />
+        </Tooltip>
     );
 }
 
