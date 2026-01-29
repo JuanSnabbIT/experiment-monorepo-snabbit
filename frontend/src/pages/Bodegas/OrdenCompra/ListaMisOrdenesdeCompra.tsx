@@ -1,31 +1,28 @@
-import Input from "@/components/form/Input"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import { IOrdenCompra } from "@/interface/bodega.interface"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { listaMisOrdenesDeCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useState, useEffect } from "react"
-import CrearOrdenCompra from "./modals/CrearOrdenCompra"
-import Button from "@/components/ui/Button"
-import { useNavigate } from "react-router-dom"
 import Tooltip from "@/components/ui/Tooltip"
-import SubirCotizacion from "./modals/SubirCotizacion"
-import ModalEnviarProveedor from "./modals/ModalEnviarProveedor"
-import ModalVolverABorradorOC from "./modals/ModalVolverABorradorOC"
-import AceptarORechazarOrdenCompra from "./modals/AceptarORechazarOrdenCompra"
-import ModalReenviarAlProveedor from "./modals/ModalReenviarAlProveedor"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import useAuthority from "@/hooks/useAuthority"
-import ApiService from "@/services/ApiService"
-import { toast } from "react-toastify"
+import { IOrdenCompra } from "@/interface/bodega.interface"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { useGetMisOrdenesCompraQuery } from "@/store/slices/bodega/ordenCompraApi"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import AceptarORechazarOrdenCompra from "./modals/AceptarORechazarOrdenCompra"
+import CrearOrdenCompra from "./modals/CrearOrdenCompra"
+import ModalEnviarProveedor from "./modals/ModalEnviarProveedor"
+import ModalReenviarAlProveedor from "./modals/ModalReenviarAlProveedor"
+import ModalVolverABorradorOC from "./modals/ModalVolverABorradorOC"
+import SubirCotizacion from "./modals/SubirCotizacion"
 
 
 const columnHelper = createColumnHelper<IOrdenCompra>()
@@ -34,15 +31,14 @@ function ListaMisOrdenesCompra() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth)
-    const { listaMisOrdenesDeCompra } = useAppSelector((state) => state.bodega)
+    // const { listaMisOrdenesDeCompra } = useAppSelector((state) => state.bodega) // Replaced by RTK Query
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    useEffect(() => {
-        if (personalizacionUsuario) {
-            dispatch(listaMisOrdenesDeCompraThunk())
-        }
-    }, [personalizacionUsuario])
+    const { data: listaMisOrdenesDeCompra = [], isLoading, refetch } = useGetMisOrdenesCompraQuery(undefined, {
+        refetchOnMountOrArgChange: true,
+        skip: !personalizacionUsuario
+    });
 
     const columns = [
         columnHelper.accessor("codigo", {
@@ -64,7 +60,7 @@ function ListaMisOrdenesCompra() {
                     )}
                     {(info.row.original.estado === "0") && (
                         <>
-                            <AceptarORechazarOrdenCompra id_orden={info.row.original.id} id_empresa={personalizacionUsuario?.empresa} />
+                            <AceptarORechazarOrdenCompra id_orden={info.row.original.id} />
                             {useAuthority(listaGrupos?.grupos, ["staff"]) && (
                                 <ModalVolverABorradorOC id_orden={info.row.original.id} />
                             )}
@@ -100,13 +96,15 @@ function ListaMisOrdenesCompra() {
                     <Tooltip text="Detalle Orden de Compra">
                         <Button variant="solid" onClick={() => {navigate(`/compras/detalle-orden-compra/${info.row.original.id}`)}} icon="HeroEye"></Button>
                     </Tooltip>
-                    <SubirCotizacion id_empresa={info.row.original.oc_empresa} cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
-                    <ModalEliminar
+                    <SubirCotizacion cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
+                    {(info.row.original.estado === "-" || info.row.original.estado === "0") && (
+                        <ConfirmarEliminar
                         mensaje={`Esta Seguro que desea eliminar la orden N°${info.row.original.codigo}`}
                         peticionUrl={`/api/ordenes-compra/${info.row.original.id}/`}
                         method="DELETE"
-                        onDispatch={() => {dispatch(listaMisOrdenesDeCompraThunk())}}
+                        onDispatch={() => {refetch()}}
                     />
+                    )}
                 </div>
             )
         })

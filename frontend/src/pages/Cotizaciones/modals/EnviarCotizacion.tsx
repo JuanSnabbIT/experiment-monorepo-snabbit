@@ -21,12 +21,18 @@ interface InputItem {
     value: string;
 }
 
-function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
+interface Props {
+    cotizacion: ICotizacion;
+    onSuccess?: () => void;
+}
+
+function EnviarCotizacion({cotizacion, onSuccess} : Props) {
     const dispatch = useAppDispatch()
     const { listaUsuariosEmpresaYCliente } = useAppSelector((state) => state.empresa)
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [listaUsuarios, setListaUsuarios] = useState<{value: string, label: string}[]>([])
     const [isUser, setIsUser] = useState<boolean>(true)
+    const [isTakingLong, setIsTakingLong] = useState<boolean>(false)
 
     useEffect(() => {
         if (!isOpen) {
@@ -65,6 +71,11 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
         },
         validationSchema,
         onSubmit: async (values, { setSubmitting }) => {
+            setIsTakingLong(false);
+            const timer = setTimeout(() => {
+                setIsTakingLong(true);
+            }, 5000);
+
             try {
                 const usuariosSeleccionados = (values.usuarios_empresa || [])
                     .map((user) => user.value)
@@ -76,11 +87,13 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
                 if (isUser && usuariosSeleccionados.length === 0) {
                     toast.error("Seleccione al menos un usuario interno");
                     setSubmitting(false);
+                    clearTimeout(timer);
                     return;
                 }
                 if (!isUser && copiasSeleccionadas.length === 0) {
                     toast.error("Ingrese al menos un correo externo");
                     setSubmitting(false);
+                    clearTimeout(timer);
                     return;
                 }
 
@@ -93,24 +106,27 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
                     method: 'post',
                     headers: { 'Content-Type': 'application/json' },
                     data: JSON.stringify(data),
-                    timeout: 15000,
+                    timeout: 90000,
                 });
                 if (response.data) {
                     toast.success("Copia de cotizacion enviada", {autoClose: 1000});
                     setIsOpen(false);
                     dispatch(detalleCotizacionThunk({id_cotizacion: cotizacion.id}));
+                    if (onSuccess) onSuccess();
                 }
             } catch (error: any) {
                 console.error("Error al enviar copia de cotizacion", error?.response?.data || error);
                 if (error?.code === "ECONNABORTED") {
-                    toast.info("Solicitud enviada, espere confirmaci\u00f3n.", { autoClose: 1500 });
+                    toast.info("El proceso de envío ha sido delegado al servidor. Recibirá una notificación al finalizar.", { autoClose: 3000 });
                     setIsOpen(false);
                 } else {
                     const detalleError = error?.response?.data?.detail || error?.response?.data;
                     toast.error(detalleError || "Error al enviar copia de cotizacion");
                 }
             } finally {
+                clearTimeout(timer);
                 setSubmitting(false);
+                setIsTakingLong(false);
             }
         }
     })
@@ -198,6 +214,12 @@ function EnviarCotizacion({cotizacion} : {cotizacion: ICotizacion}) {
                                     </Validation>
                                 ))}
                                 <Button className="mt-2" variant="solid" onClick={() => {formik.setFieldValue("copias", [...formik.values.copias, { value: "" }])}}>Añadir usuarios para el envio</Button>
+                            </div>
+                        )}
+                        {isTakingLong && (
+                            <div className="mt-4 p-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm animate-pulse shadow-sm">
+                                <div className="font-semibold mb-1">Nota informativa:</div>
+                                El proceso de envío está tomando más tiempo de lo habitual debido a la generación de los documentos adjuntos. Si lo prefiere, puede cerrar esta ventana; la operación continuará en segundo plano y recibirá la notificación correspondiente una vez finalizada.
                             </div>
                         )}
                     </div>

@@ -1,23 +1,23 @@
+import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleOrdenCompraThunk, listaItemsEnOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
+import { IItemEnOrdenCompra } from "@/interface/bodega.interface"
+import { useAppDispatch } from "@/store"
+import { useGetDetalleOrdenCompraQuery, useGetItemsEnOrdenCompraQuery } from "@/store/slices/bodega/ordenCompraApi"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import OffCanvasAgregarItemsOrdenCompra from "./OffCanvasAgregarItemsOrdenCompra"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import Icon from "@/components/icon/Icon"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { IItemEnOrdenCompra } from "@/interface/bodega.interface"
-import Button from "@/components/ui/Button"
-import TerminarBorradorOC from "../modals/TerminarBorradorOC"
 import EditarItemEnOrdenCompra from "../modals/EditarItemEnOrdenCompra"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
+import TerminarBorradorOC from "../modals/TerminarBorradorOC"
+import OffCanvasAgregarItemsOrdenCompra from "./OffCanvasAgregarItemsOrdenCompra"
 
 
 const columnHelper = createColumnHelper<IItemEnOrdenCompra>()
@@ -26,19 +26,17 @@ function AgregarItemsOrdenCompra() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { id } = useParams()
-    const { detalleOrdenCompra, listaItemsEnOrdenCompra } = useAppSelector((state) => state.bodega)
+
+    const { data: detalleOrdenCompra, isLoading: isLoadingDetalle, refetch: refetchDetalle } = useGetDetalleOrdenCompraQuery(id || '', { skip: !id, refetchOnMountOrArgChange: true });
+    const { data: listaItemsEnOrdenCompra = [], isLoading: isLoadingItems, refetch: refetchItems } = useGetItemsEnOrdenCompraQuery(id || '', { skip: !id, refetchOnMountOrArgChange: true });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [valorNeto, setValorNeto] = useState<number>(0)
     const [valorIva, setValorIva] = useState<number>(0)
     const [valorTotal, setValorTotal] = useState<number>(0)
 
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleOrdenCompraThunk({id_orden: id}))
-            dispatch(listaItemsEnOrdenCompraThunk({id_orden: id}))
-        }
-    }, [id])
+    // Removed useEffect for fetching detail and items.
+
 
     const columns = [
         columnHelper.accessor("item_empresa.nombre", {
@@ -76,10 +74,10 @@ function AgregarItemsOrdenCompra() {
             id: "acciones",
             cell: (info) => (
                 <div className="flex flex-wrap gap-2">
-                    <ModalEliminar mensaje={"¿Esta seguro de eliminar este item de la orden?"} peticionUrl={`/api/ordenes-compra/${id}/items-en-orden-compra/${info.row.original.id}/`} onDispatch={() => {
-                        dispatch(listaItemsEnOrdenCompraThunk({id_orden: id}))
+                    <ConfirmarEliminar mensaje={"¿Esta seguro de eliminar este item de la orden?"} peticionUrl={`/api/ordenes-compra/${id}/items-en-orden-compra/${info.row.original.id}/`} onDispatch={() => {
+                        refetchItems()
                     }}/>
-                    <EditarItemEnOrdenCompra item={info.row.original} />
+                    <EditarItemEnOrdenCompra item={info.row.original} id_orden={id} />
                 </div>
             ),
             header: ""
@@ -121,7 +119,7 @@ function AgregarItemsOrdenCompra() {
                 </SubheaderLeft>
                 <SubheaderRight>
                     <TerminarBorradorOC id_orden={id} />
-                    <OffCanvasAgregarItemsOrdenCompra id_orden={id} />
+                    <OffCanvasAgregarItemsOrdenCompra id_orden={id} detalleOrdenCompra={detalleOrdenCompra} />
                 </SubheaderRight>
             </Subheader>
             <Container className="w-full h-full">

@@ -1,13 +1,14 @@
-import Input from "@/components/form/Input"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { IItemEmpresa } from "@/interface/items.interface"
 import { useAppDispatch, useAppSelector } from "@/store"
 import { listaItemsEmpresaThunk } from "@/store/slices/item/itemSlice"
@@ -16,8 +17,6 @@ import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, g
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import CrearItemEmpresa from "./modals/CrearItemEmpresa"
-import ModalEliminar from "./Proveedor/modals/ModalEliminar"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 
 
 const columnHelper = createColumnHelper<IItemEmpresa>()
@@ -60,7 +59,7 @@ function ListaItemsEmpresa() {
                     <Tooltip text="Detalle">
                         <Button variant="solid" color="violet" icon="HeroEye" onClick={() => { navigate(`/registros/detalle-item-empresa/${info.row.original.id}`) }} />
                     </Tooltip>
-                    <ModalEliminar
+                    <ConfirmarEliminar
                         nombre={info.row.original.nombre}
                         mensaje={"¿Está seguro que desea eliminar este item? Se eliminarán todos los registros."}
                         peticionUrl={`/api/items-empresa/${info.row.original.id}/`}

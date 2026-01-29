@@ -6,19 +6,19 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/
 import Tooltip from "@/components/ui/Tooltip"
 import { IItemEnOrdenCompra } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
-import { listaItemsEnOrdenCompraThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useAppDispatch } from "@/store"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { useFormik } from "formik"
 import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
 import { toast } from "react-toastify"
 import * as Yup from 'yup'
 
 
-function EditarItemEnOrdenCompra({item} : {item: IItemEnOrdenCompra}) {
+function EditarItemEnOrdenCompra({item, id_orden} : {item: IItemEnOrdenCompra, id_orden: string | number | undefined}) {
     const dispatch = useAppDispatch()
-    const { id } = useParams()
-    const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
     const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
     useEffect(() => {
         if (isOpen) {
@@ -46,14 +46,21 @@ function EditarItemEnOrdenCompra({item} : {item: IItemEnOrdenCompra}) {
                 .typeError('El precio debe ser un número'),
         }),
         onSubmit: async (values) => {
+            setIsSubmitting(true)
             try {
-                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/items-en-orden-compra/${item.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'},data: JSON.stringify(values)})
+                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/items-en-orden-compra/${item.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'},data: JSON.stringify(values)})
                 if (response.data) {
-                    dispatch(listaItemsEnOrdenCompraThunk({id_orden: id}))
+                    dispatch(ordenCompraApi.util.invalidateTags([{ type: 'OrdenCompraItems', id: id_orden }]))
                     setIsOpen(false)
                 }
-            } catch (error: any) {
-                toast.error(error.response.data || "Error al guardar el item", {autoClose: 1000})
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error) || "Error al guardar el item"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al guardar el item", {
+                    autoClose: 1000,
+                    toastId: "error-editar-item-oc"
+                })
+            } finally {
+                setIsSubmitting(false)
             }
         }
     })
@@ -107,7 +114,9 @@ function EditarItemEnOrdenCompra({item} : {item: IItemEnOrdenCompra}) {
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Guardando..." : "Guardar"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

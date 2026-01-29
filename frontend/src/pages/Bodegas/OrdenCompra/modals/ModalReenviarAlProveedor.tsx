@@ -8,10 +8,10 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
 import { detalleProveedorEmpresaThunk } from "@/store/slices/item/itemSlice"
 import { useFormik } from "formik"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { toast } from "react-toastify"
 import * as Yup from 'yup'
 
@@ -23,6 +23,7 @@ function ModalReenviarAlProveedor({id_empresa, id_proveedor, id_orden, onSuccess
     const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
     const { detalleProveedorEmpresa } = useAppSelector((state) => state.item)
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
     // useEffect(() => {
     //     if (isOpen) {
@@ -43,16 +44,28 @@ function ModalReenviarAlProveedor({id_empresa, id_proveedor, id_orden, onSuccess
             correo: Yup.string().email("Correo Invalido").required("Requerido")
         }),
         onSubmit: async (values) => {
+            setIsSubmitting(true)
             try {
-                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/pasar_enviado_proveedor/`, method: 'post', headers: {'Content-Type' : 'application/json'}, data: JSON.stringify({email: values.correo, reenviar: true})})
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/pasar_enviado_proveedor/`, 
+                    method: 'post', 
+                    headers: {'Content-Type' : 'application/json'}, 
+                    data: JSON.stringify({email: values.correo, reenviar: true}),
+                    timeout: 90000
+                })
                 if (response.data) {
                     toast.success("Correo Enviado a Proveedor", {autoClose: 1000})
-                    dispatch(detalleOrdenCompraThunk({id_orden}))
+                    dispatch(ordenCompraApi.util.invalidateTags([{ type: 'OrdenCompra', id: id_orden }]))
                     if (onSuccess) onSuccess()
                     setIsOpen(false)
                 }
             } catch (error: any) {
-                toast.error(error.response.data)
+                const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al reenviar al proveedor"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al reenviar al proveedor", {
+                    toastId: "error-reenviar-proveedor"
+                })
+            } finally {
+                setIsSubmitting(false)
             }
         }
     })
@@ -139,7 +152,9 @@ function ModalReenviarAlProveedor({id_empresa, id_proveedor, id_orden, onSuccess
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Enviar Correo</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Reenviando..." : "Enviar Correo"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

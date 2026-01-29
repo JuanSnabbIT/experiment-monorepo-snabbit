@@ -30,6 +30,7 @@ function AgregarSolicitanteCotizacion({
     const { data: listaUsuariosParaSolicitante = [] } = useGetUsuariosParaSolicitanteQuery(cotizacionId || '', { skip: !isEditing || !cotizacionId })
     const { listaContentType } = useAppSelector((state: any) => state.core)
     const [isUser, setIsUser] = useState<boolean>(false)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
     useEffect(() => {
         if (!isEditing) {
@@ -58,6 +59,7 @@ function AgregarSolicitanteCotizacion({
         },
         validationSchema,
         onSubmit: async (values) => {
+            setIsSubmitting(true)
             try {
                 let data: {} = {cotizacion: cotizacionId}
                 if (isUser) {
@@ -83,9 +85,12 @@ function AgregarSolicitanteCotizacion({
                     }
                 }
             } catch (error: any) {
-                toast.error(error.response.data || "Error al crear solicitante de cotizacion", {toastId: "Error al crear solicitante de cotizacion"})
+                const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al crear solicitante de cotizacion";
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al crear solicitante de cotizacion", {toastId: "Error al crear solicitante de cotizacion"})
+            } finally {
+                setIsSubmitting(false)
+                setCreandoSolicitante(false)
             }
-            setCreandoSolicitante(false)
         },
     })
 

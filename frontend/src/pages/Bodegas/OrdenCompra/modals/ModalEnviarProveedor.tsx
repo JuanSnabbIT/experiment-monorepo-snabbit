@@ -8,7 +8,7 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
-import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
 import { detalleProveedorEmpresaThunk } from "@/store/slices/item/itemSlice"
 import { useFormik } from "formik"
 import { useState } from "react"
@@ -22,6 +22,8 @@ function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden, onSuccess} : 
     const [isUsingEmail, setIsUsingEmail] = useState<boolean>(false)
     const { detalleProveedorEmpresa } = useAppSelector((state) => state.item)
     const { personalizacionUsuario } = useAppSelector((state) => state.auth)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+    const [isTakingLong, setIsTakingLong] = useState<boolean>(false)
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -32,16 +34,42 @@ function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden, onSuccess} : 
             correo: Yup.string().email("Correo Invalido").required("Requerido")
         }),
         onSubmit: async (values) => {
+            setIsSubmitting(true)
+            setIsTakingLong(false)
+            
+            const timer = setTimeout(() => {
+                setIsTakingLong(true)
+            }, 5000)
+
             try {
-                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/pasar_enviado_proveedor/`, method: 'post', headers: {'Content-Type' : 'application/json'}, data: JSON.stringify({email: values.correo, reenviar: false})})
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/pasar_enviado_proveedor/`, 
+                    method: 'post', 
+                    headers: {'Content-Type' : 'application/json'}, 
+                    data: JSON.stringify({email: values.correo, reenviar: false}),
+                    timeout: 90000 // Aumentar timeout a 90s para generación de PDF
+                })
                 if (response.data) {
                     toast.success("Correo Enviado a Proveedor", {autoClose: 1000})
-                    dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
+                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
                     if (onSuccess) onSuccess()
                     setIsOpen(false)
                 }
             } catch (error: any) {
-                toast.error(error.response.data)
+                console.error("Error al enviar orden a proveedor", error?.response?.data || error)
+                if (error?.code === "ECONNABORTED") {
+                    toast.info("El proceso de envío ha sido delegado al servidor. Recibirá una notificación al finalizar.", { autoClose: 3000 })
+                    setIsOpen(false)
+                } else {
+                    const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al enviar al proveedor"
+                    toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al enviar al proveedor", {
+                        toastId: "error-enviar-proveedor"
+                    })
+                }
+            } finally {
+                clearTimeout(timer)
+                setIsSubmitting(false)
+                setIsTakingLong(false)
             }
         }
     })
@@ -116,27 +144,39 @@ function ModalEnviarProveedor({id_empresa, id_proveedor, id_orden, onSuccess} : 
                             )}
                         </div>
                     </div>
+                    {isTakingLong && (
+                        <div className="mt-4 p-4 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 text-blue-800 dark:text-blue-200 text-sm animate-pulse shadow-sm">
+                            <div className="font-semibold mb-1">Nota informativa:</div>
+                            El proceso de envío está tomando más tiempo de lo habitual debido a la generación del PDF. Si lo prefiere, puede cerrar esta ventana; la operación continuará en segundo plano.
+                        </div>
+                    )}
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild>
-                        <Button variant="solid" color="amber" onClick={async () => {
+                        <Button variant="solid" color="amber" isDisable={isSubmitting} onClick={async () => {
+                            setIsSubmitting(true)
                             try {
                                 const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "3"})})
                                 if (response.data) {
                                     toast.success("Orden de compra cambiada de estado", {autoClose: 1000})
-                                    dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
                                     if (onSuccess) onSuccess()
                                     setIsOpen(false)
                                 }
                             } catch (error: any) {
-                                const mensajesError = Object.values(error.response.data).flat().join(" ");
-                                toast.error(mensajesError || "Error al pasar de estado la OC", {toastId: "Error al pasar de estado la OC"})
+                                const errorData = error.response?.data
+                                const mensajesError = errorData ? (typeof errorData === 'object' ? Object.values(errorData).flat().join(" ") : errorData) : error.message || "Error al pasar de estado la OC"
+                                toast.error(mensajesError, {toastId: "error-cambiar-estado-oc"})
+                            } finally {
+                                setIsSubmitting(false)
                             }
-                        }}>No Enviar al Proveedor</Button>
+                        }}>{isSubmitting ? "Procesando..." : "No Enviar al Proveedor"}</Button>
                     </ModalFooterChild>
                     <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Enviar Correo</Button>
+                        <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm(); setIsTakingLong(false)}}>Cancelar</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Enviando..." : "Enviar Correo"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

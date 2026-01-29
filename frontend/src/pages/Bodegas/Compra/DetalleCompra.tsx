@@ -4,19 +4,19 @@ import Validation from '@/components/form/Validation';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import {
-	LIMPIAR_DETALLE_COMPRA,
-	LIMPIAR_ITEMS_COMPRA,
-	detalleCompraThunk,
-	listaBodegasThunk,
-	useAppDispatch,
-	useAppSelector,
+    LIMPIAR_DETALLE_COMPRA,
+    LIMPIAR_ITEMS_COMPRA,
+    detalleCompraThunk,
+    listaBodegasThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import { getImageSize } from '@/utils/getImageSize';
 import dayjs from 'dayjs';
@@ -590,7 +590,7 @@ function DetalleCompra() {
 																		);
 																	}}></Button>
 															</Tooltip>
-															<ModalEliminar
+															<ConfirmarEliminar
 																mensaje='¿Esta seguro(a) de querer eliminar el archivo?'
 																nombre='Archivo'
 																onDispatch={() => {
@@ -601,7 +601,7 @@ function DetalleCompra() {
 																		}),
 																	);
 																}}
-																peticionUrl={`/api/archivos-compras/${archivo.id}/`}></ModalEliminar>
+																peticionUrl={`/api/archivos-compras/${archivo.id}/`}></ConfirmarEliminar>
 														</div>
 													</div>
 												</Tooltip>

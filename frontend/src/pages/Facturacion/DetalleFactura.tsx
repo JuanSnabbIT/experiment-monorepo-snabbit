@@ -8,6 +8,7 @@ import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/compon
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import ItemDetailModal from '@/pages/Facturacion/ItemDetailModal';
+import { TColors } from '@/types/colors.type';
 import ApiService from '@/services/ApiService';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
@@ -218,43 +219,24 @@ const DetalleFactura = () => {
 		columnHelper.accessor('tipo', {
 			cell: (info) => {
 				const tipo = info.getValue();
-				let label = tipo || 'desconocido';
-				let color: 'blue' | 'emerald' | 'amber' | 'gray' = 'gray';
+				const tipoBadgeMap: Record<string, { label: string; color: TColors }> = {
+					servicio_ot: { label: 'Servicio', color: 'sky' },
+					soporte_tecnico: { label: 'Soporte', color: 'emerald' },
+					guia_salida: { label: 'Guía', color: 'amber' },
+					compra: { label: 'Compra', color: 'violet' },
+					compra_material: { label: 'Compra Material', color: 'lime' },
+					gasto_operativo: { label: 'Gasto Operativo', color: 'red' },
+					rendicion_gasto: { label: 'Gasto Operativo', color: 'blue' },
+				};
 
-				switch (tipo) {
-					case 'servicio_ot':
-						label = 'Servicio';
-						color = 'blue';
-						break;
-					case 'soporte_tecnico':
-						label = 'Soporte';
-						color = 'emerald';
-						break;
-					case 'guia_salida':
-						label = 'Guía';
-						color = 'amber';
-						break;
-					case 'compra':
-						label = 'Compra';
-						color = 'violet';
-						break;
-					case 'rendicion_gasto':
-						label = 'Gasto Operativo';
-						color = 'blue';
-						break;
-					case 'gasto_operativo':
-						label = 'Gasto Operativo';
-						color = 'amber';
-						break;
-					case 'compra_material':
-						label = 'Compra';
-						color = 'blue';
-						break;
-				}
+				const config = tipoBadgeMap[tipo ?? ''] ?? {
+					label: tipo || 'Item',
+					color: 'gray' as TColors,
+				};
 
 				return (
-					<Badge variant='outline' color={color} className='capitalize'>
-						{label}
+					<Badge variant='outline' color={config.color} className='capitalize'>
+						{config.label}
 					</Badge>
 				);
 			},

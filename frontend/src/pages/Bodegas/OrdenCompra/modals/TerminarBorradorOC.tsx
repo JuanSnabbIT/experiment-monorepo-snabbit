@@ -1,64 +1,55 @@
-import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleOrdenCompraThunk, listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useAppDispatch } from "@/store"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { toast } from "react-toastify"
-
+import Swal from "sweetalert2"
 
 function TerminarBorradorOC({id_orden, onSuccess} : {id_orden: string | number | undefined, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const [isOpen, setIsOpen] = useState<boolean>(false)
 
-    useEffect(() => {
-        if (id_orden && isOpen) {
-            dispatch(detalleOrdenCompraThunk({id_orden}))
+    const handleTerminarBorrador = async () => {
+        const result = await Swal.fire({
+            title: '¿Terminar Borrador?',
+            text: 'No podrá modificar los datos de la orden más adelante.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f59e0b', // amber-500
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, terminar',
+            cancelButtonText: 'Cancelar'
+        })
+
+        if (result.isConfirmed) {
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/`, 
+                    method: 'patch', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    data: JSON.stringify({estado: "0"})
+                })
+                if (response.data) {
+                    toast.success("Orden de compra terminada.", {autoClose: 1000})
+                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
+                    if (onSuccess) {
+                        onSuccess()
+                    }
+                }
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error) || "Error al terminar borrador"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al terminar borrador", {
+                    toastId: "error-terminar-borrador"
+                })
+            }
         }
-    }, [id_orden, isOpen])
+    }
 
     return (
-        <>
-            <Tooltip text="Terminar Borrador">
-                <Button variant="solid" color="amber" onClick={() => {setIsOpen(true)}}>Terminar Borrador</Button>
-            </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className="text-xl">Terminar Borrador</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div className="flex flex-col gap-2 text-center">
-                        <div className="w-full text-xl">¿Seguro que quiere terminar el borrador?</div>
-                        <div className="w-full text-lg">No podra modificar los datos de la orden mas adelante.</div>
-                    </div>
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={async () => {
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "0"})})
-                                if (response.data) {
-                                    toast.success("Orden de compra terminada.", {autoClose: 1000})
-                                    dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                    if (onSuccess) {
-                                        onSuccess()
-                                    }
-                                    setIsOpen(false)
-                                }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                            }
-                        }}>Terminar</Button>
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
-        </>
+        <Tooltip text="Terminar Borrador">
+            <Button variant="solid" color="amber" onClick={handleTerminarBorrador}>Terminar Borrador</Button>
+        </Tooltip>
     )
 }
 

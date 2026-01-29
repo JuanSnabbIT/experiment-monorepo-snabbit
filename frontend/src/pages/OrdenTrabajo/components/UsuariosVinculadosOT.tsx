@@ -1,28 +1,28 @@
 import Icon from '@/components/icon/Icon';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { IUsuarioAsignadoSoporte, IUsuarioVinculado } from '@/interface/ordenTrabajo.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import {
-	eliminarUsuarioAsignadoSoporteThunk,
-	listaUsuariosAsignadosSoporteThunk,
-	listaUsuariosVinculadosOTThunk,
-	useAppDispatch,
-	useAppSelector,
+    eliminarUsuarioAsignadoSoporteThunk,
+    listaUsuariosAsignadosSoporteThunk,
+    listaUsuariosVinculadosOTThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
-	createColumnHelper,
-	flexRender,
-	getCoreRowModel,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	SortingState,
-	useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -201,7 +201,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
 				<div>
 					{(detalleOrdenTrabajo?.estado === 'pendiente' ||
 						detalleOrdenTrabajo?.estado === 'en_proceso') && (
-						<ModalEliminar
+						<ConfirmarEliminar
 							mensaje='¿Esta seguro de desvincular a este usuario de la OT?'
 							onDispatch={() => {
 								dispatch(

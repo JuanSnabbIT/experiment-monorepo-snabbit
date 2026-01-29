@@ -1,18 +1,18 @@
 import Icon from "@/components/icon/Icon"
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
+import { IAdjuntoDeOrden } from "@/interface/ordenTrabajo.interface"
 import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useEffect, useState } from "react"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
-import Button from "@/components/ui/Button"
-import { IAdjuntoDeOrden } from "@/interface/ordenTrabajo.interface"
-import CrearAdjunto from "../modals/CrearAdjunto"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { useNavigate } from "react-router-dom"
+import CrearAdjunto from "../modals/CrearAdjunto"
 
 
 const columnHelper = createColumnHelper<IAdjuntoDeOrden>()
@@ -71,11 +71,11 @@ function Adjuntos({ordenId} : {ordenId: number | undefined}) {
             cell: (info) => (
                 <div className="flex gap-2">
                     {detalleOrdenTrabajo && (detalleOrdenTrabajo.estado === "pendiente" || detalleOrdenTrabajo.estado === "en_proceso" || detalleOrdenTrabajo.estado === "completada") && (
-                        <ModalEliminar
+                        <ConfirmarEliminar
                             mensaje={`Estas seguro que deseas eliminar el adjunto ${info.row.original.tipo_label} ¿Desea continuar?`}
                             peticionUrl={`/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/adjuntos/${info.row.original.id}/`}
-                            onDispatch={() => {dispatch(listaAdjuntosThunk({ordenId}))}}>
-                        </ModalEliminar>
+                            onDispatch={() => {dispatch(listaAdjuntosThunk({ordenId}))}}
+                        />
                     )}
                 </div>
             ),

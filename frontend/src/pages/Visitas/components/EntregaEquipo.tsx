@@ -1,25 +1,22 @@
-import { useEffect, useState } from 'react'
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
 import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import Tooltip from '@/components/ui/Tooltip'
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
+import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
+import Tooltip from '@/components/ui/Tooltip'
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
 import { IEntregaEquipo } from '@/interface/visitas.interface'
-import { 
-    listaEntregaEquipoThunk, 
-    listaMisClientesThunk, 
-    listaUsuariosTodaLaEmpresaThunk, 
-    useAppDispatch, 
-    useAppSelector 
+import {
+    listaEntregaEquipoThunk,
+    useAppDispatch,
+    useAppSelector
 } from "@/store"
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import { useEffect, useState } from 'react'
 import AñadirEntregaEquipo from '../modals/AñadirEntregaEquipo'
 import EditarEquipoVisita from '../modals/EditarEquipoVisita'
-import CambiarEstadoEntregaEquipo from '../modals/CambiarEstadoEntregaEquipo'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
 
 
 const columnHelper = createColumnHelper<IEntregaEquipo>()
@@ -71,11 +68,11 @@ const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string 
                             </Tooltip>
                             {/* {(info.row.original.estado_entrega != "entregado" && info.row.original.estado_entrega != "no_usuario") && (<CambiarEstadoEntregaEquipo entrega={info.row.original} />)} */}
                             {info.row.original.estado_entrega === "por_entregar" && (
-                                <ModalEliminar
+                                <ConfirmarEliminar
                                     mensaje={`Estas a punto de eliminar esta entrega a ${info.row.original.usuario_a_entregar} ¿desea continuar?`} 
                                     peticionUrl={`/api/visitas-soporte/${id_visita}/entregas-equipos/${info.row.original.id}/`}
                                     onDispatch={() => dispatch(listaEntregaEquipoThunk({ id_visita }))}
-                                >Eliminar</ModalEliminar>
+                                />
                             )}
                         </>
                     )}

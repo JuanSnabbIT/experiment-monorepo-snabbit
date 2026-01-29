@@ -58,11 +58,11 @@ function CrearCotizacion({empresa, onSuccess} : {empresa: boolean, onSuccess?: (
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
+                const response = await ApiService.fetchData<{id: number}>({
                     url: '/api/cotizaciones/',
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    data: JSON.stringify({...values, empresa: personalizacionUsuario?.empresa})
+                    data: {...values, empresa: personalizacionUsuario?.empresa}
                 });
                 if (response.data) {
                     // Refrescar tipo de cambio en segundo plano
@@ -86,8 +86,9 @@ function CrearCotizacion({empresa, onSuccess} : {empresa: boolean, onSuccess?: (
                     setIsOpen(false);
                 }
             } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(" ");
-                toast.error(mensajesError || "Error al crear la cotización", {toastId: "Error al crear la cotización"})
+                const errorData = error.response?.data;
+                const mensajesError = errorData ? Object.values(errorData).flat().join(" ") : error.message || "Error al crear la cotización";
+                toast.error(mensajesError, {toastId: "Error al crear la cotización"})
             } finally {
                 formik.setSubmitting(false);
             }

@@ -1,20 +1,20 @@
 import Icon from '@/components/icon/Icon';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { IDetalleGastoRendicionOT } from '@/interface/ordenTrabajo.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import { listaDetalleGastoRendicionOTThunk, useAppDispatch, useAppSelector } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
-	createColumnHelper,
-	flexRender,
-	getCoreRowModel,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	SortingState,
-	useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -66,7 +66,7 @@ function RendicionesOT() {
 			id: 'acciones',
 			cell: (info) => (
 				<div>
-					<ModalEliminar
+					<ConfirmarEliminar
 						mensaje='¿Esta seguro(a) de querer eliminar el gasto?'
 						nombre='Gasto'
 						onDispatch={() => {
@@ -76,7 +76,8 @@ function RendicionesOT() {
 								}),
 							);
 						}}
-						peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/${info.row.original.id}/`}></ModalEliminar>
+						peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/${info.row.original.id}/`}
+					/>
 				</div>
 			),
 			header: '',

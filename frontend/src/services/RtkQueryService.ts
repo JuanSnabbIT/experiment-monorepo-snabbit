@@ -34,7 +34,7 @@ const axiosBaseQuery =
 const RtkQueryService = createApi({
     reducerPath: 'rtkApi',
     baseQuery: axiosBaseQuery(),
-    tagTypes: ['Cotizaciones', 'CotizacionesItems', 'CotizacionesSolicitantes', 'CotizacionesSeguimiento'] as const,
+    tagTypes: ['Cotizaciones', 'CotizacionesItems', 'CotizacionesSolicitantes', 'CotizacionesSeguimiento', 'OrdenCompra', 'OrdenCompraItems', 'OrdenCompraItemsStock', 'OrdenCompraList', 'MisOrdenesCompraList'] as const,
     endpoints: () => ({}),
 })
 

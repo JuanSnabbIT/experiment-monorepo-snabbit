@@ -4,6 +4,7 @@ import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
@@ -11,10 +12,9 @@ import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
 import { ESTADOS_OC } from "@/constants/bodegas.constant"
 import { IOrdenCompra } from "@/interface/bodega.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
-import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { useGetOrdenesCompraPorEmpresaQuery } from "@/store/slices/bodega/ordenCompraApi"
 import { detalleEmpresaThunk, listaMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { formatPrice } from '@/utils/currency'
@@ -36,17 +36,22 @@ function ListaOrdenesCompraV2() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth)
-    const { listaOrdenesCompra } = useAppSelector((state) => state.bodega)
+    // const { listaOrdenesCompra } = useAppSelector((state) => state.bodega) // Replaced by RTK Query
     const { detalleEmpresa, listaMisClientes } = useAppSelector((state) => state.empresa)
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [optionEmpresa, setOptionEmpresa] = useState<{value: string, label: string}[]>([])
     const [filtroEmpresa, setFiltroEmpresa] = useState<string[]>([])
     const [filtroEstado, setFiltroEstado] = useState<string[]>([])
+    const [queryParams, setQueryParams] = useState<string>('');
+    
+    const { data: listaOrdenesCompra = [], isLoading, refetch } = useGetOrdenesCompraPorEmpresaQuery(
+        { id_empresa: personalizacionUsuario?.empresa || '', filtro: queryParams },
+        { skip: !personalizacionUsuario?.empresa, refetchOnMountOrArgChange: true }
+    );
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario.empresa}))
             dispatch(listaMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
             dispatch(detalleEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
         }
@@ -167,13 +172,15 @@ function ListaOrdenesCompraV2() {
                                 }}></Button>
                         </Tooltip>
                     )}
-                    <SubirCotizacion id_empresa={info.row.original.oc_empresa} cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
-                    <ModalEliminar
+                    <SubirCotizacion cotizacion={info.row.original.cotizacion} nombre_cotizacion={info.row.original.nombre_cotizacion} id_orden={info.row.original.id} />
+                    {(info.row.original.estado === "-" || info.row.original.estado === "0") && (
+                        <ConfirmarEliminar
                         mensaje={`Esta Seguro que desea eliminar la orden N°${info.row.original.codigo}`}
                         peticionUrl={`/api/ordenes-compra/${info.row.original.id}/`}
                         method="DELETE"
-                        onDispatch={() => {dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))}}
+                        onDispatch={() => {refetch()}}
                     />
+                    )}
                 </div>
             )
         })
@@ -199,7 +206,7 @@ function ListaOrdenesCompraV2() {
         const params = new URLSearchParams();
         filtroEmpresa.forEach((id) => params.append("oc_cliente", id));
         filtroEstado.forEach((id) => params.append("estado", id));
-        dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa, filtro: params}))
+        setQueryParams(params.toString());
     }, [filtroEmpresa, filtroEstado])
 
     return (

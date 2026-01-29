@@ -4,13 +4,13 @@ import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
 import { IGuiaSalida } from "@/interface/bodega.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
 import { LIMPIAR_LISTA_GUIA_SALIDA_POR_BODEGA, listaBodegasThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosDeMisClientesThunk, useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
@@ -116,7 +116,7 @@ function ListaGuiaSalidaBodega() {
                         <Button variant="solid" color="violet" icon="HeroEye" onClick={() => {navigate(`/bodega/detalle-guia-salida-bodega/${info.row.original.id}`)}} />
                     </Tooltip>
                     {info.row.original.estado === "P" && (
-                        <ModalEliminar
+                        <ConfirmarEliminar
                             mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.id} ¿desea continuar?`}
                             onDispatch={() => {dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: bodegaSelected}))}}
                             peticionUrl={`/api/guia-salida/${info.row.original.id}/`}
@@ -186,6 +186,39 @@ function ListaGuiaSalidaBodega() {
                     )}
                     {info.row.original.estado === "ER" && (
                         <VolverAPendienteGuiaSalida guia_salida={info.row.original} />
+                    )}
+                    {(["ER", "FR", "R", "PR", "E", "T"].includes(info.row.original.estado)) && (
+                        <Tooltip text="Descargar PDF">
+                             <Button 
+                                variant="solid" 
+                                color="red" 
+                                icon="HeroDocumentArrowDown" 
+                                onClick={async () => {
+                                    try {
+                                        const response = await ApiService.fetchData<BlobPart>({
+                                            url: `/api/guia-salida/${info.row.original.id}/descargar-pdf/`,
+                                            method: 'get',
+                                            responseType: 'blob',
+                                        });
+                                        if (response.data) {
+                                            const url = window.URL.createObjectURL(new Blob([response.data]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute(
+                                                'download',
+                                                `Guia_Salida_${info.row.original.id}.pdf`,
+                                            );
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
+                                        }
+                                    } catch (error: any) {
+                                        toast.error("Error al descargar PDF");
+                                    }
+                                }} 
+                             />
+                        </Tooltip>
                     )}
                 </div>
             )

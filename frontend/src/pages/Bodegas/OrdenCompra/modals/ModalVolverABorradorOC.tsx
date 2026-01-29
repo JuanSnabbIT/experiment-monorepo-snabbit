@@ -1,60 +1,59 @@
-import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { listaMisOrdenesDeCompraThunk, listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { useState } from "react"
+import { useAppDispatch } from "@/store"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { toast } from "react-toastify"
-
-
+import Swal from "sweetalert2"
 
 function ModalVolverABorradorOC({id_orden, onSuccess, disabled} : {id_orden: string | number, onSuccess?: () => void, disabled?: boolean}) {
     const dispatch = useAppDispatch()
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    const handleVolverABorrador = async () => {
+        const result = await Swal.fire({
+            title: '¿Volver a estado borrador?',
+            text: 'Tendrá que aprobar nuevamente la orden y podrá volver a editarla.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, volver a borrador',
+            cancelButtonText: 'Cancelar'
+        })
+
+        if (result.isConfirmed) {
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/`, 
+                    method: 'patch', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    data: JSON.stringify({estado: "-"})
+                })
+                if (response.data) {
+                    toast.success('Orden devuelta al estado "Borrador"', {autoClose: 1000})
+                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
+                    if (onSuccess) onSuccess()
+                }
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error) || "Error al volver a borrador"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al volver a borrador", {
+                    toastId: "error-volver-borrador"
+                })
+            }
+        }
+    }
 
     return (
-        <>
-            <Tooltip text="Volver a estado borrador">
-                <Button variant="solid" icon="HeroArrowUturnLeft" color="zinc" isDisable={!!disabled} onClick={() => { if (!disabled) setIsOpen(true) }}></Button>
-            </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge>Volver a estado borrador</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div className="flex gap-2 flex-col">
-                        <div className="w-full">Al volver a estado borrador tendra que aprobar nuevamente la orden y podra volver a editar la orden.</div>
-                    </div>
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={async () => {
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "-"})})
-                                if (response.data) {
-                                    toast.success('Orden devuelta al estado "Borrador"', {autoClose: 1000})
-                                    dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                if (window.location.pathname.includes('/lista-ordenes-compra')) {
-                                    dispatch(listaOrdenesCompraThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                } else if (window.location.pathname.includes('/lista-mis-ordenes')) {
-                                    dispatch(listaMisOrdenesDeCompraThunk())
-                                }
-                                    if (onSuccess) onSuccess()
-                                    setIsOpen(false)
-                                }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                            }
-                        }}>Aceptar</Button>
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
-        </>
+        <Tooltip text="Volver a estado borrador">
+            <Button 
+                variant="solid" 
+                icon="HeroArrowUturnLeft" 
+                color="zinc" 
+                isDisable={!!disabled} 
+                onClick={handleVolverABorrador}
+            />
+        </Tooltip>
     )
 }
 

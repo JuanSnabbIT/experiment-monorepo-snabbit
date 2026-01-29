@@ -4,6 +4,7 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
@@ -12,11 +13,11 @@ import Tooltip from '@/components/ui/Tooltip';
 import { ESTADO_COTIZACION } from '@/constants/cotizacion.constant';
 import useDescargarCotizacionPdf from '@/hooks/useDescargarCotizacionPdf';
 import { ICotizacion } from '@/interface/cotizaciones.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import { listaCotizacionesSucursalThunk, listaMisClientesThunk, useAppDispatch, useAppSelector } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { formatCurrency } from '@/utils/currency';
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import dayjs from 'dayjs';
 import { MouseEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MultiValue } from 'react-select';
@@ -116,12 +117,12 @@ const CotizacionesEmpresa = () => {
             ),
             header: "Cliente"
         }),
-        columnHelper.accessor("fecha_creacion", {
+        columnHelper.accessor("fecha_facturacion", {
             cell: (info) => {
-                const date = new Date(info.getValue());
+                const value = info.getValue() || info.row.original.fecha_creacion;
                 return (
                     <div className='text-zinc-500 dark:text-zinc-400 text-sm'>
-                        {date.toLocaleDateString()}
+                        {value ? dayjs(value).format('DD/MM/YYYY') : '-'}
                     </div>
                 );
             },
@@ -203,11 +204,17 @@ const CotizacionesEmpresa = () => {
                             </Tooltip>
                         )}
                         
-                        <ModalEliminar
-                            mensaje={`Estas a punto de eliminar la cotizacion ${info.row.original.numero_cotizacion}. Desea continuar?`} 
-                            peticionUrl={`/api/cotizaciones/${info.row.original.id}/`}
-                            onDispatch={() => dispatch(listaCotizacionesSucursalThunk(undefined))}
-                        />
+                        {(() => {
+                            const estadoLower = (info.row.original.estado || '').toLowerCase();
+                            const puedeEliminar = estadoLower.includes('pendiente') || estadoLower.includes('expirada');
+                            return puedeEliminar ? (
+                                <ConfirmarEliminar
+                                    mensaje={`Está a punto de eliminar la cotización Nº${info.row.original.numero_cotizacion}. ¿Desea continuar?`} 
+                                    peticionUrl={`/api/cotizaciones/${info.row.original.id}/`}
+                                    onDispatch={() => dispatch(listaCotizacionesSucursalThunk(undefined))}
+                                />
+                            ) : null;
+                        })()}
                     </div>
                 );
             }

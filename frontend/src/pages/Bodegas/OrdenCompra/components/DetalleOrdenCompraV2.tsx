@@ -4,6 +4,7 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -12,16 +13,12 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import useAuthority from '@/hooks/useAuthority';
 import { IItemEnOrdenCompra, IItemOrdenCompraEnStock } from '@/interface/bodega.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
-    detalleOrdenCompraThunk,
-    LIMPIAR_DETALLE_ORDEN_COMPRA,
     listaBodegasPorEmpresaThunk,
-    listaItemsEnOrdenCompraThunk,
-    listaItemsOrdenCompraEnStockThunk,
 } from '@/store/slices/bodega/bodegaSlice';
+import { useGetDetalleOrdenCompraQuery, useGetItemsEnOrdenCompraQuery, useGetItemsOrdenCompraEnStockQuery } from '@/store/slices/bodega/ordenCompraApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { formatPrice } from '@/utils/currency';
 import {
@@ -35,7 +32,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import AceptarORechazarOrdenCompra from '../modals/AceptarORechazarOrdenCompra';
@@ -59,8 +56,23 @@ function DetalleOrdenCompraV2() {
 	const dispatch = useAppDispatch();
 	const navigate = useNavigate();
 	const { id } = useParams();
-	const { detalleOrdenCompra, listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock } =
-		useAppSelector((state) => state.bodega);
+
+	// Stabilize references for RTK Query data
+    const { data: dataDetalle, isLoading: isLoadingDetalle, refetch: refetchDetalle } = useGetDetalleOrdenCompraQuery(id || '', { skip: !id, refetchOnMountOrArgChange: true });
+    const detalleOrdenCompra = dataDetalle;
+
+    const { data: dataItems, isLoading: isLoadingItems, refetch: refetchItems } = useGetItemsEnOrdenCompraQuery(id || '', { skip: !id, refetchOnMountOrArgChange: true });
+    // Use useMemo to ensure stable array reference when data is undefined
+    const listaItemsEnOrdenCompra = useMemo(() => dataItems || [], [dataItems]);
+    
+    // Solo cargar stock si el estado es Aprobada (1), Enviada (3), o Recibida Parcial (4)
+    const cargarStock = Boolean(id && detalleOrdenCompra && ['1', '3', '4'].includes(detalleOrdenCompra.estado || ''));
+    const { data: dataStock, isLoading: isLoadingStock, refetch: refetchStock } = useGetItemsOrdenCompraEnStockQuery(id || '', { 
+        skip: !cargarStock,
+        refetchOnMountOrArgChange: true 
+    });
+    const listaItemsOrdenCompraEnStock = useMemo(() => dataStock || [], [dataStock]);
+
 	const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -69,9 +81,20 @@ function DetalleOrdenCompraV2() {
 	const [valorTotal, setValorTotal] = useState<number>(0);
 	const tieneCotizacion = Boolean(detalleOrdenCompra?.relacion_cotizacion);
 	const isStaff = useAuthority(listaGrupos?.grupos, ['staff']);
-	const [itemsARecibir, setItemsARecibir] = useState<
-		{ item_orden: IItemEnOrdenCompra; item_stock: IItemOrdenCompraEnStock | undefined }[]
-	>([]);
+
+    // Derived state instead of useEffect+useState to avoid loops
+	const itemsARecibir = useMemo(() => {
+        if (listaItemsEnOrdenCompra.length > 0) {
+            return listaItemsEnOrdenCompra.map((item) => ({
+                item_orden: item,
+                item_stock: listaItemsOrdenCompraEnStock.find(
+                    (it) => it.item_oc_id === item.id,
+                ),
+            }));
+        }
+        return [];
+    }, [listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock]);
+
 	const [isEdittingCompra, setIsEdittingCompra] = useState<boolean>(false);
 	const [fechaCompra, setFechaCompra] = useState<string>('');
 	const [dolarManual, setDolarManual] = useState<boolean>(false);
@@ -88,19 +111,16 @@ function DetalleOrdenCompraV2() {
 	const [guiaSalidaId, setGuiaSalidaId] = useState<number | null>(null);
 
 	const refrescarDetalle = () => {
-		if (id) {
-			dispatch(detalleOrdenCompraThunk({ id_orden: id }));
-			dispatch(listaItemsEnOrdenCompraThunk({ id_orden: id }));
-			dispatch(listaItemsOrdenCompraEnStockThunk({ id_orden: id }));
-		}
+		refetchDetalle();
+		refetchItems();
+        if (cargarStock) refetchStock();
 	};
 
 	useEffect(() => {
 		if (id) {
-			dispatch(LIMPIAR_DETALLE_ORDEN_COMPRA());
 			setMostrarCompletar(false);
 			setIsEdittingCompra(false);
-			setItemsARecibir([]);
+			// setItemsARecibir([]); // Removed as it is now derived
 			setValorNeto(0);
 			setValorIva(0);
 			setValorTotal(0);
@@ -109,15 +129,12 @@ function DetalleOrdenCompraV2() {
 			setDolarManual(false);
 			setSorting([]);
 			setGlobalFilter('');
-			dispatch(detalleOrdenCompraThunk({ id_orden: id }));
 		}
-	}, [dispatch, id]);
+	}, [id]);
 
 	useEffect(() => {
 		if (detalleOrdenCompra) {
-			dispatch(listaItemsEnOrdenCompraThunk({ id_orden: detalleOrdenCompra.id }));
 			if (detalleOrdenCompra.estado === '1' || detalleOrdenCompra.estado === '3' || detalleOrdenCompra.estado === '4') {
-				dispatch(listaItemsOrdenCompraEnStockThunk({ id_orden: detalleOrdenCompra.id }));
 				if (detalleOrdenCompra.oc_empresa) {
 					dispatch(
 						listaBodegasPorEmpresaThunk({ id_empresa: detalleOrdenCompra.oc_empresa }),
@@ -127,7 +144,7 @@ function DetalleOrdenCompraV2() {
 			setFechaCompra(detalleOrdenCompra.fecha_compra || fechaCompraDefault);
 			setDolarObservado(detalleOrdenCompra.dolar_observado || 0);
 		}
-	}, [detalleOrdenCompra]);
+	}, [detalleOrdenCompra, dispatch]);
 
 	useEffect(() => {
 		const obtenerGuiaSalida = async () => {
@@ -215,14 +232,15 @@ function DetalleOrdenCompraV2() {
 			cell: (info) =>
 				detalleOrdenCompra?.estado === '-' ? (
 					<div className='flex flex-wrap gap-2'>
-						<ModalEliminar
-							mensaje={'�Esta seguro de eliminar este item de la orden?'}
+						<ConfirmarEliminar
+							mensaje={'¿Esta seguro de eliminar este item de la orden?'}
 							peticionUrl={`/api/ordenes-compra/${id}/items-en-orden-compra/${info.row.original.id}/`}
 							onDispatch={() => {
-								dispatch(listaItemsEnOrdenCompraThunk({ id_orden: id }));
+								refetchItems();
+                                refetchDetalle();
 							}}
 						/>
-						<EditarItemEnOrdenCompra item={info.row.original} />
+						<EditarItemEnOrdenCompra item={info.row.original} id_orden={id} />
 					</div>
 				) : null,
 			header: detalleOrdenCompra?.estado === '-' ? '' : undefined,
@@ -289,6 +307,7 @@ function DetalleOrdenCompraV2() {
 				<EditarItemOrdenStock
 					item_orden={info.row.original.item_orden}
 					item_stock={info.row.original.item_stock}
+					id_orden={id}
 				/>
 			),
 			header: '',
@@ -330,7 +349,7 @@ function DetalleOrdenCompraV2() {
 	const handleIrACotizacion = async () => {
 		try {
 			if (!detalleOrdenCompra?.relacion_cotizacion) {
-				toast.error('No se encontr� cotizaci�n relacionada');
+				toast.error('No se encontr cotizacin relacionada');
 				return;
 			}
 			const resp = await ApiService.fetchData<{ numero_cotizacion: number }>({
@@ -342,9 +361,9 @@ function DetalleOrdenCompraV2() {
 				navigate(`/cotizacion/detalle-cotizacion/${num}`);
 				return;
 			}
-			toast.error('No se pudo determinar la cotizaci�n relacionada');
+			toast.error('No se pudo determinar la cotizacin relacionada');
 		} catch (error: any) {
-			toast.error(error?.response?.data || 'No se pudo abrir la cotizaci�n previa');
+			toast.error(error?.response?.data || 'No se pudo abrir la cotizacin previa');
 		}
 	};
 
@@ -366,20 +385,7 @@ function DetalleOrdenCompraV2() {
 		}
 	}, [listaItemsEnOrdenCompra]);
 
-	useEffect(() => {
-		if (listaItemsEnOrdenCompra.length > 0) {
-			setItemsARecibir(
-				listaItemsEnOrdenCompra.map((item) => ({
-					item_orden: item,
-					item_stock: listaItemsOrdenCompraEnStock.find(
-						(it) => it.item_oc_id === item.id,
-					),
-				})),
-			);
-		} else {
-			setItemsARecibir([]);
-		}
-	}, [listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock]);
+
 
 	return (
 		<PageWrapper
@@ -471,7 +477,7 @@ function DetalleOrdenCompraV2() {
 						)}
 						{/* Botón confirmar recepción (solo en modo recepción) */}
 						{estaCompletandoOC && (
-							<ConfirmarRecibirOrden itemsARecibir={itemsARecibir} />
+							<ConfirmarRecibirOrden itemsARecibir={itemsARecibir} detalleOrdenCompra={detalleOrdenCompra} />
 						)}
 						{/* Botón PDF (solo fuera de modo recepción y estados permitidos) */}
 						{!estaCompletandoOC && puedeDescargarPdf && (
@@ -791,7 +797,7 @@ function DetalleOrdenCompraV2() {
 										anchoInput={200}
 									/>
 									{detalleOrdenCompra?.estado === '-' && (
-										<OffCanvasAgregarItemsOrdenCompra id_orden={id} />
+										<OffCanvasAgregarItemsOrdenCompra id_orden={id} detalleOrdenCompra={detalleOrdenCompra} />
 									)}
 								</CardHeaderChild>
 							</CardHeader>

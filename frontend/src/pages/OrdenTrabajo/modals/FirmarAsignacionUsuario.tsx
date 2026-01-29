@@ -79,9 +79,9 @@ function FirmarAsignacionUsuario({
 				url: `/api/ordenes-de-trabajo/${ordenId}/soportes-tecnicos/${soporteId}/usuarios-asignados/${usuarioAsignadoId}/firmar-asignacion/`,
 				method: 'post',
 				headers: { 'Content-Type': 'application/json' },
-				data: JSON.stringify({
+				data: {
 					firma: sigCanvas.current?.toDataURL('image/png'),
-				}),
+				},
 			});
 			if (resp.data?.estado === 'pendiente') {
 				toast.info(resp.data?.detail || 'Firma guardada. Pendiente de aplicar.', {

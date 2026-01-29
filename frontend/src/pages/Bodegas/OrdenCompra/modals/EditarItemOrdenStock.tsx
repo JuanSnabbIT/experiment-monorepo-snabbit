@@ -8,7 +8,8 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/
 import Tooltip from "@/components/ui/Tooltip"
 import { IItemEnOrdenCompra, IItemOrdenCompraEnStock } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
-import { listaItemsOrdenCompraEnStockThunk, useAppDispatch, useAppSelector } from "@/store"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
 import { FormikErrors, useFormik } from "formik"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
@@ -25,10 +26,11 @@ interface FormValues {
     cantidad: number
 }
 
-function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrdenCompra, item_stock: IItemOrdenCompraEnStock | undefined}) {
+function EditarItemOrdenStock({item_orden, item_stock, id_orden} : {item_orden: IItemEnOrdenCompra, item_stock: IItemOrdenCompraEnStock | undefined, id_orden: string | number | undefined}) {
     const dispatch = useAppDispatch()
-    const { listaBodegasPorEmpresa, detalleOrdenCompra } = useAppSelector((state) => state.bodega)
+    const { listaBodegasPorEmpresa } = useAppSelector((state) => state.bodega)
     const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
     const [optionsBodega, setOptionsBodega] = useState<{value: string, label: string}[]>([])
     const bodegaStockId = item_stock?.bodega_stock_id ? item_stock.bodega_stock_id.toString() : ""
     const bodegaBloqueada = Boolean(bodegaStockId)
@@ -55,8 +57,9 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
         },
         validationSchema,
         onSubmit: async (values) => {
+            setIsSubmitting(true)
             try {
-                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/items-orden-compra-en-stock/${item_stock?.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
+                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/items-orden-compra-en-stock/${item_stock?.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
                     bodega_temporal: values.bodega,
                     numeros_serie: {numeros_serie: values.inputs.map(val => ({serie: val.value, modelo: "", object_id: 0}))},
                     cantidad: values.cantidad
@@ -65,10 +68,15 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
                     toast.success("Item editado", {autoClose: 1000})
                     setIsOpen(false)
                     formik.resetForm()
-                    dispatch(listaItemsOrdenCompraEnStockThunk({id_orden: detalleOrdenCompra?.id}))
+                    dispatch(ordenCompraApi.util.invalidateTags([{ type: 'OrdenCompraItemsStock', id: id_orden }]))
                 }
             } catch (error: any) {
-                toast.error(error.response.data)
+                const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al editar el item"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al editar el item", {
+                    toastId: "error-editar-item-stock"
+                })
+            } finally {
+                setIsSubmitting(false)
             }
         },
     });
@@ -182,7 +190,9 @@ function EditarItemOrdenStock({item_orden, item_stock} : {item_orden: IItemEnOrd
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Guardando..." : "Guardar"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

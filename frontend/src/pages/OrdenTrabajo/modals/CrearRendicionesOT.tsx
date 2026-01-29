@@ -41,7 +41,7 @@ function CrearRendicionesOT() {
 			detalle: '',
 			cantidad: 0,
 			monto_unitario: 0,
-			fecha_compra: '',
+			fecha_gasto: '',
 		},
 		validationSchema: Yup.object().shape({
 			categoria: Yup.string().required('Requerido').nonNullable('Requerido'),
@@ -57,18 +57,25 @@ function CrearRendicionesOT() {
 				.required('Requerido')
 				.nonNullable('Requerido')
 				.min(1, 'Minimo 1 de monto unitario'),
-			fecha_compra: Yup.string().required('Requerido').nonNullable('Requerido'),
+			fecha_gasto: Yup.string().required('Requerido').nonNullable('Requerido'),
 		}),
 		onSubmit: async (values) => {
 			try {
+				const fechaIso =
+					values.fecha_gasto && values.fecha_gasto.length > 0
+						? new Date(values.fecha_gasto).toISOString()
+						: '';
+				const payload = {
+					...values,
+					fecha_gasto: fechaIso,
+					fecha_compra: fechaIso,
+					orden: detalleOrdenTrabajo?.id,
+				};
 				const response = await ApiService.fetchData({
 					url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/`,
 					method: 'post',
 					headers: { 'Content-Type': 'application/json' },
-					data: JSON.stringify({
-						...values,
-						orden: detalleOrdenTrabajo?.id,
-					}),
+					data: JSON.stringify(payload),
 				});
 				if (response.data) {
 					toast.success('Gasto Operativo creado', { autoClose: 1000 });
@@ -157,14 +164,14 @@ function CrearRendicionesOT() {
 							<Badge>Fecha del Gasto</Badge>
 							<Validation
 								isValid={formik.isValid}
-								isTouched={formik.touched.fecha_compra}
-								invalidFeedback={formik.errors.fecha_compra}>
+								isTouched={formik.touched.fecha_gasto}
+								invalidFeedback={formik.errors.fecha_gasto}>
 								<Input
-									name='fecha_compra'
-									type='date'
+									name='fecha_gasto'
+									type='datetime-local'
 									onChange={formik.handleChange}
 									onBlur={formik.handleBlur}
-									value={formik.values.fecha_compra}
+									value={formik.values.fecha_gasto}
 								/>
 							</Validation>
 						</div>
@@ -225,3 +232,6 @@ function CrearRendicionesOT() {
 }
 
 export default CrearRendicionesOT;
+
+
+

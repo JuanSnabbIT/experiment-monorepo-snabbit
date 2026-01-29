@@ -5,6 +5,7 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -19,7 +20,6 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ICompra, IItemEnCompra } from '@/interface/bodega.interface';
 import { IItemRendicion } from '@/interface/rendicion.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import {
     detalleRendicionThunk,
@@ -49,6 +49,8 @@ import CambiarEstadoRendicion from '../modals/CambiarEstadoRendicion';
 import CrearItemRendicion from '../modals/CrearItemRendicion';
 
 const columnHelper = createColumnHelper<IItemRendicion>();
+
+const formatCurrency = (value?: number | null) => `$${(value ?? 0).toLocaleString('es-CL')}`
 
 const DetalleRendicion = () => {
 	const dispatch = useAppDispatch();
@@ -371,7 +373,7 @@ const DetalleRendicion = () => {
 				return (
 					<div className='flex justify-end gap-2'>
 						{!original.is_subitem && !original.is_parent && (
-							<ModalEliminar
+							<ConfirmarEliminar
 								mensaje={`Estas seguro que deseas eliminar el item ¿desea continuar?`}
 								peticionUrl={`/api/rendiciones/${detalleRendicion?.id}/items-rendicion/${info.row.original.id}/`}
 								onDispatch={() => {
@@ -528,8 +530,8 @@ const DetalleRendicion = () => {
 									)}
 							</CardHeaderChild>
 						</CardHeader>
-						<CardBody>
-							<div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+					<CardBody>
+						<div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
 								{editando ? (
 									<>
 										<div>
@@ -600,6 +602,30 @@ const DetalleRendicion = () => {
 										<div className='w-full'>
 											<Badge>Estado</Badge>
 											<div className='ml-4'>{detalleRendicion?.estado_label}</div>
+										</div>
+										<div className='w-full'>
+											<Badge>Orden de Trabajo</Badge>
+											<div className='ml-4 flex items-center gap-2'>
+												<span className='font-semibold text-slate-700'>
+													{detalleRendicion?.orden_trabajo
+														? `OT #${detalleRendicion.orden_trabajo}`
+														: 'Sin OT asociada'}
+												</span>
+												{detalleRendicion?.orden_trabajo && (
+													<Tooltip text='Ir al detalle de la OT'>
+														<Button
+															variant='default'
+															size='sm'
+															icon='HeroArrowTopRightOnSquare'
+															onClick={() =>
+																navigate(
+																	`/orden-trabajo/detalle-orden-trabajo/${detalleRendicion.orden_trabajo}`,
+																)
+															}
+														/>
+													</Tooltip>
+												)}
+											</div>
 										</div>
 									</>
 								)}
@@ -765,10 +791,22 @@ const DetalleRendicion = () => {
 									</TBody>
 								</Table>
 								<div className='mt-2 min-w-[800px]'>
-									<TableCardFooterTemplateV2 table={table} />
+								<TableCardFooterTemplateV2 table={table} />
 								</div>
 							</div>
 						</CardBody>
+						<div className='px-4 pb-4'>
+							<div className='flex justify-end gap-6 border-t border-slate-200 pt-4'>
+								<div className='text-right'>
+									<div className='text-[11px] uppercase tracking-wide text-slate-400'>
+										Total rendido
+									</div>
+									<div className='text-lg font-semibold text-slate-800'>
+										{formatCurrency(detalleRendicion?.total)}
+									</div>
+								</div>
+							</div>
+						</div>
 					</Card>
 				</div>
 			</Container>

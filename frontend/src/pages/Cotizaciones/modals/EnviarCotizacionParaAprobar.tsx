@@ -23,12 +23,14 @@ function EnviarCotizacionParaAprobar({
 }) {
     const dispatch = useAppDispatch()
     const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isLoading, setIsLoading] = useState<boolean>(false)
+    const [isTakingLong, setIsTakingLong] = useState<boolean>(false)
 
 
     return (
         <>
             <Tooltip text="Enviar Cotizacion para Aprobar">
-                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="DuoMail"></Button>
+                <Button variant="solid" onClick={() => {setIsOpen(true); setIsTakingLong(false);}} icon="DuoMail"></Button>
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
@@ -56,28 +58,58 @@ function EnviarCotizacionParaAprobar({
                                 <Badge className="text-xl">Sin Items en la Cotización</Badge>
                             )}
                         </div>
+                        {isTakingLong && (
+                            <div className="mt-4 p-4 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 text-sm animate-pulse shadow-sm">
+                                <div className="font-semibold mb-1">Nota informativa:</div>
+                                El proceso de envío está tomando más tiempo de lo habitual debido a la generación de los documentos adjuntos. Si lo prefiere, puede cerrar esta ventana; la operación continuará en segundo plano y recibirá la notificación correspondiente una vez finalizada.
+                            </div>
+                        )}
                     </div>
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={async () => {
+                        <Button variant="solid" isDisable={isLoading} onClick={async () => {
                             if (solicitantes.length > 0 && items.length > 0) {
+                                setIsLoading(true)
+                                setIsTakingLong(false)
+                                
+                                const timer = setTimeout(() => {
+                                    setIsTakingLong(true)
+                                }, 5000)
+
                                 try {
-                                    const response = await ApiService.fetchData<{detail: string}>({url: `/api/cotizaciones/${cotizacion?.id}/enviar-cotizacion-solicitantes/`, method: 'post'})
+                                    const response = await ApiService.fetchData<{detail: string}>({
+                                        url: `/api/cotizaciones/${cotizacion?.id}/enviar-cotizacion-solicitantes/`, 
+                                        method: 'post',
+                                        timeout: 90000 // Aumentar timeout local a 90s
+                                    })
                                     if (response.data) {
                                         toast.success(response.data.detail, {autoClose: 1000})
                                         if (onEnviarChange) onEnviarChange()
                                         setIsOpen(false)
                                     }
                                 } catch (error: any) {
-                                    toast.error(error.response.data.detail || "Error al enviar la cotización", {toastId: "Error al enviar la cotización"})
+                                    console.error("Error al enviar la cotización", error?.response?.data || error);
+                                    if (error?.code === "ECONNABORTED") {
+                                        toast.info("El proceso de envío ha sido delegado al servidor. Recibirá una notificación al finalizar.", { autoClose: 3000 });
+                                        setIsOpen(false);
+                                    } else {
+                                        const errorMessage = error.response?.data?.detail || error.message || "Error al enviar la cotización"
+                                        toast.error(errorMessage, {toastId: "error-enviar-cotizacion"})
+                                    }
+                                } finally {
+                                    clearTimeout(timer)
+                                    setIsLoading(false)
+                                    setIsTakingLong(false)
                                 }
                             } else {
                                 toast.error("Añada por lo menos 1 solicitante y 1 item a la cotización", {toastId: "Añada por lo menos 1 solicitante a la cotización"})
                             }
-                        }}>Enviar</Button>
+                        }}>
+                            {isLoading ? "Enviando..." : "Enviar"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

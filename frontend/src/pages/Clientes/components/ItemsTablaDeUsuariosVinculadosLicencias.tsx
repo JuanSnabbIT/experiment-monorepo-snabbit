@@ -1,10 +1,10 @@
 import Input from "@/components/form/Input"
 import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Validation from "@/components/form/Validation"
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import { IUsuarioVinculadoLicencia } from "@/interface/contrato.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
 import { listaUsuariosDisponiblesLicenciaThunk, listaUsuariosVinculadosLicenciaThunk, useAppDispatch, useAppSelector } from "@/store"
 import dayjs from "dayjs"
@@ -193,7 +193,7 @@ function ItemsTablaDeUsuariosVinculadosLicencias({user}: {user: IUsuarioVinculad
                                 </div>
                             )}
                             <div>
-                                <ModalEliminar
+                                <ConfirmarEliminar
                                     mensaje="¿Esta seguro(a) de querer eliminar la licencia de este usuario?"
                                     peticionUrl={`/api/contrato-licencias/${user.licencia}/usuarios-vinculados/${user.id}/`}
                                     nombre="Vinculo de usuario y licencia"

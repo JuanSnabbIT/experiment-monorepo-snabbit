@@ -268,7 +268,7 @@ class HistorialCambiosOrden(ModeloBaseHistorico):
         verbose_name="Orden de trabajo",
     )
     fecha_cambio = models.DateTimeField(
-        auto_now_add=True, verbose_name="Fecha del cambio"
+        auto_now_add=True, verbose_name="Fecha del gasto"
     )
     estado_anterior = models.TextField(
         verbose_name="Estado o condicion anterior al cambio",
@@ -350,7 +350,7 @@ class GastoOperativoEnOt(ModeloBase):
         verbose_name="Usuario que creó la rendición",
     )
     fecha_compra = models.DateTimeField(
-        auto_now_add=False, verbose_name="Fecha del cambio"
+        auto_now_add=False, verbose_name="Fecha del gasto"
     )
 
     def save(self, *args, **kwargs):
@@ -518,3 +518,4 @@ class SeguimientoItemOT(ModeloBase):
         else:
             destino = "sin destino"
         return f"Seguimiento OT item #{destino}"
+

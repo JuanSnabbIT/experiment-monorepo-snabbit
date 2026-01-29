@@ -37,6 +37,7 @@ function AprobarCotizacion({
 	const [isOpen, setIsOpen] = useState<boolean>(false);
 	const [isAllItems, setIsAllItems] = useState<boolean>(false);
 	const [itemsSeleccionado, setItemsSeleccionado] = useState<string[]>([]);
+	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 	const formik = useFormik({
 		enableReinitialize: true,
 		initialValues: {
@@ -65,6 +66,7 @@ function AprobarCotizacion({
 					item_ids: itemIds,
 				};
 
+				setIsSubmitting(true);
 				const response = await ApiService.fetchData({
 					url: `/api/cotizaciones/${cotizacion?.id}/aprobar-cotizacion/`,
 					method: 'post',
@@ -77,9 +79,12 @@ function AprobarCotizacion({
 					setIsOpen(false);
 				}
 			} catch (error: any) {
-				toast.error(error.response.data.detail || 'Error al aprobar la cotizacion', {
+				const errorMessage = error.response?.data?.detail || error.message || 'Error al aprobar la cotización';
+				toast.error(errorMessage, {
 					toastId: 'Error al aprobar la cotizacion',
 				});
+			} finally {
+				setIsSubmitting(false);
 			}
 		},
 	});
@@ -247,10 +252,11 @@ function AprobarCotizacion({
 						</Button>
 						<Button
 							variant='solid'
+							isDisable={isSubmitting}
 							onClick={() => {
 								formik.handleSubmit();
 							}}>
-							Guardar
+							{isSubmitting ? 'Guardando...' : 'Guardar'}
 						</Button>
 					</ModalFooterChild>
 				</ModalFooter>

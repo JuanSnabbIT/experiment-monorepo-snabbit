@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react'
-import { listaRendicionesThunk, RootState, useAppDispatch, useAppSelector } from '@/store'
-import Card, { CardBody } from '@/components/ui/Card'
+import Icon from '@/components/icon/Icon'
+import Container from '@/components/layouts/Container/Container'
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
 import Badge from '@/components/ui/Badge'
-import Container from '@/components/layouts/Container/Container'
-import { IRendicion } from '@/interface/rendicion.interface'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import Tooltip from '@/components/ui/Tooltip'
 import Button from '@/components/ui/Button'
-import { useNavigate } from 'react-router-dom'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
-import dayjs from 'dayjs'
+import Card, { CardBody } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
+import Tooltip from '@/components/ui/Tooltip'
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
+import { IRendicion } from '@/interface/rendicion.interface'
+import { listaRendicionesThunk, useAppDispatch, useAppSelector } from '@/store'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import dayjs from 'dayjs'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 
 const columnHelper = createColumnHelper<IRendicion>()
@@ -57,11 +57,11 @@ const RendicionesAdmin = () => {
                     <Tooltip text="Detalle Sucursal">
                         <Button color='violet' variant="solid" onClick={() => {navigate(`/rendicion/detalle-rendicion/${info.row.original.id}/`)}} icon="HeroEye"></Button>
                     </Tooltip>
-                    <ModalEliminar 
+                    <ConfirmarEliminar 
                         mensaje={`Estas a punto de eliminar la Redencion del ${info.row.original.fecha_rendicion} ¿desea continuar?`} 
                         peticionUrl={`/api/rendiciones/${info.row.original.id}/`}
                         onDispatch={() => dispatch(listaRendicionesThunk())}
-                    >Eliminar</ModalEliminar>
+                    />
                 </div>
             )
         })

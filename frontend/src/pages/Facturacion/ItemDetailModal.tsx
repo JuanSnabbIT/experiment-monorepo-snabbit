@@ -3,6 +3,7 @@ import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Moda
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import ApiService from '@/services/ApiService';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -24,6 +25,26 @@ interface PrefacturaItem {
 	parent_id?: number;
 	[n: string]: any;
 }
+
+type GastoResponse = {
+	categoria?: { nombre?: string } | string | null;
+	nombre_categoria?: string;
+	categoria_nombre?: string;
+	cantidad?: number;
+	cantidad_gasto?: number;
+	cantidad_items?: number;
+	monto_unitario?: number;
+	precio_unitario?: number;
+	unitario?: number;
+	monto_total?: number;
+	total?: number;
+	monto?: number;
+	detalle?: string;
+	descripcion?: string;
+	fecha_gasto?: string;
+	fecha_compra?: string;
+	fecha?: string;
+};
 
 interface Props {
 	open: boolean;
@@ -67,10 +88,120 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 
 	useEffect(() => {
 		let mounted = true;
-		const fetchDetail = async () => {
-			if (!item || !open) return; // No fetch si no está abierto
-			if (loading) return; // Evitar fetch si ya está cargando
-			
+		const buildFallback = () => {
+			const subtotal = item?.precio_total ?? item?.precio_ajustado ?? 0;
+			const cantidad = item?.cantidad ?? 1;
+			const montoUnitario = cantidad ? subtotal / cantidad : subtotal;
+			return {
+				nombre_categoria:
+					item?.categoria_nombre ||
+					(item?.categoria && typeof item.categoria === 'object'
+						? item.categoria.nombre
+						: item?.categoria) ||
+					'Gasto Operativo',
+				descripcion: item?.descripcion,
+				cantidad,
+				monto_unitario: montoUnitario,
+				monto_total: subtotal,
+				fecha_gasto: item?.fecha_gasto || item?.fecha || item?.fecha_compra || null,
+			};
+		};
+
+	const fetchGastoOperativoDetalle = async () => {
+		const candidateIds = new Set<number>();
+		const pushId = (value: number | string | undefined | null) => {
+			if (value === null || value === undefined) return;
+			const parsed = typeof value === 'number' ? value : parseInt(value, 10);
+			if (Number.isInteger(parsed) && parsed > 0) {
+				candidateIds.add(parsed);
+			}
+		};
+		pushId(item?.item_id);
+		pushId(item?.parent_id);
+		pushId(item?.item_rendicion_id);
+		pushId(item?.id);
+
+		if (candidateIds.size === 0) {
+			return buildFallback();
+		}
+
+		const endpoints = new Set<string>();
+		const addEndpoint = (url: string | null) => {
+			if (url) {
+				endpoints.add(url);
+			}
+		};
+		const ct = (item?.content_type ?? '').toLowerCase();
+		const otId = item?.ot_id;
+		candidateIds.forEach((candidate) => {
+			if (ct === 'rendiciones.detallegastorendicion') {
+				addEndpoint(`/api/detalles-gasto/${candidate}/`);
+			} else if (ct === 'ordentrabajov2.gastooperativoenot') {
+				addEndpoint(otId ? `/api/ordenes-de-trabajo/${otId}/gastos-operativos/${candidate}/` : null);
+				addEndpoint(`/api/gastos-operativos/${candidate}/`);
+			} else {
+				addEndpoint(otId ? `/api/ordenes-de-trabajo/${otId}/gastos-operativos/${candidate}/` : null);
+				addEndpoint(`/api/gastos-operativos/${candidate}/`);
+				addEndpoint(`/api/detalles-gasto/${candidate}/`);
+			}
+		});
+
+		if (endpoints.size === 0) {
+			return buildFallback();
+		}
+
+		for (const url of endpoints) {
+			try {
+				const resp = await ApiService.fetchData({ url, method: 'get' });
+				if (resp?.data) {
+					const gastoResp = resp.data as GastoResponse;
+					const categoria = gastoResp.categoria;
+					const categoriaNombre =
+						typeof categoria === 'object' && categoria !== null && 'nombre' in categoria
+							? categoria.nombre
+							: typeof categoria === 'string'
+								? categoria
+								: null;
+					const categoryName =
+						categoriaNombre ||
+						gastoResp.nombre_categoria ||
+						gastoResp.categoria_nombre ||
+						'Gasto Operativo';
+					const cantidad =
+						gastoResp.cantidad ?? gastoResp.cantidad_gasto ?? gastoResp.cantidad_items ?? 1;
+					const montoUnitario =
+						Number(
+							gastoResp.monto_unitario ??
+							gastoResp.precio_unitario ??
+							gastoResp.unitario ??
+							0,
+						);
+					const montoTotal =
+						Number(gastoResp.monto_total ?? gastoResp.total ?? gastoResp.monto ?? 0);
+					return {
+						nombre_categoria: categoryName,
+						descripcion: gastoResp.detalle || gastoResp.descripcion,
+						cantidad,
+						monto_unitario: montoUnitario,
+						monto_total: montoTotal,
+						fecha_gasto:
+							gastoResp.fecha_gasto ||
+							gastoResp.fecha_compra ||
+							gastoResp.fecha ||
+							null,
+					};
+				}
+			} catch (error: unknown) {
+				console.warn('Gasto operativo no disponible en', url, error);
+			}
+		}
+
+		return buildFallback();
+	};
+	const fetchDetail = async () => {
+			if (!item || !open) return;
+			if (loading) return;
+
 			setError(null);
 			setData(null);
 			setSeguimientos([]);
@@ -79,14 +210,12 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 				const tipo = item.tipo;
 				const itemId = item.item_id;
 				if ((tipo === 'servicio_ot' || tipo === 'soporte_tecnico') && item.ot_id && itemId) {
-					// Fetch trabajo detail (servicio o soporte)
 					const endpoint = tipo === 'soporte_tecnico' ? 'soportes-tecnicos' : 'servicios-generales';
 					const url = `/api/ordenes-de-trabajo/${item.ot_id}/${endpoint}/${itemId}/`;
 					const resp = await ApiService.fetchData({ url, method: 'get' });
 					if (!mounted) return;
 					setData(resp.data);
 
-					// Fetch usuarios vinculados para soportes
 					if (tipo === 'soporte_tecnico') {
 						try {
 							const usuariosUrl = `/api/ordenes-de-trabajo/${item.ot_id}/soportes-tecnicos/${itemId}/usuarios-asignados/`;
@@ -94,26 +223,25 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 							if (mounted) {
 								setVinculados(Array.isArray(usuariosResp.data) ? usuariosResp.data : []);
 							}
-						} catch (err) {
-							console.warn('No se pudieron cargar usuarios vinculados', err);
+						} catch (error: unknown) {
+							console.warn('No se pudieron cargar usuarios vinculados', error);
 							if (mounted) setVinculados([]);
 						}
 					}
 
-					// Fetch seguimientos for servicio/soporte (NOT detalles-trabajo)
+					// Seguimientos
 					setLoadingSeguimientos(true);
 					try {
 						const segUrl = `/api/ordenes-de-trabajo/${item.ot_id}/${endpoint}/${itemId}/seguimientos/`;
 						const segResp = await ApiService.fetchData({ url: segUrl, method: 'get' });
 						if (mounted) {
-							// Filtrar seguimientos para excluir los de tipo 'actualizacion' como en ListaServiciosOT
 							const seguimientosFiltrados = (Array.isArray(segResp.data) ? segResp.data : []).filter(
 								(seg: any) => seg.tipo !== 'actualizacion'
 							);
 							setSeguimientos(seguimientosFiltrados);
 						}
-					} catch (segErr) {
-						console.warn('No se pudieron cargar seguimientos', segErr);
+					} catch (error: unknown) {
+						console.warn('No se pudieron cargar seguimientos', error);
 					} finally {
 						if (mounted) setLoadingSeguimientos(false);
 					}
@@ -132,9 +260,9 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 							if (itemResp.data) {
 								setItemsGuia([itemResp.data]);
 							}
-						} catch (err) {
+						} catch (error: unknown) {
 							// Couldn't resolve via items-guia; leave guiaId null and let the later logic handle it
-							console.warn('No se pudo resolver guia via items-guia:', err);
+							console.warn('No se pudo resolver guia via items-guia:', error);
 						}
 					}
 
@@ -153,10 +281,10 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 							if (resp.data?.items && Array.isArray(resp.data.items)) {
 								setItemsGuia(resp.data.items);
 							}
-						} catch (err: any) {
-							console.error('Error fetching guia by id', err);
+						} catch (error: unknown) {
+							console.error('Error fetching guia by id', error);
 							if (!mounted) return;
-							setError(err?.response?.data?.detail || 'No se pudo cargar la Guía');
+							setError(getErrorMessage(error) || 'No se pudo cargar la Guía');
 						}
 					}
 				} else if ((tipo === 'rendicion_gasto' || tipo === 'compra_material') && (item.rendicion_id || itemId)) {
@@ -164,77 +292,41 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 					const resp = await ApiService.fetchData({ url: `/api/rendiciones/${rendId}/`, method: 'get' });
 					if (!mounted) return;
 					setData(resp.data);
-			} else if (tipo === 'compra') {
-				const compraId =
-					item.compra_id ??
-					item.parent_id ??
-					item.item_id ??
-					item.id;
+				} else if (tipo === 'compra') {
+					const compraId =
+						item.compra_id ??
+						item.parent_id ??
+						item.item_id ??
+						item.id;
 
-				if (!compraId) {
-					setError('No se pudo determinar la compra asociada');
-					return;
-				}
+					if (!compraId) {
+						setError('No se pudo determinar la compra asociada');
+						return;
+					}
 
-				// Fetch compra detail using compra_id/parent_id fallback
-				try {
-					const compraResp = await ApiService.fetchData({ 
-						url: `/api/compras/${compraId}/`, 
-						method: 'get' 
-					});
-					if (!mounted) return;
-					setData(compraResp.data);
-				} catch (err) {
-					console.error('Error fetching compra', err);
-					setError('No se pudo cargar el detalle de la compra');
-				}
+					// Fetch compra detail using compra_id/parent_id fallback
+					try {
+						const compraResp = await ApiService.fetchData({
+							url: `/api/compras/${compraId}/`,
+							method: 'get',
+						});
+						if (!mounted) return;
+						setData(compraResp.data);
+					} catch (error: unknown) {
+						console.error('Error fetching compra', error);
+						setError('No se pudo cargar el detalle de la compra');
+					}
 				} else if (tipo === 'gasto_operativo') {
-					const itemId = item.item_id ?? item.id;
-					const otId = item.ot_id;
-					if (!itemId) {
-						setError('No se pudo cargar el detalle del gasto operativo');
-						return;
-					}
-
-					const urls: string[] = [];
-					const contentType = (item as any).content_type ?? '';
-
-					if (otId && contentType.includes('ordentrabajov2')) {
-						urls.push(`/api/ordenes-de-trabajo/${otId}/gastos-operativos/${itemId}/`);
-					}
-					if (contentType.includes('rendiciones')) {
-						urls.push(`/api/detalles-gasto/${itemId}/`);
-					}
-					if (!urls.includes(`/api/detalles-gasto/${itemId}/`)) {
-						urls.push(`/api/detalles-gasto/${itemId}/`);
-					}
-
-					let lastError: any = null;
-					let gastoResp: any = null;
-
-					for (const url of urls) {
-						try {
-							gastoResp = await ApiService.fetchData({ url, method: 'get' });
-							break;
-						} catch (err) {
-							lastError = err;
-						}
-					}
-
-					if (gastoResp && mounted) {
-						setData(gastoResp.data);
-						return;
-					}
-
-					console.error('Error fetching gasto operativo', lastError);
-					setError('No se pudo cargar el detalle del gasto operativo');
+					const gastoDetail = await fetchGastoOperativoDetalle();
+					if (!mounted) return;
+					setData(gastoDetail);
 				} else {
 					setData(null);
 				}
-			} catch (err: any) {
-				console.error('Error fetching item detail', err);
+			} catch (error: unknown) {
+				console.error('Error fetching item detail', error);
 				if (!mounted) return;
-				setError(err?.response?.data?.detail || err?.message || 'Error al obtener detalle');
+				setError(getErrorMessage(error) || 'Error al obtener detalle');
 			} finally {
 				if (mounted) setLoading(false);
 			}
@@ -823,6 +915,27 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 		const tipo = item?.tipo;
 		if (tipo !== 'gasto_operativo') return null;
 
+		const fechaValor =
+			data.fecha_gasto ||
+			data.fecha_compra ||
+			data.fecha ||
+			item?.fecha_gasto ||
+			item?.fecha_compra ||
+			item?.fecha;
+		const fechaFormateada = fechaValor ? new Date(fechaValor).toLocaleString('es-CL') : '—';
+		const itemCategoria = item?.categoria;
+		const categoriaNombre =
+			data.nombre_categoria ||
+			data.categoria_nombre ||
+			data.descripcion_categoria ||
+			data.categoria?.nombre ||
+			data.categoria?.descripcion ||
+			item?.nombre_categoria ||
+			item?.categoria_nombre ||
+			item?.descripcion ||
+			(itemCategoria && typeof itemCategoria === 'object' ? itemCategoria.nombre : itemCategoria) ||
+			'Gasto Operativo';
+
 		return (
 			<div className='space-y-4'>
 				{/* Header del gasto operativo */}
@@ -837,15 +950,13 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
 						<div>
 							<Badge className='mb-1'>Categoría</Badge>
 							<div className='ml-4 text-sm font-medium text-gray-900'>
-								{data.nombre_categoria || data.categoria?.nombre || '—'}
+								{categoriaNombre}
 							</div>
 						</div>
 						<div>
 							<Badge className='mb-1'>Fecha Gasto</Badge>
 							<div className='ml-4 text-sm text-gray-700'>
-								{data.fecha_gasto || data.fecha_compra 
-									? new Date(data.fecha_gasto || data.fecha_compra).toLocaleDateString('es-CL') 
-									: '—'}
+								{fechaFormateada}
 							</div>
 						</div>
 						<div>

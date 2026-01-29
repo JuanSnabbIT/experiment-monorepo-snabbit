@@ -25,6 +25,7 @@ export interface IOrdenDeTrabajo {
 	soporte_tecnico_count?: number;
 	servicios_count?: number;
 	cierre_administrativo?: ICierreAdministrativoOT | null;
+	prefactura_asociada_id?: number | null;
 	rendicion_asociada_id?: number | null;
 	guias_salida?: Array<{ id: number; estado: string }>;
 	// Campos legacy (mantener para compatibilidad temporal)
@@ -384,6 +385,7 @@ export interface ICierreAdministrativoOT {
 	orden: number;
 	usuario: number | null;
 	fecha_cierre: string;
+	estado_cierre?: string | null;
 	valido: boolean;
 	resultado: Record<string, any>;
 	comentario: string | null;

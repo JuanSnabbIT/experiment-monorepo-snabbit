@@ -328,7 +328,7 @@ function ListaUsuarioEquipoOT({
 		const cache = raw.cache as Record<string, unknown> | undefined;
 		const movimientos = cache?.movimientos;
 		if (!Array.isArray(movimientos)) return null;
-		return raw as CacheAsignacion;
+		return raw as unknown as CacheAsignacion;
 	};
 
 	const getCachePersistente = (usuario: IUsuarioAsignadoSoporte): Record<string, unknown> => {
@@ -469,7 +469,7 @@ function ListaUsuarioEquipoOT({
 					id_orden: ordenId,
 					id_soporte: soporteId,
 					id_usuario_asignado: usuarioId,
-					data: { cache_asignacion: cache },
+					data: { cache_asignacion: cache as unknown as Record<string, unknown> },
 				}),
 			).unwrap();
 			setCambiosEquipos((prev) => {
@@ -520,6 +520,7 @@ function ListaUsuarioEquipoOT({
 				setSelectValue(null);
 				return;
 			}
+			const nombre = found.nombre || found.label || 'Usuario';
 			setSeleccionPendiente((prev) => [
 				...prev,
 				{
@@ -527,7 +528,7 @@ function ListaUsuarioEquipoOT({
 					id: ueId,
 					usuarioEmpresaId: found.usuarioEmpresaId,
 					usuarioEquipoId: found.usuarioEquipoId,
-					nombre: found.nombre,
+					nombre,
 					equipoLabel: found.equipoLabel,
 					equipoId: found.equipoId,
 				},
@@ -545,13 +546,14 @@ function ListaUsuarioEquipoOT({
 				setSelectValue(null);
 				return;
 			}
+			const nombre = found.nombre || found.label || 'Usuario';
 			setSeleccionPendiente((prev) => [
 				...prev,
 				{
 					tipo: 'u',
 					id: userId,
 					usuarioEmpresaId: userId,
-					nombre: found.nombre,
+					nombre,
 					equipoLabel: undefined,
 					equipoId: undefined,
 				},

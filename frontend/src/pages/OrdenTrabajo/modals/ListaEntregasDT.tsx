@@ -1,11 +1,12 @@
 import Icon from "@/components/icon/Icon"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { IEntregaEquipo } from "@/interface/visitas.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import CambiarEstadoEntregaEquipo from "@/pages/Visitas/modals/CambiarEstadoEntregaEquipo"
 import EditarEquipoVisita from "@/pages/Visitas/modals/EditarEquipoVisita"
 import { detalleDelDetalleTrabajoThunk, listaEntregaEquipoThunk, useAppDispatch, useAppSelector } from "@/store"
@@ -14,7 +15,6 @@ import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, g
 import { Dispatch, SetStateAction, useEffect, useState } from "react"
 import { toast } from "react-toastify"
 import CrearEntregaEquipoEnOT from "./CrearEntregaEquipoEnOT"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 
 
 const columnHelper = createColumnHelper<IEntregaEquipo>()
@@ -90,11 +90,11 @@ function ListaEntregasDT({isOpen, setIsOpen, detalleSeleccionado, setDetalleSele
                         </>
                     )}
                     {detalleDelDetalleTrabajo && (detalleDelDetalleTrabajo.estado === "pendiente" || detalleDelDetalleTrabajo.estado === "en_proceso") && info.row.original.estado_entrega === "por_entregar" && (
-                        <ModalEliminar
+                        <ConfirmarEliminar
                             mensaje={`Estas a punto de eliminar esta entrega a ${info.row.original.nombre_usuario_a_entregar} ¿desea continuar?`} 
                             peticionUrl={`/api/visitas-soporte/${detalleDelDetalleTrabajo.trabajo_id}/entregas-equipos/${info.row.original.id}/`}
                             onDispatch={() => {dispatch(listaEntregaEquipoThunk({id_visita: detalleDelDetalleTrabajo.trabajo_id}))}}
-                        >Eliminar</ModalEliminar>
+                        />
                     )}
                 </div>
             ),

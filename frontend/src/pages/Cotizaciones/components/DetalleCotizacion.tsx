@@ -8,6 +8,7 @@ import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityC
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -16,7 +17,6 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { TIPO_MONEDA } from '@/constants/cotizacion.constant';
 import { IItemCotizacion } from '@/interface/cotizaciones.interface';
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar';
 import ApiService from '@/services/ApiService';
 import {
 	listaContentTypeThunk,
@@ -76,7 +76,10 @@ const DetalleCotizacion = () => {
 		isFetching: fetchingDetalle,
 		isLoading: loadingDetalle,
 		refetch
-	} = useGetDetalleCotizacionPorNumeroQuery(numeroKey, { skip: !numeroKey });
+	} = useGetDetalleCotizacionPorNumeroQuery(numeroKey, { 
+		skip: !numeroKey,
+		refetchOnMountOrArgChange: true 
+	});
 
 	const idKey = detalleCotizacion?.id ? String(detalleCotizacion.id) : '';
 	
@@ -108,6 +111,7 @@ const DetalleCotizacion = () => {
 	const [crearSolicitante, setCrearSolicitante] = useState<boolean>(false);
 	const [creandoSolicitante, setCreandoSolicitante] = useState<boolean>(false);
 	const [refrescandoTipoCambio, setRefrescandoTipoCambio] = useState<boolean>(false);
+	const [refrescandoEstado, setRefrescandoEstado] = useState<boolean>(false);
 
 	async function handleRefrescarValores() {
 		if (!detalleCotizacion?.id) return;
@@ -126,29 +130,46 @@ const DetalleCotizacion = () => {
 		}
 	}
 
-
 	// Polling para refrescar tipo de cambio
 	useEffect(() => {
 		let interval: NodeJS.Timeout;
 		if (refrescandoTipoCambio) {
 			let attempts = 0;
-			// Primer refresco inmediato
 			refetch();
 			refetchItems();
-			
 			interval = setInterval(() => {
 				attempts++;
 				refetch();
 				refetchItems();
-				
-				// Detener después de 3 intentos (9 segundos aprox)
 				if (attempts >= 3) {
 					setRefrescandoTipoCambio(false);
 				}
-			}, 3000);
+			}, 1500);
 		}
 		return () => clearInterval(interval);
 	}, [refrescandoTipoCambio, refetch, refetchItems]);
+
+	// Polling para refrescar estado después de acciones asíncronas (como enviar correo)
+	useEffect(() => {
+		let interval: NodeJS.Timeout;
+		if (refrescandoEstado) {
+			let attempts = 0;
+			refetch();
+			interval = setInterval(() => {
+				attempts++;
+				refetch();
+				if (detalleCotizacion?.estado !== 'pendiente' || attempts >= 5) {
+					setRefrescandoEstado(false);
+				}
+			}, 1500);
+		}
+		return () => clearInterval(interval);
+	}, [refrescandoEstado, refetch, detalleCotizacion?.estado]);
+
+	const handleStateChange = () => {
+		refetch();
+		refetchItems();
+	};
 
 
 	const isFutureDate = detalleCotizacion?.fecha_facturacion && dayjs(detalleCotizacion.fecha_facturacion).isAfter(dayjs(), 'day');
@@ -337,12 +358,11 @@ const DetalleCotizacion = () => {
 						/>
 					)}
 					{(detalleCotizacion?.estado == 'pendiente') && (
-						<ModalEliminar
-							mensaje={`Estas seguro que deseas eliminar el ${info.row.original.nombre}?`}
+						<ConfirmarEliminar
+							nombre={info.row.original.nombre}
 							peticionUrl={`/api/cotizaciones/${detalleCotizacion.id}/items/${info.row.original.id}/`}
-							onDispatch={() =>
-								refetchItems()
-							}
+							onDispatch={() => refetchItems()}
+							tooltipText="Eliminar item"
 						/>
 					)}
 				</div>
@@ -396,13 +416,16 @@ const DetalleCotizacion = () => {
 								detalleCotizacion.estado === 'expirada' ||
 								detalleCotizacion.estado === 'rechazada' ||
 								detalleCotizacion.estado === 'pendiente'
-							) && <EnviarCotizacion cotizacion={detalleCotizacion} />}
+							) && <EnviarCotizacion cotizacion={detalleCotizacion} onSuccess={handleStateChange} />}
 							{detalleCotizacion.estado === 'pendiente' && (
 								<EnviarCotizacionParaAprobar
 									cotizacion={detalleCotizacion}
 									solicitantes={solicitantesCotizacion}
 									items={itemsEnCotizacion}
-									onEnviarChange={refetch}
+									onEnviarChange={() => {
+										setRefrescandoEstado(true);
+										refetch();
+									}}
 								/>
 							)}
 							{detalleCotizacion.estado === 'enviada' && (
@@ -411,11 +434,11 @@ const DetalleCotizacion = () => {
 										cotizacion={detalleCotizacion}
 										solicitantes={solicitantesCotizacion}
 										items={itemsEnCotizacion}
-										onAprobarChange={refetchItems} 
+										onAprobarChange={handleStateChange} 
 									/>
 									<RechazarCotizacion 
 										cotizacionId={detalleCotizacion?.id} 
-										onRechazarChange={refetch} 
+										onRechazarChange={handleStateChange} 
 									/>
 								</>
 							)}
@@ -939,8 +962,8 @@ const DetalleCotizacion = () => {
 												<div>
 												<div>
 													{detalleCotizacion?.estado === 'pendiente' && (
-														<ModalEliminar
-															mensaje='┬┐Estas seguro(a) de eliminar al solicitante?'
+														<ConfirmarEliminar
+															mensaje='¿Estas seguro(a) de eliminar al solicitante?'
 															onDispatch={() => {
 																refetchSolicitantes();
 															}}

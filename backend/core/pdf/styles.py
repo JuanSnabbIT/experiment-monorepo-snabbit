@@ -16,6 +16,37 @@ TEXT_GRAY = colors.HexColor("#404040")     # Labels (Darkened from #6b7280 for b
 FONT_BOLD = "Helvetica-Bold"
 FONT_NORMAL = "Helvetica"
 
+FONTS = {
+    "fecha": ("Helvetica", 9),
+    "titulo": ("Helvetica-Bold", 14),
+    "datos_label": ("Helvetica-Bold", 10),
+    "datos": ("Helvetica", 10),
+    "introduccion": ("Helvetica", 10),
+    "fijo": ("Helvetica-Oblique", 9),
+    "cierre": ("Helvetica", 10),
+    "firma_label": ("Helvetica-Bold", 10),
+    "firma": ("Helvetica", 10),
+    "firma_cargo": ("Helvetica", 9),
+    "footer": ("Helvetica", 8),
+}
+
+MESES_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+]
+
+INTRO_STYLE = ParagraphStyle(
+    "intro", fontName="Helvetica", fontSize=10, leading=12
+)
+
+FOOTER_STYLE = ParagraphStyle(
+    "footer", fontName="Helvetica", fontSize=8, leading=10, alignment=1
+)
+
+CELL_STYLE = ParagraphStyle(
+    "cell", fontName="Helvetica", fontSize=10, leading=12
+)
+
 # --- STYLES ---
 def get_pdf_styles():
     """

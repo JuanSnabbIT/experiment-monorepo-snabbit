@@ -392,9 +392,9 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             f"Coti_{cotizacion.numero_cotizacion}_{cotizacion.cliente.nombre}.pdf"
         )
 
-        # # Actualizar estado de la cotización
-        # cotizacion.estado = "enviada"
-        # cotizacion.save()
+        # Actualizar estado de la cotización
+        cotizacion.estado = "enviada"
+        cotizacion.save()
 
         # Registrar el envío en `EnvioCorreoCotizacion`
         envio = EnvioCorreoCotizacion.objects.create(
@@ -507,6 +507,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 on_success_cotizacion_id=cotizacion.pk,
                 on_success_correos_externos=recipient_emails,
             )
+            
+            # Actualizar estado de la cotización inmediatamente para feedback instantáneo
+            cotizacion.estado = "enviada"
+            cotizacion.save()
         except (OperationalError, CeleryError) as exc:
             logger.error(
                 "No se pudo encolar el envío de correo de cotización",

@@ -1,17 +1,17 @@
 import Input from "@/components/form/Input"
-import Label from "@/components/form/Label"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch } from "@/store"
-import { listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { useState } from "react"
 import { toast } from "react-toastify"
 
 
-function SubirCotizacion({nombre_cotizacion, cotizacion, id_orden, id_empresa} : {nombre_cotizacion: string, cotizacion: string, id_orden: number, id_empresa: number | string | null}) {
+function SubirCotizacion({nombre_cotizacion, cotizacion, id_orden} : {nombre_cotizacion: string, cotizacion: string, id_orden: number}) {
     const dispatch = useAppDispatch()
     const [isOpen, setIsOpen] = useState<boolean>(false)
 
@@ -51,19 +51,24 @@ function SubirCotizacion({nombre_cotizacion, cotizacion, id_orden, id_empresa} :
                                             if (response.data) {
                                                 if (nombre_cotizacion === "Sin Cotización") {
                                                     toast.success("Cotización subida", {autoClose: 1000})
-                                                    dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                                    // dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
                                                     setIsOpen(false)
                                                 } else {
                                                     const responseCambio = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "-"})})
                                                     if (responseCambio.data) {
                                                         toast.success("Cotización subida y cambiada a borrador", {autoClose: 1000})
-                                                        dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                                        // dispatch(listaOrdenesCompraThunk({id_empresa}))
+                                                        dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
                                                         setIsOpen(false)
                                                     }
                                                 }
                                             }
-                                        } catch (error: any) {
-                                            toast.error(error.response.data)
+                                        } catch (error: unknown) {
+                                            const errorMessage = getErrorMessage(error) || "Error al subir la cotizacion"
+                                            toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al subir la cotizacion", {
+                                                toastId: "error-subir-cotizacion"
+                                            })
                                         }
                                     } else {
                                         toast.error("Error al subir el archivo")

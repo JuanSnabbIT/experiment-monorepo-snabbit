@@ -5,21 +5,21 @@ import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
-	ModalBody,
-	ModalFooter,
-	ModalFooterChild,
-	ModalHeader,
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IItemEmpresa, IProveedorEmpresa } from '@/interface/items.interface';
 import ApiService from '@/services/ApiService';
 import {
-	listaCamposAdicionalesItemThunk,
-	listaCategoriasThunk,
-	listaItemsEmpresaFiltroThunk,
-	listaProveedoresEmpresaThunk,
-	useAppDispatch,
-	useAppSelector
+    listaCamposAdicionalesItemThunk,
+    listaCategoriasThunk,
+    listaItemsEmpresaFiltroThunk,
+    listaProveedoresEmpresaThunk,
+    useAppDispatch,
+    useAppSelector
 } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
@@ -56,6 +56,7 @@ function CrearItemCotizacion({
 	const [creandoItem, setCreandoItem] = useState<boolean>(false);
 	const [showCategoria, setShowCategoria] = useState<boolean>(false);
 	const [isService, setIsService] = useState<boolean>(false);
+	const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
 	const itemsEnPreparacion = items;
 
@@ -108,35 +109,40 @@ function CrearItemCotizacion({
 						toastId: 'Debe seleccionar un item y un proveedor',
 					});
 				} else {
-					try {
-						const response = await ApiService.fetchData({
-							url: `/api/cotizaciones/${cotizacion?.id}/items/`,
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							data: JSON.stringify({
-								cotizacion: cotizacion?.id,
-								cantidad: values.cantidad,
-								precio_unitario: values.precio_unitario,
-								item_empresa: itemSeleccionado.id,
-								descripcion: values.descripcion,
-								proveedor_empresa: proveedorSeleccionado.id,
-								recargo_dolar: values.recargo_dolar,
-							}),
-						});
-						if (response.data) {
-							toast.success('Item creado', { autoClose: 1000 });
-							if (onItemChange) onItemChange();
-							setIsOpen(false);
-							formik.resetForm();
+						setIsSubmitting(true);
+						try {
+							const response = await ApiService.fetchData({
+								url: `/api/cotizaciones/${cotizacion?.id}/items/`,
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								data: JSON.stringify({
+									cotizacion: cotizacion?.id,
+									cantidad: values.cantidad,
+									precio_unitario: values.precio_unitario,
+									item_empresa: itemSeleccionado.id,
+									descripcion: values.descripcion,
+									proveedor_empresa: proveedorSeleccionado.id,
+									recargo_dolar: values.recargo_dolar,
+								}),
+							});
+							if (response.data) {
+								toast.success('Item creado', { autoClose: 1000 });
+								if (onItemChange) onItemChange();
+								setIsOpen(false);
+								formik.resetForm();
+							}
+						} catch (error: any) {
+							const errorData = error.response?.data
+							const mensajesError = errorData ? Object.values(errorData).flat().join(' ') : error.message || 'Error al crear el Item'
+							toast.error(mensajesError, {
+								toastId: 'Error al crear el Item',
+							});
+						} finally {
+							setIsSubmitting(false);
 						}
-					} catch (error: any) {
-						const mensajesError = Object.values(error.response.data).flat().join(' ');
-						toast.error(mensajesError || 'Error al crear el Item', {
-							toastId: 'Error al crear el Item',
-						});
-					}
 				}
 			} else if (creandoItem && !isService) {
+				setIsSubmitting(true);
 				try {
 					const response = await ApiService.fetchData<IItemEmpresa, string>({
 						url: `/api/items-empresa/`,
@@ -172,12 +178,16 @@ function CrearItemCotizacion({
 						}
 					}
 				} catch (error: any) {
-					const mensajesError = Object.values(error.response.data).flat().join(' ');
-					toast.error(mensajesError || 'Error al crear el item', {
+					const errorData = error.response?.data
+					const mensajesError = errorData ? Object.values(errorData).flat().join(' ') : error.message || 'Error al crear el item'
+					toast.error(mensajesError, {
 						toastId: 'Error al crear el item',
 					});
+				} finally {
+					setIsSubmitting(false);
 				}
 			} else {
+				setIsSubmitting(true);
 				try {
 					const response = await ApiService.fetchData({
 						url: `/api/cotizaciones/${cotizacion?.id}/items/`,
@@ -196,10 +206,13 @@ function CrearItemCotizacion({
 						formik.resetForm();
 					}
 				} catch (error: any) {
-					const mensajesError = Object.values(error.response.data).flat().join(' ');
-					toast.error(mensajesError || 'Error al crear el Item', {
+					const errorData = error.response?.data
+					const mensajesError = errorData ? Object.values(errorData).flat().join(' ') : error.message || 'Error al crear el Item'
+					toast.error(mensajesError, {
 						toastId: 'Error al crear el Item',
 					});
+				} finally {
+					setIsSubmitting(false);
 				}
 			}
 		},
@@ -587,10 +600,11 @@ function CrearItemCotizacion({
 						</Button>
 						<Button
 							variant='solid'
+							isDisable={isSubmitting}
 							onClick={() => {
 								formik.handleSubmit();
 							}}>
-							Guardar
+							{isSubmitting ? 'Guardando...' : 'Guardar'}
 						</Button>
 					</ModalFooterChild>
 				</ModalFooter>

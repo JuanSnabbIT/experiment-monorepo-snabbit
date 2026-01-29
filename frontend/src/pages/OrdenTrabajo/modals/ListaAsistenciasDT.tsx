@@ -1,17 +1,17 @@
 import Icon from "@/components/icon/Icon"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { IAsistenciaUsuario } from "@/interface/visitas.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import CambiarEstadoAsistenciaUsuario from "@/pages/Visitas/modals/CambiarEstadoAsistenciaUsuario"
 import { detalleDelDetalleTrabajoThunk, listaAsistenciaUsuariosThunk, useAppDispatch, useAppSelector } from "@/store"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { Dispatch, SetStateAction, useEffect, useState } from "react"
 import CrearAsistenciaUsuarioEnOT from "./CrearAsistenciaUsuarioEnOT"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 
 
 const columnHelper = createColumnHelper<IAsistenciaUsuario>()
@@ -64,11 +64,11 @@ function ListaAsistenciasDT({isOpen, setIsOpen, detalleSeleccionado, setDetalleS
                             <CambiarEstadoAsistenciaUsuario id_visita={detalleDelDetalleTrabajo?.trabajo_id} info={info.row.original} tipo="1" />
                         )}
                         {detalleDelDetalleTrabajo && (detalleDelDetalleTrabajo.estado === "en_proceso" || detalleDelDetalleTrabajo.estado === "pendiente") && info.row.original.estado_revision === "por_revisar" && (
-                            <ModalEliminar 
+                            <ConfirmarEliminar 
                                 mensaje={`Estas a punto de eliminar esta asistencia a ${info.row.original.usuario_equipo_nombre} ¿desea continuar?`} 
                                 peticionUrl={`/api/visitas-soporte/${detalleDelDetalleTrabajo.trabajo_id}/asistencias-usuarios/${info.row.original.id}/`}
                                 onDispatch={() => {dispatch(listaAsistenciaUsuariosThunk({id_visita: detalleDelDetalleTrabajo.trabajo_id}))}}
-                            >Eliminar</ModalEliminar>
+                            />
                         )}
                     </div>
                 )

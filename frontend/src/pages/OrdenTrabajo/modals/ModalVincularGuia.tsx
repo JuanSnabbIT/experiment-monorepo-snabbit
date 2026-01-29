@@ -8,7 +8,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import ApiService from '@/services/ApiService';
-import { useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { getErrorMessage } from '@/utils/errorHandlers';
 
@@ -18,7 +18,7 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 
 interface IModalVincularGuiaProps {
 	isOpen: boolean;
-	setIsOpen: (isOpen: boolean) => void;
+	setIsOpen: Dispatch<SetStateAction<boolean>>;
 	otId: number;
 	// ⚠️ DEPRECATED: 'soporte' y 'servicio' están deprecados. Usar solo 'direct_ot'
 	targetType: 'direct_ot' | 'soporte' | 'servicio';
@@ -34,6 +34,7 @@ const ModalVincularGuia = ({
 	targetId,
 	onSuccess,
 }: IModalVincularGuiaProps) => {
+	void targetId;
 	const [guiasDisponibles, setGuiasDisponibles] = useState<TSelectOption[]>([]);
 	const [guiaALinkear, setGuiaALinkear] = useState<TSelectOption | null>(null);
 	const [cargandoGuias, setCargandoGuias] = useState(false);

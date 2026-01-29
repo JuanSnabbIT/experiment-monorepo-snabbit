@@ -24,6 +24,7 @@ import {
 	TIPOS_USUARIO_CONTRATO,
 } from '@/constants/contrato.constant';
 import ApiService from '@/services/ApiService';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import {
 	detalleClienteThunk,
 	detalleContratoEmpresaClienteThunk,
@@ -168,17 +169,20 @@ function ContratosDelCliente() {
 				return;
 			}
 			try {
-				const response = await ApiService.fetchData({
+				const response = await ApiService.fetchData<{ results?: unknown[] } | unknown[]>({
 					url: `/api/cierres-facturacion/?contrato=${detalleContratoEmpresaCliente.id}`,
 					method: 'get',
 				});
-				const resultados = response?.data?.results || response?.data || [];
+				const resultados = Array.isArray(response.data)
+					? response.data
+					: response.data?.results || [];
 				if (Array.isArray(resultados) && resultados.length > 0) {
 					setFacturacionExistente(resultados[0]);
 				} else {
 					setFacturacionExistente(null);
 				}
-			} catch (error) {
+			} catch (error: unknown) {
+				console.warn('Error cargando facturacion del contrato', getErrorMessage(error));
 				setFacturacionExistente(null);
 			}
 		};
@@ -248,8 +252,8 @@ function ContratosDelCliente() {
 					setEditando(false);
 					toast.success('Contrato editado', { autoClose: 1000 });
 				}
-			} catch (error: any) {
-				toast.error(error.response.data || 'Error al actualizar el contrato', {
+			} catch (error: unknown) {
+				toast.error(getErrorMessage(error) || 'Error al actualizar el contrato', {
 					toastId: 'Error al actualizar el contrato',
 				});
 			}

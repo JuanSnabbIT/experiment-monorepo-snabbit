@@ -39,6 +39,7 @@ from .functions import (
     obtener_guia_pendiente_por_cotizacion,
     recepcionar_oc_y_crear_guia,
 )
+from .pdfs.guia_salida import generar_pdf_guia_salida
 from .models import (
     ArchivoCompra,
     Bodega,
@@ -1293,6 +1294,48 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
 class GuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = GuiaSalida.objects.all()
     serializer_class = GuiaSalidaSerializer
+
+    @action(detail=True, methods=["get"], url_path="descargar-pdf")
+    def descargar_pdf(self, request, pk=None):
+        guia = self.get_object()
+        buffer = BytesIO()
+        
+        items_data = []
+        # Use itemsguiasalida_set to access through model properties like quantity and serial
+        for it in guia.itemsguiasalida_set.select_related('stock_item__item', 'stock_item__item__categoria').all():
+             serie_str = ""
+             if it.individualizado and it.numero_serie:
+                 serie_str = it.numero_serie.get("serie", "")
+             
+             items_data.append({
+                 "nombre": it.stock_item.item.nombre,
+                 "categoria": it.stock_item.item.categoria.nombre if it.stock_item.item.categoria else "",
+                 "cantidad": it.cantidad_rebajada,
+                 "serie": serie_str
+             })
+             
+        # Resolve names safely
+        cliente_nombre = guia.cliente.nombre if guia.cliente else ""
+        cliente_rut = guia.cliente.rut_empresa if guia.cliente else ""
+        entregado_a = guia.entregado_a.usuario.get_nombre() if (guia.entregado_a and guia.entregado_a.usuario) else ""
+        recibido_por = guia.recibido_por.usuario.get_nombre() if (guia.recibido_por and guia.recibido_por.usuario) else ""
+
+        generar_pdf_guia_salida(
+            numero_guia=guia.pk,
+            fecha_guia=guia.fecha_creacion.strftime("%d-%m-%Y"),
+            cliente_nombre=cliente_nombre,
+            cliente_rut=cliente_rut,
+            entregado_a_nombre=entregado_a,
+            recibido_por_nombre=recibido_por,
+            items=items_data,
+            buffer=buffer,
+            observaciones=guia.motivo
+        )
+        
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="guia_salida_{guia.pk}.pdf"'
+        return response
 
     def create(self, request, *args, **kwargs):
         cliente_id = request.data.get("cliente")

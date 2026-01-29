@@ -1,23 +1,23 @@
-import { useEffect, useState } from "react"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { IUsuarioEmpresa } from "@/interface/empresas.interface"
-import { listaUsuariosEmpresaThunk } from "@/store/slices/empresa/empresaSlice"
-import Tooltip from "@/components/ui/Tooltip"
-import Button from "@/components/ui/Button"
-import { useNavigate } from "react-router-dom"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
+import Button from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
-import ApiService from "@/services/ApiService"
-import { toast } from "react-toastify"
-import ModalEliminar from "../Items/Proveedor/modals/ModalEliminar"
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
+import Tooltip from "@/components/ui/Tooltip"
 import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
+import { IUsuarioEmpresa } from "@/interface/empresas.interface"
+import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { listaUsuariosEmpresaThunk } from "@/store/slices/empresa/empresaSlice"
+import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { toast } from "react-toastify"
 
 
 const columnHelper = createColumnHelper<IUsuarioEmpresa>()
@@ -64,7 +64,7 @@ function ListaUsuariosEmpresa() {
                         />
                     </Tooltip>
                     <Tooltip text="Eliminar">
-                        <ModalEliminar 
+                        <ConfirmarEliminar 
                             mensaje={`Estas Seguro que desas eliminar a ${info.row.original.nombre_usuario}`} 
                             peticionUrl={`/api/users/${info.row.original.usuario}/`} 
                             method="delete"

@@ -25,6 +25,13 @@ interface ItemEjecutado {
 	tipo: string;
 	ot_id?: number;
 	estado?: string;
+	parent_id?: number;
+	guia_id?: number;
+	compra_id?: number;
+	rendicion_id?: number;
+	item_rendicion_id?: number;
+	content_type?: string;
+	item_id?: number;
 }
 
 interface ItemPrefactura {
@@ -131,23 +138,43 @@ const FacturacionesComparativa = () => {
 			// INCLUIR TODOS los items; el flag `facturar` viene en cada item
 			const itemsFacturables =
 				ejecutadoData?.ejecutado?.items
-					?.map((item: any) => {
-						const itemKey = `${item.tipo}_${item.id}`;
-						const config = (itemsConfig.get(itemKey) as any) ?? {};
-						return {
-							tipo: item.tipo,
-							id: item.id,
-							descripcion: config?.descripcion || item.descripcion || item.nombre || '',
-							ot_id: item.ot_id,
-							cantidad: item.cantidad || 1,
-							precio_total: Number(item.precio_unitario || 0) * (item.cantidad || 1),
-							precio_ajustado: config?.precioAsignado ?? null,
-							facturar: config?.facturar ?? true,
-							comentario: config?.comentario || '',
-							// Referencia al padre (guía o compra). Guardar único campo `parent_id`.
-							parent_id: item.guia_id ?? item.compra_id ?? item.rendicion_id ?? null,
-						};
-					}) || [];
+            ?.map((item: any) => {
+                const itemKey = `${item.tipo}_${item.id}`;
+                const config = (itemsConfig.get(itemKey) as any) ?? {};
+                const fallbackCategoria =
+                    item.categoria_nombre ||
+                    (item.categoria && typeof item.categoria === 'object'
+                        ? item.categoria.nombre
+                        : item.categoria) ||
+                    null;
+                const fallbackFecha =
+                    item.fecha_gasto ||
+                    item.fecha_compra ||
+                    item.fecha ||
+                    null;
+                return {
+                    tipo: item.tipo,
+                    id: item.id,
+                    descripcion: config?.descripcion || item.descripcion || item.nombre || '',
+                    ot_id: item.ot_id,
+                    cantidad: item.cantidad || 1,
+                    precio_total: Number(item.precio_unitario || 0) * (item.cantidad || 1),
+                    precio_ajustado: config?.precioAsignado ?? null,
+                    facturar: config?.facturar ?? true,
+                    comentario: config?.comentario || '',
+                    categoria_id: item.categoria_id ?? (item.categoria && item.categoria.id) ?? null,
+                    categoria_nombre: fallbackCategoria,
+                    fecha_gasto: fallbackFecha,
+                    dolar_observado: item.dolar_observado ?? null,
+                    parent_id: item.guia_id ?? item.compra_id ?? item.rendicion_id ?? null,
+                    item_id: item.item_id ?? item.id,
+                    guia_id: item.guia_id ?? null,
+                    compra_id: item.compra_id ?? null,
+                    rendicion_id: item.rendicion_id ?? null,
+                    item_rendicion_id: item.item_rendicion_id ?? null,
+                    content_type: item.content_type ?? null,
+                };
+            }) || [];
 
 			if (itemsFacturables.length === 0) {
 				toast.warning('No hay items seleccionados para facturar');

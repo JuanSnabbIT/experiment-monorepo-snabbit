@@ -8,7 +8,7 @@ import Tooltip from "@/components/ui/Tooltip"
 import { IOrdenCompra } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch, useAppSelector } from "@/store"
-import { listaMisOrdenesDeCompraThunk, listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
 import { listaMisClientesThunk, selectEmpresasThunk, usuarioEmpresaLogeadoThunk } from "@/store/slices/empresa/empresaSlice"
 import { listaProveedoresEmpresaThunk } from "@/store/slices/item/itemSlice"
 import { useFormik } from "formik"
@@ -26,6 +26,7 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
     const [optionClientes, setOptionClientes] = useState<{ value: string; label: string; }[]>([])
     const [optionsEmpresas, setOptionsEmpresas] = useState<{value: string, label: string}[]>([]);
     const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa && isOpen) {
@@ -80,20 +81,28 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
             observaciones: Yup.string().notRequired()
         }),
         onSubmit: async (values) => {
+            setIsSubmitting(true)
             try {
                 const response = await ApiService.fetchData<IOrdenCompra, string>({url: `/api/ordenes-compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({...values, creado_por: usuarioEmpresaLogeado?.id})})
                 if (response.data) {
                     toast.success("Orden Creada", {autoClose: 1000})
                     formik.resetForm()
                     if (id_empresa) {
-                        dispatch(listaOrdenesCompraThunk({id_empresa}))
+                        // dispatch(listaOrdenesCompraThunk({id_empresa}))
+                        dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
                     } else {
-                        dispatch(listaMisOrdenesDeCompraThunk())
+                        // dispatch(listaMisOrdenesDeCompraThunk())
+                        dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
                     }
                     setIsOpen(false)
                 }
             } catch (error: any) {
-                toast.error(error.response.data)
+                const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al crear la orden de compra"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al crear la orden de compra", {
+                    toastId: "error-crear-orden-compra"
+                })
+            } finally {
+                setIsSubmitting(false)
             }
         }   
     })
@@ -215,7 +224,9 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Crear</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Creando..." : "Crear"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

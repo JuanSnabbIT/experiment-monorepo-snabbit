@@ -1,73 +1,81 @@
-import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
 import Tooltip from "@/components/ui/Tooltip"
 import ApiService from "@/services/ApiService"
 import { useAppDispatch } from "@/store"
-import { listaMisOrdenesDeCompraThunk, listaOrdenesCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { useState } from "react"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { getErrorMessage } from "@/utils/errorHandlers"
 import { toast } from "react-toastify"
+import Swal from "sweetalert2"
 
-
-function AceptarORechazarOrdenCompra({id_orden, id_empresa, onSuccess} : {id_orden: string | number | undefined, id_empresa?: string | number | null, onSuccess?: () => void}) {
+function AceptarORechazarOrdenCompra({id_orden, onSuccess} : {id_orden: string | number | undefined, onSuccess?: () => void}) {
     const dispatch = useAppDispatch()
-    const [isOpen, setIsOpen] = useState<boolean>(false)
+
+    const handleAceptarORechazar = async () => {
+        const result = await Swal.fire({
+            title: '¿Aceptar o Rechazar Orden?',
+            text: 'Si acepta o rechaza la orden no podrá volver a modificar los datos.',
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'Aceptar Orden',
+            denyButtonText: 'Rechazar Orden',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#10b981', // emerald-500
+            denyButtonColor: '#f59e0b', // amber-500
+        })
+
+        if (result.isConfirmed) {
+            // Aceptar (estado 1)
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/`, 
+                    method: 'patch', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    data: JSON.stringify({estado: "1"})
+                })
+                if (response.data) {
+                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
+                    toast.success("Orden aceptada", {autoClose: 1000})
+                    if (onSuccess) onSuccess()
+                }
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error) || "Error al aceptar la orden"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al aceptar la orden", {
+                    toastId: "error-aceptar-oc"
+                })
+            }
+        } else if (result.isDenied) {
+            // Rechazar (estado 2)
+            try {
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-compra/${id_orden}/`, 
+                    method: 'patch', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    data: JSON.stringify({estado: "2"})
+                })
+                if (response.data) {
+                    dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList', { type: 'OrdenCompra', id: id_orden }]))
+                    toast.success("Orden rechazada", {autoClose: 1000})
+                    if (onSuccess) onSuccess()
+                }
+            } catch (error: unknown) {
+                const errorMessage = getErrorMessage(error) || "Error al rechazar la orden"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al rechazar la orden", {
+                    toastId: "error-rechazar-oc"
+                })
+            }
+        }
+    }
 
     return (
-        <>
-            <Tooltip text="Aceptar o Rechazar Orden">
-                <Button variant="solid" onClick={() => {setIsOpen(true)}} color="amber" icon="HeroArrowRightCircle"></Button>
-            </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className="text-xl">¿Aceptar o Rechazar Orden?</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div className="flex flex-col gap-2">
-                        <div className="w-full">Si acepta o rechaza la orden no podra volver a modificar los datos.</div>
-                    </div>
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button color="red" onClick={async () => {
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "2"})})
-                                if (response.data) {
-                                    if (id_empresa) {
-                                        dispatch(listaOrdenesCompraThunk({id_empresa: id_empresa}))
-                                    } else {
-                                        dispatch(listaMisOrdenesDeCompraThunk())
-                                    }
-                                    toast.success("Orden rechazada", {autoClose: 1000})
-                                    if (onSuccess) onSuccess()
-                                    setIsOpen(false)
-                                }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                            }
-                        }}>Rechazar Orden</Button>
-                        <Button variant="solid" onClick={async () => {
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id_orden}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({estado: "1"})})
-                                if (response.data) {
-                                    if (id_empresa) {
-                                        dispatch(listaOrdenesCompraThunk({id_empresa: id_empresa}))
-                                    } else {
-                                        dispatch(listaMisOrdenesDeCompraThunk())
-                                    }
-                                    toast.success("Orden aceptada", {autoClose: 1000})
-                                    if (onSuccess) onSuccess()
-                                    setIsOpen(false)
-                                }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                            }
-                        }}>Aceptar Orden</Button>
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
-        </>
+        <Tooltip text="Aceptar o Rechazar Orden">
+            <Button 
+                variant="solid" 
+                onClick={handleAceptarORechazar} 
+                color="amber" 
+                icon="HeroArrowRightCircle" 
+            />
+        </Tooltip>
     )
 }
 

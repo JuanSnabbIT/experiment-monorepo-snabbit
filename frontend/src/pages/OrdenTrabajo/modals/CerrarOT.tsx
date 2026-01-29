@@ -8,6 +8,7 @@ import { confirmAlert } from "@/utils/sweetAlert"
 // import SeguimientoEnCerrarOT from "./components/SeguimientoEnCerrarOT"
 import { toast } from "react-toastify"
 import ApiService from "@/services/ApiService"
+import { getErrorMessage } from "@/utils/errorHandlers"
 
 
 function CerrarOT() {
@@ -34,7 +35,7 @@ function CerrarOT() {
                 return
             }
             try {
-                const response = await ApiService.fetchData({
+                const response = await ApiService.fetchData<{ estado?: string; estado_label?: string }>({
                     url: `/api/rendiciones/${detalleOrdenTrabajo.rendicion_asociada_id}/`,
                     method: "get",
                 })
@@ -65,20 +66,20 @@ function CerrarOT() {
 
     const missingRendicionReason = useMemo(() => {
         if (!detalleOrdenTrabajo?.rendicion_asociada_id) {
-            return "Asocia la rendición correspondiente (usa el módulo Rendiciones) para poder cerrar la OT."
+            return "La rendición correspondiente a esta OT no está rendida."
         }
         if (!isRendicionRendida) {
-            return "Marca la rendición como \"Rendida\" en el módulo Rendiciones antes de cerrar la OT."
+            return "La rendición correspondiente a esta OT no está rendida."
         }
         return null
     }, [detalleOrdenTrabajo?.rendicion_asociada_id, isRendicionRendida])
 
     const missingPrefacturaReason = useMemo(() => {
         if (!detalleOrdenTrabajo?.cierre_administrativo) {
-            return "Crea la prefactura manual desde Facturaciones (matching de OTs) para seguir."
+            return "La facturación correspondiente a esta OT no está facturada."
         }
         if (!isPrefacturaFacturada) {
-            return "Finaliza la prefactura (estado Facturado) en el módulo de facturas antes de cerrar la OT."
+            return "La facturación correspondiente a esta OT no está facturada."
         }
         return null
     }, [detalleOrdenTrabajo?.cierre_administrativo, isPrefacturaFacturada])
@@ -96,14 +97,13 @@ function CerrarOT() {
         <>
             <Tooltip text={tooltipText}>
                 <span>
-                    <Button
-                        variant="solid"
-                        color="red"
-                        icon="HeroHandRaised"
-                        disabled={!canCloseOrden}
-                        isDisable={!canCloseOrden}
-                        onClick={() => {
-                            if (!canCloseOrden) return
+                        <Button
+                            variant="solid"
+                            color="red"
+                            icon="HeroHandRaised"
+                            isDisable={!canCloseOrden}
+                            onClick={() => {
+                                if (!canCloseOrden) return
                             setIsOpen(true)
                         }}
                     />
@@ -146,7 +146,7 @@ function CerrarOT() {
                                 <Button
                                     variant="solid"
                                     color="red"
-                                    disabled={isBusy || !canCloseOrden}
+                                    isDisable={isBusy || !canCloseOrden}
                                     onClick={async () => {
                                         if (!detalleOrdenTrabajo || !canCloseOrden) return;
                                         setIsBusy(true);
@@ -176,11 +176,9 @@ function CerrarOT() {
                                                 dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
                                                 setIsOpen(false);
                                             }
-                                        } catch (error: any) {
-                                            const mensajesError = error?.response?.data
-                                                ? Object.values(error.response.data).flat().join(" ")
-                                                : error?.message;
-                                            toast.error(mensajesError || "Error al cerrar la OT", {
+                                        } catch (error: unknown) {
+                                            const mensajeError = getErrorMessage(error)
+                                            toast.error(mensajeError || "Error al cerrar la OT", {
                                                 toastId: "Error al cerrar la OT",
                                             });
                                         } finally {

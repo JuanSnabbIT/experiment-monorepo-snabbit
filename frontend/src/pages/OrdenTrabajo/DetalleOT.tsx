@@ -12,16 +12,16 @@ import Tooltip from '@/components/ui/Tooltip';
 import { PRIORIDAD } from '@/constants/ordentrabajo.constant';
 import ApiService from '@/services/ApiService';
 import {
-	detalleOrdenTrabajoThunk,
-	listaHistorialCambiosThunk,
-	listarSimpleHistorialThunk,
-	listaUsuariosTodaLaEmpresaThunk,
-	listaUsuariosTodoElClienteThunk,
-	listaVouchersThunk,
-	obtenerPersonalizacionThunk,
-	useAppDispatch,
-	useAppSelector,
-	usuarioEmpresaLogeadoThunk,
+    detalleOrdenTrabajoThunk,
+    listaHistorialCambiosThunk,
+    listarSimpleHistorialThunk,
+    listaUsuariosTodaLaEmpresaThunk,
+    listaUsuariosTodoElClienteThunk,
+    listaVouchersThunk,
+    obtenerPersonalizacionThunk,
+    useAppDispatch,
+    useAppSelector,
+    usuarioEmpresaLogeadoThunk,
 } from '@/store';
 import { selectEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import dayjs from 'dayjs';
@@ -42,8 +42,8 @@ import SeguimientosOT from './components/SeguimientosOT';
 import MarqueeCompletibilidad from './components/MarqueeCompletibilidad';
 import RendicionesOT from './components/RendicionesOT';
 import RetroalimentacionesOT from './components/RetroalimentacionesOT';
-import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
 import SeguimientoOTDropdown from './components/SeguimientoOTDropdown';
+import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
 import CerrarOT from './modals/CerrarOT';
 import CompletarOT from './modals/CompletarOT';
 import FacturarOT from './modals/FacturarOT';
@@ -56,6 +56,7 @@ const DetalleOT = () => {
 	const { detalleOrdenTrabajo, listaHistorialCambios } = useAppSelector(
 		(state) => state.ordenTrabajo,
 	);
+	const prefacturaAsociadaId = detalleOrdenTrabajo?.prefactura_asociada_id;
 	const { usuarioEmpresaLogeado, listaUsuariosTodoElCliente, listaUsuariosTodaLaEmpresa } =
 		useAppSelector((state) => state.empresa);
 	const { selectEmpresas } = useAppSelector((state) => state.empresa);
@@ -325,15 +326,13 @@ const DetalleOT = () => {
 										/>
 									</Tooltip>
 								)}
-							{detalleOrdenTrabajo.cierre_administrativo?.id && (
-								<Tooltip text={`Ir a prefactura #${detalleOrdenTrabajo.cierre_administrativo.id}`}>
+							{prefacturaAsociadaId && (
+								<Tooltip text={`Ir a prefactura #${prefacturaAsociadaId}`}>
 									<Button
 										variant='solid'
 										color='sky'
 										icon='HeroReceiptPercent'
-										onClick={() =>
-											navigate(`/facturacion/facturas/${detalleOrdenTrabajo.cierre_administrativo?.id}`)
-										}
+										onClick={() => navigate(`/facturacion/facturas/${prefacturaAsociadaId}`)}
 									/>
 								</Tooltip>
 							)}
@@ -355,11 +354,11 @@ const DetalleOT = () => {
 							{detalleOrdenTrabajo.estado === 'facturada' && <CerrarOT />}
 							{detalleOrdenTrabajo.estado === 'cerrada' && <FacturarOT />}
 							{detalleOrdenTrabajo.estado !== 'pendiente' && (
-								<Tooltip text='Ver PDF'>
+								<Tooltip text='Descargar PDF'>
 									<Button
 										variant='solid'
 										color='red'
-										icon='HeroDocumentText'
+										icon='HeroDocumentArrowDown'
 										onClick={handlePdf}
 									/>
 								</Tooltip>

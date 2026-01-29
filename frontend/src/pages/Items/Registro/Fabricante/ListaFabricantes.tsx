@@ -1,21 +1,21 @@
+import Icon from '@/components/icon/Icon'
 import Container from '@/components/layouts/Container/Container'
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import Card, { CardBody } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from '@/components/ui/Tooltip'
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
 import { IFabricante } from '@/interface/items.interface'
 import { useAppDispatch, useAppSelector } from '@/store'
 import { listaFabricanteThunk } from '@/store/slices/item/itemSlice'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import ModalEliminar from '../../Proveedor/modals/ModalEliminar'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
 import CrearFabricante from './modals/CrearFabricante'
 
 
@@ -54,7 +54,7 @@ const ListaFabricantes = () => {
                     <Tooltip text="Detalle">
                         <Button variant="solid" color="violet" icon="HeroEye" onClick={() => { navigate(`/registros/detalle-fabricante/${info.row.original.id}`) }} />
                     </Tooltip>
-                    <ModalEliminar
+                    <ConfirmarEliminar
                         nombre={info.row.original.nombre}
                         mensaje={"¿Está seguro que desea eliminar este item? Se eliminarán todos los registros."}
                         peticionUrl={`/api/fabricantes/${info.row.original.id}/`}

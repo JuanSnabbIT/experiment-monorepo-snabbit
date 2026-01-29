@@ -18,6 +18,7 @@ const ModalDetallItem = ({valuess, id_cotizacion, id_item}: { valuess: IItemCoti
     const { detalleCotizacion } = useAppSelector((state) => state.cotizacion)
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [isEditing, setIsEditing] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     useEffect(() => {
         if (isEditing) {
@@ -47,6 +48,7 @@ const ModalDetallItem = ({valuess, id_cotizacion, id_item}: { valuess: IItemCoti
             precio_unitario: Yup.string().required("Requerido"),
         }),
         onSubmit: async (values) => {
+            setIsSubmitting(true);
             try {
                 const response = await ApiService.fetchData({
                     url: `/api/cotizaciones/${id_cotizacion}/items/${id_item}/`,
@@ -61,7 +63,10 @@ const ModalDetallItem = ({valuess, id_cotizacion, id_item}: { valuess: IItemCoti
                     formikDetalle.resetForm();
                 }
             } catch (error: any) {
-                toast.error(error.response.data || "Error al actualizar el gasto", {toastId: "Error al actualizar el item de la cotizacion"});
+                const errorMessage = error.response?.data?.detail || error.message || "Error al actualizar el item";
+                toast.error(errorMessage, {toastId: "Error al actualizar el item de la cotizacion"});
+            } finally {
+                setIsSubmitting(false);
             }
         }
     });
@@ -200,7 +205,9 @@ const ModalDetallItem = ({valuess, id_cotizacion, id_item}: { valuess: IItemCoti
                         {isEditing ? (
                             <>
                                 <Button color='red' onClick={() => {setIsEditing(false); formikDetalle.resetForm()}}>Cancelar</Button>
-                                <Button variant='solid' onClick={() => {formikDetalle.handleSubmit(); setIsOpen(false)}}>Guardar</Button>
+                                <Button variant='solid' isDisable={isSubmitting} onClick={() => {formikDetalle.handleSubmit()}}>
+                                    {isSubmitting ? "Guardando..." : "Guardar"}
+                                </Button>
                             </>
                         ) : (
                             <>

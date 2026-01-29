@@ -33,19 +33,21 @@ Ejemplos rápidos (activos)
 - [✅] Revisar: manejo de usuarios externos. 
 - [✅] Dolar observado: carga asíncrona al crear (rápido), actualización automática en tiempo real al cambiar fecha en edición (2026-01-27)
 - [✅] Revisar el añadir items a la cotización: actualmente en el modal al seleccionar un item, rellena el proveedor, pero no rellena correctamente los datos que vienen con el proveedor, talvez no se deba rellenar el proveedor al seleccionar el item, ya que un mismo item puede tener varios proveedores con distintos precios y condiciones. 
-- Revisar el renderizado del frontend: al abrir la vista del detalle de una cotizacion y luego salir y entrar nuevamene a la vista del detalle de otra cotización, se ve por un momento los datos de la cotización anterior y luego se recargan los datos y muestran los datos de la cotización actual.
-- Revisar SweetAlert2 en frontend en los modals (Eliminar solicitante, eliminar item de cotización, etc)
-- UI: Revisar colores en pestaña "Cotización Final"
-- Revisar modo claro y modo oscuro.
+- [✅] Revisar el renderizado del frontend: al abrir la vista del detalle de una cotizacion y luego salir y entrar nuevamene a la vista del detalle de otra cotización, se ve por un momento los datos de la cotización anterior y luego se recargan los datos y muestran los datos de la cotización actual.		
+- [✅] Revisar modals para aplicar SweetAlert2 en frontend en los modals (Eliminar solicitante, eliminar item de cotización, etc)
+- [✅] UI: Revisar colores en pestaña "Cotización Final"
+- [✅] Revisar modo claro y modo oscuro.
+- Revisar la capcacidad de crear items nuevos desde el modal de agregar items a la cotización, actualmente solo se pueden seleccionar items ya existentes en el sistema, pero no crear items nuevos desde ese modal.
   
 ## Órdenes de Compra
 - Revisar generación de PDF y opciones rápidas en UI.
 - [✅] Revisar los estados de la OC y agregar un boton de "avanzar a recepción" de manera que el sistema permita hacer todo el proceso "largo" de la Orden de Compra, o una vez generada, avanzar directamente a la recepción de los items.
--   Ver función boton "Subir cotización"
+- [✅] Ver función boton "Subir cotización"
 - Revisarar los botones de acción en la lista de OCs, por ejemplo el boton de Eliminar deberia de desaparecer si la OC esta en otro estado que no sea "Borrador".
 - Revisar Dolar observado; no permitir fechas de compras superiores al dia actual.
-- En ordenes de Compra, al recepcionar si el item ya existe en bodega pero su stock es 0, permita vincular a una nueva bodega la compra entrante.
-- Boton de "Guardar" sea mas informativo visualmente, "Guardar en bodega"
+- [✅] En ordenes de Compra, al recepcionar si el item ya existe en bodega pero su stock es 0, permita vincular a una nueva bodega la compra entrante.
+- [✅]  Boton de "Guardar" sea mas informativo visualmente, "Guardar en bodega"
+- Revisar la capacidad de crear items nuevos desde el modal de agregar items a la OC.
 
 ## Guías de Salida
 - [✅] Vincular GS ↔ OT: permitir múltiples GS por OT (evitar 1:1 automática).

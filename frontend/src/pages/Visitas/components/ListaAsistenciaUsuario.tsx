@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react'
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
 import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import { useParams } from 'react-router-dom'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
-import { IAsistenciaUsuario } from '@/interface/visitas.interface'
-import { listaAsistenciaUsuariosThunk, listaMisClientesThunk, listaUsuariosDelEquipoPorClienteThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
-import CrearAsistenciaUsuario from '../modals/CrearAsistenciaUsuario'
-import CambiarEstadoAsistenciaUsuario from '../modals/CambiarEstadoAsistenciaUsuario'
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
+import Badge from '@/components/ui/Badge'
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
+import { IAsistenciaUsuario } from '@/interface/visitas.interface'
+import { listaAsistenciaUsuariosThunk, useAppDispatch, useAppSelector } from "@/store"
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import CambiarEstadoAsistenciaUsuario from '../modals/CambiarEstadoAsistenciaUsuario'
+import CrearAsistenciaUsuario from '../modals/CrearAsistenciaUsuario'
 
 
 const columnHelper = createColumnHelper<IAsistenciaUsuario>()
@@ -51,13 +51,11 @@ const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) =>
                                 <CambiarEstadoAsistenciaUsuario id_visita={id} info={info.row.original} />
                                 {info.row.original.estado_revision === "por_revisar" && (
                                     <>
-                                        <ModalEliminar 
+                                        <ConfirmarEliminar 
                                             mensaje={`Estas a punto de eliminar esta asistencia a ${info.row.original.usuario_equipo_nombre} ¿desea continuar?`} 
                                             peticionUrl={`/api/visitas-soporte/${id}/asistencias-usuarios/${info.row.original.id}/`}
                                             onDispatch={() => dispatch(listaAsistenciaUsuariosThunk({ id_visita: id }))}
-                                        >
-                                            Eliminar
-                                        </ModalEliminar>
+                                        />
                                     </>
                                 )}
                             </>

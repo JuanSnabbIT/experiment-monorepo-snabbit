@@ -104,10 +104,31 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
             return CierreAdministrativoOTSerializer(obj.cierre_administrativo_v2).data
         return None
 
+    prefactura_asociada_id = serializers.SerializerMethodField()
+
     def get_rendicion_asociada_id(self, obj):
         """Retorna el ID de la Rendición asociada si existe"""
         if hasattr(obj, "rendicion_asociada") and obj.rendicion_asociada:
             return obj.rendicion_asociada.id
+        return None
+
+    def get_prefactura_asociada_id(self, obj):
+        if not obj.cliente_id:
+            return None
+        prefactura = (
+            CierreAdministrativoOT.objects.filter(
+                cliente_id=obj.cliente_id,
+                estado_cierre__in=["borrador", "en_revision", "aprobado", "facturado", "pagado"],
+            )
+            .order_by("-fecha_creacion")
+            .only("id", "resultado", "fecha_creacion")
+            .iterator()
+        )
+        for cierre in prefactura:
+            resultado = cierre.resultado or {}
+            ots_incluidas = resultado.get("ots_incluidas", [])
+            if isinstance(ots_incluidas, list) and obj.id in ots_incluidas:
+                return cierre.id
         return None
 
     def get_guias_salida(self, obj):
@@ -344,6 +365,14 @@ class GastoOperativoEnOtSerializer(serializers.ModelSerializer):
         source="categoria.nombre", read_only=True
     )
 
+    fecha_gasto = serializers.DateTimeField(source="fecha_compra", read_only=True)
+
+    def to_internal_value(self, data):
+        mutable = data.copy()
+        if 'fecha_gasto' in mutable and 'fecha_compra' not in mutable:
+            mutable['fecha_compra'] = mutable['fecha_gasto']
+        return super().to_internal_value(mutable)
+
     class Meta:
         model = GastoOperativoEnOt
         fields = [
@@ -359,6 +388,7 @@ class GastoOperativoEnOtSerializer(serializers.ModelSerializer):
             "monto_total",
             "usuario_comprador",
             "fecha_compra",
+            "fecha_gasto",
             "fecha_creacion",
             "fecha_modificacion",
         ]

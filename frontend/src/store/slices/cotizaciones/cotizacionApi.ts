@@ -33,7 +33,8 @@ export const cotizacionApi = RtkQueryService.injectEndpoints({
 		}),
 		getUsuariosParaSolicitante: builder.query<any[], number | string>({
 			query: (id) => ({
-				url: `/api/cotizaciones/${id}/usuarios-para-solicitante/`,
+				// Usar el endpoint anidado existente que devuelve usuarios sin relacionar
+				url: `/api/cotizaciones/${id}/solicitantes-cotizacion/sin-relacionar/`,
 				method: 'get',
 			}),
 		}),

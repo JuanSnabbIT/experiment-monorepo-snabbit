@@ -1,17 +1,17 @@
 import Input from "@/components/form/Input"
-import SelectReact from "@/components/form/SelectReact"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
 import Textarea from "@/components/form/Textarea"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
 import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import ApiService from "@/services/ApiService"
 import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
 import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
@@ -376,6 +376,14 @@ function DetalleGuiaSalidaBodega() {
                 <div>
                     <Button className="m-2" variant="solid" color="red" onClick={async () => {
                         if (!id) return
+                        const ok = await confirmAlert({
+                            title: "Eliminar item de la guia",
+                            text: "¿Esta seguro(a) de querer eliminar el item de la guia?",
+                            confirmText: "Eliminar",
+                            cancelText: "Cancelar",
+                            icon: "warning",
+                        })
+                        if (!ok) return
                         try {
                             const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/items-guia/${info.row.original.id}/eliminar-item/`, method: 'delete'})
                             if (response.data) {
@@ -454,7 +462,7 @@ function DetalleGuiaSalidaBodega() {
                             </Tooltip>
                         )}
                         {isPendiente && (
-                            <ModalEliminar
+                            <ConfirmarEliminar
                                 mensaje={`Estas a punto de eliminar esta asistencia en ${detalleGuiaSalidaBodega?.id} ¿desea continuar?`}
                                 onDispatch={() => { navigate('/bodega/guias-salida-bodega') }}
                                 peticionUrl={`/api/guia-salida/${detalleGuiaSalidaBodega?.id}/`}
@@ -531,6 +539,40 @@ function DetalleGuiaSalidaBodega() {
                                 </Tooltip>
                             </>
                         )}
+                        {(["ER", "FR", "R", "PR", "E", "T"].includes(detalleGuiaSalidaBodega?.estado || "")) && (
+                            <Tooltip text="Descargar PDF">
+                                <Button 
+                                variant="solid" 
+                                color="red" 
+                                icon="HeroDocumentArrowDown" 
+                                onClick={async () => {
+                                    if (!id) return;
+                                    try {
+                                        const response = await ApiService.fetchData<BlobPart>({
+                                            url: `/api/guia-salida/${id}/descargar-pdf/`,
+                                            method: 'get',
+                                            responseType: 'blob',
+                                        });
+                                        if (response.data) {
+                                            const url = window.URL.createObjectURL(new Blob([response.data]));
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute(
+                                                'download',
+                                                `Guia_Salida_${id}.pdf`,
+                                            );
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
+                                        }
+                                    } catch (error: any) {
+                                        toast.error("Error al descargar PDF");
+                                    }
+                                }} 
+                                />
+                            </Tooltip>
+                        )}
                     </div>
                 </SubheaderRight>
             </Subheader>
@@ -575,7 +617,7 @@ function DetalleGuiaSalidaBodega() {
                                                     onChange={(option) => {
                                                         formik.setFieldValue(
                                                             "recibido_por",
-                                                            option ? option.value : "",
+                                                            option ? (option as TSelectOption).value : "",
                                                         )
                                                     }}
                                                     onBlur={formik.handleBlur}

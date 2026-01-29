@@ -12,6 +12,7 @@ import Modal, {
 import Tooltip from '@/components/ui/Tooltip';
 import type { IBodega, ICompra, IItemEnCompra, IVoucherDevolucion } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     checkCompletibilidadOTThunk,
     detalleOrdenTrabajoThunk,
@@ -100,9 +101,7 @@ function CompletarOT() {
 		} catch (error) {
 			console.error('Error al cargar insumos:', error);
 			setComprasItems([]);
-			setGuiasItems([]);
 			setTieneCompras(false);
-			setTieneGuiasParciales(false);
 		} finally {
 			setCargandoInsumos(false);
 		}
@@ -120,10 +119,8 @@ function CompletarOT() {
 						headers: { 'Content-Type': 'application/json' },
 						data: JSON.stringify({ todos_usados: true, devoluciones: [] }),
 					});
-				} catch (error: any) {
-					const msg =
-						error?.response?.data?.detail ||
-						`No se pudo finalizar el soporte ${sop.nombre}`;
+				} catch (error: unknown) {
+					const msg = getErrorMessage(error) || `No se pudo finalizar el soporte ${sop.nombre}`;
 					throw new Error(msg);
 				}
 			}

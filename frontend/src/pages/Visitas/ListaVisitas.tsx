@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react'
-import { listaVisitasSoporteThunk, useAppDispatch, useAppSelector } from '@/store'
-import Card, { CardBody } from '@/components/ui/Card'
+import Icon from '@/components/icon/Icon'
+import Container from '@/components/layouts/Container/Container'
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
 import Badge from '@/components/ui/Badge'
-import Container from '@/components/layouts/Container/Container'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Icon from '@/components/icon/Icon'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import Tooltip from '@/components/ui/Tooltip'
 import Button from '@/components/ui/Button'
-import { useNavigate } from 'react-router-dom'
-import ModalEliminar from '@/pages/Items/Proveedor/modals/ModalEliminar'
-import { IVisitaSoporte } from '@/interface/visitas.interface'
-import CrearVisitaSoporte from './modals/CrearVisitaSoporte'
+import Card, { CardBody } from '@/components/ui/Card'
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
+import Tooltip from '@/components/ui/Tooltip'
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
+import { IVisitaSoporte } from '@/interface/visitas.interface'
+import { listaVisitasSoporteThunk, useAppDispatch, useAppSelector } from '@/store'
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
+import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import CrearVisitaSoporte from './modals/CrearVisitaSoporte'
 
 
 const columnHelper = createColumnHelper<IVisitaSoporte>()
@@ -61,11 +61,11 @@ const ListaVisitas = () => {
                     <Tooltip text="Detalle Asistencia">
                         <Button color='violet' variant="solid" onClick={() => {navigate(`/orden-trabajo/detalle-visita-soporte/${info.row.original.id}`)}} icon="HeroEye"></Button>
                     </Tooltip>
-                    <ModalEliminar 
+                    <ConfirmarEliminar 
                         mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.cliente_nombre} ¿desea continuar?`} 
                         peticionUrl={`/api/visitas-soporte/${info.row.original.id}/`}
                         onDispatch={() => dispatch(listaVisitasSoporteThunk())}
-                    >Eliminar</ModalEliminar>
+                    />
                 </div>
             )
         })

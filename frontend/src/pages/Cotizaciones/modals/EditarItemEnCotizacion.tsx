@@ -25,6 +25,7 @@ function EditarItemEnCotizacion({
 		(state) => state.item,
 	);
     const [isOpen, setIsOpen] = useState<boolean>(false)
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
 
     useEffect(() => {
         if (isOpen && item) {
@@ -57,6 +58,7 @@ function EditarItemEnCotizacion({
             recargo_dolar: 0,
         },
         onSubmit: async (values) => {
+            setIsSubmitting(true);
             try {
                 const response = await ApiService.fetchData({url: `/api/items-cotizacion/${item.id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(values)})
                 if (response.data) {
@@ -65,7 +67,10 @@ function EditarItemEnCotizacion({
                     if (onItemChange) onItemChange()
                 }
             } catch (error: any) {
-                toast.error(error.response.data || "Error al editar el item", {toastId: "Error al editar el item"})
+                const errorMessage = error.response?.data?.detail || error.message || "Error al editar el item"
+                toast.error(errorMessage, {toastId: "Error al editar el item"})
+            } finally {
+                setIsSubmitting(false);
             }
         }
     })
@@ -168,7 +173,9 @@ function EditarItemEnCotizacion({
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Guardando..." : "Guardar"}
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>

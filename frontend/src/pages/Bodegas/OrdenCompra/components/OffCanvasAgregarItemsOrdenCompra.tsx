@@ -1,17 +1,18 @@
+import Input from "@/components/form/Input"
+import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
+import Validation from "@/components/form/Validation"
 import Badge from "@/components/ui/Badge"
 import Button from "@/components/ui/Button"
 import OffCanvas, { OffCanvasBody, OffCanvasFooter, OffCanvasFooterChild, OffCanvasHeader } from "@/components/ui/OffCanvas"
 import Tooltip from "@/components/ui/Tooltip"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleOrdenCompraThunk, listaItemsEnOrdenCompraThunk } from "@/store/slices/bodega/bodegaSlice"
-import { listaCategoriasThunk, listaFabricanteThunk, listaItemsEmpresaProveedorThunk } from "@/store/slices/item/itemSlice"
-import { useEffect, useState } from "react"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import { useFormik } from "formik"
-import Input from "@/components/form/Input"
+import { IOrdenCompra } from "@/interface/bodega.interface"
 import { ICategoria, IFabricante, IItemEmpresa } from "@/interface/items.interface"
-import Validation from "@/components/form/Validation"
 import ApiService from "@/services/ApiService"
+import { useAppDispatch, useAppSelector } from "@/store"
+import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
+import { listaCategoriasThunk, listaFabricanteThunk, listaItemsEmpresaProveedorThunk } from "@/store/slices/item/itemSlice"
+import { useFormik } from "formik"
+import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
 import * as Yup from 'yup'
 
@@ -36,10 +37,10 @@ const getValidationSchema = (isCreating: boolean) => Yup.object().shape({
     precio: Yup.number().required("Requerido").min(1, "Minimo 1"),
 });
 
-function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | number | undefined}) {
+function OffCanvasAgregarItemsOrdenCompra({id_orden, detalleOrdenCompra} : {id_orden: string | number | undefined, detalleOrdenCompra: IOrdenCompra | undefined}) {
     const dispatch = useAppDispatch()
     const { listaItemsEmpresaProveedor, listaCategorias, listaFabricante } = useAppSelector((state) => state.item)
-    const { detalleOrdenCompra } = useAppSelector((state) => state.bodega)
+    // Removed selector for detalleOrdenCompra from state.bodega
     const [isOpen, setIsOpen] = useState<boolean>(false)
     const [optionsItems, setOptionsItems] = useState<{value: string, label: string}[]>([])
     const [isCreating, setIsCreating] = useState<boolean>(false)
@@ -55,7 +56,7 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
 
     useEffect(() => {
         if (isOpen && id_orden) {
-            dispatch(detalleOrdenCompraThunk({id_orden}))
+            dispatch(ordenCompraApi.util.invalidateTags([{ type: 'OrdenCompra', id: id_orden }]))
         }
     }, [isOpen])
 
@@ -168,14 +169,17 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                 setIsOpen(false)
             } catch (error: any) {
                 setIsSubmitting(false)
-                toast.error(error.response.data.error)
+                const errorMessage = error.response?.data?.error || error.response?.data?.detail || error.response?.data || error.message || "Error al agregar el item"
+                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al agregar el item", {
+                    toastId: "error-agregar-item-oc"
+                })
             }
         },
     })
 
     useEffect(() => {
         if (!isOpen) {
-            dispatch(listaItemsEnOrdenCompraThunk({id_orden}))
+            dispatch(ordenCompraApi.util.invalidateTags([{ type: 'OrdenCompraItems', id: id_orden }]))
             setItemSelected(undefined)
             setCategoriaSelected(undefined)
             setFabricanteSelected(undefined)
@@ -348,7 +352,9 @@ function OffCanvasAgregarItemsOrdenCompra({id_orden} : {id_orden: string | numbe
                     <OffCanvasFooterChild></OffCanvasFooterChild>
                     <OffCanvasFooterChild>
                         <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                        <Button isDisable={isSubmitting} variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                        <Button isDisable={isSubmitting} variant="solid" onClick={() => {formik.handleSubmit()}}>
+                            {isSubmitting ? "Guardando..." : "Guardar"}
+                        </Button>
                     </OffCanvasFooterChild>
                 </OffCanvasFooter>
             </OffCanvas>

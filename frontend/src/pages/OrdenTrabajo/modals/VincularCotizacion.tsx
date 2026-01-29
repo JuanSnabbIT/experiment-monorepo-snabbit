@@ -242,7 +242,12 @@ const VincularCotizacion = ({
                                             Actualizando...
                                         </span>
                                     )}
-                                    {!isOrdenTrabajo && <CrearItemCotizacion />}
+                                    {!isOrdenTrabajo && selectedCotizaciones[0] && (
+                                        <CrearItemCotizacion
+                                            cotizacion={selectedCotizaciones[0]}
+                                            items={[]}
+                                        />
+                                    )}
                                 </div>
                             </div>
                             <div className="w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50">

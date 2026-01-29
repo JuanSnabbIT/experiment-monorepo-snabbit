@@ -1,23 +1,23 @@
+import SelectReact from "@/components/form/SelectReact"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
 import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
 import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
 import Badge from "@/components/ui/Badge"
 import Button, { IButtonProps } from "@/components/ui/Button"
 import Card, { CardBody } from "@/components/ui/Card"
 import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
+import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 import { IEquipo } from "@/interface/recursos.interface"
-import ModalEliminar from "@/pages/Items/Proveedor/modals/ModalEliminar"
 import { listaMisClientesThunk, useAppDispatch, useAppSelector } from "@/store"
 import { listaEquiposEmpresaThunk, listaEquiposPorClienteThunk } from "@/store/slices/recursos/recursosSlice"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import SelectReact from "@/components/form/SelectReact"
 import { SingleValue } from "react-select"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
 
 
 const columnHelper = createColumnHelper<IEquipo>()
@@ -71,7 +71,7 @@ function ListaEquiposEmpresa() {
                     <Tooltip text="Detalle">
                         <Button icon="HeroEye" variant="solid" color="violet" onClick={() => { navigate(`/detalle-equipo-empresa/${info.row.original.id}`) }}></Button>
                     </Tooltip>
-                    <ModalEliminar
+                    <ConfirmarEliminar
                         mensaje="El equipo se elimina por completo sin dejar registro. ¿Está seguro(a)?"
                         peticionUrl={`/api/equipos/${info.row.original.id}/`}
                         onDispatch={() => { dispatch(listaEquiposEmpresaThunk({ id_empresa: personalizacionUsuario?.empresa })) }}

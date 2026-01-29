@@ -1,3 +1,4 @@
+import Checkbox from "@/components/form/Checkbox"
 import Input from "@/components/form/Input"
 import Icon from "@/components/icon/Icon"
 import Container from "@/components/layouts/Container/Container"
@@ -10,17 +11,17 @@ import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
 import Tooltip from "@/components/ui/Tooltip"
 import { IIndicadorDolar, IItemEnOrdenCompra, IItemOrdenCompraEnStock } from "@/interface/bodega.interface"
 import ApiService from "@/services/ApiService"
-import { detalleEmpresaThunk, detalleOrdenCompraThunk, listaBodegasPorEmpresaThunk, listaItemsEnOrdenCompraThunk, listaItemsOrdenCompraEnStockThunk, useAppDispatch, useAppSelector } from "@/store"
+import { detalleEmpresaThunk, listaBodegasPorEmpresaThunk, useAppDispatch } from "@/store"
+import { useGetDetalleOrdenCompraQuery, useGetItemsEnOrdenCompraQuery, useGetItemsOrdenCompraEnStockQuery } from "@/store/slices/bodega/ordenCompraApi"
 import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
 import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
 import dayjs from "dayjs"
-import { useEffect, useState } from "react"
+import "dayjs/locale/es"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "react-toastify"
-import "dayjs/locale/es"
-import EditarItemOrdenStock from "../modals/EditarItemOrdenStock"
 import ConfirmarRecibirOrden from "../modals/ConfirmarRecibirOrden"
-import Checkbox from "@/components/form/Checkbox"
+import EditarItemOrdenStock from "../modals/EditarItemOrdenStock"
 
 
 const columnHelper = createColumnHelper<{item_orden: IItemEnOrdenCompra, item_stock: IItemOrdenCompraEnStock | undefined}>()
@@ -29,29 +30,50 @@ function CompletarOrdenDeCompra() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
     const { id } = useParams()
-    const { detalleOrdenCompra, listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock } = useAppSelector((state) => state.bodega)
+    
+    // Stabilize references for RTK Query data
+    const { data: dataDetalle, isLoading: isLoadingDetalle, refetch: refetchDetalle } = useGetDetalleOrdenCompraQuery(id || '', { skip: !id, refetchOnMountOrArgChange: true });
+    const detalleOrdenCompra = dataDetalle;
+    
+    const shouldFetchItems = Boolean(id && detalleOrdenCompra && (detalleOrdenCompra.estado === "3" || detalleOrdenCompra.estado === "4"));
+
+    const { data: dataItems, isLoading: isLoadingItems } = useGetItemsEnOrdenCompraQuery(id || '', { 
+        skip: !shouldFetchItems,
+        refetchOnMountOrArgChange: true 
+    });
+    const listaItemsEnOrdenCompra = useMemo(() => dataItems || [], [dataItems]);
+
+    const { data: dataStock, isLoading: isLoadingStock } = useGetItemsOrdenCompraEnStockQuery(id || '', { 
+        skip: !shouldFetchItems,
+        refetchOnMountOrArgChange: true 
+    });
+    const listaItemsOrdenCompraEnStock = useMemo(() => dataStock || [], [dataStock]);
+
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isEdittingCompra, setIsEdittingCompra] = useState<boolean>(false)
     const [fechaCompra, setFechaCompra] = useState<string>("")
     const [isLoading, setIsLoading] = useState<boolean>(false)
-    const [itemsARecibir, setItemsARecibir] = useState<{item_orden: IItemEnOrdenCompra, item_stock: IItemOrdenCompraEnStock | undefined }[]>([])
+    
+    // Derived state itemsARecibir
+    const itemsARecibir = useMemo(() => {
+        if (listaItemsEnOrdenCompra.length > 0 && listaItemsOrdenCompraEnStock.length > 0) {
+            return listaItemsEnOrdenCompra.map((item: IItemEnOrdenCompra) => ({
+                item_orden: item,
+                item_stock: listaItemsOrdenCompraEnStock.find(
+                    (it: IItemOrdenCompraEnStock) => it.item_oc_id === item.id
+                )
+            }))
+        }
+        return []
+    }, [listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock])
+
     const [dolarManual, setDolarManual] = useState<boolean>(false)
     const [dolarObservado, setDolarObservado] = useState<number>(0)
 
     useEffect(() => {
-        if (id) {
-            dispatch(detalleOrdenCompraThunk({id_orden: id}))
-        }
-    }, [id])
-
-    useEffect(() => {
-        if (detalleOrdenCompra && (detalleOrdenCompra.estado === "3" || detalleOrdenCompra.estado === "4")) {
-            dispatch(listaItemsEnOrdenCompraThunk({id_orden: detalleOrdenCompra.id}))
-            dispatch(listaItemsOrdenCompraEnStockThunk({id_orden: detalleOrdenCompra.id}))
-        }
         if (detalleOrdenCompra && detalleOrdenCompra.oc_cliente) {
-            dispatch(detalleEmpresaThunk({id_empresa: detalleOrdenCompra.oc_cliente}))
+             dispatch(detalleEmpresaThunk({id_empresa: detalleOrdenCompra.oc_cliente}))
         }
         if (detalleOrdenCompra && detalleOrdenCompra.fecha_compra) {
             setFechaCompra(detalleOrdenCompra.fecha_compra)
@@ -63,12 +85,6 @@ function CompletarOrdenDeCompra() {
             dispatch(listaBodegasPorEmpresaThunk({id_empresa: detalleOrdenCompra?.oc_empresa}))
         }
     }, [detalleOrdenCompra])
-
-    useEffect(() => {
-        if (listaItemsEnOrdenCompra.length > 0 && listaItemsOrdenCompraEnStock.length > 0) {
-            setItemsARecibir(listaItemsEnOrdenCompra.map(item => {return {item_orden: item, item_stock: listaItemsOrdenCompraEnStock.find(it => it.item_oc_id === item.id)}}))
-        }
-    }, [listaItemsEnOrdenCompra, listaItemsOrdenCompraEnStock])
 
     const columns = [
         columnHelper.accessor("item_orden.id", {
@@ -110,7 +126,7 @@ function CompletarOrdenDeCompra() {
             id: "item_stock",
             cell: (info) => (
                 <div>
-                    <EditarItemOrdenStock item_orden={info.row.original.item_orden} item_stock={info.row.original.item_stock} />
+                    <EditarItemOrdenStock item_orden={info.row.original.item_orden} item_stock={info.row.original.item_stock} id_orden={id} />
                 </div>
             ),
             header: ""
@@ -140,7 +156,7 @@ function CompletarOrdenDeCompra() {
                     <Badge className="text-xl">Completar Orden</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <ConfirmarRecibirOrden itemsARecibir={itemsARecibir} />
+                    <ConfirmarRecibirOrden itemsARecibir={itemsARecibir} detalleOrdenCompra={detalleOrdenCompra} />
                 </SubheaderRight>
             </Subheader>
             <Container className="w-full h-full">
@@ -190,7 +206,7 @@ function CompletarOrdenDeCompra() {
                                                                 const responseFecha = await ApiService.fetchData({url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({fecha_compra: fechaCompra, dolar_observado: dolarObservado})})
                                                                 if (responseFecha.data) {
                                                                     toast.success("Fecha y dolar actualizado", {autoClose: 1000})
-                                                                    dispatch(detalleOrdenCompraThunk({id_orden: id}))
+                                                                    refetchDetalle()
                                                                 }
                                                             } else {
                                                                 toast.error("Los dolares no pueden ser menor a 0")
@@ -201,7 +217,7 @@ function CompletarOrdenDeCompra() {
                                                                 const responseFecha = await ApiService.fetchData({url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({fecha_compra: fechaCompra, dolar_observado: responseDolar.data.serie[0].valor.toFixed(0) || 0})})
                                                                 if (responseFecha.data) {
                                                                     toast.success("Fecha y dolar actualizado", {autoClose: 1000})
-                                                                    dispatch(detalleOrdenCompraThunk({id_orden: id}))
+                                                                    refetchDetalle()
                                                                 }
                                                             }
                                                         }
@@ -210,7 +226,7 @@ function CompletarOrdenDeCompra() {
                                                             const response = await ApiService.fetchData({url: `/api/ordenes-compra/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({fecha_compra: fechaCompra})})
                                                             if (response.data) {
                                                                 toast.success("Fecha actualizada", {autoClose: 1000})
-                                                                dispatch(detalleOrdenCompraThunk({id_orden: id}))
+                                                                refetchDetalle()
                                                             }
                                                         } catch (error: any) {
                                                             toast.error(error.response.data)

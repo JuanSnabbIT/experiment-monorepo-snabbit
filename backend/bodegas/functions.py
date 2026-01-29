@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 import os
+import base64
 from textwrap import wrap
 
 from django.utils import timezone
@@ -15,9 +16,17 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 # Core PDF Engine Imports
 from core.pdf.engine import create_pdf_engine, NumberedCanvas
-from core.pdf.styles import get_pdf_styles
-from core.pdf.components import LOGO_PATH, draw_footer, create_data_table, create_info_table
-from core.pdf.utils import format_currency
+from core.pdf.styles import get_pdf_styles, FONTS, CELL_STYLE
+from core.pdf.components import LOGO_PATH
+from core.pdf.canvas_utils import (
+    draw_fecha,
+    draw_encabezado,
+    draw_titulo,
+    draw_footer,
+    draw_paginacion,
+    _format_clp,
+)
+from reportlab.lib.pagesizes import A4
 
 MESES_ES = [
     "enero",
@@ -35,6 +44,109 @@ MESES_ES = [
 ]
 
 # Stub functions (not yet implemented or to be removed)
+def draw_datos_proveedor_orden(pdf, nombre_prov, rut_prov, dir_prov, tel_prov, email_prov, nombre_cli, rut_cli, mx, y):
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(mx, y, "Datos del proveedor:")
+    y -= 14
+    
+    pdf.setFont(*FONTS["datos"])
+    if nombre_prov:
+        pdf.drawString(mx, y, f"Nombre: {nombre_prov}")
+        y -= 14
+    if rut_prov:
+        pdf.drawString(mx, y, f"RUT: {rut_prov}")
+        y -= 14
+    if dir_prov:
+        pdf.drawString(mx, y, f"Dirección: {dir_prov}")
+        y -= 14
+    if tel_prov:
+        pdf.drawString(mx, y, f"Teléfono: {tel_prov}")
+        y -= 14
+    if email_prov:
+        pdf.drawString(mx, y, f"Email: {email_prov}")
+        y -= 14
+    
+    y -= 10
+    if nombre_cli:
+        pdf.setFont(*FONTS["datos_label"])
+        pdf.drawString(mx, y, "Cliente final / Solicitante:")
+        y -= 14
+        pdf.setFont(*FONTS["datos"])
+        pdf.drawString(mx, y, f"Nombre: {nombre_cli}")
+        y -= 14
+        if rut_cli:
+            pdf.drawString(mx, y, f"RUT: {rut_cli}")
+            y -= 14
+            
+    return y - 10
+
+
+def draw_tabla_items_oc(pdf, datos_tabla, ancho, mx, y, alto, ubicacion, fecha_str, logo_b64, codigo_orden):
+    headers = datos_tabla[0]
+    data = datos_tabla[1:]
+    
+    # Process data to match reportlab Table needs (Paragraphs for wrapping)
+    processed_data = [headers]
+    for row in data:
+        # row: [Code, Desc, Qty, Price, Total]
+        processed_row = []
+        for i, cell in enumerate(row):
+            if i == 1: # Description, index 1 assuming standard order from views
+                 processed_row.append(Paragraph(str(cell), CELL_STYLE))
+            else:
+                 processed_row.append(str(cell))
+        processed_data.append(processed_row)
+        
+    table_width = ancho - 2 * mx
+    # Columns [12%, 43%, 12%, 15%, 18%]
+    colWidths = [
+            0.12 * table_width,
+            0.43 * table_width,
+            0.12 * table_width,
+            0.15 * table_width,
+            0.18 * table_width,
+        ]
+        
+    style = TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ])
+    
+    tabla = Table(processed_data, colWidths=colWidths, style=style, repeatRows=1)
+    
+    bottom_reserved = 200
+    availW = table_width
+    y_start = y
+    remaining = tabla
+    while True:
+        availH = y_start - (40 + bottom_reserved)
+        if availH <= 0:
+            pdf.showPage()
+            draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+            draw_titulo(pdf, codigo_orden, ancho, alto, mx, my=40, titulo_texto="Orden de Compra N°")
+            y_start = alto - 40 - 90
+        parts = remaining.split(availW, availH)
+        if not parts:
+            break
+        part = parts[0]
+        _w, h = part.wrap(availW, availH)
+        part.drawOn(pdf, mx, y_start - h)
+        y_start -= h + 20
+        if len(parts) > 1:
+            remaining = parts[1]
+            pdf.showPage()
+            draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+            draw_titulo(pdf, codigo_orden, ancho, alto, mx, my=40, titulo_texto="Orden de Compra N°")
+            y_start = alto - 40 - 90
+            continue
+        break
+    return y_start
+
+
 def generar_orden_de_compra(
     nombre_empresa,
     rut_empresa,
@@ -61,191 +173,172 @@ def generar_orden_de_compra(
     rut_cliente=None,
 ):
     """
-    Genera un PDF de Orden de Compra profesional usando core.pdf components.
+    Genera un PDF de Orden de Compra profesional usando core.pdf components (Canvas).
+    Reemplaza la version anterior para usar el estilo unificado "Cotizaciones".
     """
-    from reportlab.lib.units import cm
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
+    mx, my = 40, 40
     ubicacion = "Santiago"
+    
+    # Hardcoded/Placeholder logic for logo until we integrate with empresa model more directly or pass it
+    # For now, we reuse the param logic or fetch default if needed. 
+    # Current params don't include logo_b64, so we might need to fetch it or rely on existing logic
+    # The existing function logic imported LOGO_PATH. We can read it.
+    
+    logo_b64 = None
+    if os.path.exists(LOGO_PATH):
+       try: 
+           with open(LOGO_PATH, "rb") as f:
+               logo_bytes = f.read()
+               logo_b64 = "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
+       except:
+           pass
 
-    # 1. Setup Engine
-    doc = create_pdf_engine(buffer)
-    story = []
-    styles = get_pdf_styles()
-
-    def _format_fecha_larga(fecha):
-        if not fecha:
-            return ""
+    # Fecha format
+    try:
+        # Try to parse the input date string (expected YYYY-MM-DD or DD-MM-YYYY)
         for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y"):
             try:
-                parsed = datetime.strptime(fecha, fmt)
-                return f"{parsed.day} de {MESES_ES[parsed.month - 1]} de {parsed.year}"
+                dt = datetime.strptime(fecha_orden, fmt)
+                fecha_str = f"{dt.day} de {MESES_ES[dt.month - 1]} de {dt.year}"
+                break
             except ValueError:
-                continue
-        return fecha
-
-    def _draw_header_footer(canvas_obj, doc_obj):
-        canvas_obj.saveState()
-        width, height = doc_obj.pagesize
-        mx = doc_obj.leftMargin
-        my = doc_obj.topMargin
-
-        fecha_larga = _format_fecha_larga(fecha_orden)
-        canvas_obj.setFont("Helvetica", 9)
-        canvas_obj.drawString(mx, height - my + 1, f"{ubicacion}, {fecha_larga}")
-
-        if os.path.exists(LOGO_PATH):
-            try:
-                img = ImageReader(LOGO_PATH)
-                iw, ih = img.getSize()
-                w_logo = 120
-                h_logo = w_logo * (ih / iw)
-                canvas_obj.drawImage(
-                    img,
-                    width - mx - w_logo,
-                    height - my - h_logo,
-                    width=w_logo,
-                    height=h_logo,
-                    mask="auto",
-                )
-            except Exception:
                 pass
-
-        draw_footer(canvas_obj, doc_obj)
-        canvas_obj.restoreState()
-
-    # 3. Document Title
-    story.append(Spacer(1, 1.4 * cm))
-    story.append(Paragraph(f"Orden de Compra N° {codigo_orden}", styles["DocTitle"]))
-    story.append(Spacer(1, 0.2 * cm))
-
-    if estado_orden:
-        story.append(
-            Paragraph(f"<b>Estado:</b> {estado_orden.upper()}", styles["Data"])
-        )
-        story.append(Spacer(1, 0.15 * cm))
-    else:
-        story.append(Spacer(1, 0.15 * cm))
-
-    # 4. Proveedor & Cliente Info
-    story.append(Paragraph("Datos del proveedor", styles["Label"]))
-    info_col_widths = [
-        0.13 * doc.width,
-        0.45 * doc.width,
-        0.12 * doc.width,
-        0.30 * doc.width,
-    ]
-    info_prov = [
-        ["Nombre:", nombre_proveedor or "", "Rut:", rut_proveedor or ""],
-        ["Dirección:", direccion_proveedor or "", "Teléfono:", telefono_proveedor or ""],
-        ["Email:", email_proveedor or "", "", ""],
-    ]
-    tabla_prov = create_info_table(info_prov, col_widths=info_col_widths)
-    tabla_prov.setStyle(
-        TableStyle(
-            [
-                ("LEFTPADDING", (0, 0), (-1, -1), 1),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-                ("TOPPADDING", (0, 0), (-1, -1), 1),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-            ]
-        )
-    )
-    story.append(tabla_prov)
-    story.append(Spacer(1, 0.2 * cm))
-
-    if nombre_cliente:
-        story.append(Paragraph("Cliente final / solicitante", styles["Label"]))
-        info_cli = [
-            ["Nombre:", nombre_cliente or "", "Rut:", rut_cliente or ""],
-        ]
-        tabla_cli = create_info_table(info_cli, col_widths=info_col_widths)
-        tabla_cli.setStyle(
-            TableStyle(
-                [
-                    ("LEFTPADDING", (0, 0), (-1, -1), 1),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-                    ("TOPPADDING", (0, 0), (-1, -1), 1),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-                ]
-            )
-        )
-        story.append(tabla_cli)
-        story.append(Spacer(1, 0.2 * cm))
-
-    # 5. Items Table
-    if datos_tabla and len(datos_tabla) > 1:
-        header_map = {
-            "ARTICULO": "Artículo",
-            "ARTÍCULO": "Artículo",
-            "DESCRIPCION": "Descripción",
-            "DESCRIPCIÓN": "Descripción",
-            "CANTIDAD": "Cantidad",
-            "PRECIO UNITARIO": "Precio Unit.",
-            "PRECIO UNIT": "Precio Unit.",
-            "TOTAL": "Total",
-            "TOTAL NETO": "Total Neto",
-        }
-        headers = [
-            header_map.get(str(header).strip().upper(), header)
-            for header in datos_tabla[0]
-        ]
-        data = datos_tabla[1:]
-        
-        # Estimate column widths for 5 columns
-        ancho_total = doc.width
-        # Distribute: [12%, 43%, 12%, 15%, 18%]
-        col_widths = [
-            0.12 * ancho_total,
-            0.43 * ancho_total,
-            0.12 * ancho_total,
-            0.15 * ancho_total,
-            0.18 * ancho_total,
-        ]
-
-        tabla_items = create_data_table(headers, data, col_widths)
-        tabla_items.setStyle(
-            TableStyle(
-                [
-                    ("FONTSIZE", (0, 0), (-1, 0), 9),
-                    ("TOPPADDING", (0, 0), (-1, 0), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ]
-            )
-        )
-        story.append(tabla_items)
-        story.append(Spacer(1, 0.35 * cm))
-
-    # 6. Totales
-    totales_data = [
-        ["Neto:", neto_orden],
-        ["IVA:", iva_orden],
-        ["TOTAL:", total_orden]
-    ]
-    t_totales = Table(totales_data, colWidths=[3.5*cm, 4*cm], hAlign="RIGHT")
-    t_totales.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-        ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-        ("LINEABOVE", (0, 2), (-1, 2), 0.5, colors.black),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-    ]))
-    story.append(t_totales)
-    story.append(Spacer(1, 0.6 * cm))
-
-    # 7. Observaciones
-    if comentarios_orden and comentarios_orden != "Sin observaciones":
-        story.append(Paragraph("Observaciones:", styles["Label"]))
-        story.append(Paragraph(comentarios_orden, styles["BodyText"]))
-        story.append(Spacer(1, 0.6 * cm))
+        else:
+             fecha_str = fecha_orden
+    except Exception:
+        fecha_str = fecha_orden
     
-    # 9. Build with NumberedCanvas
-    doc.build(
-        story,
-        onFirstPage=_draw_header_footer,
-        onLaterPages=_draw_header_footer,
-        canvasmaker=NumberedCanvas,
+    # 1. Header
+    draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my)
+    
+    # 2. Title
+    draw_titulo(pdf, codigo_orden, ancho, alto, mx, my, titulo_texto="Orden de Compra N°")
+    
+    y = alto - my - 90
+    
+    # 3. Datos Proveedor / Cliente
+    y = draw_datos_proveedor_orden(
+        pdf, nombre_proveedor, rut_proveedor, direccion_proveedor, telefono_proveedor, email_proveedor,
+        nombre_cliente, rut_cliente, mx, y
     )
+    
+    # 4. Tabla Items
+    if datos_tabla and len(datos_tabla) > 0:
+        # Override headers and data processing to match Cotizaciones style
+        # Original headers passed from views: ["ARTICULO", "DESCRIPCION", "CANTIDAD", "PRECIO UNITARIO", "TOTAL"]
+        # New desired: ["Descripción", "Cantidad", "Precio Unit", "Total"]
+        # We will merge Article + Description
+        
+        real_headers = ["Descripción", "Cantidad", "Precio Unit", "Total"]
+        real_data = [real_headers]
+        
+        # input data from views is: [headers, [row1], [row2]...]
+        # row: [id, nombre, cantidad, precio_fmt, total_fmt]
+        source_rows = datos_tabla[1:] 
+        
+        for row in source_rows:
+            # row[0] = id (Article Code)
+            # row[1] = Description/Name
+            # row[2] = Quantity
+            # row[3] = Unit Price
+            # row[4] = Total
+            
+            code = str(row[0])
+            desc = str(row[1])
+            # Merge code and desc
+            combined_text = f"<b>{code}</b><br/><font size='8'>{desc}</font>"
+            
+            processed_row = [
+                Paragraph(combined_text, CELL_STYLE),
+                str(row[2]),
+                str(row[3]),
+                str(row[4])
+            ]
+            real_data.append(processed_row)
+
+        table_width = ancho - 2 * mx
+        # Columns similar to Cotizaciones: [0.4, 0.15, 0.2, 0.25]
+        # But we have 4 cols. Cotizaciones has 4 cols too.
+        colWidths = [
+            0.40 * table_width, # Desc
+            0.15 * table_width, # Qty
+            0.20 * table_width, # Price
+            0.25 * table_width, # Total
+        ]
+        
+        style = TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"), # Align numbers right (cols 1,2,3)
+            # ("ALIGN", (0, 0), (0, -1), "LEFT"), # Desc left
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ])
+        
+        tabla = Table(real_data, colWidths=colWidths, style=style, repeatRows=1)
+        
+        # Layout logic (same as before)
+        bottom_reserved = 200
+        availW = table_width
+        y_start = y
+        remaining = tabla
+        while True:
+            availH = y_start - (40 + bottom_reserved)
+            if availH <= 0:
+                pdf.showPage()
+                draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+                draw_titulo(pdf, codigo_orden, ancho, alto, mx, my=40, titulo_texto="Orden de Compra N°")
+                y_start = alto - 40 - 90
+            parts = remaining.split(availW, availH)
+            if not parts:
+                break
+            part = parts[0]
+            _w, h = part.wrap(availW, availH)
+            part.drawOn(pdf, mx, y_start - h)
+            y_start -= h + 20
+            if len(parts) > 1:
+                remaining = parts[1]
+                pdf.showPage()
+                draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+                draw_titulo(pdf, codigo_orden, ancho, alto, mx, my=40, titulo_texto="Orden de Compra N°")
+                y_start = alto - 40 - 90
+                continue
+            break
+        y = y_start
+    
+    # 5. Totales
+    pdf.setFont(*FONTS["datos_label"])
+    y -= 20
+    # Align right
+    x_totals = ancho - mx - 150
+    pdf.drawString(x_totals, y, f"Neto: {neto_orden}")
+    y -= 14
+    pdf.drawString(x_totals, y, f"IVA: {iva_orden}")
+    y -= 14
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(x_totals, y, f"Total: {total_orden}")
+    y -= 20
+    
+    # 6. Observaciones
+    if comentarios_orden and comentarios_orden != "Sin observaciones":
+        pdf.setFont(*FONTS["datos_label"])
+        pdf.drawString(mx, y, "Observaciones:")
+        y -= 12
+        pdf.setFont(*FONTS["datos"])
+        # Wrap simple
+        for line in wrap(comentarios_orden, width=90):
+             pdf.drawString(mx, y, line)
+             y -= 12
+    
+    # 7. Footer & Page
+    draw_footer(pdf, ancho, mx, my)
+    draw_paginacion(pdf, ancho, mx, my)
+    
+    pdf.showPage()
+    pdf.save()
     buffer.seek(0)
     return buffer
 
