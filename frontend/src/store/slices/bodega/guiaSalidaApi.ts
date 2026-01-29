@@ -1,0 +1,255 @@
+import { IGuiaSalida, IItemGuiaSalida, IStockItemEnBodega } from '@/interface/bodega.interface';
+import RtkQueryService from '@/services/RtkQueryService';
+
+export const guiaSalidaApi = RtkQueryService.injectEndpoints({
+    endpoints: (builder) => ({
+        getGuiasSalidaPorBodega: builder.query<IGuiaSalida[], number | string>({
+            query: (id_bodega) => ({
+                url: `/api/bodegas/${id_bodega}/guias-salida/`,
+                method: 'get',
+            }),
+            providesTags: (result) =>
+                result
+                    ? [
+                          ...result.map(({ id }) => ({ type: 'GuiaSalida' as const, id })),
+                          { type: 'GuiaSalida', id: 'LIST' },
+                      ]
+                    : [{ type: 'GuiaSalida', id: 'LIST' }],
+        }),
+        getDetalleGuiaSalida: builder.query<IGuiaSalida, string | number>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'GuiaSalida' as const, id }],
+        }),
+        getItemsGuiaSalida: builder.query<IItemGuiaSalida[], number | string>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/items/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'GuiaSalidaItems' as const, id }],
+        }),
+        getStockItemsEnBodega: builder.query<IStockItemEnBodega[], number | string>({
+            query: (id_bodega) => ({
+                url: `/api/bodegas/${id_bodega}/stock-items-en-bodega/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id_bodega) => [
+                { type: 'StockItems' as const, id: id_bodega },
+            ],
+        }),
+        getOrdenesCompraDeStock: builder.query<
+            any[],
+            { id_bodega: number | string; id_stock: number | string }
+        >({
+            query: ({ id_bodega, id_stock }) => ({
+                url: `/api/bodegas/${id_bodega}/stock-items-en-bodega/${id_stock}/ordenes-compra`,
+                method: 'get',
+            }),
+        }),
+        createGuiaSalida: builder.mutation<
+            IGuiaSalida,
+            { bodega: number; cliente?: number; recibido_por?: number; motivo?: string }
+        >({
+            query: (body) => ({
+                url: `/api/guia-salida/`,
+                method: 'post',
+                data: body,
+            }),
+            invalidatesTags: [{ type: 'GuiaSalida', id: 'LIST' }],
+        }),
+        updateGuiaSalida: builder.mutation<
+            IGuiaSalida,
+            {
+                id: number | string;
+                motivo?: string;
+                recibido_por?: number;
+                estado?: string;
+                entregado_a?: string | number;
+                firma_entrega?: string;
+            }
+        >({
+            query: ({ id, ...body }) => ({
+                url: `/api/guia-salida/${id}/`,
+                method: 'patch',
+                data: body,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+            ],
+        }),
+        deleteGuiaSalida: builder.mutation<void, number | string>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: [{ type: 'GuiaSalida', id: 'LIST' }],
+        }),
+        agregarItemGuia: builder.mutation<
+            IItemGuiaSalida,
+            {
+                id_guia: number | string;
+                stock_item_id: number;
+                cantidad_rebajada: number;
+                individualizado?: boolean;
+            }
+        >({
+            query: ({ id_guia, ...body }) => ({
+                url: `/api/guia-salida/${id_guia}/agregar-item/`,
+                method: 'post',
+                data: body,
+            }),
+            invalidatesTags: (_result, _error, { id_guia }) => [
+                { type: 'GuiaSalidaItems', id: id_guia },
+                { type: 'GuiaSalida', id: id_guia },
+                { type: 'StockItems', id: 'LIST' },
+            ],
+        }),
+        editarItemGuia: builder.mutation<
+            IItemGuiaSalida,
+            { id_guia: number | string; item_id: number | string; nueva_cantidad: number }
+        >({
+            query: ({ id_guia, item_id, nueva_cantidad }) => ({
+                url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/editar-item/`,
+                method: 'patch',
+                data: { nueva_cantidad },
+            }),
+            invalidatesTags: (_result, _error, { id_guia }) => [
+                { type: 'GuiaSalidaItems', id: id_guia },
+                { type: 'GuiaSalida', id: id_guia },
+                { type: 'StockItems', id: 'LIST' },
+            ],
+        }),
+        eliminarItemGuia: builder.mutation<
+            void,
+            { id_guia: number | string; item_id: number | string }
+        >({
+            query: ({ id_guia, item_id }) => ({
+                url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/eliminar-item/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_result, _error, { id_guia }) => [
+                { type: 'GuiaSalidaItems', id: id_guia },
+                { type: 'GuiaSalida', id: id_guia },
+                { type: 'StockItems', id: 'LIST' },
+            ],
+        }),
+        actualizarSerieItem: builder.mutation<
+            IItemGuiaSalida,
+            { id_guia: number | string; item_id: number | string; serie: string }
+        >({
+            query: ({ id_guia, item_id, serie }) => ({
+                url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/actualizar-serie/`,
+                method: 'patch',
+                data: { serie },
+            }),
+            invalidatesTags: (_result, _error, { id_guia }) => [
+                { type: 'GuiaSalidaItems', id: id_guia },
+            ],
+        }),
+        aprobarGuia: builder.mutation<
+            IGuiaSalida,
+            { id: number | string; firma_recibido_por?: string; recibido_por?: string | number }
+        >({
+            query: ({ id, ...body }) => ({
+                url: `/api/guia-salida/${id}/aprobar-guia/`,
+                method: 'post',
+                data: body,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+            ],
+        }),
+        comprobarGuia: builder.mutation<IGuiaSalida, number | string>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/comprobar-guia/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+            ],
+        }),
+        confirmarRecepcion: builder.mutation<
+            IGuiaSalida,
+            {
+                id: number | string;
+                confirmado_por_id: number;
+                firma?: string;
+                items?: Array<{ item_guia_id: number; cantidad_a_devolver: number }>;
+            }
+        >({
+            query: ({ id, ...body }) => ({
+                url: `/api/guia-salida/${id}/confirmar-recepcion/`,
+                method: 'post',
+                data: body,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+                { type: 'GuiaSalidaItems', id },
+            ],
+        }),
+        volverPendiente: builder.mutation<IGuiaSalida, number | string>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/volver-pendiente/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+            ],
+        }),
+        devolverABodega: builder.mutation<
+            IGuiaSalida,
+            {
+                id: number | string;
+                items?: Array<{ item_guia_id: number; cantidad_a_devolver: number }>;
+            }
+        >({
+            query: ({ id, items }) => ({
+                url: `/api/guia-salida/${id}/devolver_a_bodega/`,
+                method: 'post',
+                data: items ? { items } : undefined,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'GuiaSalida', id },
+                { type: 'GuiaSalida', id: 'LIST' },
+                { type: 'StockItems', id: 'LIST' },
+                { type: 'GuiaSalidaItems', id },
+            ],
+        }),
+        descargarPdf: builder.mutation<BlobPart, number | string>({
+            query: (id) => ({
+                url: `/api/guia-salida/${id}/descargar-pdf/`,
+                method: 'get',
+                responseType: 'blob',
+            }),
+        }),
+    }),
+    overrideExisting: false,
+});
+
+export const {
+    useGetGuiasSalidaPorBodegaQuery,
+    useGetDetalleGuiaSalidaQuery,
+    useGetItemsGuiaSalidaQuery,
+    useGetStockItemsEnBodegaQuery,
+    useGetOrdenesCompraDeStockQuery,
+    useCreateGuiaSalidaMutation,
+    useUpdateGuiaSalidaMutation,
+    useDeleteGuiaSalidaMutation,
+    useAgregarItemGuiaMutation,
+    useEditarItemGuiaMutation,
+    useEliminarItemGuiaMutation,
+    useActualizarSerieItemMutation,
+    useAprobarGuiaMutation,
+    useComprobarGuiaMutation,
+    useConfirmarRecepcionMutation,
+    useVolverPendienteMutation,
+    useDevolverABodegaMutation,
+    useDescargarPdfMutation,
+} = guiaSalidaApi;

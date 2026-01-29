@@ -1,84 +1,104 @@
-import Icon from '@/components/icon/Icon'
-import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Tooltip from '@/components/ui/Tooltip'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
-import { IEntregaEquipo } from '@/interface/visitas.interface'
+import Icon from '@/components/icon/Icon';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IEntregaEquipo } from '@/interface/visitas.interface';
+import { listaEntregaEquipoThunk, useAppDispatch, useAppSelector } from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
-    listaEntregaEquipoThunk,
-    useAppDispatch,
-    useAppSelector
-} from "@/store"
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import { useEffect, useState } from 'react'
-import AñadirEntregaEquipo from '../modals/AñadirEntregaEquipo'
-import EditarEquipoVisita from '../modals/EditarEquipoVisita'
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import AñadirEntregaEquipo from '../modals/AñadirEntregaEquipo';
+import EditarEquipoVisita from '../modals/EditarEquipoVisita';
 
+const columnHelper = createColumnHelper<IEntregaEquipo>();
 
-const columnHelper = createColumnHelper<IEntregaEquipo>()
-
-const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string | undefined, id_visita: number | string | undefined }) => {
-    const dispatch = useAppDispatch()
-    const { listaEntregaEquipos, detalleVisitasSoporte } = useAppSelector((state) => state.visita)
+const EntregaEquipo = ({
+    id_cliente,
+    id_visita,
+}: {
+    id_cliente: number | string | undefined;
+    id_visita: number | string | undefined;
+}) => {
+    const dispatch = useAppDispatch();
+    const { listaEntregaEquipos, detalleVisitasSoporte } = useAppSelector((state) => state.visita);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-    const [isOpenEditar, setIsOpenEditar] = useState<boolean>(false)
-    const [equipoSelected, setEquipoSelected] = useState<number | undefined>(undefined)
+    const [isOpenEditar, setIsOpenEditar] = useState<boolean>(false);
+    const [equipoSelected, setEquipoSelected] = useState<number | undefined>(undefined);
 
     useEffect(() => {
         if (id_visita) {
-            dispatch(listaEntregaEquipoThunk({id_visita}));
+            dispatch(listaEntregaEquipoThunk({ id_visita }));
         }
-    }, [id_visita])
+    }, [id_visita]);
 
     const columns = [
-        columnHelper.accessor("id", {
+        columnHelper.accessor('id', {
             cell: (info) => info.getValue(),
-            header: "N°",
-            size: 25
+            header: 'N°',
+            size: 25,
         }),
-        columnHelper.accessor("datos_equipo.numero_serie", {
+        columnHelper.accessor('datos_equipo.numero_serie', {
             cell: (info) => info.getValue(),
-            header: "N° de Serie Equipo"
+            header: 'N° de Serie Equipo',
         }),
-        columnHelper.accessor("nombre_usuario_a_entregar", {
+        columnHelper.accessor('nombre_usuario_a_entregar', {
             cell: (info) => info.getValue(),
-            header: "Entregar al Usuario"
+            header: 'Entregar al Usuario',
         }),
-        columnHelper.accessor("estado_entrega_label", {
+        columnHelper.accessor('estado_entrega_label', {
             cell: (info) => info.getValue(),
-            header: "Estado de la Entrega"
+            header: 'Estado de la Entrega',
         }),
-        columnHelper.accessor("observaciones", {
+        columnHelper.accessor('observaciones', {
             cell: (info) => info.getValue(),
-            header: "Observaciones"
+            header: 'Observaciones',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
-                <div className="flex justify-center gap-2">
-                    {detalleVisitasSoporte?.estado === "pendiente" && (
+                <div className='flex justify-center gap-2'>
+                    {detalleVisitasSoporte?.estado === 'pendiente' && (
                         <>
-                            <Tooltip text="Editar Equipo">
-                                <Button variant='solid' icon="HeroTv" color='amber' onClick={() => {setEquipoSelected(info.row.original.equipo); setIsOpenEditar(true)}} />
+                            <Tooltip text='Editar Equipo'>
+                                <Button
+                                    variant='solid'
+                                    icon='HeroTv'
+                                    color='amber'
+                                    onClick={() => {
+                                        setEquipoSelected(info.row.original.equipo);
+                                        setIsOpenEditar(true);
+                                    }}
+                                />
                             </Tooltip>
                             {/* {(info.row.original.estado_entrega != "entregado" && info.row.original.estado_entrega != "no_usuario") && (<CambiarEstadoEntregaEquipo entrega={info.row.original} />)} */}
-                            {info.row.original.estado_entrega === "por_entregar" && (
+                            {info.row.original.estado_entrega === 'por_entregar' && (
                                 <ConfirmarEliminar
-                                    mensaje={`Estas a punto de eliminar esta entrega a ${info.row.original.usuario_a_entregar} ¿desea continuar?`} 
+                                    mensaje={`Estas a punto de eliminar esta entrega a ${info.row.original.usuario_a_entregar} ¿desea continuar?`}
                                     peticionUrl={`/api/visitas-soporte/${id_visita}/entregas-equipos/${info.row.original.id}/`}
-                                    onDispatch={() => dispatch(listaEntregaEquipoThunk({ id_visita }))}
+                                    onDispatch={() =>
+                                        dispatch(listaEntregaEquipoThunk({ id_visita }))
+                                    }
                                 />
                             )}
                         </>
                     )}
                 </div>
-            )
-        })
+            ),
+        }),
     ];
 
     const table = useReactTable({
@@ -94,37 +114,46 @@ const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string 
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     useEffect(() => {
         if (!isOpenEditar) {
-            dispatch(listaEntregaEquipoThunk({id_visita}));
+            dispatch(listaEntregaEquipoThunk({ id_visita }));
         }
-    }, [isOpenEditar])
+    }, [isOpenEditar]);
 
     return (
         <>
             <Card>
                 <CardHeader>
                     <CardHeaderChild>
-                        <Badge className="text-xl">Entrega de Equipo</Badge>
+                        <Badge className='text-xl'>Entrega de Equipo</Badge>
                     </CardHeaderChild>
                     <CardHeaderChild>
-                        <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={200}>
-                            {detalleVisitasSoporte && detalleVisitasSoporte.estado === "pendiente" && (<AñadirEntregaEquipo id_visita={id_visita} id_cliente={id_cliente} />)}
+                        <AnimacionDeInputModoMovil
+                            globalFilter={globalFilter}
+                            setGlobalFilter={setGlobalFilter}
+                            anchoInput={200}>
+                            {detalleVisitasSoporte &&
+                                detalleVisitasSoporte.estado === 'pendiente' && (
+                                    <AñadirEntregaEquipo
+                                        id_visita={id_visita}
+                                        id_cliente={id_cliente}
+                                    />
+                                )}
                         </AnimacionDeInputModoMovil>
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody className='z-0'>
-                    <div className="overflow-auto">
-                        <Table className='table-fixed min-w-[800px]'>
+                    <div className='overflow-auto'>
+                        <Table className='min-w-[800px] table-fixed'>
                             <THead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <Tr key={headerGroup.id}>
                                         {headerGroup.headers.map((header) => (
                                             <Th
-                                                style={{width: header.column.getSize()}}
+                                                style={{ width: header.column.getSize() }}
                                                 key={header.id}
                                                 isColumnBorder={false}
                                                 className='text-left'>
@@ -134,11 +163,11 @@ const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string 
                                                         aria-hidden='true'
                                                         {...{
                                                             className: header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none flex items-center'
-                                                            : '',
-                                                            onClick: header.column.getToggleSortingHandler(),
-                                                        }}
-                                                    >
+                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                : '',
+                                                            onClick:
+                                                                header.column.getToggleSortingHandler(),
+                                                        }}>
                                                         {flexRender(
                                                             header.column.columnDef.header,
                                                             header.getContext(),
@@ -156,7 +185,8 @@ const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string 
                                                                     className='ltr:ml-1.5 rtl:mr-1.5'
                                                                 />
                                                             ),
-                                                        }[header.column.getIsSorted() as string] ?? null}
+                                                        }[header.column.getIsSorted() as string] ??
+                                                            null}
                                                     </div>
                                                 )}
                                             </Th>
@@ -169,22 +199,29 @@ const EntregaEquipo = ({ id_cliente, id_visita }: { id_cliente: number | string 
                                     <Tr key={row.id}>
                                         {row.getVisibleCells().map((cell) => (
                                             <Td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
                                             </Td>
                                         ))}
                                     </Tr>
                                 ))}
                             </TBody>
                         </Table>
-                        <div className="mt-2 min-w-[800px]">
+                        <div className='mt-2 min-w-[800px]'>
                             <TableCardFooterTemplateV2 table={table} />
                         </div>
                     </div>
                 </CardBody>
             </Card>
-            <EditarEquipoVisita isOpen={isOpenEditar} setIsOpen={setIsOpenEditar} id_equipo={equipoSelected} />
+            <EditarEquipoVisita
+                isOpen={isOpenEditar}
+                setIsOpen={setIsOpenEditar}
+                id_equipo={equipoSelected}
+            />
         </>
-    )
-}
+    );
+};
 
 export default EntregaEquipo;

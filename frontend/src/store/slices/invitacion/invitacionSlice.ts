@@ -1,43 +1,50 @@
-import { IInvitacionEmpresa } from "@/interface/invitacion.interface"
-import ApiService from "@/services/ApiService"
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
-
+import { IInvitacionEmpresa } from '@/interface/invitacion.interface';
+import ApiService from '@/services/ApiService';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 export interface InvitacionState {
-    loading: boolean
-    error: string | undefined
-    listaInvitaciones: IInvitacionEmpresa[]
+    loading: boolean;
+    error: string | undefined;
+    listaInvitaciones: IInvitacionEmpresa[];
 }
 
 const initialState: InvitacionState = {
     loading: false,
     error: undefined,
-    listaInvitaciones: []
-}
+    listaInvitaciones: [],
+};
 
-export const listaInvitacionesFiltroThunk = createAsyncThunk<IInvitacionEmpresa[], {filtro: string}, {rejectValue: string}>(
-    'invitacion/listaInvitacionesFiltroThunk',
-    async ({filtro}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IInvitacionEmpresa[]>({url: `/api/invitaciones-empresa/${filtro}`, method: 'get'})
-            return response.data
-        } catch(error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaInvitacionesFiltroThunk = createAsyncThunk<
+    IInvitacionEmpresa[],
+    { filtro: string },
+    { rejectValue: string }
+>('invitacion/listaInvitacionesFiltroThunk', async ({ filtro }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IInvitacionEmpresa[]>({
+            url: `/api/invitaciones-empresa/${filtro}`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const listaInvitacionesThunk = createAsyncThunk<IInvitacionEmpresa[], undefined, {rejectValue: string}>(
-    'invitacion/listaInvitacionesThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IInvitacionEmpresa[]>({url: `/api/invitaciones-empresa/`, method: 'get'})
-            return response.data
-        } catch(error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaInvitacionesThunk = createAsyncThunk<
+    IInvitacionEmpresa[],
+    undefined,
+    { rejectValue: string }
+>('invitacion/listaInvitacionesThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IInvitacionEmpresa[]>({
+            url: `/api/invitaciones-empresa/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
 const invitacionSlice = createSlice({
     name: 'invitacion/invitacionSlice',
@@ -46,30 +53,30 @@ const invitacionSlice = createSlice({
     extraReducers(builder) {
         builder
             .addCase(listaInvitacionesFiltroThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaInvitacionesFiltroThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaInvitaciones = action.payload
+                state.loading = false;
+                state.listaInvitaciones = action.payload;
             })
             .addCase(listaInvitacionesFiltroThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(listaInvitacionesThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaInvitacionesThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaInvitaciones = action.payload
+                state.loading = false;
+                state.listaInvitaciones = action.payload;
             })
             .addCase(listaInvitacionesThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
-            })
+                state.loading = false;
+                state.error = action.payload;
+            });
     },
-})
+});
 
-export const {} = invitacionSlice.actions
+export const {} = invitacionSlice.actions;
 
-export default invitacionSlice.reducer
+export default invitacionSlice.reducer;

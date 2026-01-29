@@ -1,19 +1,18 @@
-import { IGuardadoParcialRetroalimentacion } from "@/interface/ordenTrabajo.interface"
-import { IGruposUsuarios, IPersonalizacionUsuario, IUserMe } from "@/interface/user.interface"
-import ApiService from "@/services/ApiService"
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
-
+import { IGuardadoParcialRetroalimentacion } from '@/interface/ordenTrabajo.interface';
+import { IGruposUsuarios, IPersonalizacionUsuario, IUserMe } from '@/interface/user.interface';
+import ApiService from '@/services/ApiService';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
 export interface AuthState {
-    access: string | undefined
-    refresh: string | undefined
-    loading: boolean
-    error: string | undefined
-    isAuthenticated: boolean
-    userMe: IUserMe | undefined
-    listaGrupos: IGruposUsuarios | undefined
-    personalizacionUsuario: IPersonalizacionUsuario | undefined
-    guardadoRetroalimentacionOT: IGuardadoParcialRetroalimentacion | undefined
+    access: string | undefined;
+    refresh: string | undefined;
+    loading: boolean;
+    error: string | undefined;
+    isAuthenticated: boolean;
+    userMe: IUserMe | undefined;
+    listaGrupos: IGruposUsuarios | undefined;
+    personalizacionUsuario: IPersonalizacionUsuario | undefined;
+    guardadoRetroalimentacionOT: IGuardadoParcialRetroalimentacion | undefined;
 }
 
 const initialState: AuthState = {
@@ -25,8 +24,8 @@ const initialState: AuthState = {
     userMe: undefined,
     listaGrupos: undefined,
     personalizacionUsuario: undefined,
-    guardadoRetroalimentacionOT: undefined
-}
+    guardadoRetroalimentacionOT: undefined,
+};
 
 // export const loginThunk = createAsyncThunk<LoginResponse, {email: string, password: string}, {rejectValue: string}>(
 //     'auth/loginThunk',
@@ -42,65 +41,80 @@ const initialState: AuthState = {
 //     }
 // )
 
-export const userMeThunk = createAsyncThunk<IUserMe, {access: string | undefined}, {rejectValue: string}>(
-    'auth/userMeThunk',
-    async ({access}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IUserMe>({url: '/auth/users/me', method: 'get', headers: {'Authorization': `Bearer ${access}`}})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const userMeThunk = createAsyncThunk<
+    IUserMe,
+    { access: string | undefined },
+    { rejectValue: string }
+>('auth/userMeThunk', async ({ access }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IUserMe>({
+            url: '/auth/users/me',
+            method: 'get',
+            headers: { Authorization: `Bearer ${access}` },
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const obtenerGruposThunk = createAsyncThunk<IGruposUsuarios, {access: string | undefined}, {rejectValue: string}>(
-    'auth/obtenerGruposThunk',
-    async ({access}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IGruposUsuarios>({url: `/api/get_grupos_user/`, method: 'get', headers: {'Authorization': `Bearer ${access}`}})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const obtenerGruposThunk = createAsyncThunk<
+    IGruposUsuarios,
+    { access: string | undefined },
+    { rejectValue: string }
+>('auth/obtenerGruposThunk', async ({ access }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IGruposUsuarios>({
+            url: `/api/get_grupos_user/`,
+            method: 'get',
+            headers: { Authorization: `Bearer ${access}` },
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const obtenerPersonalizacionThunk = createAsyncThunk<IPersonalizacionUsuario, {access: string | undefined}, {rejectValue: string}>(
-    'auth/obtenerPersonalizacionThunk',
-    async ({access}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IPersonalizacionUsuario[]>({url: `/api/personalizacion-usuarios/`, method: 'get', headers: {'Authorization': `Bearer ${access}`}})
-            return response.data[0]
-        } catch (error: any) {
-            return rejectWithValue(error.response.data  )
-        }
+export const obtenerPersonalizacionThunk = createAsyncThunk<
+    IPersonalizacionUsuario,
+    { access: string | undefined },
+    { rejectValue: string }
+>('auth/obtenerPersonalizacionThunk', async ({ access }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IPersonalizacionUsuario[]>({
+            url: `/api/personalizacion-usuarios/`,
+            method: 'get',
+            headers: { Authorization: `Bearer ${access}` },
+        });
+        return response.data[0];
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
 const authSlice = createSlice({
     name: `auth/authSlice`,
     initialState,
     reducers: {
         LOGOUT: (state) => {
-            state.access = undefined
-            state.refresh = undefined
-            state.isAuthenticated = false
+            state.access = undefined;
+            state.refresh = undefined;
+            state.isAuthenticated = false;
         },
         GUARDAR_TOKEN: (state, action) => {
-            state.access = action.payload
+            state.access = action.payload;
         },
         LOGIN: (state, action) => {
-            state.access = action.payload.access
-            state.refresh = action.payload.refresh
-            state.isAuthenticated = true
+            state.access = action.payload.access;
+            state.refresh = action.payload.refresh;
+            state.isAuthenticated = true;
         },
         GUARDAR_RETROALIMENTACION: (state, action) => {
-            state.guardadoRetroalimentacionOT = action.payload
+            state.guardadoRetroalimentacionOT = action.payload;
         },
         LIMPIAR_RETROALIMENTACION: (state) => {
-            state.guardadoRetroalimentacionOT = undefined
-        }
+            state.guardadoRetroalimentacionOT = undefined;
+        },
     },
     extraReducers(builder) {
         builder
@@ -118,41 +132,47 @@ const authSlice = createSlice({
             //     state.error = action.payload
             // })
             .addCase(userMeThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(userMeThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.userMe = action.payload
+                state.loading = false;
+                state.userMe = action.payload;
             })
             .addCase(userMeThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(obtenerGruposThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(obtenerGruposThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaGrupos = action.payload
+                state.loading = false;
+                state.listaGrupos = action.payload;
             })
             .addCase(obtenerGruposThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(obtenerPersonalizacionThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(obtenerPersonalizacionThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.personalizacionUsuario = action.payload
+                state.loading = false;
+                state.personalizacionUsuario = action.payload;
             })
             .addCase(obtenerPersonalizacionThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
-            })
+                state.loading = false;
+                state.error = action.payload;
+            });
     },
-})
+});
 
-export const { LOGOUT, GUARDAR_TOKEN, LOGIN, GUARDAR_RETROALIMENTACION, LIMPIAR_RETROALIMENTACION } = authSlice.actions
+export const {
+    LOGOUT,
+    GUARDAR_TOKEN,
+    LOGIN,
+    GUARDAR_RETROALIMENTACION,
+    LIMPIAR_RETROALIMENTACION,
+} = authSlice.actions;
 
-export default authSlice.reducer
+export default authSlice.reducer;

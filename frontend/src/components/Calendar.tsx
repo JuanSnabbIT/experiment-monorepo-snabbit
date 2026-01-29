@@ -6,12 +6,12 @@ import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import {
-	CalendarOptions,
-	DatesSetArg,
-	LocaleInput,
-	LocaleSingularArg,
-	PluginDef,
-	ToolbarInput,
+    CalendarOptions,
+    DatesSetArg,
+    LocaleInput,
+    LocaleSingularArg,
+    PluginDef,
+    ToolbarInput,
 } from '@fullcalendar/core';
 import colors from 'tailwindcss/colors';
 import theme from 'tailwindcss/defaultTheme';
@@ -23,30 +23,30 @@ import themeConfig from '../config/theme.config';
 export type TViewMode = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek' | string;
 
 interface ICalendarProps extends Partial<CalendarOptions> {
-	viewMode?: TViewMode;
-	plugins?: PluginDef[];
-	headerToolbar?: ToolbarInput;
-	eventColor?: string;
-	locale?: LocaleSingularArg;
-	locales?: LocaleInput[];
+    viewMode?: TViewMode;
+    plugins?: PluginDef[];
+    headerToolbar?: ToolbarInput;
+    eventColor?: string;
+    locale?: LocaleSingularArg;
+    locales?: LocaleInput[];
 }
 const Calendar = forwardRef<FullCalendar, ICalendarProps>((props, ref) => {
-	const {
-		plugins,
-		viewMode = 'dayGridMonth',
-		headerToolbar,
-		eventColor = colors[themeConfig.themeColor][themeConfig.themeColorShade],
-		locale,
-		locales,
-		datesSet,
-		...rest
-	} = props;
+    const {
+        plugins,
+        viewMode = 'dayGridMonth',
+        headerToolbar,
+        eventColor = colors[themeConfig.themeColor][themeConfig.themeColorShade],
+        locale,
+        locales,
+        datesSet,
+        ...rest
+    } = props;
 
-	const { i18n } = useTranslation();
+    const { i18n } = useTranslation();
 
-	return (
-		<>
-			<style>{`
+    return (
+        <>
+            <style>{`
 				.fc-header-toolbar.fc-toolbar {
 					${typeof headerToolbar === 'undefined' ? 'margin: 0 !important' : ''}
 				}
@@ -81,29 +81,29 @@ const Calendar = forwardRef<FullCalendar, ICalendarProps>((props, ref) => {
 					--fc-list-event-hover-bg-color:${colors.blue['700']};
 			
 			`}</style>
-			<FullCalendar
-				locale={locale || i18n.language}
-				locales={_.merge([trLocale, arLocale], locales)}
-				ref={ref}
-				plugins={_.merge(
-					[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-					plugins,
-				)}
-				initialView={viewMode}
-				datesSet={datesSet}
-				headerToolbar={_.merge(
-					{
-						start: '',
-						center: '',
-						end: '',
-					},
-					headerToolbar,
-				)}
-				eventColor={eventColor}
-				{...rest}
-			/>
-		</>
-	);
+            <FullCalendar
+                locale={locale || i18n.language}
+                locales={_.merge([trLocale, arLocale], locales)}
+                ref={ref}
+                plugins={_.merge(
+                    [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+                    plugins,
+                )}
+                initialView={viewMode}
+                datesSet={datesSet}
+                headerToolbar={_.merge(
+                    {
+                        start: '',
+                        center: '',
+                        end: '',
+                    },
+                    headerToolbar,
+                )}
+                eventColor={eventColor}
+                {...rest}
+            />
+        </>
+    );
 });
 Calendar.displayName = 'Calendar';
 
@@ -153,6 +153,5 @@ export const useCalendarView = (ref: RefObject<FullCalendar>) => {
 
     return { viewMode, changeViewMode, next, prev, today, title, handleDatesSet };
 };
-
 
 export default Calendar;

@@ -1,52 +1,69 @@
-import Input from "@/components/form/Input"
-import SelectReact from "@/components/form/SelectReact"
-import Icon from "@/components/icon/Icon"
-import Badge from "@/components/ui/Badge"
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import { IUsuarioEmpresa } from "@/interface/empresas.interface"
-import { listaUsuariosClienteThunk, useAppDispatch, useAppSelector } from "@/store"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useEffect, useState } from "react"
+import Input from '@/components/form/Input';
+import SelectReact from '@/components/form/SelectReact';
+import Icon from '@/components/icon/Icon';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import { IUsuarioEmpresa } from '@/interface/empresas.interface';
+import { listaUsuariosClienteThunk, useAppDispatch, useAppSelector } from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
 
-
-const columnHelper = createColumnHelper<IUsuarioEmpresa>()
+const columnHelper = createColumnHelper<IUsuarioEmpresa>();
 
 function TablaUsuariosDelCliente() {
-    const dispatch = useAppDispatch()
-    const { detalleCliente, listaUsuariosCliente } = useAppSelector((state) => state.empresa)
-    const [sucursalSelected, setSucursalSelected] = useState<{value: string, label: string}>()
-    const [optionSucursal, setOptionSucursal] = useState<{value: string, label: string}[]>([])
+    const dispatch = useAppDispatch();
+    const { detalleCliente, listaUsuariosCliente } = useAppSelector((state) => state.empresa);
+    const [sucursalSelected, setSucursalSelected] = useState<{ value: string; label: string }>();
+    const [optionSucursal, setOptionSucursal] = useState<{ value: string; label: string }[]>([]);
     const [sorting, setSorting] = useState<SortingState>([]);
-    const [globalFilter, setGlobalFilter] = useState<string>('')
+    const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
         if (detalleCliente) {
-            setOptionSucursal(detalleCliente.info_cliente.sucursales.map((suc) => {return {value: suc.id.toString(), label: suc.nombre}}))
+            setOptionSucursal(
+                detalleCliente.info_cliente.sucursales.map((suc) => {
+                    return { value: suc.id.toString(), label: suc.nombre };
+                }),
+            );
         }
-    }, [detalleCliente])
+    }, [detalleCliente]);
 
     useEffect(() => {
         if (detalleCliente && sucursalSelected) {
-            dispatch(listaUsuariosClienteThunk({id_empresa: detalleCliente.cliente, id_sucursal: sucursalSelected.value}))
+            dispatch(
+                listaUsuariosClienteThunk({
+                    id_empresa: detalleCliente.cliente,
+                    id_sucursal: sucursalSelected.value,
+                }),
+            );
         }
-    }, [detalleCliente, sucursalSelected])
+    }, [detalleCliente, sucursalSelected]);
 
     const columns = [
-        columnHelper.accessor("nombre_usuario", {
+        columnHelper.accessor('nombre_usuario', {
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
-        columnHelper.accessor("email_usuario", {
+        columnHelper.accessor('email_usuario', {
             cell: (info) => info.getValue(),
-            header: "Email"
+            header: 'Email',
         }),
-        columnHelper.accessor("papeleta.rut", {
-            cell: (info) => info.getValue() || "Sin Rut",
-            header: "Rut"
-        })
-    ]
+        columnHelper.accessor('papeleta.rut', {
+            cell: (info) => info.getValue() || 'Sin Rut',
+            header: 'Rut',
+        }),
+    ];
 
     const table = useReactTable({
         data: listaUsuariosCliente,
@@ -61,7 +78,7 @@ function TablaUsuariosDelCliente() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
@@ -71,28 +88,32 @@ function TablaUsuariosDelCliente() {
                     <Badge className='text-xl'>Usuarios</Badge>
                 </CardHeaderChild>
             </CardHeader>
-            <CardBody className="z-0">
-                <div className="flex flex-col md:flex-row w-full gap-4 justify-between mb-4">
+            <CardBody className='z-0'>
+                <div className='mb-4 flex w-full flex-col justify-between gap-4 md:flex-row'>
                     <div className='w-full md:w-1/3'>
                         <SelectReact
-                            placeholder="Sucursal..."
+                            placeholder='Sucursal...'
                             name='sucursal'
                             options={optionSucursal}
                             value={sucursalSelected}
-                            onChange={(e) => {setSucursalSelected(e as {value: string, label: string})}}
+                            onChange={(e) => {
+                                setSucursalSelected(e as { value: string; label: string });
+                            }}
                         />
                     </div>
                     <div>
                         <Input
-                            name="globalFilter"
-                            placeholder="Buscar..."
+                            name='globalFilter'
+                            placeholder='Buscar...'
                             value={globalFilter}
-                            onChange={(e) => {setGlobalFilter(e.target.value)}}
+                            onChange={(e) => {
+                                setGlobalFilter(e.target.value);
+                            }}
                         />
                     </div>
                 </div>
-                <div className="overflow-auto">
-                    <Table className='table-fixed min-w-[600px]'>
+                <div className='overflow-auto'>
+                    <Table className='min-w-[600px] table-fixed'>
                         <THead>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
@@ -129,7 +150,8 @@ function TablaUsuariosDelCliente() {
                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
                                                             />
                                                         ),
-                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                    }[header.column.getIsSorted() as string] ??
+                                                        null}
                                                 </div>
                                             )}
                                         </Th>
@@ -142,20 +164,23 @@ function TablaUsuariosDelCliente() {
                                 <Tr key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
                                         <Td key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
                                         </Td>
                                     ))}
                                 </Tr>
                             ))}
                         </TBody>
                     </Table>
-                    <div className="mt-2 min-w-[600px]">
+                    <div className='mt-2 min-w-[600px]'>
                         <TableCardFooterTemplateV2 table={table} />
                     </div>
                 </div>
             </CardBody>
         </Card>
-    )
+    );
 }
 
-export default TablaUsuariosDelCliente
+export default TablaUsuariosDelCliente;

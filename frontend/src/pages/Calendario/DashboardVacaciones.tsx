@@ -1,12 +1,12 @@
-import Container from "@/components/layouts/Container/Container";
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper";
-import Subheader, { SubheaderLeft } from "@/components/layouts/Subheader/Subheader";
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
-import Chart from "@/components/Chart";
-import { listaSolicitudesVacacionesThunk, useAppDispatch, useAppSelector } from "@/store";
-import dayjs from "dayjs";
-import { useEffect, useMemo } from "react";
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import Chart from '@/components/Chart';
+import { listaSolicitudesVacacionesThunk, useAppDispatch, useAppSelector } from '@/store';
+import dayjs from 'dayjs';
+import { useEffect, useMemo } from 'react';
 
 function DashboardVacaciones() {
     const dispatch = useAppDispatch();
@@ -25,8 +25,18 @@ function DashboardVacaciones() {
     }, [listaSolicitudesVacaciones]);
 
     const meses = [
-        "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+        'Ene',
+        'Feb',
+        'Mar',
+        'Abr',
+        'May',
+        'Jun',
+        'Jul',
+        'Ago',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dic',
     ];
 
     const solicitudesPorMes = useMemo(() => {
@@ -51,32 +61,45 @@ function DashboardVacaciones() {
     };
 
     return (
-        <PageWrapper isProtectedRoute={true} title="Dashboard Vacaciones" name="Dashboard Vacaciones">
+        <PageWrapper
+            isProtectedRoute={true}
+            title='Dashboard Vacaciones'
+            name='Dashboard Vacaciones'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Dashboard Vacaciones</Badge>
+                    <Badge className='text-xl'>Dashboard Vacaciones</Badge>
                 </SubheaderLeft>
             </Subheader>
             <Container>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className='grid gap-4 md:grid-cols-2'>
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
-                                <Badge className="text-xl">Solicitudes por Estado</Badge>
+                                <Badge className='text-xl'>Solicitudes por Estado</Badge>
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
-                            <Chart type="pie" series={seriesEstado} options={optionsEstado} height={300} />
+                            <Chart
+                                type='pie'
+                                series={seriesEstado}
+                                options={optionsEstado}
+                                height={300}
+                            />
                         </CardBody>
                     </Card>
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
-                                <Badge className="text-xl">Solicitudes por Mes</Badge>
+                                <Badge className='text-xl'>Solicitudes por Mes</Badge>
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
-                            <Chart type="bar" series={seriesMeses} options={optionsMeses} height={300} />
+                            <Chart
+                                type='bar'
+                                series={seriesMeses}
+                                options={optionsMeses}
+                                height={300}
+                            />
                         </CardBody>
                     </Card>
                 </div>

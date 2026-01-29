@@ -1,10 +1,9 @@
-import { IAsistenciaUsuario, IEntregaEquipo, IVisitaSoporte } from "@/interface/visitas.interface";
-import { IDetalleOrdenDeTrabajo } from "./ordenTrabajo.interface";
+import { IAsistenciaUsuario, IEntregaEquipo, IVisitaSoporte } from '@/interface/visitas.interface';
+import { IDetalleOrdenDeTrabajo } from './ordenTrabajo.interface';
 
 export interface IDetalleConVisitasResponse {
     orden_id: number;
     detalles_trabajo: IDetalleOrdenDeTrabajoExtendido[];
-    
 }
 
 export interface IDetalleOrdenDeTrabajoExtendido extends IDetalleOrdenDeTrabajo {

@@ -1,70 +1,87 @@
-import Icon from '@/components/icon/Icon'
-import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
-import Badge from '@/components/ui/Badge'
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
-import { IAsistenciaUsuario } from '@/interface/visitas.interface'
-import { listaAsistenciaUsuariosThunk, useAppDispatch, useAppSelector } from "@/store"
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import CambiarEstadoAsistenciaUsuario from '../modals/CambiarEstadoAsistenciaUsuario'
-import CrearAsistenciaUsuario from '../modals/CrearAsistenciaUsuario'
+import Icon from '@/components/icon/Icon';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IAsistenciaUsuario } from '@/interface/visitas.interface';
+import { listaAsistenciaUsuariosThunk, useAppDispatch, useAppSelector } from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import CambiarEstadoAsistenciaUsuario from '../modals/CambiarEstadoAsistenciaUsuario';
+import CrearAsistenciaUsuario from '../modals/CrearAsistenciaUsuario';
 
+const columnHelper = createColumnHelper<IAsistenciaUsuario>();
 
-const columnHelper = createColumnHelper<IAsistenciaUsuario>()
-
-const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) => {
-    const dispatch = useAppDispatch()
-    const { id } = useParams()
-    const { listaAsistenciaUsuarios, detalleVisitasSoporte } = useAppSelector((state) => state.visita)
+const ListaAsistenciaUsuario = ({}: { id_visita: number | string | undefined }) => {
+    const dispatch = useAppDispatch();
+    const { id } = useParams();
+    const { listaAsistenciaUsuarios, detalleVisitasSoporte } = useAppSelector(
+        (state) => state.visita,
+    );
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        dispatch(listaAsistenciaUsuariosThunk({id_visita: id}))
-    }, [])
+        dispatch(listaAsistenciaUsuariosThunk({ id_visita: id }));
+    }, []);
 
     const columns = [
-        columnHelper.accessor("id", {
+        columnHelper.accessor('id', {
             cell: (info) => info.getValue(),
-            header: "N°",
-            size: 25
+            header: 'N°',
+            size: 25,
         }),
-        columnHelper.accessor("usuario_equipo_nombre", {
+        columnHelper.accessor('usuario_equipo_nombre', {
             cell: (info) => info.getValue(),
-            header: "Usuario"
+            header: 'Usuario',
         }),
-        columnHelper.accessor("estado_revision_label", {
+        columnHelper.accessor('estado_revision_label', {
             cell: (info) => info.getValue(),
-            header: "Estado de la revision"
+            header: 'Estado de la revision',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => {
                 return (
-                    <div className="flex justify-center gap-2">
-                        {detalleVisitasSoporte?.estado === "pendiente" && (
+                    <div className='flex justify-center gap-2'>
+                        {detalleVisitasSoporte?.estado === 'pendiente' && (
                             <>
-                                <CambiarEstadoAsistenciaUsuario id_visita={id} info={info.row.original} />
-                                {info.row.original.estado_revision === "por_revisar" && (
+                                <CambiarEstadoAsistenciaUsuario
+                                    id_visita={id}
+                                    info={info.row.original}
+                                />
+                                {info.row.original.estado_revision === 'por_revisar' && (
                                     <>
-                                        <ConfirmarEliminar 
-                                            mensaje={`Estas a punto de eliminar esta asistencia a ${info.row.original.usuario_equipo_nombre} ¿desea continuar?`} 
+                                        <ConfirmarEliminar
+                                            mensaje={`Estas a punto de eliminar esta asistencia a ${info.row.original.usuario_equipo_nombre} ¿desea continuar?`}
                                             peticionUrl={`/api/visitas-soporte/${id}/asistencias-usuarios/${info.row.original.id}/`}
-                                            onDispatch={() => dispatch(listaAsistenciaUsuariosThunk({ id_visita: id }))}
+                                            onDispatch={() =>
+                                                dispatch(
+                                                    listaAsistenciaUsuariosThunk({ id_visita: id }),
+                                                )
+                                            }
                                         />
                                     </>
                                 )}
                             </>
                         )}
                     </div>
-                )
-            }
-        })
-    ]
+                );
+            },
+        }),
+    ];
 
     const table = useReactTable({
         data: listaAsistenciaUsuarios,
@@ -79,7 +96,7 @@ const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) =>
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
@@ -87,17 +104,20 @@ const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) =>
             <Card>
                 <CardHeader>
                     <CardHeaderChild>
-                        <Badge className="text-xl">Asistencia Usuarios</Badge>
+                        <Badge className='text-xl'>Asistencia Usuarios</Badge>
                     </CardHeaderChild>
                     <CardHeaderChild>
-                        <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={200}>
+                        <AnimacionDeInputModoMovil
+                            globalFilter={globalFilter}
+                            setGlobalFilter={setGlobalFilter}
+                            anchoInput={200}>
                             <CrearAsistenciaUsuario id_visita={detalleVisitasSoporte?.id} />
                         </AnimacionDeInputModoMovil>
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody className='z-0'>
-                    <div className="overflow-auto">
-                        <Table className='table-fixed min-w-[800px]'>
+                    <div className='overflow-auto'>
+                        <Table className='min-w-[800px] table-fixed'>
                             <THead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <Tr key={headerGroup.id}>
@@ -135,7 +155,8 @@ const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) =>
                                                                     className='ltr:ml-1.5 rtl:mr-1.5'
                                                                 />
                                                             ),
-                                                        }[header.column.getIsSorted() as string] ?? null}
+                                                        }[header.column.getIsSorted() as string] ??
+                                                            null}
                                                     </div>
                                                 )}
                                             </Th>
@@ -148,22 +169,24 @@ const ListaAsistenciaUsuario = ({}: {id_visita: number | string | undefined}) =>
                                     <Tr key={row.id}>
                                         {row.getVisibleCells().map((cell) => (
                                             <Td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
                                             </Td>
                                         ))}
                                     </Tr>
                                 ))}
                             </TBody>
                         </Table>
-                        <div className="mt-2 min-w-[800px]">
+                        <div className='mt-2 min-w-[800px]'>
                             <TableCardFooterTemplateV2 table={table} />
                         </div>
                     </div>
                 </CardBody>
             </Card>
         </>
-    )
-}
+    );
+};
 
-export default ListaAsistenciaUsuario
-
+export default ListaAsistenciaUsuario;

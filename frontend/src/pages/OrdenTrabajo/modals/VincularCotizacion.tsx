@@ -1,15 +1,20 @@
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
-import CrearCotizacion from "@/pages/Cotizaciones/modals/CrearCotizacion";
-import CrearItemCotizacion from "@/pages/Cotizaciones/modals/CrearItemCotizacion";
-import ApiService from "@/services/ApiService";
-import { listaCotizacionesThunk, useAppDispatch, useAppSelector } from "@/store";
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
-import { getErrorMessage } from "@/utils/errorHandlers";
-import { ICotizacion } from "@/interface/cotizaciones.interface";
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import CrearCotizacion from '@/pages/Cotizaciones/modals/CrearCotizacion';
+import CrearItemCotizacion from '@/pages/Cotizaciones/modals/CrearItemCotizacion';
+import ApiService from '@/services/ApiService';
+import { listaCotizacionesThunk, useAppDispatch, useAppSelector } from '@/store';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { ICotizacion } from '@/interface/cotizaciones.interface';
 
 type EntityType = 'servicio-general' | 'detalle-trabajo' | 'orden-trabajo';
 type ItemResumen = {
@@ -31,13 +36,13 @@ interface VincularCotizacionProps {
     clienteId?: number;
 }
 
-const VincularCotizacion = ({ 
-    isOpen, 
-    setIsOpen, 
-    entityType, 
-    entityId, 
+const VincularCotizacion = ({
+    isOpen,
+    setIsOpen,
+    entityType,
+    entityId,
     ordenId,
-    entityName = "Servicio",
+    entityName = 'Servicio',
     onSuccess,
     clienteId,
 }: VincularCotizacionProps) => {
@@ -100,7 +105,7 @@ const VincularCotizacion = ({
                     .catch((error: unknown) => {
                         console.error(error);
                         toast.error(
-                            getErrorMessage(error) || "Error al cargar cotizaciones elegibles"
+                            getErrorMessage(error) || 'Error al cargar cotizaciones elegibles',
                         );
                         setCotizacionesOt([]);
                     })
@@ -124,8 +129,8 @@ const VincularCotizacion = ({
                 ApiService.fetchData<ItemResumen[]>({
                     url: `/api/cotizaciones/${id}/items-resumen/`,
                     method: 'get',
-                }).then((response) => ({ id, data: response.data ?? [] }))
-            )
+                }).then((response) => ({ id, data: response.data ?? [] })),
+            ),
         )
             .then((responses) => {
                 const mapped: Record<string, ItemResumen[]> = {};
@@ -136,14 +141,14 @@ const VincularCotizacion = ({
             })
             .catch((error: unknown) => {
                 console.error(error);
-                toast.error(getErrorMessage(error) || "Error al cargar resumen de items");
+                toast.error(getErrorMessage(error) || 'Error al cargar resumen de items');
             })
             .finally(() => setLoadingItemsResumen(false));
     }, [selectedQuoteIds]);
 
     const handleVincular = async () => {
         if (!selectedQuoteIds.length) {
-            toast.error("Debe seleccionar una cotización");
+            toast.error('Debe seleccionar una cotización');
             return;
         }
 
@@ -161,13 +166,13 @@ const VincularCotizacion = ({
             });
 
             if (response.data) {
-                toast.success("Cotización vinculada correctamente");
+                toast.success('Cotización vinculada correctamente');
                 if (onSuccess) onSuccess();
                 setIsOpen(false);
             }
         } catch (error: unknown) {
             console.error(error);
-            toast.error(getErrorMessage(error) || "Error al vincular la cotización");
+            toast.error(getErrorMessage(error) || 'Error al vincular la cotización');
         } finally {
             setIsLoading(false);
         }
@@ -179,20 +184,22 @@ const VincularCotizacion = ({
     );
 
     return (
-        <Modal isOpen={isOpen} setIsOpen={setIsOpen} size="xl" isStaticBackdrop={true}>
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='xl' isStaticBackdrop={true}>
             <ModalHeader>
-                <Badge className="text-xl">Vincular Cotización - {entityName}</Badge>
+                <Badge className='text-xl'>Vincular Cotización - {entityName}</Badge>
             </ModalHeader>
             <ModalBody>
-                <div className="flex flex-col gap-6">
+                <div className='flex flex-col gap-6'>
                     {/* Selection Section */}
-                    <div className="grid grid-cols-12 gap-4 items-end">
-                        <div className="col-span-10">
+                    <div className='grid grid-cols-12 items-end gap-4'>
+                        <div className='col-span-10'>
                             <Badge>Seleccionar Cotización</Badge>
                             <SelectReact
-                                name="cotizacion"
+                                name='cotizacion'
                                 options={cotizacionOptions}
-                                value={isOrdenTrabajo ? selectedOptions : selectedOptions[0] ?? null}
+                                value={
+                                    isOrdenTrabajo ? selectedOptions : (selectedOptions[0] ?? null)
+                                }
                                 onChange={(option) => {
                                     if (Array.isArray(option)) {
                                         setSelectedQuoteIds(
@@ -203,12 +210,12 @@ const VincularCotizacion = ({
                                     const selected = option as TSelectOption | null;
                                     setSelectedQuoteIds(selected?.value ? [selected.value] : []);
                                 }}
-                                placeholder="Buscar cotización..."
+                                placeholder='Buscar cotización...'
                                 isClearable
                                 isMulti={isOrdenTrabajo}
                                 isLoading={isOrdenTrabajo && loadingCotizacionesOt}
                                 noOptionsMessage={() => (
-                                    <span className="text-xs">
+                                    <span className='text-xs'>
                                         {isOrdenTrabajo
                                             ? 'No hay cotizaciones elegibles para generar guías.'
                                             : 'No hay cotizaciones disponibles.'}
@@ -217,12 +224,12 @@ const VincularCotizacion = ({
                             />
                         </div>
                         {!isOrdenTrabajo && (
-                            <div className="col-span-2 flex justify-end">
-                                <CrearCotizacion 
-                                    empresa={false} 
+                            <div className='col-span-2 flex justify-end'>
+                                <CrearCotizacion
+                                    empresa={false}
                                     onSuccess={(newQuote) => {
                                         setSelectedQuoteIds([newQuote.id.toString()]);
-                                    }} 
+                                    }}
                                 />
                             </div>
                         )}
@@ -230,15 +237,15 @@ const VincularCotizacion = ({
 
                     {/* Details Section */}
                     {selectedQuoteIds.length > 0 && (
-                        <div className="flex flex-col gap-3 border-t pt-4">
-                            <div className="flex items-center justify-between">
+                        <div className='flex flex-col gap-3 border-t pt-4'>
+                            <div className='flex items-center justify-between'>
                                 <Badge>Detalle de cotizaciones</Badge>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm text-gray-500">
+                                <div className='flex items-center gap-3'>
+                                    <span className='text-sm text-gray-500'>
                                         {selectedQuoteIds.length} cotizaciones
                                     </span>
                                     {loadingItemsResumen && (
-                                        <span className="text-xs text-gray-400">
+                                        <span className='text-xs text-gray-400'>
                                             Actualizando...
                                         </span>
                                     )}
@@ -250,50 +257,65 @@ const VincularCotizacion = ({
                                     )}
                                 </div>
                             </div>
-                            <div className="w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-100">
+                            <div className='w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                                <table className='min-w-full divide-y divide-gray-200'>
+                                    <thead className='bg-gray-100'>
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
                                                 Item
                                             </th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
                                                 Cant. pedida
                                             </th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
                                                 Cant. recibida
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className='divide-y divide-gray-200 bg-white'>
                                         {selectedCotizaciones.map((cot) => {
                                             const items = itemsResumen[cot.id.toString()] ?? [];
-                                            const totalPedido = items.reduce((sum, item) => sum + (item.cantidad_pedida || 0), 0);
-                                            const totalRecibido = items.reduce((sum, item) => sum + (item.cantidad_recibida || 0), 0);
+                                            const totalPedido = items.reduce(
+                                                (sum, item) => sum + (item.cantidad_pedida || 0),
+                                                0,
+                                            );
+                                            const totalRecibido = items.reduce(
+                                                (sum, item) => sum + (item.cantidad_recibida || 0),
+                                                0,
+                                            );
                                             return (
                                                 <Fragment key={cot.id}>
-                                                    <tr className="bg-blue-50">
-                                                        <td className="px-4 py-3 text-sm font-semibold text-slate-800" colSpan={3}>
-                                                            N°{cot.numero_cotizacion} - {cot.nombre} · Pedido {totalPedido} · Recibido {totalRecibido} · OCs {cot.oc_recibidas_count ?? 0}/{cot.oc_count ?? 0} · Guías {cot.guias_count ?? 0}
+                                                    <tr className='bg-blue-50'>
+                                                        <td
+                                                            className='px-4 py-3 text-sm font-semibold text-slate-800'
+                                                            colSpan={3}>
+                                                            N°{cot.numero_cotizacion} - {cot.nombre}{' '}
+                                                            · Pedido {totalPedido} · Recibido{' '}
+                                                            {totalRecibido} · OCs{' '}
+                                                            {cot.oc_recibidas_count ?? 0}/
+                                                            {cot.oc_count ?? 0} · Guías{' '}
+                                                            {cot.guias_count ?? 0}
                                                         </td>
                                                     </tr>
                                                     {items.length ? (
                                                         items.map((item) => (
                                                             <tr key={`${cot.id}-${item.id}`}>
-                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                <td className='px-4 py-3 text-sm text-gray-900'>
                                                                     {item.item_nombre}
                                                                 </td>
-                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                <td className='px-4 py-3 text-sm text-gray-900'>
                                                                     {item.cantidad_pedida}
                                                                 </td>
-                                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                                <td className='px-4 py-3 text-sm text-gray-900'>
                                                                     {item.cantidad_recibida}
                                                                 </td>
                                                             </tr>
                                                         ))
                                                     ) : (
                                                         <tr>
-                                                            <td className="px-4 py-3 text-sm text-gray-500" colSpan={3}>
+                                                            <td
+                                                                className='px-4 py-3 text-sm text-gray-500'
+                                                                colSpan={3}>
                                                                 Sin items para mostrar.
                                                             </td>
                                                         </tr>
@@ -311,13 +333,14 @@ const VincularCotizacion = ({
             <ModalFooter>
                 <ModalFooterChild />
                 <ModalFooterChild>
-                    <Button color="red" onClick={() => setIsOpen(false)}>Cancelar</Button>
-                    <Button 
-                        variant="solid" 
-                        onClick={handleVincular} 
+                    <Button color='red' onClick={() => setIsOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        variant='solid'
+                        onClick={handleVincular}
                         isLoading={isLoading}
-                        isDisable={!selectedQuoteIds.length}
-                    >
+                        isDisable={!selectedQuoteIds.length}>
                         Vincular
                     </Button>
                 </ModalFooterChild>

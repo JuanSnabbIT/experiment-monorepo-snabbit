@@ -4,7 +4,7 @@ import { RouteProps } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
 
 export type IRoutePersonalizadas = RouteProps & {
-	authority: string[];
+    authority: string[];
 };
 
 const ConfirmarNuevaPass = lazy(() => import('@/pages/ResetPassword/ConfirmarNuevaPass'));
@@ -15,42 +15,42 @@ const SinPermisos = lazy(() => import('@/pages/SinPermisos'));
 const ProfilePage = lazy(() => import('@/pages/Profile.page'));
 const Home = lazy(() => import('@/pages/Dashboard/Home'));
 const ListaInvitacionesEmpresa = lazy(
-	() => import('@/pages/InvitacionEmpresa/ListaInvitacionesEmpresa'),
+    () => import('@/pages/InvitacionEmpresa/ListaInvitacionesEmpresa'),
 );
 const AceptarInvitacionEmpresa = lazy(() => import('@/pages/AceptarInvitacionEmpresa'));
 const ListaDiasCalendarioV2 = lazy(() => import('@/pages/Calendario/ListaDiasCalendarioV2'));
 const PedirVacaciones = lazy(() => import('@/pages/Calendario/PedirVacaciones'));
 const PedirVacacionesUsuario = lazy(() => import('@/pages/Calendario/PedirVacacionesUsuario'));
 const ListaSolicitudesVacaciones = lazy(
-	() => import('@/pages/Calendario/ListaSolicitudesVacaciones'),
+    () => import('@/pages/Calendario/ListaSolicitudesVacaciones'),
 );
 const DetalleSolicitudVacaciones = lazy(
-	() => import('@/pages/Calendario/DetalleSolicitudVacaciones'),
+    () => import('@/pages/Calendario/DetalleSolicitudVacaciones'),
 );
 const ListaMisSolicitudesVacaciones = lazy(
-	() => import('@/pages/Calendario/ListaSolicitudesVacacionesUsuario'),
+    () => import('@/pages/Calendario/ListaSolicitudesVacacionesUsuario'),
 );
 const PDFSolicitudVacaciones = lazy(() => import('@/pages/Calendario/pdf/PDFSolicitudVacaciones'));
 const DashboardVacaciones = lazy(() => import('@/pages/Calendario/DashboardVacaciones'));
 const ListaUsuariosEmpresa = lazy(() => import('@/pages/Empresas/ListaUsuariosEmpresa'));
 const DetalleUsuarioEmpresa = lazy(() => import('@/pages/Empresas/DetalleUsuarioEmpresa'));
 const ListaProveedoresEmpresa = lazy(
-	() => import('@/pages/Items/Proveedor/ListaProveedoresEmpresa'),
+    () => import('@/pages/Items/Proveedor/ListaProveedoresEmpresa'),
 );
 const DetalleProveedorEmpresa = lazy(
-	() => import('@/pages/Items/Proveedor/DetalleProveedorEmpresa'),
+    () => import('@/pages/Items/Proveedor/DetalleProveedorEmpresa'),
 );
 const ListaItemsEmpresa = lazy(() => import('@/pages/Items/ListaItemsEmpresa'));
 const DetalleItemEmpresa = lazy(() => import('@/pages/Items/DetalleItemEmpresa'));
 const ListaBodegas = lazy(() => import('@/pages/Bodegas/ListaBodegas'));
 const ListaOrdenesCompraV2 = lazy(() => import('@/pages/Bodegas/OrdenCompra/ListaOrdenesCompraV2'));
 const DetalleOrdenCompraV2 = lazy(
-	() => import('@/pages/Bodegas/OrdenCompra/components/DetalleOrdenCompraV2'),
+    () => import('@/pages/Bodegas/OrdenCompra/components/DetalleOrdenCompraV2'),
 );
 const DetalleFabricante = lazy(() => import('@/pages/Items/Registro/Fabricante/DetalleFabricante'));
 const DetalleCategoria = lazy(() => import('@/pages/Items/Registro/Categoria/DetalleCategoria'));
 const CompletarOrdenDeCompraV2 = lazy(
-	() => import('@/pages/Bodegas/OrdenCompra/components/CompletarOrdenDeCompraV2'),
+    () => import('@/pages/Bodegas/OrdenCompra/components/CompletarOrdenDeCompraV2'),
 );
 const ListaEmpresas = lazy(() => import('@/pages/Empresas/ListaEmpresas'));
 const DetalleEmpresa = lazy(() => import('@/pages/Empresas/DetalleEmpresa'));
@@ -59,24 +59,24 @@ const ListaFabricantes = lazy(() => import('@/pages/Items/Registro/Fabricante/Li
 // const ListaClientes = lazy(() => import('@/pages/Clientes/ListaClientes'))
 const DetalleCliente = lazy(() => import('@/pages/Clientes/DetalleCliente'));
 const ListaGuiaSalidaBodega = lazy(
-	() => import('@/pages/Bodegas/GuiaSalida/ListaGuiaSalidaBodega'),
+    () => import('@/pages/Bodegas/GuiaSalida/ListaGuiaSalidaBodega'),
 );
 const CrearItemsGuiaSalidaBodega = lazy(
-	() => import('@/pages/Bodegas/GuiaSalida/CrearItemsGuiaSalidaBodega'),
+    () => import('@/pages/Bodegas/GuiaSalida/CrearItemsGuiaSalidaBodega'),
 );
 const DetalleGuiaSalidaBodega = lazy(
-	() => import('@/pages/Bodegas/GuiaSalida/DetalleGuiaSalidaBodega'),
+    () => import('@/pages/Bodegas/GuiaSalida/DetalleGuiaSalidaBodega'),
 );
 const DevolucionParcialGuiaSalidaBodega = lazy(
-	() => import('@/pages/Bodegas/GuiaSalida/DevolucionParcialGuiaSalidaBodega'),
+    () => import('@/pages/Bodegas/GuiaSalida/DevolucionParcialGuiaSalidaBodega'),
 );
 const ListaEquiposEmpresa = lazy(() => import('@/pages/Recursos/Equipos/ListaEquiposEmpresa'));
 const DetalleEquipoEmpresa = lazy(() => import('@/pages/Recursos/Equipos/DetalleEquipoEmpresa'));
 const ListaMisOrdenesDeCompra = lazy(
-	() => import('@/pages/Bodegas/OrdenCompra/ListaMisOrdenesdeCompra'),
+    () => import('@/pages/Bodegas/OrdenCompra/ListaMisOrdenesdeCompra'),
 );
 const AgregarItemsOrdenCompra = lazy(
-	() => import('@/pages/Bodegas/OrdenCompra/components/AgregarItemsOrdenCompra'),
+    () => import('@/pages/Bodegas/OrdenCompra/components/AgregarItemsOrdenCompra'),
 );
 const ListaUsuarios = lazy(() => import('@/pages/Core/User/ListaUser'));
 const DetalleSucursal = lazy(() => import('@/pages/Empresas/DetalleSucursal'));
@@ -103,393 +103,393 @@ const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'
 const ListaCompras = lazy(() => import('@/pages/Bodegas/Compra/ListaCompra'));
 const DetalleCompra = lazy(() => import('@/pages/Bodegas/Compra/DetalleCompra'));
 const ListaTomaDeInventario = lazy(
-	() => import('@/pages/Bodegas/TomaInventario/ListaTomaDeInventario'),
+    () => import('@/pages/Bodegas/TomaInventario/ListaTomaDeInventario'),
 );
 const DetalleTomaInventario = lazy(
-	() => import('@/pages/Bodegas/TomaInventario/DetalleTomaInventario'),
+    () => import('@/pages/Bodegas/TomaInventario/DetalleTomaInventario'),
 );
 const InventariarTomaInventario = lazy(
-	() => import('@/pages/Bodegas/TomaInventario/components/InventariarTomaInventario'),
+    () => import('@/pages/Bodegas/TomaInventario/components/InventariarTomaInventario'),
 );
 const AgregarItemsACompraDT = lazy(
-	() => import('@/pages/OrdenTrabajo/components/AgregarItemsACompraDT'),
+    () => import('@/pages/OrdenTrabajo/components/AgregarItemsACompraDT'),
 );
 const VistaPreviaAdjunto = lazy(() => import('@/pages/OrdenTrabajo/components/VistaPreviaAdjunto'));
 const FirmarContratoYAcuerdoConfidencialidad = lazy(
-	() => import('@/pages/Contratos/components/FirmarContratoYAcuerdoConfidencialidad'),
+    () => import('@/pages/Contratos/components/FirmarContratoYAcuerdoConfidencialidad'),
 );
 const DetalleRetroalimentacionOT = lazy(
-	() => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
+    () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
 );
 
 const contentRoutes: IRoutePersonalizadas[] = [
-	{
-		path: authPages.loginPage.to,
-		element: <LoginPage />,
-		authority: authPages.loginPage.autority,
-	},
-	{
-		path: authPages.profilePage.to,
-		element: <ProfilePage />,
-		authority: authPages.profilePage.autority,
-	},
-	{
-		path: authPages.aceptarInvitacionEmpresa.to,
-		element: <AceptarInvitacionEmpresa />,
-		authority: authPages.aceptarInvitacionEmpresa.authority,
-	},
-	{
-		path: authPages.RecuperarPassword.to,
-		element: <RecuperarPassword />,
-		authority: authPages.RecuperarPassword.authority,
-	},
-	{
-		path: authPages.ConfirmarNuevaPass.to,
-		element: <ConfirmarNuevaPass />,
-		authority: authPages.ConfirmarNuevaPass.authority,
-	},
-	{
-		path: authPages.pdfContrato.to,
-		element: <PDFContrato />,
-		authority: authPages.pdfContrato.authority,
-	},
+    {
+        path: authPages.loginPage.to,
+        element: <LoginPage />,
+        authority: authPages.loginPage.autority,
+    },
+    {
+        path: authPages.profilePage.to,
+        element: <ProfilePage />,
+        authority: authPages.profilePage.autority,
+    },
+    {
+        path: authPages.aceptarInvitacionEmpresa.to,
+        element: <AceptarInvitacionEmpresa />,
+        authority: authPages.aceptarInvitacionEmpresa.authority,
+    },
+    {
+        path: authPages.RecuperarPassword.to,
+        element: <RecuperarPassword />,
+        authority: authPages.RecuperarPassword.authority,
+    },
+    {
+        path: authPages.ConfirmarNuevaPass.to,
+        element: <ConfirmarNuevaPass />,
+        authority: authPages.ConfirmarNuevaPass.authority,
+    },
+    {
+        path: authPages.pdfContrato.to,
+        element: <PDFContrato />,
+        authority: authPages.pdfContrato.authority,
+    },
 
-	{
-		path: pagesConfig.listaInvitacionesEmpresas.to,
-		element: <ListaInvitacionesEmpresa />,
-		authority: pagesConfig.listaInvitacionesEmpresas.authority,
-	},
-	{
-		path: pagesConfig.listaDiasCalendario.to,
-		element: <ListaDiasCalendarioV2 />,
-		authority: pagesConfig.listaDiasCalendario.authority,
-	},
-	{
-		path: Pages.compras.subPages.completarOrdenCompra.to,
-		element: <CompletarOrdenDeCompraV2 />,
-		authority: Pages.compras.subPages.completarOrdenCompra.authority,
-	},
-	{
-		path: Pages.bodega.subPages.listaGuiaSalida.to,
-		element: <ListaGuiaSalidaBodega />,
-		authority: Pages.bodega.subPages.listaGuiaSalida.authority,
-	},
-	{
-		path: Pages.recursos.subPages.listaEquiposEmpresa.to,
-		element: <ListaEquiposEmpresa />,
-		authority: Pages.recursos.subPages.listaEquiposEmpresa.authority,
-	},
-	{
-		path: pagesConfig.detalleEquipoEmpresa.to,
-		element: <DetalleEquipoEmpresa />,
-		authority: pagesConfig.detalleEquipoEmpresa.authority,
-	},
-	{
-		path: Pages.compras.subPages.agregarItemsOrdenCompra.to,
-		element: <AgregarItemsOrdenCompra />,
-		authority: Pages.compras.subPages.agregarItemsOrdenCompra.authority,
-	},
-	{
-		path: pagesConfig.detalleSucursal.to,
-		element: <DetalleSucursal />,
-		authority: pagesConfig.detalleSucursal.authority,
-	},
-	// { path: Pages.recursos.subPages.listaEquiposDeMisClientes.to, element: <ListaEquiposDeMisClientes />, authority: Pages.recursos.subPages.listaEquiposDeMisClientes.authority },
-	{
-		path: Pages.recursos.subPages.listaSoftware.to,
-		element: <ListaSoftware />,
-		authority: Pages.recursos.subPages.listaSoftware.authority,
-	},
+    {
+        path: pagesConfig.listaInvitacionesEmpresas.to,
+        element: <ListaInvitacionesEmpresa />,
+        authority: pagesConfig.listaInvitacionesEmpresas.authority,
+    },
+    {
+        path: pagesConfig.listaDiasCalendario.to,
+        element: <ListaDiasCalendarioV2 />,
+        authority: pagesConfig.listaDiasCalendario.authority,
+    },
+    {
+        path: Pages.compras.subPages.completarOrdenCompra.to,
+        element: <CompletarOrdenDeCompraV2 />,
+        authority: Pages.compras.subPages.completarOrdenCompra.authority,
+    },
+    {
+        path: Pages.bodega.subPages.listaGuiaSalida.to,
+        element: <ListaGuiaSalidaBodega />,
+        authority: Pages.bodega.subPages.listaGuiaSalida.authority,
+    },
+    {
+        path: Pages.recursos.subPages.listaEquiposEmpresa.to,
+        element: <ListaEquiposEmpresa />,
+        authority: Pages.recursos.subPages.listaEquiposEmpresa.authority,
+    },
+    {
+        path: pagesConfig.detalleEquipoEmpresa.to,
+        element: <DetalleEquipoEmpresa />,
+        authority: pagesConfig.detalleEquipoEmpresa.authority,
+    },
+    {
+        path: Pages.compras.subPages.agregarItemsOrdenCompra.to,
+        element: <AgregarItemsOrdenCompra />,
+        authority: Pages.compras.subPages.agregarItemsOrdenCompra.authority,
+    },
+    {
+        path: pagesConfig.detalleSucursal.to,
+        element: <DetalleSucursal />,
+        authority: pagesConfig.detalleSucursal.authority,
+    },
+    // { path: Pages.recursos.subPages.listaEquiposDeMisClientes.to, element: <ListaEquiposDeMisClientes />, authority: Pages.recursos.subPages.listaEquiposDeMisClientes.authority },
+    {
+        path: Pages.recursos.subPages.listaSoftware.to,
+        element: <ListaSoftware />,
+        authority: Pages.recursos.subPages.listaSoftware.authority,
+    },
 
-	// bodega
-	{
-		path: Pages.bodega.subPages.listaBodegas.to,
-		element: <ListaBodegas />,
-		authority: Pages.bodega.subPages.listaBodegas.authority,
-	},
-	{
-		path: Pages.bodega.subPages.detalleBodega.to,
-		element: <DetalleBodega />,
-		authority: Pages.bodega.subPages.detalleBodega.authority,
-	},
-	{
-		path: Pages.bodega.subPages.detalleGuiaSalidaBodega.to,
-		element: <DetalleGuiaSalidaBodega />,
-		authority: Pages.bodega.subPages.detalleGuiaSalidaBodega.authority,
-	},
-	{
-		path: Pages.bodega.subPages.devolucionParcialGuiaSalidaBodega.to,
-		element: <DevolucionParcialGuiaSalidaBodega />,
-		authority: Pages.bodega.subPages.devolucionParcialGuiaSalidaBodega.authority,
-	},
-	{
-		path: Pages.bodega.subPages.crearItemsGuiaSalidaBodega.to,
-		element: <CrearItemsGuiaSalidaBodega />,
-		authority: Pages.bodega.subPages.crearItemsGuiaSalidaBodega.authority,
-	},
-	{
-		path: Pages.bodega.subPages.listaTomaInventario.to,
-		element: <ListaTomaDeInventario />,
-		authority: Pages.bodega.subPages.listaTomaInventario.authority,
-	},
-	{
-		path: Pages.bodega.subPages.detalleTomaInventario.to,
-		element: <DetalleTomaInventario />,
-		authority: Pages.bodega.subPages.detalleTomaInventario.authority,
-	},
-	{
-		path: Pages.bodega.subPages.inventariarTomaInventario.to,
-		element: <InventariarTomaInventario />,
-		authority: Pages.bodega.subPages.inventariarTomaInventario.authority,
-	},
+    // bodega
+    {
+        path: Pages.bodega.subPages.listaBodegas.to,
+        element: <ListaBodegas />,
+        authority: Pages.bodega.subPages.listaBodegas.authority,
+    },
+    {
+        path: Pages.bodega.subPages.detalleBodega.to,
+        element: <DetalleBodega />,
+        authority: Pages.bodega.subPages.detalleBodega.authority,
+    },
+    {
+        path: Pages.bodega.subPages.detalleGuiaSalidaBodega.to,
+        element: <DetalleGuiaSalidaBodega />,
+        authority: Pages.bodega.subPages.detalleGuiaSalidaBodega.authority,
+    },
+    {
+        path: Pages.bodega.subPages.devolucionParcialGuiaSalidaBodega.to,
+        element: <DevolucionParcialGuiaSalidaBodega />,
+        authority: Pages.bodega.subPages.devolucionParcialGuiaSalidaBodega.authority,
+    },
+    {
+        path: Pages.bodega.subPages.crearItemsGuiaSalidaBodega.to,
+        element: <CrearItemsGuiaSalidaBodega />,
+        authority: Pages.bodega.subPages.crearItemsGuiaSalidaBodega.authority,
+    },
+    {
+        path: Pages.bodega.subPages.listaTomaInventario.to,
+        element: <ListaTomaDeInventario />,
+        authority: Pages.bodega.subPages.listaTomaInventario.authority,
+    },
+    {
+        path: Pages.bodega.subPages.detalleTomaInventario.to,
+        element: <DetalleTomaInventario />,
+        authority: Pages.bodega.subPages.detalleTomaInventario.authority,
+    },
+    {
+        path: Pages.bodega.subPages.inventariarTomaInventario.to,
+        element: <InventariarTomaInventario />,
+        authority: Pages.bodega.subPages.inventariarTomaInventario.authority,
+    },
 
-	// registro
-	{
-		path: Pages.registros.subPages.listaUsuarios.to,
-		element: <ListaUsuarios />,
-		authority: Pages.registros.subPages.listaUsuarios.authority,
-	},
-	{
-		path: Pages.registros.subPages.listaProveedoresEmpresa.to,
-		element: <ListaProveedoresEmpresa />,
-		authority: Pages.registros.subPages.listaProveedoresEmpresa.authority,
-	},
-	{
-		path: Pages.registros.subPages.detalleProveedorEmpresa.to,
-		element: <DetalleProveedorEmpresa />,
-		authority: Pages.registros.subPages.detalleProveedorEmpresa.authority,
-	},
-	{
-		path: Pages.registros.subPages.listaCategorias.to,
-		element: <ListaCategorias />,
-		authority: Pages.registros.subPages.listaCategorias.authority,
-	},
-	{
-		path: Pages.registros.subPages.listaFabricantes.to,
-		element: <ListaFabricantes />,
-		authority: Pages.registros.subPages.listaFabricantes.authority,
-	},
-	{
-		path: Pages.registros.subPages.listaItemsEmpresa.to,
-		element: <ListaItemsEmpresa />,
-		authority: Pages.registros.subPages.listaItemsEmpresa.authority,
-	},
-	{
-		path: Pages.registros.subPages.detalleFabricante.to,
-		element: <DetalleFabricante />,
-		authority: Pages.registros.subPages.detalleFabricante.authority,
-	},
-	{
-		path: Pages.registros.subPages.detalleCategoria.to,
-		element: <DetalleCategoria />,
-		authority: Pages.registros.subPages.detalleCategoria.authority,
-	},
-	{
-		path: Pages.registros.subPages.detalleItemEmpresa.to,
-		element: <DetalleItemEmpresa />,
-		authority: Pages.registros.subPages.detalleItemEmpresa.authority,
-	},
+    // registro
+    {
+        path: Pages.registros.subPages.listaUsuarios.to,
+        element: <ListaUsuarios />,
+        authority: Pages.registros.subPages.listaUsuarios.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaProveedoresEmpresa.to,
+        element: <ListaProveedoresEmpresa />,
+        authority: Pages.registros.subPages.listaProveedoresEmpresa.authority,
+    },
+    {
+        path: Pages.registros.subPages.detalleProveedorEmpresa.to,
+        element: <DetalleProveedorEmpresa />,
+        authority: Pages.registros.subPages.detalleProveedorEmpresa.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaCategorias.to,
+        element: <ListaCategorias />,
+        authority: Pages.registros.subPages.listaCategorias.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaFabricantes.to,
+        element: <ListaFabricantes />,
+        authority: Pages.registros.subPages.listaFabricantes.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaItemsEmpresa.to,
+        element: <ListaItemsEmpresa />,
+        authority: Pages.registros.subPages.listaItemsEmpresa.authority,
+    },
+    {
+        path: Pages.registros.subPages.detalleFabricante.to,
+        element: <DetalleFabricante />,
+        authority: Pages.registros.subPages.detalleFabricante.authority,
+    },
+    {
+        path: Pages.registros.subPages.detalleCategoria.to,
+        element: <DetalleCategoria />,
+        authority: Pages.registros.subPages.detalleCategoria.authority,
+    },
+    {
+        path: Pages.registros.subPages.detalleItemEmpresa.to,
+        element: <DetalleItemEmpresa />,
+        authority: Pages.registros.subPages.detalleItemEmpresa.authority,
+    },
 
-	// empresas
-	{
-		path: Pages.empresa.subPages.listaUsuariosEmpresa.to,
-		element: <ListaUsuariosEmpresa />,
-		authority: Pages.empresa.subPages.listaUsuariosEmpresa.authority,
-	},
-	{
-		path: Pages.empresa.subPages.detalleUsuarioEmpresa.to,
-		element: <DetalleUsuarioEmpresa />,
-		authority: Pages.empresa.subPages.detalleUsuarioEmpresa.authority,
-	},
-	{
-		path: Pages.empresa.subPages.detalleCliente.to,
-		element: <DetalleCliente />,
-		authority: Pages.empresa.subPages.detalleCliente.authority,
-	},
-	// { path: Pages.empresa.subPages.listaClientes.to, element: <ListaClientes />, authority: Pages.empresa.subPages.listaClientes.authority },
-	{
-		path: Pages.empresa.subPages.listaEmpresas.to,
-		element: <ListaEmpresas />,
-		authority: Pages.empresa.subPages.listaEmpresas.authority,
-	},
-	{
-		path: Pages.empresa.subPages.detalleEmpresa.to,
-		element: <DetalleEmpresa />,
-		authority: Pages.empresa.subPages.detalleEmpresa.authority,
-	},
+    // empresas
+    {
+        path: Pages.empresa.subPages.listaUsuariosEmpresa.to,
+        element: <ListaUsuariosEmpresa />,
+        authority: Pages.empresa.subPages.listaUsuariosEmpresa.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleUsuarioEmpresa.to,
+        element: <DetalleUsuarioEmpresa />,
+        authority: Pages.empresa.subPages.detalleUsuarioEmpresa.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleCliente.to,
+        element: <DetalleCliente />,
+        authority: Pages.empresa.subPages.detalleCliente.authority,
+    },
+    // { path: Pages.empresa.subPages.listaClientes.to, element: <ListaClientes />, authority: Pages.empresa.subPages.listaClientes.authority },
+    {
+        path: Pages.empresa.subPages.listaEmpresas.to,
+        element: <ListaEmpresas />,
+        authority: Pages.empresa.subPages.listaEmpresas.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleEmpresa.to,
+        element: <DetalleEmpresa />,
+        authority: Pages.empresa.subPages.detalleEmpresa.authority,
+    },
 
-	// vacaciones
-	{
-		path: Pages.vacaciones.subPages.pedirVacaciones.to,
-		element: <PedirVacaciones />,
-		authority: Pages.vacaciones.subPages.pedirVacaciones.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.pedirVacacionesUsuario.to,
-		element: <PedirVacacionesUsuario />,
-		authority: Pages.vacaciones.subPages.pedirVacacionesUsuario.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.listaSolicitudesVacaciones.to,
-		element: <ListaSolicitudesVacaciones />,
-		authority: Pages.vacaciones.subPages.listaSolicitudesVacaciones.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.dashboardVacaciones.to,
-		element: <DashboardVacaciones />,
-		authority: Pages.vacaciones.subPages.dashboardVacaciones.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.detalleSolicitudVacaciones.to,
-		element: <DetalleSolicitudVacaciones />,
-		authority: Pages.vacaciones.subPages.detalleSolicitudVacaciones.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.listaMisSolicitudesVacaciones.to,
-		element: <ListaMisSolicitudesVacaciones />,
-		authority: Pages.vacaciones.subPages.listaMisSolicitudesVacaciones.authority,
-	},
-	{
-		path: Pages.vacaciones.subPages.pdfSolicitudVacaciones.to,
-		element: <PDFSolicitudVacaciones />,
-		authority: Pages.vacaciones.subPages.pdfSolicitudVacaciones.authority,
-	},
+    // vacaciones
+    {
+        path: Pages.vacaciones.subPages.pedirVacaciones.to,
+        element: <PedirVacaciones />,
+        authority: Pages.vacaciones.subPages.pedirVacaciones.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.pedirVacacionesUsuario.to,
+        element: <PedirVacacionesUsuario />,
+        authority: Pages.vacaciones.subPages.pedirVacacionesUsuario.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.listaSolicitudesVacaciones.to,
+        element: <ListaSolicitudesVacaciones />,
+        authority: Pages.vacaciones.subPages.listaSolicitudesVacaciones.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.dashboardVacaciones.to,
+        element: <DashboardVacaciones />,
+        authority: Pages.vacaciones.subPages.dashboardVacaciones.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.detalleSolicitudVacaciones.to,
+        element: <DetalleSolicitudVacaciones />,
+        authority: Pages.vacaciones.subPages.detalleSolicitudVacaciones.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.listaMisSolicitudesVacaciones.to,
+        element: <ListaMisSolicitudesVacaciones />,
+        authority: Pages.vacaciones.subPages.listaMisSolicitudesVacaciones.authority,
+    },
+    {
+        path: Pages.vacaciones.subPages.pdfSolicitudVacaciones.to,
+        element: <PDFSolicitudVacaciones />,
+        authority: Pages.vacaciones.subPages.pdfSolicitudVacaciones.authority,
+    },
 
-	// ordenes de compras
-	{
-		path: Pages.compras.subPages.listaOrdenesCompra.to,
-		element: <ListaOrdenesCompraV2 />,
-		authority: Pages.compras.subPages.listaOrdenesCompra.authority,
-	},
-	{
-		path: Pages.compras.subPages.detalleOrdenCompra.to,
-		element: <DetalleOrdenCompraV2 />,
-		authority: Pages.compras.subPages.detalleOrdenCompra.authority,
-	},
-	{
-		path: Pages.compras.subPages.listaMisOrdenesDeCompra.to,
-		element: <ListaMisOrdenesDeCompra />,
-		authority: Pages.compras.subPages.listaMisOrdenesDeCompra.authority,
-	},
+    // ordenes de compras
+    {
+        path: Pages.compras.subPages.listaOrdenesCompra.to,
+        element: <ListaOrdenesCompraV2 />,
+        authority: Pages.compras.subPages.listaOrdenesCompra.authority,
+    },
+    {
+        path: Pages.compras.subPages.detalleOrdenCompra.to,
+        element: <DetalleOrdenCompraV2 />,
+        authority: Pages.compras.subPages.detalleOrdenCompra.authority,
+    },
+    {
+        path: Pages.compras.subPages.listaMisOrdenesDeCompra.to,
+        element: <ListaMisOrdenesDeCompra />,
+        authority: Pages.compras.subPages.listaMisOrdenesDeCompra.authority,
+    },
 
-	// Rendiciones
-	{
-		path: Pages.rendiciones.subPages.listaRendiciones.to,
-		element: <ListaRendiciones />,
-		authority: Pages.rendiciones.subPages.listaRendiciones.authority,
-	},
-	{
-		path: Pages.rendiciones.subPages.detalleRendicion.to,
-		element: <DetalleRendicion />,
-		authority: Pages.rendiciones.subPages.detalleRendicion.authority,
-	},
-	{
-		path: Pages.rendiciones.subPages.listaMisRendiciones.to,
-		element: <ListaMisRendiciones />,
-		authority: Pages.rendiciones.subPages.listaMisRendiciones.authority,
-	},
-	{
-		path: Pages.facturacion.subPages.listaFacturas.to,
-		element: <ListaFacturas />,
-		authority: Pages.facturacion.subPages.listaFacturas.authority,
-	},
-	{
-		path: Pages.facturacion.subPages.crearFactura.to,
-		element: <FacturacionesComparativa />,
-		authority: Pages.facturacion.subPages.crearFactura.authority,
-	},
-	{
-		path: Pages.facturacion.subPages.detalleFactura.to,
-		element: <DetalleFactura />,
-		authority: Pages.facturacion.subPages.detalleFactura.authority,
-	},
-	// { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
+    // Rendiciones
+    {
+        path: Pages.rendiciones.subPages.listaRendiciones.to,
+        element: <ListaRendiciones />,
+        authority: Pages.rendiciones.subPages.listaRendiciones.authority,
+    },
+    {
+        path: Pages.rendiciones.subPages.detalleRendicion.to,
+        element: <DetalleRendicion />,
+        authority: Pages.rendiciones.subPages.detalleRendicion.authority,
+    },
+    {
+        path: Pages.rendiciones.subPages.listaMisRendiciones.to,
+        element: <ListaMisRendiciones />,
+        authority: Pages.rendiciones.subPages.listaMisRendiciones.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.listaFacturas.to,
+        element: <ListaFacturas />,
+        authority: Pages.facturacion.subPages.listaFacturas.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.crearFactura.to,
+        element: <FacturacionesComparativa />,
+        authority: Pages.facturacion.subPages.crearFactura.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.detalleFactura.to,
+        element: <DetalleFactura />,
+        authority: Pages.facturacion.subPages.detalleFactura.authority,
+    },
+    // { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
 
-	// Cotizaciones
-	// { path: Pages.cotizacion.subPages.listaCotizaciones.to, element: <ListaCotizaciones />, authority: Pages.cotizacion.subPages.listaCotizaciones.authority },
-	{
-		path: Pages.cotizacion.subPages.detalleCotizacion.to,
-		element: <DetalleCotizacion />,
-		authority: Pages.cotizacion.subPages.detalleCotizacion.authority,
-	},
-	{
-		path: Pages.cotizacion.subPages.listaCotizacionesEmpresa.to,
-		element: <CotizacionesEmpresa />,
-		authority: Pages.cotizacion.subPages.listaCotizacionesEmpresa.authority,
-	},
+    // Cotizaciones
+    // { path: Pages.cotizacion.subPages.listaCotizaciones.to, element: <ListaCotizaciones />, authority: Pages.cotizacion.subPages.listaCotizaciones.authority },
+    {
+        path: Pages.cotizacion.subPages.detalleCotizacion.to,
+        element: <DetalleCotizacion />,
+        authority: Pages.cotizacion.subPages.detalleCotizacion.authority,
+    },
+    {
+        path: Pages.cotizacion.subPages.listaCotizacionesEmpresa.to,
+        element: <CotizacionesEmpresa />,
+        authority: Pages.cotizacion.subPages.listaCotizacionesEmpresa.authority,
+    },
 
-	// Orden Trabajo
-	{
-		path: Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.to,
-		element: <ListaOT />,
-		authority: Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.authority,
-	},
-	{
-		path: Pages.ordenTrabajo.subPages.detalleOrdenTrabajo.to,
-		element: <DetalleOT />,
-		authority: Pages.ordenTrabajo.subPages.detalleOrdenTrabajo.authority,
-	},
-	{
-		path: Pages.ordenTrabajo.subPages.agregarItemsACompraDT.to,
-		element: <AgregarItemsACompraDT />,
-		authority: Pages.ordenTrabajo.subPages.agregarItemsACompraDT.authority,
-	},
-	{
-		path: Pages.ordenTrabajo.subPages.vistaPreviaAdjunto.to,
-		element: <VistaPreviaAdjunto />,
-		authority: Pages.ordenTrabajo.subPages.vistaPreviaAdjunto.authority,
-	},
-	{
-		path: authPages.retroalimentacionOT.to,
-		element: <RetroalimentacionOT />,
-		authority: authPages.retroalimentacionOT.authority,
-	},
-	{
-		path: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.to,
-		element: <DetalleRetroalimentacionOT />,
-		authority: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.authority,
-	},
+    // Orden Trabajo
+    {
+        path: Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.to,
+        element: <ListaOT />,
+        authority: Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.authority,
+    },
+    {
+        path: Pages.ordenTrabajo.subPages.detalleOrdenTrabajo.to,
+        element: <DetalleOT />,
+        authority: Pages.ordenTrabajo.subPages.detalleOrdenTrabajo.authority,
+    },
+    {
+        path: Pages.ordenTrabajo.subPages.agregarItemsACompraDT.to,
+        element: <AgregarItemsACompraDT />,
+        authority: Pages.ordenTrabajo.subPages.agregarItemsACompraDT.authority,
+    },
+    {
+        path: Pages.ordenTrabajo.subPages.vistaPreviaAdjunto.to,
+        element: <VistaPreviaAdjunto />,
+        authority: Pages.ordenTrabajo.subPages.vistaPreviaAdjunto.authority,
+    },
+    {
+        path: authPages.retroalimentacionOT.to,
+        element: <RetroalimentacionOT />,
+        authority: authPages.retroalimentacionOT.authority,
+    },
+    {
+        path: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.to,
+        element: <DetalleRetroalimentacionOT />,
+        authority: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.authority,
+    },
 
-	// Visitas
-	{
-		path: Pages.ordenTrabajo.subPages.listaVisitasSoporte.to,
-		element: <ListaVisitas />,
-		authority: Pages.ordenTrabajo.subPages.listaVisitasSoporte.authority,
-	},
-	{
-		path: Pages.ordenTrabajo.subPages.detalleVisitaSoporte.to,
-		element: <DetalleVisita />,
-		authority: Pages.ordenTrabajo.subPages.detalleVisitaSoporte.authority,
-	},
+    // Visitas
+    {
+        path: Pages.ordenTrabajo.subPages.listaVisitasSoporte.to,
+        element: <ListaVisitas />,
+        authority: Pages.ordenTrabajo.subPages.listaVisitasSoporte.authority,
+    },
+    {
+        path: Pages.ordenTrabajo.subPages.detalleVisitaSoporte.to,
+        element: <DetalleVisita />,
+        authority: Pages.ordenTrabajo.subPages.detalleVisitaSoporte.authority,
+    },
 
-	// Contratos
-	// {path: Pages.detalleContratoDelCliente.to, element: <DetalleContratoDelCliente />, authority: Pages.detalleContratoDelCliente.authority},
-	{
-		path: Pages.empresa.subPages.contratosDelCliente.to,
-		element: <ContratosDelCliente />,
-		authority: Pages.empresa.subPages.contratosDelCliente.authority,
-	},
-	{
-		path: authPages.firmarContratoYAcuerdo.to,
-		element: <FirmarContratoYAcuerdoConfidencialidad />,
-		authority: authPages.firmarContratoYAcuerdo.authority,
-	},
+    // Contratos
+    // {path: Pages.detalleContratoDelCliente.to, element: <DetalleContratoDelCliente />, authority: Pages.detalleContratoDelCliente.authority},
+    {
+        path: Pages.empresa.subPages.contratosDelCliente.to,
+        element: <ContratosDelCliente />,
+        authority: Pages.empresa.subPages.contratosDelCliente.authority,
+    },
+    {
+        path: authPages.firmarContratoYAcuerdo.to,
+        element: <FirmarContratoYAcuerdoConfidencialidad />,
+        authority: authPages.firmarContratoYAcuerdo.authority,
+    },
 
-	// Compras
-	{
-		path: Pages.compras.subPages.listaCompra.to,
-		element: <ListaCompras />,
-		authority: Pages.compras.subPages.listaCompra.authority,
-	},
-	{
-		path: Pages.compras.subPages.detalleCompra.to,
-		element: <DetalleCompra />,
-		authority: Pages.compras.subPages.detalleCompra.authority,
-	},
+    // Compras
+    {
+        path: Pages.compras.subPages.listaCompra.to,
+        element: <ListaCompras />,
+        authority: Pages.compras.subPages.listaCompra.authority,
+    },
+    {
+        path: Pages.compras.subPages.detalleCompra.to,
+        element: <DetalleCompra />,
+        authority: Pages.compras.subPages.detalleCompra.authority,
+    },
 
-	{ path: '/', element: <Home />, authority: [] },
-	{ path: '/sin-permisos', element: <SinPermisos />, authority: [] },
-	{ path: '/404', element: <NotFoundPage />, authority: [] },
+    { path: '/', element: <Home />, authority: [] },
+    { path: '/sin-permisos', element: <SinPermisos />, authority: [] },
+    { path: '/404', element: <NotFoundPage />, authority: [] },
 ];
 
 export default contentRoutes;

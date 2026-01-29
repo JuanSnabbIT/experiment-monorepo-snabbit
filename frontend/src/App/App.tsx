@@ -12,18 +12,17 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import useDarkMode from '@/hooks/useDarkMode';
 
-
 const App = () => {
-	getOS();
+    getOS();
 
-	const { fontSize } = useFontSize();
-	dayjs.extend(localizedFormat);
-	const { isDarkTheme } = useDarkMode()
+    const { fontSize } = useFontSize();
+    dayjs.extend(localizedFormat);
+    const { isDarkTheme } = useDarkMode();
 
-	return (
-		<>
-			<ToastContainer theme={isDarkTheme ? 'dark' : 'light'} draggable></ToastContainer>
-			<style>{`:root {font-size: ${fontSize}px;
+    return (
+        <>
+            <ToastContainer theme={isDarkTheme ? 'dark' : 'light'} draggable></ToastContainer>
+            <style>{`:root {font-size: ${fontSize}px;
 			--toastify-toast-bd-radius: 0.75rem;
 			--toastify-color-dark:  ${colors.zinc['800']};
 			--toastify-color-info: ${colors.blue['500']};
@@ -36,16 +35,16 @@ const App = () => {
     			${colors.emerald['500']},
     			${colors.amber['500']},
 				${colors.red['500']});`}</style>
-			<div data-component-name='App' className='flex grow flex-col'>
-					<AsideRouter />
-					<Wrapper>
-						<HeaderRouter />
-						<ContentRouter />
-						<FooterRouter />
-					</Wrapper>
-			</div>
-		</>
-	);
+            <div data-component-name='App' className='flex grow flex-col'>
+                <AsideRouter />
+                <Wrapper>
+                    <HeaderRouter />
+                    <ContentRouter />
+                    <FooterRouter />
+                </Wrapper>
+            </div>
+        </>
+    );
 };
 
 export default App;

@@ -1,62 +1,98 @@
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import Textarea from "@/components/form/Textarea";
-import Validation from "@/components/form/Validation";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
-import ApiService from "@/services/ApiService";
-import { useAppDispatch, useAppSelector, listaDetalleTrabajoOTThunk, usuarioEmpresaLogeadoThunk } from "@/store";
-import { toast } from "react-toastify";
+import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import ApiService from '@/services/ApiService';
+import {
+    useAppDispatch,
+    useAppSelector,
+    listaDetalleTrabajoOTThunk,
+    usuarioEmpresaLogeadoThunk,
+} from '@/store';
+import { toast } from 'react-toastify';
 import SelectReact from '@/components/form/SelectReact';
 
-
-function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSeleccionado: number | null, isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>}) {
+function AñadirTrabajoDT({
+    detalleSeleccionado,
+    isOpen,
+    setIsOpen,
+}: {
+    detalleSeleccionado: number | null;
+    isOpen: boolean;
+    setIsOpen: Dispatch<SetStateAction<boolean>>;
+}) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaTrabajosFiltrados } = useAppSelector((state) => state.ordenTrabajo);
+    const { detalleOrdenTrabajo, listaTrabajosFiltrados } = useAppSelector(
+        (state) => state.ordenTrabajo,
+    );
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
-    const { userMe } = useAppSelector((state) => state.auth)
-    const { listaContentType } = useAppSelector((state) => state.core)
-    const [optionsTrabajos, setOptionsTrabajos] = useState<{label: string, options: {value: string, label: string, ct: number}[]}[]>([])
+    const { userMe } = useAppSelector((state) => state.auth);
+    const { listaContentType } = useAppSelector((state) => state.core);
+    const [optionsTrabajos, setOptionsTrabajos] = useState<
+        { label: string; options: { value: string; label: string; ct: number }[] }[]
+    >([]);
 
     useEffect(() => {
         if (!usuarioEmpresaLogeado && userMe) {
-            dispatch(usuarioEmpresaLogeadoThunk({id_usuario: userMe.pk}))
+            dispatch(usuarioEmpresaLogeadoThunk({ id_usuario: userMe.pk }));
         }
-    }, [usuarioEmpresaLogeado, userMe])
+    }, [usuarioEmpresaLogeado, userMe]);
 
     useEffect(() => {
         if (listaTrabajosFiltrados) {
-            let lista: {label: string, options: {value: string, label: string, ct: number}[]}[] = []
+            let lista: {
+                label: string;
+                options: { value: string; label: string; ct: number }[];
+            }[] = [];
             if (listaTrabajosFiltrados.cotizaciones.length > 0) {
-                const id_cotizacion = listaContentType.find(cont => cont.model === "cotizacion")?.id
+                const id_cotizacion = listaContentType.find(
+                    (cont) => cont.model === 'cotizacion',
+                )?.id;
                 if (id_cotizacion) {
                     lista = lista.concat({
-                        label: "Cotizaciones",
-                        options: listaTrabajosFiltrados.cotizaciones.map(coti => ({value: coti.id.toString(), label: `${coti.numero_cotizacion} - ${coti.nombre}`, ct: id_cotizacion}))
-                    })
+                        label: 'Cotizaciones',
+                        options: listaTrabajosFiltrados.cotizaciones.map((coti) => ({
+                            value: coti.id.toString(),
+                            label: `${coti.numero_cotizacion} - ${coti.nombre}`,
+                            ct: id_cotizacion,
+                        })),
+                    });
                 }
             }
             if (listaTrabajosFiltrados.visitas_soporte.length > 0) {
-                const id_visita = listaContentType.find(cont => cont.model === "visitasoporte")?.id
+                const id_visita = listaContentType.find(
+                    (cont) => cont.model === 'visitasoporte',
+                )?.id;
                 if (id_visita) {
                     lista = lista.concat({
-                        label: "Visitas",
-                        options: listaTrabajosFiltrados.visitas_soporte.map(vis => ({value: vis.id.toString(), label: `${vis.id} - Empresa: ${vis.empresa_nombre} - Cliente: ${vis.cliente_nombre}`, ct: id_visita}))
-                    })
+                        label: 'Visitas',
+                        options: listaTrabajosFiltrados.visitas_soporte.map((vis) => ({
+                            value: vis.id.toString(),
+                            label: `${vis.id} - Empresa: ${vis.empresa_nombre} - Cliente: ${vis.cliente_nombre}`,
+                            ct: id_visita,
+                        })),
+                    });
                 }
             }
-            setOptionsTrabajos(lista)
+            setOptionsTrabajos(lista);
         }
-    }, [listaTrabajosFiltrados])
+    }, [listaTrabajosFiltrados]);
 
     const formik = useFormik({
         initialValues: {
             tipo_seguimiento: 'actualizacion',
             comentario: '',
             trabajo_id: '',
-            content_type: ''
+            content_type: '',
         },
         validationSchema: Yup.object().shape({
             comentario: Yup.string().required('Ingrese un comentario'),
@@ -65,10 +101,15 @@ function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSel
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/asociar-trabajo/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                    trabajo_id: Number(values.trabajo_id),
-                    content_type: values.content_type
-                })})
+                const response = await ApiService.fetchData({
+                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/asociar-trabajo/`,
+                    method: 'post',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify({
+                        trabajo_id: Number(values.trabajo_id),
+                        content_type: values.content_type,
+                    }),
+                });
                 if (response.data) {
                     const seguimientoResponse = await ApiService.fetchData({
                         url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/seguimientos/`,
@@ -84,7 +125,7 @@ function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSel
                     if (seguimientoResponse.data) {
                         toast.success('Trabajo añadido', { autoClose: 1000 });
                         dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        setIsOpen(false)
+                        setIsOpen(false);
                         formik.resetForm();
                     }
                 }
@@ -96,38 +137,44 @@ function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSel
 
     useEffect(() => {
         if (!isOpen) {
-            formik.resetForm()
+            formik.resetForm();
         }
-    }, [isOpen])
+    }, [isOpen]);
 
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
             <ModalHeader>
-                <Badge className="text-xl">Añadir Cotizacion o Asistencia Técnica</Badge>
+                <Badge className='text-xl'>Añadir Cotizacion o Asistencia Técnica</Badge>
             </ModalHeader>
             <ModalBody>
-                <div className="flex flex-col gap-4">
+                <div className='flex flex-col gap-4'>
                     <div>
                         <Badge>Añadir una cotizacion o asistencia técnica</Badge>
                         <Validation
                             isValid={formik.isValid}
                             isTouched={formik.touched.trabajo_id}
-                            invalidFeedback={formik.errors.trabajo_id}
-                        >
+                            invalidFeedback={formik.errors.trabajo_id}>
                             <SelectReact
-                                noOptionsMessage={(e) => (`No existe ${e.inputValue}`)}
-                                placeholder="Eliga una cotización o asistencia técnica"
-                                name="trabajo_id"
+                                noOptionsMessage={(e) => `No existe ${e.inputValue}`}
+                                placeholder='Eliga una cotización o asistencia técnica'
+                                name='trabajo_id'
                                 isClearable
                                 options={optionsTrabajos}
                                 onBlur={formik.handleBlur}
                                 onChange={(e) => {
                                     if (e) {
-                                        formik.setFieldValue('trabajo_id', (e as {value: string, label: string, ct: number}).value)
-                                        formik.setFieldValue('content_type', (e as {value: string, label: string, ct: number}).ct)
+                                        formik.setFieldValue(
+                                            'trabajo_id',
+                                            (e as { value: string; label: string; ct: number })
+                                                .value,
+                                        );
+                                        formik.setFieldValue(
+                                            'content_type',
+                                            (e as { value: string; label: string; ct: number }).ct,
+                                        );
                                     } else {
-                                        formik.setFieldValue('trabajo_id', "")
-                                        formik.setFieldValue('content_type', "")
+                                        formik.setFieldValue('trabajo_id', '');
+                                        formik.setFieldValue('content_type', '');
                                     }
                                 }}
                             />
@@ -138,10 +185,9 @@ function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSel
                         <Validation
                             isValid={formik.isValid}
                             isTouched={formik.touched.comentario}
-                            invalidFeedback={formik.errors.comentario}
-                        >
+                            invalidFeedback={formik.errors.comentario}>
                             <Textarea
-                                name="comentario"
+                                name='comentario'
                                 value={formik.values.comentario}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
@@ -153,8 +199,16 @@ function AñadirTrabajoDT({detalleSeleccionado, isOpen, setIsOpen} : {detalleSel
             <ModalFooter>
                 <ModalFooterChild />
                 <ModalFooterChild>
-                    <Button color="red" onClick={() => {setIsOpen(false)}}>Cancelar</Button>
-                    <Button variant="solid" onClick={() => formik.handleSubmit()}>Guardar</Button>
+                    <Button
+                        color='red'
+                        onClick={() => {
+                            setIsOpen(false);
+                        }}>
+                        Cancelar
+                    </Button>
+                    <Button variant='solid' onClick={() => formik.handleSubmit()}>
+                        Guardar
+                    </Button>
                 </ModalFooterChild>
             </ModalFooter>
         </Modal>

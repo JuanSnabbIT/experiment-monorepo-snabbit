@@ -1,64 +1,100 @@
-import Icon from "@/components/icon/Icon";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal";
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table";
-import Tooltip from "@/components/ui/Tooltip";
-import { IProveedorEmpresa } from "@/interface/items.interface";
-import ApiService from "@/services/ApiService";
-import { detalleItemEmpresaThunk, listaProveedoresNoAsociadosAItemEspecificoThunk, useAppDispatch, useAppSelector } from "@/store";
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2";
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table";
-import { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import Icon from '@/components/icon/Icon';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import { IProveedorEmpresa } from '@/interface/items.interface';
+import ApiService from '@/services/ApiService';
+import {
+    detalleItemEmpresaThunk,
+    listaProveedoresNoAsociadosAItemEspecificoThunk,
+    useAppDispatch,
+    useAppSelector,
+} from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 
+const columnHelper = createColumnHelper<IProveedorEmpresa>();
 
-const columnHelper = createColumnHelper<IProveedorEmpresa>()
-
-function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}) {
-    const dispatch = useAppDispatch()
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaProveedoresNoAsociadosAItemEspecifico } = useAppSelector((state) => state.item)
-    const [isOpen, setIsOpen] = useState<boolean>(false)
-    const [sorting, setSorting] = useState<SortingState>([])
-    const [globalFilter, setGlobalFilter] = useState<string>('')
+function AgregarProveedorItem({ id_item }: { id_item: string | undefined | number }) {
+    const dispatch = useAppDispatch();
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { listaProveedoresNoAsociadosAItemEspecifico } = useAppSelector((state) => state.item);
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
         if (isOpen) {
-            dispatch(listaProveedoresNoAsociadosAItemEspecificoThunk({id_item}))
+            dispatch(listaProveedoresNoAsociadosAItemEspecificoThunk({ id_item }));
         }
         // if (!isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
         //     dispatch(detalleItemEmpresaThunk({id_empresa: personalizacionUsuario.empresa, id_item}));
         // }
-    }, [isOpen])
+    }, [isOpen]);
 
     const columns = [
-        columnHelper.accessor("nombre", {
+        columnHelper.accessor('nombre', {
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Tooltip text="Asociar este Proveedor al Item">
-                        <Button variant="solid" rounded="rounded-full" icon="HeroPlus" onClick={async () => {
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/items-empresa/${id_item}/asociar_proveedor/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({proveedor_id: info.row.original.id})})
-                                if (response.data) {
-                                    toast.success("Proveedor asociado al Item", {autoClose: 1000})
-                                    dispatch(listaProveedoresNoAsociadosAItemEspecificoThunk({id_item}))
+                    <Tooltip text='Asociar este Proveedor al Item'>
+                        <Button
+                            variant='solid'
+                            rounded='rounded-full'
+                            icon='HeroPlus'
+                            onClick={async () => {
+                                try {
+                                    const response = await ApiService.fetchData({
+                                        url: `/api/items-empresa/${id_item}/asociar_proveedor/`,
+                                        method: 'post',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        data: JSON.stringify({
+                                            proveedor_id: info.row.original.id,
+                                        }),
+                                    });
+                                    if (response.data) {
+                                        toast.success('Proveedor asociado al Item', {
+                                            autoClose: 1000,
+                                        });
+                                        dispatch(
+                                            listaProveedoresNoAsociadosAItemEspecificoThunk({
+                                                id_item,
+                                            }),
+                                        );
+                                    }
+                                } catch (error: any) {
+                                    toast.error(error.response.data);
                                 }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                            }
-                        }}/>
+                            }}
+                        />
                     </Tooltip>
                 </div>
             ),
-            header: ""
-        })
-    ]
+            header: '',
+        }),
+    ];
 
     const table = useReactTable({
         data: listaProveedoresNoAsociadosAItemEspecifico,
@@ -73,24 +109,29 @@ function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
         <>
-            <Tooltip text="Agregar Proveedores">
-                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="HeroPlus"></Button>
+            <Tooltip text='Agregar Proveedores'>
+                <Button
+                    variant='solid'
+                    onClick={() => {
+                        setIsOpen(true);
+                    }}
+                    icon='HeroPlus'></Button>
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
-                    <Badge className="text-xl">Agregar este Item a Proveedores</Badge>
+                    <Badge className='text-xl'>Agregar este Item a Proveedores</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <div className="flex gap-4">
-                        <div className="w-full">
+                    <div className='flex gap-4'>
+                        <div className='w-full'>
                             <Badge>Proveedor</Badge>
-                            <div className="overflow-auto">
-                                <Table className='table-fixed min-w-[400px]'>
+                            <div className='overflow-auto'>
+                                <Table className='min-w-[400px] table-fixed'>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
@@ -104,9 +145,10 @@ function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}
                                                                 key={header.id}
                                                                 aria-hidden='true'
                                                                 {...{
-                                                                    className: header.column.getCanSort()
-                                                                        ? 'cursor-pointer select-none flex items-center'
-                                                                        : '',
+                                                                    className:
+                                                                        header.column.getCanSort()
+                                                                            ? 'cursor-pointer select-none flex items-center'
+                                                                            : '',
                                                                     onClick:
                                                                         header.column.getToggleSortingHandler(),
                                                                 }}>
@@ -127,7 +169,9 @@ function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}
                                                                             className='ltr:ml-1.5 rtl:mr-1.5'
                                                                         />
                                                                     ),
-                                                                }[header.column.getIsSorted() as string] ?? null}
+                                                                }[
+                                                                    header.column.getIsSorted() as string
+                                                                ] ?? null}
                                                             </div>
                                                         )}
                                                     </Th>
@@ -135,19 +179,22 @@ function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}
                                             </Tr>
                                         ))}
                                     </THead>
-                                    <TBody className="dark:bg-zinc-800 rounded-lg">
+                                    <TBody className='rounded-lg dark:bg-zinc-800'>
                                         {table.getRowModel().rows.map((row) => (
                                             <Tr key={row.id}>
                                                 {row.getVisibleCells().map((cell) => (
                                                     <Td key={cell.id}>
-                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext(),
+                                                        )}
                                                     </Td>
                                                 ))}
                                             </Tr>
                                         ))}
                                     </TBody>
                                 </Table>
-                                <div className="mt-2 min-w-[400px]">
+                                <div className='mt-2 min-w-[400px]'>
                                     <TableCardFooterTemplateV2 table={table} />
                                 </div>
                             </div>
@@ -156,7 +203,7 @@ function AgregarProveedorItem({id_item} : {id_item: string | undefined | number}
                 </ModalBody>
             </Modal>
         </>
-    )
+    );
 }
 
-export default AgregarProveedorItem
+export default AgregarProveedorItem;

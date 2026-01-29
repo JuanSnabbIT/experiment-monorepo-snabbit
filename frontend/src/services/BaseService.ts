@@ -1,7 +1,7 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { toast } from "react-toastify";
-import { authPages } from "@/config/pages.config";
-import store, { GUARDAR_TOKEN, LOGOUT } from "@/store";
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'react-toastify';
+import { authPages } from '@/config/pages.config';
+import store, { GUARDAR_TOKEN, LOGOUT } from '@/store';
 
 // Extender la interfaz de configuración para incluir isLoginRequest y _retry
 interface CustomAxiosRequestConfig<D = any> extends InternalAxiosRequestConfig<D> {
@@ -18,7 +18,7 @@ const BaseService = axios.create({
 BaseService.interceptors.request.use(
     (config: CustomAxiosRequestConfig) => {
         if (!config.isLoginRequest) {
-            const token = store.getState().auth.access
+            const token = store.getState().auth.access;
             if (token) {
                 config.headers = config.headers || {};
                 config.headers['Authorization'] = 'Bearer ' + token;
@@ -26,12 +26,12 @@ BaseService.interceptors.request.use(
         }
         return config;
     },
-    error => Promise.reject(error)
+    (error) => Promise.reject(error),
 );
 
 // Interceptor de Respuesta
 BaseService.interceptors.response.use(
-    response => response,
+    (response) => response,
     async (error: AxiosError) => {
         const originalRequest = error.config as CustomAxiosRequestConfig;
 
@@ -43,15 +43,18 @@ BaseService.interceptors.response.use(
         ) {
             originalRequest._retry = true;
 
-            const refreshToken = store.getState().auth.refresh
+            const refreshToken = store.getState().auth.refresh;
             if (refreshToken) {
                 try {
-                    const refreshResponse = await axios.post(`${process.env.VITE_API_URL}/auth/jwt/refresh`, {
-                        refresh: refreshToken
-                    });
+                    const refreshResponse = await axios.post(
+                        `${process.env.VITE_API_URL}/auth/jwt/refresh`,
+                        {
+                            refresh: refreshToken,
+                        },
+                    );
 
                     const newToken = refreshResponse.data.access;
-                    store.dispatch(GUARDAR_TOKEN(newToken))
+                    store.dispatch(GUARDAR_TOKEN(newToken));
 
                     originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
 
@@ -59,16 +62,16 @@ BaseService.interceptors.response.use(
                     return BaseService(originalRequest);
                 } catch (refreshError) {
                     // Manejar el fallo del refresco del token
-                    toast.error("Sesión Expirada", {toastId: "Error de refresco de token"})
-                    store.dispatch(LOGOUT())
+                    toast.error('Sesión Expirada', { toastId: 'Error de refresco de token' });
+                    store.dispatch(LOGOUT());
                     // Redirigir al login
                     window.location.href = authPages.loginPage.to;
                     return Promise.reject(refreshError);
                 }
             } else {
                 // No hay token de refresco disponible
-                toast.error("Sesión Expirada", {toastId: "Sin token de refresco"})
-                store.dispatch(LOGOUT())
+                toast.error('Sesión Expirada', { toastId: 'Sin token de refresco' });
+                store.dispatch(LOGOUT());
                 // Redirigir al login
                 window.location.href = authPages.loginPage.to;
                 return Promise.reject(error);
@@ -76,7 +79,7 @@ BaseService.interceptors.response.use(
         }
 
         return Promise.reject(error);
-    }
+    },
 );
 
 export default BaseService;

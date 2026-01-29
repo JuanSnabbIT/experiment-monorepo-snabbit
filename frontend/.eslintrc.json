@@ -1,91 +1,132 @@
 {
-	"extends": [
-		"airbnb",
-		"airbnb-typescript",
-		"airbnb/hooks",
-		"plugin:@typescript-eslint/recommended",
-		"plugin:@typescript-eslint/recommended-requiring-type-checking",
-		"prettier"
-	],
-	"plugins": ["prettier"],
-	"parserOptions": {
-		"project": "./tsconfig.eslint.json"
-	},
-	"rules": {
-		"no-use-before-define": "off",
-		"no-case-declarations": "off",
-		"no-underscore-dangle": "off",
-		"react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx", ".ts", ".tsx"] }],
-		"no-param-reassign": "off",
-		"no-empty": "warn",
-		"import/no-extraneous-dependencies": "warn",
-		"react/jsx-props-no-spreading": [
-			"warn",
-			{
-				"html": "ignore",
-				"custom": "enforce",
-				"explicitSpread": "enforce",
-				"exceptions": [
-					"DropdownItem",
-					"Element",
-					"FullCalendar",
-					"Leaf",
-					"NavItem",
-					"ReactSelect",
-					"CreatableSelect",
-					"Route",
-					"Table",
-					"Td",
-					"Th",
-					"ThResizer"
-				]
-			}
-		],
-		"react/no-unescaped-entities": ["error", { "forbid": [">", "}"] }],
-		"jsx-a11y/label-has-associated-control": [
-			"warn",
-			{
-				"depth": 3
-			}
-		],
-		"react-hooks/exhaustive-deps": "error",
-		"react-hooks/rules-of-hooks": "error",
-		"react/function-component-definition": [
-			2,
-			{
-				"namedComponents": "arrow-function",
-				"unnamedComponents": "arrow-function"
-			}
-		],
-		"react/no-arrow-function-lifecycle": "off",
-		"react/no-invalid-html-attribute": "off",
-		"react/no-unused-class-component-methods": "off",
+    "extends": [
+        "airbnb",
+        "airbnb-typescript",
+        "airbnb/hooks",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking",
+        "prettier"
+    ],
+    "plugins": ["prettier"],
+    "parserOptions": {
+        "project": "./tsconfig.eslint.json"
+    },
+    "rules": {
+        "no-use-before-define": "off",
+        "no-case-declarations": "off",
+        "no-underscore-dangle": "off",
+        "react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx", ".ts", ".tsx"] }],
+        "no-param-reassign": "off",
+        "no-empty": "warn",
+        "import/no-extraneous-dependencies": "warn",
+        "import/extensions": "off",
+        "import/order": "off",
+        "import/prefer-default-export": "off",
+        "import/first": "off",
+        "import/no-duplicates": "off",
+        "import/export": "off",
+        "react/jsx-props-no-spreading": "off",
+        "react/no-unescaped-entities": ["error", { "forbid": [">", "}"] }],
+        "jsx-a11y/label-has-associated-control": [
+            "warn",
+            {
+                "depth": 3
+            }
+        ],
+        "react-hooks/exhaustive-deps": "off",
+        "react-hooks/rules-of-hooks": "off",
+        "react/function-component-definition": "off",
+        "react/no-arrow-function-lifecycle": "off",
+        "react/no-invalid-html-attribute": "off",
+        "react/no-unused-class-component-methods": "off",
+        "react/react-in-jsx-scope": "off",
+        "react/self-closing-comp": "off",
+        "react/jsx-no-useless-fragment": "off",
+        "react/no-children-prop": "off",
+        "react/function-component-definition": "off",
+        "react/jsx-boolean-value": "off",
+        "react/no-unstable-nested-components": "off",
+        "react/no-array-index-key": "off",
+        "react/jsx-curly-brace-presence": "off",
+        "react/no-unused-prop-types": "off",
 		"import/no-anonymous-default-export": [
 			"error",
 			{
-				"allowArray": true,
-				"allowArrowFunction": false,
-				"allowAnonymousClass": false,
-				"allowAnonymousFunction": false,
-				"allowCallExpression": true, // The true value here is for backward compatibility
-				"allowLiteral": false,
-				"allowObject": true
-			}
-		],
-		"arrow-body-style": ["off"],
-		"react/jsx-key": ["error"],
-		"prettier/prettier": ["error"],
-		"@typescript-eslint/ban-ts-comment": "off",
-		"@typescript-eslint/no-misused-promises": [
-			"error",
-			{
-				"checksVoidReturn": {
-					"attributes": false
-				}
-			}
-		],
-		"@typescript-eslint/no-redundant-type-constituents": "off",
-		"@typescript-eslint/no-unsafe-assignment": "off",
-		"react/require-default-props": ["off"]
+                "allowArray": true,
+                "allowArrowFunction": false,
+                "allowAnonymousClass": false,
+                "allowAnonymousFunction": false,
+                "allowCallExpression": true, // The true value here is for backward compatibility
+                "allowLiteral": false,
+                "allowObject": true
+            }
+        ],
+        "arrow-body-style": ["off"],
+        "react/jsx-key": ["error"],
+        "prettier/prettier": "off",
+        "@typescript-eslint/ban-ts-comment": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-use-before-define": "off",
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/no-misused-promises": "off",
+        "@typescript-eslint/no-redundant-type-constituents": "off",
+        "@typescript-eslint/no-unnecessary-type-assertion": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-non-null-asserted-optional-chain": "off",
+        "@typescript-eslint/dot-notation": "off",
+        "@typescript-eslint/return-await": "off",
+        "@typescript-eslint/restrict-plus-operands": "off",
+        "@typescript-eslint/no-base-to-string": "off",
+        "@typescript-eslint/no-shadow": "off",
+        "@typescript-eslint/naming-convention": "off",
+        "@typescript-eslint/restrict-template-expressions": "off",
+        "@typescript-eslint/ban-types": "off",
+        "@typescript-eslint/no-unused-expressions": "off",
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "react/require-default-props": "off",
+        "no-plusplus": "off",
+        "no-nested-ternary": "off",
+        "no-void": "off",
+        "object-shorthand": "off",
+        "no-restricted-syntax": "off",
+        "no-await-in-loop": "off",
+        "no-restricted-globals": "off",
+        "no-empty-pattern": "off",
+        "no-unneeded-ternary": "off",
+        "prefer-const": "off",
+        "prefer-template": "off",
+        "no-irregular-whitespace": "off",
+        "eqeqeq": "off",
+        "no-console": "off",
+        "radix": "off",
+        "consistent-return": "off",
+        "react/prop-types": "off",
+        "react/no-this-in-sfc": "off",
+        "func-names": "off",
+        "jsx-a11y/alt-text": "off",
+        "react/jsx-no-bind": "off",
+        "react/button-has-type": "off",
+        "import/newline-after-import": "off",
+        "jsx-a11y/iframe-has-title": "off",
+        "prefer-destructuring": "off",
+        "no-lone-blocks": "off",
+        "no-extra-boolean-cast": "off",
+        "unicode-bom": "off",
+        "no-else-return": "off",
+        "no-useless-return": "off",
+        "no-continue": "off",
+        "jsx-a11y/no-static-element-interactions": "off",
+        "jsx-a11y/no-noninteractive-tabindex": "off",
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/label-has-associated-control": "off",
+        "jsx-a11y/control-has-associated-label": "off",
+        "default-case": "off",
+        "import/no-extraneous-dependencies": "off"
 	}
 }

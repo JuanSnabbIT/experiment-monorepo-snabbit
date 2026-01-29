@@ -1,21 +1,46 @@
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
-import ApiService from "@/services/ApiService"
-import { detalleGuiaSalidaBodegaThunk, listaGuiaSalidaPorBodegaThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react"
-import SignatureCanvas from 'react-signature-canvas'
-import { toast } from "react-toastify"
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import {
+    listaUsuariosTodaLaEmpresaThunk,
+    useAppDispatch,
+    useAppSelector,
+} from '@/store';
+import {
+    useAprobarGuiaMutation,
+    useGetDetalleGuiaSalidaQuery,
+} from '@/store/slices/bodega/guiaSalidaApi';
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
+import { toast } from 'react-toastify';
 
+function AprobarGuiaSalida({
+    id_guia,
+    isOpen,
+    setIsOpen,
+}: {
+    id_guia: number | undefined;
+    bodegaSelected?: string | undefined;
+    isOpen: boolean;
+    setIsOpen: Dispatch<SetStateAction<boolean>>;
+    onSuccess?: () => void;
+}) {
+    const dispatch = useAppDispatch();
+    const [aprobarGuia] = useAprobarGuiaMutation();
+    const { data: detalleGuiaSalidaBodega } = useGetDetalleGuiaSalidaQuery(id_guia!, {
+        skip: !id_guia || !isOpen,
+    });
+    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const sigCanvas = useRef<SignatureCanvas | null>(null);
 
-function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen, onSuccess} : {id_guia: number | undefined, bodegaSelected: string | undefined, isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, onSuccess?: () => void}) {
-    const dispatch = useAppDispatch()
-    const sigCanvas = useRef<SignatureCanvas | null>(null)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa)
-    const { detalleGuiaSalidaBodega } = useAppSelector((state) => state.bodega)
-    const [recibido, setRecibido] = useState<{value: string, label: string} | undefined>()
+    const [recibido, setRecibido] = useState<{ value: string; label: string } | undefined>();
     // const [optUsuarios, setOptUsuarios] = useState<{value: string, label: string}[]>([])
 
     const clear = () => {
@@ -26,34 +51,33 @@ function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen, onSucces
 
     useEffect(() => {
         if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaUsuariosTodaLaEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
+            dispatch(
+                listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
+            );
         }
-    }, [isOpen, personalizacionUsuario])
-
-    useEffect(() => {
-        if (isOpen && id_guia) {
-            dispatch(detalleGuiaSalidaBodegaThunk({id_guia}))
-        }
-    }, [id_guia, isOpen])
+    }, [isOpen, personalizacionUsuario]);
 
     return (
         <>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
-                    <Badge className="text-xl">Aprobar Guia</Badge>
+                    <Badge className='text-xl'>Aprobar Guia</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <div className="flex flex-col gap-4">
-                        {detalleGuiaSalidaBodega && (!detalleGuiaSalidaBodega.recibido_por) && (
+                    <div className='flex flex-col gap-4'>
+                        {detalleGuiaSalidaBodega && !detalleGuiaSalidaBodega.recibido_por && (
                             <div>
                                 <Badge>Recibido Por</Badge>
                                 <SelectReact
-                                    name="recibido_por"
-                                    placeholder="Seleccione un usuario"
-                                    options={listaUsuariosTodaLaEmpresa.map(user => ({value: user.id.toString(), label: user.nombre_usuario}))}
+                                    name='recibido_por'
+                                    placeholder='Seleccione un usuario'
+                                    options={listaUsuariosTodaLaEmpresa.map((user) => ({
+                                        value: user.id.toString(),
+                                        label: user.nombre_usuario,
+                                    }))}
                                     onChange={(e) => {
                                         if (e) {
-                                            setRecibido((e as TSelectOption))
+                                            setRecibido(e as TSelectOption);
                                         }
                                     }}
                                     value={recibido}
@@ -62,10 +86,14 @@ function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen, onSucces
                         )}
                         <div>
                             <Badge>Firma</Badge>
-                            <div className="dark:bg-white" style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+                            <div
+                                className='dark:bg-white'
+                                style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
                                 <SignatureCanvas
-                                    ref={(ref) => {sigCanvas.current = ref}}
-                                    penColor="black"
+                                    ref={(ref) => {
+                                        sigCanvas.current = ref;
+                                    }}
+                                    penColor='black'
                                     canvasProps={{
                                         height: 200,
                                         className: 'sigCanvas',
@@ -73,39 +101,54 @@ function AprobarGuiaSalida({id_guia, bodegaSelected, isOpen, setIsOpen, onSucces
                                     }}
                                 />
                             </div>
-                            <Button className="mt-2" variant="solid" onClick={clear}>Limpiar</Button>
+                            <Button className='mt-2' variant='solid' onClick={clear}>
+                                Limpiar
+                            </Button>
                         </div>
                     </div>
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false); clear()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={async () => {
-                            try {
-                                let data = {firma_recibido_por: sigCanvas.current?.toDataURL('image/png')}
-                                if (recibido) {
-                                    Object.assign(data, {recibido_por: recibido.value})
+                        <Button
+                            color='red'
+                            onClick={() => {
+                                setIsOpen(false);
+                                clear();
+                            }}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant='solid'
+                            onClick={async () => {
+                                if (!id_guia) return;
+                                try {
+                                    const body: any = {
+                                        firma_recibido_por:
+                                            sigCanvas.current?.toDataURL('image/png'),
+                                    };
+                                    if (recibido) {
+                                        body.recibido_por = recibido.value;
+                                    }
+                                    await aprobarGuia({ id: id_guia, ...body }).unwrap();
+                                    toast.success('Guia aprobada', { autoClose: 1000 });
+                                    clear();
+                                    setIsOpen(false);
+                                } catch (error: any) {
+                                    const msg =
+                                        error?.data?.detail ||
+                                        error?.data ||
+                                        'Error al aprobar guía';
+                                    toast.error(msg);
                                 }
-                                const response = await ApiService.fetchData({url: `/api/guia-salida/${id_guia}/aprobar-guia/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(data)})
-                                if (response.data) {
-                                    toast.success("Guia aprobada", {autoClose: 1000})
-                                    clear()
-                                    setIsOpen(false)
-                                    dispatch(listaGuiaSalidaPorBodegaThunk({id_bodega: bodegaSelected}))
-                                    onSuccess && onSuccess()
-                                }
-                            } catch (error: any) {
-                                const msg = error?.response?.data?.detail || error?.response?.data || "Error al aprobar guía"
-                                toast.error(msg)
-                            }
-                        }}>Aprobar</Button>
+                            }}>
+                            Aprobar
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
         </>
-    )
+    );
 }
 
-
-export default AprobarGuiaSalida
+export default AprobarGuiaSalida;
