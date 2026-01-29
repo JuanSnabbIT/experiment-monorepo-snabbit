@@ -595,8 +595,14 @@ function DetalleGuiaSalidaBodega() {
                 <SubheaderLeft>
                     <Badge className='text-xl'>Detalle de Guia de Salida de Items de Bodega</Badge>
                 </SubheaderLeft>
-                <SubheaderRight>
                     <div className='flex flex-wrap gap-2'>
+                        <Button
+                            variant='solid'
+                            color='zinc'
+                            icon='HeroArrowLeft'
+                            onClick={() => navigate('/bodega/guias-salida-bodega')}>
+                            Volver al Listado
+                        </Button>
                         {detalleGuiaSalidaBodega?.orden_trabajo && (
                             <Tooltip text='Ver OT Vinculada'>
                                 <Button
@@ -838,6 +844,7 @@ function DetalleGuiaSalidaBodega() {
                                             </Button>
                                             <Button
                                                 variant='solid'
+                                                color='emerald'
                                                 onClick={() => {
                                                     formik.handleSubmit();
                                                 }}>
@@ -847,6 +854,7 @@ function DetalleGuiaSalidaBodega() {
                                     ) : (
                                         <Button
                                             variant='solid'
+                                            color='blue'
                                             onClick={() => {
                                                 setIsEditting(true);
                                             }}
@@ -860,8 +868,21 @@ function DetalleGuiaSalidaBodega() {
                                         <>
                                             <div className='w-full'>
                                                 <Badge>Estado</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleGuiaSalidaBodega?.estado_label}
+                                                <div className='ml-4 mt-1'>
+                                                    {(() => {
+                                                        let color: 'sky' | 'amber' | 'indigo' | 'emerald' | 'cyan' | 'zinc' | 'violet' | 'blue' = 'zinc';
+                                                        switch (detalleGuiaSalidaBodega?.estado) {
+                                                            case 'P': color = 'sky'; break;
+                                                            case 'ER': color = 'blue'; break;
+                                                            case 'ET': color = 'amber'; break;
+                                                            case 'FR': color = 'violet'; break;
+                                                            case 'E': color = 'emerald'; break;
+                                                            case 'PR': color = 'sky'; break;
+                                                            case 'R': color = 'zinc'; break;
+                                                            case 'T': color = 'violet'; break;
+                                                        }
+                                                        return <Badge color={color}>{detalleGuiaSalidaBodega?.estado_label}</Badge>;
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className='w-full'>
@@ -908,8 +929,21 @@ function DetalleGuiaSalidaBodega() {
                                         <>
                                             <div className='w-full'>
                                                 <Badge>Estado</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleGuiaSalidaBodega?.estado_label}
+                                                <div className='ml-4 mt-1'>
+                                                    {(() => {
+                                                        let color: 'sky' | 'amber' | 'indigo' | 'emerald' | 'cyan' | 'zinc' | 'violet' | 'blue' = 'zinc';
+                                                        switch (detalleGuiaSalidaBodega?.estado) {
+                                                            case 'P': color = 'sky'; break;
+                                                            case 'ER': color = 'blue'; break;
+                                                            case 'ET': color = 'amber'; break;
+                                                            case 'FR': color = 'violet'; break;
+                                                            case 'E': color = 'emerald'; break;
+                                                            case 'PR': color = 'sky'; break;
+                                                            case 'R': color = 'zinc'; break;
+                                                            case 'T': color = 'violet'; break;
+                                                        }
+                                                        return <Badge color={color}>{detalleGuiaSalidaBodega?.estado_label}</Badge>;
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className='w-full'>
@@ -1045,6 +1079,7 @@ function DetalleGuiaSalidaBodega() {
                                             <div className='flex gap-4'>
                                                 <Button
                                                     variant='solid'
+                                                    color='emerald'
                                                     isDisable={completando}
                                                     onClick={completarGuia}>
                                                     Completar Guia de Salida
