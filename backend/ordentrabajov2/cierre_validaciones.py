@@ -45,23 +45,48 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
         Mensaje de error si no existe, None si es válido.
     """
     try:
-        prefactura = CierreAdministrativoOT.objects.filter(
+        qs = CierreAdministrativoOT.objects.filter(
             cliente=orden.cliente,
             estado_cierre="aprobado",
-        ).first()
-        
-        if not prefactura:
+        )
+
+        if not qs.exists():
             return "No existe una prefactura aprobada para este cliente."
-        
-        # Verificar que esta OT esté incluida en la prefactura
-        resultado = prefactura.resultado or {}
-        ots_incluidas = resultado.get("ots_incluidas", [])
-        
-        if orden.id not in ots_incluidas:
-            return "La OT no está incluida en la prefactura aprobada."
-        
-        return None  # Válido
-        
+
+        # Normalizador flexible de entradas en `ots_incluidas`
+        def _extract_ids(items):
+            ids = set()
+            for it in items or []:
+                if isinstance(it, int):
+                    ids.add(it)
+                elif isinstance(it, str):
+                    if it.isdigit():
+                        ids.add(int(it))
+                    else:
+                        # intentar extraer dígitos dentro del string
+                        try:
+                            ids.add(int(''.join(ch for ch in it if ch.isdigit())))
+                        except Exception:
+                            continue
+                elif isinstance(it, dict):
+                    for key in ("id", "ot_id", "orden_id", "orden"):
+                        val = it.get(key)
+                        if isinstance(val, int):
+                            ids.add(val)
+                        elif isinstance(val, str) and val.isdigit():
+                            ids.add(int(val))
+            return ids
+
+        # Buscar en cualquier prefactura aprobada si alguna contiene la OT
+        for prefactura in qs:
+            resultado = (prefactura.resultado or {})
+            ots_incluidas = resultado.get("ots_incluidas", [])
+            ids = _extract_ids(ots_incluidas)
+            if orden.id in ids:
+                return None  # Válido
+
+        return "La OT no está incluida en la prefactura aprobada."
+
     except Exception as e:
         return f"Error al validar prefactura: {str(e)}"
 

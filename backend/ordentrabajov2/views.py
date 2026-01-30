@@ -314,6 +314,18 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
             if not guias_terminales:
                 return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Antes de cerrar definitivamente, validar requisitos administrativos
+        if nuevo_estado == "cerrada":
+            try:
+                errores = validar_requisitos_cierre_ot(orden)
+                if errores:
+                    return Response(
+                        {"detail": "No se puede cerrar la OT. Requisitos no cumplidos.", "errors": errores},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except Exception as e:
+                return Response({"detail": f"Error al validar requisitos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         orden.estado = nuevo_estado
         orden.save()
         # Si la OT inicia, avanzar guías vinculadas a "en tránsito"
@@ -1387,7 +1399,7 @@ class UsuariosVinculadosOrdenAPIView(APIView):
         if orden_pk is None:
             return Response([], status=status.HTTP_200_OK)
         usuarios = UsuarioAsignadoSoporte.objects.filter(
-            soporte_tecnico__orden_trabajo_id=orden_pk
+            soporte_tecnico__orden_id=orden_pk
         ).order_by("-fecha_creacion")
         serializer = UsuarioAsignadoSoporteSerializer(usuarios, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
