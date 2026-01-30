@@ -233,8 +233,8 @@ const DetalleOT = () => {
                     }
 
                     const updatePayload: Partial<IOrdenDeTrabajo> = {
-                        fecha_inicio_ot: values.fecha_inicio_ot || null,
-                        fecha_finalizacion_ot: values.fecha_finalizacion_ot || null,
+                        fecha_inicio_ot: values.fecha_inicio_ot || undefined,
+                        fecha_finalizacion_ot: values.fecha_finalizacion_ot || undefined,      
                         prioridad: values.prioridad,
                         notas_internas: values.notas_internas,
                         cliente_solicitante: clienteSolicitanteId,

@@ -137,7 +137,7 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
                             className='mb-2'
                             icon='HeroPaperAirplane'
                             isLoading={isCreating}
-                            disabled={isCreating}
+                            isDisable={isCreating}
                         />
                     </div>
                 </DropdownItem>

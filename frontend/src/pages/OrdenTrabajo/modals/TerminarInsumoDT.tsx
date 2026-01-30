@@ -276,7 +276,7 @@ function TerminarInsumoDT({
                                 try {
                                     await updateGuiaSalida({
                                         id: detalleDelDetalleTrabajo?.insumo ?? 0,
-                                        data: { estado: 'T' },
+                                        estado: 'T',
                                     }).unwrap();
                                     toast.success('Insumos terminados', { autoClose: 1000 });
                                     setIsOpen(false);

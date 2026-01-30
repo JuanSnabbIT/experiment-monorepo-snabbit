@@ -770,7 +770,7 @@ function ListaServiciosOT() {
                 await actualizarServicio({
                     ordenId: detalleOrdenTrabajo?.id ?? 0,
                     servicioId: detalleSeleccionado ?? 0,
-                    data: { tecnico_asignado: values.tecnico_asignado },
+                    data: { tecnico_asignado: Number(values.tecnico_asignado) },
                 }).unwrap();
                 try {
                     await crearSeguimientoServicio({
@@ -1004,10 +1004,10 @@ function ListaServiciosOT() {
                                                             </p>
                                                         </div>
                                                         <span className='whitespace-nowrap text-xs text-gray-500'>
-                                                            {seg.fecha_creacion
-                                                                ? dayjs(seg.fecha_creacion)
-                                                                      .locale('es')
-                                                                      .format('DD/MM HH:mm')
+                                                            {seg.fecha
+                                                                ? dayjs(seg.fecha)
+                                                                    .locale('es')
+                                                                    .format('DD/MM HH:mm')
                                                                 : ''}
                                                         </span>
                                                     </div>

@@ -129,7 +129,7 @@ const [optionsTrabajos, setOptionsTrabajos] = useState<
                         comentario: values.comentario,
                     },
                 }).unwrap();
-                if (seguimientoResponse && seguimientoResponse.data) {
+                if (seguimientoResponse) {
                     toast.success('Trabajo añadido', { autoClose: 1000 });
                     setIsOpen(false);
                     formik.resetForm();

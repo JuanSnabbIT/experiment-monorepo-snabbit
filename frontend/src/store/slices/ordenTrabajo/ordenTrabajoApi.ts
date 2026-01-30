@@ -30,7 +30,7 @@ import type {
     IItemGuiaSalida,
 } from '@/interface/bodega.interface';
 import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
-import type { IVisitaEnOT } from '@/interface/visitas.interface';
+import type { IVisitaEnOT, IVisitaSoporte } from '@/interface/visitas.interface';
 import RtkQueryService from '@/services/RtkQueryService';
 
 export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
@@ -1041,7 +1041,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                     tags.push({ type: 'GuiaSalida', id: result.id });
                     tags.push({ type: 'GuiaSalidaItems', id: result.id });
                 }
-                return tags;
+                return tags as any;
             
             },
         }),
@@ -1066,7 +1066,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                     tags.push({ type: 'GuiaSalida', id: result.id });
                     tags.push({ type: 'GuiaSalidaItems', id: result.id });
                 }
-                return tags;
+                return tags as any;
             
             },
         }),
@@ -1091,7 +1091,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                     tags.push({ type: 'GuiaSalida', id: result.id });
                     tags.push({ type: 'GuiaSalidaItems', id: result.id });
                 }
-                return tags;
+                return tags as any;
             
             },
         }),
@@ -1116,7 +1116,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                     tags.push({ type: 'GuiaSalida', id: result.id });
                     tags.push({ type: 'GuiaSalidaItems', id: result.id });
                 }
-                return tags;
+                return tags as any;
             
             },
         }),
@@ -1148,7 +1148,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                     tags.push({ type: 'GuiaSalida', id: result.id });
                     tags.push({ type: 'GuiaSalidaItems', id: result.id });
                 }
-                return tags;
+                return tags as any;
             
             },
         }),
@@ -1210,7 +1210,6 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             }),
         }),
     }),
-    overrideExisting: false,
 });
 
 export const {

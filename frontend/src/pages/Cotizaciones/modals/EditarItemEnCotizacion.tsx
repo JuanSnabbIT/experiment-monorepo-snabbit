@@ -46,10 +46,10 @@ function EditarItemEnCotizacion({
             if (item.item_empresa) {
                 dispatch(listaProveedoresDelItemThunk({ id_item: item.item_empresa }));
             }
-            formik.setValues({
+                formik.setValues({
                 cantidad: item.cantidad,
                 porcentaje_recargo: item.porcentaje_recargo || 0,
-                precio_unitario: formatPrice(parseLocaleNumber(item.precio_unitario)),
+                    precio_unitario: Number(parseLocaleNumber(item.precio_unitario)),
                 proveedor_empresa: item.proveedor_empresa ? item.proveedor_empresa.toString() : '',
                 recargo_dolar: item.recargo_dolar,
             });

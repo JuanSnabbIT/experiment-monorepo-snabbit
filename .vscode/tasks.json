@@ -4,7 +4,7 @@
     {
       "label": "Backend: Runserver",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["manage.py", "runserver", "0.0.0.0:8000"],
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -63,7 +63,7 @@
     {
       "label": "Backend: Celery Worker",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": [
         "-m",
         "celery",
@@ -100,7 +100,7 @@
     {
       "label": "Backend: Celery Beat",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["-m", "celery", "-A", "sw_erp", "beat", "--loglevel=info"],
       "options": {
         "cwd": "${workspaceFolder}/backend"

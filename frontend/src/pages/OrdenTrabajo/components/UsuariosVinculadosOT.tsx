@@ -87,7 +87,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
             await eliminarUsuarioAsignadoSoporte({
                 ordenId: detalleOrdenTrabajo.id,
                 soporteId: soporteIdNumber,
-                usuarioAsignadoId: usuario.id,
+                usuarioId: usuario.id,
             }).unwrap();
             toast.success('Asignación eliminada', { autoClose: 1000 });
             refreshSoporteLista();

@@ -70,7 +70,7 @@ const { userMe } = useAppSelector((state) => state.auth);
                         comentario: values.comentario,
                     },
                 }).unwrap();
-                if (seguimientoResponse && seguimientoResponse.data) {
+                if (seguimientoResponse) {
                     toast.success('Seguimiento creado exitosamente');
                     setIsOpen(false);
                 } else {
