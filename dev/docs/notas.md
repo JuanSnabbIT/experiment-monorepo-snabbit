@@ -99,3 +99,38 @@ Migraciones / Especificaciones
 Notas de proceso
 - Mantener `notas.md` como staging; cuando una nota se estabiliza, copiar al doc canónico y añadir en la nota original la marca: `✅ Migrado a <archivo> (YYYY-MM-DD)`.
 
+
+
+
+-----
+
+
+# Empresas 
+- La ubicación de los campos cambia cuando se entra y sale del modo edición.
+- Esta permitiendo añadir como empresa cliente a la misma empresa que se esta en sesión.
+
+## Sucursales:
+- Pareciera que los valores de "region", "provincia" y "comuna" no son "reactivos" (al seleccionar una region, no se actualizan las provincias asociadas a esa region). Revisar este comportamiento.
+
+# Items:
+- Al crear items, deberia permitir en el mismo modal donde aparecen los campos "Fabricante" y "Categoria" crear estos registros si no existe el que se busca.
+
+## Cotizaciones
+- Al agregar items a la cotización, permitir crear items nuevos desde el mismo modal de agregar items.
+- Verificar que al agregar le precio a los items, permita agregar en el formato "123.456,78" (punto como separador de miles y coma como separador decimal)
+
+# Ordenes de Trabajo
+
+## Servicios de Soporte Tecnico
+- En la asignación de usuarios para el servicio, esta permitiendo agregar usuarios duplicados.
+
+## Insumos
+- Revisar que si se crea una Cotización con item A, luego cuando se aprueba y crea la orden de compra se le agrega a esa compra ademas el item B. Con esto cuando estemos en la OT y se trate de vincular una cotización, aparece solo el Item A, pero al hacer el vinculo, se crea la Guia de Salida con ambos items A y B. ¿Que deberia ocurrir, que al vincular la cotización, se muestren todos los items asociados a la orden de compra generada a partir de esa cotización o que al vincular la cotización, solo se creen las guias de salida con los items que estaban en la cotización original?
+- No esta permitiendo desvincular guias o cotizaciones
+
+## Gastos Operativos
+- Deberia de poder editarse los registros que se generan en la OT, actualmente no es posible editar los gastos operativos una vez creados.
+
+## Facturación Manual
+- Falta los botones para ir a las vistas respectivas de los items (solo se puede ir a las OTs desde los items que sean Trabajos)
+- Filtro en la vista de las listas de prefacturas no funciona.

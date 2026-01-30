@@ -10,24 +10,26 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import type {
-    IBodega,
-    ICompra,
-    IItemEnCompra,
-    IVoucherDevolucion,
-} from '@/interface/bodega.interface';
-import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
-    checkCompletibilidadOTThunk,
-    detalleOrdenTrabajoThunk,
-    listaSoportesTecnicosThunk,
     listaVouchersThunk,
     useAppDispatch,
-    useAppSelector,
 } from '@/store';
+import {
+    useCrearVoucherDevolucionMutation,
+    useDevolverCompraABodegaMutation,
+    useFinalizarTrabajoSoporteMutation,
+    useGetBodegasQuery,
+    useGetCheckCompletibilidadOTQuery,
+    useGetComprasEnOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetSoportesTecnicosQuery,
+    useLazyGetItemsCompraDetalleQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 
 type CompraItemDevolucion = {
     compraId: number;
@@ -40,77 +42,86 @@ type CompraItemDevolucion = {
 
 function CompletarOT() {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, checkCompletibilidadOT, listaSoportesTecnicos } = useAppSelector(
-        (state) => state.ordenTrabajo,
-    );
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const {
+        data: detalleOrdenTrabajo,
+        refetch: refetchDetalleOrdenTrabajo,
+    } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: checkCompletibilidadOT } = useGetCheckCompletibilidadOTQuery(ordenId ?? 0, {
+        skip: !ordenId || !isOpen,
+    });
+    const { data: listaSoportesTecnicos = [] } = useGetSoportesTecnicosQuery(ordenId ?? 0, {
+        skip: !ordenId || !isOpen,
+    });
+    const { data: listaComprasEnOT = [] } = useGetComprasEnOTQuery(ordenId ?? 0, {
+        skip: !ordenId || !isOpen,
+    });
+    const { data: listaBodegas = [] } = useGetBodegasQuery(undefined, {
+        skip: !isOpen,
+    });
+    const [getItemsCompraDetalle] = useLazyGetItemsCompraDetalleQuery();
+    const [devolverCompraABodega] = useDevolverCompraABodegaMutation();
+    const [crearVoucherDevolucionMutation] = useCrearVoucherDevolucionMutation();
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
+    const [finalizarTrabajoSoporte] = useFinalizarTrabajoSoporteMutation();
     const [tieneCompras, setTieneCompras] = useState<boolean>(false);
     const [cargandoInsumos, setCargandoInsumos] = useState<boolean>(false);
     const [todosItemsCompradosUsados, setTodosItemsCompradosUsados] = useState<boolean>(true);
     const [procesando, setProcesando] = useState<boolean>(false);
     const [comprasItems, setComprasItems] = useState<CompraItemDevolucion[]>([]);
-    const [listaBodegas, setListaBodegas] = useState<IBodega[]>([]);
     const [bodegaSeleccionada, setBodegaSeleccionada] = useState<number | null>(null);
 
     useEffect(() => {
-        if (detalleOrdenTrabajo && isOpen) {
-            dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-            dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-            cargarInsumos();
-        }
-    }, [detalleOrdenTrabajo, isOpen]);
+        const cargarInsumos = async () => {
+            if (!isOpen || !detalleOrdenTrabajo) return;
 
-    const cargarInsumos = async () => {
-        if (!detalleOrdenTrabajo) return;
+            setCargandoInsumos(true);
+            try {
+                const compras = listaComprasEnOT || [];
+                if (compras.length === 0) {
+                    setComprasItems([]);
+                    setTieneCompras(false);
+                    return;
+                }
 
-        setCargandoInsumos(true);
-        try {
-            const comprasResponse = await ApiService.fetchData<ICompra[]>({
-                url: `/api/compras/?orden_trabajo=${detalleOrdenTrabajo.id}`,
-                method: 'get',
-            });
-            const compras = comprasResponse.data || [];
+                const comprasConItems = await Promise.all(
+                    compras.map(async (compra) => {
+                        const items = await getItemsCompraDetalle(compra.id).unwrap();
+                        return { compra, items: items || [] };
+                    }),
+                );
 
-            const comprasConItems = await Promise.all(
-                compras.map(async (compra) => {
-                    const itemsResponse = await ApiService.fetchData<IItemEnCompra[]>({
-                        url: `/api/compras/${compra.id}/items-compras/`,
-                        method: 'get',
-                    });
-                    return { compra, items: itemsResponse.data || [] };
-                }),
-            );
-
-            const itemsCompra: CompraItemDevolucion[] = [];
-            comprasConItems.forEach((compraData) => {
-                compraData.items.forEach((item) => {
-                    itemsCompra.push({
-                        compraId: compraData.compra.id,
-                        itemId: item.id,
-                        nombre: item.nombre_item,
-                        cantidad_total: item.cantidad,
-                        cantidad_a_devolver: 0,
-                        seleccionado: false,
+                const itemsCompra: CompraItemDevolucion[] = [];
+                comprasConItems.forEach((compraData) => {
+                    compraData.items.forEach((item) => {
+                        itemsCompra.push({
+                            compraId: compraData.compra.id,
+                            itemId: item.id,
+                            nombre: item.nombre_item,
+                            cantidad_total: item.cantidad,
+                            cantidad_a_devolver: 0,
+                            seleccionado: false,
+                        });
                     });
                 });
-            });
 
-            setComprasItems(itemsCompra);
-            setTieneCompras(itemsCompra.length > 0);
+                setComprasItems(itemsCompra);
+                setTieneCompras(itemsCompra.length > 0);
+            } catch (error) {
+                console.error('Error al cargar insumos:', error);
+                setComprasItems([]);
+                setTieneCompras(false);
+            } finally {
+                setCargandoInsumos(false);
+            }
+        };
 
-            const bodegasResponse = await ApiService.fetchData<IBodega[]>({
-                url: '/api/bodegas/',
-                method: 'get',
-            });
-            setListaBodegas(bodegasResponse.data || []);
-        } catch (error) {
-            console.error('Error al cargar insumos:', error);
-            setComprasItems([]);
-            setTieneCompras(false);
-        } finally {
-            setCargandoInsumos(false);
-        }
-    };
+        cargarInsumos();
+    }, [detalleOrdenTrabajo, getItemsCompraDetalle, isOpen, listaComprasEnOT]);
 
     const finalizarTrabajosEnProceso = async () => {
         if (!detalleOrdenTrabajo) return;
@@ -118,12 +129,11 @@ function CompletarOT() {
         for (const sop of soportes) {
             if (sop.estado === 'en_proceso' && sop.guia_salida) {
                 try {
-                    await ApiService.fetchData({
-                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${sop.id}/finalizar-trabajo/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({ todos_usados: true, devoluciones: [] }),
-                    });
+                    await finalizarTrabajoSoporte({
+                        ordenId: detalleOrdenTrabajo.id,
+                        soporteId: sop.id,
+                        data: { todos_usados: true, devoluciones: [] },
+                    }).unwrap();
                 } catch (error: unknown) {
                     const msg =
                         getErrorMessage(error) || `No se pudo finalizar el soporte ${sop.nombre}`;
@@ -208,15 +218,14 @@ function CompletarOT() {
         }, {});
 
         for (const compraId of Object.keys(devolucionesPorCompra)) {
-            await ApiService.fetchData({
-                url: `/api/compras/${compraId}/devolver-a-bodega/`,
-                method: 'post',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({
+            await devolverCompraABodega({
+                compraId: Number(compraId),
+                ordenId: detalleOrdenTrabajo?.id,
+                data: {
                     bodega: bodegaSeleccionada,
                     items: devolucionesPorCompra[Number(compraId)],
-                }),
-            });
+                },
+            }).unwrap();
         }
     };
 
@@ -224,29 +233,24 @@ function CompletarOT() {
         if (!detalleOrdenTrabajo) return;
 
         try {
-            const response = await ApiService.fetchData<IVoucherDevolucion>({
-                url: '/api/vouchers-devolucion/',
-                method: 'post',
-                headers: { 'Content-Type': 'application/json' },
-                data: { orden_trabajo: detalleOrdenTrabajo.id } as unknown as Record<
-                    string,
-                    unknown
-                >,
-            });
-            const voucher = response.data;
+            const voucher = await crearVoucherDevolucionMutation({
+                ordenId: detalleOrdenTrabajo.id,
+            }).unwrap();
             dispatch(listaVouchersThunk({ orden_trabajo: detalleOrdenTrabajo.id }));
             toast.success(`Voucher ${voucher.numero} generado`, { autoClose: 1200 });
-        } catch (error: any) {
-            const status = error?.response?.status;
+        } catch (error: unknown) {
+            const status =
+                typeof error === 'object' && error && 'status' in error
+                    ? (error as { status?: number }).status
+                    : undefined;
             if (status === 409) {
                 dispatch(listaVouchersThunk({ orden_trabajo: detalleOrdenTrabajo.id }));
                 return;
             }
 
             const msg =
-                error?.response?.data?.detail ||
-                error?.message ||
-                'Error al generar voucher de devolución';
+                getErrorMessage(error) ||
+                'Error al generar voucher de devoluci??n';
             throw new Error(msg);
         }
     };
@@ -256,13 +260,11 @@ function CompletarOT() {
             await finalizarTrabajosEnProceso();
         }
 
-        const response = await ApiService.fetchData({
-            url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/`,
-            method: 'patch',
-            headers: { 'Content-Type': 'application/json' },
-            data: JSON.stringify({ estado: 'completada' }),
-        });
-        return response;
+        if (!detalleOrdenTrabajo) return;
+        await updateOrdenTrabajo({
+            id: detalleOrdenTrabajo.id,
+            data: { estado: 'completada' },
+        }).unwrap();
     };
 
     const handleCompletar = async () => {
@@ -282,11 +284,10 @@ function CompletarOT() {
             }
 
             toast.success('Orden de Trabajo actualizada', { autoClose: 1000 });
-            dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo?.id }));
+            refetchDetalleOrdenTrabajo();
             setIsOpen(false);
-        } catch (error: any) {
-            const msg =
-                error?.response?.data?.detail || error?.message || 'Error al completar la OT';
+        } catch (error: unknown) {
+            const msg = getErrorMessage(error) || 'Error al completar la OT';
             toast.error(msg, { toastId: 'Error al completar la OT' });
         } finally {
             setProcesando(false);

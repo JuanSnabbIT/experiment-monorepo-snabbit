@@ -15,11 +15,11 @@ import { IEntregaEquipo } from '@/interface/visitas.interface';
 import CambiarEstadoEntregaEquipo from '@/pages/Visitas/modals/CambiarEstadoEntregaEquipo';
 import EditarEquipoVisita from '@/pages/Visitas/modals/EditarEquipoVisita';
 import {
-    detalleDelDetalleTrabajoThunk,
     listaEntregaEquipoThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { useGetDetalleTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -34,6 +34,7 @@ import {
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import CrearEntregaEquipoEnOT from './CrearEntregaEquipoEnOT';
+import { useParams } from 'react-router-dom';
 
 const columnHelper = createColumnHelper<IEntregaEquipo>();
 
@@ -49,25 +50,17 @@ function ListaEntregasDT({
     setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>;
 }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleSeleccionado ?? 0 },
+        { skip: !ordenId || !detalleSeleccionado || !isOpen },
     );
     const { listaEntregaEquipos } = useAppSelector((state) => state.visita);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isOpenEdiccion, setIsOpenEdiccion] = useState<boolean>(false);
     const [equipoSelected, setEquipoSelected] = useState<number | string | undefined>();
-
-    useEffect(() => {
-        if (isOpen && detalleSeleccionado) {
-            dispatch(
-                detalleDelDetalleTrabajoThunk({
-                    id_orden: detalleOrdenTrabajo?.id,
-                    id_detalle: detalleSeleccionado,
-                }),
-            );
-        }
-    }, [detalleSeleccionado, isOpen]);
 
     useEffect(() => {
         if (isOpen && detalleDelDetalleTrabajo) {

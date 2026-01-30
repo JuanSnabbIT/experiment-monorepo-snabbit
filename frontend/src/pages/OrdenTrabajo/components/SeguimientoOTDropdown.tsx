@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
 import Icon from '@/components/icon/Icon';
 import Input from '@/components/form/Input';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
-import ApiService from '@/services/ApiService';
-import { listarSeguimientosOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useCrearSeguimientoOTMutation,
+    useGetSeguimientosOTQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -15,41 +17,18 @@ import { toast } from 'react-toastify';
 dayjs.locale('es');
 
 const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => {
-    const dispatch = useAppDispatch();
-    const { listaSeguimientosOT } = useAppSelector((state) => state.ordenTrabajo);
     const [newComment, setNewComment] = useState<string>('');
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [loadedOrdenId, setLoadedOrdenId] = useState<number | undefined>(undefined);
-
-    useEffect(() => {
-        if (!ordenId) {
-            setLoadedOrdenId(undefined);
-            return;
-        }
-        let isActive = true;
-        const fetchSeguimientos = async () => {
-            setIsLoading(true);
-            try {
-                await dispatch(listarSeguimientosOTThunk({ id_orden: ordenId })).unwrap();
-                if (isActive) {
-                    setLoadedOrdenId(ordenId);
-                }
-            } catch {
-                if (isActive) {
-                    setLoadedOrdenId(ordenId);
-                }
-            } finally {
-                if (isActive) {
-                    setIsLoading(false);
-                }
-            }
-        };
-        fetchSeguimientos();
-        return () => {
-            isActive = false;
-        };
-    }, [dispatch, ordenId]);
+    const {
+        data: listaSeguimientosOT = [],
+        isLoading,
+        isFetching,
+        refetch,
+    } = useGetSeguimientosOTQuery(
+        { ordenId: ordenId ?? 0 },
+        { skip: !ordenId },
+    );
+    const [crearSeguimientoOT, { isLoading: isCreating }] = useCrearSeguimientoOTMutation();
 
     const obtenerLabelTipo = (tipo: string): string => {
         const match = TIPO_SEGUIMIENTO.find((item) => item.value === tipo);
@@ -64,22 +43,21 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
     const handleAddComment = async () => {
         if (!ordenId || !newComment.trim()) return;
         try {
-            await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${ordenId}/seguimientos/`,
-                method: 'post',
+            await crearSeguimientoOT({
+                ordenId,
                 data: {
                     comentario: newComment,
                     tipo: 'comentario_tecnico',
                 },
-            });
+            }).unwrap();
             toast.success('Comentario anadido', { autoClose: 1000 });
-            await dispatch(listarSeguimientosOTThunk({ id_orden: ordenId })).unwrap();
             setNewComment('');
+            refetch();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error comentando');
         }
     };
-    const listaVisible = ordenId && loadedOrdenId === ordenId ? listaSeguimientosOT : [];
+    const listaVisible = ordenId ? listaSeguimientosOT : [];
 
     return (
         <Dropdown isOpen={isOpen} setIsOpen={setIsOpen}>
@@ -94,7 +72,7 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
                 </DropdownItem>
                 <DropdownItem className='max-h-[300px] w-full max-w-[600px] rounded-lg'>
                     <div className='max-h-[300px] w-full overflow-y-auto px-4 pt-4'>
-                        {isLoading || (ordenId && loadedOrdenId !== ordenId) ? (
+                        {isLoading || isFetching ? (
                             <p className='text-center'>Cargando seguimiento...</p>
                         ) : listaVisible.length > 0 ? (
                             <ul className='space-y-4'>
@@ -158,6 +136,8 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
                             onClick={handleAddComment}
                             className='mb-2'
                             icon='HeroPaperAirplane'
+                            isLoading={isCreating}
+                            disabled={isCreating}
                         />
                     </div>
                 </DropdownItem>

@@ -4,19 +4,21 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
-    detalleCompraThunk,
-    detalleDelDetalleTrabajoThunk,
-    detalleOrdenTrabajoThunk,
-    listaItemsCompraThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useActualizarItemCompraMutation,
+    useEliminarItemCompraMutation,
+    useGetDetalleCompraQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+    useGetItemsCompraDetalleQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useNavigate, useParams } from 'react-router-dom';
 import { IDetectedBarcode, Scanner } from '@yudiel/react-qr-scanner';
 import { toast } from 'react-toastify';
-import { useEffect, useState } from 'react';
 import ApiService from '@/services/ApiService';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { useEffect, useState } from 'react';
 import { IItemEmpresa } from '@/interface/items.interface';
 import ModalConfirmarEscaneoItemCompraDT from '../modals/ModalConfirmarEscaneoItemCompraDT';
 import Tooltip from '@/components/ui/Tooltip';
@@ -30,10 +32,27 @@ function AgregarItemsACompraDT({}) {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { idOrden, idDetalle } = useParams();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const ordenId = idOrden ? Number(idOrden) : undefined;
+    const detalleId = idDetalle ? Number(idDetalle) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleId ?? 0 },
+        { skip: !ordenId || !detalleId },
     );
-    const { detalleCompra, listaItemsCompra } = useAppSelector((state) => state.bodega);
+    const { data: detalleCompra } = useGetDetalleCompraQuery(
+        detalleDelDetalleTrabajo?.trabajo_id ?? 0,
+        { skip: !detalleDelDetalleTrabajo?.trabajo_id },
+    );
+    const {
+        data: listaItemsCompra = [],
+        refetch: refetchItemsCompra,
+    } = useGetItemsCompraDetalleQuery(detalleCompra?.id ?? 0, {
+        skip: !detalleCompra?.id,
+    });
+    const [actualizarItemCompra] = useActualizarItemCompraMutation();
+    const [eliminarItemCompra] = useEliminarItemCompraMutation();
     const [paused, setPaused] = useState<boolean>(false);
     const [escaneado, setEscaneado] = useState<boolean>(false);
     const [abrirCamara, setAbrirCamara] = useState<boolean>(false);
@@ -67,25 +86,6 @@ function AgregarItemsACompraDT({}) {
         }
     }, [abrirCamara]);
 
-    useEffect(() => {
-        if (idOrden && idDetalle) {
-            dispatch(detalleDelDetalleTrabajoThunk({ id_orden: idOrden, id_detalle: idDetalle }));
-            dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: idOrden }));
-        }
-    }, [idOrden, idDetalle]);
-
-    useEffect(() => {
-        if (detalleDelDetalleTrabajo) {
-            dispatch(detalleCompraThunk({ id_compra: detalleDelDetalleTrabajo.trabajo_id }));
-        }
-    }, [detalleDelDetalleTrabajo]);
-
-    useEffect(() => {
-        if (detalleCompra) {
-            dispatch(listaItemsCompraThunk({ id_compra: detalleCompra.id }));
-        }
-    }, [detalleCompra]);
-
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
@@ -101,21 +101,18 @@ function AgregarItemsACompraDT({}) {
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/compras/${detalleCompra?.id}/items-compras/${editarItem}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
-                });
-                if (response.data) {
-                    toast.success('Item editado', { autoClose: 1000 });
-                    formik.resetForm();
-                    setEditarItem(undefined);
-                    dispatch(listaItemsCompraThunk({ id_compra: detalleCompra?.id }));
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al editar el item', {
+                if (!detalleCompra || !editarItem) return;
+                await actualizarItemCompra({
+                    compraId: detalleCompra.id,
+                    itemId: editarItem,
+                    data: values,
+                }).unwrap();
+                toast.success('Item editado', { autoClose: 1000 });
+                formik.resetForm();
+                setEditarItem(undefined);
+                refetchItemsCompra();
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al editar el item', {
                     toastId: 'Error al editar el item',
                 });
             }
@@ -408,23 +405,14 @@ function AgregarItemsACompraDT({}) {
                                                             icon='HeroTrash'
                                                             onClick={async () => {
                                                                 try {
-                                                                    const response =
-                                                                        await ApiService.fetchData({
-                                                                            url: `/api/compras/${detalleCompra?.id}/items-compras/${item.id}/`,
-                                                                            method: 'delete',
-                                                                        });
-                                                                    if (response.status === 204) {
-                                                                        toast.success(
-                                                                            'Item eliminado',
-                                                                            { autoClose: 1000 },
-                                                                        );
-                                                                        dispatch(
-                                                                            listaItemsCompraThunk({
-                                                                                id_compra:
-                                                                                    detalleCompra?.id,
-                                                                            }),
-                                                                        );
-                                                                    }
+                                                                    await eliminarItemCompra({
+                                                                        compraId: detalleCompra?.id ?? 0,
+                                                                        itemId: item.id,
+                                                                    }).unwrap();
+                                                                    toast.success('Item eliminado', {
+                                                                        autoClose: 1000,
+                                                                    });
+                                                                    refetchItemsCompra();
                                                                 } catch (error: any) {
                                                                     const mensajesError =
                                                                         Object.values(

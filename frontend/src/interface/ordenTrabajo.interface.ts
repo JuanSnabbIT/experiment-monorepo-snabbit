@@ -78,6 +78,14 @@ export interface IDetalleOrdenDeTrabajo {
     codigo_cotizacion: number | null;
 }
 
+export interface IItemSerializado {
+    item_guia_id: number;
+    guia_id: number;
+    serie: string;
+    item_id: number;
+    item_nombre: string;
+}
+
 export interface ISeguimientoOrden {
     detalleId: number | undefined;
     id: number;

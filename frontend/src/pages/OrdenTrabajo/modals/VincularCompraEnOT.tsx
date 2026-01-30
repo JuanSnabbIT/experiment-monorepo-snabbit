@@ -10,46 +10,35 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { ICompra } from '@/interface/bodega.interface';
-import ApiService from '@/services/ApiService';
-import { listaComprasEnOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useGetComprasQuery,
+    useVincularCompraOTMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function VincularCompraEnOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const [listaComprasDisponibles, setListaComprasDisponibles] = useState<ICompra[]>([]);
-    const [loadingCompras, setLoadingCompras] = useState(false);
+    const { data: comprasData = [], isFetching: loadingCompras } = useGetComprasQuery(undefined, {
+        skip: !isOpen,
+    });
+    const [vincularCompraOT] = useVincularCompraOTMutation();
 
     useEffect(() => {
-        if (isOpen && detalleOrdenTrabajo) {
-            cargarComprasDisponibles();
-        }
         if (!isOpen) {
             formik.resetForm();
         }
-    }, [isOpen, detalleOrdenTrabajo]);
-
-    const cargarComprasDisponibles = async () => {
-        try {
-            setLoadingCompras(true);
-            const response = await ApiService.fetchData<ICompra[]>({
-                url: `/api/compras/`,
-                method: 'get',
-            });
-            const compras = (response.data || []).filter((compra) => !compra.orden_trabajo);
-            setListaComprasDisponibles(compras);
-        } catch (error: any) {
-            toast.error(error.response?.data || 'Error al cargar las compras', {
-                toastId: 'Error cargando compras',
-            });
-        } finally {
-            setLoadingCompras(false);
-        }
-    };
+    }, [isOpen]);
+    const listaComprasDisponibles = useMemo(
+        () => (comprasData || []).filter((compra) => !compra.orden_trabajo),
+        [comprasData],
+    );
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -61,19 +50,16 @@ function VincularCompraEnOT() {
         }),
         onSubmit: async (values) => {
             try {
-                await ApiService.fetchData({
-                    url: `/api/compras/${values.compra_id}/`,
-                    method: 'patch',
-                    data: {
-                        orden_trabajo: detalleOrdenTrabajo?.id,
-                    },
-                });
+                if (!ordenId) return;
+                await vincularCompraOT({
+                    compraId: values.compra_id,
+                    ordenId,
+                }).unwrap();
 
                 toast.success('Compra vinculada correctamente', { autoClose: 1000 });
-                dispatch(listaComprasEnOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
                 setIsOpen(false);
-            } catch (error: any) {
-                toast.error(error.response?.data || 'Error al vincular la compra', {
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al vincular la compra', {
                     toastId: 'Error vinculando compra',
                 });
             }

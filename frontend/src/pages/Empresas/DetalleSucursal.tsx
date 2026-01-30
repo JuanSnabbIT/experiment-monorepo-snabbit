@@ -112,55 +112,50 @@ const DetelleSucursal = () => {
     }, [listaComunas, listaProvincias, listaRegiones]);
 
     useEffect(() => {
-        if (formikSucursal.values.region && formikSucursal.touched.region) {
+        if (formikSucursal.values.region) {
             setOptProvincias(
                 listaProvincias
                     .filter(
                         (provincia) =>
                             provincia.provincia_region.toString() === formikSucursal.values.region,
                     )
-                    .map((prov) => {
-                        return {
-                            value: prov.provincia_id.toString(),
-                            label: prov.provincia_nombre,
-                        };
-                    }),
+                    .map((prov) => ({
+                        value: prov.provincia_id.toString(),
+                        label: prov.provincia_nombre,
+                    })),
             );
-            formikSucursal.setFieldValue('comuna', '0');
-            formikSucursal.setFieldValue('provincia', '0');
-        } else {
-            setOptProvincias(
-                listaProvincias.map((provincia) => {
-                    return {
-                        value: provincia.provincia_id.toString(),
-                        label: provincia.provincia_nombre,
-                    };
-                }),
-            );
+            return;
         }
-    }, [formikSucursal.values.region]);
+        setOptProvincias(
+            listaProvincias.map((provincia) => ({
+                value: provincia.provincia_id.toString(),
+                label: provincia.provincia_nombre,
+            })),
+        );
+    }, [formikSucursal.values.region, listaProvincias]);
 
     useEffect(() => {
-        if (formikSucursal.values.provincia && formikSucursal.touched.provincia) {
+        if (formikSucursal.values.provincia) {
             setOptComunas(
                 listaComunas
                     .filter(
                         (comuna) =>
                             comuna.comuna_provincia.toString() === formikSucursal.values.provincia,
                     )
-                    .map((com) => {
-                        return { value: com.comuna_id.toString(), label: com.comuna_nombre };
-                    }),
+                    .map((com) => ({
+                        value: com.comuna_id.toString(),
+                        label: com.comuna_nombre,
+                    })),
             );
-            formikSucursal.setFieldValue('comuna', '0');
-        } else {
-            setOptComunas(
-                listaComunas.map((comuna) => {
-                    return { value: comuna.comuna_id.toString(), label: comuna.comuna_nombre };
-                }),
-            );
+            return;
         }
-    }, [formikSucursal.values.provincia]);
+        setOptComunas(
+            listaComunas.map((comuna) => ({
+                value: comuna.comuna_id.toString(),
+                label: comuna.comuna_nombre,
+            })),
+        );
+    }, [formikSucursal.values.provincia, listaComunas]);
 
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Sucursal' title='Detalle Sucursal'>
@@ -268,9 +263,19 @@ const DetelleSucursal = () => {
                                                         options={optRegiones}
                                                         onBlur={formikSucursal.handleBlur}
                                                         onChange={(e) => {
+                                                            const value = (e as TSelectOption)
+                                                                .value;
                                                             formikSucursal.setFieldValue(
                                                                 'region',
-                                                                (e as TSelectOption).value,
+                                                                value,
+                                                            );
+                                                            formikSucursal.setFieldValue(
+                                                                'provincia',
+                                                                '',
+                                                            );
+                                                            formikSucursal.setFieldValue(
+                                                                'comuna',
+                                                                '',
                                                             );
                                                         }}
                                                         value={{
@@ -302,9 +307,15 @@ const DetelleSucursal = () => {
                                                         options={optProvincias}
                                                         onBlur={formikSucursal.handleBlur}
                                                         onChange={(e) => {
+                                                            const value = (e as TSelectOption)
+                                                                .value;
                                                             formikSucursal.setFieldValue(
                                                                 'provincia',
-                                                                (e as TSelectOption).value,
+                                                                value,
+                                                            );
+                                                            formikSucursal.setFieldValue(
+                                                                'comuna',
+                                                                '',
                                                             );
                                                         }}
                                                         value={{

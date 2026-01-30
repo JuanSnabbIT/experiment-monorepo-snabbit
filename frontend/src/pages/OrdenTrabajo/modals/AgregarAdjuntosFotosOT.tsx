@@ -9,8 +9,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useCreateAdjuntosBulkMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { Gallery } from 'react-grid-gallery';
@@ -18,10 +17,13 @@ import Camera from 'react-html5-camera-photo';
 import 'react-html5-camera-photo/build/css/index.css';
 import { toast } from 'react-toastify';
 import Lightbox from 'yet-another-react-lightbox';
+import { useParams } from 'react-router-dom';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function AgregarAdjuntosFotosOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const [createAdjuntosBulk] = useCreateAdjuntosBulkMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [hasCameraPermission, setHasCameraPermission] = useState(false);
     const [permissionChecked, setPermissionChecked] = useState(false);
@@ -59,23 +61,18 @@ function AgregarAdjuntosFotosOT() {
         },
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/adjuntos/bulk/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
+                if (!ordenId) return;
+                await createAdjuntosBulk({
+                    ordenId,
+                    data: {
                         imagenes: values.imagenes,
                         descripcion: values.descripcion,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Fotos agregadas', { autoClose: 1000 });
-                    setIsOpen(false);
-                    dispatch(listaAdjuntosThunk({ ordenId: detalleOrdenTrabajo?.id }));
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al agregar la imagen', {
+                    },
+                }).unwrap();
+                toast.success('Fotos agregadas', { autoClose: 1000 });
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al agregar la imagen', {
                     toastId: 'Error al agregar la imagen',
                 });
             }

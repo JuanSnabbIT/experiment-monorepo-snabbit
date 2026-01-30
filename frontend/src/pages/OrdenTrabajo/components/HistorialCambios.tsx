@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { listaHistorialCambiosThunk, useAppDispatch, useAppSelector } from '@/store';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { IHistorialCambiosOrden } from '@/interface/ordenTrabajo.interface';
+import { useGetHistorialCambiosQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -19,8 +19,9 @@ import dayjs from 'dayjs';
 const columnHelper = createColumnHelper<IHistorialCambiosOrden>();
 
 const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined }) => {
-    const dispatch = useAppDispatch();
-    const { listaHistorialCambios } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: listaHistorialCambios = [] } = useGetHistorialCambiosQuery(ordenId || '', {
+        skip: !ordenId,
+    });
     const [historialSeleccionadoId, setHistorialSeleccionadoId] = useState<number | undefined>();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -47,10 +48,6 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
             </ul>
         );
     };
-
-    useEffect(() => {
-        dispatch(listaHistorialCambiosThunk({ id_orden: ordenId }));
-    }, []);
 
     const columns = [
         columnHelper.accessor('fecha_cambio', {

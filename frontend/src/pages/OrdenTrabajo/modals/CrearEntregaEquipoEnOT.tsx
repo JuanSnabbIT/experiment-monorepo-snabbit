@@ -19,14 +19,26 @@ import {
     listaDeEquiposParaEntregarThunk,
     listaUsuariosTodoElClienteThunk,
 } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { toast } from 'react-toastify';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Tooltip from '@/components/ui/Tooltip';
+import { useParams } from 'react-router-dom';
 
 function CrearEntregaEquipoEnOT() {
     const dispatch = useAppDispatch();
-    const { detalleDelDetalleTrabajo, detalleOrdenTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { idOrden, idDetalle } = useParams<{ idOrden: string; idDetalle: string }>();
+    const ordenId = idOrden ? Number(idOrden) : undefined;
+    const detalleId = idDetalle ? Number(idDetalle) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleId ?? 0 },
+        { skip: !ordenId || !detalleId },
     );
     const { listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa);
     const { listaDeEquiposParaEntregar } = useAppSelector((state) => state.visita);

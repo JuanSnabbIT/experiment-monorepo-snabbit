@@ -9,21 +9,25 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import { IUsuarioAsignadoSoporte } from '@/interface/ordenTrabajo.interface';
+import { IItemSerializado, IUsuarioAsignadoSoporte } from '@/interface/ordenTrabajo.interface';
 import FirmarAsignacionUsuario from './FirmarAsignacionUsuario';
 import ApiService from '@/services/ApiService';
 import { confirmAlert } from '@/utils/sweetAlert';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
-    actualizarUsuarioAsignadoSoporteThunk,
-    eliminarUsuarioAsignadoSoporteThunk,
     listaEquiposPorClienteThunk,
-    listaUsuariosAsignadosSoporteThunk,
     listaUsuariosDelEquipoPorClienteThunk,
     listaUsuariosTodoElClienteThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useActualizarUsuarioAsignadoSoporteMutation,
+    useEliminarUsuarioAsignadoSoporteMutation,
+    useGetItemsSerializadosQuery,
+    useGetUsuariosAsignadosPendientesQuery,
+    useGetUsuariosAsignadosSoporteQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -61,14 +65,6 @@ interface OpcionUsuario extends TSelectOption {
 interface GrupoUsuarios {
     label: string;
     options: OpcionUsuario[];
-}
-
-interface ItemSerializado {
-    item_guia_id: number;
-    guia_id: number;
-    serie: string;
-    item_id: number;
-    item_nombre: string;
 }
 
 type TipoSeleccion = 'equipo' | 'item_guia' | 'sin_equipo';
@@ -142,95 +138,65 @@ function ListaUsuarioEquipoOT({
     onClose,
     onSaved,
 }: ListaUsuarioEquipoOTProps) {
+    const estadoLower = (soporteEstado || '').toLowerCase();
+    const isPendiente = estadoLower === 'pendiente';
+    const isEnProceso = estadoLower === 'en_proceso' || estadoLower === 'en proceso';
     const dispatch = useAppDispatch();
     const { listaUsuariosDelEquipoPorCliente, listaEquiposPorCliente } = useAppSelector(
         (state) => state.recursos,
     );
-    const { listaUsuariosAsignadosSoporte } = useAppSelector((state) => state.ordenTrabajo);
     const { listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa);
-
-    const estadoLower = (soporteEstado || '').toLowerCase();
-    const isPendiente = estadoLower === 'pendiente';
-    const isEnProceso = estadoLower === 'en_proceso' || estadoLower === 'en proceso';
+    const {
+        data: listaUsuariosAsignadosSoporte = [],
+        refetch: refetchUsuariosAsignados,
+    } = useGetUsuariosAsignadosSoporteQuery(
+        { ordenId, soporteId },
+        { skip: !isOpen },
+    );
+    const { data: usuariosPendientesData } = useGetUsuariosAsignadosPendientesQuery(
+        { ordenId, soporteId },
+        { skip: !isOpen },
+    );
+    const {
+        data: itemsSerializadosData = [],
+        isFetching: cargandoSeriales,
+    } = useGetItemsSerializadosQuery(ordenId, {
+        skip: !isOpen || !isEnProceso,
+    });
+    const [actualizarUsuarioAsignado] = useActualizarUsuarioAsignadoSoporteMutation();
+    const [eliminarUsuarioAsignado] = useEliminarUsuarioAsignadoSoporteMutation();
+    const itemsSerializados = itemsSerializadosData || [];
+    const usuariosAsignadosOtPendientes = usuariosPendientesData?.usuario_empresa_ids || [];
 
     const [seleccionPendiente, setSeleccionPendiente] = useState<FilaPendiente[]>([]);
     const [selectValue, setSelectValue] = useState<TSelectOption | null>(null);
     const [guardando, setGuardando] = useState(false);
-    const [itemsSerializados, setItemsSerializados] = useState<ItemSerializado[]>([]);
-    const [cargandoSeriales, setCargandoSeriales] = useState(false);
     const [cambiosEquipos, setCambiosEquipos] = useState<Record<number, CacheAsignacion>>({});
     const [limpiarCacheIds, setLimpiarCacheIds] = useState<number[]>([]);
     const [isOpenFirmaUsuario, setIsOpenFirmaUsuario] = useState(false);
     const [usuarioFirmaSeleccionado, setUsuarioFirmaSeleccionado] =
         useState<IUsuarioAsignadoSoporte | null>(null);
     const [movimientosFirma, setMovimientosFirma] = useState<MovimientoAsignacion[]>([]);
-    const [usuariosAsignadosOtPendientes, setUsuariosAsignadosOtPendientes] = useState<number[]>(
-        [],
-    );
 
     useEffect(() => {
         if (!isOpen) return;
         dispatch(listaUsuariosDelEquipoPorClienteThunk({ cliente_id: clienteId }));
-        dispatch(listaUsuariosAsignadosSoporteThunk({ id_orden: ordenId, id_soporte: soporteId }));
         dispatch(listaUsuariosTodoElClienteThunk({ id_empresa: clienteId }));
         dispatch(listaEquiposPorClienteThunk({ cliente_id: clienteId }));
     }, [clienteId, dispatch, isOpen, ordenId, soporteId]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        const fetchUsuariosPendientes = async () => {
-            try {
-                const resp = await ApiService.fetchData<{ usuario_empresa_ids: number[] }>({
-                    url: `/api/ordenes-de-trabajo/${ordenId}/usuarios-asignados-pendientes/?soporte_id=${soporteId}`,
-                    method: 'get',
-                });
-                setUsuariosAsignadosOtPendientes(resp.data?.usuario_empresa_ids || []);
-            } catch (error: unknown) {
-                toast.error(getErrorMessage(error));
-                setUsuariosAsignadosOtPendientes([]);
-            }
-        };
-        fetchUsuariosPendientes();
-    }, [isOpen, ordenId, soporteId]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        if (!isEnProceso) {
-            setItemsSerializados([]);
-            setCargandoSeriales(false);
-            return;
-        }
-        const fetchSeriales = async () => {
-            setCargandoSeriales(true);
-            try {
-                const resp = await ApiService.fetchData<ItemSerializado[]>({
-                    url: `/api/ordenes-de-trabajo/${ordenId}/items-serializados/`,
-                    method: 'get',
-                });
-                setItemsSerializados(resp.data || []);
-            } catch (error: unknown) {
-                toast.error(getErrorMessage(error));
-                setItemsSerializados([]);
-            } finally {
-                setCargandoSeriales(false);
-            }
-        };
-        fetchSeriales();
-    }, [isEnProceso, isOpen, ordenId]);
 
     useEffect(() => {
         if (!isOpen) {
             setSeleccionPendiente([]);
             setSelectValue(null);
             setGuardando(false);
-            setItemsSerializados([]);
-            setCargandoSeriales(false);
             setCambiosEquipos({});
             setLimpiarCacheIds([]);
             setIsOpenFirmaUsuario(false);
             setUsuarioFirmaSeleccionado(null);
             setMovimientosFirma([]);
-            setUsuariosAsignadosOtPendientes([]);
         }
     }, [isOpen]);
 
@@ -486,14 +452,12 @@ function ListaUsuarioEquipoOT({
 
     const guardarCacheUsuario = async (usuarioId: number, cache: CacheAsignacion) => {
         try {
-            await dispatch(
-                actualizarUsuarioAsignadoSoporteThunk({
-                    id_orden: ordenId,
-                    id_soporte: soporteId,
-                    id_usuario_asignado: usuarioId,
-                    data: { cache_asignacion: cache as unknown as Record<string, unknown> },
-                }),
-            ).unwrap();
+            await actualizarUsuarioAsignado({
+                ordenId,
+                soporteId,
+                usuarioId,
+                data: { cache_asignacion: cache as unknown as Record<string, unknown> },
+            }).unwrap();
             setCambiosEquipos((prev) => {
                 const next = { ...prev };
                 delete next[usuarioId];
@@ -601,19 +565,15 @@ function ListaUsuarioEquipoOT({
         });
         if (!ok) return;
         try {
-            await dispatch(
-                eliminarUsuarioAsignadoSoporteThunk({
-                    id_orden: ordenId,
-                    id_soporte: soporteId,
-                    id_usuario_asignado: idAsignado,
-                }),
-            );
+            await eliminarUsuarioAsignado({
+                ordenId,
+                soporteId,
+                usuarioId: idAsignado,
+            }).unwrap();
             toast.success('Asignacion eliminada', { autoClose: 1000 });
-            dispatch(
-                listaUsuariosAsignadosSoporteThunk({ id_orden: ordenId, id_soporte: soporteId }),
-            );
+            refetchUsuariosAsignados();
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error) || 'No se pudo eliminar la Asignacion');
+            toast.error(getErrorMessage(error));
         }
     };
 
@@ -762,14 +722,12 @@ function ListaUsuarioEquipoOT({
             data: Partial<IUsuarioAsignadoSoporte>,
         ) => {
             try {
-                await dispatch(
-                    actualizarUsuarioAsignadoSoporteThunk({
-                        id_orden: ordenId,
-                        id_soporte: soporteId,
-                        id_usuario_asignado: idUsuarioAsignado,
-                        data,
-                    }),
-                ).unwrap();
+                await actualizarUsuarioAsignado({
+                    ordenId,
+                    soporteId,
+                    usuarioId: idUsuarioAsignado,
+                    data: data as Record<string, unknown>,
+                }).unwrap();
                 exitosos++;
             } catch (error: unknown) {
                 fallidos++;
@@ -796,9 +754,7 @@ function ListaUsuarioEquipoOT({
 
         if (exitosos > 0) {
             toast.success('Cambios guardados', { autoClose: 1200 });
-            dispatch(
-                listaUsuariosAsignadosSoporteThunk({ id_orden: ordenId, id_soporte: soporteId }),
-            );
+            refetchUsuariosAsignados();
             if (onSaved) onSaved();
         }
         if (fallidos > 0) {
@@ -856,9 +812,7 @@ function ListaUsuarioEquipoOT({
 
         if (exitosos > 0) {
             toast.success(`${exitosos} usuario(s) asignado(s)`, { autoClose: 1200 });
-            dispatch(
-                listaUsuariosAsignadosSoporteThunk({ id_orden: ordenId, id_soporte: soporteId }),
-            );
+            refetchUsuariosAsignados();
             dispatch(listaUsuariosDelEquipoPorClienteThunk({ cliente_id: clienteId }));
             if (onSaved) onSaved();
             onClose();
@@ -1209,12 +1163,7 @@ function ListaUsuarioEquipoOT({
                     isOpen={isOpenFirmaUsuario}
                     setIsOpen={setIsOpenFirmaUsuario}
                     onSuccess={() => {
-                        dispatch(
-                            listaUsuariosAsignadosSoporteThunk({
-                                id_orden: ordenId,
-                                id_soporte: soporteId,
-                            }),
-                        );
+                        refetchUsuariosAsignados();
                         dispatch(listaUsuariosDelEquipoPorClienteThunk({ cliente_id: clienteId }));
                         setUsuarioFirmaSeleccionado(null);
                         setMovimientosFirma([]);

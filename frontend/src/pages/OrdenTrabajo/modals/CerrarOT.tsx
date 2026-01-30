@@ -7,22 +7,35 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import { detalleOrdenTrabajoThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetRendicionDetalleQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useEffect, useMemo, useState } from 'react';
 import { confirmAlert } from '@/utils/sweetAlert';
 // import SeguimientoEnCerrarOT from "./components/SeguimientoEnCerrarOT"
 import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { useParams } from 'react-router-dom';
 
 function CerrarOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo, refetch: refetchDetalle } = useGetDetalleOrdenTrabajoQuery(
+        ordenId ?? 0,
+        { skip: !ordenId },
+    );
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [isBusy, setIsBusy] = useState<boolean>(false);
     const [rendicionEstado, setRendicionEstado] = useState<string | null>(null);
     const [prefacturaEstado, setPrefacturaEstado] = useState<string | null>(
         detalleOrdenTrabajo?.cierre_administrativo?.estado_cierre ?? null,
+    );
+    const { data: rendicionDetalle } = useGetRendicionDetalleQuery(
+        detalleOrdenTrabajo?.rendicion_asociada_id ?? 0,
+        { skip: !detalleOrdenTrabajo?.rendicion_asociada_id },
     );
 
     useEffect(() => {
@@ -30,38 +43,12 @@ function CerrarOT() {
     }, [detalleOrdenTrabajo?.cierre_administrativo]);
 
     useEffect(() => {
-        let mounted = true;
-        const fetchRendicionEstado = async () => {
-            if (!detalleOrdenTrabajo?.rendicion_asociada_id) {
-                if (mounted) {
-                    setRendicionEstado(null);
-                }
-                return;
-            }
-            try {
-                const response = await ApiService.fetchData<{
-                    estado?: string;
-                    estado_label?: string;
-                }>({
-                    url: `/api/rendiciones/${detalleOrdenTrabajo.rendicion_asociada_id}/`,
-                    method: 'get',
-                });
-                if (mounted) {
-                    setRendicionEstado(
-                        response.data?.estado ?? response.data?.estado_label ?? null,
-                    );
-                }
-            } catch {
-                if (mounted) {
-                    setRendicionEstado(null);
-                }
-            }
-        };
-        fetchRendicionEstado();
-        return () => {
-            mounted = false;
-        };
-    }, [detalleOrdenTrabajo?.rendicion_asociada_id]);
+        if (!detalleOrdenTrabajo?.rendicion_asociada_id) {
+            setRendicionEstado(null);
+            return;
+        }
+        setRendicionEstado(rendicionDetalle?.estado ?? rendicionDetalle?.estado_label ?? null);
+    }, [detalleOrdenTrabajo?.rendicion_asociada_id, rendicionDetalle]);
 
     const isRendicionRendida = useMemo(() => {
         const normalized = rendicionEstado?.toLowerCase()?.trim();
@@ -181,22 +168,13 @@ function CerrarOT() {
                                                 return;
                                             }
 
-                                            const response = await ApiService.fetchData({
-                                                url: `/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/`,
-                                                method: 'patch',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                data: JSON.stringify({ estado: 'cerrada' }),
-                                            });
-
-                                            if (response.data) {
-                                                toast.success('Orden cerrada', { autoClose: 1000 });
-                                                dispatch(
-                                                    detalleOrdenTrabajoThunk({
-                                                        id_ordenTrabajo: detalleOrdenTrabajo.id,
-                                                    }),
-                                                );
-                                                setIsOpen(false);
-                                            }
+                                            await updateOrdenTrabajo({
+                                                id: detalleOrdenTrabajo.id,
+                                                data: { estado: 'cerrada' },
+                                            }).unwrap();
+                                            toast.success('Orden cerrada', { autoClose: 1000 });
+                                            refetchDetalle();
+                                            setIsOpen(false);
                                         } catch (error: unknown) {
                                             const mensajeError = getErrorMessage(error);
                                             toast.error(mensajeError || 'Error al cerrar la OT', {

@@ -9,7 +9,7 @@ import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
 import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { listaContratosDeEmpresaYClienteThunk } from '@/store/slices/contratos/contratoSlice';
-import { listaOrdenTrabajoThunk } from '@/store/slices/ordenTrabajo/ordenTrabajoSlice';
+import { useGetOrdenesTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { formatCurrency } from '@/utils/currency';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -79,7 +79,8 @@ const FacturacionesComparativa = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { listaOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: listaOrdenTrabajo = [], refetch: refetchOrdenesTrabajo } =
+        useGetOrdenesTrabajoQuery();
     const { listaContratosDeEmpresaYCliente } = useAppSelector((state) => state.contrato);
 
     // Estado para selección de empresa cliente
@@ -210,7 +211,7 @@ const FacturacionesComparativa = () => {
             if (response.status === 201 && prefacturaId) {
                 toast.success(`Prefactura #${prefacturaId} creada exitosamente`);
                 // Recargar la lista de OTs para reflejar el cambio de estado
-                dispatch(listaOrdenTrabajoThunk(undefined));
+                refetchOrdenesTrabajo();
                 // Esperar un poco y luego navegar a la prefactura
                 setTimeout(() => {
                     navigate(`/facturacion/facturas/${prefacturaId}`);
@@ -248,7 +249,6 @@ const FacturacionesComparativa = () => {
 
     // Cargar OTs al montar
     useEffect(() => {
-        dispatch(listaOrdenTrabajoThunk(undefined));
     }, [dispatch]);
 
     // Cargar contratos cuando se selecciona empresa cliente

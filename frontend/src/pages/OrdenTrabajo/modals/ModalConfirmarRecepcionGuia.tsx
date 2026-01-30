@@ -6,7 +6,8 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
+import { useConfirmarRecepcionGuiaMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
@@ -30,6 +31,7 @@ function ModalConfirmarRecepcionGuia({
     setIsOpen,
     onSuccess,
 }: Props) {
+    const [confirmarRecepcionGuia] = useConfirmarRecepcionGuiaMutation();
     const sigCanvas = useRef<SignatureCanvas | null>(null);
     const topRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,23 +69,18 @@ function ModalConfirmarRecepcionGuia({
         }
 
         try {
-            const response = await ApiService.fetchData({
-                url: `/api/guia-salida/${guiaId}/confirmar-recepcion/`,
-                method: 'post',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({
+            await confirmarRecepcionGuia({
+                id: guiaId,
+                data: {
                     firma: sigCanvas.current?.toDataURL('image/png'),
                     confirmado_por_id: clienteSolicitanteId,
                     items,
-                }),
-            });
-
-            if (response.data) {
-                toast.success('Recepción confirmada exitosamente', { autoClose: 1500 });
-                clear();
-                setIsOpen(false);
-                onSuccess && onSuccess();
-            }
+                },
+            }).unwrap();
+            toast.success('Recepcion confirmada exitosamente', { autoClose: 1500 });
+            clear();
+            setIsOpen(false);
+            onSuccess && onSuccess();
         } catch (error: any) {
             toast.error(
                 error.response?.data?.detail ||

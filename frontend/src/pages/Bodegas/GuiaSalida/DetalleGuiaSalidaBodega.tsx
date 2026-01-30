@@ -595,14 +595,9 @@ function DetalleGuiaSalidaBodega() {
                 <SubheaderLeft>
                     <Badge className='text-xl'>Detalle de Guia de Salida de Items de Bodega</Badge>
                 </SubheaderLeft>
+                <SubheaderRight>
                     <div className='flex flex-wrap gap-2'>
-                        <Button
-                            variant='solid'
-                            color='zinc'
-                            icon='HeroArrowLeft'
-                            onClick={() => navigate('/bodega/guias-salida-bodega')}>
-                            Volver al Listado
-                        </Button>
+                        {/* Botón "Volver al Listado" eliminado */}
                         {detalleGuiaSalidaBodega?.orden_trabajo && (
                             <Tooltip text='Ver OT Vinculada'>
                                 <Button

@@ -1,7 +1,10 @@
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import { listaRetroalimentacionesOTThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect, useState } from 'react';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetRetroalimentacionesOTQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useState } from 'react';
 import {
     createColumnHelper,
     flexRender,
@@ -18,24 +21,23 @@ import Icon from '@/components/icon/Icon';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import Tooltip from '@/components/ui/Tooltip';
 import Button from '@/components/ui/Button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const columnHelper = createColumnHelper<IRetroalimentacionOT>();
 
 function RetroalimentacionesOT() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, listaRetroalimentacionesOT } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaRetroalimentacionesOT = [] } = useGetRetroalimentacionesOTQuery(
+        ordenId ?? 0,
+        { skip: !ordenId },
     );
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaRetroalimentacionesOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     // const columns = [
     //     columnHelper.accessor("id", {

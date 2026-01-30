@@ -10,8 +10,11 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
-import ApiService from '@/services/ApiService';
-import { listaOrdenTrabajoThunk, RootState, useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
+import {
+    useDescargarOrdenTrabajoPdfMutation,
+    useGetOrdenesTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -24,7 +27,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrearOrdenOT from './modals/CrearOrdenOT';
@@ -32,18 +35,16 @@ import CrearOrdenOT from './modals/CrearOrdenOT';
 const columnHelper = createColumnHelper<IOrdenDeTrabajo>();
 
 const ListaOT = () => {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { listaOrdenTrabajo } = useAppSelector((state: RootState) => state.ordenTrabajo);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    useEffect(() => {
-        if (personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaOrdenTrabajoThunk());
-        }
-    }, [personalizacionUsuario]);
+    const { data: listaOrdenTrabajo = [], refetch } = useGetOrdenesTrabajoQuery(undefined, {
+        skip: !personalizacionUsuario?.empresa,
+        refetchOnMountOrArgChange: true,
+    });
+    const [descargarPdf] = useDescargarOrdenTrabajoPdfMutation();
 
     const columns = [
         columnHelper.accessor('id', {
@@ -169,14 +170,12 @@ const ListaOT = () => {
                                 icon='HeroDocumentArrowDown'
                                 onClick={async () => {
                                     try {
-                                        const response = await ApiService.fetchData<BlobPart>({
-                                            url: `/api/ordenes-de-trabajo/${info.row.original.id}/pdf/`,
-                                            method: 'get',
-                                            responseType: 'blob',
-                                        });
-                                        if (response.data) {
+                                        const response = await descargarPdf(
+                                            info.row.original.id,
+                                        ).unwrap();
+                                        if (response) {
                                             const url = window.URL.createObjectURL(
-                                                new Blob([response.data]),
+                                                new Blob([response]),
                                             );
                                             const link = document.createElement('a');
                                             link.href = url;
@@ -200,7 +199,7 @@ const ListaOT = () => {
                         <ConfirmarEliminar
                             mensaje={`Estas a punto de eliminar la orden de trabajo #${info.row.original.id}${info.row.original.fecha_inicio_ot ? ` del ${dayjs(info.row.original.fecha_inicio_ot).format('DD/MM/YYYY')}` : ''} ¿desea continuar?`}
                             peticionUrl={`/api/ordenes-de-trabajo/${info.row.original.id}/`}
-                            onDispatch={() => dispatch(listaOrdenTrabajoThunk())}
+                            onDispatch={() => refetch()}
                         />
                     )}
                 </div>

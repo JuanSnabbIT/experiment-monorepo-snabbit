@@ -39,11 +39,28 @@ def crear_registros_iniciales_y_cierre(sender, instance, created, **kwargs):
                     "fecha_servicio": instance.fecha_inicio_ot,
                 },
             )
-    # Crear cierre administrativo si la orden está cerrada y no existe aún
-    if instance.estado == "cerrada" and not hasattr(instance, "cierre_administrativo_v2"):
+    # Crear cierre administrativo si la orden está cerrada y no existe una prefactura que la incluya
+    if instance.estado == "cerrada":
+        prefacturas = CierreAdministrativoOT.objects.filter(
+            cliente_id=instance.cliente_id,
+            estado_cierre__in=["borrador", "en_revision", "aprobado", "facturado", "pagado"],
+        ).only("id", "resultado")
+        for prefactura in prefacturas:
+            resultado = prefactura.resultado or {}
+            ots_incluidas = resultado.get("ots_incluidas", [])
+            if isinstance(ots_incluidas, list) and instance.id in ots_incluidas:
+                return
+
         CierreAdministrativoOT.objects.create(
-            orden=instance,
-            valido=False,
-            resultado={},
-            comentario="Creado automáticamente al pasar a estado 'cerrada'",
+            cliente=instance.cliente,
+            creado_por=instance.tecnico_responsable_ot,
+            actualizado_por=instance.tecnico_responsable_ot,
+            estado_cierre="borrador",
+            resultado={
+                "cliente_id": instance.cliente_id,
+                "ots_incluidas": [instance.id],
+                "items": [],
+                "resumen": {},
+            },
+            comentario="Creado automaticamente al pasar a estado 'cerrada'",
         )

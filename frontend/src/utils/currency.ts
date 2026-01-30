@@ -31,3 +31,22 @@ export const formatCurrency = (
     // Default CLP: max 3 decimals, shown only if exists
     return `$ ${formatPrice(value, 3, 0)}`;
 };
+
+export const parseLocaleNumber = (
+    value: number | string | undefined | null,
+): number => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === 'number') return value;
+    const raw = value.toString().trim();
+    if (!raw) return 0;
+    const cleaned = raw.replace(/[^\d,.-]/g, '');
+    if (!cleaned) return 0;
+    if (cleaned.includes(',')) {
+        const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+        const parsed = Number.parseFloat(normalized);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    }
+    const normalized = cleaned.replace(/,/g, '');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isNaN(parsed) ? 0 : parsed;
+};

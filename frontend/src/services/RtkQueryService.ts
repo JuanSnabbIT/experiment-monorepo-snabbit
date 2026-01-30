@@ -10,6 +10,9 @@ const axiosBaseQuery =
             method: AxiosRequestConfig['method'];
             data?: AxiosRequestConfig['data'];
             params?: AxiosRequestConfig['params'];
+            headers?: AxiosRequestConfig['headers'];
+            responseType?: AxiosRequestConfig['responseType'];
+            isLoginRequest?: boolean;
         },
         unknown,
         unknown
@@ -47,6 +50,24 @@ const RtkQueryService = createApi({
         'GuiaSalida',
         'GuiaSalidaItems',
         'StockItems',
+        'OrdenTrabajo',
+        'OrdenTrabajoList',
+        'OrdenTrabajoAdjuntos',
+        'OrdenTrabajoAdjunto',
+        'OrdenTrabajoHistorial',
+        'OrdenTrabajoSeguimientos',
+        'OrdenTrabajoSeguimientosOT',
+        'OrdenTrabajoDetallesSeguimientosOT',
+        'OrdenTrabajoSoportes',
+        'OrdenTrabajoServicios',
+        'OrdenTrabajoInsumos',
+        'OrdenTrabajoCompras',
+        'OrdenTrabajoTecnicos',
+        'OrdenTrabajoUsuarios',
+        'OrdenTrabajoRetroalimentaciones',
+        'OrdenTrabajoGastos',
+        'OrdenTrabajoGuiasDisponibles',
+        'OrdenTrabajoDetalleTrabajo',
     ] as const,
     endpoints: () => ({}),
 });

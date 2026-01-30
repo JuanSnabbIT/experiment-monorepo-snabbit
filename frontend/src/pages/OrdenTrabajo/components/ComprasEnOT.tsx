@@ -12,8 +12,12 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ICompra, IItemEnCompra } from '@/interface/bodega.interface';
-import { listaComprasEnOTThunk, useAppDispatch, useAppSelector } from '@/store';
-import ApiService from '@/services/ApiService';
+import { useAppSelector } from '@/store';
+import {
+    useGetComprasEnOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useLazyGetItemsCompraQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { toast } from 'react-toastify';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -30,7 +34,7 @@ import {
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import CrearCompraRapidaEnOT from '../modals/CrearCompraRapidaEnOT';
 import VincularCompraEnOT from '../modals/VincularCompraEnOT';
 
@@ -53,9 +57,16 @@ type CompraItemRow = {
 const columnHelper = createColumnHelper<CompraItemRow>();
 
 function ComprasEnOT() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, listaComprasEnOT } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaComprasEnOT = [] } = useGetComprasEnOTQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const [getItemsCompra] = useLazyGetItemsCompraQuery();
     const { listaVouchers = [] } = useAppSelector((state) => state.bodega ?? { listaVouchers: [] });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -65,12 +76,6 @@ function ComprasEnOT() {
     const [cargandoItems, setCargandoItems] = useState(false);
     const [itemsPorCompra, setItemsPorCompra] = useState<Record<number, IItemEnCompra[]>>({});
     const [loadingItemsPorCompra, setLoadingItemsPorCompra] = useState<Record<number, boolean>>({});
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaComprasEnOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo, dispatch]);
 
     useEffect(() => {
         const cargarItems = async () => {
@@ -89,11 +94,8 @@ function ComprasEnOT() {
             try {
                 const respuestas = await Promise.all(
                     listaComprasEnOT.map(async (compra) => {
-                        const resp = await ApiService.fetchData<IItemEnCompra[]>({
-                            url: `/api/compras/${compra.id}/items/`,
-                            method: 'get',
-                        });
-                        return { compraId: compra.id, items: resp.data || [] };
+                        const items = await getItemsCompra(compra.id).unwrap();
+                        return { compraId: compra.id, items: items || [] };
                     }),
                 );
 
@@ -112,7 +114,7 @@ function ComprasEnOT() {
         };
 
         cargarItems();
-    }, [listaComprasEnOT]);
+    }, [getItemsCompra, listaComprasEnOT]);
 
     const hayDevolucionesDesdeCompras = useMemo(() => {
         if (!detalleOrdenTrabajo) return false;
@@ -129,12 +131,9 @@ function ComprasEnOT() {
     const fetchItemsCompra = async (compraId: number) => {
         setCargandoItems(true);
         try {
-            const resp = await ApiService.fetchData<IItemEnCompra[]>({
-                url: `/api/compras/${compraId}/items/`,
-                method: 'get',
-            });
-            setItemsCompra(resp.data || []);
-            setItemsPorCompra((prev) => ({ ...prev, [compraId]: resp.data || [] }));
+            const items = await getItemsCompra(compraId).unwrap();
+            setItemsCompra(items || []);
+            setItemsPorCompra((prev) => ({ ...prev, [compraId]: items || [] }));
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'No se pudieron cargar los items de la compra');
         } finally {

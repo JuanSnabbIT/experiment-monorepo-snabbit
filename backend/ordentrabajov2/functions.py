@@ -10,17 +10,26 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-from core.pdf.engine import create_pdf_engine, NumberedCanvas
-from core.pdf.styles import get_pdf_styles, BRAND_BLUE, LIGHT_GRAY, TEXT_DARK, success_color_by_state
-from core.pdf.components import get_header_flowable, draw_footer, create_info_table, create_data_table, create_signature_block
+import base64
+from textwrap import wrap
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import Paragraph, Table, TableStyle
+
+from core.pdf.styles import FONTS, CELL_STYLE, BRAND_BLUE, LIGHT_GRAY
+from core.pdf.components import LOGO_PATH
+from core.pdf.canvas_utils import (
+    draw_encabezado,
+    draw_titulo,
+    draw_footer,
+    draw_paginacion,
+)
 from core.pdf.utils import format_currency
 
 
-def format_currency(value):
-    if value is None:
-        return "$0"
-    return f"${value:,.0f}".replace(",", ".")
+
 
 def _obtener_cache_asignacion(usuario_asignado):
     cache = usuario_asignado.cache_asignacion or {}
@@ -322,7 +331,7 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
 
 def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     """
-    Vincula cotizaciones a una OT y genera guÃ­as de salida automÃ¡ticamente
+    Vincula cotizaciones a una OT y genera guías de salida automáticamente
     con los items recepcionados (agrupadas por bodega).
     """
     from django.contrib.contenttypes.models import ContentType
@@ -340,7 +349,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     _validar_ot_pendiente(orden)
     cotizaciones_ids = _normalizar_ids(cotizaciones_ids)
     if not cotizaciones_ids:
-        raise ValueError("Debes enviar al menos una cotizaciÃ³n.")
+        raise ValueError("Debes enviar al menos una cotización.")
 
     cotizaciones = list(
         Cotizacion.objects.filter(id__in=cotizaciones_ids).select_related("cliente")
@@ -355,11 +364,11 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     for cotizacion in cotizaciones:
         if cotizacion.estado != "aceptada":
             raise ValueError(
-                f"La cotizaciÃ³n #{cotizacion.numero_cotizacion} no estÃ¡ aceptada."
+                f"La cotización #{cotizacion.numero_cotizacion} no está aceptada."
             )
         if cotizacion.cliente_id != orden.cliente_id:
             raise ValueError(
-                f"La cotizaciÃ³n #{cotizacion.numero_cotizacion} no pertenece al cliente de la OT."
+                f"La cotización #{cotizacion.numero_cotizacion} no pertenece al cliente de la OT."
             )
 
     ocs = list(
@@ -368,7 +377,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         )
     )
     if not ocs:
-        raise ValueError("Las cotizaciones seleccionadas no tienen Ã³rdenes de compra.")
+        raise ValueError("Las cotizaciones seleccionadas no tienen órdenes de compra.")
 
     ocs_por_cotizacion: dict[int, list[OrdenCompra]] = {}
     for oc in ocs:
@@ -381,11 +390,11 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         cot_ocs = ocs_por_cotizacion.get(cotizacion.id, [])
         if not cot_ocs:
             raise ValueError(
-                f"La cotizaciÃ³n #{cotizacion.numero_cotizacion} no tiene OC asociadas."
+                f"La cotización #{cotizacion.numero_cotizacion} no tiene OC asociadas."
             )
         if any(oc.estado not in estados_validos for oc in cot_ocs):
             raise ValueError(
-                f"La cotizaciÃ³n #{cotizacion.numero_cotizacion} tiene OCs sin recepciÃ³n completa."
+                f"La cotización #{cotizacion.numero_cotizacion} tiene OCs sin recepción completa."
             )
 
     item_oc_qs = ItemEnOrdenCompra.objects.filter(orden_compra__in=ocs).select_related(
@@ -410,7 +419,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
             str(item_id) for item_id in item_oc_ids if item_id not in oc_stock_map
         ]
         raise ValueError(
-            "Faltan registros de recepciÃ³n para items OC: "
+            "Faltan registros de recepción para items OC: "
             + ", ".join(faltantes_stock)
         )
 
@@ -1804,170 +1813,296 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
 def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjuntos):
     """
     Genera un PDF profesional para una Orden de Trabajo con estructura por módulos.
-    Utiliza el motor compartido core.pdf.
+    Utiliza el motor canvas directo para consistencia con Guías de Salida y Cotizaciones.
     """
     buffer = io.BytesIO()
-    doc = create_pdf_engine(buffer)
-
-    story = []
-    styles = get_pdf_styles()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
+    mx, my = 40, 40
     
-    # 1. Header (Logo y Datos)
-    # En SimpleDocTemplate con Flowables, podemos poner el encabezado como primer elemento
-    # O usar un PageTemplate. Por simplicidad y consistencia visual con el resto,
-    # lo añadimos como tabla al principio del flujo.
-    story.append(get_header_flowable())
-    story.append(Spacer(1, 0.5 * cm))
-
-    # 2. Título del Documento
-    story.append(Paragraph(f"ORDEN DE TRABAJO Nº {orden.id}", styles["DocTitle"]))
+    logo_b64 = None
+    if os.path.exists(LOGO_PATH):
+       try: 
+           with open(LOGO_PATH, "rb") as f:
+               logo_bytes = f.read()
+               logo_b64 = "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
+       except:
+           pass
+           
+    ubicacion = "Santiago"
+    fecha_str = orden.fecha_creacion.strftime("%d de %B de %Y")
     
-    # Estado (Color coded)
-    estado_text = f'<b>Estado:</b> <font color="{success_color_by_state(orden.estado).hexval()}">{orden.get_estado_display().upper()}</font>'
-    story.append(Paragraph(estado_text, styles["DataRight"]))
-    story.append(Spacer(1, 0.5 * cm))
+    # --- Helper Interno para dibujar datos ---
+    def draw_kv_line(p, x, y, label, value, x2=None, label2=None, value2=None):
+        p.setFont(*FONTS["datos_label"])
+        p.drawString(x, y, label)
+        p.setFont(*FONTS["datos"])
+        p.drawString(x + 100, y, str(value))
+        
+        if x2 and label2:
+            p.setFont(*FONTS["datos_label"])
+            p.drawString(x2, y, label2)
+            p.setFont(*FONTS["datos"])
+            p.drawString(x2 + 80, y, str(value2))
+        return y - 14
 
-    # 3. Información General (Tabla Key-Value)
-    info_data = [
-        ["FECHA EMISIÓN:", orden.fecha_creacion.strftime("%d/%m/%Y"), "PRIORIDAD:", orden.get_prioridad_display()],
-        ["CLIENTE:", orden.cliente.nombre, "SOLICITANTE:", orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "N/A"],
-        ["TIPO SERVICIO:", orden.get_tipo_servicio_display(), "RESPONSABLE:", orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else "N/A"],
-        ["FECHA INICIO:", orden.fecha_inicio_ot.strftime("%d/%m/%Y") if orden.fecha_inicio_ot else "N/A", "FECHA FIN:", orden.fecha_finalizacion_ot.strftime("%d/%m/%Y") if orden.fecha_finalizacion_ot else "N/A"],
-    ]
-    story.append(create_info_table(info_data))
-    story.append(Spacer(1, 0.5 * cm))
+    def check_page(curr_y, limit=100):
+        if curr_y < limit:
+            pdf.showPage()
+            draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+            draw_titulo(pdf, orden.id, ancho, alto, mx, 40, titulo_texto="Orden de Trabajo N\u00b0")
+            return alto - 40 - 90
+        return curr_y
 
-    # 4. Descripción
-    story.append(Paragraph("DESCRIPCIÓN DEL REQUERIMIENTO", styles["SectionHead"]))
-    story.append(Paragraph(orden.descripcion, styles["BodyText"]))
-    story.append(Spacer(1, 1 * cm))
+    def draw_module_title(p, y, text):
+        p.setFont(*FONTS["titulo"]) # Reusing title font for module headers
+        p.drawString(mx, y, text)
+        p.line(mx, y - 4, ancho - mx, y - 4)
+        return y - 25
+        
+    def draw_section_head(p, y, text):
+        p.setFont(*FONTS["datos_label"])
+        p.drawString(mx, y, text)
+        return y - 15
 
-    # 5. Resumen Ejecutivo
-    resumen_headers = ["RESUMEN EJECUTIVO", ""]
+    # 1. Header & Title (Pag 1)
+    draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
+    draw_titulo(pdf, orden.id, ancho, alto, mx, 40, titulo_texto="Orden de Trabajo N\u00b0")
+    
+    y = alto - 40 - 90
+    
+    # Estado
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawRightString(ancho - mx, y, f"Estado: {orden.get_estado_display().upper()}")
+    y -= 25
+
+    # 2. Información General
+    y = draw_module_title(pdf, y, "INFORMACIÓN GENERAL")
+    
+    # Cols setup
+    col2_x = ancho / 2 + 10
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(mx, y, "Cliente:")
+    pdf.setFont(*FONTS["datos"])
+    pdf.drawString(mx + 60, y, orden.cliente.nombre)
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(col2_x, y, "Solicitante:")
+    pdf.setFont(*FONTS["datos"])
+    solicitante = orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "N/A"
+    pdf.drawString(col2_x + 80, y, solicitante)
+    y -= 14
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(mx, y, "Prioridad:")
+    pdf.setFont(*FONTS["datos"])
+    pdf.drawString(mx + 60, y, orden.get_prioridad_display())
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(col2_x, y, "Responsable:")
+    pdf.setFont(*FONTS["datos"])
+    responsable = orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else "N/A"
+    pdf.drawString(col2_x + 80, y, responsable)
+    y -= 14
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(mx, y, "Inicio:")
+    pdf.setFont(*FONTS["datos"])
+    ini = orden.fecha_inicio_ot.strftime("%d/%m/%Y") if orden.fecha_inicio_ot else "N/A"
+    pdf.drawString(mx + 60, y, ini)
+    
+    pdf.setFont(*FONTS["datos_label"])
+    pdf.drawString(col2_x, y, "Fin:")
+    pdf.setFont(*FONTS["datos"])
+    fin = orden.fecha_finalizacion_ot.strftime("%d/%m/%Y") if orden.fecha_finalizacion_ot else "N/A"
+    pdf.drawString(col2_x + 80, y, fin)
+    y -= 25
+
+    # 3. Descripción
+    y = draw_section_head(pdf, y, "Descripción del Requerimiento:")
+    pdf.setFont(*FONTS["datos"])
+    desc_lines = wrap(orden.descripcion or "Sin descripción", width=100)
+    for line in desc_lines:
+        y = check_page(y)
+        pdf.drawString(mx, y, line)
+        y -= 12
+    y -= 20
+
+    # 4. Resumen Ejecutivo
+    y = check_page(y, 150)
+    y = draw_module_title(pdf, y, "RESUMEN EJECUTIVO") # Header
+    
+    # Table data
     resumen_data = [
-        ["Servicios/Soportes registrados:", str(len(servicios) + len(soportes))],
-        ["Guías de Salida asociadas:", str(len(guias))],
-        ["Gastos Operativos totales:", format_currency(sum(g.monto_total for g in gastos))],
+        ["Concepto", "Cantidad / Valor"],
+        ["Servicios/Soportes registrados", str(len(servicios) + len(soportes))],
+        ["Guías de Salida asociadas", str(len(guias))],
+        ["Gastos Operativos totales", format_currency(sum(g.monto_total for g in gastos))],
     ]
-    # Usamos create_data_table pero adaptado para resumen (sin header row explícito en data si usamos el helper)
-    # Ajuste manual para la tabla de resumen que es simple
-    resumen_table = Table([resumen_headers] + resumen_data, colWidths=[8 * cm, 4 * cm])
+    
+    # Draw simple table manually or using platypus Table via wrapOn/drawOn
+    t_width = ancho - 2*mx
+    resumen_table = Table(resumen_data, colWidths=[t_width * 0.7, t_width * 0.3])
     resumen_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-        ("ALIGN", (1, 1), (1, -1), "CENTER"),
-        ("GRID", (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+        ('BACKGROUND', (0, 0), (-1, 0), BRAND_BLUE),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+        ('PADDING', (0, 0), (-1, -1), 6),
     ]))
-    story.append(resumen_table)
-    story.append(PageBreak())
+    w, h = resumen_table.wrap(t_width, y)
+    resumen_table.drawOn(pdf, mx, y - h)
+    y -= (h + 20)
 
-    # --- MÓDULO 2: SERVICIOS Y SOPORTES ---
+    # 5. Servicios y Soportes
     if servicios or soportes:
-        story.append(Paragraph("SERVICIOS Y SOPORTES TÉCNICOS", styles["ModuleTitle"]))
-
-        # Soportes (Iterar y mostrar detalles)
-        for sop in soportes:
-            story.append(Paragraph(f"{sop.nombre} (Soporte Técnico)", styles["SectionHead"]))
-            sop_info = [
-                ["Fecha:", sop.fecha_soporte.strftime("%d/%m/%Y") if sop.fecha_soporte else "N/A", "Estado:", sop.get_estado_display()],
-                ["Técnico:", sop.tecnico_asignado.usuario.get_nombre_completo() if sop.tecnico_asignado else "No asignado", "Guía:", f"GS-{sop.guia_salida.id}" if sop.guia_salida else "N/A"],
-            ]
-            story.append(create_info_table(sop_info))
-            story.append(Spacer(1, 0.2 * cm))
-            story.append(Paragraph(f"<b>Descripción:</b> {sop.descripcion}", styles["BodyText"]))
-            story.append(Spacer(1, 0.5 * cm))
+        y = check_page(y, 100)
+        y = draw_module_title(pdf, y, "SERVICIOS Y SOPORTES")
+        
+        all_activities = list(soportes) + list(servicios)
+        
+        for act in all_activities:
+            is_soporte = hasattr(act, 'guia_salida')
+            tipo = "Soporte Técnico" if is_soporte else "Servicio General"
             
-            # Firma Placeholder (Simplificado)
-            story.append(create_signature_block([("Ejecución", "Firma Técnico"), ("Validación", "Firma Cliente")]))
-            story.append(Spacer(1, 1 * cm))
+            y = check_page(y, 120) 
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(mx, y, f"{act.nombre} ({tipo})")
+            y -= 14
+            
+            # Info line
+            tecnico = act.tecnico_asignado.usuario.get_nombre_completo() if act.tecnico_asignado and act.tecnico_asignado.usuario else "No asignado"
+            estado = act.get_estado_display()
+            fecha_act = act.fecha_soporte if is_soporte else act.fecha_servicio
+            fecha_str_act = fecha_act.strftime("%d/%m/%Y") if fecha_act else "N/A"
+            
+            pdf.setFont("Helvetica", 9)
+            info_str = f"Fecha: {fecha_str_act} | Técnico: {tecnico} | Estado: {estado}"
+            pdf.drawString(mx, y, info_str)
+            y -= 12
+            
+            # Desc
+            pdf.setFont("Helvetica-Oblique", 9)
+            desc_act = wrap(act.descripcion or "", width=100)
+            for line in desc_act:
+                y = check_page(y)
+                pdf.drawString(mx, y, line)
+                y -= 10
+            
+            y -= 10
+            # Line separator
+            pdf.setStrokeColor(LIGHT_GRAY)
+            pdf.line(mx, y, ancho-mx, y)
+            pdf.setStrokeColor(colors.black)
+            y -= 15
 
-        # Servicios
-        for serv in servicios:
-            story.append(Paragraph(f"{serv.nombre} (Servicio General)", styles["SectionHead"]))
-            serv_info = [
-                ["Fecha:", serv.fecha_servicio.strftime("%d/%m/%Y") if serv.fecha_servicio else "N/A", "Estado:", serv.get_estado_display()],
-                ["Técnico:", serv.tecnico_asignado.usuario.get_nombre_completo() if serv.tecnico_asignado else "No asignado", "Resuelto:", "SÍ" if serv.resuelto else "NO"],
-            ]
-            story.append(create_info_table(serv_info))
-            story.append(Spacer(1, 0.2 * cm))
-            story.append(Paragraph(f"<b>Descripción:</b> {serv.descripcion}", styles["BodyText"]))
-            story.append(Spacer(1, 0.5 * cm))
-            story.append(create_signature_block([("Ejecución", "Firma Técnico"), ("Validación", "Firma Cliente")]))
-            story.append(Spacer(1, 1 * cm))
-
-        story.append(PageBreak())
-
-    # --- MÓDULO 3: GUÍAS DE SALIDA ---
+    # 6. Guías de Salida
     if guias:
-        story.append(Paragraph("GUÍAS DE SALIDA Y MATERIALES", styles["ModuleTitle"]))
+        y = check_page(y, 100)
+        y = draw_module_title(pdf, y, "GUÍAS DE SALIDA Y MATERIALES")
+        
         for guia in guias:
-            story.append(Paragraph(f"GUÍA DE SALIDA Nº {guia.id}", styles["SectionHead"]))
-            guia_info = [
-                ["FECHA:", guia.fecha_creacion.strftime("%d/%m/%Y"), "BODEGA:", guia.bodega.nombre],
-                ["ENTREGADO A:", guia.entregado_a.usuario.get_nombre_completo() if guia.entregado_a else "N/A", "MOTIVO:", guia.motivo or "Sin motivo"],
-            ]
-            story.append(create_info_table(guia_info))
-            story.append(Spacer(1, 0.5 * cm))
-
-            # Items Table
-            headers = ["ITEM / MATERIAL", "CANT.", "NUM. SERIE"]
-            data_items = []
+            y = check_page(y, 80)
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.drawString(mx, y, f"Guía Nº {guia.id} - Bodega: {guia.bodega.nombre if guia.bodega else 'N/A'}")
+            y -= 14
+            
+            entregado = guia.entregado_a.usuario.get_nombre_completo() if guia.entregado_a and guia.entregado_a.usuario else "N/A"
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(mx, y, f"Entregado a: {entregado} | Motivo: {guia.motivo or '-'}")
+            y -= 14
+            
+            # Items table
+            headers = ["Item", "Cant", "Serie"]
+            data_items = [headers]
             for item in guia.itemsguiasalida_set.all():
                 nombre = item.stock_item.item.nombre if item.stock_item and item.stock_item.item else "Desconocido"
-                data_items.append([nombre, str(item.cantidad_rebajada), str(item.numero_serie or "N/A")])
+                # Serial fix:
+                serial_val = str(item.numero_serie.get("serie", "N/A") if isinstance(item.numero_serie, dict) else (item.numero_serie or "N/A"))
+                data_items.append([nombre, str(item.cantidad_rebajada), serial_val])
             
-            story.append(create_data_table(headers, data_items, [9 * cm, 3 * cm, 6 * cm]))
-            story.append(Spacer(1, 0.5 * cm))
-            story.append(create_signature_block([("Entregó", "Bodega"), ("Recibió", "Técnico")]))
-            story.append(Spacer(1, 1 * cm))
-        
-        story.append(PageBreak())
+            t_items = Table(data_items, colWidths=[t_width*0.6, t_width*0.15, t_width*0.25])
+            t_items.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), LIGHT_GRAY),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ]))
+            
+            w, h = t_items.wrap(t_width, y) # check height
+            if y - h < 50:
+                y = check_page(0) # Force new page
+            
+            t_items.drawOn(pdf, mx, y - h)
+            y -= (h + 20)
 
-    # --- MÓDULO 4: GASTOS ---
+    # 7. Gastos
     if gastos:
-        story.append(Paragraph("GASTOS OPERATIVOS", styles["ModuleTitle"]))
-        headers = ["FECHA", "CATEGORÍA", "DETALLE", "CANT.", "TOTAL"]
-        data_gastos = []
-        for gasto in gastos:
-            data_gastos.append([
-                gasto.fecha_compra.strftime("%d/%m/%Y") if gasto.fecha_compra else "N/A",
-                gasto.categoria.nombre if gasto.categoria else "N/A",
-                gasto.detalle or "-",
-                str(gasto.cantidad),
-                format_currency(gasto.monto_total),
-            ])
-        # Total Row
-        data_gastos.append(["", "", "TOTAL GASTOS:", "", format_currency(sum(g.monto_total for g in gastos))])
+        y = check_page(y, 100)
+        y = draw_module_title(pdf, y, "GASTOS OPERATIVOS")
         
-        story.append(create_data_table(headers, data_gastos, [2.5 * cm, 3.5 * cm, 8 * cm, 1.5 * cm, 2.5 * cm]))
-        story.append(PageBreak())
-
-    # --- CIERRE ---
-    story.append(Paragraph("CIERRE Y VALIDACIÓN FINAL", styles["ModuleTitle"]))
-    story.append(Spacer(1, 1 * cm))
-    story.append(Paragraph("ESTADO FINAL DE TRABAJOS", styles["SectionHead"]))
-    
-    headers_resumen = ["TRABAJO / SERVICIO", "ESTADO", "RESUELTO"]
-    data_resumen = []
-    for sop in soportes:
-        data_resumen.append([sop.nombre, sop.get_estado_display(), "SÍ" if sop.estado == "completado" else "NO"])
-    for serv in servicios:
-        data_resumen.append([serv.nombre, serv.get_estado_display(), "SÍ" if serv.resuelto else "NO"])
+        headers = ["Fecha", "Categoría", "Detalle", "Monto"]
+        data_gastos = [headers]
+        total_gastos = 0
+        for g in gastos:
+            total_gastos += g.monto_total
+            fecha_g = g.fecha_compra.strftime("%d/%m/%Y") if g.fecha_compra else "-"
+            cat = g.categoria.nombre if g.categoria else "-"
+            det = g.detalle or "-"
+            monto = format_currency(g.monto_total)
+            data_gastos.append([fecha_g, cat, det, monto])
+            
+        data_gastos.append(["", "", "TOTAL", format_currency(total_gastos)])
         
-    story.append(create_data_table(headers_resumen, data_resumen, [10 * cm, 5 * cm, 3 * cm]))
-    story.append(Spacer(1, 2 * cm))
+        t_gastos = Table(data_gastos, colWidths=[t_width*0.15, t_width*0.25, t_width*0.4, t_width*0.2])
+        t_gastos.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), LIGHT_GRAY),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (-2, -1), (-1, -1), 'Helvetica-Bold'), # Total row bold
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ]))
+        
+        w, h = t_gastos.wrap(t_width, y)
+        if y - h < 50:
+             y = check_page(0)
+             
+        t_gastos.drawOn(pdf, mx, y - h)
+        y -= (h + 30)
 
-    # Firmas Finales
-    story.append(create_signature_block([
-        ("Técnico Responsable", orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else ""),
-        ("Validación Cliente", orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "")
-    ]))
+    # 8. Cierre y Firmas
+    y = check_page(y, 150)
+    y = draw_module_title(pdf, y, "VALIDACIÓN FINAL")
+    y -= 30
     
-    story.append(Spacer(1, 1 * cm))
-    story.append(create_signature_block([("Aprobación Administrativa", "")] ))
-
-    # Build
-    doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer, canvasmaker=NumberedCanvas)
+    # Firmas blocks
+    # Box 1: Tecnico
+    box_w = (t_width / 2) - 10
+    
+    pdf.line(mx, y, mx + box_w, y)
+    pdf.line(mx + box_w + 20, y, ancho - mx, y)
+    y -= 15
+    
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawCentredString(mx + box_w/2, y, "Técnico Responsable")
+    pdf.drawCentredString(mx + box_w + 20 + box_w/2, y, "Aprobación Cliente")
+    y -= 12
+    
+    nom_tec = orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else ""
+    nom_cli = orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante and orden.cliente_solicitante.usuario else ""
+    
+    pdf.setFont("Helvetica", 9)
+    pdf.drawCentredString(mx + box_w/2, y, nom_tec)
+    pdf.drawCentredString(mx + box_w + 20 + box_w/2, y, nom_cli)
+    
+    # Final Footer
+    draw_footer(pdf, ancho, mx, my)
+    draw_paginacion(pdf, ancho, mx, my)
+    pdf.showPage()
+    
+    pdf.save()
     buffer.seek(0)
     return buffer

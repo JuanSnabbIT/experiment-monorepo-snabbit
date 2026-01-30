@@ -8,15 +8,19 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IDetalleOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
-import ApiService from '@/services/ApiService';
-import { listaDetalleTrabajoOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useGetDetalleOrdenTrabajoQuery, useIniciarDetalleTrabajoMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 
 function IniciarEstadoDT({ detalle }: { detalle: IDetalleOrdenDeTrabajo }) {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo, refetch: refetchDetalleOrdenTrabajo } =
+        useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, { skip: !ordenId });
+    const [iniciarDetalleTrabajo] = useIniciarDetalleTrabajoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const sigCanvas = useRef<SignatureCanvas | null>(null);
 
@@ -109,31 +113,22 @@ function IniciarEstadoDT({ detalle }: { detalle: IDetalleOrdenDeTrabajo }) {
                             variant='solid'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalle.id}/iniciar-proceso/`,
-                                        method: 'post',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({
+                                    if (!detalleOrdenTrabajo) return;
+                                    await iniciarDetalleTrabajo({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        detalleId: detalle.id,
+                                        data: {
                                             firma_recibido_por:
                                                 sigCanvas.current?.toDataURL('image/png'),
-                                        }),
+                                        },
+                                    }).unwrap();
+                                    toast.success('Insumo firmado y trabajo iniciado', {
+                                        autoClose: 1000,
                                     });
-                                    if (response.data) {
-                                        toast.success('Insumo firmado y trabajo iniciado', {
-                                            autoClose: 1000,
-                                        });
-                                        dispatch(
-                                            listaDetalleTrabajoOTThunk({
-                                                id_orden: detalleOrdenTrabajo?.id,
-                                            }),
-                                        );
-                                        setIsOpen(false);
-                                    }
-                                } catch (error: any) {
-                                    const mensajesError = Object.values(error.response.data)
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(mensajesError || 'Error al inicar el trabajo', {
+                                    refetchDetalleOrdenTrabajo();
+                                    setIsOpen(false);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al inicar el trabajo', {
                                         toastId: 'Error al inicar el trabajo',
                                     });
                                 }

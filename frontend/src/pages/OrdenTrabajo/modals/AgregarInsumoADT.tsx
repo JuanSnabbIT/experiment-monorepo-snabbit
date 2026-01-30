@@ -9,18 +9,19 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from '@/store';
 import {
-    listaDetalleTrabajoOTThunk,
-    listaGuiasSalidasDisponiblesThunk,
-    useAppDispatch,
-    useAppSelector,
-    usuarioEmpresaLogeadoThunk,
-} from '@/store';
+    useAsignarInsumoDetalleMutation,
+    useCrearSeguimientoDetalleMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetGuiasDisponiblesQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function AgregarInsumoADT({
     isOpen,
@@ -34,19 +35,20 @@ function AgregarInsumoADT({
     setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>;
 }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
-    const { listaGuiasSalidasDisponibles } = useAppSelector((state) => state.bodega);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaGuiasSalidasDisponibles = [] } = useGetGuiasDisponiblesQuery(
+        ordenId ?? 0,
+        { skip: !ordenId || !isOpen },
+    );
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
     const { userMe } = useAppSelector((state) => state.auth);
     const [optionsGuia, setOptionsGuia] = useState<{ value: string; label: string }[]>([]);
-
-    useEffect(() => {
-        if (isOpen && detalleOrdenTrabajo) {
-            dispatch(
-                listaGuiasSalidasDisponiblesThunk({ id_empresa: detalleOrdenTrabajo.empresa }),
-            );
-        }
-    }, [isOpen, detalleOrdenTrabajo]);
+    const [asignarInsumoDetalle] = useAsignarInsumoDetalleMutation();
+    const [crearSeguimientoDetalle] = useCrearSeguimientoDetalleMutation();
 
     useEffect(() => {
         if (!usuarioEmpresaLogeado && userMe) {
@@ -66,33 +68,28 @@ function AgregarInsumoADT({
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/asignar-insumo/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({ insumo: values.insumo }),
+                if (!detalleOrdenTrabajo || !detalleSeleccionado) return;
+                await asignarInsumoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalleSeleccionado,
+                    data: { insumo: values.insumo },
+                }).unwrap();
+                await crearSeguimientoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalleSeleccionado,
+                    data: {
+                        detalle_trabajo: detalleSeleccionado,
+                        usuario: usuarioEmpresaLogeado?.id,
+                        tipo: 'actualizacion',
+                        comentario: values.comentario,
+                    },
+                }).unwrap();
+                toast.success('Insumo asignado', { autoClose: 1000 });
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al agregar insumo al trabajo', {
+                    toastId: 'Error al agregar insumo al trabajo',
                 });
-                if (response.data) {
-                    const seguimientoResponse = await ApiService.fetchData({
-                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/seguimientos/`,
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: {
-                            detalle_trabajo: detalleSeleccionado,
-                            usuario: usuarioEmpresaLogeado?.id,
-                            tipo: 'actualizacion',
-                            comentario: values.comentario,
-                        },
-                    });
-                    if (seguimientoResponse.data) {
-                        toast.success('Insumo asignado', { autoClose: 1000 });
-                        setIsOpen(false);
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                    }
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError, { toastId: 'Error al agregar insumo al trabajo' });
             }
         },
     });

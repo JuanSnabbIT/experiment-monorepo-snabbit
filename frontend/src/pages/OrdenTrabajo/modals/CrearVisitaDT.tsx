@@ -10,20 +10,27 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IVisitaSoporte } from '@/interface/visitas.interface';
-import ApiService from '@/services/ApiService';
+import { listaContentTypeThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
-    listaContentTypeThunk,
-    listaDetalleTrabajoOTThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useAsociarTrabajoDetalleMutation,
+    useCrearVisitaSoporteMutation,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function CrearVisitaDT({ id_detalle }: { id_detalle: string | number | undefined }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const [crearVisita] = useCrearVisitaSoporteMutation();
+    const [asociarTrabajoDetalle] = useAsociarTrabajoDetalleMutation();
     const { listaContentType } = useAppSelector((state) => state.core);
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -40,37 +47,27 @@ function CrearVisitaDT({ id_detalle }: { id_detalle: string | number | undefined
         },
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData<IVisitaSoporte, string>({
-                    url: `/api/visitas-soporte/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
+                if (!detalleOrdenTrabajo || !id_detalle) return;
+                const visita = await crearVisita({
+                    data: {
                         descripcion_servicio: values.descripcion_servicio,
-                        empresa: detalleOrdenTrabajo?.empresa,
-                        cliente: detalleOrdenTrabajo?.cliente,
-                    }),
-                });
-                if (response.data) {
-                    const responseTrabajo = await ApiService.fetchData({
-                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${id_detalle}/asociar-trabajo/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
-                            content_type: listaContentType.find(
-                                (ct) => ct.model === 'visitasoporte',
-                            )?.id,
-                            trabajo_id: response.data.id,
-                        }),
-                    });
-                    if (responseTrabajo) {
-                        toast.success('Visita creada', { autoClose: 1000 });
-                        setIsOpen(false);
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                    }
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al crear la visita', {
+                        empresa: detalleOrdenTrabajo.empresa,
+                        cliente: detalleOrdenTrabajo.cliente,
+                    },
+                }).unwrap();
+                await asociarTrabajoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: id_detalle,
+                    data: {
+                        content_type: listaContentType.find((ct) => ct.model === 'visitasoporte')
+                            ?.id,
+                        trabajo_id: visita.id,
+                    },
+                }).unwrap();
+                toast.success('Visita creada', { autoClose: 1000 });
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear la visita', {
                     toastId: 'Error al crear la visita',
                 });
             }

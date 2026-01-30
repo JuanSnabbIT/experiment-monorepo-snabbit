@@ -2,11 +2,12 @@ import Calendar, { TViewMode, useCalendarView } from '@/components/Calendar';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
-import { listaOrdenTrabajoThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
     listaDiasCalendarioThunk,
     listaSolicitudesVacacionesThunk,
 } from '@/store/slices/calendario/calendarioSlice';
+import { useGetOrdenesTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { TIcons } from '@/types/icons.type';
 import {
     DateSelectArg,
@@ -49,7 +50,7 @@ function ListaDiasCalendarioV2() {
         (state) => state.calendario,
     );
     const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
-    const { listaOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: listaOrdenTrabajo = [] } = useGetOrdenesTrabajoQuery();
     const {
         viewMode,
         changeViewMode,
@@ -75,7 +76,6 @@ function ListaDiasCalendarioV2() {
     useEffect(() => {
         dispatch(listaDiasCalendarioThunk());
         dispatch(listaSolicitudesVacacionesThunk());
-        dispatch(listaOrdenTrabajoThunk());
     }, [personalizacionUsuario]);
 
     useEffect(() => {
@@ -126,7 +126,7 @@ function ListaDiasCalendarioV2() {
             ...eventosOrdenDeTrabajo,
         ];
         setEventosVacaciones(eventosCombinados);
-    }, [listaDiasCalendario, listaSolicitudesVacaciones]);
+    }, [listaDiasCalendario, listaSolicitudesVacaciones, listaOrdenTrabajo]);
 
     const handleDateSelect = (selectInfo: DateSelectArg) => {
         // eslint-disable-next-line no-alert

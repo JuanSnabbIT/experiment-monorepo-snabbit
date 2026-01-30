@@ -8,17 +8,18 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import type {
-    IBodega,
-    ICompra,
-    ICompraConItems,
-    IItemEnCompra,
-    IItemTracking,
-} from '@/interface/bodega.interface';
-import ApiService from '@/services/ApiService';
-import { detalleOrdenTrabajoThunk, useAppDispatch, useAppSelector } from '@/store';
+import type { ICompraConItems, IItemEnCompra, IItemTracking } from '@/interface/bodega.interface';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import {
+    useCompletarConComprasMutation,
+    useGetBodegasQuery,
+    useGetComprasEnOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useLazyGetItemsCompraDetalleQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 
 interface Props {
     isOpen: boolean;
@@ -32,11 +33,24 @@ interface ItemTrackingState extends IItemTracking {
 }
 
 function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const {
+        data: detalleOrdenTrabajo,
+        refetch: refetchDetalleOrdenTrabajo,
+    } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaComprasEnOT = [] } = useGetComprasEnOTQuery(ordenId ?? 0, {
+        skip: !ordenId || !isOpen,
+    });
+    const { data: listaBodegas = [] } = useGetBodegasQuery(undefined, {
+        skip: !isOpen,
+    });
+    const [getItemsCompraDetalle] = useLazyGetItemsCompraDetalleQuery();
+    const [completarConCompras] = useCompletarConComprasMutation();
     const [comprasConItems, setComprasConItems] = useState<ICompraConItems[]>([]);
     const [itemsTracking, setItemsTracking] = useState<ItemTrackingState[]>([]);
-    const [listaBodegas, setListaBodegas] = useState<IBodega[]>([]);
     const [loading, setLoading] = useState(false);
     const [bodegaSeleccionada, setBodegaSeleccionada] = useState<number | null>(null);
 
@@ -44,28 +58,19 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
     useEffect(() => {
         if (isOpen && detalleOrdenTrabajo) {
             cargarComprasItems();
-            cargarBodegas();
         }
-    }, [isOpen, detalleOrdenTrabajo]);
+    }, [detalleOrdenTrabajo, getItemsCompraDetalle, isOpen, listaComprasEnOT]);
 
     const cargarComprasItems = async () => {
         try {
-            const response = await ApiService.fetchData<ICompra[]>({
-                url: `/api/compras/?orden_trabajo=${detalleOrdenTrabajo?.id}`,
-                method: 'get',
-            });
-
-            const compras = response.data || [];
+            const compras = listaComprasEnOT || [];
             const comprasConItemsData: ICompraConItems[] = [];
 
             for (const compra of compras) {
-                const itemsResponse = await ApiService.fetchData<IItemEnCompra[]>({
-                    url: `/api/compras/${compra.id}/items-compras/`,
-                    method: 'get',
-                });
+                const items = await getItemsCompraDetalle(compra.id).unwrap();
                 comprasConItemsData.push({
                     compra,
-                    items: itemsResponse.data || [],
+                    items: items || [],
                 });
             }
 
@@ -86,24 +91,13 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
                 });
             });
             setItemsTracking(tracking);
-        } catch (error: any) {
-            toast.error('Error al cargar items de compras', { toastId: 'error-compras-items' });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al cargar items de compras', {
+                toastId: 'error-compras-items',
+            });
         }
     };
 
-    const cargarBodegas = async () => {
-        try {
-            const response = await ApiService.fetchData<IBodega[]>({
-                url: '/api/bodegas/',
-                method: 'get',
-            });
-            if (response.data) {
-                setListaBodegas(response.data);
-            }
-        } catch (error) {
-            toast.error('Error al cargar bodegas');
-        }
-    };
 
     const updateTracking = (
         itemId: number,
@@ -170,13 +164,19 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
         });
 
         if (errores.length > 0) {
-            toast.error(errores.join('\n'), { autoClose: 5000 });
+            toast.error(errores.join('
+'), { autoClose: 5000 });
             return;
         }
 
         setLoading(true);
 
         try {
+            if (!detalleOrdenTrabajo) {
+                toast.error('No se pudo identificar la OT');
+                setLoading(false);
+                return;
+            }
             const payload = {
                 items_tracking: itemsTracking.map((t) => ({
                     item_en_compra_id: t.item_en_compra_id,
@@ -186,22 +186,17 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
                 })),
             };
 
-            const response = await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/completar-con-compras/`,
-                method: 'post',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify(payload),
-            });
+            await completarConCompras({
+                ordenId: detalleOrdenTrabajo.id,
+                data: payload,
+            }).unwrap();
 
-            if (response.data) {
-                toast.success('OT completada con éxito', { autoClose: 2000 });
-                dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo?.id }));
-                setIsOpen(false);
-                if (onSuccess) onSuccess();
-            }
-        } catch (error: any) {
-            const errores = error.response?.data?.errores || [];
-            const mensaje = errores.length > 0 ? errores.join('\n') : 'Error al completar la OT';
+            toast.success('OT completada con ??xito', { autoClose: 2000 });
+            refetchDetalleOrdenTrabajo();
+            setIsOpen(false);
+            if (onSuccess) onSuccess();
+        } catch (error: unknown) {
+            const mensaje = getErrorMessage(error) || 'Error al completar la OT';
             toast.error(mensaje, { toastId: 'error-completar-ot', autoClose: 5000 });
         } finally {
             setLoading(false);

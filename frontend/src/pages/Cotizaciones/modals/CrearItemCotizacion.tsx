@@ -25,6 +25,7 @@ import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { parseLocaleNumber } from '@/utils/currency';
 
 import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 
@@ -82,9 +83,11 @@ function CrearItemCotizacion({
             .required('Requerido')
             .min(1, 'Debe ser mayor a 0')
             .nonNullable('Requerido'),
-        precio_unitario: Yup.number()
+        precio_unitario: Yup.string()
             .required('Requerido')
-            .min(0, 'Debe ser mayor o igual a 0')
+            .test('precio', 'Debe ser mayor o igual a 0', (value) => {
+                return parseLocaleNumber(value || '') >= 0;
+            })
             .nonNullable('Requerido'),
         recargo_dolar: Yup.number()
             .required('Requerido')
@@ -98,11 +101,12 @@ function CrearItemCotizacion({
             nombre: '',
             descripcion: '',
             cantidad: 1,
-            precio_unitario: 0,
+            precio_unitario: '',
             recargo_dolar: 0,
         },
         validationSchema,
         onSubmit: async (values) => {
+            const precioUnitario = parseLocaleNumber(values.precio_unitario);
             if (!creandoItem) {
                 if (!itemSeleccionado || !proveedorSeleccionado) {
                     toast.error('Debe seleccionar un item y un proveedor', {
@@ -118,7 +122,7 @@ function CrearItemCotizacion({
                             data: JSON.stringify({
                                 cotizacion: cotizacion?.id,
                                 cantidad: values.cantidad,
-                                precio_unitario: values.precio_unitario,
+                                precio_unitario: precioUnitario,
                                 item_empresa: itemSeleccionado.id,
                                 descripcion: values.descripcion,
                                 proveedor_empresa: proveedorSeleccionado.id,
@@ -144,6 +148,12 @@ function CrearItemCotizacion({
                     }
                 }
             } else if (creandoItem && !isService) {
+                if (!proveedorSeleccionado) {
+                    toast.error('Debe seleccionar un proveedor', {
+                        toastId: 'Debe seleccionar un proveedor',
+                    });
+                    return;
+                }
                 setIsSubmitting(true);
                 try {
                     const response = await ApiService.fetchData<IItemEmpresa, string>({
@@ -165,7 +175,7 @@ function CrearItemCotizacion({
                             data: JSON.stringify({
                                 cotizacion: cotizacion?.id,
                                 cantidad: values.cantidad,
-                                precio_unitario: values.precio_unitario,
+                                precio_unitario: precioUnitario,
                                 item_empresa: response.data.id,
                                 descripcion: values.descripcion,
                                 proveedor_empresa: proveedorSeleccionado?.id,
@@ -201,6 +211,7 @@ function CrearItemCotizacion({
                             cotizacion: cotizacion?.id,
                             proveedor_empresa: proveedorSeleccionado?.id,
                             ...values,
+                            precio_unitario: precioUnitario,
                         }),
                     });
                     if (response.data) {
@@ -374,72 +385,144 @@ function CrearItemCotizacion({
                         )}
                         {/* Item selector - full width */}
                         <div className='col-span-full'>
-                            <Badge>Item de la Empresa</Badge>
-                            <div className='flex flex-row gap-2'>
-                                <div className='w-full'>
-                                    <SelectReact
-                                        key={categoriaSeleccionada}
-                                        name='item_empresa'
-                                        options={itemsEmpresaDisponibles.map((item) => ({
-                                            value: item.id.toString(),
-                                            label: item.nombre,
-                                        }))}
-                                        onChange={(e) => {
-                                            if (e) {
-                                                const sel = itemsEmpresaDisponibles.find(
-                                                    (i) =>
-                                                        i.id.toString() ===
-                                                        (e as TSelectOption).value,
-                                                );
-                                                setItemSeleccionado(sel);
-                                                const primerProveedor = sel?.datos_proveedores?.[0];
-                                                setProveedorSeleccionado(primerProveedor);
-                                                // Auto-fill recargo_dolar if provider has USD currency
-                                                if (primerProveedor?.tipo_moneda === '1') {
+                            <div className='flex items-center justify-between gap-3'>
+                                <Badge>Item de la Empresa</Badge>
+                                <Button
+                                    size='xs'
+                                    variant='outline'
+                                    color='gray'
+                                    onClick={() => {
+                                        setCreandoItem((prev) => !prev);
+                                        setItemSeleccionado(undefined);
+                                        setProveedorSeleccionado(undefined);
+                                        setShowCategoria(false);
+                                    }}>
+                                    {creandoItem ? 'Seleccionar existente' : 'Crear nuevo'}
+                                </Button>
+                            </div>
+                            {!creandoItem ? (
+                                <div className='flex flex-row gap-2'>
+                                    <div className='w-full'>
+                                        <SelectReact
+                                            key={categoriaSeleccionada}
+                                            name='item_empresa'
+                                            options={itemsEmpresaDisponibles.map((item) => ({
+                                                value: item.id.toString(),
+                                                label: item.nombre,
+                                            }))}
+                                            onChange={(e) => {
+                                                if (e) {
+                                                    const sel = itemsEmpresaDisponibles.find(
+                                                        (i) =>
+                                                            i.id.toString() ===
+                                                            (e as TSelectOption).value,
+                                                    );
+                                                    setItemSeleccionado(sel);
+                                                    const primerProveedor =
+                                                        sel?.datos_proveedores?.[0];
+                                                    setProveedorSeleccionado(primerProveedor);
+                                                    // Auto-fill recargo_dolar if provider has USD currency
+                                                    if (primerProveedor?.tipo_moneda === '1') {
+                                                        formik.setFieldValue(
+                                                            'recargo_dolar',
+                                                            primerProveedor.recargo_dolar || 0,
+                                                        );
+                                                    }
+                                                } else {
+                                                    setItemSeleccionado(undefined);
+                                                    setProveedorSeleccionado(undefined);
+                                                }
+                                            }}
+                                            value={
+                                                itemSeleccionado
+                                                    ? {
+                                                          value: itemSeleccionado.id.toString(),
+                                                          label: itemSeleccionado.nombre,
+                                                      }
+                                                    : undefined
+                                            }
+                                        />
+                                    </div>
+
+                                    {showCategoria ? (
+                                        <Button
+                                            size='sm'
+                                            variant='solid'
+                                            color='red'
+                                            icon='HeroXMark'
+                                            onClick={() => {
+                                                setShowCategoria(false);
+                                                setCategoriaSeleccionada('');
+                                            }}
+                                        />
+                                    ) : (
+                                        <Button
+                                            size='sm'
+                                            variant='solid'
+                                            color='zinc'
+                                            icon='DuoSearch'
+                                            onClick={() => {
+                                                setShowCategoria(true);
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                            ) : (
+                                <div className='mt-3 grid grid-cols-6 gap-4'>
+                                    <div className='col-span-3'>
+                                        <Badge>Nombre</Badge>
+                                        <Validation
+                                            isValid={formik.isValid}
+                                            isTouched={formik.touched.nombre}
+                                            invalidFeedback={formik.errors.nombre}>
+                                            <Input
+                                                name='nombre'
+                                                id='nombre'
+                                                placeholder='Nombre del item'
+                                                onBlur={formik.handleBlur}
+                                                onChange={formik.handleChange}
+                                                value={formik.values.nombre}
+                                            />
+                                        </Validation>
+                                    </div>
+                                    <div className='col-span-3'>
+                                        <Badge>Proveedor</Badge>
+                                        <SelectReact
+                                            name='proveedor_empresa'
+                                            options={listaProveedoresEmpresa.map((pro) => ({
+                                                value: pro.id.toString(),
+                                                label: pro.nombre,
+                                            }))}
+                                            onChange={(e) => {
+                                                if (e) {
+                                                    const prov = listaProveedoresEmpresa.find(
+                                                        (pro) =>
+                                                            pro.id.toString() ===
+                                                            (e as TSelectOption).value,
+                                                    );
+                                                    setProveedorSeleccionado(prov);
                                                     formik.setFieldValue(
                                                         'recargo_dolar',
-                                                        primerProveedor.recargo_dolar || 0,
+                                                        prov?.recargo_dolar || 0,
                                                     );
+                                                } else {
+                                                    setProveedorSeleccionado(undefined);
                                                 }
-                                            } else {
-                                                setItemSeleccionado(undefined);
-                                                setProveedorSeleccionado(undefined);
+                                            }}
+                                            value={
+                                                proveedorSeleccionado
+                                                    ? {
+                                                          value: proveedorSeleccionado.id.toString(),
+                                                          label: proveedorSeleccionado.nombre,
+                                                      }
+                                                    : undefined
                                             }
-                                        }}
-                                        value={
-                                            itemSeleccionado
-                                                ? {
-                                                      value: itemSeleccionado.id.toString(),
-                                                      label: itemSeleccionado.nombre,
-                                                  }
-                                                : undefined
-                                        }
-                                    />
+                                            placeholder='Seleccione un proveedor'
+                                            isClearable
+                                        />
+                                    </div>
                                 </div>
-
-                                {showCategoria ? (
-                                    <Button
-                                        size='sm'
-                                        variant='solid'
-                                        color='red'
-                                        icon='HeroXMark'
-                                        onClick={() => {
-                                            setShowCategoria(false);
-                                            setCategoriaSeleccionada('');
-                                        }}
-                                    />
-                                ) : (
-                                    <Button
-                                        size='sm'
-                                        variant='solid'
-                                        color='zinc'
-                                        icon='DuoSearch'
-                                        onClick={() => {
-                                            setShowCategoria(true);
-                                        }}
-                                    />
-                                )}
-                            </div>
+                            )}
                         </div>
 
                         {/* When an item is selected show Provider + Recargo side-by-side */}
@@ -555,10 +638,13 @@ function CrearItemCotizacion({
                                 <Input
                                     name='precio_unitario'
                                     id='precio_unitario'
-                                    type='number'
+                                    type='text'
+                                    inputMode='decimal'
                                     placeholder='Precio Unitario'
                                     onBlur={formik.handleBlur}
-                                    onChange={formik.handleChange}
+                                    onChange={(e) => {
+                                        formik.setFieldValue('precio_unitario', e.target.value);
+                                    }}
                                     value={formik.values.precio_unitario}
                                 />
                             </Validation>

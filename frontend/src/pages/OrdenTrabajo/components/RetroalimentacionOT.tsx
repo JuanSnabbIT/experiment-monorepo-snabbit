@@ -8,35 +8,37 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
 import RatingInput from '@/components/utils/RatingInput';
-import ApiService from '@/services/ApiService';
 import {
-    detalleSinPermisosRetroalimentacionOTThunk,
     GUARDAR_RETROALIMENTACION,
     LIMPIAR_RETROALIMENTACION,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useBulkUpdateRetroalimentacionOTMutation,
+    useGetDetalleRetroalimentacionOTPublicQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import * as Yup from 'yup';
 
 function RetroalimentacionOT() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { uuid } = useParams();
-    const { detalleSinPermisosRetroalimentacionOT } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: detalleSinPermisosRetroalimentacionOT } =
+        useGetDetalleRetroalimentacionOTPublicQuery(uuid, { skip: !uuid });
     const { guardadoRetroalimentacionOT } = useAppSelector((state) => state.auth);
+    const [bulkUpdateRetroalimentacion] = useBulkUpdateRetroalimentacionOTMutation();
 
     useEffect(() => {
-        if (uuid) {
-            dispatch(detalleSinPermisosRetroalimentacionOTThunk({ uuid }));
-        }
         if (guardadoRetroalimentacionOT && guardadoRetroalimentacionOT.token != uuid) {
             dispatch(LIMPIAR_RETROALIMENTACION());
         }
-    }, [uuid]);
+    }, [dispatch, guardadoRetroalimentacionOT, uuid]);
 
     useEffect(() => {
         if (detalleSinPermisosRetroalimentacionOT) {
@@ -95,22 +97,12 @@ function RetroalimentacionOT() {
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/retroalimentacion_aplicada/bulk_update/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                        items: values.preguntas,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Retroalimentación guardada', { autoClose: 1000 });
-                    navigate('/login');
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al editar la retroalimentación', {
-                    toastId: 'Error al editar la retroalimentación',
+                await bulkUpdateRetroalimentacion({ items: values.preguntas }).unwrap();
+                toast.success('Retroalimentaci??n guardada', { autoClose: 1000 });
+                navigate('/login');
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al editar la retroalimentaci??n', {
+                    toastId: 'Error al editar la retroalimentaci??n',
                 });
             }
         },

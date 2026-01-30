@@ -10,11 +10,9 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
 import { PRIORIDAD } from '@/constants/ordentrabajo.constant';
+import type { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
 import ApiService from '@/services/ApiService';
 import {
-    detalleOrdenTrabajoThunk,
-    listaHistorialCambiosThunk,
-    listarSimpleHistorialThunk,
     listaUsuariosTodaLaEmpresaThunk,
     listaUsuariosTodoElClienteThunk,
     listaVouchersThunk,
@@ -23,6 +21,14 @@ import {
     useAppSelector,
     usuarioEmpresaLogeadoThunk,
 } from '@/store';
+import {
+    useCreateHistorialCambioMutation,
+    useDescargarOrdenTrabajoPdfMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetHistorialCambiosQuery,
+    useGetHistorialSimpleQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { selectEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
@@ -53,9 +59,23 @@ const DetalleOT = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const { personalizacionUsuario, access } = useAppSelector((state) => state.auth);
-    const { detalleOrdenTrabajo, listaHistorialCambios } = useAppSelector(
-        (state) => state.ordenTrabajo,
-    );
+    const { data: detalleOrdenTrabajo, refetch: refetchDetalle } =
+        useGetDetalleOrdenTrabajoQuery(id || '', {
+        skip: !id,
+        refetchOnMountOrArgChange: true,
+    });
+    const {
+        data: listaHistorialCambios = [],
+        refetch: refetchHistorial,
+    } = useGetHistorialCambiosQuery(id || '', {
+        skip: !id,
+    });
+    const { refetch: refetchHistorialSimple } = useGetHistorialSimpleQuery(id || '', {
+        skip: !id,
+    });
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
+    const [createHistorialCambio] = useCreateHistorialCambioMutation();
+    const [descargarPdf] = useDescargarOrdenTrabajoPdfMutation();
     const prefacturaAsociadaId = detalleOrdenTrabajo?.prefactura_asociada_id;
     const { usuarioEmpresaLogeado, listaUsuariosTodoElCliente, listaUsuariosTodaLaEmpresa } =
         useAppSelector((state) => state.empresa);
@@ -90,13 +110,11 @@ const DetalleOT = () => {
     };
 
     useEffect(() => {
-        if (personalizacionUsuario && personalizacionUsuario.empresa) {
-            if (id) {
-                dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: id }));
-                dispatch(listaHistorialCambiosThunk({ id_orden: id }));
-            }
+        if (personalizacionUsuario && personalizacionUsuario.empresa && id) {
+            refetchDetalle();
+            refetchHistorial();
         }
-    }, [personalizacionUsuario, id, dispatch]);
+    }, [personalizacionUsuario, id, refetchDetalle, refetchHistorial]);
 
     useEffect(() => {
         if (detalleOrdenTrabajo) {
@@ -201,27 +219,20 @@ const DetalleOT = () => {
                         Boolean(values.estado_actual?.trim()) || Boolean(values.comentario?.trim());
 
                     if (hasManualHistorial) {
-                        const responseHistorial = await ApiService.fetchData({
-                            url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/historial-cambios/`,
-                            method: 'post',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify({
-                                estado_anterior: values.estado_anterior,
-                                estado_actual: values.estado_actual,
-                                comentario: values.comentario,
-                                usuario: usuarioEmpresaLogeado.id,
-                                orden: detalleOrdenTrabajo?.id,
-                            }),
-                        });
-                        if (!responseHistorial.data) {
-                            toast.error('No se pudo crear el historial', {
-                                toastId: 'No se pudo crear el historial',
-                            });
-                            return;
-                        }
+                        const historialPayload = {
+                            estado_anterior: values.estado_anterior,
+                            estado_actual: values.estado_actual,
+                            comentario: values.comentario,
+                            usuario: usuarioEmpresaLogeado.id,
+                            orden: detalleOrdenTrabajo?.id,
+                        };
+                        await createHistorialCambio({
+                            id_orden: detalleOrdenTrabajo?.id || 0,
+                            data: historialPayload,
+                        }).unwrap();
                     }
 
-                    const updatePayload = {
+                    const updatePayload: Partial<IOrdenDeTrabajo> = {
                         fecha_inicio_ot: values.fecha_inicio_ot || null,
                         fecha_finalizacion_ot: values.fecha_finalizacion_ot || null,
                         prioridad: values.prioridad,
@@ -229,17 +240,15 @@ const DetalleOT = () => {
                         cliente_solicitante: clienteSolicitanteId,
                         tecnico_responsable_ot: responsableId,
                     };
-                    const response = await ApiService.fetchData({
-                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/`,
-                        method: 'patch',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify(updatePayload),
-                    });
-                    if (response.data) {
+                    const response = await updateOrdenTrabajo({
+                        id: detalleOrdenTrabajo?.id || 0,
+                        data: updatePayload,
+                    }).unwrap();
+                    if (response) {
                         toast.success('Orden de trabajo actualizada', { autoClose: 1000 });
-                        dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: id }));
-                        dispatch(listaHistorialCambiosThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        dispatch(listarSimpleHistorialThunk({ id: detalleOrdenTrabajo?.id || 0 }));
+                        refetchDetalle();
+                        refetchHistorial();
+                        refetchHistorialSimple();
                         setIsEditing(false);
                         formik.resetForm();
                     }
@@ -255,12 +264,8 @@ const DetalleOT = () => {
     const handlePdf = async () => {
         if (!id) return;
         try {
-            const response = await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${id}/pdf/`,
-                method: 'get',
-                responseType: 'blob',
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+            const response = await descargarPdf(id).unwrap();
+            const url = window.URL.createObjectURL(new Blob([response as BlobPart]));
             const link = document.createElement('a');
             link.href = url;
             link.setAttribute('download', `OrdenTrabajo_${id}.pdf`);

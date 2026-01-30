@@ -16,18 +16,22 @@ import { IItemEmpresa } from '@/interface/items.interface';
 import ApiService from '@/services/ApiService';
 import {
     listaCategoriasThunk,
-    listaComprasEnOTThunk,
     listaFabricanteThunk,
     listaItemsEmpresaThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useGetComprasEnOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { IDetectedBarcode, Scanner } from '@yudiel/react-qr-scanner';
 import { useFormik } from 'formik';
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { useParams } from 'react-router-dom';
 
 type CompraItemForm = {
     id: string;
@@ -84,7 +88,14 @@ const formatosPermitidos: ScannerFormats = [
 
 function CrearCompraRapidaEnOT() {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { refetch: refetchComprasEnOT } = useGetComprasEnOTQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { listaItemsEmpresa, listaCategorias, listaFabricante } = useAppSelector(
         (state) => state.item,
@@ -185,7 +196,7 @@ function CrearCompraRapidaEnOT() {
                     toast.success('Compra creada correctamente.', {
                         autoClose: 2000,
                     });
-                    dispatch(listaComprasEnOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
+                    refetchComprasEnOT();
                     setIsOpen(false);
                 }
             } catch (error) {

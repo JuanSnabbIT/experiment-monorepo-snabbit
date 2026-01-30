@@ -12,7 +12,7 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IAdjuntoDeOrden } from '@/interface/ordenTrabajo.interface';
-import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useGetAdjuntosQuery, useGetDetalleOrdenTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -31,20 +31,19 @@ import CrearAdjunto from '../modals/CrearAdjunto';
 const columnHelper = createColumnHelper<IAdjuntoDeOrden>();
 
 function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, listaAdjuntos } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId || '', {
+        skip: !ordenId,
+    });
+    const { data: listaAdjuntos = [], refetch: refetchAdjuntos } = useGetAdjuntosQuery(
+        ordenId || '',
+        { skip: !ordenId },
+    );
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isOpen, setIsOpen] = useState(false);
     const [selectedAdjunto, setSelectedAdjunto] = useState<IAdjuntoDeOrden | null>(null);
     const [listaFiltrada, setListaFiltrada] = useState<IAdjuntoDeOrden[]>([]);
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaAdjuntosThunk({ ordenId }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     useEffect(() => {
         if (listaAdjuntos.filter((adj) => adj.tipo != 'imagen').length > 0) {
@@ -99,9 +98,9 @@ function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
                             detalleOrdenTrabajo.estado === 'completada') && (
                             <ConfirmarEliminar
                                 mensaje={`Estas seguro que deseas eliminar el adjunto ${info.row.original.tipo_label} ¿Desea continuar?`}
-                                peticionUrl={`/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/adjuntos/${info.row.original.id}/`}
+                                peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/archivos-adjuntos/${info.row.original.id}/`}
                                 onDispatch={() => {
-                                    dispatch(listaAdjuntosThunk({ ordenId }));
+                                    refetchAdjuntos();
                                 }}
                             />
                         )}

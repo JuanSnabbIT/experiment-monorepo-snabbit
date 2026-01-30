@@ -1,3 +1,4 @@
+import React, { forwardRef } from 'react';
 import Button, { TButtonSize } from '@/components/ui/Button';
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
@@ -16,19 +17,22 @@ interface ConfirmarEliminarProps {
     tooltipText?: string;
     color?: string;
 }
-
-const ConfirmarEliminar = ({
-    mensaje,
-    peticionUrl,
-    onDispatch,
-    nombre = '',
-    method = 'delete',
-    values = null,
-    buttonSize = 'default',
-    icon = 'HeroTrash',
-    tooltipText = 'Eliminar',
-    color = 'red',
-}: ConfirmarEliminarProps) => {
+const ConfirmarEliminar = forwardRef<HTMLButtonElement, ConfirmarEliminarProps>(
+    (
+        {
+            mensaje,
+            peticionUrl,
+            onDispatch,
+            nombre = '',
+            method = 'delete',
+            values = null,
+            buttonSize = 'default',
+            icon = 'HeroTrash',
+            tooltipText = 'Eliminar',
+            color = 'red',
+        }: ConfirmarEliminarProps,
+        ref,
+    ) => {
     const handleDelete = async () => {
         const safeNombre = nombre || '';
         const cleanedMensaje = mensaje ? String(mensaje).trim() : '';
@@ -75,6 +79,7 @@ const ConfirmarEliminar = ({
     return (
         <Tooltip text={tooltipText}>
             <Button
+                ref={ref}
                 icon={icon}
                 color={color as any}
                 variant='solid'
@@ -86,6 +91,8 @@ const ConfirmarEliminar = ({
             />
         </Tooltip>
     );
-};
+});
+
+ConfirmarEliminar.displayName = 'ConfirmarEliminar';
 
 export default ConfirmarEliminar;

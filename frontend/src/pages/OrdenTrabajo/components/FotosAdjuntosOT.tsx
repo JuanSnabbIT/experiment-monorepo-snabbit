@@ -1,8 +1,11 @@
 import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import ApiService from '@/services/ApiService';
-import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useDeleteAdjuntoMutation,
+    useGetAdjuntosQuery,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { getImageDimensions } from '@/utils/getImageDimensions';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -12,6 +15,7 @@ import { toast } from 'react-toastify';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
 import AgregarAdjuntosFotosOT from '../modals/AgregarAdjuntosFotosOT';
+import { useParams } from 'react-router-dom';
 
 interface ImagenOT {
     id: number;
@@ -24,16 +28,16 @@ interface ImagenOT {
 }
 
 function FotosAdjuntosOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaAdjuntos } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(id || '', {
+        skip: !id,
+    });
+    const { data: listaAdjuntos = [], refetch: refetchAdjuntos } = useGetAdjuntosQuery(id || '', {
+        skip: !id,
+    });
+    const [deleteAdjunto] = useDeleteAdjuntoMutation();
     const [index, setIndex] = useState(-1);
     const [imagenes, setImagenes] = useState<ImagenOT[]>([]);
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaAdjuntosThunk({ ordenId: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     useEffect(() => {
         const adjuntosImg = listaAdjuntos.filter((a) => a.tipo === 'imagen' && a.archivo);
@@ -130,20 +134,12 @@ function FotosAdjuntosOT() {
                                                     size='text-3xl'
                                                     onClick={async () => {
                                                         try {
-                                                            const response =
-                                                                await ApiService.fetchData({
-                                                                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/adjuntos/${imagenes[index].id}/`,
-                                                                    method: 'delete',
-                                                                });
-                                                            if (response.status === 204) {
-                                                                dispatch(
-                                                                    listaAdjuntosThunk({
-                                                                        ordenId:
-                                                                            detalleOrdenTrabajo.id,
-                                                                    }),
-                                                                );
-                                                                setIndex(-1);
-                                                            }
+                                                            await deleteAdjunto({
+                                                                ordenId: detalleOrdenTrabajo.id,
+                                                                adjuntoId: imagenes[index].id,
+                                                            }).unwrap();
+                                                            refetchAdjuntos();
+                                                            setIndex(-1);
                                                         } catch (error: any) {
                                                             const mensajesError = Object.values(
                                                                 error.response.data,

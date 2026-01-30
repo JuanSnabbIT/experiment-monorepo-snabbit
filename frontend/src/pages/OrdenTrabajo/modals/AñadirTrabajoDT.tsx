@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import Textarea from '@/components/form/Textarea';
@@ -11,14 +12,15 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from '@/store';
 import {
-    useAppDispatch,
-    useAppSelector,
-    listaDetalleTrabajoOTThunk,
-    usuarioEmpresaLogeadoThunk,
-} from '@/store';
+    useAsociarTrabajoDetalleMutation,
+    useCrearSeguimientoDetalleMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetTrabajosDisponiblesQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import SelectReact from '@/components/form/SelectReact';
 
 function AñadirTrabajoDT({
@@ -31,13 +33,20 @@ function AñadirTrabajoDT({
     setIsOpen: Dispatch<SetStateAction<boolean>>;
 }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaTrabajosFiltrados } = useAppSelector(
-        (state) => state.ordenTrabajo,
-    );
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaTrabajosFiltrados } = useGetTrabajosDisponiblesQuery(ordenId ?? 0, {
+        skip: !ordenId || !isOpen,
+    });
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
     const { userMe } = useAppSelector((state) => state.auth);
     const { listaContentType } = useAppSelector((state) => state.core);
-    const [optionsTrabajos, setOptionsTrabajos] = useState<
+        const [asociarTrabajoDetalle] = useAsociarTrabajoDetalleMutation();
+    const [crearSeguimientoDetalle] = useCrearSeguimientoDetalleMutation();
+const [optionsTrabajos, setOptionsTrabajos] = useState<
         { label: string; options: { value: string; label: string; ct: number }[] }[]
     >([]);
 
@@ -101,31 +110,36 @@ function AñadirTrabajoDT({
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/asociar-trabajo/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
+                if (!detalleOrdenTrabajo || !detalleSeleccionado) return;
+                await asociarTrabajoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalleSeleccionado,
+                    data: {
                         trabajo_id: Number(values.trabajo_id),
                         content_type: values.content_type,
-                    }),
-                });
-                if (response.data) {
-                    const seguimientoResponse = await ApiService.fetchData({
-                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/seguimientos/`,
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: {
-                            detalle_trabajo: detalleSeleccionado,
-                            usuario: usuarioEmpresaLogeado?.id,
-                            tipo: values.tipo_seguimiento,
-                            comentario: values.comentario,
-                        },
-                    });
+                    },
+                }).unwrap();
+                await crearSeguimientoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalleSeleccionado,
+                    data: {
+                        detalle_trabajo: detalleSeleccionado,
+                        usuario: usuarioEmpresaLogeado?.id,
+                        tipo: values.tipo_seguimiento,
+                        comentario: values.comentario,
+                    },
+                }).unwrap();
+                toast.success('Trabajo a?adido', { autoClose: 1000 });
+                setIsOpen(false);
+                formik.resetForm();
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error en la solicitud');
+            }
+        },
+    });
                     if (seguimientoResponse.data) {
                         toast.success('Trabajo añadido', { autoClose: 1000 });
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        setIsOpen(false);
+                                                setIsOpen(false);
                         formik.resetForm();
                     }
                 }

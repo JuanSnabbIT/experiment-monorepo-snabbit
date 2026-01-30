@@ -7,14 +7,23 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { detalleOrdenTrabajoThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function FacturarOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo, refetch: refetchDetalle } = useGetDetalleOrdenTrabajoQuery(
+        ordenId ?? 0,
+        { skip: !ordenId },
+    );
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     return (
@@ -50,26 +59,16 @@ function FacturarOT() {
                             variant='solid'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ estado: 'facturada' }),
-                                    });
-                                    if (response.data) {
-                                        toast.success('Orden facturada', { autoClose: 1000 });
-                                        dispatch(
-                                            detalleOrdenTrabajoThunk({
-                                                id_ordenTrabajo: detalleOrdenTrabajo?.id,
-                                            }),
-                                        );
-                                        setIsOpen(false);
-                                    }
-                                } catch (error: any) {
-                                    const mensajesError = Object.values(error.response.data)
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(mensajesError || 'Error al facturar la OT', {
+                                    if (!detalleOrdenTrabajo) return;
+                                    await updateOrdenTrabajo({
+                                        id: detalleOrdenTrabajo.id,
+                                        data: { estado: 'facturada' },
+                                    }).unwrap();
+                                    toast.success('Orden facturada', { autoClose: 1000 });
+                                    refetchDetalle();
+                                    setIsOpen(false);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al facturar la OT', {
                                         toastId: 'Error al facturar la OT',
                                     });
                                 }

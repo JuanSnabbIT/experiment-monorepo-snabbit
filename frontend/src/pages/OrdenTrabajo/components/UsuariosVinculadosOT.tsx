@@ -6,12 +6,11 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { IUsuarioAsignadoSoporte, IUsuarioVinculado } from '@/interface/ordenTrabajo.interface';
 import {
-    eliminarUsuarioAsignadoSoporteThunk,
-    listaUsuariosAsignadosSoporteThunk,
-    listaUsuariosVinculadosOTThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useEliminarUsuarioAsignadoSoporteMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetUsuariosAsignadosSoporteQuery,
+    useGetUsuariosVinculadosOTQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
@@ -24,7 +23,8 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrearUsuarioAsignadoOT from '../modals/CrearUsuarioAsignadoOT';
 
@@ -36,38 +36,38 @@ interface UsuariosVinculadosOTProps {
 const columnHelper = createColumnHelper<IUsuarioVinculado>();
 
 function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculadosOTProps) {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaUsuariosVinculadosOT, listaUsuariosAsignadosSoporte } =
-        useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const isSoporteMode = typeof soporteId === 'number';
     const soporteIdNumber = typeof soporteId === 'number' ? soporteId : null;
+    const {
+        data: listaUsuariosVinculadosOT = [],
+        refetch: refetchUsuariosVinculados,
+    } = useGetUsuariosVinculadosOTQuery(ordenId ?? 0, {
+        skip: !ordenId || isSoporteMode,
+    });
+    const {
+        data: listaUsuariosAsignadosSoporte = [],
+        refetch: refetchUsuariosAsignados,
+    } = useGetUsuariosAsignadosSoporteQuery(
+        {
+            ordenId: ordenId ?? 0,
+            soporteId: soporteIdNumber ?? 0,
+        },
+        {
+            skip: !ordenId || !isSoporteMode || soporteIdNumber === null,
+        },
+    );
+    const [eliminarUsuarioAsignadoSoporte] = useEliminarUsuarioAsignadoSoporteMutation();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    useEffect(() => {
-        if (!detalleOrdenTrabajo || isSoporteMode) return;
-        dispatch(listaUsuariosVinculadosOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-    }, [detalleOrdenTrabajo, isSoporteMode, dispatch]);
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo && isSoporteMode && soporteIdNumber !== null) {
-            dispatch(
-                listaUsuariosAsignadosSoporteThunk({
-                    id_orden: detalleOrdenTrabajo.id,
-                    id_soporte: soporteIdNumber,
-                }),
-            );
-        }
-    }, [detalleOrdenTrabajo, isSoporteMode, soporteIdNumber, dispatch]);
-
     const refreshSoporteLista = () => {
         if (detalleOrdenTrabajo && isSoporteMode && soporteIdNumber !== null) {
-            dispatch(
-                listaUsuariosAsignadosSoporteThunk({
-                    id_orden: detalleOrdenTrabajo.id,
-                    id_soporte: soporteIdNumber,
-                }),
-            );
+            refetchUsuariosAsignados();
             if (onRefreshSoporte) onRefreshSoporte();
         }
     };
@@ -84,13 +84,11 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
         });
         if (!ok) return;
         try {
-            await dispatch(
-                eliminarUsuarioAsignadoSoporteThunk({
-                    id_orden: detalleOrdenTrabajo.id,
-                    id_soporte: soporteIdNumber,
-                    id_usuario_asignado: usuario.id,
-                }),
-            );
+            await eliminarUsuarioAsignadoSoporte({
+                ordenId: detalleOrdenTrabajo.id,
+                soporteId: soporteIdNumber,
+                usuarioAsignadoId: usuario.id,
+            }).unwrap();
             toast.success('Asignación eliminada', { autoClose: 1000 });
             refreshSoporteLista();
         } catch (error: any) {
@@ -204,11 +202,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
                         <ConfirmarEliminar
                             mensaje='¿Esta seguro de desvincular a este usuario de la OT?'
                             onDispatch={() => {
-                                dispatch(
-                                    listaUsuariosVinculadosOTThunk({
-                                        id_orden: detalleOrdenTrabajo.id,
-                                    }),
-                                );
+                                refetchUsuariosVinculados();
                             }}
                             peticionUrl={`/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/usuarios-vinculados/${info.row.original.id}/`}
                             nombre='Usuario'

@@ -4,25 +4,18 @@ import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subhead
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import Tooltip from '@/components/ui/Tooltip';
-import { detalleRetroalimentacionOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useGetDetalleRetroalimentacionOTQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import 'dayjs/locale/es';
 import RatingInput from '@/components/utils/RatingInput';
 
 function DetalleRetroalimentacionOT() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams();
-    const { detalleRetroalimentacionOT } = useAppSelector((state) => state.ordenTrabajo);
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleRetroalimentacionOTThunk({ id_retro: id }));
-        }
-    }, [id]);
+    const { data: detalleRetroalimentacionOT } = useGetDetalleRetroalimentacionOTQuery(id ?? '', {
+        skip: !id,
+    });
 
     return (
         <PageWrapper

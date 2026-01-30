@@ -16,25 +16,24 @@ import {
     listaCategoriasGastoThunk,
     listaComprasDisponiblesThunk,
     listaContentTypeThunk,
-    listaDetalleGastoRendicionOTDisponiblesThunk,
     listaItemsRendicionThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { useGetGastosOperativosDisponiblesQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
 function CrearItemRendicion() {
     const dispatch = useAppDispatch();
-    const { listaDetalleGastoRendicionOTDisponibles } = useAppSelector(
-        (state) => state.ordenTrabajo,
-    );
     const { listaCategoriasGasto, detalleRendicion, listaComprasDisponibles } = useAppSelector(
         (state) => state.rendicion,
     );
     const { listaContentType } = useAppSelector((state) => state.core);
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const { data: listaDetalleGastoRendicionOTDisponibles = [] } =
+        useGetGastosOperativosDisponiblesQuery(undefined, { skip: !isOpen });
     const [creandoItem, setCreandoItem] = useState<boolean>(false);
     const [optionsItem, setOptionsItem] = useState<
         { label: string; options: { value: string; label: string; ct: string }[] }[]
@@ -48,7 +47,6 @@ function CrearItemRendicion() {
 
     useEffect(() => {
         if (isOpen) {
-            dispatch(listaDetalleGastoRendicionOTDisponiblesThunk());
             dispatch(listaCategoriasGastoThunk());
             dispatch(listaComprasDisponiblesThunk());
         } else {
@@ -83,7 +81,7 @@ function CrearItemRendicion() {
             });
         }
         setOptionsItem(options);
-    }, [listaComprasDisponibles, listaDetalleGastoRendicionOTDisponibles]);
+    }, [listaComprasDisponibles, listaContentType, listaDetalleGastoRendicionOTDisponibles]);
 
     const formik = useFormik({
         enableReinitialize: true,

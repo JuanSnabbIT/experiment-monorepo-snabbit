@@ -13,21 +13,32 @@ import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
 import {
     listaAsistenciaUsuariosThunk,
-    listaDetalleTrabajoOTThunk,
     listaUsuariosDelEquipoPorClienteThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { useParams } from 'react-router-dom';
 
 function CrearAsistenciaUsuarioEnOT() {
     const dispatch = useAppDispatch();
     const { listaUsuariosDelEquipoPorCliente } = useAppSelector((state) => state.recursos);
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { idOrden, idDetalle } = useParams<{ idOrden: string; idDetalle: string }>();
+    const ordenId = idOrden ? Number(idOrden) : undefined;
+    const detalleId = idDetalle ? Number(idDetalle) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleId ?? 0 },
+        { skip: !ordenId || !detalleId },
     );
     const [optionsEquipos, setOptionsEquipos] = useState<TSelectOption[]>([]);
     const [isOpen, setIsOpen] = useState<boolean>(false);

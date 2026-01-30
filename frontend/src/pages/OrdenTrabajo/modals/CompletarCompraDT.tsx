@@ -7,20 +7,40 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { listaItemsCompraThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect, useRef, useState } from 'react';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import {
+    useCompletarCompraDetalleTrabajoMutation,
+    useGetDetalleCompraQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+    useGetItemsCompraDetalleQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import SignatureCanvas from 'react-signature-canvas';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 function CompletarCompraDT({}) {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { idOrden, idDetalle } = useParams<{ idOrden: string; idDetalle: string }>();
+    const ordenId = idOrden ? Number(idOrden) : undefined;
+    const detalleId = idDetalle ? Number(idDetalle) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleId ?? 0 },
+        { skip: !ordenId || !detalleId },
     );
-    const { listaItemsCompra, detalleCompra } = useAppSelector((state) => state.bodega);
+    const { data: detalleCompra } = useGetDetalleCompraQuery(
+        detalleDelDetalleTrabajo?.trabajo_id ?? 0,
+        { skip: !detalleDelDetalleTrabajo?.trabajo_id },
+    );
+    const { data: listaItemsCompra = [] } = useGetItemsCompraDetalleQuery(
+        detalleCompra?.id ?? 0,
+        { skip: !detalleCompra?.id },
+    );
+    const [completarCompra] = useCompletarCompraDetalleTrabajoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const sigCanvas = useRef<SignatureCanvas | null>(null);
 
@@ -29,12 +49,6 @@ function CompletarCompraDT({}) {
             sigCanvas.current.clear();
         }
     };
-
-    useEffect(() => {
-        if (isOpen && detalleCompra) {
-            dispatch(listaItemsCompraThunk({ id_compra: detalleCompra.id }));
-        }
-    }, [detalleCompra, isOpen, dispatch]);
 
     return (
         <>
@@ -95,24 +109,22 @@ function CompletarCompraDT({}) {
                             )}
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleDelDetalleTrabajo?.id}/completar-compra/`,
-                                        method: 'post',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({
+                                    if (!detalleOrdenTrabajo || !detalleDelDetalleTrabajo) return;
+                                    await completarCompra({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        detalleId: detalleDelDetalleTrabajo.id,
+                                        data: {
                                             firma: sigCanvas.current?.toDataURL('image/png'),
-                                        }),
-                                    });
-                                    if (response.data) {
-                                        setIsOpen(false);
-                                        navigate(
-                                            `/orden-trabajo/detalle-orden-trabajo/${detalleDelDetalleTrabajo?.id}`,
-                                        );
-                                        toast.success('Compra completada', { autoClose: 1000 });
-                                    }
-                                } catch (error: any) {
+                                        },
+                                    }).unwrap();
+                                    setIsOpen(false);
+                                    navigate(
+                                        `/orden-trabajo/detalle-orden-trabajo/${detalleDelDetalleTrabajo.id}`,
+                                    );
+                                    toast.success('Compra completada', { autoClose: 1000 });
+                                } catch (error: unknown) {
                                     toast.error(
-                                        error.response.data || 'Error al completar la compra',
+                                        getErrorMessage(error) || 'Error al completar la compra',
                                         { toastId: 'Error al completar la compra' },
                                     );
                                 }

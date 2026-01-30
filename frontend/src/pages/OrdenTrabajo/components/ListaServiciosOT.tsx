@@ -15,18 +15,21 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import Collapse from '@/components/utils/Collapse';
-import ApiService from '@/services/ApiService';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
+import { useAppSelector } from '@/store';
 import {
-    checkCompletibilidadOTThunk,
-    detalleOrdenTrabajoThunk,
-    eliminarServicioGeneralThunk,
-    listaServiciosGeneralesThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useActualizarServicioGeneralMutation,
+    useCrearSeguimientoServicioMutation,
+    useEliminarServicioGeneralMutation,
+    useGetCheckCompletibilidadOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetSeguimientosServicioQuery,
+    useGetServiciosGeneralesQuery,
+    useGetTecnicosPorEmpresaQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
@@ -42,6 +45,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearServicioEnOT from '../modals/CrearServicioEnOT';
@@ -56,11 +60,29 @@ import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 // Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
 
 function ListaServiciosOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaServiciosGenerales, listaTecnicos } = useAppSelector(
-        (s) => s.ordenTrabajo,
-    );
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
     const { personalizacionUsuario } = useAppSelector((s) => s.auth);
+    const {
+        data: detalleOrdenTrabajo,
+        refetch: refetchDetalleOrdenTrabajo,
+    } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, { skip: !ordenId });
+    const {
+        data: listaServiciosGenerales = [],
+        refetch: refetchServicios,
+    } = useGetServiciosGeneralesQuery(ordenId ?? 0, { skip: !ordenId });
+    const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
+        personalizacionUsuario?.empresa ?? 0,
+        { skip: !personalizacionUsuario?.empresa },
+    );
+    const { refetch: refetchCompletibilidad } = useGetCheckCompletibilidadOTQuery(
+        ordenId ?? 0,
+        { skip: !ordenId },
+    );
+    const [actualizarServicio] = useActualizarServicioGeneralMutation();
+    const [eliminarServicio] = useEliminarServicioGeneralMutation();
+    const [crearSeguimientoServicio] = useCrearSeguimientoServicioMutation();
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
 
     const [selectedService, setSelectedService] = useState<any | null>(null);
     const [isOpenDetail, setIsOpenDetail] = useState(false);
@@ -80,8 +102,19 @@ function ListaServiciosOT() {
     const [fechaEnModal, setFechaEnModal] = useState<string | undefined>();
     const [isOpenTecnico, setIsOpenTecnico] = useState<boolean>(false);
     const [detalleSeleccionado, setDetalleSeleccionado] = useState<number | null>(null);
-    const [seguimientos, setSeguimientos] = useState<any[]>([]);
-    const [cargandoSeguimientos, setCargandoSeguimientos] = useState<boolean>(false);
+    const {
+        data: seguimientos = [],
+        isFetching: cargandoSeguimientos,
+        refetch: refetchSeguimientos,
+    } = useGetSeguimientosServicioQuery(
+        {
+            ordenId: ordenId ?? 0,
+            servicioId: selectedService?.id ?? 0,
+        },
+        {
+            skip: !ordenId || !selectedService?.id || !isOpenDetail,
+        },
+    );
     const [isOpenSeguimiento, setIsOpenSeguimiento] = useState<boolean>(false);
     const [comentarioSeguimiento, setComentarioSeguimiento] = useState<string>('');
     const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario_tecnico');
@@ -142,7 +175,7 @@ function ListaServiciosOT() {
 				data: JSON.stringify({ guia_salida: guiaSeleccionada }),
 			});
 			toast.success('Guía vinculada');
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
+			refetchServicios();
 			setIsOpenGuia(false);
 		} catch (e: any) {
 			const msg = e?.response?.data?.detail || 'Error al vincular guía';
@@ -171,7 +204,7 @@ function ListaServiciosOT() {
 				headers: { 'Content-Type': 'application/json' },
 			});
 			toast.success('Guía desvinculada');
-			dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
+			refetchServicios();
 		} catch (e: any) {
 			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
 			toast.error(msg);
@@ -190,62 +223,46 @@ function ListaServiciosOT() {
     const guardarCambioEstado = async (payload: any, requiresComment: boolean) => {
         if (!detalleOrdenTrabajo || !selectedService) return;
         try {
-            const resp = await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
-                method: 'patch',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify(payload),
-            });
-            if (resp.data) {
-                if (requiresComment && comentario && comentario.trim()) {
-                    try {
-                        await ApiService.fetchData({
-                            url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
-                            method: 'post',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify({
-                                comentario,
-                                tipo: 'incidencia',
-                                usuario: null,
-                            }),
-                        });
-                        fetchSeguimientosServicio(selectedService.id);
-                    } catch (e) {
-                        // ignore seguimiento error
-                    }
-                }
-                toast.success('Estado cambiado', { autoClose: 1000 });
-                dispatch(
-                    listaServiciosGeneralesThunk({
-                        id_orden: detalleOrdenTrabajo.id,
-                    }),
-                );
-                dispatch(
-                    checkCompletibilidadOTThunk({
-                        id_orden: detalleOrdenTrabajo.id,
-                    }),
-                );
-                setIsOpenEstado(false);
-                setEstadoNuevo(undefined);
-                setComentario(undefined);
-                setSelectedService(null);
-                setTecnicoSeleccionado(undefined);
-                setFechaEnModal(undefined);
-
-                // Refresh OT details if we auto-started it
-                if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
-                    dispatch(
-                        detalleOrdenTrabajoThunk({
-                            id_ordenTrabajo: detalleOrdenTrabajo.id,
-                        }),
-                    );
+            await actualizarServicio({
+                ordenId: detalleOrdenTrabajo.id,
+                servicioId: selectedService.id,
+                data: payload,
+            }).unwrap();
+            if (requiresComment && comentario && comentario.trim()) {
+                try {
+                    await crearSeguimientoServicio({
+                        ordenId: detalleOrdenTrabajo.id,
+                        servicioId: selectedService.id,
+                        data: {
+                            comentario,
+                            tipo: 'incidencia',
+                            usuario: null,
+                        },
+                    }).unwrap();
+                    refetchSeguimientos();
+                } catch {
+                    // ignore seguimiento error
                 }
             }
-        } catch (e: any) {
-            const msg = Object.values(e?.response?.data || {})
-                .flat()
-                .join(' ');
-            toast.error(msg || 'Error al cambiar el estado');
+            toast.success('Estado cambiado', { autoClose: 1000 });
+            refetchServicios();
+            refetchCompletibilidad();
+            setIsOpenEstado(false);
+            setEstadoNuevo(undefined);
+            setComentario(undefined);
+            setSelectedService(null);
+            setTecnicoSeleccionado(undefined);
+            setFechaEnModal(undefined);
+
+            if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
+                await updateOrdenTrabajo({
+                    id: detalleOrdenTrabajo.id,
+                    data: { estado: 'en_proceso' },
+                }).unwrap();
+                refetchDetalleOrdenTrabajo();
+            }
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
         }
     };
 
@@ -260,41 +277,20 @@ function ListaServiciosOT() {
         });
         if (!ok) return;
         try {
-            await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicio.id}/`,
-                method: 'patch',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({ estado: 'en_proceso' }),
-            });
+            await actualizarServicio({
+                ordenId: detalleOrdenTrabajo.id,
+                servicioId: servicio.id,
+                data: { estado: 'en_proceso' },
+            }).unwrap();
             toast.success('Servicio en proceso');
-            dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-            dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
-        } catch (e: any) {
-            const msg =
-                e?.response?.data?.detail || e?.message || 'No se pudo iniciar el servicio.';
-            toast.error(msg);
-        }
-    };
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo && detalleOrdenTrabajo.tipo_servicio === 'general') {
-            dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
-
-    const fetchSeguimientosServicio = async (servicioId: number) => {
-        if (!detalleOrdenTrabajo) return;
-        setCargandoSeguimientos(true);
-        try {
-            const resp = await ApiService.fetchData<any[]>({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${servicioId}/seguimientos/`,
-                method: 'get',
-            });
-            setSeguimientos(resp.data || []);
-        } catch (e) {
-            toast.error('No se pudieron cargar los seguimientos');
-        } finally {
-            setCargandoSeguimientos(false);
+            refetchServicios();
+            await updateOrdenTrabajo({
+                id: detalleOrdenTrabajo.id,
+                data: { estado: 'en_proceso' },
+            }).unwrap();
+            refetchDetalleOrdenTrabajo();
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'No se pudo iniciar el servicio.');
         }
     };
 
@@ -302,15 +298,6 @@ function ListaServiciosOT() {
         setSelectedService(serv);
         setIsOpenDetail(true);
     };
-
-    useEffect(() => {
-        if (isOpenDetail && selectedService?.id && detalleOrdenTrabajo) {
-            fetchSeguimientosServicio(selectedService.id);
-        }
-        if (!isOpenDetail) {
-            setSeguimientos([]);
-        }
-    }, [isOpenDetail, selectedService, detalleOrdenTrabajo]);
 
     const toggleDescription = (id: number) => {
         setOpenedDescriptions((prev) =>
@@ -489,46 +476,26 @@ function ListaServiciosOT() {
                                     estado === 'medianamente_completado'
                                 ) {
                                     if (detalleOrdenTrabajo) {
-                                        dispatch(
-                                            listaServiciosGeneralesThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
-                                        dispatch(
-                                            checkCompletibilidadOTThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
+                                        refetchServicios();
+                                        refetchCompletibilidad();
                                     }
                                     return;
                                 }
                                 // Para no_realizado, hacer el cambio normal
                                 if (!detalleOrdenTrabajo) return;
                                 try {
-                                    await ApiService.fetchData({
-                                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${info.row.original.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ estado }),
-                                    });
+                                    await actualizarServicio({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        servicioId: info.row.original.id,
+                                        data: { estado },
+                                    }).unwrap();
                                     toast.success(`Estado cambiado a ${estado}`, {
                                         autoClose: 1000,
                                     });
-                                    dispatch(
-                                        listaServiciosGeneralesThunk({
-                                            id_orden: detalleOrdenTrabajo.id,
-                                        }),
-                                    );
-                                    dispatch(
-                                        checkCompletibilidadOTThunk({
-                                            id_orden: detalleOrdenTrabajo.id,
-                                        }),
-                                    );
-                                } catch (e: any) {
-                                    const msg = Object.values(e?.response?.data || {})
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(msg || 'Error al cambiar el estado');
+                                    refetchServicios();
+                                    refetchCompletibilidad();
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
                                 }
                             }}
                             disabled={!canStart}
@@ -688,25 +655,19 @@ function ListaServiciosOT() {
                                             });
                                             if (!ok) return;
                                             try {
-                                                await dispatch(
-                                                    eliminarServicioGeneralThunk({
-                                                        id_orden: detalleOrdenTrabajo.id,
-                                                        id_servicio: info.row.original.id,
-                                                    }),
-                                                );
+                                                await eliminarServicio({
+                                                    ordenId: detalleOrdenTrabajo.id,
+                                                    servicioId: info.row.original.id,
+                                                }).unwrap();
                                                 toast.success('Servicio eliminado', {
                                                     autoClose: 1000,
                                                 });
-                                                dispatch(
-                                                    listaServiciosGeneralesThunk({
-                                                        id_orden: detalleOrdenTrabajo.id,
-                                                    }),
+                                                refetchServicios();
+                                            } catch (error: unknown) {
+                                                toast.error(
+                                                    getErrorMessage(error) ||
+                                                        'Error al eliminar servicio',
                                                 );
-                                            } catch (e: any) {
-                                                const msg = Object.values(e?.response?.data || {})
-                                                    .flat()
-                                                    .join(' ');
-                                                toast.error(msg || 'Error al eliminar servicio');
                                             }
                                         }}
                                     />
@@ -768,43 +729,26 @@ function ListaServiciosOT() {
     const quitarTecnico = async () => {
         if (!detalleOrdenTrabajo || !selectedService) return;
         try {
-            const resp = await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
-                method: 'patch',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({ tecnico_asignado: null }),
-            });
-            if (resp.data) {
-                toast.success('Técnico quitado', { autoClose: 1000 });
-                dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }));
-                setIsOpenDetail(false);
-                setSelectedService(null);
-            }
-        } catch (e: any) {
-            const msg = Object.values(e?.response?.data || {})
-                .flat()
-                .join(' ');
-            toast.error(msg || 'Error al quitar técnico');
+            await actualizarServicio({
+                ordenId: detalleOrdenTrabajo.id,
+                servicioId: selectedService.id,
+                data: { tecnico_asignado: null },
+            }).unwrap();
+            toast.success('T??cnico quitado', { autoClose: 1000 });
+            refetchServicios();
+            setIsOpenDetail(false);
+            setSelectedService(null);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al quitar t??cnico');
         }
     };
 
     useEffect(() => {
-        if (isOpenTecnico) {
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-            }
-        }
-    }, [isOpenTecnico, personalizacionUsuario]);
-
-    useEffect(() => {
         if (isOpenEstado) {
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-            }
             setTecnicoSeleccionado(undefined);
             setFechaEnModal(undefined);
         }
-    }, [isOpenEstado, personalizacionUsuario]);
+    }, [isOpenEstado]);
 
     // Formik para Asignar Técnico en servicios generales: se crea más abajo junto al modal
 
@@ -823,37 +767,33 @@ function ListaServiciosOT() {
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/servicios-generales/${detalleSeleccionado}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({ tecnico_asignado: values.tecnico_asignado }),
-                });
-                if (response.data) {
-                    try {
-                        await ApiService.fetchData({
-                            url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/servicios-generales/${detalleSeleccionado}/seguimientos/`,
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify({
-                                servicio: detalleSeleccionado,
-                                usuario: null,
-                                tipo: values.tipo_seguimiento,
-                                comentario: values.comentario,
-                            }),
-                        });
-                    } catch (e) {
-                        // ignore seguimiento error
-                    }
-                    toast.success('Técnico asignado', { autoClose: 1000 });
-                    formikTecnico.resetForm();
-                    dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                    setIsOpenTecnico(false);
-                    setDetalleSeleccionado(null);
-                    setSelectedService(null);
+                await actualizarServicio({
+                    ordenId: detalleOrdenTrabajo?.id ?? 0,
+                    servicioId: detalleSeleccionado ?? 0,
+                    data: { tecnico_asignado: values.tecnico_asignado },
+                }).unwrap();
+                try {
+                    await crearSeguimientoServicio({
+                        ordenId: detalleOrdenTrabajo?.id ?? 0,
+                        servicioId: detalleSeleccionado ?? 0,
+                        data: {
+                            servicio: detalleSeleccionado,
+                            usuario: null,
+                            tipo: values.tipo_seguimiento,
+                            comentario: values.comentario,
+                        },
+                    }).unwrap();
+                } catch {
+                    // ignore seguimiento error
                 }
-            } catch (error: any) {
-                toast.error(error?.response?.data || 'Error al asignar el tecnico');
+                toast.success('T??cnico asignado', { autoClose: 1000 });
+                formikTecnico.resetForm();
+                refetchServicios();
+                setIsOpenTecnico(false);
+                setDetalleSeleccionado(null);
+                setSelectedService(null);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al asignar el tecnico');
             }
         },
     });
@@ -871,23 +811,22 @@ function ListaServiciosOT() {
             return;
         }
         try {
-            await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/seguimientos/`,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({
+            await crearSeguimientoServicio({
+                ordenId: detalleOrdenTrabajo.id,
+                servicioId: selectedService.id,
+                data: {
                     usuario: null,
                     tipo: tipoSeguimiento || 'comentario_tecnico',
                     comentario: comentarioSeguimiento,
-                }),
-            });
+                },
+            }).unwrap();
             toast.success('Seguimiento creado', { autoClose: 1000 });
             setIsOpenSeguimiento(false);
             setComentarioSeguimiento('');
             setTipoSeguimiento('comentario_tecnico');
-            fetchSeguimientosServicio(selectedService.id);
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Error al crear seguimiento');
+            refetchSeguimientos();
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al crear seguimiento');
         }
     };
 
@@ -1412,20 +1351,13 @@ function ListaServiciosOT() {
                                     // Auto-start OT if pending
                                     if (detalleOrdenTrabajo.estado === 'pendiente') {
                                         try {
-                                            await ApiService.fetchData({
-                                                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/`,
-                                                method: 'patch',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                data: JSON.stringify({ estado: 'en_proceso' }),
-                                            });
-                                            // Update OT details in store
-                                            dispatch(
-                                                detalleOrdenTrabajoThunk({
-                                                    id_ordenTrabajo: detalleOrdenTrabajo.id,
-                                                }),
-                                            );
-                                        } catch (e) {
-                                            console.error('Error auto-starting OT', e);
+                                            await updateOrdenTrabajo({
+                                                id: detalleOrdenTrabajo.id,
+                                                data: { estado: 'en_proceso' },
+                                            }).unwrap();
+                                            refetchDetalleOrdenTrabajo();
+                                        } catch (error) {
+                                            console.error('Error auto-starting OT', error);
                                         }
                                     }
                                 }
@@ -1494,28 +1426,18 @@ function ListaServiciosOT() {
                                     return;
                                 }
                                 try {
-                                    const resp = await ApiService.fetchData({
-                                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/servicios-generales/${selectedService.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ fecha_servicio: fechaAsignar }),
-                                    });
-                                    if (resp.data) {
-                                        toast.success('Fecha asignada', { autoClose: 1000 });
-                                        dispatch(
-                                            listaServiciosGeneralesThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
-                                        setIsOpenAsignarFecha(false);
-                                        setFechaAsignar(undefined);
-                                        setSelectedService(null);
-                                    }
-                                } catch (e: any) {
-                                    const msg = Object.values(e?.response?.data || {})
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(msg || 'Error al asignar fecha');
+                                    await actualizarServicio({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        servicioId: selectedService.id,
+                                        data: { fecha_servicio: fechaAsignar },
+                                    }).unwrap();
+                                    toast.success('Fecha asignada', { autoClose: 1000 });
+                                    refetchServicios();
+                                    setIsOpenAsignarFecha(false);
+                                    setFechaAsignar(undefined);
+                                    setSelectedService(null);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al asignar fecha');
                                 }
                             }}>
                             Guardar
@@ -1533,9 +1455,7 @@ function ListaServiciosOT() {
                     entityName={selectedService.nombre}
                     onSuccess={() => {
                         if (detalleOrdenTrabajo) {
-                            dispatch(
-                                listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }),
-                            );
+                            refetchServicios();
                         }
                     }}
                 />
@@ -1555,10 +1475,8 @@ function ListaServiciosOT() {
                 onSuccess={() => {
                     setIsOpenFirmaModal(false);
                     if (detalleOrdenTrabajo) {
-                        dispatch(
-                            listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo.id }),
-                        );
-                        dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+                        refetchServicios();
+                        refetchCompletibilidad();
                     }
                 }}
             />

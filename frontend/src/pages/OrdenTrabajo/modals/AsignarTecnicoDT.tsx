@@ -10,18 +10,19 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from '@/store';
 import {
-    listaDetalleTrabajoOTThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
-    usuarioEmpresaLogeadoThunk,
-} from '@/store';
+    useActualizarDetalleTrabajoMutation,
+    useCrearSeguimientoDetalleMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetTecnicosPorEmpresaQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function AsignarTecnicoDT({
     detalle,
@@ -36,20 +37,24 @@ function AsignarTecnicoDT({
 }) {
     const dispatch = useAppDispatch();
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
-    const { detalleOrdenTrabajo, listaTecnicos } = useAppSelector((state) => state.ordenTrabajo);
     const { userMe } = useAppSelector((state) => state.auth);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
+        detalleOrdenTrabajo?.empresa ?? 0,
+        { skip: !detalleOrdenTrabajo?.empresa || !isOpen },
+    );
+    const [actualizarDetalleTrabajo] = useActualizarDetalleTrabajoMutation();
+    const [crearSeguimientoDetalle] = useCrearSeguimientoDetalleMutation();
 
     useEffect(() => {
         if (!usuarioEmpresaLogeado && isOpen && userMe) {
             dispatch(usuarioEmpresaLogeadoThunk({ id_usuario: userMe.pk }));
         }
     }, [usuarioEmpresaLogeado, isOpen, userMe]);
-
-    useEffect(() => {
-        if (isOpen) {
-            dispatch(listaTecnicosThunk({ id_empresa: detalleOrdenTrabajo?.empresa }));
-        }
-    }, [isOpen]);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -63,34 +68,28 @@ function AsignarTecnicoDT({
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalle}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({ tecnico_asignado: values.tecnico_asignado }),
-                });
-                if (response.data) {
-                    const seguimientoResponse = await ApiService.fetchData({
-                        url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalle}/seguimientos/`,
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
-                            detalle_trabajo: detalle,
-                            usuario: usuarioEmpresaLogeado?.id,
-                            tipo: values.tipo_seguimiento,
-                            comentario: values.comentario,
-                        }),
-                    });
-                    if (seguimientoResponse.data) {
-                        toast.success('Técnico asignado', { autoClose: 1000 });
-                        formik.resetForm();
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        setIsOpen(false);
-                        setDetalleSeleccionado(null);
-                    }
-                }
-            } catch (error: any) {
-                toast.error(error.response.data || 'Error al asignar el tecnico', {
+                if (!detalleOrdenTrabajo || !detalle) return;
+                await actualizarDetalleTrabajo({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalle,
+                    data: { tecnico_asignado: values.tecnico_asignado },
+                }).unwrap();
+                await crearSeguimientoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalle,
+                    data: {
+                        detalle_trabajo: detalle,
+                        usuario: usuarioEmpresaLogeado?.id,
+                        tipo: values.tipo_seguimiento,
+                        comentario: values.comentario,
+                    },
+                }).unwrap();
+                toast.success('T??cnico asignado', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
+                setDetalleSeleccionado(null);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al asignar el tecnico', {
                     toastId: 'Error al asignar el tecnico',
                 });
             }

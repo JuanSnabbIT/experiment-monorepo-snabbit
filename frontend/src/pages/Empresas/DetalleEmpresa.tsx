@@ -395,6 +395,23 @@ function DetalleEmpresa() {
                                             </Validation>
                                         </div>
                                         <div>
+                                            <Badge>Dirección Principal</Badge>
+                                            <Validation
+                                                isValid={formik.isValid}
+                                                isTouched={formik.touched.direccion_principal}
+                                                invalidFeedback={formik.errors.direccion_principal}>
+                                                <Input
+                                                    id='direccion_principal'
+                                                    name='direccion_principal'
+                                                    type='text'
+                                                    placeholder='Dirección Principal'
+                                                    onBlur={formik.handleBlur}
+                                                    onChange={formik.handleChange}
+                                                    value={formik.values.direccion_principal}
+                                                />
+                                            </Validation>
+                                        </div>
+                                        <div>
                                             <Badge>Teléfono</Badge>
                                             <Validation
                                                 isValid={formik.isValid}
@@ -442,23 +459,6 @@ function DetalleEmpresa() {
                                                     onBlur={formik.handleBlur}
                                                     onChange={formik.handleChange}
                                                     value={formik.values.sitio_web}
-                                                />
-                                            </Validation>
-                                        </div>
-                                        <div>
-                                            <Badge>Dirección Principal</Badge>
-                                            <Validation
-                                                isValid={formik.isValid}
-                                                isTouched={formik.touched.direccion_principal}
-                                                invalidFeedback={formik.errors.direccion_principal}>
-                                                <Input
-                                                    id='direccion_principal'
-                                                    name='direccion_principal'
-                                                    type='text'
-                                                    placeholder='Dirección Principal'
-                                                    onBlur={formik.handleBlur}
-                                                    onChange={formik.handleChange}
-                                                    value={formik.values.direccion_principal}
                                                 />
                                             </Validation>
                                         </div>

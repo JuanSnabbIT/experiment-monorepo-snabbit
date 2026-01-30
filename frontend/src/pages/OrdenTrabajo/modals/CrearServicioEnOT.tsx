@@ -11,17 +11,18 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
+import { useAppSelector } from '@/store';
 import {
-    listaServiciosGeneralesThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useCrearServicioGeneralMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetTecnicosPorEmpresaQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 const formatDateForInput = (value?: string | null) => {
     if (!value) {
@@ -35,16 +36,18 @@ const formatDateForInput = (value?: string | null) => {
 };
 
 function CrearServicioEnOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaTecnicos } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [isOpen, setIsOpen] = useState<boolean>(false);
-
-    useEffect(() => {
-        if (isOpen && personalizacionUsuario?.empresa) {
-            dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-        }
-    }, [isOpen, personalizacionUsuario]);
+    const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
+        personalizacionUsuario?.empresa ?? 0,
+        { skip: !personalizacionUsuario?.empresa || !isOpen },
+    );
+    const [crearServicio] = useCrearServicioGeneralMutation();
 
     const initialFormValues = useMemo(() => {
         const tecnico = detalleOrdenTrabajo?.tecnico_responsable_ot;
@@ -70,9 +73,10 @@ function CrearServicioEnOT() {
         }),
         onSubmit: async (values) => {
             try {
+                if (!ordenId) return;
                 const data: any = {
                     nombre: values.nombre,
-                    orden: detalleOrdenTrabajo?.id,
+                    orden: ordenId,
                     descripcion: values.descripcion,
                 };
                 if (values.tecnico_asignado) {
@@ -81,20 +85,12 @@ function CrearServicioEnOT() {
                 if (values.fecha_servicio) {
                     data.fecha_servicio = values.fecha_servicio;
                 }
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/servicios-generales/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    toast.success('Servicio creado', { autoClose: 1000 });
-                    formik.resetForm();
-                    setIsOpen(false);
-                    dispatch(listaServiciosGeneralesThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                }
-            } catch (error: any) {
-                toast.error(error.response?.data || 'Error al crear el servicio en OT', {
+                await crearServicio({ ordenId, data }).unwrap();
+                toast.success('Servicio creado', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear el servicio en OT', {
                     toastId: 'Error crear servicio OT',
                 });
             }

@@ -279,7 +279,7 @@ const DefaultAsideTemplate = () => {
                                     text={Pages.recursos.subPages.listaSoftware.text}
                                     to={Pages.recursos.subPages.listaSoftware.to}
                                     icon={Pages.recursos.subPages.listaSoftware.icon}
-                                    id={Pages.registros.subPages.listaCategorias.id}></NavItem>
+                                    id={Pages.recursos.subPages.listaSoftware.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>

@@ -31,7 +31,7 @@ const RatingInput: React.FC<RatingInputProps> = ({
     const [internalRating, setInternalRating] = useState(defaultValue);
     const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-    const displayRating = hoverRating ?? rating ?? internalRating;
+    const displayRating = hoverRating ?? (rating ?? internalRating);
 
     const updateRating = (newRating: number) => {
         if (!editable) return;

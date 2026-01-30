@@ -1,12 +1,12 @@
 import { Dispatch, SetStateAction, useEffect } from 'react';
+import { useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from '@/store';
 import {
-    detalleDelDetalleTrabajoThunk,
-    listaDetalleTrabajoOTThunk,
-    listaSeguimientosThunk,
-    useAppDispatch,
-    useAppSelector,
-    usuarioEmpresaLogeadoThunk,
-} from '@/store';
+    useActualizarDetalleTrabajoMutation,
+    useCrearSeguimientoDetalleMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+    useGetSeguimientosDetalleQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -19,10 +19,10 @@ import TimelineSeguimientos from './components/TimelineSeguimiento';
 import { ESTADOS_DETALLE_TRABAJO } from '@/constants/ordentrabajo.constant';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
 
 function DetalledelDT({
     isOpen,
@@ -37,9 +37,24 @@ function DetalledelDT({
 }) {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo, listaSeguimientos } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        {
+            ordenId: ordenId ?? 0,
+            detalleId: detalleSeleccionado ?? 0,
+        },
+        { skip: !ordenId || !detalleSeleccionado },
     );
+    const { data: listaSeguimientos = [] } = useGetSeguimientosDetalleQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleSeleccionado ?? 0 },
+        { skip: !ordenId || !detalleSeleccionado },
+    );
+    const [crearSeguimientoDetalle] = useCrearSeguimientoDetalleMutation();
+    const [actualizarDetalleTrabajo] = useActualizarDetalleTrabajoMutation();
     const { listaContentType } = useAppSelector((state) => state.core);
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
     const { userMe } = useAppSelector((state) => state.auth);
@@ -49,23 +64,6 @@ function DetalledelDT({
             dispatch(usuarioEmpresaLogeadoThunk({ id_usuario: userMe.pk }));
         }
     }, [usuarioEmpresaLogeado, userMe]);
-
-    useEffect(() => {
-        if (isOpen && detalleSeleccionado && detalleOrdenTrabajo) {
-            dispatch(
-                detalleDelDetalleTrabajoThunk({
-                    id_orden: detalleOrdenTrabajo.id,
-                    id_detalle: detalleSeleccionado,
-                }),
-            );
-            dispatch(
-                listaSeguimientosThunk({
-                    id_orden: detalleDelDetalleTrabajo?.id,
-                    id_detalle: detalleSeleccionado,
-                }),
-            );
-        }
-    }, [isOpen, detalleSeleccionado, detalleOrdenTrabajo]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -100,58 +98,31 @@ function DetalledelDT({
                                             icon='HeroTrash'
                                             onClick={async () => {
                                                 try {
-                                                    const seguimientoResponse =
-                                                        await ApiService.fetchData({
-                                                            url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleDelDetalleTrabajo?.id}/seguimientos/`,
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                            },
-                                                            data: JSON.stringify({
-                                                                detalle_trabajo:
-                                                                    detalleDelDetalleTrabajo?.id,
-                                                                usuario: usuarioEmpresaLogeado?.id,
-                                                                tipo: 'actualizacion',
-                                                                comentario: 'Técnico quitado',
-                                                            }),
-                                                        });
-                                                    if (seguimientoResponse.data) {
-                                                        const response = await ApiService.fetchData(
-                                                            {
-                                                                url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleDelDetalleTrabajo?.id}/`,
-                                                                method: 'patch',
-                                                                headers: {
-                                                                    'Content-Type':
-                                                                        'application/json',
-                                                                },
-                                                                data: JSON.stringify({
-                                                                    tecnico_asignado: null,
-                                                                }),
-                                                            },
-                                                        );
-                                                        if (response.data) {
-                                                            toast.success('Técnico quitado', {
-                                                                autoClose: 1000,
-                                                            });
-                                                            dispatch(
-                                                                listaDetalleTrabajoOTThunk({
-                                                                    id_orden:
-                                                                        detalleOrdenTrabajo?.id,
-                                                                }),
-                                                            );
-                                                            setIsOpen(false);
-                                                        }
-                                                    }
-                                                } catch (error: any) {
-                                                    const mensajesError = Object.values(
-                                                        error.response.data,
-                                                    )
-                                                        .flat()
-                                                        .join(' ');
+                                                    await crearSeguimientoDetalle({
+                                                        ordenId: detalleOrdenTrabajo?.id ?? 0,
+                                                        detalleId: detalleDelDetalleTrabajo?.id ?? 0,
+                                                        data: {
+                                                            detalle_trabajo:
+                                                                detalleDelDetalleTrabajo?.id,
+                                                            usuario: usuarioEmpresaLogeado?.id,
+                                                            tipo: 'actualizacion',
+                                                            comentario: 'T??cnico quitado',
+                                                        },
+                                                    }).unwrap();
+                                                    await actualizarDetalleTrabajo({
+                                                        ordenId: detalleOrdenTrabajo?.id ?? 0,
+                                                        detalleId: detalleDelDetalleTrabajo?.id ?? 0,
+                                                        data: { tecnico_asignado: null },
+                                                    }).unwrap();
+                                                    toast.success('T??cnico quitado', {
+                                                        autoClose: 1000,
+                                                    });
+                                                    setIsOpen(false);
+                                                } catch (error: unknown) {
                                                     toast.error(
-                                                        mensajesError ||
-                                                            'Error al quitar el técnico',
-                                                        { toastId: 'Error al quitar el técnico' },
+                                                        getErrorMessage(error) ||
+                                                            'Error al quitar el t??cnico',
+                                                        { toastId: 'Error al quitar el t??cnico' },
                                                     );
                                                 }
                                             }}

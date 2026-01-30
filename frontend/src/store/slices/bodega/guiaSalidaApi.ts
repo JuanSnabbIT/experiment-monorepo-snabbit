@@ -230,7 +230,7 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
             }),
         }),
     }),
-    overrideExisting: false,
+    overrideExisting: true,
 });
 
 export const {

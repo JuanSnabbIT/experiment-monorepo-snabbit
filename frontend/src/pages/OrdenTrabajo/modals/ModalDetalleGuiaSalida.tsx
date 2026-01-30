@@ -1,4 +1,3 @@
-import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -9,16 +8,16 @@ import Modal, {
 } from '@/components/ui/Modal';
 import { useAppSelector } from '@/store';
 import {
-    detalleGuiaSalidaBodegaThunk,
-    listaItemsEnGuiaSalidaBodegaThunk,
-} from '@/store/slices/bodega/bodegaSlice';
+    useComprobarGuiaSalidaMutation,
+    useGetDetalleGuiaSalidaQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetItemsGuiaSalidaQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { confirmAlert } from '@/utils/sweetAlert';
 import { Dispatch, SetStateAction, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Fragment } from 'react/jsx-runtime';
 import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch } from '@/store';
 import ModalConfirmarRecepcionGuia from './ModalConfirmarRecepcionGuia';
 
 function ModalDetalleGuiaSalida({
@@ -29,20 +28,35 @@ function ModalDetalleGuiaSalida({
     setIsOpen: Dispatch<SetStateAction<boolean>>;
 }) {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
     const { detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega } = useAppSelector(
         (state) => state.bodega,
     );
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const guiaId = detalleGuiaSalidaBodega?.id;
+    const { data: detalleGuiaSalida } = useGetDetalleGuiaSalidaQuery(guiaId ?? 0, {
+        skip: !guiaId,
+    });
+    const { data: listaItemsGuiaSalida = [] } = useGetItemsGuiaSalidaQuery(guiaId ?? 0, {
+        skip: !guiaId,
+    });
+    const [comprobarGuiaSalida] = useComprobarGuiaSalidaMutation();
     const [isOpenConfirmar, setIsOpenConfirmar] = useState(false);
 
     const [completando, setCompletando] = useState<boolean>(false);
 
+    const guiaActual = detalleGuiaSalida ?? detalleGuiaSalidaBodega;
+    const itemsGuiaActual =
+        listaItemsGuiaSalida.length > 0 ? listaItemsGuiaSalida : listaItemsEnGuiaSalidaBodega;
+
     const completarGuia = async () => {
-        if (!detalleGuiaSalidaBodega?.id) return;
+        if (!guiaId) return;
         const ok = await confirmAlert({
-            title: 'Completar guía de salida',
-            text: '¿Estás seguro de que deseas completar esta guía de salida?',
+            title: 'Completar guia de salida',
+            text: 'Estas seguro de que deseas completar esta guia de salida?',
             confirmText: 'Completar',
             cancelText: 'Cancelar',
             icon: 'warning',
@@ -50,19 +64,10 @@ function ModalDetalleGuiaSalida({
         if (!ok) return;
         setCompletando(true);
         try {
-            const response = await ApiService.fetchData({
-                url: `/api/guia-salida/${detalleGuiaSalidaBodega.id}/comprobar-guia/`,
-                method: 'post',
-            });
-            if (response.data) {
-                toast.success('Guía completada', { autoClose: 1000 });
-                dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: detalleGuiaSalidaBodega.id }));
-                dispatch(
-                    listaItemsEnGuiaSalidaBodegaThunk({ id_guia: detalleGuiaSalidaBodega.id }),
-                );
-            }
+            await comprobarGuiaSalida(guiaId).unwrap();
+            toast.success('Guia completada', { autoClose: 1000 });
         } catch (error: any) {
-            toast.error(error.response?.data?.detail || 'Error al completar la guía', {
+            toast.error(error.response?.data?.detail || 'Error al completar la guia', {
                 toastId: 'Error al completar guia',
             });
         }
@@ -75,34 +80,34 @@ function ModalDetalleGuiaSalida({
                     <Badge className='text-xl'>Detalle Guia de Salida</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    {detalleGuiaSalidaBodega ? (
+                    {guiaActual ? (
                         <>
                             <div className='grid grid-cols-1 gap-4'>
                                 <div>
                                     <Badge>Estado</Badge>
                                     <div className='ml-4'>
-                                        {detalleGuiaSalidaBodega?.estado_label}
+                                        {guiaActual?.estado_label}
                                     </div>
                                 </div>
                                 <div>
                                     <Badge>Creado Por</Badge>
                                     <div className='ml-4'>
-                                        {detalleGuiaSalidaBodega?.nombre_creado_por}
+                                        {guiaActual?.nombre_creado_por}
                                     </div>
                                 </div>
                                 <div>
                                     <Badge>Recibido Por</Badge>
                                     <div className='ml-4'>
-                                        {detalleGuiaSalidaBodega?.nombre_recibido_por}
+                                        {guiaActual?.nombre_recibido_por}
                                     </div>
                                 </div>
                                 <div>
                                     <Badge>Motivo</Badge>
-                                    <div className='ml-4'>{detalleGuiaSalidaBodega?.motivo}</div>
+                                    <div className='ml-4'>{guiaActual?.motivo}</div>
                                 </div>
                             </div>
                             <div
-                                className={`grid ${detalleGuiaSalidaBodega?.estado === 'R' || detalleGuiaSalidaBodega?.estado === 'PR' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                                className={`grid ${guiaActual?.estado === 'R' || guiaActual?.estado === 'PR' ? 'grid-cols-4' : 'grid-cols-3'}`}>
                                 <div className='col-span-1 border'>
                                     <Badge>Item</Badge>
                                 </div>
@@ -112,13 +117,13 @@ function ModalDetalleGuiaSalida({
                                 <div className='col-span-1 border'>
                                     <Badge>Cantidad Rebajada</Badge>
                                 </div>
-                                {(detalleGuiaSalidaBodega?.estado === 'R' ||
-                                    detalleGuiaSalidaBodega?.estado === 'PR') && (
+                                {(guiaActual?.estado === 'R' ||
+                                    guiaActual?.estado === 'PR') && (
                                     <div className='col-span-1 border'>
                                         <Badge>Cantidad Devuelta</Badge>
                                     </div>
                                 )}
-                                {listaItemsEnGuiaSalidaBodega.map((item, index) => (
+                                {itemsGuiaActual.map((item, index) => (
                                     <Fragment key={index}>
                                         <div className='col-span-1 border'>
                                             <div className='ml-4 flex flex-col'>
@@ -167,7 +172,7 @@ function ModalDetalleGuiaSalida({
                                         </div>
                                         <div className='col-span-1 border'>
                                             <div className='ml-4'>
-                                                {detalleGuiaSalidaBodega?.estado === 'P'
+                                                {guiaActual?.estado === 'P'
                                                     ? item.datos_stock.cantidad
                                                     : item.cantidad_original}
                                             </div>
@@ -175,8 +180,8 @@ function ModalDetalleGuiaSalida({
                                         <div className='col-span-1 border'>
                                             <div className='ml-4'>{item.cantidad_rebajada}</div>
                                         </div>
-                                        {(detalleGuiaSalidaBodega?.estado === 'R' ||
-                                            detalleGuiaSalidaBodega?.estado === 'PR') && (
+                                        {(guiaActual?.estado === 'R' ||
+                                            guiaActual?.estado === 'PR') && (
                                             <div className='col-span-1 border'>
                                                 <div className='ml-4'>{item.cantidad_devuelta}</div>
                                             </div>
@@ -190,9 +195,9 @@ function ModalDetalleGuiaSalida({
                     )}
                 </ModalBody>
                 <ModalFooter>
-                    {detalleGuiaSalidaBodega &&
-                    (detalleGuiaSalidaBodega.estado === 'FR' ||
-                        detalleGuiaSalidaBodega.estado === 'ET') ? (
+                    {guiaActual &&
+                    (guiaActual.estado === 'FR' ||
+                        guiaActual.estado === 'ET') ? (
                         <>
                             <ModalFooterChild>
                                 <Button
@@ -227,11 +232,11 @@ function ModalDetalleGuiaSalida({
                 </ModalFooter>
             </Modal>
 
-            {detalleGuiaSalidaBodega && detalleOrdenTrabajo && (
+            {guiaActual && detalleOrdenTrabajo && (
                 <ModalConfirmarRecepcionGuia
                     isOpen={isOpenConfirmar}
                     setIsOpen={setIsOpenConfirmar}
-                    guiaId={detalleGuiaSalidaBodega.id}
+                    guiaId={guiaActual.id}
                     clienteSolicitanteId={detalleOrdenTrabajo.cliente_solicitante}
                     clienteSolicitanteNombre={detalleOrdenTrabajo.nombre_solicitante}
                     onSuccess={() => {

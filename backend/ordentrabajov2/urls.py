@@ -13,6 +13,8 @@ from .views import (
     ServicioEnOTViewSet,
     SoporteTecnicoViewSet,
     UsuarioAsignadoSoporteViewSet,
+    UsuariosVinculadosOrdenAPIView,
+    RetroalimentacionesOrdenAPIView,
 )
 
 # Router principal para OrdenDeTrabajo V2
@@ -103,4 +105,13 @@ urlpatterns = [
     path("", include(servicios_router.urls)),
     path("", include(soportes_en_orden_router.urls)),
     path("", include(soportes_router.urls)),
+    # Compatibilidad: rutas antiguas usadas por frontend (v1)
+    path(
+        "ordenes-de-trabajo/<int:orden_pk>/usuarios-vinculados/",
+        UsuariosVinculadosOrdenAPIView.as_view(),
+    ),
+    path(
+        "ordenes-de-trabajo/<int:orden_pk>/retroalimentaciones/",
+        RetroalimentacionesOrdenAPIView.as_view(),
+    ),
 ]

@@ -13,11 +13,11 @@ import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoM
 import { IAsistenciaUsuario } from '@/interface/visitas.interface';
 import CambiarEstadoAsistenciaUsuario from '@/pages/Visitas/modals/CambiarEstadoAsistenciaUsuario';
 import {
-    detalleDelDetalleTrabajoThunk,
     listaAsistenciaUsuariosThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { useGetDetalleTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -31,6 +31,7 @@ import {
 } from '@tanstack/react-table';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import CrearAsistenciaUsuarioEnOT from './CrearAsistenciaUsuarioEnOT';
+import { useParams } from 'react-router-dom';
 
 const columnHelper = createColumnHelper<IAsistenciaUsuario>();
 
@@ -46,23 +47,15 @@ function ListaAsistenciasDT({
     setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>;
 }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleSeleccionado ?? 0 },
+        { skip: !ordenId || !detalleSeleccionado || !isOpen },
     );
     const { listaAsistenciaUsuarios } = useAppSelector((state) => state.visita);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-
-    useEffect(() => {
-        if (isOpen && detalleSeleccionado) {
-            dispatch(
-                detalleDelDetalleTrabajoThunk({
-                    id_orden: detalleOrdenTrabajo?.id,
-                    id_detalle: detalleSeleccionado,
-                }),
-            );
-        }
-    }, [isOpen, detalleSeleccionado]);
 
     useEffect(() => {
         if (detalleDelDetalleTrabajo && isOpen) {

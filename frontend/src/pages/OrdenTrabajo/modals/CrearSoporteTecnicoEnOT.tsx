@@ -11,16 +11,17 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
+import { useAppSelector } from '@/store';
 import {
-    listaSoportesTecnicosThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useCrearSoporteTecnicoMutation,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetTecnicosPorEmpresaQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import * as Yup from 'yup';
 
 const formatDateForInput = (value?: string | null) => {
@@ -35,9 +36,17 @@ const formatDateForInput = (value?: string | null) => {
 };
 
 function CrearSoporteTecnicoEnOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaTecnicos } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
+        personalizacionUsuario?.empresa ?? 0,
+        { skip: !personalizacionUsuario?.empresa },
+    );
+    const [crearSoporte] = useCrearSoporteTecnicoMutation();
     // const { listaContentType } = useAppSelector((state) => state.core)
     const [isOpen, setIsOpen] = useState<boolean>(false);
     // const [optionsTrabajos, setOptionsTrabajos] = useState<{label: string, options: {value: string, label: string, ct: number}[]}[]>([])
@@ -79,12 +88,6 @@ function CrearSoporteTecnicoEnOT() {
     //     }
     // }, [listaTrabajosFiltrados])
 
-    useEffect(() => {
-        if (isOpen && personalizacionUsuario?.empresa) {
-            dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-        }
-    }, [isOpen, personalizacionUsuario]);
-
     const initialFormValues = useMemo(() => {
         const tecnico = detalleOrdenTrabajo?.tecnico_responsable_ot;
         return {
@@ -109,9 +112,10 @@ function CrearSoporteTecnicoEnOT() {
         }),
         onSubmit: async (values) => {
             try {
+                if (!ordenId) return;
                 let data: any = {
                     nombre: values.nombre,
-                    orden: detalleOrdenTrabajo?.id,
+                    orden: ordenId,
                     descripcion: values.descripcion,
                 };
                 if (values.tecnico_asignado) {
@@ -120,20 +124,12 @@ function CrearSoporteTecnicoEnOT() {
                 if (values.fecha_soporte) {
                     data.fecha_soporte = values.fecha_soporte;
                 }
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/soportes-tecnicos/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    toast.success('Soporte técnico creado', { autoClose: 1000 });
-                    formik.resetForm();
-                    setIsOpen(false);
-                    dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                }
-            } catch (error: any) {
-                toast.error(error.response?.data || 'Error al crear el soporte técnico', {
+                await crearSoporte({ ordenId, data }).unwrap();
+                toast.success('Soporte t??cnico creado', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear el soporte t??cnico', {
                     toastId: 'Error crear soporte OT',
                 });
             }

@@ -11,12 +11,13 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useCreateAdjuntoMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { useParams } from 'react-router-dom';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 const TIPO_ADJUNTO: TSelectOption[] = [
     { value: 'contrato', label: 'Contrato' },
@@ -25,8 +26,9 @@ const TIPO_ADJUNTO: TSelectOption[] = [
 ];
 
 function CrearAdjunto() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const [createAdjunto] = useCreateAdjuntoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     const formik = useFormik({
@@ -48,23 +50,16 @@ function CrearAdjunto() {
             if (values.archivo) {
                 formData.append('archivo', values.archivo);
             }
-            formData.append('orden', detalleOrdenTrabajo?.id?.toString() || '');
+            formData.append('orden', ordenId?.toString() || '');
 
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/adjuntos/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                    data: formData,
-                });
-                if (response.data) {
-                    toast.success('Adjunto creado', { autoClose: 1000 });
-                    formik.resetForm();
-                    setIsOpen(false);
-                    dispatch(listaAdjuntosThunk({ ordenId: detalleOrdenTrabajo?.id }));
-                }
-            } catch (error: any) {
-                toast.error(error.response.data || 'Error al crear el adjunto', {
+                if (!ordenId) return;
+                await createAdjunto({ ordenId, data: formData }).unwrap();
+                toast.success('Adjunto creado', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear el adjunto', {
                     toastId: 'Error al crear el adjunto',
                 });
             }

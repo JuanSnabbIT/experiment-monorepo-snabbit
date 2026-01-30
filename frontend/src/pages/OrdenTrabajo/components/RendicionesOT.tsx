@@ -4,7 +4,10 @@ import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { IDetalleGastoRendicionOT } from '@/interface/ordenTrabajo.interface';
-import { listaDetalleGastoRendicionOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetGastosOperativosOTQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -18,24 +21,26 @@ import {
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import CrearRendicionesOT from '../modals/CrearRendicionesOT';
 
 const columnHelper = createColumnHelper<IDetalleGastoRendicionOT>();
 
 function RendicionesOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaDetalleGastoRendicionOT } = useAppSelector(
-        (state) => state.ordenTrabajo,
-    );
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const {
+        data: listaDetalleGastoRendicionOT = [],
+        refetch: refetchGastos,
+    } = useGetGastosOperativosOTQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaDetalleGastoRendicionOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     const columns = [
         columnHelper.accessor('detalle', {
@@ -70,11 +75,7 @@ function RendicionesOT() {
                         mensaje='¿Esta seguro(a) de querer eliminar el gasto?'
                         nombre='Gasto'
                         onDispatch={() => {
-                            dispatch(
-                                listaDetalleGastoRendicionOTThunk({
-                                    id_orden: detalleOrdenTrabajo?.id,
-                                }),
-                            );
+                            refetchGastos();
                         }}
                         peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/${info.row.original.id}/`}
                     />

@@ -12,24 +12,32 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import { IItemEmpresa } from '@/interface/items.interface';
-import ApiService from '@/services/ApiService';
 import {
     listaCategoriasThunk,
     listaFabricanteThunk,
-    listaItemsCompraThunk,
     listaItemsEmpresaThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useCrearItemCompraMutation,
+    useCrearItemEmpresaCompraMutation,
+    useGetDetalleCompraQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetDetalleTrabajoQuery,
+    useGetItemsCompraDetalleQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { IDetectedBarcode, Scanner } from '@yudiel/react-qr-scanner';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { Gallery } from 'react-grid-gallery';
 import Camera from 'react-html5-camera-photo';
 import 'react-html5-camera-photo/build/css/index.css';
 import { toast } from 'react-toastify';
 import Lightbox from 'yet-another-react-lightbox';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 interface FormikInterface {
     nombre: string;
@@ -61,11 +69,30 @@ function ModalConfirmarEscaneoItemCompraDT({
     setItemEmpresa: Dispatch<SetStateAction<IItemEmpresa | undefined>>;
 }) {
     const dispatch = useAppDispatch();
-    // const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
-    const { detalleCompra, listaItemsCompra } = useAppSelector((state) => state.bodega);
+    const { idOrden, idDetalle } = useParams();
+    const ordenId = idOrden ? Number(idOrden) : undefined;
+    const detalleId = idDetalle ? Number(idDetalle) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: detalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleId ?? 0 },
+        { skip: !ordenId || !detalleId },
+    );
+    const { data: detalleCompra } = useGetDetalleCompraQuery(
+        detalleTrabajo?.trabajo_id ?? 0,
+        { skip: !detalleTrabajo?.trabajo_id },
+    );
+    const {
+        data: listaItemsCompra = [],
+        refetch: refetchItemsCompra,
+    } = useGetItemsCompraDetalleQuery(detalleCompra?.id ?? 0, {
+        skip: !detalleCompra?.id,
+    });
     const { listaItemsEmpresa } = useAppSelector((state) => state.item);
     const { listaCategorias, listaFabricante } = useAppSelector((state) => state.item);
+    const [crearItemCompra] = useCrearItemCompraMutation();
+    const [crearItemEmpresaCompra] = useCrearItemEmpresaCompraMutation();
     const [activeComponent, setActiveComponent] = useState<string>('Item de la Empresa');
     const [hasCameraPermission, setHasCameraPermission] = useState(false);
     const [permissionChecked, setPermissionChecked] = useState(false);
@@ -78,7 +105,7 @@ function ModalConfirmarEscaneoItemCompraDT({
             dispatch(listaCategoriasThunk());
             dispatch(listaFabricanteThunk());
         }
-    }, [isOpen, detalleCompra, detalleOrdenTrabajo]);
+    }, [isOpen, detalleCompra, detalleOrdenTrabajo, dispatch]);
 
     useEffect(() => {
         if (isOpen && item) {
@@ -146,13 +173,12 @@ function ModalConfirmarEscaneoItemCompraDT({
             precio: Yup.number().required('Requerido').nonNullable('Requerido').min(1, 'Minimo 1'),
         }),
         onSubmit: async (values) => {
+            if (!detalleCompra) return;
             if (values.creando) {
                 try {
-                    const response = await ApiService.fetchData({
-                        url: `/api/compras/${detalleCompra?.id}/items-compras/crear-item-empresa/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
+                    await crearItemEmpresaCompra({
+                        compraId: detalleCompra.id,
+                        data: {
                             imagenes: values.imagenes,
                             cantidad: values.cantidad >= 0 ? values.cantidad : 0,
                             precio: values.precio >= 0 ? values.precio : 0,
@@ -166,40 +192,34 @@ function ModalConfirmarEscaneoItemCompraDT({
                                 empresa: detalleOrdenTrabajo?.empresa,
                                 proveedores_empresa: [],
                             },
-                        }),
-                    });
-                    if (response.data) {
-                        toast.success('Item añadido', { toastId: 'Item añadido', autoClose: 1000 });
-                        formik.resetForm();
-                        dispatch(listaItemsCompraThunk({ id_compra: detalleCompra?.id }));
-                        setIsOpen(false);
-                    }
-                } catch (error: any) {
-                    toast.error(error.response.data || 'Error al agregar items a la compra', {
+                        },
+                    }).unwrap();
+                    toast.success('Item a?adido', { toastId: 'Item a?adido', autoClose: 1000 });
+                    formik.resetForm();
+                    refetchItemsCompra();
+                    setIsOpen(false);
+                } catch (error: unknown) {
+                    toast.error(getErrorMessage(error) || 'Error al agregar items a la compra', {
                         toastId: 'Error al agregar items a la compra',
                     });
                 }
             } else {
                 try {
-                    const response = await ApiService.fetchData({
-                        url: `/api/compras/${detalleCompra?.id}/items-compras/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
-                            compra: detalleCompra?.id,
+                    await crearItemCompra({
+                        compraId: detalleCompra.id,
+                        data: {
+                            compra: detalleCompra.id,
                             item: values.item,
                             cantidad: values.cantidad,
                             precio: values.precio,
-                        }),
-                    });
-                    if (response.data) {
-                        toast.success('Item añadido', { toastId: 'Item añadido', autoClose: 1000 });
-                        formik.resetForm();
-                        dispatch(listaItemsCompraThunk({ id_compra: detalleCompra?.id }));
-                        setIsOpen(false);
-                    }
-                } catch (error: any) {
-                    toast.error(error.response.data || 'Error al agregar items a la compra', {
+                        },
+                    }).unwrap();
+                    toast.success('Item a?adido', { toastId: 'Item a?adido', autoClose: 1000 });
+                    formik.resetForm();
+                    refetchItemsCompra();
+                    setIsOpen(false);
+                } catch (error: unknown) {
+                    toast.error(getErrorMessage(error) || 'Error al agregar items a la compra', {
                         toastId: 'Error al agregar items a la compra',
                     });
                 }

@@ -9,18 +9,18 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
+
 import {
-    detalleDelDetalleTrabajoThunk,
-    listaDetalleTrabajoOTThunk,
-    listaItemsEnGuiaSalidaBodegaThunk,
-    useAppSelector,
-} from '@/store';
+    useDevolverABodegaGuiaMutation,
+    useGetDetalleTrabajoQuery,
+    useGetItemsGuiaSalidaQuery,
+    useUpdateGuiaSalidaMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { useParams } from 'react-router-dom';
 
 function TerminarInsumoDT({
     isOpen,
@@ -33,32 +33,21 @@ function TerminarInsumoDT({
     detalleSeleccionado: number | null;
     setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>;
 }) {
-    const dispatch = useDispatch();
-    const { detalleOrdenTrabajo, detalleDelDetalleTrabajo } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleDelDetalleTrabajo } = useGetDetalleTrabajoQuery(
+        { ordenId: ordenId ?? 0, detalleId: detalleSeleccionado ?? 0 },
+        { skip: !ordenId || !detalleSeleccionado },
     );
-    const { listaItemsEnGuiaSalidaBodega } = useAppSelector((state) => state.bodega);
+    const { data: listaItemsEnGuiaSalidaBodega = [] } = useGetItemsGuiaSalidaQuery(
+        detalleDelDetalleTrabajo?.insumo ?? 0,
+        { skip: !detalleDelDetalleTrabajo?.insumo },
+    );
+    const [devolverABodegaGuia] = useDevolverABodegaGuiaMutation();
+    const [updateGuiaSalida] = useUpdateGuiaSalidaMutation();
     const [aprobado, setAprobado] = useState<string>('1');
     const [terminado, setTerminado] = useState<boolean>(true);
 
-    useEffect(() => {
-        if (detalleSeleccionado && isOpen) {
-            dispatch(
-                detalleDelDetalleTrabajoThunk({
-                    id_orden: detalleOrdenTrabajo?.id,
-                    id_detalle: detalleSeleccionado,
-                }),
-            );
-        }
-    }, [detalleSeleccionado, isOpen]);
-
-    useEffect(() => {
-        if (isOpen && detalleDelDetalleTrabajo && detalleDelDetalleTrabajo.insumo) {
-            dispatch(
-                listaItemsEnGuiaSalidaBodegaThunk({ id_guia: detalleDelDetalleTrabajo.insumo }),
-            );
-        }
-    }, [detalleDelDetalleTrabajo, isOpen]);
 
     useEffect(() => {
         if (listaItemsEnGuiaSalidaBodega.length > 0 && isOpen) {
@@ -103,34 +92,25 @@ function TerminarInsumoDT({
         onSubmit: async (values) => {
             try {
                 if (aprobado === '1') {
-                    const response = await ApiService.fetchData({
-                        url: `/api/guia-salida/${detalleDelDetalleTrabajo?.insumo}/devolver_a_bodega/`,
-                        method: 'post',
-                    });
-                    if (response.data) {
-                        toast.success('Insumos devueltos a la bodega', { autoClose: 1000 });
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        setIsOpen(false);
-                    }
+                    await devolverABodegaGuia({
+                        id: detalleDelDetalleTrabajo?.insumo ?? 0,
+                    }).unwrap();
+                    toast.success('Insumos devueltos a la bodega', { autoClose: 1000 });
+                    setIsOpen(false);
                 } else {
-                    const response = await ApiService.fetchData({
-                        url: `/api/guia-salida/${detalleDelDetalleTrabajo?.insumo}/devolver_a_bodega/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
+                    await devolverABodegaGuia({
+                        id: detalleDelDetalleTrabajo?.insumo ?? 0,
+                        data: {
                             items: values.items.map((item) => ({
                                 item_guia_id: item.id,
                                 cantidad_a_devolver: item.cantidad_a_devolver,
                             })),
-                        }),
+                        },
+                    }).unwrap();
+                    toast.success('Insumos devueltos de manera parcial a la bodega', {
+                        autoClose: 1000,
                     });
-                    if (response.data) {
-                        toast.success('Insumos devueltos de manera parcial a la bodega', {
-                            autoClose: 1000,
-                        });
-                        dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                        setIsOpen(false);
-                    }
+                    setIsOpen(false);
                 }
             } catch (error: any) {
                 const mensajesError = Object.values(error.response.data).flat().join(' ');
@@ -294,21 +274,12 @@ function TerminarInsumoDT({
                         onClick={async () => {
                             if (terminado) {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/guia-salida/${detalleDelDetalleTrabajo?.insumo}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ estado: 'T' }),
-                                    });
-                                    if (response.data) {
-                                        toast.success('Insumos terminados', { autoClose: 1000 });
-                                        dispatch(
-                                            listaDetalleTrabajoOTThunk({
-                                                id_orden: detalleOrdenTrabajo?.id,
-                                            }),
-                                        );
-                                        setIsOpen(false);
-                                    }
+                                    await updateGuiaSalida({
+                                        id: detalleDelDetalleTrabajo?.insumo ?? 0,
+                                        data: { estado: 'T' },
+                                    }).unwrap();
+                                    toast.success('Insumos terminados', { autoClose: 1000 });
+                                    setIsOpen(false);
                                 } catch (error: any) {
                                     const mensajesError = Object.values(error.response.data)
                                         .flat()

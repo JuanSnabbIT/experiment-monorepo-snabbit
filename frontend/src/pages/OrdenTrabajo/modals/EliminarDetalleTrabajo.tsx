@@ -8,13 +8,16 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IDetalleOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
-import ApiService from '@/services/ApiService';
-import { listaDetalleTrabajoOTThunk, useAppDispatch } from '@/store';
+import { useEliminarDetalleTrabajoMutation, useGetDetalleOrdenTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
 function EliminarDetalleTrabajo({ detalle_trabajo }: { detalle_trabajo: IDetalleOrdenDeTrabajo }) {
-    const dispatch = useAppDispatch();
+    const { refetch: refetchDetalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(
+        detalle_trabajo.orden,
+    );
+    const [eliminarDetalleTrabajo] = useEliminarDetalleTrabajoMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     return (
@@ -52,27 +55,18 @@ function EliminarDetalleTrabajo({ detalle_trabajo }: { detalle_trabajo: IDetalle
                             color='red'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/ordenes-trabajo/${detalle_trabajo.orden}/detalles-trabajo/${detalle_trabajo.id}/`,
-                                        method: 'delete',
+                                    await eliminarDetalleTrabajo({
+                                        ordenId: detalle_trabajo.orden,
+                                        detalleId: detalle_trabajo.id,
+                                    }).unwrap();
+                                    toast.success('Trabajo eliminado', {
+                                        toastId: 'Trabajo eliminado',
+                                        autoClose: 1000,
                                     });
-                                    if (response.status === 204) {
-                                        toast.success('Trabajo eliminado', {
-                                            toastId: 'Trabajo eliminado',
-                                            autoClose: 1000,
-                                        });
-                                        setIsOpen(false);
-                                        dispatch(
-                                            listaDetalleTrabajoOTThunk({
-                                                id_orden: detalle_trabajo.orden,
-                                            }),
-                                        );
-                                    }
-                                } catch (error: any) {
-                                    const mensajesError = Object.values(error.response.data)
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(mensajesError || 'Error al eliminar el trabajo', {
+                                    setIsOpen(false);
+                                    refetchDetalleOrdenTrabajo();
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al eliminar el trabajo', {
                                         toastId: 'Error al eliminar el trabajo',
                                     });
                                 }

@@ -14,15 +14,19 @@ import ApiService from '@/services/ApiService';
 import {
     listaEquiposPorClienteThunk,
     listaEquiposDeMisClientesThunk,
-    listaUsuariosAsignadosSoporteThunk,
     listaUsuariosDelEquipoPorClienteThunk,
     listaUsuariosTodoElClienteThunk,
-    listaUsuariosVinculadosOTThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useGetDetalleOrdenTrabajoQuery,
+    useGetUsuariosAsignadosSoporteQuery,
+    useGetUsuariosVinculadosOTQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 
 interface UsuarioTemporalOT {
     tipo: 'empresa' | 'externo';
@@ -69,7 +73,11 @@ function CrearUsuarioAsignadoOT({
     presetUsuarioEmpresaId,
 }: CrearUsuarioAsignadoOTProps) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa);
     const { listaUsuariosDelEquipoPorCliente, listaEquiposPorCliente, listaEquiposDeMisClientes } =
         useAppSelector((state) => state.recursos);
@@ -109,6 +117,14 @@ function CrearUsuarioAsignadoOT({
     };
 
     const isSoporteMode = typeof soporteId === 'number';
+    const { refetch: refetchUsuariosAsignados } = useGetUsuariosAsignadosSoporteQuery(
+        { ordenId: detalleOrdenTrabajo?.id ?? 0, soporteId: soporteId ?? 0 },
+        { skip: !isOpen || !isSoporteMode || !detalleOrdenTrabajo?.id || !soporteId },
+    );
+    const { refetch: refetchUsuariosVinculados } = useGetUsuariosVinculadosOTQuery(
+        detalleOrdenTrabajo?.id ?? 0,
+        { skip: !isOpen || !detalleOrdenTrabajo?.id || isSoporteMode },
+    );
     const clienteId = clienteIdOverride ?? detalleOrdenTrabajo?.cliente;
 
     useEffect(() => {
@@ -442,15 +458,10 @@ function CrearUsuarioAsignadoOT({
                 autoClose: 1500,
             });
             if (isSoporteMode) {
-                dispatch(
-                    listaUsuariosAsignadosSoporteThunk({
-                        id_orden: detalleOrdenTrabajo.id,
-                        id_soporte: soporteId,
-                    }),
-                );
+                refetchUsuariosAsignados();
                 if (onSuccess) onSuccess();
             } else {
-                dispatch(listaUsuariosVinculadosOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+                refetchUsuariosVinculados();
             }
             setIsOpen(false);
         }

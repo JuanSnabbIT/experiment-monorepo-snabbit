@@ -20,6 +20,7 @@ import {
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { formatPrice, parseLocaleNumber } from '@/utils/currency';
 
 function EditarItemEnCotizacion({
     item,
@@ -48,7 +49,7 @@ function EditarItemEnCotizacion({
             formik.setValues({
                 cantidad: item.cantidad,
                 porcentaje_recargo: item.porcentaje_recargo || 0,
-                precio_unitario: Number(item.precio_unitario),
+                precio_unitario: formatPrice(parseLocaleNumber(item.precio_unitario)),
                 proveedor_empresa: item.proveedor_empresa ? item.proveedor_empresa.toString() : '',
                 recargo_dolar: item.recargo_dolar,
             });

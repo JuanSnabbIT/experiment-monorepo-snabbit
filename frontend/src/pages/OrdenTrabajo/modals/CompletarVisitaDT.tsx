@@ -11,18 +11,23 @@ import Modal, {
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
 import {
-    detalleOrdenTrabajoThunk,
     listaAsistenciaUsuariosThunk,
     listaEntregaEquipoThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { useGetDetalleOrdenTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 
 function CompletarVisitaDT({ id_visita }: { id_visita: number | string | undefined }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { refetch: refetchDetalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { listaEntregaEquipos, listaAsistenciaUsuarios } = useAppSelector(
         (state) => state.visita,
     );
@@ -150,11 +155,7 @@ function CompletarVisitaDT({ id_visita }: { id_visita: number | string | undefin
                                             { autoClose: 1000 },
                                         );
                                         setIsOpen(false);
-                                        dispatch(
-                                            detalleOrdenTrabajoThunk({
-                                                id_ordenTrabajo: detalleOrdenTrabajo?.id,
-                                            }),
-                                        );
+                                        refetchDetalleOrdenTrabajo();
                                     }
                                 } catch (error: any) {
                                     const mensajesError = Object.values(error.response.data)

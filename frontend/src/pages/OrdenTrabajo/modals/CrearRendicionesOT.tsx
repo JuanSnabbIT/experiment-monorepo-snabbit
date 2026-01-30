@@ -10,23 +10,26 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
 import {
     listaCategoriasGastoThunk,
-    listaDetalleGastoRendicionOTThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { useCrearGastoOperativoOTMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function CrearRendicionesOT() {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
     const { listaCategoriasGasto } = useAppSelector((state) => state.rendicion);
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [crearGastoOperativo] = useCrearGastoOperativoOTMutation();
 
     useEffect(() => {
         if (isOpen) {
@@ -69,25 +72,15 @@ function CrearRendicionesOT() {
                     ...values,
                     fecha_gasto: fechaIso,
                     fecha_compra: fechaIso,
-                    orden: detalleOrdenTrabajo?.id,
+                    orden: ordenId,
                 };
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(payload),
-                });
-                if (response.data) {
-                    toast.success('Gasto Operativo creado', { autoClose: 1000 });
-                    formik.resetForm();
-                    setIsOpen(false);
-                    dispatch(
-                        listaDetalleGastoRendicionOTThunk({ id_orden: detalleOrdenTrabajo?.id }),
-                    );
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al crear el detalle gasto de la rendicion', {
+                if (!ordenId) return;
+                await crearGastoOperativo({ ordenId, data: payload }).unwrap();
+                toast.success('Gasto Operativo creado', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear el detalle gasto de la rendicion', {
                     toastId: 'Error al crear el detalle gasto de la rendicion',
                 });
             }

@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import Textarea from '@/components/form/Textarea';
@@ -11,14 +12,13 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector, usuarioEmpresaLogeadoThunk } from '@/store';
 import {
-    useAppDispatch,
-    useAppSelector,
-    listaDetalleTrabajoOTThunk,
-    usuarioEmpresaLogeadoThunk,
-} from '@/store';
+    useCrearSeguimientoDetalleMutation,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import SelectReact from '@/components/form/SelectReact';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 
@@ -34,8 +34,13 @@ function CrearSeguimientoDT({
     setDetalleSeleccionado: Dispatch<SetStateAction<number | null>>;
 }) {
     const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo } = useAppSelector((state) => state.ordenTrabajo);
-    const { userMe } = useAppSelector((state) => state.auth);
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+        const [crearSeguimientoDetalle] = useCrearSeguimientoDetalleMutation();
+const { userMe } = useAppSelector((state) => state.auth);
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
 
     useEffect(() => {
@@ -54,21 +59,29 @@ function CrearSeguimientoDT({
         }),
         onSubmit: async (values) => {
             try {
-                const seguimientoResponse = await ApiService.fetchData({
-                    url: `/api/ordenes-trabajo/${detalleOrdenTrabajo?.id}/detalles-trabajo/${detalleSeleccionado}/seguimientos/`,
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                if (!detalleOrdenTrabajo || !detalleSeleccionado) return;
+                await crearSeguimientoDetalle({
+                    ordenId: detalleOrdenTrabajo.id,
+                    detalleId: detalleSeleccionado,
                     data: {
                         detalle_trabajo: detalleSeleccionado,
                         usuario: usuarioEmpresaLogeado?.id,
                         tipo: values.tipo_seguimiento,
                         comentario: values.comentario,
                     },
+                }).unwrap();
+                toast.success('Seguimiento creado exitosamente');
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al crear el seguimiento', {
+                    toastId: 'Error al crear el seguimiento',
                 });
+            }
+        },
+    });
                 if (seguimientoResponse.data) {
                     toast.success('Seguimiento creado exitosamente');
-                    dispatch(listaDetalleTrabajoOTThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                    setIsOpen(false);
+                                        setIsOpen(false);
                 } else {
                     toast.error('Error al crear el seguimiento', {
                         toastId: 'Error al crear el seguimiento',

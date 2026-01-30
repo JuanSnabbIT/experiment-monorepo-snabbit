@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     createColumnHelper,
     flexRender,
@@ -26,12 +26,17 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
-import ApiService from '@/services/ApiService';
-import { listaInsumosThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
+import {
+    useComprobarGuiaSalidaMutation,
+    useGetDetalleGuiaSalidaQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetInsumosOrdenTrabajoQuery,
+    useGetItemsGuiaSalidaQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
-import { IGuiaSalida, IItemGuiaSalida } from '@/interface/bodega.interface';
 import { IInsumo } from '@/interface/ordenTrabajo.interface';
 import ModalConfirmarRecepcionGuia from '../modals/ModalConfirmarRecepcionGuia';
 import ModalVincularGuia from '../modals/ModalVincularGuia';
@@ -61,19 +66,37 @@ type ItemEditado = {
 };
 
 function Insumos() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { detalleOrdenTrabajo, listaInsumos = [] } = useAppSelector(
-        (state) => state.ordenTrabajo ?? { listaInsumos: [] },
-    );
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const {
+        data: listaInsumos = [],
+        refetch: refetchInsumos,
+    } = useGetInsumosOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
     const { listaVouchers = [] } = useAppSelector((state) => state.bodega ?? { listaVouchers: [] });
 
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isOpenDetail, setIsOpenDetail] = useState(false);
-    const [selectedGuia, setSelectedGuia] = useState<IGuiaSalida | null>(null);
-    const [itemsGuia, setItemsGuia] = useState<IItemGuiaSalida[]>([]);
-    const [cargandoItems, setCargandoItems] = useState(false);
+    const [selectedGuiaId, setSelectedGuiaId] = useState<number | null>(null);
+    const {
+        data: selectedGuia,
+        refetch: refetchGuia,
+        isFetching: cargandoGuia,
+    } = useGetDetalleGuiaSalidaQuery(selectedGuiaId ?? 0, {
+        skip: !selectedGuiaId,
+    });
+    const {
+        data: itemsGuia = [],
+        isFetching: cargandoItems,
+    } = useGetItemsGuiaSalidaQuery(selectedGuiaId ?? 0, {
+        skip: !selectedGuiaId,
+    });
     const [isOpenConfirmar, setIsOpenConfirmar] = useState(false);
     const [isOpenVincular, setIsOpenVincular] = useState(false);
     const [isOpenVincularCotizacion, setIsOpenVincularCotizacion] = useState(false);
@@ -82,6 +105,7 @@ function Insumos() {
     const [itemsPendientesFirma, setItemsPendientesFirma] = useState<ItemEditado[]>([]);
     const [errorDevolucion, setErrorDevolucion] = useState('');
     const [cargandoDevolucion, setCargandoDevolucion] = useState(false);
+    const [comprobarGuiaSalida] = useComprobarGuiaSalidaMutation();
     const [completandoGuia, setCompletandoGuia] = useState(false);
     const [isOpenAprobar, setIsOpenAprobar] = useState(false);
     const completarGuia = async () => {
@@ -96,32 +120,16 @@ function Insumos() {
         if (!ok) return;
         setCompletandoGuia(true);
         try {
-            const resp = await ApiService.fetchData<IGuiaSalida>({
-                url: `/api/guia-salida/${selectedGuia.id}/comprobar-guia/`,
-                method: 'post',
-            });
-            toast.success('Guía completada', { autoClose: 1200 });
-            setSelectedGuia(resp.data);
-            await fetchItemsGuia(selectedGuia.id);
-            if (detalleOrdenTrabajo) {
-                dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
-            }
+            await comprobarGuiaSalida(selectedGuia.id).unwrap();
+            toast.success('Gu??a completada', { autoClose: 1200 });
+            refetchGuia();
+            refetchInsumos();
         } catch (e: unknown) {
             toast.error(getErrorMessage(e) || 'No se pudo completar la guía');
         } finally {
             setCompletandoGuia(false);
         }
     };
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(
-                listaInsumosThunk({
-                    id_orden_trabajo: detalleOrdenTrabajo.id,
-                }),
-            );
-        }
-    }, [detalleOrdenTrabajo, dispatch]);
 
     const hayDevolucionesDesdeGuias = useMemo(() => {
         if (!detalleOrdenTrabajo) return false;
@@ -134,21 +142,6 @@ function Insumos() {
                 ).some((grupo) => grupo.origen_tipo === 'GuíaSalida'),
             );
     }, [detalleOrdenTrabajo, listaVouchers]);
-
-    const fetchItemsGuia = async (guiaId: number) => {
-        try {
-            const resp = await ApiService.fetchData<IItemGuiaSalida[]>({
-                url: `/api/guia-salida/${guiaId}/items/`,
-                method: 'get',
-            });
-            setItemsGuia(resp.data || []);
-        } catch (e: unknown) {
-            console.error('Error al cargar items:', e);
-            toast.error(getErrorMessage(e) || 'No se pudieron cargar los items de la guía');
-        } finally {
-            setCargandoItems(false);
-        }
-    };
 
     const buildItemsEditados = useCallback((): ItemEditado[] => {
         return (itemsGuia || []).map((item) => ({
@@ -206,27 +199,9 @@ function Insumos() {
             toast.error('No se pudo abrir el detalle: guía sin identificador');
             return;
         }
-        try {
-            const resp = await ApiService.fetchData<IGuiaSalida>({
-                url: `/api/guia-salida/${guiaId}/`,
-                method: 'get',
-            });
-            setSelectedGuia(resp.data);
-            setIsOpenDetail(true);
-        } catch (e: unknown) {
-            console.error('Error obteniendo guía:', e);
-            toast.error(getErrorMessage(e) || 'No se pudo obtener el detalle de la guía');
-        }
+        setSelectedGuiaId(guiaId);
+        setIsOpenDetail(true);
     }, []);
-
-    useEffect(() => {
-        if (isOpenDetail && selectedGuia?.id) {
-            fetchItemsGuia(selectedGuia.id);
-        }
-        if (!isOpenDetail) {
-            setItemsGuia([]);
-        }
-    }, [isOpenDetail, selectedGuia]);
 
     const columns = useMemo(
         () => [
@@ -705,7 +680,7 @@ function Insumos() {
                                     </div>
                                 </div>
                                 <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
-                                    {cargandoItems ? (
+                                    {cargandoItems || cargandoGuia ? (
                                         <div className='flex items-center justify-center py-8'>
                                             <div className='text-sm text-gray-500'>
                                                 Cargando items...
@@ -866,7 +841,7 @@ function Insumos() {
                         setIsOpenConfirmar(false);
                         setItemsPendientesFirma([]);
                         setIsOpenDetail(false);
-                        dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+                        refetchInsumos();
                     }}
                 />
             )}
@@ -881,7 +856,7 @@ function Insumos() {
                     onSuccess={() => {
                         setIsOpenAprobar(false);
                         setIsOpenDetail(false);
-                        dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+                        refetchInsumos();
                     }}
                 />
             )}
@@ -896,7 +871,18 @@ function Insumos() {
                     clienteId={detalleOrdenTrabajo.cliente}
                     onSuccess={() => {
                         setIsOpenVincularCotizacion(false);
-                        dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+                        refetchInsumos();
+                    }}
+                />
+            )}
+            {detalleOrdenTrabajo && (
+                <ModalVincularGuia
+                    isOpen={isOpenVincular}
+                    setIsOpen={setIsOpenVincular}
+                    otId={detalleOrdenTrabajo.id}
+                    targetType='direct_ot'
+                    onSuccess={() => {
+                        refetchInsumos();
                     }}
                 />
             )}

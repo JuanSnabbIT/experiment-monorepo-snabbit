@@ -16,19 +16,21 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import Collapse from '@/components/utils/Collapse';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
-import ApiService from '@/services/ApiService';
+import { useAppSelector } from '@/store';
 import {
-    actualizarSoporteTecnicoThunk,
-    checkCompletibilidadOTThunk,
-    detalleOrdenTrabajoThunk,
-    eliminarSoporteTecnicoThunk,
-    listaInsumosThunk,
-    listaSoportesTecnicosThunk,
-    listaTecnicosThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useActualizarSoporteTecnicoMutation,
+    useCrearSeguimientoSoporteMutation,
+    useEliminarSoporteTecnicoMutation,
+    useGetCheckCompletibilidadOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+    useGetInsumosOrdenTrabajoQuery,
+    useGetSeguimientosSoporteQuery,
+    useGetSoportesTecnicosQuery,
+    useGetTecnicosPorEmpresaQuery,
+    useUpdateOrdenTrabajoMutation,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
@@ -44,6 +46,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
@@ -58,11 +61,32 @@ import ModalVincularGuia from '../modals/ModalVincularGuia';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 
 function ListaSoportesTecnicosOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaSoportesTecnicos, listaTecnicos } = useAppSelector(
-        (s) => s.ordenTrabajo,
-    );
+    const { id } = useParams<{ id: string }>();
+    const ordenId = id ? Number(id) : undefined;
     const { personalizacionUsuario } = useAppSelector((s) => s.auth);
+    const {
+        data: detalleOrdenTrabajo,
+        refetch: refetchDetalleOrdenTrabajo,
+    } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, { skip: !ordenId });
+    const {
+        data: listaSoportesTecnicos = [],
+        refetch: refetchSoportes,
+    } = useGetSoportesTecnicosQuery(ordenId ?? 0, { skip: !ordenId });
+    const { refetch: refetchInsumos } = useGetInsumosOrdenTrabajoQuery(ordenId ?? 0, {
+        skip: !ordenId,
+    });
+    const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
+        personalizacionUsuario?.empresa ?? 0,
+        { skip: !personalizacionUsuario?.empresa },
+    );
+    const { refetch: refetchCompletibilidad } = useGetCheckCompletibilidadOTQuery(
+        ordenId ?? 0,
+        { skip: !ordenId },
+    );
+    const [actualizarSoporte] = useActualizarSoporteTecnicoMutation();
+    const [eliminarSoporte] = useEliminarSoporteTecnicoMutation();
+    const [crearSeguimientoSoporte] = useCrearSeguimientoSoporteMutation();
+    const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
 
     const [selectedService, setSelectedService] = useState<any | null>(null);
     const [isOpenDetail, setIsOpenDetail] = useState(false);
@@ -81,8 +105,19 @@ function ListaSoportesTecnicosOT() {
     const [fechaEnModal, setFechaEnModal] = useState<string | undefined>();
     const [isOpenTecnico, setIsOpenTecnico] = useState<boolean>(false);
     const [detalleSeleccionado, setDetalleSeleccionado] = useState<number | null>(null);
-    const [seguimientos, setSeguimientos] = useState<any[]>([]);
-    const [cargandoSeguimientos, setCargandoSeguimientos] = useState<boolean>(false);
+    const {
+        data: seguimientos = [],
+        isFetching: cargandoSeguimientos,
+        refetch: refetchSeguimientos,
+    } = useGetSeguimientosSoporteQuery(
+        {
+            ordenId: ordenId ?? 0,
+            soporteId: selectedService?.id ?? 0,
+        },
+        {
+            skip: !ordenId || !selectedService?.id || !isOpenDetail,
+        },
+    );
     const [isOpenSeguimiento, setIsOpenSeguimiento] = useState<boolean>(false);
     const [comentarioSeguimiento, setComentarioSeguimiento] = useState<string>('');
     const [tipoSeguimiento, setTipoSeguimiento] = useState<string>('comentario_tecnico');
@@ -127,26 +162,22 @@ function ListaSoportesTecnicosOT() {
         });
         if (!ok) return;
         try {
-            await dispatch(
-                actualizarSoporteTecnicoThunk({
-                    id_orden: detalleOrdenTrabajo.id,
-                    id_soporte: soporte.id,
-                    data: { estado: 'en_proceso' },
-                }),
-            ).unwrap();
+            await actualizarSoporte({
+                ordenId: detalleOrdenTrabajo.id,
+                soporteId: soporte.id,
+                data: { estado: 'en_proceso' },
+            }).unwrap();
             toast.success('Soporte en proceso');
-        } catch (e: any) {
-            const msg =
-                e?.response?.data?.detail ||
-                e?.message ||
-                'No se pudo iniciar el soporte. Revisa técnico, fecha y guía.';
-            toast.error(msg);
+        } catch (error: unknown) {
+            toast.error(
+                getErrorMessage(error) ||
+                    'No se pudo iniciar el soporte. Revisa técnico, fecha y guía.',
+            );
             return;
         }
-        // Refrescar listas relacionadas
-        dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-        dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
-        dispatch(detalleOrdenTrabajoThunk({ id_ordenTrabajo: detalleOrdenTrabajo.id }));
+        refetchSoportes();
+        refetchInsumos();
+        refetchDetalleOrdenTrabajo();
     };
 
     const abrirModalEntregaGuia = (guia: any, estadoTrabajo: string) => {
@@ -160,107 +191,53 @@ function ListaSoportesTecnicosOT() {
     const guardarCambioEstado = async (payload: any, requiresComment: boolean) => {
         if (!detalleOrdenTrabajo || !selectedService) return;
         try {
-            const resp = await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
-                method: 'patch',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify(payload),
-            });
-            if (resp.data) {
-                if (requiresComment && comentario && comentario.trim()) {
-                    try {
-                        await ApiService.fetchData({
-                            url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
-                            method: 'post',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify({
-                                comentario,
-                                tipo: 'incidencia',
-                                usuario: null,
-                            }),
-                        });
-                        fetchSeguimientosServicio(selectedService.id);
-                    } catch (e) {
-                        // ignore seguimiento error
-                    }
-                }
-                toast.success('Estado cambiado', { autoClose: 1000 });
-                dispatch(
-                    listaSoportesTecnicosThunk({
-                        id_orden: detalleOrdenTrabajo.id,
-                    }),
-                );
-                dispatch(
-                    checkCompletibilidadOTThunk({
-                        id_orden: detalleOrdenTrabajo.id,
-                    }),
-                );
-                setIsOpenEstado(false);
-                setEstadoNuevo(undefined);
-                setComentario(undefined);
-                setSelectedService(null);
-                setTecnicoSeleccionado(undefined);
-                setFechaEnModal(undefined);
-
-                if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
-                    dispatch(
-                        detalleOrdenTrabajoThunk({
-                            id_ordenTrabajo: detalleOrdenTrabajo.id,
-                        }),
-                    );
+            await actualizarSoporte({
+                ordenId: detalleOrdenTrabajo.id,
+                soporteId: selectedService.id,
+                data: payload,
+            }).unwrap();
+            if (requiresComment && comentario && comentario.trim()) {
+                try {
+                    await crearSeguimientoSoporte({
+                        ordenId: detalleOrdenTrabajo.id,
+                        soporteId: selectedService.id,
+                        data: {
+                            comentario,
+                            tipo: 'incidencia',
+                            usuario: null,
+                        },
+                    }).unwrap();
+                    refetchSeguimientos();
+                } catch {
+                    // ignore seguimiento error
                 }
             }
-        } catch (e: any) {
-            const msg = Object.values(e?.response?.data || {})
-                .flat()
-                .join(' ');
-            toast.error(msg || 'Error al cambiar el estado');
+            toast.success('Estado cambiado', { autoClose: 1000 });
+            refetchSoportes();
+            refetchCompletibilidad();
+            setIsOpenEstado(false);
+            setEstadoNuevo(undefined);
+            setComentario(undefined);
+            setSelectedService(null);
+            setTecnicoSeleccionado(undefined);
+            setFechaEnModal(undefined);
+
+            if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
+                refetchDetalleOrdenTrabajo();
+            }
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
         }
     };
-
-    useEffect(() => {
-        if (
-            detalleOrdenTrabajo &&
-            (detalleOrdenTrabajo.tipo_servicio === 'soporte_p' ||
-                detalleOrdenTrabajo.tipo_servicio === 'soporte_r')
-        ) {
-            dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     // Vincular guía
     const [isOpenGuia, setIsOpenGuia] = useState<boolean>(false);
     const [soporteParaGuia, setSoporteParaGuia] = useState<number | null>(null);
 
-    const fetchSeguimientosServicio = async (soporteId: number) => {
-        if (!detalleOrdenTrabajo) return;
-        setCargandoSeguimientos(true);
-        try {
-            const resp = await ApiService.fetchData<any[]>({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${soporteId}/seguimientos/`,
-                method: 'get',
-            });
-            setSeguimientos(resp.data || []);
-        } catch (e) {
-            toast.error('No se pudieron cargar los seguimientos');
-        } finally {
-            setCargandoSeguimientos(false);
-        }
-    };
-
     const openDetail = (serv: any) => {
         setSelectedService(serv);
         setIsOpenDetail(true);
     };
-
-    useEffect(() => {
-        if (isOpenDetail && selectedService?.id && detalleOrdenTrabajo) {
-            fetchSeguimientosServicio(selectedService.id);
-        }
-        if (!isOpenDetail) {
-            setSeguimientos([]);
-        }
-    }, [isOpenDetail, selectedService, detalleOrdenTrabajo]);
 
     const toggleDescription = (id: number) => {
         setOpenedDescriptions((prev) =>
@@ -418,46 +395,26 @@ function ListaSoportesTecnicosOT() {
                                     estado === 'medianamente_completado'
                                 ) {
                                     if (detalleOrdenTrabajo) {
-                                        dispatch(
-                                            listaSoportesTecnicosThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
-                                        dispatch(
-                                            checkCompletibilidadOTThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
+                                        refetchSoportes();
+                                        refetchCompletibilidad();
                                     }
                                     return;
                                 }
                                 // Para otros estados (no_realizado), hacer el cambio normal
                                 if (!detalleOrdenTrabajo) return;
                                 try {
-                                    await ApiService.fetchData({
-                                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${info.row.original.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ estado }),
-                                    });
+                                    await actualizarSoporte({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        soporteId: info.row.original.id,
+                                        data: { estado },
+                                    }).unwrap();
                                     toast.success(`Estado cambiado a ${estado}`, {
                                         autoClose: 1000,
                                     });
-                                    dispatch(
-                                        listaSoportesTecnicosThunk({
-                                            id_orden: detalleOrdenTrabajo.id,
-                                        }),
-                                    );
-                                    dispatch(
-                                        checkCompletibilidadOTThunk({
-                                            id_orden: detalleOrdenTrabajo.id,
-                                        }),
-                                    );
-                                } catch (e: any) {
-                                    const msg = Object.values(e?.response?.data || {})
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(msg || 'Error al cambiar el estado');
+                                    refetchSoportes();
+                                    refetchCompletibilidad();
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
                                 }
                             }}
                             disabled={!canStart}
@@ -646,26 +603,18 @@ function ListaSoportesTecnicosOT() {
                                             });
                                             if (!ok) return;
                                             try {
-                                                await dispatch(
-                                                    eliminarSoporteTecnicoThunk({
-                                                        id_orden: detalleOrdenTrabajo.id,
-                                                        id_soporte: info.row.original.id,
-                                                    }),
-                                                );
+                                                await eliminarSoporte({
+                                                    ordenId: detalleOrdenTrabajo.id,
+                                                    soporteId: info.row.original.id,
+                                                }).unwrap();
                                                 toast.success('Soporte técnico eliminado', {
                                                     autoClose: 1000,
                                                 });
-                                                dispatch(
-                                                    listaSoportesTecnicosThunk({
-                                                        id_orden: detalleOrdenTrabajo.id,
-                                                    }),
-                                                );
-                                            } catch (e: any) {
-                                                const msg = Object.values(e?.response?.data || {})
-                                                    .flat()
-                                                    .join(' ');
+                                                refetchSoportes();
+                                            } catch (error: unknown) {
                                                 toast.error(
-                                                    msg || 'Error al eliminar soporte técnico',
+                                                    getErrorMessage(error) ||
+                                                        'Error al eliminar soporte técnico',
                                                 );
                                             }
                                         }}
@@ -769,22 +718,11 @@ function ListaSoportesTecnicosOT() {
 	*/
 
     useEffect(() => {
-        if (isOpenTecnico) {
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-            }
-        }
-    }, [isOpenTecnico, personalizacionUsuario]);
-
-    useEffect(() => {
         if (isOpenEstado) {
-            if (personalizacionUsuario?.empresa) {
-                dispatch(listaTecnicosThunk({ id_empresa: personalizacionUsuario.empresa }));
-            }
             setTecnicoSeleccionado(undefined);
             setFechaEnModal(undefined);
         }
-    }, [isOpenEstado, personalizacionUsuario]);
+    }, [isOpenEstado]);
 
     // Formik para Asignar Técnico en soportes técnicos
     const formikTecnico = useFormik({
@@ -799,37 +737,33 @@ function ListaSoportesTecnicosOT() {
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/soportes-tecnicos/${detalleSeleccionado}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({ tecnico_asignado: values.tecnico_asignado }),
-                });
-                if (response.data) {
-                    try {
-                        await ApiService.fetchData({
-                            url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/soportes-tecnicos/${detalleSeleccionado}/seguimientos/`,
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify({
-                                soporte_tecnico: detalleSeleccionado,
-                                usuario: null,
-                                tipo: values.tipo_seguimiento,
-                                comentario: values.comentario,
-                            }),
-                        });
-                    } catch (e) {
-                        // ignore seguimiento error
-                    }
-                    toast.success('Técnico asignado', { autoClose: 1000 });
-                    formikTecnico.resetForm();
-                    dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo?.id }));
-                    setIsOpenTecnico(false);
-                    setDetalleSeleccionado(null);
-                    setSelectedService(null);
+                await actualizarSoporte({
+                    ordenId: detalleOrdenTrabajo?.id ?? 0,
+                    soporteId: detalleSeleccionado ?? 0,
+                    data: { tecnico_asignado: values.tecnico_asignado },
+                }).unwrap();
+                try {
+                    await crearSeguimientoSoporte({
+                        ordenId: detalleOrdenTrabajo?.id ?? 0,
+                        soporteId: detalleSeleccionado ?? 0,
+                        data: {
+                            soporte_tecnico: detalleSeleccionado,
+                            usuario: null,
+                            tipo: values.tipo_seguimiento,
+                            comentario: values.comentario,
+                        },
+                    }).unwrap();
+                } catch {
+                    // ignore seguimiento error
                 }
-            } catch (error: any) {
-                toast.error(error?.response?.data || 'Error al asignar el tecnico');
+                toast.success('Técnico asignado', { autoClose: 1000 });
+                formikTecnico.resetForm();
+                refetchSoportes();
+                setIsOpenTecnico(false);
+                setDetalleSeleccionado(null);
+                setSelectedService(null);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al asignar el tecnico');
             }
         },
     });
@@ -847,23 +781,22 @@ function ListaSoportesTecnicosOT() {
             return;
         }
         try {
-            await ApiService.fetchData({
-                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/seguimientos/`,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({
+            await crearSeguimientoSoporte({
+                ordenId: detalleOrdenTrabajo.id,
+                soporteId: selectedService.id,
+                data: {
                     usuario: null,
                     tipo: tipoSeguimiento || 'comentario_tecnico',
                     comentario: comentarioSeguimiento,
-                }),
-            });
+                },
+            }).unwrap();
             toast.success('Seguimiento creado', { autoClose: 1000 });
             setIsOpenSeguimiento(false);
             setComentarioSeguimiento('');
             setTipoSeguimiento('comentario_tecnico');
-            fetchSeguimientosServicio(selectedService.id);
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Error al crear seguimiento');
+            refetchSeguimientos();
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error) || 'Error al crear seguimiento');
         }
     };
 
@@ -1136,8 +1069,8 @@ function ListaSoportesTecnicosOT() {
                     targetType='soporte'
                     targetId={soporteParaGuia ?? undefined}
                     onSuccess={() => {
-                        dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-                        dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
+                        refetchSoportes();
+                        refetchInsumos();
                     }}
                 />
             )}
@@ -1373,20 +1306,13 @@ function ListaSoportesTecnicosOT() {
                                     // Auto-start OT if pending
                                     if (detalleOrdenTrabajo.estado === 'pendiente') {
                                         try {
-                                            await ApiService.fetchData({
-                                                url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/`,
-                                                method: 'patch',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                data: JSON.stringify({ estado: 'en_proceso' }),
-                                            });
-                                            // Update OT details in store
-                                            dispatch(
-                                                detalleOrdenTrabajoThunk({
-                                                    id_ordenTrabajo: detalleOrdenTrabajo.id,
-                                                }),
-                                            );
-                                        } catch (e) {
-                                            console.error('Error auto-starting OT', e);
+                                            await updateOrdenTrabajo({
+                                                id: detalleOrdenTrabajo.id,
+                                                data: { estado: 'en_proceso' },
+                                            }).unwrap();
+                                            refetchDetalleOrdenTrabajo();
+                                        } catch (error) {
+                                            console.error('Error auto-starting OT', error);
                                         }
                                     }
                                 }
@@ -1439,28 +1365,18 @@ function ListaSoportesTecnicosOT() {
                                     return;
                                 }
                                 try {
-                                    const resp = await ApiService.fetchData({
-                                        url: `/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/soportes-tecnicos/${selectedService.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ fecha_soporte: fechaAsignar }),
-                                    });
-                                    if (resp.data) {
-                                        toast.success('Fecha asignada', { autoClose: 1000 });
-                                        dispatch(
-                                            listaSoportesTecnicosThunk({
-                                                id_orden: detalleOrdenTrabajo.id,
-                                            }),
-                                        );
-                                        setIsOpenAsignarFecha(false);
-                                        setFechaAsignar(undefined);
-                                        setSelectedService(null);
-                                    }
-                                } catch (e: any) {
-                                    const msg = Object.values(e?.response?.data || {})
-                                        .flat()
-                                        .join(' ');
-                                    toast.error(msg || 'Error al asignar fecha');
+                                    await actualizarSoporte({
+                                        ordenId: detalleOrdenTrabajo.id,
+                                        soporteId: selectedService.id,
+                                        data: { fecha_soporte: fechaAsignar },
+                                    }).unwrap();
+                                    toast.success('Fecha asignada', { autoClose: 1000 });
+                                    refetchSoportes();
+                                    setIsOpenAsignarFecha(false);
+                                    setFechaAsignar(undefined);
+                                    setSelectedService(null);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error) || 'Error al asignar fecha');
                                 }
                             }}>
                             Guardar
@@ -1483,8 +1399,8 @@ function ListaSoportesTecnicosOT() {
                 onSuccess={() => {
                     setIsOpenFirmaModal(false);
                     if (detalleOrdenTrabajo) {
-                        dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-                        dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+                        refetchSoportes();
+                        refetchCompletibilidad();
                     }
                 }}
             />
@@ -1505,11 +1421,7 @@ function ListaSoportesTecnicosOT() {
                         setSoporteTecnicoUsuarios(null);
                     }}
                     onSaved={() => {
-                        dispatch(
-                            listaSoportesTecnicosThunk({
-                                id_orden: detalleOrdenTrabajo.id,
-                            }),
-                        );
+                        refetchSoportes();
                     }}
                 />
             )}
@@ -1528,8 +1440,8 @@ function ListaSoportesTecnicosOT() {
                 onSuccess={() => {
                     setIsOpenFirmaModal(false);
                     if (detalleOrdenTrabajo) {
-                        dispatch(listaSoportesTecnicosThunk({ id_orden: detalleOrdenTrabajo.id }));
-                        dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
+                        refetchSoportes();
+                        refetchCompletibilidad();
                     }
                 }}
             />

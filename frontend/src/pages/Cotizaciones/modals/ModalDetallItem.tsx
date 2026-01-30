@@ -16,6 +16,7 @@ import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import { formatPrice, parseLocaleNumber } from '@/utils/currency';
 
 const ModalDetallItem = ({
     valuess,
@@ -38,7 +39,7 @@ const ModalDetallItem = ({
                 nombre: valuess.nombre || '',
                 descripcion: valuess.descripcion || '',
                 cantidad: valuess.cantidad,
-                precio_unitario: parseFloat(valuess.precio_unitario),
+                precio_unitario: formatPrice(parseLocaleNumber(valuess.precio_unitario)),
                 porcentaje_recargo: valuess.porcentaje_recargo || 0,
             });
         }
@@ -50,23 +51,31 @@ const ModalDetallItem = ({
             nombre: '',
             descripcion: '',
             cantidad: 0,
-            precio_unitario: 0,
+            precio_unitario: '',
             porcentaje_recargo: 0,
         },
         validationSchema: Yup.object().shape({
             nombre: Yup.string().required('Requerido'),
             descripcion: Yup.string().required('Requerido'),
             cantidad: Yup.number().required('Requerido').min(1, 'Debe ser mayor a 0'),
-            precio_unitario: Yup.string().required('Requerido'),
+            precio_unitario: Yup.string()
+                .required('Requerido')
+                .test('precio', 'Debe ser mayor o igual a 0', (value) => {
+                    return parseLocaleNumber(value || '') >= 0;
+                }),
         }),
         onSubmit: async (values) => {
             setIsSubmitting(true);
             try {
+                const precioUnitario = parseLocaleNumber(values.precio_unitario);
                 const response = await ApiService.fetchData({
                     url: `/api/cotizaciones/${id_cotizacion}/items/${id_item}/`,
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
+                    data: JSON.stringify({
+                        ...values,
+                        precio_unitario: precioUnitario,
+                    }),
                 });
                 if (response.data) {
                     toast.success('Item actualizado', { autoClose: 1000 });
@@ -169,9 +178,15 @@ const ModalDetallItem = ({
                                         <Input
                                             name='precio_unitario'
                                             id='precio_unitario'
-                                            type='number'
+                                            type='text'
+                                            inputMode='decimal'
                                             onBlur={formikDetalle.handleBlur}
-                                            onChange={formikDetalle.handleChange}
+                                            onChange={(e) =>
+                                                formikDetalle.setFieldValue(
+                                                    'precio_unitario',
+                                                    e.target.value,
+                                                )
+                                            }
                                             value={formikDetalle.values.precio_unitario}
                                         />
                                     </Validation>
@@ -210,7 +225,9 @@ const ModalDetallItem = ({
                                 </div>
                                 <div className='w-full'>
                                     <Badge>Precio Unitario</Badge>
-                                    <div className='ml-4'>{valuess.precio_unitario}</div>
+                                    <div className='ml-4'>
+                                        {formatPrice(parseLocaleNumber(valuess.precio_unitario))}
+                                    </div>
                                 </div>
                                 <div className='col-span-full'>
                                     <Badge>Descripcion</Badge>

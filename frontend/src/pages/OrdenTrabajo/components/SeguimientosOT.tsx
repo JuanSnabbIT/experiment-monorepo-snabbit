@@ -1,9 +1,9 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Icon from '@/components/icon/Icon';
 import Input from '@/components/form/Input';
-import { listarSeguimientosOTThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useGetSeguimientosOTQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { TIPO_SEGUIMIENTO } from '@/constants/ordentrabajo.constant';
 import { TColors } from '@/types/colors.type';
 import dayjs from 'dayjs';
@@ -11,17 +11,16 @@ import 'dayjs/locale/es';
 dayjs.locale('es');
 
 const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
-    const dispatch = useAppDispatch();
-    const { listaSeguimientosOT, loading } = useAppSelector((state) => state.ordenTrabajo);
+    const {
+        data: listaSeguimientosOT = [],
+        isLoading: loading,
+    } = useGetSeguimientosOTQuery(
+        { ordenId: ordenId || '' },
+        { skip: !ordenId },
+    );
     const [selectedTipo, setSelectedTipo] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [expandedComments, setExpandedComments] = useState<Set<number>>(new Set());
-
-    useEffect(() => {
-        if (ordenId) {
-            dispatch(listarSeguimientosOTThunk({ id_orden: ordenId }));
-        }
-    }, [dispatch, ordenId]);
 
     const obtenerIconoTipo = (tipo: string) => {
         const match = TIPO_SEGUIMIENTO.find((item) => item.value === tipo);

@@ -1,20 +1,21 @@
 import Icon from '@/components/icon/Icon';
 import Card, { CardBody } from '@/components/ui/Card';
-import { checkCompletibilidadOTThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect } from 'react';
+import {
+    useGetCheckCompletibilidadOTQuery,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useParams } from 'react-router-dom';
 import Marquee from 'react-fast-marquee';
 
 function MarqueeCompletibilidad() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, checkCompletibilidadOT } = useAppSelector(
-        (state) => state.ordenTrabajo,
+    const { id } = useParams<{ id: string }>();
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(id || '', {
+        skip: !id,
+    });
+    const { data: checkCompletibilidadOT } = useGetCheckCompletibilidadOTQuery(
+        detalleOrdenTrabajo?.id || '',
+        { skip: !detalleOrdenTrabajo?.id },
     );
-
-    useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(checkCompletibilidadOTThunk({ id_orden: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
 
     return (
         <Card>

@@ -3,21 +3,16 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { detalleAdjuntoThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect } from 'react';
+import { useGetDetalleAdjuntoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useNavigate, useParams } from 'react-router-dom';
 
 function VistaPreviaAdjunto() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id, idOrden } = useParams();
-    const { detalleAdjunto } = useAppSelector((state) => state.ordenTrabajo);
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleAdjuntoThunk({ id_adjunto: id, id_orden: idOrden }));
-        }
-    }, [id]);
+    const { data: detalleAdjunto } = useGetDetalleAdjuntoQuery(
+        { ordenId: idOrden ?? '', adjuntoId: id ?? '' },
+        { skip: !id || !idOrden },
+    );
 
     return (
         <PageWrapper
