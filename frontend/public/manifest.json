@@ -1,29 +1,29 @@
 {
-	"theme_color": "#0f8bff",
-	"background_color": "#ffffff",
-	"icons": [
-		{
-			"src": "favicon.ico",
-			"sizes": "64x64 32x32 24x24 16x16",
-			"type": "image/x-icon"
-		},
-		{
-			"src": "logo192.png",
-			"type": "image/png",
-			"sizes": "192x192"
-		},
-		{
-			"src": "logo512.png",
-			"type": "image/png",
-			"sizes": "512x512"
-		}
-	],
-	"orientation": "any",
-	"display": "standalone",
-	"dir": "auto",
-	"lang": "es-419",
-	"name": "Plataforma de Gestión Snabbit",
-	"short_name": "Sistema de Gestion y Control de Procesos",
-	"start_url": ".",
-	"description": "Gestión Interna"
+    "theme_color": "#0f8bff",
+    "background_color": "#ffffff",
+    "icons": [
+        {
+            "src": "favicon.ico",
+            "sizes": "64x64 32x32 24x24 16x16",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "logo192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "logo512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ],
+    "orientation": "any",
+    "display": "standalone",
+    "dir": "auto",
+    "lang": "es-419",
+    "name": "Plataforma de Gestión Snabbit",
+    "short_name": "Sistema de Gestion y Control de Procesos",
+    "start_url": ".",
+    "description": "Gestión Interna"
 }

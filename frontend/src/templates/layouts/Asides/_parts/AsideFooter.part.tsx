@@ -1,10 +1,10 @@
 import React from 'react';
 import Nav, {
-	NavButton,
-	NavCollapse,
-	NavItem,
-	NavSeparator,
-	NavTitle,
+    NavButton,
+    NavCollapse,
+    NavItem,
+    NavSeparator,
+    NavTitle,
 } from '../../../../components/layouts/Navigation/Nav';
 import Badge from '../../../../components/ui/Badge';
 import UserTemplate from '../../User/User.template';
@@ -12,9 +12,9 @@ import DarkModeSwitcherPart from './DarkModeSwitcher.part';
 import { AsideFooter } from '../../../../components/layouts/Aside/Aside';
 
 const AsideFooterPart = () => {
-	return (
-		<AsideFooter>
-			{/* <Nav>
+    return (
+        <AsideFooter>
+            {/* <Nav>
 				<NavSeparator />
 				<NavCollapse text='Nav Collapse' to='/' icon='HeroQueueList'>
 					<NavItem text='Nav item' icon='HeroPencil' />
@@ -43,10 +43,10 @@ const AsideFooterPart = () => {
 				</NavCollapse>
 			</Nav> */}
 
-			<UserTemplate />
-			<DarkModeSwitcherPart />
-		</AsideFooter>
-	);
+            <UserTemplate />
+            <DarkModeSwitcherPart />
+        </AsideFooter>
+    );
 };
 
 export default AsideFooterPart;

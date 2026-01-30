@@ -1,14 +1,22 @@
-import Icon from "@/components/icon/Icon"
-import Badge from "@/components/ui/Badge"
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
-import { IItemCotizacion } from "@/interface/cotizaciones.interface"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { formatCurrency } from '@/utils/currency'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useState } from "react"
-
+import Icon from '@/components/icon/Icon';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IItemCotizacion } from '@/interface/cotizaciones.interface';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { formatCurrency } from '@/utils/currency';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useState } from 'react';
 
 const columnHelper = createColumnHelper<IItemCotizacion>();
 
@@ -19,16 +27,15 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
     // Forzado a CLP para la pestaña de impuestos (uso interno)
     const monedaImpuestos = 'CLP';
 
-
     const columns = [
-        columnHelper.accessor("nombre_item", {
+        columnHelper.accessor('nombre_item', {
             cell: (info) => (
                 <div>
                     <div>{info.getValue()}</div>
                     <div className='text-xs'>{info.row.original.descripcion}</div>
                 </div>
             ),
-            header: "Nombre"
+            header: 'Nombre',
         }),
         columnHelper.display({
             cell: (info) => {
@@ -36,44 +43,44 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
                 const monto = item.precio_total_backend.clp;
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "Total Neto"
+            header: 'Total Neto',
         }),
-        columnHelper.accessor("recargo_iva_venta", {
+        columnHelper.accessor('recargo_iva_venta', {
             cell: (info) => {
                 const monto = Number(info.getValue() || 0);
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "IVA Venta"
+            header: 'IVA Venta',
         }),
-        columnHelper.accessor("iva_compra", {
+        columnHelper.accessor('iva_compra', {
             cell: (info) => {
                 const monto = Number(info.getValue() || 0);
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "IVA Compra"
+            header: 'IVA Compra',
         }),
-        columnHelper.accessor("valor_ppm", {
+        columnHelper.accessor('valor_ppm', {
             cell: (info) => {
                 const monto = Number(info.getValue() || 0);
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "PPM"
+            header: 'PPM',
         }),
-        columnHelper.accessor("total_impuesto", {
+        columnHelper.accessor('total_impuesto', {
             cell: (info) => {
                 const monto = Number(info.getValue() || 0);
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "Total Impuesto"
+            header: 'Total Impuesto',
         }),
-        columnHelper.accessor("ganancia", {
+        columnHelper.accessor('ganancia', {
             cell: (info) => {
                 const monto = Number(info.getValue() || 0);
                 return <div>{formatCurrency(monto, monedaImpuestos)}</div>;
             },
-            header: "Ganancia"
-        })
-    ]
+            header: 'Ganancia',
+        }),
+    ];
 
     const table = useReactTable({
         data: items,
@@ -88,22 +95,26 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
         <Card>
             <CardHeader>
                 <CardHeaderChild>
-                    <Badge className="text-xl">Cotización</Badge>
+                    <Badge className='text-xl'>Cotización</Badge>
                 </CardHeaderChild>
                 <CardHeaderChild>
-                    <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={200} />
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
                 </CardHeaderChild>
             </CardHeader>
-            <CardBody className="z-0">
-                <div className="overflow-auto">
-                    <Table className='table-fixed min-w-[700px]'>
+            <CardBody className='z-0'>
+                <div className='overflow-auto'>
+                    <Table className='min-w-[700px] table-fixed'>
                         <THead>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
@@ -140,7 +151,8 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
                                                             />
                                                         ),
-                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                    }[header.column.getIsSorted() as string] ??
+                                                        null}
                                                 </div>
                                             )}
                                         </Th>
@@ -153,20 +165,23 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
                                 <Tr key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
                                         <Td key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
                                         </Td>
                                     ))}
                                 </Tr>
                             ))}
                         </TBody>
                     </Table>
-                    <div className="mt-2 min-w-[700px]">
+                    <div className='mt-2 min-w-[700px]'>
                         <TableCardFooterTemplateV2 table={table} />
                     </div>
                 </div>
             </CardBody>
         </Card>
-    )
+    );
 }
 
-export default TablaImpuestos
+export default TablaImpuestos;

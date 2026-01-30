@@ -13,7 +13,7 @@ export type EndpointDetalleTrabajo = 'soportes-tecnicos' | 'servicios-generales'
  * (presencial o remoto)
  */
 export const isSoporteTecnico = (tipoServicio: TipoServicio | string): boolean => {
-	return ['soporte_p', 'soporte_r'].includes(tipoServicio);
+    return ['soporte_p', 'soporte_r'].includes(tipoServicio);
 };
 
 /**
@@ -23,9 +23,9 @@ export const isSoporteTecnico = (tipoServicio: TipoServicio | string): boolean =
  * @returns 'soportes-tecnicos' para soporte | 'servicios-generales' para general
  */
 export const getDetalleTrabajoEndpoint = (
-	tipoServicio: TipoServicio | string,
+    tipoServicio: TipoServicio | string,
 ): EndpointDetalleTrabajo => {
-	return isSoporteTecnico(tipoServicio) ? 'soportes-tecnicos' : 'servicios-generales';
+    return isSoporteTecnico(tipoServicio) ? 'soportes-tecnicos' : 'servicios-generales';
 };
 
 /**
@@ -47,13 +47,13 @@ export const getDetalleTrabajoEndpoint = (
  * // => "/api/ordenes-de-trabajo/123/servicios-generales/456/"
  */
 export const buildDetalleTrabajoURL = (
-	ordenId: number | string,
-	tipoServicio: TipoServicio | string,
-	detalleId?: number | string,
+    ordenId: number | string,
+    tipoServicio: TipoServicio | string,
+    detalleId?: number | string,
 ): string => {
-	const endpoint = getDetalleTrabajoEndpoint(tipoServicio);
-	const base = `/api/ordenes-de-trabajo/${ordenId}/${endpoint}/`;
-	return detalleId ? `${base}${detalleId}/` : base;
+    const endpoint = getDetalleTrabajoEndpoint(tipoServicio);
+    const base = `/api/ordenes-de-trabajo/${ordenId}/${endpoint}/`;
+    return detalleId ? `${base}${detalleId}/` : base;
 };
 
 /**
@@ -65,24 +65,24 @@ export const buildDetalleTrabajoURL = (
  * @returns URL para el endpoint de actualizar-estado
  */
 export const buildActualizarEstadoURL = (
-	ordenId: number | string,
-	tipoServicio: TipoServicio | string,
-	detalleId: number | string,
+    ordenId: number | string,
+    tipoServicio: TipoServicio | string,
+    detalleId: number | string,
 ): string => {
-	const base = buildDetalleTrabajoURL(ordenId, tipoServicio, detalleId);
-	return `${base}actualizar-estado/`;
+    const base = buildDetalleTrabajoURL(ordenId, tipoServicio, detalleId);
+    return `${base}actualizar-estado/`;
 };
 
 /**
  * Obtiene el label de tipo de servicio para mostrar en la UI
  */
 export const getTipoServicioLabel = (tipoServicio: TipoServicio | string): string => {
-	const labels: Record<string, string> = {
-		general: 'Servicios Generales',
-		soporte_r: 'Soporte Técnico Remoto',
-		soporte_p: 'Soporte Técnico Presencial',
-	};
-	return labels[tipoServicio] || tipoServicio;
+    const labels: Record<string, string> = {
+        general: 'Servicios Generales',
+        soporte_r: 'Soporte Técnico Remoto',
+        soporte_p: 'Soporte Técnico Presencial',
+    };
+    return labels[tipoServicio] || tipoServicio;
 };
 
 /**
@@ -90,5 +90,5 @@ export const getTipoServicioLabel = (tipoServicio: TipoServicio | string): strin
  * (Solo para soporte técnico con usuarios)
  */
 export const requiereUsuariosEquipo = (tipoServicio: TipoServicio | string): boolean => {
-	return isSoporteTecnico(tipoServicio);
+    return isSoporteTecnico(tipoServicio);
 };

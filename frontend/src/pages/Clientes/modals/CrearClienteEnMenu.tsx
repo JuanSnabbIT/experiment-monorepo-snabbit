@@ -1,79 +1,114 @@
-import Input from "@/components/form/Input"
-import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalHeader } from "@/components/ui/Modal"
-import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { useEffect, useState } from "react"
-import { toast } from "react-toastify"
-import { listaEmpresasThunk, listaMisClientesThunk } from "@/store/slices/empresa/empresaSlice"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import Icon from "@/components/icon/Icon"
-import { IEmpresa } from "@/interface/empresas.interface"
-import Tooltip from "@/components/ui/Tooltip"
-import Badge from "@/components/ui/Badge"
-import { NavItem } from "@/components/layouts/Navigation/Nav"
+import Input from '@/components/form/Input';
+import Button from '@/components/ui/Button';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
+import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import { listaEmpresasThunk, listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import Icon from '@/components/icon/Icon';
+import { IEmpresa } from '@/interface/empresas.interface';
+import Tooltip from '@/components/ui/Tooltip';
+import Badge from '@/components/ui/Badge';
+import { NavItem } from '@/components/layouts/Navigation/Nav';
 
-
-const columnHelper = createColumnHelper<IEmpresa>()
+const columnHelper = createColumnHelper<IEmpresa>();
 
 function CrearClienteEnMenu() {
-    const dispatch = useAppDispatch()
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaEmpresas, listaMisClientes } = useAppSelector((state) => state.empresa)
-    const [empresas, setEmpresas] = useState<IEmpresa[]>([])
-    const [isOpen, setIsOpen] = useState<boolean>(false)
+    const dispatch = useAppDispatch();
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { listaEmpresas, listaMisClientes } = useAppSelector((state) => state.empresa);
+    const [empresas, setEmpresas] = useState<IEmpresa[]>([]);
+    const [isOpen, setIsOpen] = useState<boolean>(false);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-    const [isCreating, setIsCreating] = useState<boolean>(false)
+    const [isCreating, setIsCreating] = useState<boolean>(false);
 
     useEffect(() => {
         if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaEmpresasThunk())
-            dispatch(listaMisClientesThunk({id_empresa: personalizacionUsuario.empresa}))
+            dispatch(listaEmpresasThunk());
+            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
         }
-    }, [isOpen, personalizacionUsuario])
+    }, [isOpen, personalizacionUsuario]);
 
     useEffect(() => {
         if (listaEmpresas.length > 0) {
-            setEmpresas(listaEmpresas.filter(empresa => empresa.id != personalizacionUsuario?.empresa && !listaMisClientes.some(emp => emp.info_cliente.id === empresa.id && emp.info_prestador_servicios.id === personalizacionUsuario?.empresa)))
+            setEmpresas(
+                listaEmpresas.filter(
+                    (empresa) =>
+                        empresa.id != personalizacionUsuario?.empresa &&
+                        !listaMisClientes.some(
+                            (emp) =>
+                                emp.info_cliente.id === empresa.id &&
+                                emp.info_prestador_servicios.id === personalizacionUsuario?.empresa,
+                        ),
+                ),
+            );
         }
-    }, [listaEmpresas, listaMisClientes])
+    }, [listaEmpresas, listaMisClientes]);
 
     const columns = [
-        columnHelper.accessor("nombre", {
+        columnHelper.accessor('nombre', {
             cell: (info) => info.getValue(),
-            header: "Nombre" 
+            header: 'Nombre',
         }),
-        columnHelper.accessor("direccion_principal", {
+        columnHelper.accessor('direccion_principal', {
             cell: (info) => info.getValue(),
-            header: "Dirección Principal"
+            header: 'Dirección Principal',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Tooltip text="Añadir como cliente">
-                        <Button isDisable={isCreating} variant="solid" size="sm" icon="HeroPlus" onClick={async () => {
-                            setIsCreating(true)
-                            try {
-                                const response = await ApiService.fetchData({url: `/api/relaciones-empresa/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({prestador_servicios: personalizacionUsuario?.empresa, cliente: info.row.original.id})})
-                                if (response.data) {
-                                    dispatch(listaMisClientesThunk({id_empresa: personalizacionUsuario?.empresa}))
-                                    setIsCreating(false)
+                    <Tooltip text='Añadir como cliente'>
+                        <Button
+                            isDisable={isCreating}
+                            variant='solid'
+                            size='sm'
+                            icon='HeroPlus'
+                            onClick={async () => {
+                                setIsCreating(true);
+                                try {
+                                    const response = await ApiService.fetchData({
+                                        url: `/api/relaciones-empresa/`,
+                                        method: 'post',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        data: JSON.stringify({
+                                            prestador_servicios: personalizacionUsuario?.empresa,
+                                            cliente: info.row.original.id,
+                                        }),
+                                    });
+                                    if (response.data) {
+                                        dispatch(
+                                            listaMisClientesThunk({
+                                                id_empresa: personalizacionUsuario?.empresa,
+                                            }),
+                                        );
+                                        setIsCreating(false);
+                                    }
+                                } catch (error: any) {
+                                    toast.error(error.response.data);
+                                    setIsCreating(false);
                                 }
-                            } catch (error: any) {
-                                toast.error(error.response.data)
-                                setIsCreating(false)
-                            }
-                        }}></Button>
+                            }}></Button>
                     </Tooltip>
                 </div>
             ),
-            header: ""
-        })
-    ]
+            header: '',
+        }),
+    ];
 
     const table = useReactTable({
         data: empresas,
@@ -88,28 +123,39 @@ function CrearClienteEnMenu() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
         <>
-            <NavItem onClick={() => {setIsOpen(true)}} text={"Vincular Cliente"} icon="DuoPlus"></NavItem>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true} isStaticBackdropAnimation={false}>
+            <NavItem
+                onClick={() => {
+                    setIsOpen(true);
+                }}
+                text={'Vincular Cliente'}
+                icon='DuoPlus'></NavItem>
+            <Modal
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                isStaticBackdrop={true}
+                isStaticBackdropAnimation={false}>
                 <ModalHeader>
-                    <Badge className="text-xl">Vincular Cliente</Badge>
+                    <Badge className='text-xl'>Vincular Cliente</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <div className="flex justify-end gap-4 mb-4">
+                    <div className='mb-4 flex justify-end gap-4'>
                         <div>
                             <Input
-                                name="globalFilter"
-                                placeholder="Buscar..."
+                                name='globalFilter'
+                                placeholder='Buscar...'
                                 value={globalFilter}
-                                onChange={(e) => { setGlobalFilter(e.target.value) }}
+                                onChange={(e) => {
+                                    setGlobalFilter(e.target.value);
+                                }}
                             />
                         </div>
                     </div>
-                    <Table className='table-fixed min-w-[600px]'>
+                    <Table className='min-w-[600px] table-fixed'>
                         <THead>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
@@ -146,7 +192,8 @@ function CrearClienteEnMenu() {
                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
                                                             />
                                                         ),
-                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                    }[header.column.getIsSorted() as string] ??
+                                                        null}
                                                 </div>
                                             )}
                                         </Th>
@@ -159,20 +206,23 @@ function CrearClienteEnMenu() {
                                 <Tr key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
                                         <Td key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
                                         </Td>
                                     ))}
                                 </Tr>
                             ))}
                         </TBody>
                     </Table>
-                    <div className="mt-2 min-w-[600px]">
+                    <div className='mt-2 min-w-[600px]'>
                         <TableCardFooterTemplateV2 table={table} />
                     </div>
                 </ModalBody>
             </Modal>
         </>
-    )
+    );
 }
 
-export default CrearClienteEnMenu
+export default CrearClienteEnMenu;

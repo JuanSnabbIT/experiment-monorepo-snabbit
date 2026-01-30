@@ -1,75 +1,91 @@
-import Icon from '@/components/icon/Icon'
-import Container from '@/components/layouts/Container/Container'
-import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
-import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
-import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar'
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import Card, { CardBody } from '@/components/ui/Card'
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table'
-import Tooltip from '@/components/ui/Tooltip'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
-import { IVisitaSoporte } from '@/interface/visitas.interface'
-import { listaVisitasSoporteThunk, useAppDispatch, useAppSelector } from '@/store'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table'
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import CrearVisitaSoporte from './modals/CrearVisitaSoporte'
+import Icon from '@/components/icon/Icon';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IVisitaSoporte } from '@/interface/visitas.interface';
+import { listaVisitasSoporteThunk, useAppDispatch, useAppSelector } from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import CrearVisitaSoporte from './modals/CrearVisitaSoporte';
 
-
-const columnHelper = createColumnHelper<IVisitaSoporte>()
+const columnHelper = createColumnHelper<IVisitaSoporte>();
 
 const ListaVisitas = () => {
-    const dispatch = useAppDispatch()
-	const navigate = useNavigate()
-	const { listaVisitasSoporte } = useAppSelector((state) => state.visita)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-	const [sorting, setSorting] = useState<SortingState>([]);
-	const [globalFilter, setGlobalFilter] = useState<string>('');
- 
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { listaVisitasSoporte } = useAppSelector((state) => state.visita);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
+
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaVisitasSoporteThunk())
+            dispatch(listaVisitasSoporteThunk());
         }
-    }, [personalizacionUsuario])
+    }, [personalizacionUsuario]);
 
     const columns = [
-        columnHelper.accessor("id", {
+        columnHelper.accessor('id', {
             cell: (info) => info.getValue(),
-            header: "N°",
+            header: 'N°',
             size: 20,
             minSize: 15,
-            maxSize: 30
+            maxSize: 30,
         }),
-        columnHelper.accessor("empresa_nombre", {
+        columnHelper.accessor('empresa_nombre', {
             cell: (info) => info.getValue(),
-            header: "Empresa"
+            header: 'Empresa',
         }),
-        columnHelper.accessor("cliente_nombre", {
+        columnHelper.accessor('cliente_nombre', {
             cell: (info) => info.getValue(),
-            header: "Cliente"
+            header: 'Cliente',
         }),
-        columnHelper.accessor("descripcion_servicio", {
+        columnHelper.accessor('descripcion_servicio', {
             cell: (info) => info.getValue(),
-            header: "Descipción Servicio"
+            header: 'Descipción Servicio',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
-                <div className="flex justify-center gap-2">
-                    <Tooltip text="Detalle Asistencia">
-                        <Button color='violet' variant="solid" onClick={() => {navigate(`/orden-trabajo/detalle-visita-soporte/${info.row.original.id}`)}} icon="HeroEye"></Button>
+                <div className='flex justify-center gap-2'>
+                    <Tooltip text='Detalle Asistencia'>
+                        <Button
+                            color='violet'
+                            variant='solid'
+                            onClick={() => {
+                                navigate(
+                                    `/orden-trabajo/detalle-visita-soporte/${info.row.original.id}`,
+                                );
+                            }}
+                            icon='HeroEye'></Button>
                     </Tooltip>
-                    <ConfirmarEliminar 
-                        mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.cliente_nombre} ¿desea continuar?`} 
+                    <ConfirmarEliminar
+                        mensaje={`Estas a punto de eliminar esta asistencia en ${info.row.original.cliente_nombre} ¿desea continuar?`}
                         peticionUrl={`/api/visitas-soporte/${info.row.original.id}/`}
                         onDispatch={() => dispatch(listaVisitasSoporteThunk())}
                     />
                 </div>
-            )
-        })
-    ]
+            ),
+        }),
+    ];
 
     const table = useReactTable({
         data: listaVisitasSoporte,
@@ -84,26 +100,32 @@ const ListaVisitas = () => {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Asistencias Técnicas" title="Asistencias Técnicas">
+        <PageWrapper
+            isProtectedRoute={true}
+            name='Asistencias Técnicas'
+            title='Asistencias Técnicas'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Asistencias Técnicas</Badge>
+                    <Badge className='text-xl'>Asistencias Técnicas</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={200}>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}>
                         <CrearVisitaSoporte />
                     </AnimacionDeInputModoMovil>
                 </SubheaderRight>
             </Subheader>
-            <Container className="w-full h-full">
+            <Container className='h-full w-full'>
                 <Card>
                     <CardBody className='z-0'>
-                        <div className="overflow-auto">
-                            <Table className='table-fixed min-w-[800px]'>
+                        <div className='overflow-auto'>
+                            <Table className='min-w-[800px] table-fixed'>
                                 <THead>
                                     {table.getHeaderGroups().map((headerGroup) => (
                                         <Tr key={headerGroup.id}>
@@ -118,9 +140,10 @@ const ListaVisitas = () => {
                                                             key={header.id}
                                                             aria-hidden='true'
                                                             {...{
-                                                                className: header.column.getCanSort()
-                                                                    ? 'cursor-pointer select-none flex items-center'
-                                                                    : '',
+                                                                className:
+                                                                    header.column.getCanSort()
+                                                                        ? 'cursor-pointer select-none flex items-center'
+                                                                        : '',
                                                                 onClick:
                                                                     header.column.getToggleSortingHandler(),
                                                             }}>
@@ -141,7 +164,9 @@ const ListaVisitas = () => {
                                                                         className='ltr:ml-1.5 rtl:mr-1.5'
                                                                     />
                                                                 ),
-                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                            }[
+                                                                header.column.getIsSorted() as string
+                                                            ] ?? null}
                                                         </div>
                                                     )}
                                                 </Th>
@@ -154,14 +179,17 @@ const ListaVisitas = () => {
                                         <Tr key={row.id}>
                                             {row.getVisibleCells().map((cell) => (
                                                 <Td key={cell.id}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext(),
+                                                    )}
                                                 </Td>
                                             ))}
                                         </Tr>
                                     ))}
                                 </TBody>
                             </Table>
-                            <div className="mt-2 min-w-[800px]">
+                            <div className='mt-2 min-w-[800px]'>
                                 <TableCardFooterTemplateV2 table={table} />
                             </div>
                         </div>
@@ -169,7 +197,7 @@ const ListaVisitas = () => {
                 </Card>
             </Container>
         </PageWrapper>
-    )
-}
+    );
+};
 
-export default ListaVisitas
+export default ListaVisitas;

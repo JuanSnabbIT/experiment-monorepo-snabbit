@@ -630,7 +630,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="items-resumen")
     def items_resumen(self, request, pk=None):
         """
-        Retorna un resumen de items con cantidad pedida y recibida (segÃºn recepciones).
+        Retorna un resumen de items con cantidad pedida y recibida (según recepciones).
         """
         cotizacion = self.get_object()
         items = list(cotizacion.items.select_related("item_empresa"))

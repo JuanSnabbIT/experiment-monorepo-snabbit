@@ -1,17 +1,16 @@
-import Container from "@/components/layouts/Container/Container";
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper";
-import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader";
-import Button from "@/components/ui/Button";
-import { detalleContratoEmpresaClienteThunk, useAppDispatch, useAppSelector } from "@/store"
-import { useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import dayjs from "dayjs";
-import 'dayjs/locale/es'
-import PDFContratoServicios from "./PDFContratoServicios";
-import { useReactToPrint } from "react-to-print";
-import PDFContratoLicencias from "./PDFContratoLicencias";
-import PDFContratoVenta from "./PDFContratoVenta";
-
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Button from '@/components/ui/Button';
+import { detalleContratoEmpresaClienteThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import PDFContratoServicios from './PDFContratoServicios';
+import { useReactToPrint } from 'react-to-print';
+import PDFContratoLicencias from './PDFContratoLicencias';
+import PDFContratoVenta from './PDFContratoVenta';
 
 // Componente Header que se repetirá en todas las páginas gracias al "fixed"
 // const Header = () => (
@@ -27,66 +26,85 @@ import PDFContratoVenta from "./PDFContratoVenta";
 // );
 
 function PDFContrato() {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { id } = useParams()
-    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato)
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { id } = useParams();
+    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato);
     const componentRef = useRef<HTMLDivElement>(null);
-    const reactToPrintFn = useReactToPrint({ contentRef: componentRef});
+    const reactToPrintFn = useReactToPrint({ contentRef: componentRef });
 
     useEffect(() => {
         if (id) {
-            dispatch(detalleContratoEmpresaClienteThunk({id_contrato: id}))
+            dispatch(detalleContratoEmpresaClienteThunk({ id_contrato: id }));
         }
-    }, [id])
+    }, [id]);
 
     return (
-        <PageWrapper isProtectedRoute={false} name="Contratos del Cliente" title="Contratos del Cliente">
+        <PageWrapper
+            isProtectedRoute={false}
+            name='Contratos del Cliente'
+            title='Contratos del Cliente'>
             <Subheader>
                 <SubheaderLeft>
-                    <div className="w-full flex gap-4">
-                        <Button icon="HeroArrowSmallLeft" onClick={() => {navigate(-1)}} />
+                    <div className='flex w-full gap-4'>
+                        <Button
+                            icon='HeroArrowSmallLeft'
+                            onClick={() => {
+                                navigate(-1);
+                            }}
+                        />
                     </div>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <Button icon="HeroPrinter" onClick={() => {
-                        // if (componentRef.current) {
-                        //     const printContents = componentRef.current.innerHTML;
-                        //     const printWindow = window.open('', '', 'height=600,width=800');
-                        //     if (printWindow) {
-                        //         printWindow.document.write(`
-                        //             <html>
-                        //                 <head>
-                        //                     <title>Imprimir Componente</title>
-                        //                     <link rel="stylesheet" type="text/css" href="/styles/index.css">
-                        //                     <link rel="stylesheet" type="text/css" href="/styles/vendors.css">
-                        //                 </head>
-                        //                 <body>
-                        //                     ${printContents}
-                        //                 </body>
-                        //             </html>
-                        //         `);
-                        //         printWindow.document.close(); // Finaliza la escritura del documento.
-                        //         printWindow.focus(); // Fija el foco en la nueva ventana.
-                        //         printWindow.print(); // Llama a la función de impresión.
-                        //         printWindow.close(); // Cierra la ventana de impresión tras ejecutarla.
-                        //     }
-                        // }
-                        reactToPrintFn()
-                    }}></Button>
+                    <Button
+                        icon='HeroPrinter'
+                        onClick={() => {
+                            // if (componentRef.current) {
+                            //     const printContents = componentRef.current.innerHTML;
+                            //     const printWindow = window.open('', '', 'height=600,width=800');
+                            //     if (printWindow) {
+                            //         printWindow.document.write(`
+                            //             <html>
+                            //                 <head>
+                            //                     <title>Imprimir Componente</title>
+                            //                     <link rel="stylesheet" type="text/css" href="/styles/index.css">
+                            //                     <link rel="stylesheet" type="text/css" href="/styles/vendors.css">
+                            //                 </head>
+                            //                 <body>
+                            //                     ${printContents}
+                            //                 </body>
+                            //             </html>
+                            //         `);
+                            //         printWindow.document.close(); // Finaliza la escritura del documento.
+                            //         printWindow.focus(); // Fija el foco en la nueva ventana.
+                            //         printWindow.print(); // Llama a la función de impresión.
+                            //         printWindow.close(); // Cierra la ventana de impresión tras ejecutarla.
+                            //     }
+                            // }
+                            reactToPrintFn();
+                        }}></Button>
                 </SubheaderRight>
             </Subheader>
-            <Container className="h-full w-full md:max-w-[800px]">
+            <Container className='h-full w-full md:max-w-[800px]'>
                 {detalleContratoEmpresaCliente ? (
                     <>
-                        {detalleContratoEmpresaCliente.tipo === "servicios" && (
-                            <PDFContratoServicios contrato={detalleContratoEmpresaCliente} componentRef={componentRef} />
+                        {detalleContratoEmpresaCliente.tipo === 'servicios' && (
+                            <PDFContratoServicios
+                                contrato={detalleContratoEmpresaCliente}
+                                componentRef={componentRef}
+                            />
                         )}
-                        {detalleContratoEmpresaCliente.tipo === "licencia" && (
-                            <PDFContratoLicencias contrato={detalleContratoEmpresaCliente} componentRef={componentRef} />
+                        {detalleContratoEmpresaCliente.tipo === 'licencia' && (
+                            <PDFContratoLicencias
+                                contrato={detalleContratoEmpresaCliente}
+                                componentRef={componentRef}
+                            />
                         )}
-                        {detalleContratoEmpresaCliente.tipo === "venta" && (
-                            <PDFContratoVenta contrato={detalleContratoEmpresaCliente} componentRef={componentRef} />
+                        {detalleContratoEmpresaCliente.tipo === 'venta' && (
+                            <PDFContratoVenta
+                                contrato={detalleContratoEmpresaCliente}
+                                componentRef={componentRef}
+                            />
                         )}
                     </>
                 ) : (
@@ -104,10 +122,10 @@ function PDFContrato() {
                 </PDFViewer> */}
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default PDFContrato
+export default PDFContrato;
 
 // // Definición de estilos
 // const styles = StyleSheet.create({

@@ -9,7 +9,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
-
 const validationSchema = Yup.object().shape({
     new_password: Yup.string().required('La nueva contraseña es obligatoria'),
     re_new_password: Yup.string()
@@ -29,40 +28,52 @@ const ConfirmarNuevaPass = () => {
         validationSchema,
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({url: `/auth/users/reset_password_confirm/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                    uid: uid,
-                    token: token,
-                    ...values
-                })})
+                const response = await ApiService.fetchData({
+                    url: `/auth/users/reset_password_confirm/`,
+                    method: 'post',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify({
+                        uid: uid,
+                        token: token,
+                        ...values,
+                    }),
+                });
                 if (response.status === 204) {
-                    toast.success("Contraseña reestablecida", {autoClose: 1000})
-                    navigate('/login')
+                    toast.success('Contraseña reestablecida', { autoClose: 1000 });
+                    navigate('/login');
                 }
             } catch (error: any) {
-                toast.error(error.response.data || "Error al confirmar la contraseña", {toastId: "Error al confirmar la contraseña"})
+                toast.error(error.response.data || 'Error al confirmar la contraseña', {
+                    toastId: 'Error al confirmar la contraseña',
+                });
             }
         },
     });
 
     return (
-        <PageWrapper isProtectedRoute={false} className='bg-white dark:bg-inherit' name='Confirmar Contraseña' title='Confirmar Contraseña'>
+        <PageWrapper
+            isProtectedRoute={false}
+            className='bg-white dark:bg-inherit'
+            name='Confirmar Contraseña'
+            title='Confirmar Contraseña'>
             <div className='container mx-auto flex h-full items-center justify-center p-8'>
-                <div className='flex max-w-sm flex-col gap-8 p-6 '>
+                <div className='flex max-w-sm flex-col gap-8 p-6'>
                     <div>
                         <LogoTemplate className='h-12' />
                     </div>
                     <div>
-                        <span className='text-4xl font-semibold text-gray-900 dark:text-gray-100'>Reestablecer Contraseña</span>
+                        <span className='text-4xl font-semibold text-gray-900 dark:text-gray-100'>
+                            Reestablecer Contraseña
+                        </span>
                     </div>
-                    <div  className='flex flex-col gap-4'>
+                    <div className='flex flex-col gap-4'>
                         <Validation
                             isValid={formik.isValid}
                             isTouched={formik.touched.new_password}
-                            invalidFeedback={formik.errors.new_password}
-                        >
+                            invalidFeedback={formik.errors.new_password}>
                             <Input
-                                type="password"
-                                name="new_password"
+                                type='password'
+                                name='new_password'
                                 placeholder={'Nueva contraseña'}
                                 value={formik.values.new_password}
                                 onBlur={formik.handleBlur}
@@ -73,11 +84,10 @@ const ConfirmarNuevaPass = () => {
                         <Validation
                             isValid={formik.isValid}
                             isTouched={formik.touched.re_new_password}
-                            invalidFeedback={formik.errors.re_new_password}
-                        >
+                            invalidFeedback={formik.errors.re_new_password}>
                             <Input
-                                type="password"
-                                name="re_new_password"
+                                type='password'
+                                name='re_new_password'
                                 placeholder={'Confirmar nueva contraseña'}
                                 value={formik.values.re_new_password}
                                 onBlur={formik.handleBlur}
@@ -85,10 +95,10 @@ const ConfirmarNuevaPass = () => {
                                 className='w-full p-2'
                             />
                         </Validation>
-                        <Button variant='solid'
+                        <Button
+                            variant='solid'
                             onClick={() => formik.handleSubmit()}
-                            className='w-full'
-                        >
+                            className='w-full'>
                             Reestablecer Contraseña
                         </Button>
                     </div>

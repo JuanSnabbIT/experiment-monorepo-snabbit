@@ -1,65 +1,96 @@
-import Checkbox from "@/components/form/Checkbox"
-import Input from "@/components/form/Input"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import Textarea from "@/components/form/Textarea"
-import Validation from "@/components/form/Validation"
-import Icon from "@/components/icon/Icon"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import { IUsuarioEmpresa } from "@/interface/empresas.interface"
-import ApiService from "@/services/ApiService"
-import { detalleBodegaThunk, listaMisClientesThunk, listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useFormik } from "formik"
-import { Dispatch, SetStateAction, useEffect, useState } from "react"
-import { toast } from "react-toastify"
-import * as Yup from 'yup'
+import Checkbox from '@/components/form/Checkbox';
+import Input from '@/components/form/Input';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import { IUsuarioEmpresa } from '@/interface/empresas.interface';
+import ApiService from '@/services/ApiService';
+import {
+    detalleBodegaThunk,
+    listaMisClientesThunk,
+    listaUsuariosTodaLaEmpresaThunk,
+    useAppDispatch,
+    useAppSelector,
+} from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useFormik } from 'formik';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import * as Yup from 'yup';
 
+const columnHelper = createColumnHelper<IUsuarioEmpresa>();
 
-const columnHelper = createColumnHelper<IUsuarioEmpresa>()
-
-function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen: boolean, setIsOpen: Dispatch<SetStateAction<boolean>>, id_bodega: number | undefined}) {
-    const dispatch = useAppDispatch()
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const { listaUsuariosTodaLaEmpresa, detalleUsuarioEmpresa, listaMisClientes } = useAppSelector((state) => state.empresa)
-    const [optUsuarios, setOptUsuarios] = useState<IUsuarioEmpresa[]>([])
-    const [userSelect, setUserSelect] = useState<IUsuarioEmpresa | undefined>()
+function CrearGuiaSalidaEnDetalleBodega({
+    isOpen,
+    setIsOpen,
+    id_bodega,
+}: {
+    isOpen: boolean;
+    setIsOpen: Dispatch<SetStateAction<boolean>>;
+    id_bodega: number | undefined;
+}) {
+    const dispatch = useAppDispatch();
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { listaUsuariosTodaLaEmpresa, detalleUsuarioEmpresa, listaMisClientes } = useAppSelector(
+        (state) => state.empresa,
+    );
+    const [optUsuarios, setOptUsuarios] = useState<IUsuarioEmpresa[]>([]);
+    const [userSelect, setUserSelect] = useState<IUsuarioEmpresa | undefined>();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        setOptUsuarios(listaUsuariosTodaLaEmpresa)
-    }, [listaUsuariosTodaLaEmpresa])
+        setOptUsuarios(listaUsuariosTodaLaEmpresa);
+    }, [listaUsuariosTodaLaEmpresa]);
 
     useEffect(() => {
         if (isOpen && personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }))
-            dispatch(listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }))
+            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
+            dispatch(
+                listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
+            );
         }
-    }, [isOpen, personalizacionUsuario])
+    }, [isOpen, personalizacionUsuario]);
 
     const columns = [
-        columnHelper.accessor("nombre_usuario", {
+        columnHelper.accessor('nombre_usuario', {
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
-        columnHelper.accessor("email_usuario", {
+        columnHelper.accessor('email_usuario', {
             cell: (info) => info.getValue(),
-            header: "Correo"
+            header: 'Correo',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
-                <div className="flex justify-end">
+                <div className='flex justify-end'>
                     <Checkbox
                         onChange={(e) => {
                             if (e.target.checked) {
-                                setUserSelect(info.row.original)
+                                setUserSelect(info.row.original);
                             } else {
-                                setUserSelect(undefined)
+                                setUserSelect(undefined);
                             }
                         }}
                         checked={userSelect?.id === info.row.original.id}
@@ -67,9 +98,9 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                     />
                 </div>
             ),
-            header: ""
-        })
-    ]
+            header: '',
+        }),
+    ];
 
     const table = useReactTable({
         data: optUsuarios,
@@ -84,93 +115,115 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
-            cliente: "",
-            motivo: "",
+            cliente: '',
+            motivo: '',
         },
         validationSchema: Yup.object().shape({
-            cliente: Yup.string().required("Requerido").nonNullable("Requerido"),
-            motivo: Yup.string().nonNullable("No puede ser nulo").notRequired(),
+            cliente: Yup.string().required('Requerido').nonNullable('Requerido'),
+            motivo: Yup.string().nonNullable('No puede ser nulo').notRequired(),
         }),
         onSubmit: async (values) => {
             if (userSelect) {
                 try {
-                    const response = await ApiService.fetchData({url: `/api/guia-salida/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                        ...values,
-                        bodega: id_bodega,
-                        sucursal: personalizacionUsuario?.sucursal_principal,
-                        recibido_por: userSelect.id,
-                        creado_por: detalleUsuarioEmpresa?.id,
-                    })})
+                    const response = await ApiService.fetchData({
+                        url: `/api/guia-salida/`,
+                        method: 'post',
+                        headers: { 'Content-Type': 'application/json' },
+                        data: JSON.stringify({
+                            ...values,
+                            bodega: id_bodega,
+                            sucursal: personalizacionUsuario?.sucursal_principal,
+                            recibido_por: userSelect.id,
+                            creado_por: detalleUsuarioEmpresa?.id,
+                        }),
+                    });
                     if (response.data) {
-                        toast.success("Guia de salida de bodega creada", {autoClose: 1000})
-                        dispatch(detalleBodegaThunk({id_bodega}))
-                        formik.resetForm()
-                        setIsOpen(false)
+                        toast.success('Guia de salida de bodega creada', { autoClose: 1000 });
+                        dispatch(detalleBodegaThunk({ id_bodega }));
+                        formik.resetForm();
+                        setIsOpen(false);
                     }
                 } catch (error: any) {
-                    toast.error(error.response.data)
+                    toast.error(error.response.data);
                 }
             } else {
-                toast.error("Eliga a un usuario para entregarle los items")
+                toast.error('Eliga a un usuario para entregarle los items');
             }
-        }
-    })
+        },
+    });
 
     return (
         <>
-            <Button variant="solid" onClick={() => {setIsOpen(true)}}>Crear Guia de Salida para esta Bodega</Button>
+            <Button
+                variant='solid'
+                onClick={() => {
+                    setIsOpen(true);
+                }}>
+                Crear Guia de Salida para esta Bodega
+            </Button>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
-            <ModalHeader>
-                <Badge className="text-xl">Crear Guia de Salida</Badge>
-            </ModalHeader>
-            <ModalBody>
-                <div className="flex flex-col gap-4">
-                    <div className="w-full">
-                        <Badge>Cliente</Badge>
-                        <Validation
-                            isValid={formik.isValid}
-                            isTouched={formik.touched.cliente}
-                            invalidFeedback={formik.errors.cliente}
-                        >
-                            <SelectReact
-                                name="cliente"
-                                options={listaMisClientes.map(cliente => ({ value: cliente.info_cliente.id.toString(), label: cliente.info_cliente.nombre }))}
-                                placeholder="Seleccione un Cliente"
-                                value={listaMisClientes.map(cliente => ({ value: cliente.info_cliente.id.toString(), label: cliente.info_cliente.nombre })).find(option => option.value === formik.values.cliente)}
-                                noOptionsMessage={(e) => `No existe ${e.inputValue}`}
-                                onBlur={formik.handleBlur}
-                                onChange={(e) => {formik.setFieldValue('cliente', (e as TSelectOption).value)}}
-                            />
-                        </Validation>
-                    </div>
-                    <div className="w-full">
-                        <Badge>Motivo</Badge>
-                        <Textarea
-                                name="motivo"
+                <ModalHeader>
+                    <Badge className='text-xl'>Crear Guia de Salida</Badge>
+                </ModalHeader>
+                <ModalBody>
+                    <div className='flex flex-col gap-4'>
+                        <div className='w-full'>
+                            <Badge>Cliente</Badge>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.cliente}
+                                invalidFeedback={formik.errors.cliente}>
+                                <SelectReact
+                                    name='cliente'
+                                    options={listaMisClientes.map((cliente) => ({
+                                        value: cliente.info_cliente.id.toString(),
+                                        label: cliente.info_cliente.nombre,
+                                    }))}
+                                    placeholder='Seleccione un Cliente'
+                                    value={listaMisClientes
+                                        .map((cliente) => ({
+                                            value: cliente.info_cliente.id.toString(),
+                                            label: cliente.info_cliente.nombre,
+                                        }))
+                                        .find((option) => option.value === formik.values.cliente)}
+                                    noOptionsMessage={(e) => `No existe ${e.inputValue}`}
+                                    onBlur={formik.handleBlur}
+                                    onChange={(e) => {
+                                        formik.setFieldValue('cliente', (e as TSelectOption).value);
+                                    }}
+                                />
+                            </Validation>
+                        </div>
+                        <div className='w-full'>
+                            <Badge>Motivo</Badge>
+                            <Textarea
+                                name='motivo'
                                 onBlur={formik.handleBlur}
                                 value={formik.values.motivo}
                                 onChange={formik.handleChange}
                             />
                         </div>
-                        <div className="w-full">
-                            <div className="mb-2 flex items-center justify-between gap-4">
+                        <div className='w-full'>
+                            <div className='mb-2 flex items-center justify-between gap-4'>
                                 <Badge>Recibido Por</Badge>
                                 <Input
-                                    className="max-w-[200px]"
-                                    name="globalFilter"
-                                    placeholder="Buscar..."
+                                    className='max-w-[200px]'
+                                    name='globalFilter'
+                                    placeholder='Buscar...'
                                     value={globalFilter}
-                                    onChange={(e) => { setGlobalFilter(e.target.value) }}
+                                    onChange={(e) => {
+                                        setGlobalFilter(e.target.value);
+                                    }}
                                 />
                             </div>
-                            <div className="overflow-auto">
-                                <Table className='table-fixed min-w-[400px]'>
+                            <div className='overflow-auto'>
+                                <Table className='min-w-[400px] table-fixed'>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
@@ -184,9 +237,10 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                                                                 key={header.id}
                                                                 aria-hidden='true'
                                                                 {...{
-                                                                    className: header.column.getCanSort()
-                                                                        ? 'cursor-pointer select-none flex items-center'
-                                                                        : '',
+                                                                    className:
+                                                                        header.column.getCanSort()
+                                                                            ? 'cursor-pointer select-none flex items-center'
+                                                                            : '',
                                                                     onClick:
                                                                         header.column.getToggleSortingHandler(),
                                                                 }}>
@@ -207,7 +261,9 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                                                                             className='ltr:ml-1.5 rtl:mr-1.5'
                                                                         />
                                                                     ),
-                                                                }[header.column.getIsSorted() as string] ?? null}
+                                                                }[
+                                                                    header.column.getIsSorted() as string
+                                                                ] ?? null}
                                                             </div>
                                                         )}
                                                     </Th>
@@ -220,14 +276,17 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                                             <Tr key={row.id}>
                                                 {row.getVisibleCells().map((cell) => (
                                                     <Td key={cell.id}>
-                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext(),
+                                                        )}
                                                     </Td>
                                                 ))}
                                             </Tr>
                                         ))}
                                     </TBody>
                                 </Table>
-                                <div className="mt-2 min-w-[400px]">
+                                <div className='mt-2 min-w-[400px]'>
                                     <TableCardFooterTemplateV2 table={table} />
                                 </div>
                             </div>
@@ -237,13 +296,26 @@ function CrearGuiaSalidaEnDetalleBodega({isOpen, setIsOpen, id_bodega} : {isOpen
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Crear</Button>
+                        <Button
+                            color='red'
+                            onClick={() => {
+                                setIsOpen(false);
+                                formik.resetForm();
+                            }}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant='solid'
+                            onClick={() => {
+                                formik.handleSubmit();
+                            }}>
+                            Crear
+                        </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
         </>
-    )
+    );
 }
 
-export default CrearGuiaSalidaEnDetalleBodega
+export default CrearGuiaSalidaEnDetalleBodega;

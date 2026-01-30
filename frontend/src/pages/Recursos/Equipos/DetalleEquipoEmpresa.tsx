@@ -1,35 +1,39 @@
-import Container from "@/components/layouts/Container/Container"
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
-import Subheader, { SubheaderLeft } from "@/components/layouts/Subheader/Subheader"
-import Badge from "@/components/ui/Badge"
-import Button, { IButtonProps } from "@/components/ui/Button"
-import Card, { CardBody } from "@/components/ui/Card"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleEquipoEmpresaThunk, listaUsuariosDelEquipoThunk } from "@/store/slices/recursos/recursosSlice"
-import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
-import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from "@/components/ui/Dropdown"
-import AlmacenamientosEnDetalleEquipo from "./components/AlmacenamientosEnDetalleEquipo"
-import SoftwaresEnDetalleEquipo from "./components/SoftwaresEnDetalleEquipo"
-import MonitoresEnDetalleEquipo from "./components/MonitoresEnDetalleEquipo"
-import DatosEquipoEnDetalleEquipo from "./components/DatosEquipoEnDetalleEquipo"
-import UsuariosEquipoEnDetalleEquipo from "./components/UsuariosEquipoEnDetalleEquipo"
-import FotosDelEquipoEnDetalleEquipo from "./components/FotosDelEquipoEnDetalleEquipo"
-
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button, { IButtonProps } from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
+import { useAppDispatch, useAppSelector } from '@/store';
+import {
+    detalleEquipoEmpresaThunk,
+    listaUsuariosDelEquipoThunk,
+} from '@/store/slices/recursos/recursosSlice';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
+import AlmacenamientosEnDetalleEquipo from './components/AlmacenamientosEnDetalleEquipo';
+import SoftwaresEnDetalleEquipo from './components/SoftwaresEnDetalleEquipo';
+import MonitoresEnDetalleEquipo from './components/MonitoresEnDetalleEquipo';
+import DatosEquipoEnDetalleEquipo from './components/DatosEquipoEnDetalleEquipo';
+import UsuariosEquipoEnDetalleEquipo from './components/UsuariosEquipoEnDetalleEquipo';
+import FotosDelEquipoEnDetalleEquipo from './components/FotosDelEquipoEnDetalleEquipo';
 
 function DetalleEquipoEmpresa() {
-    const dispatch = useAppDispatch()
-    const { id } = useParams()
-    const { detalleEquipoEmpresa, listaUsuariosDelEquipo } = useAppSelector((state) => state.recursos)
-    const [activeComponent, setActiveComponent] = useState<string>("Almacenamiento");
+    const dispatch = useAppDispatch();
+    const { id } = useParams();
+    const { detalleEquipoEmpresa, listaUsuariosDelEquipo } = useAppSelector(
+        (state) => state.recursos,
+    );
+    const [activeComponent, setActiveComponent] = useState<string>('Almacenamiento');
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
     useEffect(() => {
         if (id) {
-            dispatch(detalleEquipoEmpresaThunk({id_equipo: id}))
-            dispatch(listaUsuariosDelEquipoThunk({id_equipo: id}))
+            dispatch(detalleEquipoEmpresaThunk({ id_equipo: id }));
+            dispatch(listaUsuariosDelEquipoThunk({ id_equipo: id }));
         }
-    }, [id])
+    }, [id]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -46,7 +50,7 @@ function DetalleEquipoEmpresa() {
         size: 'sm',
         color: 'zinc',
         rounded: 'rounded-full',
-        className: 'border'
+        className: 'border',
     };
 
     const activeProps: IButtonProps = {
@@ -58,89 +62,125 @@ function DetalleEquipoEmpresa() {
     };
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Detalle Equipo" title="Detalle Equipo">
+        <PageWrapper isProtectedRoute={true} name='Detalle Equipo' title='Detalle Equipo'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">
+                    <Badge className='text-xl'>
                         {/* ${detalleEquipoEmpresa && detalleEquipoEmpresa.nombre_equipo && detalleEquipoEmpresa.nombre_equipo.length > 0 ? detalleEquipoEmpresa.nombre_equipo : ""} */}
-                        {listaUsuariosDelEquipo.length > 0 ? (`${detalleEquipoEmpresa?.marca != "OTRA" ? detalleEquipoEmpresa?.marca_label : ""} ${detalleEquipoEmpresa && detalleEquipoEmpresa.modelo.length > 0 ? detalleEquipoEmpresa?.modelo : ""} de ${listaUsuariosDelEquipo[0].nombre_usuario}`) : (`Equipo ${detalleEquipoEmpresa?.numero_serie}`)}
+                        {listaUsuariosDelEquipo.length > 0
+                            ? `${detalleEquipoEmpresa?.marca != 'OTRA' ? detalleEquipoEmpresa?.marca_label : ''} ${detalleEquipoEmpresa && detalleEquipoEmpresa.modelo.length > 0 ? detalleEquipoEmpresa?.modelo : ''} de ${listaUsuariosDelEquipo[0].nombre_usuario}`
+                            : `Equipo ${detalleEquipoEmpresa?.numero_serie}`}
                     </Badge>
                 </SubheaderLeft>
             </Subheader>
-            <Container className="h-full w-full">
+            <Container className='h-full w-full'>
                 {detalleEquipoEmpresa && (
-                    <div className="flex flex-col gap-4">
+                    <div className='flex flex-col gap-4'>
                         {/* Datos del Equipo */}
                         <DatosEquipoEnDetalleEquipo />
 
                         {/* TABS */}
                         <div>
                             <Card>
-                                <CardBody className="flex flex-row justify-between gap-4">
+                                <CardBody className='flex flex-row justify-between gap-4'>
                                     {isMobile ? (
-                                        <div className="flex flex-row justify-end w-full">
+                                        <div className='flex w-full flex-row justify-end'>
                                             <Dropdown>
                                                 <DropdownToggle hasIcon={false}>
-                                                    <Button icon='HeroServer' aria-label='Seleccionar Sección'>
+                                                    <Button
+                                                        icon='HeroServer'
+                                                        aria-label='Seleccionar Sección'>
                                                         {activeComponent}
                                                     </Button>
                                                 </DropdownToggle>
-                                                <DropdownMenu placement='bottom-start' className="block z-50">
+                                                <DropdownMenu
+                                                    placement='bottom-start'
+                                                    className='z-50 block'>
                                                     <DropdownItem
-                                                        isActive={activeComponent === "Almacenamiento"}
-                                                        onClick={() => setActiveComponent("Almacenamiento")}>
+                                                        isActive={
+                                                            activeComponent === 'Almacenamiento'
+                                                        }
+                                                        onClick={() =>
+                                                            setActiveComponent('Almacenamiento')
+                                                        }>
                                                         Almacenamiento
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        isActive={activeComponent === "Softwares"}
-                                                        onClick={() => setActiveComponent("Softwares")}>
+                                                        isActive={activeComponent === 'Softwares'}
+                                                        onClick={() =>
+                                                            setActiveComponent('Softwares')
+                                                        }>
                                                         Softwares
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        isActive={activeComponent === "Monitores"}
-                                                        onClick={() => setActiveComponent("Monitores")}>
+                                                        isActive={activeComponent === 'Monitores'}
+                                                        onClick={() =>
+                                                            setActiveComponent('Monitores')
+                                                        }>
                                                         Monitores
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        isActive={activeComponent === "Usuarios"}
-                                                        onClick={() => setActiveComponent("Usuarios")}>
+                                                        isActive={activeComponent === 'Usuarios'}
+                                                        onClick={() =>
+                                                            setActiveComponent('Usuarios')
+                                                        }>
                                                         Usuarios
                                                     </DropdownItem>
                                                     <DropdownItem
-                                                        isActive={activeComponent === "Fotos"}
-                                                        onClick={() => setActiveComponent("Fotos")}>
+                                                        isActive={activeComponent === 'Fotos'}
+                                                        onClick={() => setActiveComponent('Fotos')}>
                                                         Fotos
                                                     </DropdownItem>
                                                 </DropdownMenu>
                                             </Dropdown>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-row gap-4">
+                                        <div className='flex flex-row gap-4'>
                                             <Button
-                                                {...(activeComponent === "Almacenamiento" ? { ...activeProps } : { ...defaultProps })}
+                                                {...(activeComponent === 'Almacenamiento'
+                                                    ? { ...activeProps }
+                                                    : { ...defaultProps })}
                                                 onClick={() => {
-                                                    setActiveComponent("Almacenamiento");
-                                            }}>Almacenamiento</Button>
+                                                    setActiveComponent('Almacenamiento');
+                                                }}>
+                                                Almacenamiento
+                                            </Button>
                                             <Button
-                                                {...(activeComponent === "Softwares" ? { ...activeProps } : { ...defaultProps })}
+                                                {...(activeComponent === 'Softwares'
+                                                    ? { ...activeProps }
+                                                    : { ...defaultProps })}
                                                 onClick={() => {
-                                                    setActiveComponent("Softwares");
-                                            }}>Softwares</Button>
+                                                    setActiveComponent('Softwares');
+                                                }}>
+                                                Softwares
+                                            </Button>
                                             <Button
-                                                {...(activeComponent === "Monitores" ? { ...activeProps } : { ...defaultProps })}
+                                                {...(activeComponent === 'Monitores'
+                                                    ? { ...activeProps }
+                                                    : { ...defaultProps })}
                                                 onClick={() => {
-                                                    setActiveComponent("Monitores");
-                                            }}>Monitores</Button>
+                                                    setActiveComponent('Monitores');
+                                                }}>
+                                                Monitores
+                                            </Button>
                                             <Button
-                                                {...(activeComponent === "Usuarios" ? { ...activeProps } : { ...defaultProps })}
+                                                {...(activeComponent === 'Usuarios'
+                                                    ? { ...activeProps }
+                                                    : { ...defaultProps })}
                                                 onClick={() => {
-                                                    setActiveComponent("Usuarios");
-                                            }}>Usuarios</Button>
+                                                    setActiveComponent('Usuarios');
+                                                }}>
+                                                Usuarios
+                                            </Button>
                                             <Button
-                                                {...(activeComponent === "Fotos" ? { ...activeProps } : { ...defaultProps })}
+                                                {...(activeComponent === 'Fotos'
+                                                    ? { ...activeProps }
+                                                    : { ...defaultProps })}
                                                 onClick={() => {
-                                                    setActiveComponent("Fotos");
-                                            }}>Fotos</Button>
+                                                    setActiveComponent('Fotos');
+                                                }}>
+                                                Fotos
+                                            </Button>
                                         </div>
                                     )}
                                 </CardBody>
@@ -149,21 +189,15 @@ function DetalleEquipoEmpresa() {
 
                         {detalleEquipoEmpresa && (
                             <div>
-                                {activeComponent === "Almacenamiento" && (
+                                {activeComponent === 'Almacenamiento' && (
                                     <AlmacenamientosEnDetalleEquipo />
                                 )}
-                                {activeComponent === "Softwares" && (
-                                    <SoftwaresEnDetalleEquipo />
-                                )}
-                                {activeComponent === "Monitores" && (
-                                    <MonitoresEnDetalleEquipo />        
-                                )}
-                                {activeComponent === "Usuarios" && (
+                                {activeComponent === 'Softwares' && <SoftwaresEnDetalleEquipo />}
+                                {activeComponent === 'Monitores' && <MonitoresEnDetalleEquipo />}
+                                {activeComponent === 'Usuarios' && (
                                     <UsuariosEquipoEnDetalleEquipo />
                                 )}
-                                {activeComponent === "Fotos" && (
-                                    <FotosDelEquipoEnDetalleEquipo />
-                                )}
+                                {activeComponent === 'Fotos' && <FotosDelEquipoEnDetalleEquipo />}
                             </div>
                         )}
 
@@ -184,11 +218,10 @@ function DetalleEquipoEmpresa() {
                 )}
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default DetalleEquipoEmpresa
-
+export default DetalleEquipoEmpresa;
 
 // {isEditingAsignados ? (
 //     <Card className="w-full">

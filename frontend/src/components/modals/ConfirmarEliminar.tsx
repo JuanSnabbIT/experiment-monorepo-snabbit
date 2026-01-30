@@ -1,8 +1,9 @@
-import Button, { TButtonSize } from "@/components/ui/Button";
-import Tooltip from "@/components/ui/Tooltip";
-import ApiService from "@/services/ApiService";
-import { confirmAlert } from "@/utils/sweetAlert";
-import { toast } from "react-toastify";
+import React, { forwardRef } from 'react';
+import Button, { TButtonSize } from '@/components/ui/Button';
+import Tooltip from '@/components/ui/Tooltip';
+import ApiService from '@/services/ApiService';
+import { confirmAlert } from '@/utils/sweetAlert';
+import { toast } from 'react-toastify';
 
 interface ConfirmarEliminarProps {
     mensaje?: string;
@@ -16,20 +17,22 @@ interface ConfirmarEliminarProps {
     tooltipText?: string;
     color?: string;
 }
-
-const ConfirmarEliminar = ({ 
-    mensaje, 
-    peticionUrl, 
-    onDispatch, 
-    nombre = "", 
-    method = "delete", 
-    values = null, 
-    buttonSize = "default",
-    icon = "HeroTrash",
-    tooltipText = "Eliminar",
-    color = "red"
-}: ConfirmarEliminarProps) => {
-
+const ConfirmarEliminar = forwardRef<HTMLButtonElement, ConfirmarEliminarProps>(
+    (
+        {
+            mensaje,
+            peticionUrl,
+            onDispatch,
+            nombre = '',
+            method = 'delete',
+            values = null,
+            buttonSize = 'default',
+            icon = 'HeroTrash',
+            tooltipText = 'Eliminar',
+            color = 'red',
+        }: ConfirmarEliminarProps,
+        ref,
+    ) => {
     const handleDelete = async () => {
         const safeNombre = nombre || '';
         const cleanedMensaje = mensaje ? String(mensaje).trim() : '';
@@ -49,17 +52,26 @@ const ConfirmarEliminar = ({
 
         if (confirmed) {
             try {
-                await ApiService.fetchData({ 
-                    url: peticionUrl, 
-                    method: method, 
-                    data: values 
+                await ApiService.fetchData({
+                    url: peticionUrl,
+                    method: method,
+                    data: values,
                 });
                 onDispatch();
-                toast.success(safeNombre ? `${safeNombre} eliminado correctamente` : 'Eliminado correctamente', { autoClose: 1000 });
+                toast.success(
+                    safeNombre
+                        ? `${safeNombre} eliminado correctamente`
+                        : 'Eliminado correctamente',
+                    { autoClose: 1000 },
+                );
             } catch (error: any) {
                 console.error(`Error eliminando ${safeNombre}:`, error);
                 const errorMsg = error.response?.data?.detail || error.message || String(error);
-                toast.error(safeNombre ? `Error eliminando ${safeNombre}: ${errorMsg}` : `Error eliminando: ${errorMsg}`);
+                toast.error(
+                    safeNombre
+                        ? `Error eliminando ${safeNombre}: ${errorMsg}`
+                        : `Error eliminando: ${errorMsg}`,
+                );
             }
         }
     };
@@ -67,17 +79,20 @@ const ConfirmarEliminar = ({
     return (
         <Tooltip text={tooltipText}>
             <Button
+                ref={ref}
                 icon={icon}
                 color={color as any}
                 variant='solid'
                 size={buttonSize}
-                onClick={(e) => { 
-                    e.stopPropagation(); 
-                    handleDelete(); 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
                 }}
             />
         </Tooltip>
     );
-};
+});
+
+ConfirmarEliminar.displayName = 'ConfirmarEliminar';
 
 export default ConfirmarEliminar;

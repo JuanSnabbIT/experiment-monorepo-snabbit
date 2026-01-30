@@ -20,33 +20,33 @@ import arMenu from './locales/ar/menu.json';
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 i18n
-	// pass the i18n instance to react-i18next.
-	.use(initReactI18next)
-	// init i18next
-	// for all options read: https://www.i18next.com/overview/configuration-options
-	.init({
-		resources: {
-			en: {
-				translation: enTranslation,
-				menu: enMenu,
-			},
-			es: {
-				translation: esTranslation,
-				menu: esMenu,
-			},
-			ar: {
-				translation: arTranslation,
-				menu: arMenu,
-			},
-		},
-		fallbackLng: themeConfig.language,
-		lng: themeConfig.language,
-		// debug: true,
+    // pass the i18n instance to react-i18next.
+    .use(initReactI18next)
+    // init i18next
+    // for all options read: https://www.i18next.com/overview/configuration-options
+    .init({
+        resources: {
+            en: {
+                translation: enTranslation,
+                menu: enMenu,
+            },
+            es: {
+                translation: esTranslation,
+                menu: esMenu,
+            },
+            ar: {
+                translation: arTranslation,
+                menu: arMenu,
+            },
+        },
+        fallbackLng: themeConfig.language,
+        lng: themeConfig.language,
+        // debug: true,
 
-		interpolation: {
-			escapeValue: false, // not needed for react as it escapes by default
-		},
-	})
-	.then();
+        interpolation: {
+            escapeValue: false, // not needed for react as it escapes by default
+        },
+    })
+    .then();
 
 export default i18n;

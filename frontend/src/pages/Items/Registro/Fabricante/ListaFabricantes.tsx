@@ -1,75 +1,88 @@
-import Icon from '@/components/icon/Icon'
-import Container from '@/components/layouts/Container/Container'
-import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper'
-import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader'
-import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import Card, { CardBody } from '@/components/ui/Card'
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import Tooltip from '@/components/ui/Tooltip'
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil'
-import { IFabricante } from '@/interface/items.interface'
-import { useAppDispatch, useAppSelector } from '@/store'
-import { listaFabricanteThunk } from '@/store/slices/item/itemSlice'
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2'
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import CrearFabricante from './modals/CrearFabricante'
+import Icon from '@/components/icon/Icon';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IFabricante } from '@/interface/items.interface';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { listaFabricanteThunk } from '@/store/slices/item/itemSlice';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import CrearFabricante from './modals/CrearFabricante';
 
-
-const columnHelper = createColumnHelper<IFabricante>()
+const columnHelper = createColumnHelper<IFabricante>();
 
 const ListaFabricantes = () => {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { listaFabricante } = useAppSelector((state) => state.item)
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { listaFabricante } = useAppSelector((state) => state.item);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa) {
-            dispatch(listaFabricanteThunk())
+            dispatch(listaFabricanteThunk());
         }
-    }, [personalizacionUsuario, dispatch])
+    }, [personalizacionUsuario, dispatch]);
 
     const columns = [
-        columnHelper.accessor("nombre", {
+        columnHelper.accessor('nombre', {
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
-        columnHelper.accessor("id", {
-            cell: (info) => (
-                <div>{info.row.original.nombre || "Sin Nombre"}</div>
-            ),
-            header: "Tamaño"
+        columnHelper.accessor('id', {
+            cell: (info) => <div>{info.row.original.nombre || 'Sin Nombre'}</div>,
+            header: 'Tamaño',
         }),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
-                <div className="flex gap-2">
-                    <Tooltip text="Detalle">
-                        <Button variant="solid" color="violet" icon="HeroEye" onClick={() => { navigate(`/registros/detalle-fabricante/${info.row.original.id}`) }} />
+                <div className='flex gap-2'>
+                    <Tooltip text='Detalle'>
+                        <Button
+                            variant='solid'
+                            color='violet'
+                            icon='HeroEye'
+                            onClick={() => {
+                                navigate(`/registros/detalle-fabricante/${info.row.original.id}`);
+                            }}
+                        />
                     </Tooltip>
                     <ConfirmarEliminar
                         nombre={info.row.original.nombre}
-                        mensaje={"¿Está seguro que desea eliminar este item? Se eliminarán todos los registros."}
+                        mensaje={
+                            '¿Está seguro que desea eliminar este item? Se eliminarán todos los registros.'
+                        }
                         peticionUrl={`/api/fabricantes/${info.row.original.id}/`}
                         onDispatch={() => {
                             if (personalizacionUsuario && personalizacionUsuario.empresa) {
-                                dispatch(listaFabricanteThunk())
+                                dispatch(listaFabricanteThunk());
                             }
                         }}
-
                     />
                 </div>
             ),
-            header: "Acciones"
-        })
-    ]
+            header: 'Acciones',
+        }),
+    ];
 
     const table = useReactTable({
         data: listaFabricante,
@@ -84,26 +97,28 @@ const ListaFabricantes = () => {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Lista Fabricantes" title="Lista Fabricantes">
+        <PageWrapper isProtectedRoute={true} name='Lista Fabricantes' title='Lista Fabricantes'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Fabricantes</Badge>
+                    <Badge className='text-xl'>Fabricantes</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter}>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}>
                         <CrearFabricante />
                     </AnimacionDeInputModoMovil>
                 </SubheaderRight>
             </Subheader>
-            <Container className="w-full h-full">
+            <Container className='h-full w-full'>
                 <Card>
                     <CardBody className='z-0'>
-                        <div className="overflow-auto">
-                            <Table className='table-fixed min-w-[600px]'>
+                        <div className='overflow-auto'>
+                            <Table className='min-w-[600px] table-fixed'>
                                 <THead>
                                     {table.getHeaderGroups().map((headerGroup) => (
                                         <Tr key={headerGroup.id}>
@@ -117,9 +132,10 @@ const ListaFabricantes = () => {
                                                             key={header.id}
                                                             aria-hidden='true'
                                                             {...{
-                                                                className: header.column.getCanSort()
-                                                                    ? 'cursor-pointer select-none flex items-center'
-                                                                    : '',
+                                                                className:
+                                                                    header.column.getCanSort()
+                                                                        ? 'cursor-pointer select-none flex items-center'
+                                                                        : '',
                                                                 onClick:
                                                                     header.column.getToggleSortingHandler(),
                                                             }}>
@@ -140,7 +156,9 @@ const ListaFabricantes = () => {
                                                                         className='ltr:ml-1.5 rtl:mr-1.5'
                                                                     />
                                                                 ),
-                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                            }[
+                                                                header.column.getIsSorted() as string
+                                                            ] ?? null}
                                                         </div>
                                                     )}
                                                 </Th>
@@ -153,21 +171,25 @@ const ListaFabricantes = () => {
                                         <Tr key={row.id}>
                                             {row.getVisibleCells().map((cell) => (
                                                 <Td key={cell.id}>
-                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext(),
+                                                    )}
                                                 </Td>
                                             ))}
                                         </Tr>
                                     ))}
                                 </TBody>
                             </Table>
-                            <div className="mt-2 min-w-[600px]">
+                            <div className='mt-2 min-w-[600px]'>
                                 <TableCardFooterTemplateV2 table={table} />
                             </div>
                         </div>
                     </CardBody>
                 </Card>
             </Container>
-        </PageWrapper>)
-}
+        </PageWrapper>
+    );
+};
 
-export default ListaFabricantes
+export default ListaFabricantes;

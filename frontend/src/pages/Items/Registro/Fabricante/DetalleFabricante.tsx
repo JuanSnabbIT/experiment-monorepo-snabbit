@@ -16,7 +16,6 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup'; // Importar Yup correctamente
 import Validation from '@/components/form/Validation';
 
-
 const validationSchema = Yup.object({
     nombre: Yup.string().required('Este campo no puede estar vacio'),
 });
@@ -35,7 +34,11 @@ const DetalleFabricante = () => {
         dispatch(detalleFabricanteThunk({ id_fabricante: id }));
     }, [personalizacionUsuario]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>, itemId: number, field: string) => {
+    const handleInputChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+        itemId: number,
+        field: string,
+    ) => {
         const { value } = e.target;
         setFormData((prev: any) => ({
             ...prev,
@@ -74,14 +77,21 @@ const DetalleFabricante = () => {
         },
     });
 
-
     if (!!!detalleFabricante) {
         return (
-            <PageWrapper isProtectedRoute={true} name="Detalle fabricante" title="Detalle fabricante">
-                <div className="flex justify-center items-center h-full">
-                    <div className="text-center">
-                        <p className="text-xl font-semibold">No se encontró la fabricante.</p>
-                        <Icon icon='DuoWarning1Circle' color='red' size='text-9xl' className="mt-4 mx-auto" />
+            <PageWrapper
+                isProtectedRoute={true}
+                name='Detalle fabricante'
+                title='Detalle fabricante'>
+                <div className='flex h-full items-center justify-center'>
+                    <div className='text-center'>
+                        <p className='text-xl font-semibold'>No se encontró la fabricante.</p>
+                        <Icon
+                            icon='DuoWarning1Circle'
+                            color='red'
+                            size='text-9xl'
+                            className='mx-auto mt-4'
+                        />
                     </div>
                 </div>
             </PageWrapper>
@@ -89,32 +99,26 @@ const DetalleFabricante = () => {
     }
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Detalle fabricante" title="Detalle fabricante">
+        <PageWrapper isProtectedRoute={true} name='Detalle fabricante' title='Detalle fabricante'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl ">Detalle de {detalleFabricante?.nombre}</Badge>
+                    <Badge className='text-xl'>Detalle de {detalleFabricante?.nombre}</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
                     <Button
                         variant='solid'
                         color={isEditing ? 'red' : 'blue'}
-                        onClick={() => setIsEditing(!isEditing)}
-                    >{isEditing ? 'Cancelar' : 'Modificar'}</Button>
+                        onClick={() => setIsEditing(!isEditing)}>
+                        {isEditing ? 'Cancelar' : 'Modificar'}
+                    </Button>
                 </SubheaderRight>
             </Subheader>
             <Container>
-
-                <div className="flex gap-4 flex-col">
-
+                <div className='flex flex-col gap-4'>
                     <div className='w-full'>
-
-                        <Card className="w-full">
+                        <Card className='w-full'>
                             <CardHeader>
-
-                                <Badge className="text-xl mb-2">
-                                    Datos del Fabricante
-
-                                </Badge>
+                                <Badge className='mb-2 text-xl'>Datos del Fabricante</Badge>
                             </CardHeader>
                             <CardBody>
                                 <div className='flex flex-col gap-4'>
@@ -126,8 +130,7 @@ const DetalleFabricante = () => {
                                                     <Validation
                                                         isValid={formik.isValid}
                                                         isTouched={formik.touched.nombre}
-                                                        invalidFeedback={formik.errors.nombre}
-                                                    >
+                                                        invalidFeedback={formik.errors.nombre}>
                                                         <Input
                                                             type='text'
                                                             name='nombre'
@@ -136,7 +139,6 @@ const DetalleFabricante = () => {
                                                             onBlur={formik.handleBlur}
                                                         />
                                                     </Validation>
-
                                                 ) : (
                                                     <span>{detalleFabricante.nombre}</span>
                                                 )}
@@ -147,8 +149,7 @@ const DetalleFabricante = () => {
                                                     <Validation
                                                         isValid={formik.isValid}
                                                         isTouched={formik.touched.pagina_web}
-                                                        invalidFeedback={formik.errors.pagina_web}
-                                                    >
+                                                        invalidFeedback={formik.errors.pagina_web}>
                                                         <Input
                                                             type='text'
                                                             name='pagina_web'
@@ -158,7 +159,14 @@ const DetalleFabricante = () => {
                                                         />
                                                     </Validation>
                                                 ) : (
-                                                    <a href={detalleFabricante?.pagina_web || undefined}  target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                                    <a
+                                                        href={
+                                                            detalleFabricante?.pagina_web ||
+                                                            undefined
+                                                        }
+                                                        target='_blank'
+                                                        rel='noopener noreferrer'
+                                                        className='text-blue-500 hover:underline'>
                                                         {detalleFabricante?.pagina_web}
                                                     </a>
                                                 )}
@@ -169,8 +177,9 @@ const DetalleFabricante = () => {
                                                     <Validation
                                                         isValid={formik.isValid}
                                                         isTouched={formik.touched.email_soporte}
-                                                        invalidFeedback={formik.errors.email_soporte}
-                                                    >
+                                                        invalidFeedback={
+                                                            formik.errors.email_soporte
+                                                        }>
                                                         <Input
                                                             type='email'
                                                             name='email_soporte'
@@ -189,8 +198,9 @@ const DetalleFabricante = () => {
                                                     <Validation
                                                         isValid={formik.isValid}
                                                         isTouched={formik.touched.telefono_soporte}
-                                                        invalidFeedback={formik.errors.telefono_soporte}
-                                                    >
+                                                        invalidFeedback={
+                                                            formik.errors.telefono_soporte
+                                                        }>
                                                         <Input
                                                             type='text'
                                                             name='telefono_soporte'
@@ -200,17 +210,20 @@ const DetalleFabricante = () => {
                                                         />
                                                     </Validation>
                                                 ) : (
-                                                    <span>{detalleFabricante.telefono_soporte}</span>
+                                                    <span>
+                                                        {detalleFabricante.telefono_soporte}
+                                                    </span>
                                                 )}
                                             </div>
                                             {isEditing && (
                                                 <Button
                                                     variant='solid'
-                                                    onClick={() => { formik.submitForm(); setIsEditing(false); }}
-                                                >
+                                                    onClick={() => {
+                                                        formik.submitForm();
+                                                        setIsEditing(false);
+                                                    }}>
                                                     Guardar
                                                 </Button>
-                                                
                                             )}
                                         </>
                                     )}

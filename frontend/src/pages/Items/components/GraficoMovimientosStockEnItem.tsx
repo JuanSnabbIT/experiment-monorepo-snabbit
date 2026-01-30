@@ -1,39 +1,49 @@
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Card, { CardBody, CardHeader } from "@/components/ui/Card"
-import { listaMovimientosStockThunk, useAppDispatch, useAppSelector } from "@/store"
-import { Dispatch, SetStateAction, useEffect, useState } from "react"
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import { listaMovimientosStockThunk, useAppDispatch, useAppSelector } from '@/store';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { IChartOptions } from '@/interface/chart.interface';
-import Chart from "@/components/Chart"
-import { IMovimientoStock } from "@/interface/bodega.interface"
-
+import Chart from '@/components/Chart';
+import { IMovimientoStock } from '@/interface/bodega.interface';
 
 /** Punto que acepta el movimiento original */
 type IDataPoint = {
-    x: number
-    y: number
-    meta: IMovimientoStock              // ⬅️ nuevo
-}
+    x: number;
+    y: number;
+    meta: IMovimientoStock; // ⬅️ nuevo
+};
 
 const COLOR_TIPO: Record<IMovimientoStock['tipo_movimiento'], string> = {
     DEVOLUCION: '#7c3aed', // violet
     ENTRADA: '#059669', // emerald
     SALIDA: '#d97706', // ambar
     AJUSTE: '#52525b', // zinc
-    INICIAL: '#0284c7' // sky
-}
+    INICIAL: '#0284c7', // sky
+};
 
-function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} : {setMovSeleccionado: Dispatch<SetStateAction<IMovimientoStock | undefined>>, setActiveComponent: Dispatch<SetStateAction<string>>}) {
-    const dispatch = useAppDispatch()
-    const { detalleItemEmpresa } = useAppSelector((state) => state.item)
-    const { listaMovimientosStock } = useAppSelector((state) => state.bodega)
-    const [datosGrafico, setDatosGrafico] = useState<IChartOptions | undefined>()
+function GraficoMovimientosStockEnItem({
+    setMovSeleccionado,
+    setActiveComponent,
+}: {
+    setMovSeleccionado: Dispatch<SetStateAction<IMovimientoStock | undefined>>;
+    setActiveComponent: Dispatch<SetStateAction<string>>;
+}) {
+    const dispatch = useAppDispatch();
+    const { detalleItemEmpresa } = useAppSelector((state) => state.item);
+    const { listaMovimientosStock } = useAppSelector((state) => state.bodega);
+    const [datosGrafico, setDatosGrafico] = useState<IChartOptions | undefined>();
 
     useEffect(() => {
         if (detalleItemEmpresa) {
-            dispatch(listaMovimientosStockThunk({id_empresa: detalleItemEmpresa.empresa, id_item: detalleItemEmpresa.id}))
+            dispatch(
+                listaMovimientosStockThunk({
+                    id_empresa: detalleItemEmpresa.empresa,
+                    id_item: detalleItemEmpresa.id,
+                }),
+            );
         }
-    }, [detalleItemEmpresa])
+    }, [detalleItemEmpresa]);
 
     // useEffect(() => {
     //     if (!listaMovimientosStock.length) return
@@ -75,63 +85,66 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
 
     /* 2. Preparar gráfico al recibir movimientos */
     useEffect(() => {
-        if (!listaMovimientosStock.length) return
+        if (!listaMovimientosStock.length) return;
 
         /* Agrupar por stock_item */
         const agrupados = listaMovimientosStock.reduce<Record<number, IDataPoint[]>>((acc, mov) => {
-            const key = mov.stock_item
-            const saldo = mov.saldo_acumulado ?? mov.cantidad
+            const key = mov.stock_item;
+            const saldo = mov.saldo_acumulado ?? mov.cantidad;
             const punto: IDataPoint = {
                 x: new Date(mov.fecha_creacion).getTime(),
                 y: saldo,
-                meta: mov,                    // ⬅️ guardar el movimiento completo
-            }
-            acc[key] = acc[key] ? [...acc[key], punto] : [punto]
-            return acc
-        }, {})
+                meta: mov, // ⬅️ guardar el movimiento completo
+            };
+            acc[key] = acc[key] ? [...acc[key], punto] : [punto];
+            return acc;
+        }, {});
 
         /* Series ordenadas */
-        const series: IChartOptions["series"] = Object.entries(agrupados).map(
+        const series: IChartOptions['series'] = Object.entries(agrupados).map(
             ([stockItem, data]) => ({
                 name: `Stock #${stockItem}`,
 
-                type: "line",
+                type: 'line',
                 data: data.sort((a, b) => a.x - b.x),
             }),
-        )
+        );
 
         /**
          * Crea un array de funciones (una por serie) que ApexCharts
          * invocará para cada data-label de esa serie.
-        */
+         */
         const getLabelColorFns = (series: IChartOptions['series']) =>
             // @ts-ignore
             series.map((_serie, serieIdx) => (opts: any) => {
-            const punto = opts.w.config.series[serieIdx]
-                            .data[opts.dataPointIndex] as IDataPoint
-            return COLOR_TIPO[punto.meta.tipo_movimiento] ?? '#cbd5e1' // gris por defecto
-        })
+                const punto = opts.w.config.series[serieIdx].data[
+                    opts.dataPointIndex
+                ] as IDataPoint;
+                return COLOR_TIPO[punto.meta.tipo_movimiento] ?? '#cbd5e1'; // gris por defecto
+            });
 
         /* Tooltip HTML */
         const opciones: IChartOptions = {
             options: {
-                chart: { 
+                chart: {
                     type: 'line',
-                    toolbar: { show: true }, 
+                    toolbar: { show: true },
                     events: {
                         /* clic en marcador o data-label */
                         dataPointSelection: (
                             _event,
                             _chartContext,
-                            { seriesIndex, dataPointIndex, w }  // ← usa “w”
+                            { seriesIndex, dataPointIndex, w }, // ← usa “w”
                         ) => {
                             // Si hacen clic fuera de un punto, ApexCharts devuelve -1
-                            if (seriesIndex < 0 || dataPointIndex < 0) return
+                            if (seriesIndex < 0 || dataPointIndex < 0) return;
 
                             // Aquí sí existe la serie
-                            const punto = w.config.series[seriesIndex].data[dataPointIndex] as IDataPoint
-                            setMovSeleccionado(punto.meta)
-                            setActiveComponent("Movimientos del Stock")
+                            const punto = w.config.series[seriesIndex].data[
+                                dataPointIndex
+                            ] as IDataPoint;
+                            setMovSeleccionado(punto.meta);
+                            setActiveComponent('Movimientos del Stock');
                         },
                         // —o bien—
                         // markerClick: (_e, _ctx, { seriesIndex, dataPointIndex, config }) => { … }
@@ -150,15 +163,22 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
                 },
                 tooltip: {
                     shared: false,
-                    intersect: true,                 // o followCursor:true
+                    intersect: true, // o followCursor:true
                     custom: ({ seriesIndex, dataPointIndex, w }) => {
-                        const punto = w.config.series[seriesIndex].data[dataPointIndex] as IDataPoint
+                        const punto = w.config.series[seriesIndex].data[
+                            dataPointIndex
+                        ] as IDataPoint;
 
                         const {
-                            id, tipo_movimiento, descripcion,
-                            cantidad, fecha_creacion, nombre_usuario, stock_item,
-                        } = punto.meta
-                        const saldo = punto.meta.saldo_acumulado ?? cantidad
+                            id,
+                            tipo_movimiento,
+                            descripcion,
+                            cantidad,
+                            fecha_creacion,
+                            nombre_usuario,
+                            stock_item,
+                        } = punto.meta;
+                        const saldo = punto.meta.saldo_acumulado ?? cantidad;
 
                         /*  ⬇️ string HTML puro: usa class, no className  */
                         return `
@@ -171,24 +191,24 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
                                 <div><span class="font-medium">Descripción:</span> ${descripcion ?? '-'}</div>
                                 <div class="text-xs text-gray-400">Movimiento ID ${id}</div>
                                 <div class="text-xs text-gray-400">Usuario ${nombre_usuario}</div>
-                            </div>`
+                            </div>`;
                     },
                 },
             },
             series,
-        }
+        };
 
-        setDatosGrafico(opciones)
-    }, [listaMovimientosStock])
+        setDatosGrafico(opciones);
+    }, [listaMovimientosStock]);
 
     return (
         <Card>
             <CardHeader>
-                <Badge className="text-xl">Historico del Stock</Badge>
+                <Badge className='text-xl'>Historico del Stock</Badge>
             </CardHeader>
             <CardBody>
                 {datosGrafico ? (
-                    <div className="overflow-auto">
+                    <div className='overflow-auto'>
                         <Chart
                             series={datosGrafico.series}
                             options={datosGrafico.options}
@@ -201,7 +221,7 @@ function GraficoMovimientosStockEnItem({setMovSeleccionado, setActiveComponent} 
                 )}
             </CardBody>
         </Card>
-    )
+    );
 }
 
-export default GraficoMovimientosStockEnItem
+export default GraficoMovimientosStockEnItem;

@@ -53,6 +53,13 @@ class RelacionEmpresaSerializer(serializers.ModelSerializer):
         model = RelacionEmpresa
         fields = '__all__'
 
+    def validate(self, attrs):
+        prestador = attrs.get("prestador_servicios") or getattr(self.instance, "prestador_servicios", None)
+        cliente = attrs.get("cliente") or getattr(self.instance, "cliente", None)
+        if prestador and cliente and prestador == cliente:
+            raise serializers.ValidationError("No se puede asignar la misma empresa como cliente de sí misma.")
+        return attrs
+
 class EmpresaContratoSerializer(serializers.ModelSerializer):
     representantes_legales = serializers.SerializerMethodField()
 

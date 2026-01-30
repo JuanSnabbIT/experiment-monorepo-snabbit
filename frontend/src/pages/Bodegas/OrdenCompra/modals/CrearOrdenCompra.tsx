@@ -1,216 +1,312 @@
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import Textarea from "@/components/form/Textarea"
-import Validation from "@/components/form/Validation"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal"
-import Tooltip from "@/components/ui/Tooltip"
-import { IOrdenCompra } from "@/interface/bodega.interface"
-import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { ordenCompraApi } from "@/store/slices/bodega/ordenCompraApi"
-import { listaMisClientesThunk, selectEmpresasThunk, usuarioEmpresaLogeadoThunk } from "@/store/slices/empresa/empresaSlice"
-import { listaProveedoresEmpresaThunk } from "@/store/slices/item/itemSlice"
-import { useFormik } from "formik"
-import { useEffect, useState } from "react"
-import { toast } from "react-toastify"
-import * as Yup from 'yup'
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
+import { IOrdenCompra } from '@/interface/bodega.interface';
+import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { ordenCompraApi } from '@/store/slices/bodega/ordenCompraApi';
+import {
+    listaMisClientesThunk,
+    selectEmpresasThunk,
+    usuarioEmpresaLogeadoThunk,
+} from '@/store/slices/empresa/empresaSlice';
+import { listaProveedoresEmpresaThunk } from '@/store/slices/item/itemSlice';
+import { useFormik } from 'formik';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import * as Yup from 'yup';
 
-
-function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | undefined}) {
-    const dispatch = useAppDispatch()
-    const { listaProveedoresEmpresa } = useAppSelector((state) => state.item)
-    const { usuarioEmpresaLogeado, listaMisClientes, selectEmpresas } = useAppSelector((state) => state.empresa)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const [optionProveedores, setOptionProveedores] = useState<{ value: string; label: string; }[]>([])
-    const [optionClientes, setOptionClientes] = useState<{ value: string; label: string; }[]>([])
-    const [optionsEmpresas, setOptionsEmpresas] = useState<{value: string, label: string}[]>([]);
-    const [isOpen, setIsOpen] = useState<boolean>(false)
-    const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
+function CrearOrdenCompra({ id_empresa }: { id_empresa?: string | number | null | undefined }) {
+    const dispatch = useAppDispatch();
+    const { listaProveedoresEmpresa } = useAppSelector((state) => state.item);
+    const { usuarioEmpresaLogeado, listaMisClientes, selectEmpresas } = useAppSelector(
+        (state) => state.empresa,
+    );
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const [optionProveedores, setOptionProveedores] = useState<{ value: string; label: string }[]>(
+        [],
+    );
+    const [optionClientes, setOptionClientes] = useState<{ value: string; label: string }[]>([]);
+    const [optionsEmpresas, setOptionsEmpresas] = useState<{ value: string; label: string }[]>([]);
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa && isOpen) {
-            dispatch(usuarioEmpresaLogeadoThunk({id_usuario: personalizacionUsuario.usuario}))
-            dispatch(selectEmpresasThunk())
+            dispatch(usuarioEmpresaLogeadoThunk({ id_usuario: personalizacionUsuario.usuario }));
+            dispatch(selectEmpresasThunk());
         }
-    }, [personalizacionUsuario, isOpen])
+    }, [personalizacionUsuario, isOpen]);
 
     useEffect(() => {
         if (selectEmpresas.length > 0) {
-            setOptionsEmpresas(selectEmpresas.map(emp => {return {value: emp.id.toString(), label: emp.nombre}}))
+            setOptionsEmpresas(
+                selectEmpresas.map((emp) => {
+                    return { value: emp.id.toString(), label: emp.nombre };
+                }),
+            );
         }
     }, [selectEmpresas]);
 
     useEffect(() => {
         if (listaProveedoresEmpresa.length > 0) {
-            setOptionProveedores(listaProveedoresEmpresa.map((pro) => {
-                const monedas: {[key: string]: string} = {'1': 'USD', '2': 'CLP', '3': 'UF'}
-                const tipoMonedaKey = pro.tipo_moneda ? String(pro.tipo_moneda) : '2'
-                const moneda = monedas[tipoMonedaKey] || 'CLP'
-                return {
-                    value: pro.id.toString(), 
-                    label: `${pro.nombre} (${moneda})`
-                }
-            }))
+            setOptionProveedores(
+                listaProveedoresEmpresa.map((pro) => {
+                    const monedas: { [key: string]: string } = {
+                        '1': 'USD',
+                        '2': 'CLP',
+                        '3': 'UF',
+                    };
+                    const tipoMonedaKey = pro.tipo_moneda ? String(pro.tipo_moneda) : '2';
+                    const moneda = monedas[tipoMonedaKey] || 'CLP';
+                    return {
+                        value: pro.id.toString(),
+                        label: `${pro.nombre} (${moneda})`,
+                    };
+                }),
+            );
         }
-    }, [listaProveedoresEmpresa])
+    }, [listaProveedoresEmpresa]);
 
     useEffect(() => {
         if (!isOpen) {
-            setOptionClientes([])
-            setOptionProveedores([])
-            setOptionsEmpresas([])
-            formik.resetForm()
+            setOptionClientes([]);
+            setOptionProveedores([]);
+            setOptionsEmpresas([]);
+            formik.resetForm();
         }
-    }, [isOpen])
+    }, [isOpen]);
 
     const formik = useFormik({
         enableReinitialize: true,
         // validateOnBlur: true,
         // validateOnChange: true,
         initialValues: {
-            oc_empresa: "",
-            oc_cliente: "",
-            proveedor: "",
-            observaciones: ""
+            oc_empresa: '',
+            oc_cliente: '',
+            proveedor: '',
+            observaciones: '',
         },
         validationSchema: Yup.object().shape({
-            oc_empresa: Yup.string().required("Requerido"),
-            oc_cliente: Yup.string().required("Requerido"),
-            proveedor: Yup.string().required("Requerido"),
-            observaciones: Yup.string().notRequired()
+            oc_empresa: Yup.string().required('Requerido'),
+            oc_cliente: Yup.string().required('Requerido'),
+            proveedor: Yup.string().required('Requerido'),
+            observaciones: Yup.string().notRequired(),
         }),
         onSubmit: async (values) => {
-            setIsSubmitting(true)
+            setIsSubmitting(true);
             try {
-                const response = await ApiService.fetchData<IOrdenCompra, string>({url: `/api/ordenes-compra/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({...values, creado_por: usuarioEmpresaLogeado?.id})})
+                const response = await ApiService.fetchData<IOrdenCompra, string>({
+                    url: `/api/ordenes-compra/`,
+                    method: 'post',
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify({ ...values, creado_por: usuarioEmpresaLogeado?.id }),
+                });
                 if (response.data) {
-                    toast.success("Orden Creada", {autoClose: 1000})
-                    formik.resetForm()
+                    toast.success('Orden Creada', { autoClose: 1000 });
+                    formik.resetForm();
                     if (id_empresa) {
                         // dispatch(listaOrdenesCompraThunk({id_empresa}))
-                        dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
+                        dispatch(
+                            ordenCompraApi.util.invalidateTags([
+                                'OrdenCompraList',
+                                'MisOrdenesCompraList',
+                            ]),
+                        );
                     } else {
                         // dispatch(listaMisOrdenesDeCompraThunk())
-                        dispatch(ordenCompraApi.util.invalidateTags(['OrdenCompraList', 'MisOrdenesCompraList']))
+                        dispatch(
+                            ordenCompraApi.util.invalidateTags([
+                                'OrdenCompraList',
+                                'MisOrdenesCompraList',
+                            ]),
+                        );
                     }
-                    setIsOpen(false)
+                    setIsOpen(false);
                 }
             } catch (error: any) {
-                const errorMessage = error.response?.data?.detail || error.response?.data || error.message || "Error al crear la orden de compra"
-                toast.error(typeof errorMessage === 'string' ? errorMessage : "Error al crear la orden de compra", {
-                    toastId: "error-crear-orden-compra"
-                })
+                const errorMessage =
+                    error.response?.data?.detail ||
+                    error.response?.data ||
+                    error.message ||
+                    'Error al crear la orden de compra';
+                toast.error(
+                    typeof errorMessage === 'string'
+                        ? errorMessage
+                        : 'Error al crear la orden de compra',
+                    {
+                        toastId: 'error-crear-orden-compra',
+                    },
+                );
             } finally {
-                setIsSubmitting(false)
+                setIsSubmitting(false);
             }
-        }   
-    })
+        },
+    });
 
     useEffect(() => {
-        let opti: { value: string; label: string; }[] = []
-        if (formik.values.oc_empresa !== "") {
-            opti.push({value: formik.values.oc_empresa.toString(), label: optionsEmpresas.find(emp => emp.value === formik.values.oc_empresa)?.label || ""})
+        let opti: { value: string; label: string }[] = [];
+        if (formik.values.oc_empresa !== '') {
+            opti.push({
+                value: formik.values.oc_empresa.toString(),
+                label:
+                    optionsEmpresas.find((emp) => emp.value === formik.values.oc_empresa)?.label ||
+                    '',
+            });
         }
         if (listaMisClientes.length > 0) {
-            opti = [...opti, ...listaMisClientes.map(cli => {return {value: cli.cliente.toString(), label: cli.info_cliente.nombre}})]
+            opti = [
+                ...opti,
+                ...listaMisClientes.map((cli) => {
+                    return { value: cli.cliente.toString(), label: cli.info_cliente.nombre };
+                }),
+            ];
         }
-        setOptionClientes(opti)
-    }, [listaMisClientes, formik.values.oc_empresa])
+        setOptionClientes(opti);
+    }, [listaMisClientes, formik.values.oc_empresa]);
 
     useEffect(() => {
-        if (formik.values.oc_empresa !== "") {
-            dispatch(listaProveedoresEmpresaThunk({id_empresa: formik.values.oc_empresa}))
+        if (formik.values.oc_empresa !== '') {
+            dispatch(listaProveedoresEmpresaThunk({ id_empresa: formik.values.oc_empresa }));
         }
-    }, [formik.values.oc_empresa])
+    }, [formik.values.oc_empresa]);
 
     return (
         <>
-            <Tooltip text="Crear Orden de Compra">
-                <Button variant="solid" onClick={() => {setIsOpen(true)}} icon="HeroPlus"></Button>
+            <Tooltip text='Crear Orden de Compra'>
+                <Button
+                    variant='solid'
+                    onClick={() => {
+                        setIsOpen(true);
+                    }}
+                    icon='HeroPlus'></Button>
             </Tooltip>
-            <Modal
-                isOpen={isOpen}
-                setIsOpen={setIsOpen}
-                isStaticBackdrop={true}
-            >
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
                 <ModalHeader>
-                    <Badge className="text-xl">Crear Orden de Compra</Badge>
+                    <Badge className='text-xl'>Crear Orden de Compra</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <div className="flex flex-col gap-4">
-                        <div className="w-full">
+                    <div className='flex flex-col gap-4'>
+                        <div className='w-full'>
                             <Badge>Empresa</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.oc_empresa}
-                                invalidFeedback={formik.errors.oc_empresa}
-                            >
+                                invalidFeedback={formik.errors.oc_empresa}>
                                 <SelectReact
-                                    name="oc_empresa"
+                                    name='oc_empresa'
                                     options={optionsEmpresas}
-                                    value={{value: formik.values.oc_empresa, label: optionsEmpresas.find(emp => emp.value === formik.values.oc_empresa)?.label || ""}}
+                                    value={{
+                                        value: formik.values.oc_empresa,
+                                        label:
+                                            optionsEmpresas.find(
+                                                (emp) => emp.value === formik.values.oc_empresa,
+                                            )?.label || '',
+                                    }}
                                     onBlur={formik.handleBlur}
                                     isMulti={false}
                                     isValid={formik.isValid}
                                     invalidFeedback={formik.errors.oc_empresa}
                                     isTouched={formik.touched.oc_empresa}
                                     onChange={(e) => {
-                                        formik.setFieldValue("oc_empresa", (e as TSelectOption).value)
-                                        formik.validateField("oc_empresa")
-                                        formik.setFieldValue("oc_cliente", "")
-                                        formik.validateField("oc_cliente")
-                                        formik.setFieldValue("proveedor", "")
-                                        formik.validateField("proveedor")
-                                        dispatch(listaMisClientesThunk({id_empresa: (e as TSelectOption).value}))
-                                        dispatch(listaProveedoresEmpresaThunk({id_empresa: (e as TSelectOption).value}))
+                                        formik.setFieldValue(
+                                            'oc_empresa',
+                                            (e as TSelectOption).value,
+                                        );
+                                        formik.validateField('oc_empresa');
+                                        formik.setFieldValue('oc_cliente', '');
+                                        formik.validateField('oc_cliente');
+                                        formik.setFieldValue('proveedor', '');
+                                        formik.validateField('proveedor');
+                                        dispatch(
+                                            listaMisClientesThunk({
+                                                id_empresa: (e as TSelectOption).value,
+                                            }),
+                                        );
+                                        dispatch(
+                                            listaProveedoresEmpresaThunk({
+                                                id_empresa: (e as TSelectOption).value,
+                                            }),
+                                        );
                                     }}
                                 />
                             </Validation>
                         </div>
-                        <div className="w-full">
+                        <div className='w-full'>
                             <Badge>Cliente</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.oc_cliente}
-                                invalidFeedback={formik.errors.oc_cliente}
-                            >
+                                invalidFeedback={formik.errors.oc_cliente}>
                                 <SelectReact
-                                    name="oc_cliente"
+                                    name='oc_cliente'
                                     options={optionClientes}
-                                    value={{value: formik.values.oc_cliente, label: optionClientes.find(cli => cli.value.toString() === formik.values.oc_cliente)?.label || ""}}
+                                    value={{
+                                        value: formik.values.oc_cliente,
+                                        label:
+                                            optionClientes.find(
+                                                (cli) =>
+                                                    cli.value.toString() ===
+                                                    formik.values.oc_cliente,
+                                            )?.label || '',
+                                    }}
                                     onBlur={formik.handleBlur}
                                     isMulti={false}
-                                    onChange={(e) => {formik.setFieldValue("oc_cliente", (e as TSelectOption).value); formik.validateField("oc_cliente")}}
+                                    onChange={(e) => {
+                                        formik.setFieldValue(
+                                            'oc_cliente',
+                                            (e as TSelectOption).value,
+                                        );
+                                        formik.validateField('oc_cliente');
+                                    }}
                                 />
                             </Validation>
                         </div>
-                        <div className="w-full">
+                        <div className='w-full'>
                             <Badge>Proveedor</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.proveedor}
-                                invalidFeedback={formik.errors.proveedor}
-                            >
-                                <SelectReact 
-                                    name="proveedor"
+                                invalidFeedback={formik.errors.proveedor}>
+                                <SelectReact
+                                    name='proveedor'
                                     options={optionProveedores}
-                                    value={{value: formik.values.proveedor, label: optionProveedores.find(pro => pro.value === formik.values.proveedor)?.label || ""}}
+                                    value={{
+                                        value: formik.values.proveedor,
+                                        label:
+                                            optionProveedores.find(
+                                                (pro) => pro.value === formik.values.proveedor,
+                                            )?.label || '',
+                                    }}
                                     onBlur={formik.handleBlur}
                                     isMulti={false}
-                                    onChange={(e) => {formik.setFieldValue('proveedor', (e as TSelectOption).value); formik.validateField("proveedor")}}
+                                    onChange={(e) => {
+                                        formik.setFieldValue(
+                                            'proveedor',
+                                            (e as TSelectOption).value,
+                                        );
+                                        formik.validateField('proveedor');
+                                    }}
                                 />
                             </Validation>
                         </div>
-                        <div className="w-full">
+                        <div className='w-full'>
                             <Badge>Observaciones</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.observaciones}
-                                invalidFeedback={formik.errors.observaciones}
-                            >
+                                invalidFeedback={formik.errors.observaciones}>
                                 <Textarea
-                                    name="observaciones"
+                                    name='observaciones'
                                     rows={4}
                                     onBlur={formik.handleBlur}
                                     onChange={formik.handleChange}
@@ -223,15 +319,27 @@ function CrearOrdenCompra({id_empresa} : {id_empresa?: string | number | null | 
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
                     <ModalFooterChild>
-                        <Button color="red" onClick={() => {setIsOpen(false); formik.resetForm()}}>Cancelar</Button>
-                        <Button variant="solid" isDisable={isSubmitting} onClick={() => {formik.handleSubmit()}}>
-                            {isSubmitting ? "Creando..." : "Crear"}
+                        <Button
+                            color='red'
+                            onClick={() => {
+                                setIsOpen(false);
+                                formik.resetForm();
+                            }}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant='solid'
+                            isDisable={isSubmitting}
+                            onClick={() => {
+                                formik.handleSubmit();
+                            }}>
+                            {isSubmitting ? 'Creando...' : 'Crear'}
                         </Button>
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
         </>
-    )
+    );
 }
 
-export default CrearOrdenCompra
+export default CrearOrdenCompra;

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Icon from '@/components/icon/Icon';
@@ -36,7 +35,11 @@ const DetalleCategoria = () => {
         dispatch(detalleCategoriaThunk({ id_categoria: id }));
     }, [personalizacionUsuario]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>, itemId: number, field: string) => {
+    const handleInputChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+        itemId: number,
+        field: string,
+    ) => {
         const { value } = e.target;
         setFormData((prev: any) => ({
             ...prev,
@@ -74,11 +77,16 @@ const DetalleCategoria = () => {
 
     if (!detalleCategoria) {
         return (
-            <PageWrapper isProtectedRoute={true} name="Detalle Categoria" title="Detalle Categoria">
-                <div className="flex justify-center items-center h-full">
-                    <div className="text-center">
-                        <p className="text-xl font-semibold">No se encontró la Categoria.</p>
-                        <Icon icon='DuoWarning1Circle' color='red' size='text-9xl' className="mt-4 mx-auto" />
+            <PageWrapper isProtectedRoute={true} name='Detalle Categoria' title='Detalle Categoria'>
+                <div className='flex h-full items-center justify-center'>
+                    <div className='text-center'>
+                        <p className='text-xl font-semibold'>No se encontró la Categoria.</p>
+                        <Icon
+                            icon='DuoWarning1Circle'
+                            color='red'
+                            size='text-9xl'
+                            className='mx-auto mt-4'
+                        />
                     </div>
                 </div>
             </PageWrapper>
@@ -86,26 +94,23 @@ const DetalleCategoria = () => {
     }
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Detalle Categoria" title="Detalle Categoria">
+        <PageWrapper isProtectedRoute={true} name='Detalle Categoria' title='Detalle Categoria'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl ">Detalle de {detalleCategoria?.nombre}</Badge>
+                    <Badge className='text-xl'>Detalle de {detalleCategoria?.nombre}</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <Button
-                        variant='solid'
-                        onClick={() => setIsEditing(!isEditing)} 
-                    >{isEditing ? 'Cancelar' : 'Modificar'}</Button>
+                    <Button variant='solid' onClick={() => setIsEditing(!isEditing)}>
+                        {isEditing ? 'Cancelar' : 'Modificar'}
+                    </Button>
                 </SubheaderRight>
             </Subheader>
             <Container>
-                <div className="flex gap-4 flex-col">
+                <div className='flex flex-col gap-4'>
                     <div className='w-full'>
-                        <Card className="w-full">
+                        <Card className='w-full'>
                             <CardHeader>
-                                <Badge className="text-xl mb-2">
-                                    Datos del Categoria
-                                </Badge>
+                                <Badge className='mb-2 text-xl'>Datos del Categoria</Badge>
                             </CardHeader>
                             <CardBody>
                                 <div className='flex flex-col gap-4'>
@@ -117,8 +122,7 @@ const DetalleCategoria = () => {
                                                     <Validation
                                                         isValid={formik.isValid}
                                                         isTouched={formik.touched.nombre}
-                                                        invalidFeedback={formik.errors.nombre}
-                                                    >
+                                                        invalidFeedback={formik.errors.nombre}>
                                                         <Input
                                                             type='text'
                                                             name='nombre'
@@ -134,8 +138,10 @@ const DetalleCategoria = () => {
                                             {isEditing && (
                                                 <Button
                                                     variant='solid'
-                                                    onClick={() => { formik.submitForm(); setIsEditing(false); }}
-                                                >
+                                                    onClick={() => {
+                                                        formik.submitForm();
+                                                        setIsEditing(false);
+                                                    }}>
                                                     Guardar
                                                 </Button>
                                             )}

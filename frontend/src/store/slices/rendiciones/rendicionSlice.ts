@@ -1,20 +1,24 @@
-import { ICategoriaGasto, ICompraRendicion, IItemRendicion, IRendicion } from "@/interface/rendicion.interface"
-import ApiService from "@/services/ApiService"
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
+import {
+    ICategoriaGasto,
+    ICompraRendicion,
+    IItemRendicion,
+    IRendicion,
+} from '@/interface/rendicion.interface';
+import ApiService from '@/services/ApiService';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
-
-export interface RendicionState{
-    loading: boolean
-    error: string | undefined
-    listaRendiciones: IRendicion[]
-    detalleRendicion: IRendicion | undefined
-    listaCategoriasGasto: ICategoriaGasto[]
+export interface RendicionState {
+    loading: boolean;
+    error: string | undefined;
+    listaRendiciones: IRendicion[];
+    detalleRendicion: IRendicion | undefined;
+    listaCategoriasGasto: ICategoriaGasto[];
     // listaDetalleGasto: IDetalleGasto[]
     // detalleGasto: IDetalleGasto | undefined
-    listaMisRendiciones: IRendicion[]
-    listaRendicionesSucursal: IRendicion[]
-    listaItemsRendicion: IItemRendicion[]
-    listaComprasDisponibles: ICompraRendicion[]
+    listaMisRendiciones: IRendicion[];
+    listaRendicionesSucursal: IRendicion[];
+    listaItemsRendicion: IItemRendicion[];
+    listaComprasDisponibles: ICompraRendicion[];
 }
 
 const initialState: RendicionState = {
@@ -28,95 +32,119 @@ const initialState: RendicionState = {
     listaMisRendiciones: [],
     listaRendicionesSucursal: [],
     listaItemsRendicion: [],
-    listaComprasDisponibles: []
-}
+    listaComprasDisponibles: [],
+};
 
-export const listaComprasDisponiblesThunk = createAsyncThunk<ICompraRendicion[], undefined, {rejectValue: string}>(
-    'rendicion/listaComprasDisponiblesThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<ICompraRendicion[]>({url: `/api/rendiciones/compras-libres`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaComprasDisponiblesThunk = createAsyncThunk<
+    ICompraRendicion[],
+    undefined,
+    { rejectValue: string }
+>('rendicion/listaComprasDisponiblesThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<ICompraRendicion[]>({
+            url: `/api/rendiciones/compras-libres`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const listaItemsRendicionThunk = createAsyncThunk<IItemRendicion[], {id_rendicion: string | number | undefined}, {rejectValue: string}>(
-    'rendicion/listaItemsRendicionThunk',
-    async ({id_rendicion}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IItemRendicion[]>({url: `/api/rendiciones/${id_rendicion}/items-rendicion/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaItemsRendicionThunk = createAsyncThunk<
+    IItemRendicion[],
+    { id_rendicion: string | number | undefined },
+    { rejectValue: string }
+>('rendicion/listaItemsRendicionThunk', async ({ id_rendicion }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IItemRendicion[]>({
+            url: `/api/rendiciones/${id_rendicion}/items-rendicion/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const listaRendicionesThunk = createAsyncThunk<IRendicion[], undefined, {rejectValue: string}>(
-    'rendicion/listaRendicionesThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IRendicion[]>({url: `/api/rendiciones/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaRendicionesThunk = createAsyncThunk<
+    IRendicion[],
+    undefined,
+    { rejectValue: string }
+>('rendicion/listaRendicionesThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion[]>({
+            url: `/api/rendiciones/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
+});
 
-)
-
-export const listaMisRendicionesThunk = createAsyncThunk<IRendicion[], undefined, {rejectValue: string}>(
-    'rendicion/listaMisRendicionesThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IRendicion[]>({url: `/api/rendiciones/mis-rendiciones/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaMisRendicionesThunk = createAsyncThunk<
+    IRendicion[],
+    undefined,
+    { rejectValue: string }
+>('rendicion/listaMisRendicionesThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion[]>({
+            url: `/api/rendiciones/mis-rendiciones/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-
-)
-export const listaRendicionesSucursalesThunk = createAsyncThunk<IRendicion[], undefined, {rejectValue: string}>(
-    'rendicion/listaRendicionesSucursalesThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IRendicion[]>({url: `/api/rendiciones/rendiciones-sucursal/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+});
+export const listaRendicionesSucursalesThunk = createAsyncThunk<
+    IRendicion[],
+    undefined,
+    { rejectValue: string }
+>('rendicion/listaRendicionesSucursalesThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion[]>({
+            url: `/api/rendiciones/rendiciones-sucursal/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-)
+});
 
-export const detalleRendicionThunk = createAsyncThunk<IRendicion, {id_rendicion: number | string | undefined}, {rejectValue: string}>(
-    'rendicion/detalleRendicionThunk',
-    async ({id_rendicion}, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<IRendicion>({url: `/api/rendiciones/${id_rendicion}/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data || "Error al obtener las rendiciones")
-        }
+export const detalleRendicionThunk = createAsyncThunk<
+    IRendicion,
+    { id_rendicion: number | string | undefined },
+    { rejectValue: string }
+>('rendicion/detalleRendicionThunk', async ({ id_rendicion }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion>({
+            url: `/api/rendiciones/${id_rendicion}/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data || 'Error al obtener las rendiciones');
     }
+});
 
-)
-
-export const listaCategoriasGastoThunk = createAsyncThunk<ICategoriaGasto[], undefined, {rejectValue: string}>(
-    'rendicion/listaCategoriasGastoThunk',
-    async (_, {rejectWithValue}) => {
-        try {
-            const response = await ApiService.fetchData<ICategoriaGasto[]>({url: `/api/categorias-gasto/`, method: 'get'})
-            return response.data
-        } catch (error: any) {
-            return rejectWithValue(error.response.data)
-        }
+export const listaCategoriasGastoThunk = createAsyncThunk<
+    ICategoriaGasto[],
+    undefined,
+    { rejectValue: string }
+>('rendicion/listaCategoriasGastoThunk', async (_, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<ICategoriaGasto[]>({
+            url: `/api/categorias-gasto/`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
     }
-
-)
+});
 
 // export const listaDetalleGastoThunk = createAsyncThunk<IDetalleGasto[], {id_rendicion: number | string | undefined}, {rejectValue: string}>(
 //     'rendicion/listaDetalleGastoThunk',
@@ -150,38 +178,38 @@ export const rendicionSlice = createSlice({
     reducers: {},
     extraReducers(builder) {
         builder
-           .addCase(listaRendicionesThunk.pending, (state) => {
-                state.loading = true
+            .addCase(listaRendicionesThunk.pending, (state) => {
+                state.loading = true;
             })
             .addCase(listaRendicionesThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaRendiciones = action.payload
+                state.loading = false;
+                state.listaRendiciones = action.payload;
             })
             .addCase(listaRendicionesThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(detalleRendicionThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(detalleRendicionThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.detalleRendicion = action.payload
+                state.loading = false;
+                state.detalleRendicion = action.payload;
             })
             .addCase(detalleRendicionThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(listaCategoriasGastoThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaCategoriasGastoThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaCategoriasGasto = action.payload
+                state.loading = false;
+                state.listaCategoriasGasto = action.payload;
             })
             .addCase(listaCategoriasGastoThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             // .addCase(listaDetalleGastoThunk.pending, (state) => {
             //     state.loading = true
@@ -210,55 +238,55 @@ export const rendicionSlice = createSlice({
             //     state.error = action.payload
             // })
             .addCase(listaMisRendicionesThunk.pending, (state) => {
-                state.loading = true
-                state.error = undefined
+                state.loading = true;
+                state.error = undefined;
             })
             .addCase(listaMisRendicionesThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.error = undefined
-                state.listaMisRendiciones = action.payload
+                state.loading = false;
+                state.error = undefined;
+                state.listaMisRendiciones = action.payload;
             })
             .addCase(listaMisRendicionesThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(listaRendicionesSucursalesThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaRendicionesSucursalesThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.error = undefined
-                state.listaRendicionesSucursal = action.payload
+                state.loading = false;
+                state.error = undefined;
+                state.listaRendicionesSucursal = action.payload;
             })
             .addCase(listaRendicionesSucursalesThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(listaItemsRendicionThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaItemsRendicionThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaItemsRendicion = action.payload
+                state.loading = false;
+                state.listaItemsRendicion = action.payload;
             })
             .addCase(listaItemsRendicionThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
+                state.loading = false;
+                state.error = action.payload;
             })
             .addCase(listaComprasDisponiblesThunk.pending, (state) => {
-                state.loading = true
+                state.loading = true;
             })
             .addCase(listaComprasDisponiblesThunk.fulfilled, (state, action) => {
-                state.loading = false
-                state.listaComprasDisponibles = action.payload
+                state.loading = false;
+                state.listaComprasDisponibles = action.payload;
             })
             .addCase(listaComprasDisponiblesThunk.rejected, (state, action) => {
-                state.loading = false
-                state.error = action.payload
-            })
+                state.loading = false;
+                state.error = action.payload;
+            });
     },
-})
+});
 
-export const {} = rendicionSlice.actions
+export const {} = rendicionSlice.actions;
 
-export default rendicionSlice.reducer
+export default rendicionSlice.reducer;

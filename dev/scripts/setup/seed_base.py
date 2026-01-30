@@ -6,15 +6,18 @@ Que hace:
 - Ejecuta setup_superuser.py (si no existe superusuario) y luego pobla datos base completos
 - Verifica exito de cada paso antes de continuar
 - Proporciona resumen al finalizar
-- Crea SOLO datos base necesarios para probar flujos de usuario
+- Crea datos base Y flujos completos (Cotizaciones, OT, Contratos, Ordenes Compra)
 
-IMPORTANTE: NO crea datos de flujos (OT, Contratos, Cotizaciones, etc.)
-Estos se deben crear manualmente para probar los flujos del sistema.
+NUEVO: Ahora crea flujos completos de negocio con datos realistas:
+- 10 Cotizaciones en diferentes estados
+- 3+ Órdenes de Trabajo vinculadas a cotizaciones
+- 5 Contratos de servicio
+- 5 Órdenes de Compra a proveedores
 
 Cuando usar:
 - Despues de limpiar la base de datos para poblar sistema desde cero
 - Primera inicializacion del sistema
-- Testing con datos base solidos
+- Testing con datos base solidos y flujos completos
 
 Prerequisitos:
 - Base de datos limpia (por ejemplo, borrar db.sqlite3)
@@ -460,6 +463,42 @@ def ensure_internal_users(
             "cargo": "Administrador",
         },
         {
+            "key": "ventas",
+            "email": "ventas@snabbit.cl",
+            "rut": "11111111-6",
+            "first_name": "Paula",
+            "last_name": "Ventas",
+            "password": "test1234",
+            "is_staff": True,
+            "is_superuser": False,
+            "grupos": ["staff"],
+            "cargo": "Ejecutiva de Ventas",
+        },
+        {
+            "key": "contabilidad",
+            "email": "contabilidad@snabbit.cl",
+            "rut": "11111111-5",
+            "first_name": "Diego",
+            "last_name": "Contabilidad",
+            "password": "test1234",
+            "is_staff": True,
+            "is_superuser": False,
+            "grupos": ["staff"],
+            "cargo": "Analista Contable",
+        },
+        {
+            "key": "supervisor",
+            "email": "supervisor@snabbit.cl",
+            "rut": "11111111-4",
+            "first_name": "Camila",
+            "last_name": "Supervisor",
+            "password": "test1234",
+            "is_staff": True,
+            "is_superuser": False,
+            "grupos": ["staff"],
+            "cargo": "Supervisora de Operaciones",
+        },
+        {
             "key": "tecnico",
             "email": "tecnico@snabbit.cl",
             "rut": "11111111-8",
@@ -574,24 +613,136 @@ def ensure_client_companies(
 
     clients_config = [
         {
-            "nombre": "AYG ASOCIADOS",
+            "nombre": "AYG ASOCIADOS SpA",
             "rut": "76123456-7",
+            "direccion": "Av. Providencia 1234, Oficina 402",
+            "telefono": "+56223456789",
+            "email": "contacto@aygasociados.cl",
+            "region": 13,
+            "provincia": 131,
+            "comuna": 13101,
             "archivo": "usuarios_aygasociados.xlsx",
         },
         {
-            "nombre": "CAMACOES",
+            "nombre": "CAMACOES Ltda",
             "rut": "76345678-5",
+            "direccion": "Av. Libertad 450, Piso 3",
+            "telefono": "+56322567890",
+            "email": "contacto@camacoes.cl",
+            "region": 5,
+            "provincia": 51,
+            "comuna": 5101,
             "archivo": "usuarios_camacoes.xlsx",
         },
         {
-            "nombre": "MOLINA RIOS",
+            "nombre": "MOLINA RIOS Ingeniería",
             "rut": "76456789-0",
+            "direccion": "Av. San Martin 890",
+            "telefono": "+56422345678",
+            "email": "contacto@molinarios.cl",
+            "region": 8,
+            "provincia": 81,
+            "comuna": 8101,
             "archivo": "usuarios_molinarios.xlsx",
         },
         {
-            "nombre": "PRODALMEN",
+            "nombre": "PRODALMEN S.A.",
             "rut": "76567890-1",
+            "direccion": "Calle 10 Norte 120",
+            "telefono": "+56322560123",
+            "email": "contacto@prodalmen.cl",
+            "region": 7,
+            "provincia": 71,
+            "comuna": 7101,
             "archivo": "usuarios_prodalmen.xlsx",
+        },
+        {
+            "nombre": "Segurimax Chile SpA",
+            "rut": "76678901-2",
+            "direccion": "Av. Apoquindo 4890, Torre B",
+            "telefono": "+56221234567",
+            "email": "contacto@segurimax.cl",
+            "region": 13,
+            "provincia": 131,
+            "comuna": 13114,
+            "archivo": "usuarios_segurimax.xlsx",
+        },
+        {
+            "nombre": "Servicios Nova Ltda",
+            "rut": "76789012-3",
+            "direccion": "Camino Industrial 455",
+            "telefono": "+56512223344",
+            "email": "contacto@serviciosnova.cl",
+            "region": 2,
+            "provincia": 21,
+            "comuna": 2101,
+            "archivo": "usuarios_serviciosnova.xlsx",
+        },
+        {
+            "nombre": "Grupo Austral SpA",
+            "rut": "76890123-4",
+            "direccion": "Pedro Montt 1200",
+            "telefono": "+56652223344",
+            "email": "contacto@grupoaustral.cl",
+            "region": 10,
+            "provincia": 101,
+            "comuna": 10101,
+            "archivo": "usuarios_grupoaustral.xlsx",
+        },
+        {
+            "nombre": "Centro Medico San Lucas",
+            "rut": "76901234-5",
+            "direccion": "Av. Alemania 850",
+            "telefono": "+56452345678",
+            "email": "contacto@cmsanlucas.cl",
+            "region": 9,
+            "provincia": 91,
+            "comuna": 9101,
+            "archivo": "usuarios_cmsanlucas.xlsx",
+        },
+        {
+            "nombre": "Logistica Rayo Sur",
+            "rut": "77012345-6",
+            "direccion": "Parque Industrial 200",
+            "telefono": "+56342223344",
+            "email": "contacto@rayosur.cl",
+            "region": 6,
+            "provincia": 61,
+            "comuna": 6101,
+            "archivo": "usuarios_rayosur.xlsx",
+        },
+        {
+            "nombre": "Fundacion Valle Seguro",
+            "rut": "77123456-7",
+            "direccion": "Av. O'Higgins 322",
+            "telefono": "+56712345678",
+            "email": "contacto@valleseguro.cl",
+            "region": 3,
+            "provincia": 31,
+            "comuna": 3101,
+            "archivo": "usuarios_valleseguro.xlsx",
+        },
+        {
+            "nombre": "Comercial El Faro EIRL",
+            "rut": "77234567-8",
+            "direccion": "Av. La Serena 120",
+            "telefono": "+56512229900",
+            "email": "contacto@comercialelfaro.cl",
+            "region": 4,
+            "provincia": 41,
+            "comuna": 4101,
+            "archivo": "usuarios_comercialelfaro.xlsx",
+        },
+        {
+            "nombre": "Juan Perez Servicios",
+            "rut": "77345678-9",
+            "direccion": "Los Jardines 45",
+            "telefono": "+56229876543",
+            "email": "contacto@juanperezservicios.cl",
+            "region": 13,
+            "provincia": 132,
+            "comuna": 13201,
+            "archivo": "usuarios_juanperez.xlsx",
         },
     ]
 
@@ -607,9 +758,10 @@ def ensure_client_companies(
             rut_empresa=client["rut"],
             defaults={
                 "nombre": client["nombre"],
-                "direccion_principal": "Direccion Cliente",
-                "telefono": "+56900000000",
-                "email": f"contacto@{slugify(client['nombre'])}.cl",
+                "direccion_principal": client.get("direccion") or "Direccion Cliente",
+                "telefono": client.get("telefono") or "+56900000000",
+                "email": client.get("email")
+                or f"contacto@{slugify(client['nombre'])}.cl",
             },
         )
 
@@ -620,6 +772,9 @@ def ensure_client_companies(
                 "direccion": empresa.direccion_principal,
                 "telefono": empresa.telefono,
                 "email": empresa.email,
+                "region": client.get("region", 0),
+                "provincia": client.get("provincia", 0),
+                "comuna": client.get("comuna", 0),
             },
         )
 
@@ -637,19 +792,28 @@ def ensure_client_companies(
                     "email": f"admin@{slug}.cl",
                     "rut": rut_generator(),
                     "first_name": "Admin",
-                    "last_name": client["nombre"].title(),
+                    "last_name": client["nombre"].split(" ")[0].title(),
                     "second_name": None,
                     "second_last_name": None,
                     "cargo": "Administrador",
                 },
                 {
-                    "email": f"usuario@{slug}.cl",
+                    "email": f"compras@{slug}.cl",
                     "rut": rut_generator(),
-                    "first_name": "Usuario",
-                    "last_name": client["nombre"].title(),
+                    "first_name": "Compras",
+                    "last_name": client["nombre"].split(" ")[0].title(),
                     "second_name": None,
                     "second_last_name": None,
-                    "cargo": "Usuario",
+                    "cargo": "Compras",
+                },
+                {
+                    "email": f"operaciones@{slug}.cl",
+                    "rut": rut_generator(),
+                    "first_name": "Operaciones",
+                    "last_name": client["nombre"].split(" ")[0].title(),
+                    "second_name": None,
+                    "second_last_name": None,
+                    "cargo": "Operaciones",
                 },
             ]
 
@@ -734,12 +898,31 @@ def ensure_catalogs(empresa: object):
     from items.models import Categoria, Fabricante, ProveedorEmpresa
 
     categorias = {}
-    for nombre in ["Camaras de Seguridad", "Cables y Conectores", "Accesorios"]:
+    for nombre in [
+        "Camaras IP",
+        "Camaras Analogas",
+        "Grabadores y NVR",
+        "Control de Acceso",
+        "Alarmas e Intrusion",
+        "Redes y Conectividad",
+        "Energia y UPS",
+        "Accesorios y Montaje",
+        "Cableado y Conectores",
+    ]:
         categoria, _ = Categoria.objects.get_or_create(nombre=nombre)
         categorias[nombre] = categoria
 
     fabricantes = {}
-    for nombre in ["Hikvision", "Dahua", "Generico"]:
+    for nombre in [
+        "Hikvision",
+        "Dahua",
+        "Ubiquiti",
+        "TP-Link",
+        "Intelbras",
+        "APC",
+        "Cisco",
+        "Genérico",
+    ]:
         fabricante, _ = Fabricante.objects.get_or_create(nombre=nombre)
         fabricantes[nombre] = fabricante
 
@@ -766,6 +949,55 @@ def ensure_catalogs(empresa: object):
             "ejecutivo_asignado": "Robert Smith",
             "email_ejecutivo": "r.smith@globalhardware.com",
         },
+        {
+            "rut": "78222333-4",
+            "nombre": "Seguridad Integral Norte",
+            "tipo_moneda": "2",
+            "ejecutivo_asignado": "Patricia Silva",
+            "email_ejecutivo": "p.silva@sintnorte.cl",
+        },
+        {
+            "rut": "78333444-5",
+            "nombre": "CCTV Solutions",
+            "tipo_moneda": "1",
+            "ejecutivo_asignado": "Carlos Diaz",
+            "email_ejecutivo": "c.diaz@cctvsolutions.com",
+        },
+        {
+            "rut": "78444555-6",
+            "nombre": "Redes y Datos Chile",
+            "tipo_moneda": "2",
+            "ejecutivo_asignado": "Sofia Romero",
+            "email_ejecutivo": "s.romero@redesdatos.cl",
+        },
+        {
+            "rut": "78555666-7",
+            "nombre": "Control Access SpA",
+            "tipo_moneda": "2",
+            "ejecutivo_asignado": "Javier Soto",
+            "email_ejecutivo": "j.soto@controlaccess.cl",
+        },
+        {
+            "rut": "78666777-8",
+            "nombre": "Energia Segura Ltda",
+            "tipo_moneda": "3",
+            "ejecutivo_asignado": "Paula Rivas",
+            "email_ejecutivo": "p.rivas@energiasegura.cl",
+        },
+        {
+            "rut": "78777888-9",
+            "nombre": "Conectividad Andes",
+            "tipo_moneda": "2",
+            "ejecutivo_asignado": "Felipe Morales",
+            "email_ejecutivo": "f.morales@conectividadandes.cl",
+        },
+        {
+            "rut": "78888999-1",
+            "nombre": "Accesorios Omega",
+            "tipo_moneda": "2",
+            "ejecutivo_asignado": "Andrea Lara",
+            "email_ejecutivo": "a.lara@accesoriosomega.cl",
+        },
     ]
 
     for data in proveedores_data:
@@ -791,53 +1023,369 @@ def ensure_items_and_stock(
     categorias: Dict[str, object],
     fabricantes: Dict[str, object],
     proveedores: List[object],
-) -> None:
+) -> List[object]:
     from bodegas.models import StockItemEnBodega
     from items.models import ItemEmpresa
 
+    bodega_principal = bodegas["Bodega Principal"]
+    bodega_secundaria = bodegas["Bodega Secundaria"]
+
     items_data = [
         {
-            "nombre": "Camara Domo 2MP",
-            "categoria": categorias["Camaras de Seguridad"],
+            "nombre": "Camara IP Domo 2MP",
+            "categoria": categorias["Camaras IP"],
             "fabricante": fabricantes["Hikvision"],
-            "cantidad": 10,
-            "bodega": bodegas["Bodega Principal"],
+            "cantidad": 40,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[0], proveedores[3]],
+        },
+        {
+            "nombre": "Camara IP Bullet 4MP",
+            "categoria": categorias["Camaras IP"],
+            "fabricante": fabricantes["Hikvision"],
+            "cantidad": 35,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[0], proveedores[4]],
+        },
+        {
+            "nombre": "Camara IP Domo 4MP",
+            "categoria": categorias["Camaras IP"],
+            "fabricante": fabricantes["Dahua"],
+            "cantidad": 30,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[1], proveedores[4]],
+        },
+        {
+            "nombre": "Camara IP PTZ 20x",
+            "categoria": categorias["Camaras IP"],
+            "fabricante": fabricantes["Dahua"],
+            "cantidad": 12,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[1], proveedores[4]],
+        },
+        {
+            "nombre": "Camara Analogica 2MP",
+            "categoria": categorias["Camaras Analogas"],
+            "fabricante": fabricantes["Hikvision"],
+            "cantidad": 25,
+            "bodega": bodega_principal,
             "proveedores": [proveedores[0]],
         },
         {
-            "nombre": "DVR 8 Canales",
-            "categoria": categorias["Camaras de Seguridad"],
+            "nombre": "Camara Analogica 5MP",
+            "categoria": categorias["Camaras Analogas"],
             "fabricante": fabricantes["Dahua"],
-            "cantidad": 20,
-            "bodega": bodegas["Bodega Principal"],
-            "proveedores": [proveedores[0], proveedores[1]],
-        },
-        {
-            "nombre": "Cable UTP Cat5e",
-            "categoria": categorias["Cables y Conectores"],
-            "fabricante": fabricantes["Generico"],
-            "cantidad": 30,
-            "bodega": bodegas["Bodega Principal"],
+            "cantidad": 18,
+            "bodega": bodega_principal,
             "proveedores": [proveedores[1]],
         },
         {
-            "nombre": "Canaleta 20x10",
-            "categoria": categorias["Accesorios"],
-            "fabricante": fabricantes["Generico"],
-            "cantidad": 5,
-            "bodega": bodegas["Bodega Secundaria"],
+            "nombre": "NVR 8 Canales",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Hikvision"],
+            "cantidad": 15,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[0]],
+        },
+        {
+            "nombre": "NVR 16 Canales",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Hikvision"],
+            "cantidad": 10,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[0]],
+        },
+        {
+            "nombre": "DVR 16 Canales",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Dahua"],
+            "cantidad": 12,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[1]],
+        },
+        {
+            "nombre": "Switch PoE 8 Puertos",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["TP-Link"],
+            "cantidad": 20,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[5], proveedores[8]],
+        },
+        {
+            "nombre": "Switch PoE 24 Puertos",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["Cisco"],
+            "cantidad": 6,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[5]],
+        },
+        {
+            "nombre": "Router Gigabit",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["TP-Link"],
+            "cantidad": 22,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[5]],
+        },
+        {
+            "nombre": "Access Point AC",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["Ubiquiti"],
+            "cantidad": 18,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[5], proveedores[8]],
+        },
+        {
+            "nombre": "Controlador de Acceso 2 Puertas",
+            "categoria": categorias["Control de Acceso"],
+            "fabricante": fabricantes["Intelbras"],
+            "cantidad": 8,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[6]],
+        },
+        {
+            "nombre": "Lector RFID",
+            "categoria": categorias["Control de Acceso"],
+            "fabricante": fabricantes["Intelbras"],
+            "cantidad": 40,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[6]],
+        },
+        {
+            "nombre": "Boton de Salida",
+            "categoria": categorias["Control de Acceso"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 50,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[6], proveedores[9]],
+        },
+        {
+            "nombre": "Cerradura Electromagnetica 600lb",
+            "categoria": categorias["Control de Acceso"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 20,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[6], proveedores[9]],
+        },
+        {
+            "nombre": "Sirena 30W Exterior",
+            "categoria": categorias["Alarmas e Intrusion"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 25,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[3], proveedores[9]],
+        },
+        {
+            "nombre": "Panel de Alarma 8 Zonas",
+            "categoria": categorias["Alarmas e Intrusion"],
+            "fabricante": fabricantes["Intelbras"],
+            "cantidad": 10,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[3], proveedores[6]],
+        },
+        {
+            "nombre": "Sensor Movimiento PIR",
+            "categoria": categorias["Alarmas e Intrusion"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 60,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[3], proveedores[9]],
+        },
+        {
+            "nombre": "Sensor Magnetico",
+            "categoria": categorias["Alarmas e Intrusion"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 70,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[3], proveedores[9]],
+        },
+        {
+            "nombre": "UPS 1000VA",
+            "categoria": categorias["Energia y UPS"],
+            "fabricante": fabricantes["APC"],
+            "cantidad": 8,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[7]],
+        },
+        {
+            "nombre": "UPS 1500VA",
+            "categoria": categorias["Energia y UPS"],
+            "fabricante": fabricantes["APC"],
+            "cantidad": 6,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[7]],
+        },
+        {
+            "nombre": "Fuente 12V 5A",
+            "categoria": categorias["Energia y UPS"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 30,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[7], proveedores[9]],
+        },
+        {
+            "nombre": "Gabinete Rack 12U",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 8,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Gabinete Rack 6U",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 10,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Patch Panel 24 Puertos",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 20,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Cable UTP Cat6 305m",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 50,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[5], proveedores[9]],
+        },
+        {
+            "nombre": "Conector RJ45 (Bolsa 100u)",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 80,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Canaleta 40x20",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 40,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Soporte Camara Universal",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 35,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Cable Coaxial 305m",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 28,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Conector BNC (Pack 50u)",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 45,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Video Balun Pasivo",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 40,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
+        },
+        {
+            "nombre": "Disco Duro 2TB Vigilancia",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 18,
+            "bodega": bodega_principal,
             "proveedores": [proveedores[2]],
         },
         {
-            "nombre": "Fuente 12V 2A",
-            "categoria": categorias["Accesorios"],
-            "fabricante": fabricantes["Generico"],
-            "cantidad": 15,
-            "bodega": bodegas["Bodega Secundaria"],
+            "nombre": "Disco Duro 4TB Vigilancia",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 12,
+            "bodega": bodega_principal,
             "proveedores": [proveedores[2]],
+        },
+        {
+            "nombre": "Monitor 24 pulgadas",
+            "categoria": categorias["Accesorios y Montaje"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 10,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[2]],
+        },
+        {
+            "nombre": "Kit Videoportero IP",
+            "categoria": categorias["Control de Acceso"],
+            "fabricante": fabricantes["Hikvision"],
+            "cantidad": 6,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[0], proveedores[6]],
+        },
+        {
+            "nombre": "Boton de Panico",
+            "categoria": categorias["Alarmas e Intrusion"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 25,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[3], proveedores[9]],
+        },
+        {
+            "nombre": "Licencia VMS 16 Canales",
+            "categoria": categorias["Grabadores y NVR"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 20,
+            "bodega": bodega_principal,
+            "proveedores": [proveedores[2]],
+        },
+        {
+            "nombre": "Convertidor Media Fiber",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 14,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[8], proveedores[9]],
+        },
+        {
+            "nombre": "Fibra Optica 1km",
+            "categoria": categorias["Redes y Conectividad"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 8,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[8]],
+        },
+        {
+            "nombre": "Fuente 12V 2A",
+            "categoria": categorias["Energia y UPS"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 35,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[7], proveedores[9]],
+        },
+        {
+            "nombre": "Cable Patch Cord Cat6 2m",
+            "categoria": categorias["Cableado y Conectores"],
+            "fabricante": fabricantes["Genérico"],
+            "cantidad": 60,
+            "bodega": bodega_secundaria,
+            "proveedores": [proveedores[9]],
         },
     ]
 
+    items_creados = []
     for data in items_data:
         item, _ = ItemEmpresa.objects.get_or_create(
             empresa=empresa,
@@ -849,6 +1397,7 @@ def ensure_items_and_stock(
             },
         )
         item.proveedores_empresa.set(data["proveedores"])
+        items_creados.append(item)
         stock, created = StockItemEnBodega.objects.get_or_create(
             item=item,
             defaults={"bodega": data["bodega"], "cantidad": data["cantidad"], "pmp": 0},
@@ -862,6 +1411,8 @@ def ensure_items_and_stock(
             updated = True
         if updated:
             stock.save(update_fields=["bodega", "cantidad"])
+
+    return items_creados
 
 
 def ensure_software_catalog() -> List[object]:
@@ -1137,6 +1688,789 @@ def ensure_acuerdos_confidencialidad() -> None:
     )
 
 
+def ensure_cotizaciones(
+    empresa: object,
+    clientes: List[Dict[str, object]],
+    items: List[object],
+    usuarios: Dict[str, object],
+) -> List[object]:
+    """Crea cotizaciones realistas en diferentes estados."""
+    from cotizaciones.models import Cotizacion, ItemCotizacion
+    from decimal import Decimal
+
+    if not clientes or not items:
+        return []
+
+    cotizaciones_data = [
+        {
+            "cliente_idx": 0,
+            "nombre": "Cotizacion CCTV Oficina Principal",
+            "descripcion": "Sistema de 8 camaras IP con NVR y cableado",
+            "estado": "aceptada",
+            "items_indices": [0, 6, 34, 27, 26],
+            "cantidades": [8, 1, 1, 2, 1],
+            "dias_vencimiento": 30,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 25,
+        },
+        {
+            "cliente_idx": 1,
+            "nombre": "Cotizacion Control de Acceso Oficina",
+            "descripcion": "Control de acceso con lectores RFID",
+            "estado": "enviada",
+            "items_indices": [13, 14, 15, 16],
+            "cantidades": [1, 6, 6, 6],
+            "dias_vencimiento": 14,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 20,
+        },
+        {
+            "cliente_idx": 2,
+            "nombre": "Cotizacion Perimetro PTZ",
+            "descripcion": "Cobertura perimetral con camaras PTZ",
+            "estado": "pendiente",
+            "items_indices": [3, 9, 27, 21],
+            "cantidades": [2, 1, 1, 1],
+            "dias_vencimiento": 21,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 28,
+        },
+        {
+            "cliente_idx": 3,
+            "nombre": "Cotizacion Alarma e Intrusion",
+            "descripcion": "Panel con sensores y sirenas",
+            "estado": "aceptada",
+            "items_indices": [18, 19, 20, 17, 38],
+            "cantidades": [1, 10, 12, 2, 2],
+            "dias_vencimiento": 25,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 18,
+        },
+        {
+            "cliente_idx": 4,
+            "nombre": "Cotizacion Upgrade NVR",
+            "descripcion": "Upgrade de almacenamiento y monitor",
+            "estado": "rechazada",
+            "items_indices": [7, 35, 36],
+            "cantidades": [1, 2, 1],
+            "dias_vencimiento": -5,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 20,
+        },
+        {
+            "cliente_idx": 5,
+            "nombre": "Cotizacion Red y Conectividad",
+            "descripcion": "Switching y WiFi corporativo",
+            "estado": "enviada",
+            "items_indices": [10, 11, 12, 26, 43],
+            "cantidades": [1, 1, 4, 1, 20],
+            "dias_vencimiento": 20,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 22,
+        },
+        {
+            "cliente_idx": 6,
+            "nombre": "Cotizacion Videoportero IP",
+            "descripcion": "Kit de videoportero con UPS",
+            "estado": "pendiente",
+            "items_indices": [37, 27, 21],
+            "cantidades": [2, 1, 1],
+            "dias_vencimiento": 18,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 15,
+        },
+        {
+            "cliente_idx": 7,
+            "nombre": "Cotizacion CCTV Bodega",
+            "descripcion": "CCTV para bodega con canalizacion",
+            "estado": "aceptada",
+            "items_indices": [1, 7, 35, 27, 29],
+            "cantidades": [12, 1, 2, 3, 6],
+            "dias_vencimiento": 28,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 26,
+        },
+        {
+            "cliente_idx": 8,
+            "nombre": "Cotizacion Camaras Analogicas",
+            "descripcion": "Camaras analogicas con DVR",
+            "estado": "expirada",
+            "items_indices": [4, 8, 31, 32, 33],
+            "cantidades": [16, 1, 2, 4, 16],
+            "dias_vencimiento": -10,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 24,
+        },
+        {
+            "cliente_idx": 9,
+            "nombre": "Cotizacion Licencias VMS",
+            "descripcion": "Licenciamiento y monitoreo",
+            "estado": "enviada",
+            "items_indices": [39, 36],
+            "cantidades": [10, 1],
+            "dias_vencimiento": 30,
+            "tipo_moneda": "2",
+            "porcentaje_recargo": 19,
+        },
+    ]
+
+    cotizaciones_creadas = []
+    for idx, cot_data in enumerate(cotizaciones_data):
+        if cot_data["cliente_idx"] >= len(clientes):
+            continue
+
+        cliente = clientes[cot_data["cliente_idx"]]["empresa"]
+        fecha_venc = date.today() + timedelta(days=cot_data["dias_vencimiento"])
+
+        cotizacion, created = Cotizacion.objects.get_or_create(
+            empresa=empresa,
+            cliente=cliente,
+            nombre=cot_data["nombre"],
+            defaults={
+                "descripcion": cot_data["descripcion"],
+                "estado": cot_data["estado"],
+                "fecha_vencimiento": fecha_venc,
+                "tipo_moneda": cot_data["tipo_moneda"],
+                "porcentaje_recargo": cot_data["porcentaje_recargo"],
+                "dolar_observado": Decimal("950.00"),
+                "valor_uf": Decimal("37500.00"),
+                "fecha_tipo_cambio": date.today(),
+            },
+        )
+
+        if created:
+            # Agregar items a la cotización
+            for item_idx, cantidad in zip(
+                cot_data["items_indices"], cot_data["cantidades"]
+            ):
+                if item_idx < len(items):
+                    item = items[item_idx]
+                    # Precio base simulado
+                    precio_base = Decimal("50000") * (item_idx + 1)
+
+                    ItemCotizacion.objects.create(
+                        cotizacion=cotizacion,
+                        item_empresa=item,
+                        nombre=item.nombre,
+                        descripcion=item.descripcion_corta or item.nombre,
+                        cantidad=cantidad,
+                        precio_unitario=precio_base,
+                    )
+
+        cotizaciones_creadas.append(cotizacion)
+
+    return cotizaciones_creadas
+
+
+def ensure_ordenes_trabajo(
+    empresa: object,
+    clientes: List[Dict[str, object]],
+    usuarios: Dict[str, object],
+    cotizaciones: List[object],
+) -> List[object]:
+    """Crea órdenes de trabajo realistas vinculadas a cotizaciones."""
+    from ordentrabajov2.models import (
+        OrdenDeTrabajo,
+        SoporteTecnico,
+        ServicioEnOT,
+    )
+
+    if not clientes or not cotizaciones:
+        return []
+
+    # Solo crear OTs para cotizaciones aceptadas
+    cotizaciones_aceptadas = [c for c in cotizaciones if c.estado == "aceptada"]
+
+    ordenes_data = [
+        {
+            "cotizacion_idx": 0,
+            "tipo_servicio": "soporte_p",
+            "descripcion": "Instalacion sistema CCTV oficina principal",
+            "estado": "completada",
+            "prioridad": "1",
+            "dias_inicio": -15,
+            "dias_fin": -5,
+            "soportes": [
+                {
+                    "nombre": "Instalacion camaras perimetro",
+                    "descripcion": "Montaje de camaras exteriores",
+                    "estado": "completado",
+                },
+                {
+                    "nombre": "Instalacion camaras interiores",
+                    "descripcion": "Montaje de camaras interiores",
+                    "estado": "completado",
+                },
+            ],
+        },
+        {
+            "cotizacion_idx": 1,
+            "tipo_servicio": "soporte_p",
+            "descripcion": "Implementacion control de acceso",
+            "estado": "en_proceso",
+            "prioridad": "2",
+            "dias_inicio": -5,
+            "dias_fin": None,
+            "soportes": [
+                {
+                    "nombre": "Configuracion controladores",
+                    "descripcion": "Carga de perfiles y tarjetas",
+                    "estado": "en_proceso",
+                },
+            ],
+        },
+        {
+            "cotizacion_idx": 2,
+            "tipo_servicio": "general",
+            "descripcion": "Alarma e intrusion - ajuste y pruebas",
+            "estado": "cerrada",
+            "prioridad": "1",
+            "dias_inicio": -20,
+            "dias_fin": -10,
+            "servicios": [
+                {
+                    "nombre": "Diagnostico y pruebas",
+                    "descripcion": "Revision completa del sistema",
+                    "resuelto": True,
+                },
+                {
+                    "nombre": "Reemplazo componentes",
+                    "descripcion": "Cambio de sensores y sirenas",
+                    "resuelto": True,
+                },
+            ],
+        },
+    ]
+
+    ordenes_creadas = []
+    tecnico = usuarios.get("tecnico")
+
+    for ot_data in ordenes_data:
+        if ot_data["cotizacion_idx"] >= len(cotizaciones_aceptadas):
+            continue
+
+        cotizacion = cotizaciones_aceptadas[ot_data["cotizacion_idx"]]
+        cliente = cotizacion.cliente
+
+        fecha_inicio = (
+            date.today() + timedelta(days=ot_data["dias_inicio"])
+            if ot_data["dias_inicio"]
+            else None
+        )
+        fecha_fin = (
+            date.today() + timedelta(days=ot_data["dias_fin"])
+            if ot_data["dias_fin"]
+            else None
+        )
+
+        orden, created = OrdenDeTrabajo.objects.get_or_create(
+            empresa=empresa,
+            cliente=cliente,
+            descripcion=ot_data["descripcion"],
+            defaults={
+                "tipo_servicio": ot_data["tipo_servicio"],
+                "estado": ot_data["estado"],
+                "prioridad": ot_data["prioridad"],
+                "fecha_inicio_ot": fecha_inicio,
+                "fecha_finalizacion_ot": fecha_fin,
+                "tecnico_responsable_ot": tecnico,
+            },
+        )
+
+        if created:
+            # Vincular cotización
+            orden.cotizaciones.add(cotizacion)
+
+            # Crear soportes técnicos
+            for soporte_data in ot_data.get("soportes", []):
+                SoporteTecnico.objects.create(
+                    orden=orden,
+                    nombre=soporte_data["nombre"],
+                    descripcion=soporte_data["descripcion"],
+                    estado=soporte_data["estado"],
+                    tecnico_asignado=tecnico,
+                    fecha_soporte=fecha_inicio,
+                )
+
+            # Crear servicios generales
+            for servicio_data in ot_data.get("servicios", []):
+                ServicioEnOT.objects.create(
+                    orden=orden,
+                    nombre=servicio_data["nombre"],
+                    descripcion=servicio_data["descripcion"],
+                    estado="completado" if servicio_data["resuelto"] else "pendiente",
+                    resuelto=servicio_data["resuelto"],
+                    tecnico_asignado=tecnico,
+                    fecha_servicio=fecha_inicio,
+                )
+
+        ordenes_creadas.append(orden)
+
+    return ordenes_creadas
+
+
+def ensure_contratos(
+    empresa: object,
+    clientes: List[Dict[str, object]],
+    usuarios: Dict[str, object],
+) -> List[object]:
+    """Crea contratos de servicio con clientes."""
+    from contratos.models import (
+        ContratoEmpresaCliente,
+        ContratoServicio,
+        ContratoVisita,
+        Servicio,
+        Visita,
+    )
+    from django.contrib.contenttypes.models import ContentType
+    from decimal import Decimal
+
+    if not clientes:
+        return []
+
+    # Obtener servicios del catálogo
+    servicios = list(Servicio.objects.all()[:3])
+    visitas = list(Visita.objects.all()[:3])
+
+    contratos_data = [
+        {
+            "cliente_idx": 0,
+            "nombre": "Contrato Mantenimiento Preventivo Anual",
+            "tipo": "servicios",
+            "estado": "activo",
+            "precio_unitario": Decimal("1200000"),
+            "dias_inicio": -90,
+            "dias_termino": 275,
+        },
+        {
+            "cliente_idx": 1,
+            "nombre": "Contrato Soporte Tecnico 24/7",
+            "tipo": "servicios",
+            "estado": "activo",
+            "precio_unitario": Decimal("800000"),
+            "dias_inicio": -60,
+            "dias_termino": 305,
+        },
+        {
+            "cliente_idx": 2,
+            "nombre": "Contrato Monitoreo Remoto",
+            "tipo": "servicios",
+            "estado": "activo",
+            "precio_unitario": Decimal("500000"),
+            "dias_inicio": -30,
+            "dias_termino": 335,
+        },
+        {
+            "cliente_idx": 3,
+            "nombre": "Contrato Desarrollo Sistema Personalizado",
+            "tipo": "venta",
+            "estado": "borrador",
+            "precio_unitario": Decimal("2500000"),
+            "dias_inicio": 0,
+            "dias_termino": 180,
+        },
+        {
+            "cliente_idx": 0,
+            "nombre": "Contrato Mantenimiento 2024",
+            "tipo": "servicios",
+            "estado": "finalizado",
+            "precio_unitario": Decimal("1000000"),
+            "dias_inicio": -400,
+            "dias_termino": -35,
+        },
+    ]
+
+    contratos_creados = []
+    admin = usuarios.get("admin")
+    servicio_ct = ContentType.objects.get_for_model(Servicio)
+
+    for contrato_data in contratos_data:
+        if contrato_data["cliente_idx"] >= len(clientes):
+            continue
+
+        cliente = clientes[contrato_data["cliente_idx"]]["empresa"]
+
+        fecha_inicio = date.today() + timedelta(days=contrato_data["dias_inicio"])
+        fecha_termino = date.today() + timedelta(days=contrato_data["dias_termino"])
+
+        contrato, created = ContratoEmpresaCliente.objects.get_or_create(
+            empresa_prestadora=empresa,
+            empresa_cliente=cliente,
+            nombre=contrato_data["nombre"],
+            defaults={
+                "tipo": contrato_data["tipo"],
+                "estado": contrato_data["estado"],
+                "observaciones": f"Contrato base {contrato_data['tipo']}",
+                "fecha_inicio": fecha_inicio,
+                "fecha_fin": fecha_termino,
+            },
+        )
+
+        if created and servicios:
+            servicio = servicios[0]
+            ContratoServicio.objects.get_or_create(
+                contrato=contrato,
+                content_type=servicio_ct,
+                object_id=servicio.id,
+                defaults={
+                    "cantidad": 1,
+                    "precio_unitario": contrato_data["precio_unitario"],
+                },
+            )
+
+        if created and visitas:
+            visita = visitas[0]
+            ContratoVisita.objects.get_or_create(
+                contrato=contrato,
+                visita=visita,
+                defaults={"frecuencia": "mensual", "cantidad": 1},
+            )
+
+        contratos_creados.append(contrato)
+
+    return contratos_creados
+
+
+def ensure_ordenes_compra(
+    empresa: object,
+    proveedores: List[object],
+    items: List[object],
+    usuarios: Dict[str, object],
+) -> List[object]:
+    """Crea órdenes de compra a proveedores."""
+    from bodegas.models import OrdenCompra, ItemEnOrdenCompra
+    from decimal import Decimal
+
+    if not proveedores or not items:
+        return []
+
+    ordenes_data = [
+        {
+            "proveedor_idx": 0,
+            "estado": "5",  # Completada
+            "items_indices": [0, 6, 34],
+            "cantidades": [12, 2, 2],
+            "precios": [Decimal("45000"), Decimal("320000"), Decimal("85000")],
+        },
+        {
+            "proveedor_idx": 1,
+            "estado": "4",  # Parcialmente recibida
+            "items_indices": [1, 7, 35],
+            "cantidades": [10, 2, 2],
+            "precios": [Decimal("52000"), Decimal("420000"), Decimal("120000")],
+        },
+        {
+            "proveedor_idx": 4,
+            "estado": "1",  # Aprobada
+            "items_indices": [9, 10, 12],
+            "cantidades": [6, 2, 4],
+            "precios": [Decimal("85000"), Decimal("320000"), Decimal("150000")],
+        },
+        {
+            "proveedor_idx": 6,
+            "estado": "3",  # Enviada al proveedor
+            "items_indices": [13, 14, 16],
+            "cantidades": [1, 12, 6],
+            "precios": [Decimal("380000"), Decimal("35000"), Decimal("120000")],
+        },
+        {
+            "proveedor_idx": 9,
+            "estado": "-",  # Borrador
+            "items_indices": [27, 28, 29],
+            "cantidades": [4, 20, 10],
+            "precios": [Decimal("78000"), Decimal("12000"), Decimal("9000")],
+        },
+    ]
+
+    ordenes_creadas = []
+    admin = usuarios.get("admin")
+
+    for oc_data in ordenes_data:
+        if oc_data["proveedor_idx"] >= len(proveedores):
+            continue
+
+        proveedor = proveedores[oc_data["proveedor_idx"]]
+
+        orden, created = OrdenCompra.objects.get_or_create(
+            proveedor=proveedor,
+            estado=oc_data["estado"],
+            defaults={
+                "creado_por": admin,
+                "observaciones": f"OC para {proveedor.nombre}",
+            },
+        )
+
+        if created:
+            for item_idx, cantidad, precio in zip(
+                oc_data["items_indices"], oc_data["cantidades"], oc_data["precios"]
+            ):
+                if item_idx < len(items):
+                    item = items[item_idx]
+                    ItemEnOrdenCompra.objects.create(
+                        orden_compra=orden,
+                        item=item,
+                        cantidad=cantidad,
+                        precio=int(precio),
+                    )
+
+        ordenes_creadas.append(orden)
+
+    return ordenes_creadas
+
+
+def ensure_compras_guias_movimientos(
+    empresa: object,
+    sucursal: object,
+    bodegas: Dict[str, object],
+    clientes: List[Dict[str, object]],
+    proveedores: List[object],
+    items: List[object],
+    usuarios: Dict[str, object],
+) -> Dict[str, List[object]]:
+    """Crea compras, guias de salida y movimientos de stock."""
+    from bodegas.models import (
+        Compra,
+        GuiaSalida,
+        ItemEnCompra,
+        ItemOrdenCompraEnStock,
+        ItemsGuiaSalida,
+        MovimientoStock,
+        StockItemEnBodega,
+    )
+    from bodegas.movimientos import (
+        registrar_ajuste_manual,
+        registrar_devolucion,
+        registrar_entrada,
+        registrar_salida,
+    )
+    from django.contrib.contenttypes.models import ContentType
+    from decimal import Decimal
+
+    if not items:
+        return {"compras": [], "guias": [], "movimientos": []}
+
+    admin = usuarios.get("admin")
+    bodeguero = usuarios.get("bodeguero")
+    tecnico = usuarios.get("tecnico")
+    bodega_principal = bodegas.get("Bodega Principal")
+    bodega_secundaria = bodegas.get("Bodega Secundaria")
+
+    stock_por_item = {
+        stock.item_id: stock
+        for stock in StockItemEnBodega.objects.select_related("item").all()
+    }
+
+    compras_data = [
+        {
+            "estado": "1",
+            "dias_compra": -12,
+            "items_indices": [0, 6, 34],
+            "cantidades": [6, 1, 1],
+            "precios": [Decimal("42000"), Decimal("310000"), Decimal("85000")],
+        },
+        {
+            "estado": "1",
+            "dias_compra": -20,
+            "items_indices": [1, 7, 35],
+            "cantidades": [6, 1, 1],
+            "precios": [Decimal("52000"), Decimal("420000"), Decimal("120000")],
+        },
+        {
+            "estado": "P",
+            "dias_compra": -7,
+            "items_indices": [9, 12, 27],
+            "cantidades": [3, 2, 1],
+            "precios": [Decimal("90000"), Decimal("150000"), Decimal("78000")],
+        },
+        {
+            "estado": "1",
+            "dias_compra": -3,
+            "items_indices": [14, 15, 16],
+            "cantidades": [10, 10, 6],
+            "precios": [Decimal("35000"), Decimal("8000"), Decimal("115000")],
+        },
+        {
+            "estado": "-",
+            "dias_compra": -1,
+            "items_indices": [23, 29, 43],
+            "cantidades": [8, 12, 20],
+            "precios": [Decimal("8500"), Decimal("9000"), Decimal("2500")],
+        },
+    ]
+
+    compras_creadas = []
+    movimientos_creados = []
+    ct_item_compra = ContentType.objects.get_for_model(ItemEnCompra)
+    ct_item_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
+
+    for idx, compra_data in enumerate(compras_data, 1):
+        compra, created = Compra.objects.get_or_create(
+            sucursal=sucursal,
+            estado=compra_data["estado"],
+            defaults={
+                "creado_por": admin,
+                "observaciones": f"Compra seed #{idx}",
+                "fecha_compra": date.today() + timedelta(days=compra_data["dias_compra"]),
+            },
+        )
+        compras_creadas.append(compra)
+
+        for item_idx, cantidad, precio in zip(
+            compra_data["items_indices"],
+            compra_data["cantidades"],
+            compra_data["precios"],
+        ):
+            if item_idx >= len(items):
+                continue
+            item = items[item_idx]
+            stock_item = stock_por_item.get(item.id)
+            if not stock_item:
+                continue
+            item_compra, created_item = ItemEnCompra.objects.get_or_create(
+                compra=compra,
+                item=item,
+                defaults={"cantidad": cantidad, "precio": int(precio)},
+            )
+            if not created_item:
+                continue
+
+            item_oc_stock, created_stock = ItemOrdenCompraEnStock.objects.get_or_create(
+                content_type=ct_item_compra,
+                item_oc_id=item_compra.id,
+                defaults={
+                    "stock_item": stock_item,
+                    "cantidad": cantidad,
+                },
+            )
+            if created_stock:
+                ya_entrada = MovimientoStock.objects.filter(
+                    content_type=ct_item_oc_stock,
+                    object_id=item_oc_stock.id,
+                    tipo_movimiento="ENTRADA",
+                ).exists()
+                if not ya_entrada:
+                    registrar_entrada(
+                        stock_item=stock_item,
+                        cantidad=cantidad,
+                        usuario=bodeguero or admin,
+                        origen=item_oc_stock,
+                        descripcion=f"Entrada por compra #{compra.id}",
+                    )
+                    movimientos_creados.append(item_oc_stock)
+
+    guias_data = [
+        {"cliente_idx": 0, "estado": "E", "items_indices": [0, 27], "cantidades": [2, 1]},
+        {"cliente_idx": 1, "estado": "FR", "items_indices": [13, 14], "cantidades": [1, 2]},
+        {"cliente_idx": 2, "estado": "ET", "items_indices": [1, 6], "cantidades": [3, 1]},
+        {"cliente_idx": 3, "estado": "P", "items_indices": [18, 19], "cantidades": [1, 4]},
+        {"cliente_idx": 4, "estado": "E", "items_indices": [7, 35], "cantidades": [1, 1]},
+        {"cliente_idx": 5, "estado": "T", "items_indices": [12, 43], "cantidades": [2, 10]},
+        {"cliente_idx": 6, "estado": "E", "items_indices": [37, 27], "cantidades": [1, 1]},
+        {"cliente_idx": 7, "estado": "P", "items_indices": [4, 31], "cantidades": [4, 1]},
+        {"cliente_idx": 8, "estado": "E", "items_indices": [9, 11], "cantidades": [1, 1]},
+        {"cliente_idx": 9, "estado": "T", "items_indices": [39, 36], "cantidades": [4, 1]},
+    ]
+
+    guias_creadas = []
+    ct_items_guia = ContentType.objects.get_for_model(ItemsGuiaSalida)
+
+    for idx, guia_data in enumerate(guias_data, 1):
+        if guia_data["cliente_idx"] >= len(clientes):
+            continue
+        cliente = clientes[guia_data["cliente_idx"]]["empresa"]
+        guia, created = GuiaSalida.objects.get_or_create(
+            bodega=bodega_principal or bodega_secundaria,
+            cliente=cliente,
+            estado=guia_data["estado"],
+            defaults={
+                "creado_por": bodeguero or admin,
+                "recibido_por": tecnico,
+                "entregado_a": tecnico,
+                "motivo": f"Salida seed #{idx}",
+            },
+        )
+        guias_creadas.append(guia)
+
+        for item_idx, cantidad in zip(
+            guia_data["items_indices"], guia_data["cantidades"]
+        ):
+            if item_idx >= len(items):
+                continue
+            item = items[item_idx]
+            stock_item = stock_por_item.get(item.id)
+            if not stock_item or stock_item.cantidad <= 1:
+                continue
+            cantidad_salida = min(cantidad, max(stock_item.cantidad - 1, 0))
+            if cantidad_salida <= 0:
+                continue
+
+            item_guia, created_item = ItemsGuiaSalida.objects.get_or_create(
+                guia=guia,
+                stock_item=stock_item,
+                defaults={
+                    "cantidad_original": cantidad_salida,
+                    "cantidad_rebajada": cantidad_salida,
+                },
+            )
+            if created_item:
+                ya_salida = MovimientoStock.objects.filter(
+                    content_type=ct_items_guia,
+                    object_id=item_guia.id,
+                    tipo_movimiento="SALIDA",
+                ).exists()
+                if not ya_salida:
+                    registrar_salida(
+                        stock_item=stock_item,
+                        cantidad=cantidad_salida,
+                        usuario=bodeguero or admin,
+                        origen=item_guia,
+                        descripcion=f"Salida por guia #{guia.id}",
+                    )
+                    movimientos_creados.append(item_guia)
+
+    # Devoluciones parciales para algunas guias
+    for guia in guias_creadas[:2]:
+        for item_guia in guia.itemsguiasalida_set.all()[:1]:
+            ya_devolucion = MovimientoStock.objects.filter(
+                content_type=ct_items_guia,
+                object_id=item_guia.id,
+                tipo_movimiento="DEVOLUCION",
+            ).exists()
+            if ya_devolucion:
+                continue
+            cantidad_devolver = max(1, item_guia.cantidad_rebajada // 2)
+            registrar_devolucion(
+                stock_item=item_guia.stock_item,
+                cantidad=cantidad_devolver,
+                usuario=bodeguero or admin,
+                origen=item_guia,
+                descripcion=f"Devolucion parcial guia #{guia.id}",
+            )
+            movimientos_creados.append(item_guia)
+
+    # Ajustes manuales controlados
+    ajustes = list(stock_por_item.values())[:3]
+    for stock_item in ajustes:
+        ya_ajuste = MovimientoStock.objects.filter(
+            stock_item=stock_item, tipo_movimiento="AJUSTE"
+        ).exists()
+        if ya_ajuste:
+            continue
+        registrar_ajuste_manual(
+            stock_item=stock_item,
+            cantidad_delta=1,
+            usuario=bodeguero or admin,
+            descripcion="Ajuste manual seed",
+        )
+        movimientos_creados.append(stock_item)
+
+    return {
+        "compras": compras_creadas,
+        "guias": guias_creadas,
+        "movimientos": movimientos_creados,
+    }
+
+
 def run_seed() -> None:
     bootstrap_django()
     ensure_migrations()
@@ -1151,7 +2485,7 @@ def run_seed() -> None:
 
         bodegas = ensure_bodegas(empresa_base, sucursal_base)
         categorias, fabricantes, proveedores = ensure_catalogs(empresa_base)
-        ensure_items_and_stock(
+        items = ensure_items_and_stock(
             empresa_base, bodegas, categorias, fabricantes, proveedores
         )
 
@@ -1167,7 +2501,60 @@ def run_seed() -> None:
         ensure_rendiciones_categorias()
         ensure_acuerdos_confidencialidad()
 
-    print("Seed base completado.")
+        # Crear flujos completos
+        print("\n==> Creando cotizaciones...")
+        cotizaciones = ensure_cotizaciones(empresa_base, clientes, items, internos)
+        print(f"    Creadas {len(cotizaciones)} cotizaciones")
+
+        print("\n==> Creando órdenes de trabajo...")
+        ordenes = ensure_ordenes_trabajo(empresa_base, clientes, internos, cotizaciones)
+        print(f"    Creadas {len(ordenes)} órdenes de trabajo")
+
+        print("\n==> Creando contratos...")
+        contratos = ensure_contratos(empresa_base, clientes, internos)
+        print(f"    Creados {len(contratos)} contratos")
+
+        print("\n==> Creando órdenes de compra...")
+        ordenes_compra = ensure_ordenes_compra(empresa_base, proveedores, items, internos)
+        print(f"    Creadas {len(ordenes_compra)} órdenes de compra")
+
+        print("\n==> Creando compras, guías y movimientos de stock...")
+        compras_guias = ensure_compras_guias_movimientos(
+            empresa_base,
+            sucursal_base,
+            bodegas,
+            clientes,
+            proveedores,
+            items,
+            internos,
+        )
+        print(
+            "    Creadas {compras} compras, {guias} guías, {movs} movimientos".format(
+                compras=len(compras_guias["compras"]),
+                guias=len(compras_guias["guias"]),
+                movs=len(compras_guias["movimientos"]),
+            )
+        )
+
+    print("\n" + "=" * 80)
+    print("Seed base completado exitosamente!".center(80))
+    print("=" * 80)
+    print("\n📦 Datos creados:")
+    print("   ✅ Empresa base (Snabbit) + Sucursales")
+    print("   ✅ Grupos de permisos")
+    print("   ✅ Usuarios internos (Admin, Ventas, Bodega, Contabilidad, Supervisor, Técnico)")
+    print("   ✅ Empresas cliente + Relaciones")
+    print("   ✅ Categorías + Fabricantes + Proveedores")
+    print("   ✅ Items + Stock en bodegas")
+    print("   ✅ Software catálogo + Equipos")
+    print("   ✅ Servicios y contratos catálogo")
+    print("\n📄 Flujos de negocio creados:")
+    print("   ✅ 10 Cotizaciones (varios estados)")
+    print("   ✅ 3+ Órdenes de Trabajo vinculadas")
+    print("   ✅ 5 Contratos de servicio")
+    print("   ✅ 5 Órdenes de Compra")
+    print("   ✅ Compras, Guías de salida y Movimientos de stock")
+    print()
 
 
 def main() -> int:

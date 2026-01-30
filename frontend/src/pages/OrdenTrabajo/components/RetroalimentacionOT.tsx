@@ -1,61 +1,80 @@
-import Textarea from "@/components/form/Textarea"
-import Validation from "@/components/form/Validation"
-import Container from "@/components/layouts/Container/Container"
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
-import Subheader, { SubheaderLeft } from "@/components/layouts/Subheader/Subheader"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Tooltip from "@/components/ui/Tooltip"
-import RatingInput from "@/components/utils/RatingInput"
-import ApiService from "@/services/ApiService"
-import { detalleSinPermisosRetroalimentacionOTThunk, GUARDAR_RETROALIMENTACION, LIMPIAR_RETROALIMENTACION, useAppDispatch, useAppSelector } from "@/store"
-import { useFormik } from "formik"
-import { useEffect } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { toast } from "react-toastify"
-import * as Yup from 'yup'
-
+import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Tooltip from '@/components/ui/Tooltip';
+import RatingInput from '@/components/utils/RatingInput';
+import {
+    GUARDAR_RETROALIMENTACION,
+    LIMPIAR_RETROALIMENTACION,
+    useAppDispatch,
+    useAppSelector,
+} from '@/store';
+import {
+    useBulkUpdateRetroalimentacionOTMutation,
+    useGetDetalleRetroalimentacionOTPublicQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useFormik } from 'formik';
+import { useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import * as Yup from 'yup';
 
 function RetroalimentacionOT() {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { uuid } = useParams()
-    const { detalleSinPermisosRetroalimentacionOT } = useAppSelector((state) => state.ordenTrabajo)
-    const { guardadoRetroalimentacionOT } = useAppSelector((state) => state.auth)
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { uuid } = useParams();
+    const { data: detalleSinPermisosRetroalimentacionOT } =
+        useGetDetalleRetroalimentacionOTPublicQuery(uuid, { skip: !uuid });
+    const { guardadoRetroalimentacionOT } = useAppSelector((state) => state.auth);
+    const [bulkUpdateRetroalimentacion] = useBulkUpdateRetroalimentacionOTMutation();
 
     useEffect(() => {
-        if (uuid) {
-            dispatch(detalleSinPermisosRetroalimentacionOTThunk({uuid}))
+        if (guardadoRetroalimentacionOT && guardadoRetroalimentacionOT.token != uuid) {
+            dispatch(LIMPIAR_RETROALIMENTACION());
         }
-        if (guardadoRetroalimentacionOT && (guardadoRetroalimentacionOT.token != uuid)) {
-            dispatch(LIMPIAR_RETROALIMENTACION())
-        }
-    }, [uuid])
+    }, [dispatch, guardadoRetroalimentacionOT, uuid]);
 
     useEffect(() => {
         if (detalleSinPermisosRetroalimentacionOT) {
             if (detalleSinPermisosRetroalimentacionOT.fecha_retroalimentacion !== null) {
-                toast.error("Retroalimentación ya contestada")
-                navigate(`/login`)
+                toast.error('Retroalimentación ya contestada');
+                navigate(`/login`);
             }
-            formik.setValues({preguntas: detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada.map(retro => ({id: retro.id, cantidad_estrellas: retro.cantidad_estrellas || 0, observaciones: retro.observaciones}))})
+            formik.setValues({
+                preguntas: detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada.map(
+                    (retro) => ({
+                        id: retro.id,
+                        cantidad_estrellas: retro.cantidad_estrellas || 0,
+                        observaciones: retro.observaciones,
+                    }),
+                ),
+            });
         }
-        if (detalleSinPermisosRetroalimentacionOT && guardadoRetroalimentacionOT && (detalleSinPermisosRetroalimentacionOT.uuid === guardadoRetroalimentacionOT.token)) {
-            formik.setValues({preguntas: guardadoRetroalimentacionOT.preguntas})
+        if (
+            detalleSinPermisosRetroalimentacionOT &&
+            guardadoRetroalimentacionOT &&
+            detalleSinPermisosRetroalimentacionOT.uuid === guardadoRetroalimentacionOT.token
+        ) {
+            formik.setValues({ preguntas: guardadoRetroalimentacionOT.preguntas });
         }
-    }, [detalleSinPermisosRetroalimentacionOT])
+    }, [detalleSinPermisosRetroalimentacionOT]);
 
     const formik = useFormik<{
         preguntas: {
-            id: number
+            id: number;
             cantidad_estrellas: number;
             observaciones: string;
         }[];
     }>({
         enableReinitialize: true,
         initialValues: {
-            preguntas: []
+            preguntas: [],
         },
         validationSchema: Yup.object().shape({
             preguntas: Yup.array().of(
@@ -63,123 +82,203 @@ function RetroalimentacionOT() {
                     // Si necesitas validar el campo id, puedes descomentar la siguiente línea:
                     // id: Yup.number().required("El ID es obligatorio"),
                     cantidad_estrellas: Yup.number()
-                        .typeError("Debe ser un número")
-                        .required("La cantidad de estrellas es obligatoria"),
-                    observaciones: Yup.string().when("cantidad_estrellas", {
+                        .typeError('Debe ser un número')
+                        .required('La cantidad de estrellas es obligatoria'),
+                    observaciones: Yup.string().when('cantidad_estrellas', {
                         is: (val: number) => val < 3,
                         then: (schema) =>
                             schema.required(
-                                "Las observaciones son obligatorias cuando la calificación es menor a 3"
+                                'Las observaciones son obligatorias cuando la calificación es menor a 3',
                             ),
                         otherwise: (schema) => schema.notRequired(),
                     }),
-                })
+                }),
             ),
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({url: `/api/retroalimentacion_aplicada/bulk_update/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                    items: values.preguntas
-                })})
-                if (response.data) {
-                    toast.success("Retroalimentación guardada", {autoClose: 1000})
-                    navigate('/login')
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(" ");
-                toast.error(mensajesError || "Error al editar la retroalimentación", {toastId: "Error al editar la retroalimentación"})
+                await bulkUpdateRetroalimentacion({ items: values.preguntas }).unwrap();
+                toast.success('Retroalimentaci??n guardada', { autoClose: 1000 });
+                navigate('/login');
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al editar la retroalimentaci??n', {
+                    toastId: 'Error al editar la retroalimentaci??n',
+                });
             }
-        }
-    })
+        },
+    });
 
     useEffect(() => {
         if (formik.values.preguntas.length > 0) {
-            dispatch(GUARDAR_RETROALIMENTACION({token: uuid, preguntas: formik.values.preguntas}))
+            dispatch(
+                GUARDAR_RETROALIMENTACION({ token: uuid, preguntas: formik.values.preguntas }),
+            );
         }
-    }, [formik.values])
+    }, [formik.values]);
 
     return (
-        <PageWrapper isProtectedRoute={false} name="Retroalimentación OT" title="Retroalimentación OT">
+        <PageWrapper
+            isProtectedRoute={false}
+            name='Retroalimentación OT'
+            title='Retroalimentación OT'>
             <Subheader>
                 <SubheaderLeft>
-                    <Tooltip text="Volver al inicio de sesión">
-                        <Button icon="HeroArrowLeft" onClick={() => {navigate(`/login`)}}></Button>
+                    <Tooltip text='Volver al inicio de sesión'>
+                        <Button
+                            icon='HeroArrowLeft'
+                            onClick={() => {
+                                navigate(`/login`);
+                            }}></Button>
                     </Tooltip>
-                    <Badge className="text-xl">Retroalimentación</Badge>
+                    <Badge className='text-xl'>Retroalimentación</Badge>
                 </SubheaderLeft>
             </Subheader>
-            <Container className="w-full h-full">
-                <div className="flex flex-col gap-4">
+            <Container className='h-full w-full'>
+                <div className='flex flex-col gap-4'>
                     {detalleSinPermisosRetroalimentacionOT && (
                         <>
-                            {detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada.length > 0 && (
+                            {detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada
+                                .length > 0 && (
                                 <>
-                                    {detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada.map((retro, index) => (
-                                        <Card key={index}>
-                                            <CardHeader>
-                                                <CardHeaderChild>
-                                                    <Badge className="text-xl">Pregunta {index + 1}</Badge>
-                                                </CardHeaderChild>
-                                            </CardHeader>
-                                            <CardBody>
-                                                <div className="flex flex-col gap-4">
-                                                    <div className="mx-4 text-center">{retro.pregunta_texto}</div>
-                                                    <div className="items-center justify-center flex">
-                                                        <RatingInput
-                                                            defaultValue={0}
-                                                            rating={formik.values.preguntas[index] ? formik.values.preguntas[index].cantidad_estrellas : 0}
-                                                            maxStars={5}
-                                                            onChange={(e) => {
-                                                                formik.setFieldValue(`preguntas[${index}].cantidad_estrellas`, e)
-                                                                if (e > 3) {
-                                                                    formik.setFieldValue(`preguntas[${index}].observaciones`, "")
-                                                                }
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    {formik.values.preguntas[index] && formik.values.preguntas[index].cantidad_estrellas < 3 && (
-                                                        <div className="flex flex-col justify-center items-center">
-                                                            <Badge>¿A que se debe su calificación?</Badge>
-                                                            <Validation
-                                                                isValid={formik.isValid}
-                                                                isTouched={
-                                                                    typeof formik.touched.preguntas !== "string" &&
-                                                                    Array.isArray(formik.touched.preguntas)
-                                                                    ? !!formik.touched.preguntas[index]?.observaciones
-                                                                    : false
-                                                                }
-                                                                invalidFeedback={
-                                                                    typeof formik.errors.preguntas === "string"
-                                                                    ? formik.errors.preguntas[index]
-                                                                    // @ts-ignore
-                                                                    : formik.errors.preguntas && typeof formik.errors.preguntas[index] != "string" ? formik.errors.preguntas[index].observaciones : ""
-                                                                }
-                                                            >
-                                                                <Textarea
-                                                                    className="w-[20vw]"
-                                                                    rows={4}
-                                                                    name={`preguntas[${index}].observaciones`}
-                                                                    onChange={(e) => {formik.handleChange(e)}}
-                                                                    onBlur={formik.handleBlur}
-                                                                    value={formik.values.preguntas[index] ? formik.values.preguntas[index].observaciones : ""}
-                                                                />
-                                                            </Validation>
+                                    {detalleSinPermisosRetroalimentacionOT.retroalimentacion_aplicada.map(
+                                        (retro, index) => (
+                                            <Card key={index}>
+                                                <CardHeader>
+                                                    <CardHeaderChild>
+                                                        <Badge className='text-xl'>
+                                                            Pregunta {index + 1}
+                                                        </Badge>
+                                                    </CardHeaderChild>
+                                                </CardHeader>
+                                                <CardBody>
+                                                    <div className='flex flex-col gap-4'>
+                                                        <div className='mx-4 text-center'>
+                                                            {retro.pregunta_texto}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    ))}
+                                                        <div className='flex items-center justify-center'>
+                                                            <RatingInput
+                                                                defaultValue={0}
+                                                                rating={
+                                                                    formik.values.preguntas[index]
+                                                                        ? formik.values.preguntas[
+                                                                              index
+                                                                          ].cantidad_estrellas
+                                                                        : 0
+                                                                }
+                                                                maxStars={5}
+                                                                onChange={(e) => {
+                                                                    formik.setFieldValue(
+                                                                        `preguntas[${index}].cantidad_estrellas`,
+                                                                        e,
+                                                                    );
+                                                                    if (e > 3) {
+                                                                        formik.setFieldValue(
+                                                                            `preguntas[${index}].observaciones`,
+                                                                            '',
+                                                                        );
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        {formik.values.preguntas[index] &&
+                                                            formik.values.preguntas[index]
+                                                                .cantidad_estrellas < 3 && (
+                                                                <div className='flex flex-col items-center justify-center'>
+                                                                    <Badge>
+                                                                        ¿A que se debe su
+                                                                        calificación?
+                                                                    </Badge>
+                                                                    <Validation
+                                                                        isValid={formik.isValid}
+                                                                        isTouched={
+                                                                            typeof formik.touched
+                                                                                .preguntas !==
+                                                                                'string' &&
+                                                                            Array.isArray(
+                                                                                formik.touched
+                                                                                    .preguntas,
+                                                                            )
+                                                                                ? !!formik.touched
+                                                                                      .preguntas[
+                                                                                      index
+                                                                                  ]?.observaciones
+                                                                                : false
+                                                                        }
+                                                                        invalidFeedback={
+                                                                            typeof formik.errors
+                                                                                .preguntas ===
+                                                                            'string'
+                                                                                ? formik.errors
+                                                                                      .preguntas[
+                                                                                      index
+                                                                                  ]
+                                                                                : // @ts-ignore
+                                                                                  formik.errors
+                                                                                        .preguntas &&
+                                                                                    typeof formik
+                                                                                        .errors
+                                                                                        .preguntas[
+                                                                                        index
+                                                                                    ] != 'string'
+                                                                                  ? formik.errors
+                                                                                        .preguntas[
+                                                                                        index
+                                                                                    ].observaciones
+                                                                                  : ''
+                                                                        }>
+                                                                        <Textarea
+                                                                            className='w-[20vw]'
+                                                                            rows={4}
+                                                                            name={`preguntas[${index}].observaciones`}
+                                                                            onChange={(e) => {
+                                                                                formik.handleChange(
+                                                                                    e,
+                                                                                );
+                                                                            }}
+                                                                            onBlur={
+                                                                                formik.handleBlur
+                                                                            }
+                                                                            value={
+                                                                                formik.values
+                                                                                    .preguntas[
+                                                                                    index
+                                                                                ]
+                                                                                    ? formik.values
+                                                                                          .preguntas[
+                                                                                          index
+                                                                                      ]
+                                                                                          .observaciones
+                                                                                    : ''
+                                                                            }
+                                                                        />
+                                                                    </Validation>
+                                                                </div>
+                                                            )}
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
+                                        ),
+                                    )}
                                     <Card>
                                         <CardHeader>
                                             <CardHeaderChild>
-                                                <Button variant="solid" onClick={() => {
-                                                    dispatch(LIMPIAR_RETROALIMENTACION())
-                                                    formik.setValues({preguntas: []})
-                                                }}>Limpiar</Button>
+                                                <Button
+                                                    variant='solid'
+                                                    onClick={() => {
+                                                        dispatch(LIMPIAR_RETROALIMENTACION());
+                                                        formik.setValues({ preguntas: [] });
+                                                    }}>
+                                                    Limpiar
+                                                </Button>
                                             </CardHeaderChild>
                                             <CardHeaderChild>
-                                                <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                                                <Button
+                                                    variant='solid'
+                                                    onClick={() => {
+                                                        formik.handleSubmit();
+                                                    }}>
+                                                    Guardar
+                                                </Button>
                                             </CardHeaderChild>
                                         </CardHeader>
                                     </Card>
@@ -190,10 +289,10 @@ function RetroalimentacionOT() {
                 </div>
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default RetroalimentacionOT
+export default RetroalimentacionOT;
 
 // import Input from "@/components/form/Input"
 // import Textarea from "@/components/form/Textarea"
@@ -215,7 +314,6 @@ export default RetroalimentacionOT
 // import { toast } from "react-toastify"
 // import * as Yup from 'yup'
 // import { motion, AnimatePresence, Variants } from "framer-motion";
-
 
 // // Variants dinámicos que reciben "direction" por custom
 // const variants: Variants = {
@@ -331,7 +429,7 @@ export default RetroalimentacionOT
 //                     {detalleSinPermisosRetroalimentacionOT && (
 //                         <>
 //                             <div className=" overflow-hidden h-full">
-//                                 {/* 
+//                                 {/*
 //                                     1. Pasamos `initial={false}` para no animar al montar por primera vez.
 //                                     2. Agregamos `custom={direction}` aquí en AnimatePresence, de modo que
 //                                         el componente que sale use el mismo `direction` con el que se montó.
@@ -368,9 +466,9 @@ export default RetroalimentacionOT
 //                                                                 }
 //                                                                 invalidFeedback={
 //                                                                     typeof formik.errors.preguntas !== "string" && Array.isArray(formik.errors.preguntas)
-//                                                                     ? typeof formik.errors.preguntas[index] !== "string" 
-//                                                                     ? formik.errors.preguntas[index].cantidad_estrellas 
-//                                                                     : formik.errors.preguntas[index] 
+//                                                                     ? typeof formik.errors.preguntas[index] !== "string"
+//                                                                     ? formik.errors.preguntas[index].cantidad_estrellas
+//                                                                     : formik.errors.preguntas[index]
 //                                                                     : ""
 //                                                                 }
 //                                                             >
@@ -409,9 +507,9 @@ export default RetroalimentacionOT
 //                                                         }
 //                                                         invalidFeedback={
 //                                                             typeof formik.errors.preguntas !== "string" && Array.isArray(formik.errors.preguntas)
-//                                                             ? typeof formik.errors.preguntas[index] !== "string" 
-//                                                             ? formik.errors.preguntas[index].observaciones 
-//                                                             : formik.errors.preguntas[index] 
+//                                                             ? typeof formik.errors.preguntas[index] !== "string"
+//                                                             ? formik.errors.preguntas[index].observaciones
+//                                                             : formik.errors.preguntas[index]
 //                                                             : ""
 //                                                         }
 //                                                     >

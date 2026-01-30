@@ -1,14 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import Badge from "@/components/ui/Badge.tsx";
-import Button from "@/components/ui/Button.tsx";
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from "@/components/ui/Modal.tsx";
-import Tooltip from "@/components/ui/Tooltip.tsx";
-import { IItemCotizacion } from "@/interface/cotizaciones.interface.ts";
-import { useAppSelector } from "@/store/index.ts";
+import Badge from '@/components/ui/Badge.tsx';
+import Button from '@/components/ui/Button.tsx';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal.tsx';
+import Tooltip from '@/components/ui/Tooltip.tsx';
+import { IItemCotizacion } from '@/interface/cotizaciones.interface.ts';
+import { useAppSelector } from '@/store/index.ts';
 
-type DetalleItemCotizacion = Pick<IItemCotizacion, "id" | "descripcion">;
+type DetalleItemCotizacion = Pick<IItemCotizacion, 'id' | 'descripcion'>;
 
 interface DetalleCotizacionOTProps {
     id_detalle?: number;
@@ -16,10 +21,10 @@ interface DetalleCotizacionOTProps {
 
 const isDetalleItemCotizacion = (item: unknown): item is DetalleItemCotizacion => {
     return (
-        typeof item === "object" &&
+        typeof item === 'object' &&
         item !== null &&
-        "id" in item &&
-        typeof (item as { id?: unknown }).id === "number"
+        'id' in item &&
+        typeof (item as { id?: unknown }).id === 'number'
     );
 };
 
@@ -37,7 +42,9 @@ const DetalleCotizacionOT = ({ id_detalle }: DetalleCotizacionOTProps) => {
             return;
         }
 
-        const rawItems: unknown[] = Array.isArray(detalleCotizacion.items) ? detalleCotizacion.items : [];
+        const rawItems: unknown[] = Array.isArray(detalleCotizacion.items)
+            ? detalleCotizacion.items
+            : [];
         const detalleItems: DetalleItemCotizacion[] = rawItems.filter(isDetalleItemCotizacion);
         const detalleEncontrado = detalleItems.find((item) => item.id === id_detalle) ?? null;
 
@@ -50,36 +57,42 @@ const DetalleCotizacionOT = ({ id_detalle }: DetalleCotizacionOTProps) => {
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop>
             <ModalHeader>
-                <Badge className="text-xl">Detalle del Cotizacion</Badge>
+                <Badge className='text-xl'>Detalle del Cotizacion</Badge>
             </ModalHeader>
             <ModalBody>
-                <div className="flex flex-col gap-4">
-                    <div className="w-full">
+                <div className='flex flex-col gap-4'>
+                    <div className='w-full'>
                         <Badge>Descripcion</Badge>
-                        <div className="ml-4">{detalle.descripcion}</div>
+                        <div className='ml-4'>{detalle.descripcion}</div>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Badge>Numero de Cotizacion</Badge>
-                        <div className="ml-4">{detalleCotizacion?.numero_cotizacion}</div>
+                        <div className='ml-4'>{detalleCotizacion?.numero_cotizacion}</div>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Badge>Nombre de Cotizacion</Badge>
-                        <div className="ml-4">{detalleCotizacion?.nombre}</div>
+                        <div className='ml-4'>{detalleCotizacion?.nombre}</div>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Badge>Estado de la cotizacion</Badge>
-                        <div className="ml-4">{detalleCotizacion?.estado_label}</div>
+                        <div className='ml-4'>{detalleCotizacion?.estado_label}</div>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Badge>Fecha de Creacion</Badge>
-                        <div className="ml-4">
-                            {detalleCotizacion?.fecha_creacion ? new Date(detalleCotizacion?.fecha_creacion).toLocaleDateString() : "Sin fecha"}
+                        <div className='ml-4'>
+                            {detalleCotizacion?.fecha_creacion
+                                ? new Date(detalleCotizacion?.fecha_creacion).toLocaleDateString()
+                                : 'Sin fecha'}
                         </div>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Badge>Fecha de Modificacion</Badge>
-                        <div className="ml-4">
-                            {detalleCotizacion?.fecha_modificacion ? new Date(detalleCotizacion?.fecha_modificacion).toLocaleDateString() : "Sin fecha"}
+                        <div className='ml-4'>
+                            {detalleCotizacion?.fecha_modificacion
+                                ? new Date(
+                                      detalleCotizacion?.fecha_modificacion,
+                                  ).toLocaleDateString()
+                                : 'Sin fecha'}
                         </div>
                     </div>
                 </div>
@@ -87,19 +100,20 @@ const DetalleCotizacionOT = ({ id_detalle }: DetalleCotizacionOTProps) => {
             <ModalFooter>
                 <ModalFooterChild />
                 <ModalFooterChild>
-                    <Tooltip text="Navegar a la cotizacion">
+                    <Tooltip text='Navegar a la cotizacion'>
                         <Button
-                            variant="solid"
-                            color="violet"
+                            variant='solid'
+                            color='violet'
                             onClick={() => {
-                                navigate(`/cotizacion/detalle-cotizacion/${detalleCotizacion?.numero_cotizacion}`);
-                            }}
-                        >
+                                navigate(
+                                    `/cotizacion/detalle-cotizacion/${detalleCotizacion?.numero_cotizacion}`,
+                                );
+                            }}>
                             Detalle
                         </Button>
                     </Tooltip>
 
-                    <Button color="red" onClick={() => setIsOpen(false)}>
+                    <Button color='red' onClick={() => setIsOpen(false)}>
                         Cerrar
                     </Button>
                 </ModalFooterChild>

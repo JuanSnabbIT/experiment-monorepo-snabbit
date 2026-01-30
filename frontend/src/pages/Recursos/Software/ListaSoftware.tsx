@@ -1,40 +1,49 @@
-import Icon from "@/components/icon/Icon"
-import Container from "@/components/layouts/Container/Container"
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
-import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
-import Badge from "@/components/ui/Badge"
-import Card, { CardBody } from "@/components/ui/Card"
-import Table, { THead, Tr, Th, TBody, Td } from "@/components/ui/Table"
-import { ISoftware } from "@/interface/recursos.interface"
-import { listaSoftwareThunk, useAppDispatch, useAppSelector } from "@/store"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useEffect, useState } from "react"
-import CrearSoftware from "./modals/CrearSoftware"
-import AnimacionDeInputModoMovil from "@/components/utils/AnimacionDeIntputModoMovil"
+import Icon from '@/components/icon/Icon';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody } from '@/components/ui/Card';
+import Table, { THead, Tr, Th, TBody, Td } from '@/components/ui/Table';
+import { ISoftware } from '@/interface/recursos.interface';
+import { listaSoftwareThunk, useAppDispatch, useAppSelector } from '@/store';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useEffect, useState } from 'react';
+import CrearSoftware from './modals/CrearSoftware';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 
-const columnHelper = createColumnHelper<ISoftware>()
+const columnHelper = createColumnHelper<ISoftware>();
 
 function ListaSoftware() {
-    const dispatch = useAppDispatch()
-    const { listaSoftware } = useAppSelector((state) => state.recursos)
-    const [sorting, setSorting] = useState<SortingState>([])
-    const [globalFilter, setGlobalFilter] = useState<string>('')
+    const dispatch = useAppDispatch();
+    const { listaSoftware } = useAppSelector((state) => state.recursos);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        dispatch(listaSoftwareThunk())
-    }, [])
+        dispatch(listaSoftwareThunk());
+    }, []);
 
     const columns = [
-        columnHelper.accessor("id", {
+        columnHelper.accessor('id', {
             cell: (info) => info.getValue(),
-            header: "N°"
+            header: 'N°',
         }),
-        columnHelper.accessor("nombre", {
+        columnHelper.accessor('nombre', {
             cell: (info) => info.getValue(),
-            header: "Nombre"
-        })
-    ]
+            header: 'Nombre',
+        }),
+    ];
 
     const table = useReactTable({
         data: listaSoftware,
@@ -49,27 +58,30 @@ function ListaSoftware() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Softwares" title="Softwares">
+        <PageWrapper isProtectedRoute={true} name='Softwares' title='Softwares'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Softwares</Badge>
+                    <Badge className='text-xl'>Softwares</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <AnimacionDeInputModoMovil globalFilter={globalFilter} setGlobalFilter={setGlobalFilter} anchoInput={180}>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={180}>
                         <CrearSoftware />
                     </AnimacionDeInputModoMovil>
                 </SubheaderRight>
             </Subheader>
-            <Container className="w-full h-full">
-                <div className="w-full">
+            <Container className='h-full w-full'>
+                <div className='w-full'>
                     <Card>
-                        <CardBody className="z-0">
-                            <div className="overflow-auto">
-                                <Table className='table-fixed min-w-[700px]'>
+                        <CardBody className='z-0'>
+                            <div className='overflow-auto'>
+                                <Table className='min-w-[700px] table-fixed'>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
@@ -83,9 +95,10 @@ function ListaSoftware() {
                                                                 key={header.id}
                                                                 aria-hidden='true'
                                                                 {...{
-                                                                    className: header.column.getCanSort()
-                                                                        ? 'cursor-pointer select-none flex items-center'
-                                                                        : '',
+                                                                    className:
+                                                                        header.column.getCanSort()
+                                                                            ? 'cursor-pointer select-none flex items-center'
+                                                                            : '',
                                                                     onClick:
                                                                         header.column.getToggleSortingHandler(),
                                                                 }}>
@@ -106,7 +119,9 @@ function ListaSoftware() {
                                                                             className='ltr:ml-1.5 rtl:mr-1.5'
                                                                         />
                                                                     ),
-                                                                }[header.column.getIsSorted() as string] ?? null}
+                                                                }[
+                                                                    header.column.getIsSorted() as string
+                                                                ] ?? null}
                                                             </div>
                                                         )}
                                                     </Th>
@@ -119,14 +134,17 @@ function ListaSoftware() {
                                             <Tr key={row.id}>
                                                 {row.getVisibleCells().map((cell) => (
                                                     <Td key={cell.id}>
-                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext(),
+                                                        )}
                                                     </Td>
                                                 ))}
                                             </Tr>
                                         ))}
                                     </TBody>
                                 </Table>
-                                <div className="mt-2 min-w-[700px]">
+                                <div className='mt-2 min-w-[700px]'>
                                     <TableCardFooterTemplateV2 table={table} />
                                 </div>
                             </div>
@@ -135,7 +153,7 @@ function ListaSoftware() {
                 </div>
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default ListaSoftware
+export default ListaSoftware;

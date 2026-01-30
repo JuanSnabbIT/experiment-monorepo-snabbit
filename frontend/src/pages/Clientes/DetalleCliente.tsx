@@ -12,28 +12,27 @@ import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
 
-
 const DetalleCliente = () => {
     const dispatch = useAppDispatch();
-    const navigate = useNavigate()
+    const navigate = useNavigate();
     const { id } = useParams();
-    const { detalleCliente } = useAppSelector((state) => state.empresa)
-    const [activeComponent, setActiveComponent] = useState<string>("");
+    const { detalleCliente } = useAppSelector((state) => state.empresa);
+    const [activeComponent, setActiveComponent] = useState<string>('');
 
     useEffect(() => {
         if (id) {
-            dispatch(detalleClienteThunk({id_relacion: id}))
+            dispatch(detalleClienteThunk({ id_relacion: id }));
         }
-    }, [id])
+    }, [id]);
 
     return (
-        <PageWrapper isProtectedRoute={true} title="Detalle Cliente" name="Detalle Cliente">
+        <PageWrapper isProtectedRoute={true} title='Detalle Cliente' name='Detalle Cliente'>
             <Subheader>
                 <SubheaderLeft>
                     <Badge className='text-xl'>{detalleCliente?.info_cliente.nombre}</Badge>
                 </SubheaderLeft>
             </Subheader>
-            <Container className='w-full h-full'>
+            <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>
                     <Card>
                         <CardHeader>
@@ -41,57 +40,119 @@ const DetalleCliente = () => {
                                 <Badge className='text-xl'>Datos</Badge>
                             </CardHeaderChild>
                             <CardHeaderChild>
-                                <Button variant="solid" color="violet" onClick={() => {navigate(`/empresa/contratos-cliente/${detalleCliente?.id}`)}}>Ir a los contratos</Button>
+                                <Button
+                                    variant='solid'
+                                    color='violet'
+                                    onClick={() => {
+                                        navigate(
+                                            `/empresa/contratos-cliente/${detalleCliente?.id}`,
+                                        );
+                                    }}>
+                                    Ir a los contratos
+                                </Button>
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody className='flex flex-col gap-4'>
-                            <div className="grid grid-cols-3 gap-4 border border-blue-500 rounded-xl p-4">
+                            <div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>
                                 <div>
                                     <Badge>Nombre</Badge>
-                                    <div className="ml-4">{detalleCliente?.info_cliente.nombre}</div>
+                                    <div className='ml-4'>
+                                        {detalleCliente?.info_cliente.nombre}
+                                    </div>
                                 </div>
                                 <div>
                                     <Badge>Dirección Principal</Badge>
-                                    <div className="ml-4">{detalleCliente?.info_cliente.direccion_principal}</div>
+                                    <div className='ml-4'>
+                                        {detalleCliente?.info_cliente.direccion_principal}
+                                    </div>
                                 </div>
                                 <div>
                                     <Badge>Sitio Web</Badge>
-                                    <div className="ml-4">{detalleCliente?.info_cliente.sitio_web || "Sin Sitio Web"}</div>
+                                    <div className='ml-4'>
+                                        {detalleCliente?.info_cliente.sitio_web || 'Sin Sitio Web'}
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 border border-blue-500 rounded-xl p-4">
+                            <div className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'>
                                 <div>
                                     <Badge>PPM</Badge>
-                                    <div className="ml-4">{detalleCliente?.info_cliente.ppm}%</div>
+                                    <div className='ml-4'>{detalleCliente?.info_cliente.ppm}%</div>
                                 </div>
                                 <div>
                                     <Badge>Recargo</Badge>
-                                    <div className="ml-4">{detalleCliente?.info_cliente.recargo}%</div>
+                                    <div className='ml-4'>
+                                        {detalleCliente?.info_cliente.recargo}%
+                                    </div>
                                 </div>
                             </div>
                         </CardBody>
                     </Card>
                     <Card>
                         <CardBody>
-                            <div className="flex flex-row gap-4 overflow-auto">
+                            <div className='flex flex-row gap-4 overflow-auto'>
                                 <Button
-                                    {...(activeComponent === "Usuarios" ? {size: 'sm', rounded: 'rounded-full', className: 'border', isActive: true, color: 'blue', colorIntensity: '500', variant: 'solid'} : {size: 'sm', color: 'zinc', rounded: 'rounded-full', className: 'border'})}
+                                    {...(activeComponent === 'Usuarios'
+                                        ? {
+                                              size: 'sm',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                              isActive: true,
+                                              color: 'blue',
+                                              colorIntensity: '500',
+                                              variant: 'solid',
+                                          }
+                                        : {
+                                              size: 'sm',
+                                              color: 'zinc',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                          })}
                                     onClick={() => {
-                                        setActiveComponent("Usuarios");
+                                        setActiveComponent('Usuarios');
                                     }}>
                                     Usuarios
                                 </Button>
                                 <Button
-                                    {...(activeComponent === "Contratos" ? {size: 'sm', rounded: 'rounded-full', className: 'border', isActive: true, color: 'blue', colorIntensity: '500', variant: 'solid'} : {size: 'sm', color: 'zinc', rounded: 'rounded-full', className: 'border'})}
+                                    {...(activeComponent === 'Contratos'
+                                        ? {
+                                              size: 'sm',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                              isActive: true,
+                                              color: 'blue',
+                                              colorIntensity: '500',
+                                              variant: 'solid',
+                                          }
+                                        : {
+                                              size: 'sm',
+                                              color: 'zinc',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                          })}
                                     onClick={() => {
-                                        setActiveComponent("Contratos");
+                                        setActiveComponent('Contratos');
                                     }}>
                                     Contratos
                                 </Button>
                                 <Button
-                                    {...(activeComponent === "Licencias" ? {size: 'sm', rounded: 'rounded-full', className: 'border', isActive: true, color: 'blue', colorIntensity: '500', variant: 'solid'} : {size: 'sm', color: 'zinc', rounded: 'rounded-full', className: 'border'})}
+                                    {...(activeComponent === 'Licencias'
+                                        ? {
+                                              size: 'sm',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                              isActive: true,
+                                              color: 'blue',
+                                              colorIntensity: '500',
+                                              variant: 'solid',
+                                          }
+                                        : {
+                                              size: 'sm',
+                                              color: 'zinc',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                          })}
                                     onClick={() => {
-                                        setActiveComponent("Licencias");
+                                        setActiveComponent('Licencias');
                                     }}>
                                     Licencias
                                 </Button>
@@ -99,18 +160,11 @@ const DetalleCliente = () => {
                         </CardBody>
                     </Card>
 
-                    {activeComponent === "Usuarios" && (
-                        <TablaUsuariosDelCliente />
-                    )}
+                    {activeComponent === 'Usuarios' && <TablaUsuariosDelCliente />}
 
-                    {activeComponent === "Contratos" && (
-                        <TablaDeContratosDelCliente />
-                    )}
+                    {activeComponent === 'Contratos' && <TablaDeContratosDelCliente />}
 
-                    {activeComponent === "Licencias" && (
-                        <TablaDeUsuariosVinculadosLicencias />
-                    )}
-
+                    {activeComponent === 'Licencias' && <TablaDeUsuariosVinculadosLicencias />}
                 </div>
             </Container>
         </PageWrapper>

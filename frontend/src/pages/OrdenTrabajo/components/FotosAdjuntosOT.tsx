@@ -1,18 +1,21 @@
-import Icon from "@/components/icon/Icon";
-import Badge from "@/components/ui/Badge";
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card";
-import ApiService from "@/services/ApiService";
-import { listaAdjuntosThunk, useAppDispatch, useAppSelector } from "@/store";
-import { getImageDimensions } from "@/utils/getImageDimensions";
-import dayjs from "dayjs";
-import "dayjs/locale/es";
-import { useEffect, useState } from "react";
-import { Gallery } from "react-grid-gallery";
-import { toast } from "react-toastify";
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
-import AgregarAdjuntosFotosOT from "../modals/AgregarAdjuntosFotosOT";
-
+import Icon from '@/components/icon/Icon';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import {
+    useDeleteAdjuntoMutation,
+    useGetAdjuntosQuery,
+    useGetDetalleOrdenTrabajoQuery,
+} from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { getImageDimensions } from '@/utils/getImageDimensions';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import { useEffect, useState } from 'react';
+import { Gallery } from 'react-grid-gallery';
+import { toast } from 'react-toastify';
+import Lightbox from 'yet-another-react-lightbox';
+import 'yet-another-react-lightbox/styles.css';
+import AgregarAdjuntosFotosOT from '../modals/AgregarAdjuntosFotosOT';
+import { useParams } from 'react-router-dom';
 
 interface ImagenOT {
     id: number;
@@ -25,19 +28,19 @@ interface ImagenOT {
 }
 
 function FotosAdjuntosOT() {
-    const dispatch = useAppDispatch();
-    const { detalleOrdenTrabajo, listaAdjuntos } = useAppSelector((state) => state.ordenTrabajo);
+    const { id } = useParams<{ id: string }>();
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(id || '', {
+        skip: !id,
+    });
+    const { data: listaAdjuntos = [], refetch: refetchAdjuntos } = useGetAdjuntosQuery(id || '', {
+        skip: !id,
+    });
+    const [deleteAdjunto] = useDeleteAdjuntoMutation();
     const [index, setIndex] = useState(-1);
     const [imagenes, setImagenes] = useState<ImagenOT[]>([]);
 
     useEffect(() => {
-        if (detalleOrdenTrabajo) {
-            dispatch(listaAdjuntosThunk({ ordenId: detalleOrdenTrabajo.id }));
-        }
-    }, [detalleOrdenTrabajo]);
-
-    useEffect(() => {
-        const adjuntosImg = listaAdjuntos.filter((a) => a.tipo === "imagen" && a.archivo);
+        const adjuntosImg = listaAdjuntos.filter((a) => a.tipo === 'imagen' && a.archivo);
         if (!adjuntosImg.length) {
             setImagenes([]);
             return;
@@ -53,15 +56,15 @@ function FotosAdjuntosOT() {
                             src: a.archivo!,
                             width,
                             height,
-                            alt: a.descripcion ?? "",
+                            alt: a.descripcion ?? '',
                             fechaCreacion: a.fecha_creacion,
-                            descripcion: a.descripcion ?? "",
+                            descripcion: a.descripcion ?? '',
                         };
-                    })
+                    }),
                 );
                 setImagenes(imgs);
             } catch (e) {
-                console.error("Error midiendo imágenes:", e);
+                console.error('Error midiendo imágenes:', e);
             }
         })();
     }, [listaAdjuntos]);
@@ -70,12 +73,13 @@ function FotosAdjuntosOT() {
         <Card>
             <CardHeader>
                 <CardHeaderChild>
-                    <Badge className="text-xl">Fotos</Badge>
+                    <Badge className='text-xl'>Fotos</Badge>
                 </CardHeaderChild>
                 <CardHeaderChild>
-                    {detalleOrdenTrabajo && ["pendiente", "en_proceso", "completada"].includes(detalleOrdenTrabajo.estado) && (
-                        <AgregarAdjuntosFotosOT />
-                    )}
+                    {detalleOrdenTrabajo &&
+                        ['pendiente', 'en_proceso', 'completada'].includes(
+                            detalleOrdenTrabajo.estado,
+                        ) && <AgregarAdjuntosFotosOT />}
                 </CardHeaderChild>
             </CardHeader>
             <CardBody>
@@ -94,17 +98,16 @@ function FotosAdjuntosOT() {
                                 const img = imagenes[image.index];
                                 return (
                                     <div
-                                        className="relative h-full w-full bg-cover bg-center"
-                                        style={{ backgroundImage: `url(${img.src})` }}
-                                    >
-                                        <div className="absolute inset-0 bg-black opacity-30" />
-                                        <div className="absolute top-0 left-0 m-4 p-4 bg-black bg-opacity-60 text-white rounded">
-                                            <p className="font-bold text-lg">
+                                        className='relative h-full w-full bg-cover bg-center'
+                                        style={{ backgroundImage: `url(${img.src})` }}>
+                                        <div className='absolute inset-0 bg-black opacity-30' />
+                                        <div className='absolute left-0 top-0 m-4 rounded bg-black bg-opacity-60 p-4 text-white'>
+                                            <p className='text-lg font-bold'>
                                                 {dayjs(img.fechaCreacion)
-                                                    .locale("es")
-                                                    .format("DD/MM/YYYY HH:mm [Hrs]")}
+                                                    .locale('es')
+                                                    .format('DD/MM/YYYY HH:mm [Hrs]')}
                                             </p>
-                                            <p className="mt-1">{img.descripcion}</p>
+                                            <p className='mt-1'>{img.descripcion}</p>
                                         </div>
                                     </div>
                                 );
@@ -119,33 +122,41 @@ function FotosAdjuntosOT() {
                             close={() => setIndex(-1)}
                             toolbar={{
                                 buttons: [
-                                    detalleOrdenTrabajo && ["pendiente", "en_proceso", "completada"].includes(detalleOrdenTrabajo.estado) && (
-                                        <div
-                                            key="eliminar"
-                                            className="flex items-center hover:text-red-600 text-zinc-50 transition-colors delay-75"
-                                        >
-                                            <Icon
-                                                icon="HeroTrash"
-                                                size="text-3xl"
-                                                onClick={async () => {
-                                                    try {
-                                                        const response = await ApiService.fetchData({
-                                                            url: `/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/adjuntos/${imagenes[index].id}/`,
-                                                            method: 'delete',
-                                                        });
-                                                        if (response.status === 204) {
-                                                            dispatch(listaAdjuntosThunk({ ordenId: detalleOrdenTrabajo.id }));
+                                    detalleOrdenTrabajo &&
+                                        ['pendiente', 'en_proceso', 'completada'].includes(
+                                            detalleOrdenTrabajo.estado,
+                                        ) && (
+                                            <div
+                                                key='eliminar'
+                                                className='flex items-center text-zinc-50 transition-colors delay-75 hover:text-red-600'>
+                                                <Icon
+                                                    icon='HeroTrash'
+                                                    size='text-3xl'
+                                                    onClick={async () => {
+                                                        try {
+                                                            await deleteAdjunto({
+                                                                ordenId: detalleOrdenTrabajo.id,
+                                                                adjuntoId: imagenes[index].id,
+                                                            }).unwrap();
+                                                            refetchAdjuntos();
                                                             setIndex(-1);
+                                                        } catch (error: any) {
+                                                            const mensajesError = Object.values(
+                                                                error.response.data,
+                                                            )
+                                                                .flat()
+                                                                .join(' ');
+                                                            toast.error(
+                                                                mensajesError ||
+                                                                    'Error al eliminar la imagen',
+                                                                { toastId: 'ErrorEliminarImagen' },
+                                                            );
                                                         }
-                                                    } catch (error: any) {
-                                                        const mensajesError = Object.values(error.response.data).flat().join(' ');
-                                                        toast.error(mensajesError || "Error al eliminar la imagen", { toastId: "ErrorEliminarImagen" });
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                    ),
-                                    "close",
+                                                    }}
+                                                />
+                                            </div>
+                                        ),
+                                    'close',
                                 ],
                             }}
                         />
@@ -158,4 +169,4 @@ function FotosAdjuntosOT() {
     );
 }
 
-export default FotosAdjuntosOT
+export default FotosAdjuntosOT;

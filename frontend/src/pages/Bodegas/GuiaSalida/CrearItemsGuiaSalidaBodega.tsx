@@ -1,179 +1,221 @@
-import Input from "@/components/form/Input"
-import Icon from "@/components/icon/Icon"
-import Container from "@/components/layouts/Container/Container"
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
-import Subheader, { SubheaderLeft } from "@/components/layouts/Subheader/Subheader"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import Tooltip from "@/components/ui/Tooltip"
-import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
-import ApiService from "@/services/ApiService"
-import { useAppDispatch, useAppSelector } from "@/store"
-import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { confirmAlert } from "@/utils/sweetAlert"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useEffect, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { toast } from "react-toastify"
-import AsignarNumeroDeSerie from "./modals/AsignarNumeroDeSerie"
+import Input from '@/components/form/Input';
+import Icon from '@/components/icon/Icon';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import { IItemGuiaSalida, IStockItemEnBodega } from '@/interface/bodega.interface';
+import {
+    useAgregarItemGuiaMutation,
+    useComprobarGuiaMutation,
+    useEditarItemGuiaMutation,
+    useEliminarItemGuiaMutation,
+    useGetDetalleGuiaSalidaQuery,
+    useGetItemsGuiaSalidaQuery,
+    useGetStockItemsEnBodegaQuery,
+} from '@/store/slices/bodega/guiaSalidaApi';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { confirmAlert } from '@/utils/sweetAlert';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import AsignarNumeroDeSerie from './modals/AsignarNumeroDeSerie';
 
-
-const columnHelper = createColumnHelper<IStockItemEnBodega>()
-const columnHelperItems = createColumnHelper<IItemGuiaSalida>()
+const columnHelper = createColumnHelper<IStockItemEnBodega>();
+const columnHelperItems = createColumnHelper<IItemGuiaSalida>();
 
 function CrearItemsGuiaSalidaBodega() {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { id } = useParams()
-    const { listaStockItemsEnBodega, detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega } = useAppSelector((state) => state.bodega)
+    const navigate = useNavigate();
+    const { id } = useParams();
+
+    // Queries
+    const { data: detalleGuiaSalidaBodega } = useGetDetalleGuiaSalidaQuery(id!, { skip: !id });
+    const { data: listaItemsEnGuiaSalidaBodega = [] } = useGetItemsGuiaSalidaQuery(id!, {
+        skip: !id,
+    });
+    const { data: listaStockItemsEnBodega = [] } = useGetStockItemsEnBodegaQuery(
+        detalleGuiaSalidaBodega?.bodega!,
+        { skip: !detalleGuiaSalidaBodega },
+    );
+
+    // Mutations
+    const [agregarItem] = useAgregarItemGuiaMutation();
+    const [editarItem] = useEditarItemGuiaMutation();
+    const [eliminarItem] = useEliminarItemGuiaMutation();
+    const [completarGuia] = useComprobarGuiaMutation();
+
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-    const [isCreating, setIsCreating] = useState<boolean>(false)
-    const [itemStockSeleted, setItemStockSelected] = useState<IStockItemEnBodega | undefined>()
-    const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>()
-    const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false)
-    const [completando, setCompletando] = useState<boolean>(false)
+    const [isCreating, setIsCreating] = useState<boolean>(false);
+    const [itemStockSeleted, setItemStockSelected] = useState<IStockItemEnBodega | undefined>();
+    const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>();
+    const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false);
+    const [completando, setCompletando] = useState<boolean>(false);
 
-    useEffect(() => {
-        if (itemRebajaSelected) {
-            dispatch(listaComprasDeStockThunk({id_bodega: itemRebajaSelected.datos_stock.bodega, id_stock: itemRebajaSelected.datos_stock.id}))
-        }
-    }, [itemRebajaSelected])
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-            dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-        }
-    }, [id])
-
-    useEffect(() => {
-        if (detalleGuiaSalidaBodega) {
-            dispatch(listaStockItemsEnBodegaThunk({id_bodega: detalleGuiaSalidaBodega.bodega}))
-        }
-    }, [detalleGuiaSalidaBodega])
-
-    const completarGuia = async () => {
-        if (!id) return
+    const completarGuiaAction = async () => {
+        if (!id) return;
         const ok = await confirmAlert({
-            title: "Completar guia de salida",
-            text: "Estas seguro de completar la guia de salida?",
-            confirmText: "Completar",
-            cancelText: "Cancelar",
-            icon: "warning",
-        })
-        if (!ok) return
-        setCompletando(true)
+            title: 'Completar guia de salida',
+            text: 'Estas seguro de completar la guia de salida?',
+            confirmText: 'Completar',
+            cancelText: 'Cancelar',
+            icon: 'warning',
+        });
+        if (!ok) return;
+        setCompletando(true);
         try {
-            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/comprobar-guia/`, method: 'post'})
-            if (response.data) {
-                toast.success("Guia completada", {autoClose: 1000})
-                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                navigate(`/bodega/lista-guia-salida`)
-            }
+            await completarGuia(id).unwrap();
+            toast.success('Guia completada', { autoClose: 1000 });
+            navigate(`/bodega/lista-guia-salida`);
         } catch (error: any) {
-            toast.error(error.response?.data?.detail || "Error al completar la guia", {toastId: "Error al completar la guia"})
+            toast.error(error.data?.detail || 'Error al completar la guia', {
+                toastId: 'Error al completar la guia',
+            });
         }
-        setCompletando(false)
-    }
+        setCompletando(false);
+    };
 
     const columns = [
-        columnHelper.accessor(row => row.datos_item?.nombre || "Sin Nombre", {
-            id: "nombre_item",
+        columnHelper.accessor((row) => row.datos_item?.nombre || 'Sin Nombre', {
+            id: 'nombre_item',
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
-        columnHelper.accessor("cantidad", {
+        columnHelper.accessor('cantidad', {
             cell: (info) => (
                 <div>
-                    <Tooltip text={`Cantidad no disponible: ${info.row.original.cantidad_no_disponible}`}>
+                    <Tooltip
+                        text={`Cantidad no disponible: ${info.row.original.cantidad_no_disponible}`}>
                         <div>{info.getValue()}</div>
                     </Tooltip>
                 </div>
             ),
-            header: "Cantidad"
+            header: 'Cantidad',
         }),
-        columnHelper.accessor(row => row.datos_item?.datos_categoria?.nombre || "Sin Categoria", {
-            id: "categoria",
+        columnHelper.accessor((row) => row.datos_item?.datos_categoria?.nombre || 'Sin Categoria', {
+            id: 'categoria',
             cell: (info) => <div>{info.getValue()}</div>,
-            header: "Categoria"
+            header: 'Categoria',
         }),
-        columnHelper.accessor(row => row.datos_item?.datos_fabricante?.nombre || "Sin Fabricante", {
-            id: "fabricante",
-            cell: (info) => <div>{info.getValue()}</div>,
-            header: "Fabricante"
-        }),
+        columnHelper.accessor(
+            (row) => row.datos_item?.datos_fabricante?.nombre || 'Sin Fabricante',
+            {
+                id: 'fabricante',
+                cell: (info) => <div>{info.getValue()}</div>,
+                header: 'Fabricante',
+            },
+        ),
         columnHelper.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => {
                 const inputRef = useRef<HTMLInputElement>(null);
                 return (
                     <div>
                         {!isCreating && itemStockSeleted === info.row.original ? (
-                            <div className="flex gap-4 flex-row">
-                                <Input name="cantidad" type="number" ref={inputRef} max={info.row.original.cantidad} min={0} />
-                                <Tooltip text="Cancelar">
-                                    <Button variant="solid" color="red" icon="HeroXMark" onClick={() => {
-                                        if (inputRef.current) {
-                                            inputRef.current.valueAsNumber = 0
-                                        }
-                                        setItemStockSelected(undefined)
-                                    }}></Button>
+                            <div className='flex flex-row gap-4'>
+                                <Input
+                                    name='cantidad'
+                                    type='number'
+                                    ref={inputRef}
+                                    max={info.row.original.cantidad}
+                                    min={0}
+                                />
+                                <Tooltip text='Cancelar'>
+                                    <Button
+                                        variant='solid'
+                                        color='red'
+                                        icon='HeroXMark'
+                                        onClick={() => {
+                                            if (inputRef.current) {
+                                                inputRef.current.valueAsNumber = 0;
+                                            }
+                                            setItemStockSelected(undefined);
+                                        }}></Button>
                                 </Tooltip>
-                                <Tooltip text="Guardar con Cantidad">
-                                    <Button variant="solid" icon="DuoSave" onClick={async () => {
-                                        setIsCreating(true)
-                                        try {
-                                            if (inputRef.current && inputRef.current.valueAsNumber > 0) {
-                                                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/agregar-item/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                                                    stock_item_id: info.row.original.id,
-                                                    cantidad_rebajada: inputRef.current?.valueAsNumber,
-                                                })})
-                                                if (response.data) {
-                                                    toast.success("Item agregado a la guia", {autoClose: 1000})
-                                                    dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                    dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
+                                <Tooltip text='Guardar con Cantidad'>
+                                    <Button
+                                        variant='solid'
+                                        icon='DuoSave'
+                                        onClick={async () => {
+                                            setIsCreating(true);
+                                            try {
+                                                if (
+                                                    inputRef.current &&
+                                                    inputRef.current.valueAsNumber > 0
+                                                ) {
+                                                    await agregarItem({
+                                                        id_guia: id!,
+                                                        stock_item_id: info.row.original.id,
+                                                        cantidad_rebajada:
+                                                            inputRef.current?.valueAsNumber,
+                                                    }).unwrap();
+                                                    toast.success('Item agregado a la guia', {
+                                                        autoClose: 1000,
+                                                    });
                                                 }
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.data?.detail || 'Error al agregar item',
+                                                );
                                             }
-                                        } catch (error: any) {
-                                            toast.error(error.response.data.detail)
-                                        }
-                                        setIsCreating(false)
-                                    }}></Button>
+                                            setIsCreating(false);
+                                        }}></Button>
                                 </Tooltip>
-                                <Tooltip text="Guardar Individualizado">
-                                    <Button variant="solid" icon="DuoBox3" onClick={async () => {
-                                        setIsCreating(true)
-                                        try {
-                                            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/agregar-item/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                                                stock_item_id: info.row.original.id,
-                                                cantidad_rebajada: 1,
-                                                individualizado: true
-                                            })})
-                                            if (response.data) {
-                                                toast.success("Item agregado a la guia", {autoClose: 1000})
-                                                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
+                                <Tooltip text='Guardar Individualizado'>
+                                    <Button
+                                        variant='solid'
+                                        icon='DuoBox3'
+                                        onClick={async () => {
+                                            setIsCreating(true);
+                                            try {
+                                                await agregarItem({
+                                                    id_guia: id!,
+                                                    stock_item_id: info.row.original.id,
+                                                    cantidad_rebajada: 1,
+                                                    individualizado: true,
+                                                }).unwrap();
+                                                toast.success('Item agregado a la guia', {
+                                                    autoClose: 1000,
+                                                });
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.data?.detail || 'Error al agregar item',
+                                                );
                                             }
-                                        } catch(error: any) {
-                                            toast.error(error.response.data.detail)
-                                        }
-                                        setIsCreating(false)
-                                    }}></Button>
+                                            setIsCreating(false);
+                                        }}></Button>
                                 </Tooltip>
                             </div>
                         ) : (
-                            <Button isDisable={isCreating} variant="solid" icon="HeroPlus" rounded="rounded-full" onClick={async () => {setItemStockSelected(info.row.original)}}></Button>
+                            <Button
+                                isDisable={isCreating}
+                                variant='solid'
+                                icon='HeroPlus'
+                                rounded='rounded-full'
+                                onClick={async () => {
+                                    setItemStockSelected(info.row.original);
+                                }}></Button>
                         )}
                     </div>
-                )
+                );
             },
-            header: ""
-        })
-    ]
+            header: '',
+        }),
+    ];
 
     const table = useReactTable({
         data: listaStockItemsEnBodega,
@@ -188,87 +230,154 @@ function CrearItemsGuiaSalidaBodega() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     const columnsItems = [
-        columnHelperItems.accessor("id", {
+        columnHelperItems.accessor('id', {
             cell: (info) => (
-                <div className="flex flex-col">
-                    <div className="w-full">{info.row.original.datos_stock.datos_item.nombre}</div>
+                <div className='flex flex-col'>
+                    <div className='w-full'>{info.row.original.datos_stock.datos_item.nombre}</div>
                     {/* <div className="w-full text-xs ml-2 flex gap-1"><Icon icon="DuoPenRuler" size="text-base" /> {info.row.original.datos_stock.datos_item.tamanio} {info.row.original.datos_stock.datos_item.unidad_label}</div> */}
-                    <div className="w-full mt-2">
-                        <Button size="xs" className="!px-1" icon="DuoBox3" onClick={() => { if (info.row.original.datos_stock.datos_item.fabricante) navigate(`/registros/detalle-fabricante/${info.row.original.datos_stock.datos_item.fabricante}`) }}>{info.row.original.datos_stock.datos_item.datos_fabricante?.nombre || "Sin Fabricante"}</Button>
+                    <div className='mt-2 w-full'>
+                        <Button
+                            size='xs'
+                            className='!px-1'
+                            icon='DuoBox3'
+                            onClick={() => {
+                                if (info.row.original.datos_stock.datos_item.fabricante)
+                                    navigate(
+                                        `/registros/detalle-fabricante/${info.row.original.datos_stock.datos_item.fabricante}`,
+                                    );
+                            }}>
+                            {info.row.original.datos_stock.datos_item.datos_fabricante?.nombre ||
+                                'Sin Fabricante'}
+                        </Button>
                     </div>
-                    <div className="w-full">
-                        <Button size="xs" className="!px-1" icon="DuoAlignJustify" onClick={() => { if (info.row.original.datos_stock.datos_item.categoria) navigate(`/registros/detalle-categoria/${info.row.original.datos_stock.datos_item.categoria}`) }}>{info.row.original.datos_stock.datos_item.datos_categoria?.nombre || "Sin Categoria"}</Button>
+                    <div className='w-full'>
+                        <Button
+                            size='xs'
+                            className='!px-1'
+                            icon='DuoAlignJustify'
+                            onClick={() => {
+                                if (info.row.original.datos_stock.datos_item.categoria)
+                                    navigate(
+                                        `/registros/detalle-categoria/${info.row.original.datos_stock.datos_item.categoria}`,
+                                    );
+                            }}>
+                            {info.row.original.datos_stock.datos_item.datos_categoria?.nombre ||
+                                'Sin Categoria'}
+                        </Button>
                     </div>
                 </div>
             ),
-            header: "Item"
+            header: 'Item',
         }),
         // columnHelperItems.accessor("datos_stock.cantidad", {
         //     cell: (info) => info.getValue(),
         //     header: "Stock"
         // }),
-        columnHelperItems.accessor("cantidad_rebajada", {
+        columnHelperItems.accessor('cantidad_rebajada', {
             cell: (info) => {
-                const [cantidad, setCantidad] = useState<number>(info.row.original.cantidad_rebajada)
-                const [isEditting, setIsEditting] = useState<boolean>(false)
+                const [cantidad, setCantidad] = useState<number>(
+                    info.row.original.cantidad_rebajada,
+                );
+                const [isEditting, setIsEditting] = useState<boolean>(false);
 
                 return (
                     <div>
                         {isEditting ? (
                             <>
                                 <Input
-                                    name="cantidad_rebajada"
-                                    type="number"
+                                    name='cantidad_rebajada'
+                                    type='number'
                                     value={cantidad}
-                                    onChange={(e) => {setCantidad(parseInt(e.target.value))}}
+                                    onChange={(e) => {
+                                        setCantidad(parseInt(e.target.value));
+                                    }}
                                 />
                                 <div>
-                                    <Tooltip text="Cancelar">
-                                        <Button className="m-2" variant="solid" icon="HeroXMark" color="red" onClick={() => {setIsEditting(false); setCantidad(info.row.original.cantidad_rebajada)}}></Button>
+                                    <Tooltip text='Cancelar'>
+                                        <Button
+                                            className='m-2'
+                                            variant='solid'
+                                            icon='HeroXMark'
+                                            color='red'
+                                            onClick={() => {
+                                                setIsEditting(false);
+                                                setCantidad(info.row.original.cantidad_rebajada);
+                                            }}></Button>
                                     </Tooltip>
-                                    <Tooltip text="Guardar">
-                                        <Button className="m-2" variant="solid" icon="DuoSave" onClick={async () => {
-                                            try {
-                                                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/items-guia/${info.row.original.id}/editar-item/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({nueva_cantidad: cantidad})})
-                                                if (response.data) {
-                                                    toast.success("Item de la guia editado", {autoClose: 1000})
-                                                    dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                    dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
+                                    <Tooltip text='Guardar'>
+                                        <Button
+                                            className='m-2'
+                                            variant='solid'
+                                            icon='DuoSave'
+                                            onClick={async () => {
+                                                try {
+                                                    await editarItem({
+                                                        id_guia: id!,
+                                                        item_id: info.row.original.id,
+                                                        nueva_cantidad: cantidad,
+                                                    }).unwrap();
+                                                    toast.success('Item de la guia editado', {
+                                                        autoClose: 1000,
+                                                    });
+                                                    setIsEditting(false);
+                                                } catch (error: any) {
+                                                    toast.error(
+                                                        error.data || 'Error al editar la cantidad',
+                                                        { toastId: 'Error al editar la cantidad' },
+                                                    );
                                                 }
-                                            } catch (error: any) {
-                                                toast.error(error.response.data || "Error al editar la cantidad", {toastId: "Error al editar la cantidad"})
-                                            }
-                                        }}/>
+                                            }}
+                                        />
                                     </Tooltip>
                                 </div>
                             </>
                         ) : (
                             <>
                                 <div>{info.getValue()}</div>
-                                {!info.row.original.individualizado && (<Button className="m-2" variant="solid" onClick={() => {setIsEditting(true)}}>Editar</Button>)}
+                                {!info.row.original.individualizado && (
+                                    <Button
+                                        className='m-2'
+                                        variant='solid'
+                                        onClick={() => {
+                                            setIsEditting(true);
+                                        }}>
+                                        Editar
+                                    </Button>
+                                )}
                             </>
                         )}
                     </div>
-                )
+                );
             },
-            header: "Cantidad"
+            header: 'Cantidad',
         }),
-        columnHelperItems.accessor("individualizado", {
+        columnHelperItems.accessor('individualizado', {
             cell: (info) => {
                 return (
                     <div>
                         {info.row.original.individualizado ? (
-                            <div className="flex flex-col gap-2">
-                                {info.row.original.numero_serie.serie ? info.row.original.numero_serie.serie : ("Sin Numero")}
+                            <div className='flex flex-col gap-2'>
+                                {info.row.original.numero_serie.serie
+                                    ? info.row.original.numero_serie.serie
+                                    : 'Sin Numero'}
                                 <div>
-                                    <Button variant="solid" onClick={async () => {setItemRebajaSelected(info.row.original); setIsOpenNumero(true)}}>Editar</Button>
+                                    <Button
+                                        variant='solid'
+                                        onClick={async () => {
+                                            setItemRebajaSelected(info.row.original);
+                                            setIsOpenNumero(true);
+                                        }}>
+                                        Editar
+                                    </Button>
                                 </div>
                             </div>
-                        ) : "No"}
+                        ) : (
+                            'No'
+                        )}
                         {/* {isEditting ? (
                             <>
                                 <SelectReact
@@ -291,30 +400,35 @@ function CrearItemsGuiaSalidaBodega() {
                             </>
                         )} */}
                     </div>
-                )
-            },  
-            header: "Serializado"
+                );
+            },
+            header: 'Serializado',
         }),
         columnHelperItems.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Button className="m-2" variant="solid" color="red" onClick={async () => {
-                        try {
-                            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/items-guia/${info.row.original.id}/eliminar-item/`, method: 'delete'})
-                            if (response.data) {
-                                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                                toast.success("Item eliminado de la guia", {autoClose: 1000})
+                    <Button
+                        className='m-2'
+                        variant='solid'
+                        color='red'
+                        onClick={async () => {
+                            try {
+                                await eliminarItem({
+                                    id_guia: id!,
+                                    item_id: info.row.original.id,
+                                }).unwrap();
+                                toast.success('Item eliminado de la guia', { autoClose: 1000 });
+                            } catch (error: any) {
+                                toast.error(error.data || 'Error al eliminar el item');
                             }
-                        } catch (error: any) {
-                            toast.error(error.response.data || "Error al eliminar la guia")
-                        }
-                    }}>Eliminar</Button>
+                        }}>
+                        Eliminar
+                    </Button>
                 </div>
-            )
-        })
-    ]
+            ),
+        }),
+    ];
 
     const tableItems = useReactTable({
         data: listaItemsEnGuiaSalidaBodega,
@@ -329,7 +443,7 @@ function CrearItemsGuiaSalidaBodega() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
+        getPaginationRowModel: getPaginationRowModel(),
     });
 
     // const formikEditingItem = useFormik({
@@ -362,32 +476,37 @@ function CrearItemsGuiaSalidaBodega() {
     // })
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Crear Items para Guia Salida Bodega" title="Crear Items para Guia Salida Bodega">
+        <PageWrapper
+            isProtectedRoute={true}
+            name='Crear Items para Guia Salida Bodega'
+            title='Crear Items para Guia Salida Bodega'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Agregar Items a Guia de Salida de Bodega</Badge>
+                    <Badge className='text-xl'>Agregar Items a Guia de Salida de Bodega</Badge>
                 </SubheaderLeft>
             </Subheader>
-            <Container className="w-full h-full">
-                <div className="flex flex-col gap-4">
-                    <div className="w-full">
+            <Container className='h-full w-full'>
+                <div className='flex flex-col gap-4'>
+                    <div className='w-full'>
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
-                                    <Badge className="text-xl">Items en Stock de la Bodega</Badge>
+                                    <Badge className='text-xl'>Items en Stock de la Bodega</Badge>
                                 </CardHeaderChild>
                                 <CardHeaderChild>
                                     <Input
-                                        name="globalFilter"
-                                        placeholder="Buscar..."
+                                        name='globalFilter'
+                                        placeholder='Buscar...'
                                         value={globalFilter}
-                                        onChange={(e) => { setGlobalFilter(e.target.value) }}
+                                        onChange={(e) => {
+                                            setGlobalFilter(e.target.value);
+                                        }}
                                     />
                                 </CardHeaderChild>
                             </CardHeader>
-                            <CardBody className="z-0">
-                                <div className="overflow-auto">
-                                    <Table className='table-fixed min-w-[1000px]'>
+                            <CardBody className='z-0'>
+                                <div className='overflow-auto'>
+                                    <Table className='min-w-[1000px] table-fixed'>
                                         <THead>
                                             {table.getHeaderGroups().map((headerGroup) => (
                                                 <Tr key={headerGroup.id}>
@@ -401,14 +520,16 @@ function CrearItemsGuiaSalidaBodega() {
                                                                     key={header.id}
                                                                     aria-hidden='true'
                                                                     {...{
-                                                                        className: header.column.getCanSort()
-                                                                            ? 'cursor-pointer select-none flex items-center'
-                                                                            : '',
+                                                                        className:
+                                                                            header.column.getCanSort()
+                                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                                : '',
                                                                         onClick:
                                                                             header.column.getToggleSortingHandler(),
                                                                     }}>
                                                                     {flexRender(
-                                                                        header.column.columnDef.header,
+                                                                        header.column.columnDef
+                                                                            .header,
                                                                         header.getContext(),
                                                                     )}
                                                                     {{
@@ -424,7 +545,9 @@ function CrearItemsGuiaSalidaBodega() {
                                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
                                                                             />
                                                                         ),
-                                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                                    }[
+                                                                        header.column.getIsSorted() as string
+                                                                    ] ?? null}
                                                                 </div>
                                                             )}
                                                         </Th>
@@ -437,33 +560,41 @@ function CrearItemsGuiaSalidaBodega() {
                                                 <Tr key={row.id}>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <Td key={cell.id}>
-                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext(),
+                                                            )}
                                                         </Td>
                                                     ))}
                                                 </Tr>
                                             ))}
                                         </TBody>
                                     </Table>
-                                    <div className="mt-2 min-w-[1000px]">
+                                    <div className='mt-2 min-w-[1000px]'>
                                         <TableCardFooterTemplateV2 table={table} />
                                     </div>
                                 </div>
                             </CardBody>
                         </Card>
                     </div>
-                    <div className="w-full">
+                    <div className='w-full'>
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
-                                    <Badge className="text-xl">Items de la Guia de Salida</Badge>
+                                    <Badge className='text-xl'>Items de la Guia de Salida</Badge>
                                 </CardHeaderChild>
                                 <CardHeaderChild>
-                                    <div className="flex gap-4">
-                                        <Button variant="solid" isDisable={completando} onClick={completarGuia}>Completar Guia de Salida</Button>
+                                    <div className='flex gap-4'>
+                                        <Button
+                                            variant='solid'
+                                            isDisable={completando}
+                                            onClick={completarGuiaAction}>
+                                            Completar Guia de Salida
+                                        </Button>
                                     </div>
                                 </CardHeaderChild>
                             </CardHeader>
-                            <CardBody className="z-0">
+                            <CardBody className='z-0'>
                                 {/* <div className="grid grid-cols-4">
                                     <div className="col-span-1 border">
                                         <Badge>Item</Badge>
@@ -548,8 +679,8 @@ function CrearItemsGuiaSalidaBodega() {
                                         </Fragment>
                                     ))}
                                 </div> */}
-                                <div className="overflow-auto">
-                                    <Table className='table-fixed min-w-[800px]'>
+                                <div className='overflow-auto'>
+                                    <Table className='min-w-[800px] table-fixed'>
                                         <THead>
                                             {tableItems.getHeaderGroups().map((headerGroup) => (
                                                 <Tr key={headerGroup.id}>
@@ -563,14 +694,16 @@ function CrearItemsGuiaSalidaBodega() {
                                                                     key={header.id}
                                                                     aria-hidden='true'
                                                                     {...{
-                                                                        className: header.column.getCanSort()
-                                                                            ? 'cursor-pointer select-none flex items-center'
-                                                                            : '',
+                                                                        className:
+                                                                            header.column.getCanSort()
+                                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                                : '',
                                                                         onClick:
                                                                             header.column.getToggleSortingHandler(),
                                                                     }}>
                                                                     {flexRender(
-                                                                        header.column.columnDef.header,
+                                                                        header.column.columnDef
+                                                                            .header,
                                                                         header.getContext(),
                                                                     )}
                                                                     {{
@@ -586,7 +719,9 @@ function CrearItemsGuiaSalidaBodega() {
                                                                                 className='ltr:ml-1.5 rtl:mr-1.5'
                                                                             />
                                                                         ),
-                                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                                    }[
+                                                                        header.column.getIsSorted() as string
+                                                                    ] ?? null}
                                                                 </div>
                                                             )}
                                                         </Th>
@@ -599,14 +734,17 @@ function CrearItemsGuiaSalidaBodega() {
                                                 <Tr key={row.id}>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <Td key={cell.id}>
-                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                            {flexRender(
+                                                                cell.column.columnDef.cell,
+                                                                cell.getContext(),
+                                                            )}
                                                         </Td>
                                                     ))}
                                                 </Tr>
                                             ))}
                                         </TBody>
                                     </Table>
-                                    <div className="mt-2 min-w-[800px]">
+                                    <div className='mt-2 min-w-[800px]'>
                                         <TableCardFooterTemplateV2 table={tableItems} />
                                     </div>
                                 </div>
@@ -614,10 +752,15 @@ function CrearItemsGuiaSalidaBodega() {
                         </Card>
                     </div>
                 </div>
-                <AsignarNumeroDeSerie isOpen={isOpenNumero} setIsOpen={setIsOpenNumero} itemRebajaSelected={itemRebajaSelected} setItemRebajaSelected={setItemRebajaSelected} />
+                <AsignarNumeroDeSerie
+                    isOpen={isOpenNumero}
+                    setIsOpen={setIsOpenNumero}
+                    itemRebajaSelected={itemRebajaSelected}
+                    setItemRebajaSelected={setItemRebajaSelected}
+                />
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default CrearItemsGuiaSalidaBodega
+export default CrearItemsGuiaSalidaBodega;

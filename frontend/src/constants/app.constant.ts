@@ -1,1 +1,1 @@
-export const PERSIST_STORE_NAME = 'core_ert'
+export const PERSIST_STORE_NAME = 'core_ert';

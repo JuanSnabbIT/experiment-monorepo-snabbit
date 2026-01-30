@@ -1,85 +1,115 @@
-import Input from "@/components/form/Input"
-import SelectReact, { TSelectOption } from "@/components/form/SelectReact"
-import Textarea from "@/components/form/Textarea"
-import Icon from "@/components/icon/Icon"
-import Container from "@/components/layouts/Container/Container"
-import PageWrapper from "@/components/layouts/PageWrapper/PageWrapper"
-import Subheader, { SubheaderLeft, SubheaderRight } from "@/components/layouts/Subheader/Subheader"
-import ConfirmarEliminar from "@/components/modals/ConfirmarEliminar"
-import Badge from "@/components/ui/Badge"
-import Button from "@/components/ui/Button"
-import Card, { CardBody, CardHeader, CardHeaderChild } from "@/components/ui/Card"
-import Table, { TBody, Td, Th, THead, Tr } from "@/components/ui/Table"
-import Tooltip from "@/components/ui/Tooltip"
-import { IItemGuiaSalida, IStockItemEnBodega } from "@/interface/bodega.interface"
-import ApiService from "@/services/ApiService"
-import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from "@/store"
-import { detalleGuiaSalidaBodegaThunk, listaComprasDeStockThunk, listaItemsEnGuiaSalidaBodegaThunk, listaStockItemsEnBodegaThunk } from "@/store/slices/bodega/bodegaSlice"
-import TableCardFooterTemplateV2 from "@/templates/Table/TableFooterTemplateV2"
-import { confirmAlert } from "@/utils/sweetAlert"
-import { createColumnHelper, flexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from "@tanstack/react-table"
-import { useFormik } from "formik"
-import { useEffect, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { toast } from "react-toastify"
-import * as Yup from 'yup'
-import AprobarGuiaSalida from "./modals/AprobarGuiaSalida"
-import AsignarNumeroDeSerie from "./modals/AsignarNumeroDeSerie"
-import FirmarEntregarGuia from "./modals/FirmarEntregarGuia"
-import VolverAPendienteGuiaSalida from "./modals/VolverAPendienteGuiaSalida"
+import Input from '@/components/form/Input';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
+import Icon from '@/components/icon/Icon';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import { IItemGuiaSalida, IStockItemEnBodega } from '@/interface/bodega.interface';
+import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from '@/store';
+import {
+    useAgregarItemGuiaMutation,
+    useComprobarGuiaMutation,
+    useDeleteGuiaSalidaMutation,
+    useDescargarPdfMutation,
+    useDevolverABodegaMutation,
+    useEditarItemGuiaMutation,
+    useEliminarItemGuiaMutation,
+    useGetDetalleGuiaSalidaQuery,
+    useGetItemsGuiaSalidaQuery,
+    useGetStockItemsEnBodegaQuery,
+    useUpdateGuiaSalidaMutation,
+} from '@/store/slices/bodega/guiaSalidaApi';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import { useFormik } from 'formik';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
+import * as Yup from 'yup';
+import AprobarGuiaSalida from './modals/AprobarGuiaSalida';
+import AsignarNumeroDeSerie from './modals/AsignarNumeroDeSerie';
+import FirmarEntregarGuia from './modals/FirmarEntregarGuia';
+import VolverAPendienteGuiaSalida from './modals/VolverAPendienteGuiaSalida';
 
-const columnHelperItem = createColumnHelper<IItemGuiaSalida>()
-const columnHelperStock = createColumnHelper<IStockItemEnBodega>()
+const columnHelperItem = createColumnHelper<IItemGuiaSalida>();
+const columnHelperStock = createColumnHelper<IStockItemEnBodega>();
 
 function DetalleGuiaSalidaBodega() {
-    const dispatch = useAppDispatch()
-    const navigate = useNavigate()
-    const { id } = useParams()
-    const { detalleGuiaSalidaBodega, listaItemsEnGuiaSalidaBodega, listaStockItemsEnBodega } = useAppSelector((state) => state.bodega)
-    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa)
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth)
-    const [isEditting, setIsEditting] = useState<boolean>(false)
-    const [sorting, setSorting] = useState<SortingState>([])
-    const [globalFilter, setGlobalFilter] = useState<string>('')
-    const [stockSorting, setStockSorting] = useState<SortingState>([])
-    const [stockGlobalFilter, setStockGlobalFilter] = useState<string>('')
-    const [itemsSorting, setItemsSorting] = useState<SortingState>([])
-    const [itemsGlobalFilter, setItemsGlobalFilter] = useState<string>('')
-    const [isCreating, setIsCreating] = useState<boolean>(false)
-    const [itemStockSelected, setItemStockSelected] = useState<IStockItemEnBodega | undefined>()
-    const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>()
-    const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false)
-    const [completando, setCompletando] = useState<boolean>(false)
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { id } = useParams();
 
-    const [isOpen, setIsOpen] = useState<boolean>(false)
-    const [isOpenFirma, setIsOpenFirma] = useState<boolean>(false)
+    // RTK Query Hooks
+    const { data: detalleGuiaSalidaBodega, isLoading: isLoadingDetalle } =
+        useGetDetalleGuiaSalidaQuery(id!, { skip: !id });
+    const { data: listaItemsEnGuiaSalidaBodega = [], isLoading: isLoadingItems } =
+        useGetItemsGuiaSalidaQuery(id!, { skip: !id });
+    const { data: listaStockItemsEnBodega = [], isLoading: isLoadingStock } =
+        useGetStockItemsEnBodegaQuery(detalleGuiaSalidaBodega?.bodega!, {
+            skip: !detalleGuiaSalidaBodega?.bodega || detalleGuiaSalidaBodega?.estado !== 'P',
+        });
 
-    const isPendiente = detalleGuiaSalidaBodega?.estado === "P"
+    // Mutations
+    const [updateGuia] = useUpdateGuiaSalidaMutation();
+    const [agregarItem] = useAgregarItemGuiaMutation();
+    const [editarItem] = useEditarItemGuiaMutation();
+    const [eliminarItem] = useEliminarItemGuiaMutation();
+    const [deleteGuia] = useDeleteGuiaSalidaMutation();
+    const [comprobarGuiaMutation] = useComprobarGuiaMutation();
+    const [devolverABodegaMutation] = useDevolverABodegaMutation()
+    const [descargarPdf] = useDescargarPdfMutation();
+
+    const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const [isEditting, setIsEditting] = useState<boolean>(false);
+    const [stockSorting, setStockSorting] = useState<SortingState>([]);
+    const [stockGlobalFilter, setStockGlobalFilter] = useState<string>('');
+    const [itemsSorting, setItemsSorting] = useState<SortingState>([]);
+    const [itemsGlobalFilter, setItemsGlobalFilter] = useState<string>('');
+    const [isCreating, setIsCreating] = useState<boolean>(false);
+    const [itemStockSelected, setItemStockSelected] = useState<IStockItemEnBodega | undefined>();
+    const [itemRebajaSelected, setItemRebajaSelected] = useState<IItemGuiaSalida | undefined>();
+    const [isOpenNumero, setIsOpenNumero] = useState<boolean>(false);
+    const [completando, setCompletando] = useState<boolean>(false);
+
+    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [isOpenFirma, setIsOpenFirma] = useState<boolean>(false);
+
+    const isPendiente = detalleGuiaSalidaBodega?.estado === 'P';
 
     useEffect(() => {
-        if (id) {
-            dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-            dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-        }
-    }, [dispatch, id])
+        if (!id) navigate('/bodega/guias-salida-bodega');
+    }, [id]);
 
     useEffect(() => {
-        if (itemRebajaSelected) {
-            dispatch(listaComprasDeStockThunk({id_bodega: itemRebajaSelected.datos_stock.bodega, id_stock: itemRebajaSelected.datos_stock.id}))
+        if (isEditting && personalizacionUsuario?.empresa) {
+            dispatch(
+                listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
+            );
         }
-    }, [dispatch, itemRebajaSelected])
-
-    useEffect(() => {
-        if (detalleGuiaSalidaBodega && isPendiente) {
-            dispatch(listaStockItemsEnBodegaThunk({id_bodega: detalleGuiaSalidaBodega.bodega}))
-        }
-    }, [dispatch, detalleGuiaSalidaBodega, isPendiente])
+    }, [dispatch, isEditting, personalizacionUsuario?.empresa]);
 
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
-            motivo: "",
-            recibido_por: "",
+            motivo: '',
+            recibido_por: '',
         },
         validationSchema: Yup.object().shape({
             motivo: Yup.string().notRequired().nullable(),
@@ -87,193 +117,233 @@ function DetalleGuiaSalidaBodega() {
         }),
         onSubmit: async (values) => {
             try {
-                const payload: Record<string, unknown> = {
+                const payload: any = {
                     motivo: values.motivo,
-                }
+                };
 
                 if (values.recibido_por) {
-                    payload.recibido_por = Number(values.recibido_por)
+                    payload.recibido_por = Number(values.recibido_por);
                 }
 
-                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify(payload)})
-                if (response.data) {
-                    setIsEditting(false)
-                    dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                    dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                    toast.success("Guia de salida editada", {autoClose: 1000})
-                }
+                await updateGuia({ id: id!, ...payload }).unwrap();
+                setIsEditting(false);
+                toast.success('Guia de salida editada', { autoClose: 1000 });
             } catch (error: any) {
-                toast.error(error.response.data || "Error al editar la guia de salida", {toastId: "Error al editar la guia de salida"})
+                toast.error(error.data || 'Error al editar la guia de salida', {
+                    toastId: 'Error al editar la guia de salida',
+                });
             }
-        }
-    })
+        },
+    });
 
     useEffect(() => {
         if (isEditting && detalleGuiaSalidaBodega) {
-            formik.setFieldValue("motivo", detalleGuiaSalidaBodega.motivo)
+            formik.setFieldValue('motivo', detalleGuiaSalidaBodega.motivo);
             formik.setFieldValue(
-                "recibido_por",
+                'recibido_por',
                 detalleGuiaSalidaBodega.recibido_por
                     ? detalleGuiaSalidaBodega.recibido_por.toString()
-                    : "",
-            )
+                    : '',
+            );
         }
-    }, [isEditting, detalleGuiaSalidaBodega])
+    }, [isEditting, detalleGuiaSalidaBodega]);
 
     useEffect(() => {
         if (isEditting && personalizacionUsuario?.empresa) {
-            dispatch(listaUsuariosTodaLaEmpresaThunk({id_empresa: personalizacionUsuario.empresa}))
+            dispatch(
+                listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
+            );
         }
-    }, [dispatch, isEditting, personalizacionUsuario?.empresa])
+    }, [dispatch, isEditting, personalizacionUsuario?.empresa]);
 
     const recibidoPorOptions = listaUsuariosTodaLaEmpresa.map((user) => ({
         value: user.id.toString(),
         label: user.nombre_usuario,
-    }))
+    }));
 
     const recibidoPorSeleccionado = recibidoPorOptions.find(
         (option) => option.value === formik.values.recibido_por,
-    )
+    );
 
     const columnsReadOnly = [
-        columnHelperItem.accessor("datos_stock.datos_item.nombre", {
+        columnHelperItem.accessor('datos_stock.datos_item.nombre', {
             cell: (info) => info.getValue(),
-            header: "Item"
+            header: 'Item',
         }),
-        columnHelperItem.accessor("cantidad_original", {
+        columnHelperItem.accessor('cantidad_original', {
             cell: (info) => info.getValue(),
-            header: "Cantidad Original"
+            header: 'Cantidad Original',
         }),
-        columnHelperItem.accessor("cantidad_rebajada", {
+        columnHelperItem.accessor('cantidad_rebajada', {
             cell: (info) => info.getValue(),
-            header: "Cantidad Rebajada"
+            header: 'Cantidad Rebajada',
         }),
-        columnHelperItem.accessor("cantidad_devuelta", {
+        columnHelperItem.accessor('cantidad_devuelta', {
             cell: (info) => info.getValue(),
-            header: "Cantidad Devuelta"
+            header: 'Cantidad Devuelta',
         }),
-        columnHelperItem.accessor("individualizado", {
+        columnHelperItem.accessor('individualizado', {
             cell: (info) => (
-                <div>{info.row.original.individualizado ? info.row.original.numero_serie.serie : "No"}</div>
+                <div>
+                    {info.row.original.individualizado
+                        ? info.row.original.numero_serie.serie
+                        : 'No'}
+                </div>
             ),
-            header: "Serializado"
+            header: 'Serializado',
         }),
-    ]
+    ];
 
     const tableReadOnly = useReactTable({
         data: listaItemsEnGuiaSalidaBodega,
         columns: columnsReadOnly,
         state: {
-            sorting: sorting,
-            globalFilter: globalFilter,
+            sorting: itemsSorting,
+            globalFilter: itemsGlobalFilter,
         },
-        onSortingChange: setSorting,
+        onSortingChange: setItemsSorting,
         enableGlobalFilter: true,
-        onGlobalFilterChange: setGlobalFilter,
+        onGlobalFilterChange: setItemsGlobalFilter,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
-    })
+        getPaginationRowModel: getPaginationRowModel(),
+    });
 
     const columnsStock = [
-        columnHelperStock.accessor(row => row.datos_item?.nombre || "Sin Nombre", {
-            id: "nombre_item",
+        columnHelperStock.accessor((row) => row.datos_item?.nombre || 'Sin Nombre', {
+            id: 'nombre_item',
             cell: (info) => info.getValue(),
-            header: "Nombre"
+            header: 'Nombre',
         }),
-        columnHelperStock.accessor("cantidad", {
+        columnHelperStock.accessor('cantidad', {
             cell: (info) => (
                 <div>
-                    <Tooltip text={`Cantidad no disponible: ${info.row.original.cantidad_no_disponible}`}>
+                    <Tooltip
+                        text={`Cantidad no disponible: ${info.row.original.cantidad_no_disponible}`}>
                         <div>{info.getValue()}</div>
                     </Tooltip>
                 </div>
             ),
-            header: "Cantidad"
+            header: 'Cantidad',
         }),
-        columnHelperStock.accessor(row => row.datos_item?.datos_categoria?.nombre || "Sin Categoria", {
-            id: "categoria",
-            cell: (info) => <div>{info.getValue()}</div>,
-            header: "Categoria"
-        }),
-        columnHelperStock.accessor(row => row.datos_item?.datos_fabricante?.nombre || "Sin Fabricante", {
-            id: "fabricante",
-            cell: (info) => <div>{info.getValue()}</div>,
-            header: "Fabricante"
-        }),
+        columnHelperStock.accessor(
+            (row) => row.datos_item?.datos_categoria?.nombre || 'Sin Categoria',
+            {
+                id: 'categoria',
+                cell: (info) => <div>{info.getValue()}</div>,
+                header: 'Categoria',
+            },
+        ),
+        columnHelperStock.accessor(
+            (row) => row.datos_item?.datos_fabricante?.nombre || 'Sin Fabricante',
+            {
+                id: 'fabricante',
+                cell: (info) => <div>{info.getValue()}</div>,
+                header: 'Fabricante',
+            },
+        ),
         columnHelperStock.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => {
-                const inputRef = useRef<HTMLInputElement>(null)
+                const inputRef = useRef<HTMLInputElement>(null);
                 return (
                     <div>
                         {!isCreating && itemStockSelected === info.row.original ? (
-                            <div className="flex gap-4 flex-row">
-                                <Input name="cantidad" type="number" ref={inputRef} max={info.row.original.cantidad} min={0} />
-                                <Tooltip text="Cancelar">
-                                    <Button variant="solid" color="red" icon="HeroXMark" onClick={() => {
-                                        if (inputRef.current) {
-                                            inputRef.current.valueAsNumber = 0
-                                        }
-                                        setItemStockSelected(undefined)
-                                    }}></Button>
+                            <div className='flex flex-row gap-4'>
+                                <Input
+                                    name='cantidad'
+                                    type='number'
+                                    ref={inputRef}
+                                    max={info.row.original.cantidad}
+                                    min={0}
+                                />
+                                <Tooltip text='Cancelar'>
+                                    <Button
+                                        variant='solid'
+                                        color='red'
+                                        icon='HeroXMark'
+                                        onClick={() => {
+                                            if (inputRef.current) {
+                                                inputRef.current.valueAsNumber = 0;
+                                            }
+                                            setItemStockSelected(undefined);
+                                        }}></Button>
                                 </Tooltip>
-                                <Tooltip text="Guardar con Cantidad">
-                                    <Button variant="solid" icon="DuoSave" onClick={async () => {
-                                        if (!id) return
-                                        setIsCreating(true)
-                                        try {
-                                            if (inputRef.current && inputRef.current.valueAsNumber > 0) {
-                                                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/agregar-item/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                                                    stock_item_id: info.row.original.id,
-                                                    cantidad_rebajada: inputRef.current?.valueAsNumber,
-                                                })})
-                                                if (response.data) {
-                                                    toast.success("Item agregado a la guia", {autoClose: 1000})
-                                                    dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                    dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                                                    setItemStockSelected(undefined)
+                                <Tooltip text='Guardar con Cantidad'>
+                                    <Button
+                                        variant='solid'
+                                        icon='DuoSave'
+                                        onClick={async () => {
+                                            if (!id) return;
+                                            setIsCreating(true);
+                                            try {
+                                                if (
+                                                    inputRef.current &&
+                                                    inputRef.current.valueAsNumber > 0
+                                                ) {
+                                                    await agregarItem({
+                                                        id_guia: id,
+                                                        stock_item_id: info.row.original.id,
+                                                        cantidad_rebajada:
+                                                            inputRef.current.valueAsNumber,
+                                                    }).unwrap();
+                                                    toast.success('Item agregado a la guia', {
+                                                        autoClose: 1000,
+                                                    });
+                                                    setItemStockSelected(undefined);
                                                 }
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.data?.detail || 'Error al agregar item',
+                                                );
                                             }
-                                        } catch (error: any) {
-                                            toast.error(error.response.data.detail)
-                                        }
-                                        setIsCreating(false)
-                                    }}></Button>
+                                            setIsCreating(false);
+                                        }}></Button>
                                 </Tooltip>
-                                <Tooltip text="Guardar Individualizado">
-                                    <Button variant="solid" icon="DuoBox3" onClick={async () => {
-                                        if (!id) return
-                                        setIsCreating(true)
-                                        try {
-                                            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/agregar-item/`, method: 'post', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({
-                                                stock_item_id: info.row.original.id,
-                                                cantidad_rebajada: 1,
-                                                individualizado: true
-                                            })})
-                                            if (response.data) {
-                                                toast.success("Item agregado a la guia", {autoClose: 1000})
-                                                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                                                setItemStockSelected(undefined)
+                                <Tooltip text='Guardar Individualizado'>
+                                    <Button
+                                        variant='solid'
+                                        icon='DuoBox3'
+                                        onClick={async () => {
+                                            if (!id) return;
+                                            setIsCreating(true);
+                                            try {
+                                                await agregarItem({
+                                                    id_guia: id,
+                                                    stock_item_id: info.row.original.id,
+                                                    cantidad_rebajada: 1,
+                                                    individualizado: true,
+                                                }).unwrap();
+                                                toast.success('Item agregado a la guia', {
+                                                    autoClose: 1000,
+                                                });
+                                                setItemStockSelected(undefined);
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.data?.detail || 'Error al agregar item',
+                                                );
                                             }
-                                        } catch(error: any) {
-                                            toast.error(error.response.data.detail)
-                                        }
-                                        setIsCreating(false)
-                                    }}></Button>
+                                            setIsCreating(false);
+                                        }}></Button>
                                 </Tooltip>
                             </div>
                         ) : (
-                            <Button isDisable={isCreating} variant="solid" icon="HeroPlus" rounded="rounded-full" onClick={() => {setItemStockSelected(info.row.original)}}></Button>
+                            <Button
+                                isDisable={isCreating}
+                                variant='solid'
+                                icon='HeroPlus'
+                                rounded='rounded-full'
+                                onClick={() => {
+                                    setItemStockSelected(info.row.original);
+                                }}></Button>
                         )}
                     </div>
-                )
+                );
             },
-            header: ""
-        })
-    ]
+            header: '',
+        }),
+    ];
 
     const stockTable = useReactTable({
         data: listaStockItemsEnBodega,
@@ -288,117 +358,192 @@ function DetalleGuiaSalidaBodega() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
-    })
+        getPaginationRowModel: getPaginationRowModel(),
+    });
 
     const columnsItems = [
-        columnHelperItem.accessor("id", {
+        columnHelperItem.accessor('id', {
             cell: (info) => (
-                <div className="flex flex-col">
-                    <div className="w-full">{info.row.original.datos_stock.datos_item.nombre}</div>
-                    <div className="w-full mt-2">
-                        <Button size="xs" className="!px-1" icon="DuoBox3" onClick={() => { if (info.row.original.datos_stock.datos_item.fabricante) navigate(`/registros/detalle-fabricante/${info.row.original.datos_stock.datos_item.fabricante}`) }}>{info.row.original.datos_stock.datos_item.datos_fabricante?.nombre || "Sin Fabricante"}</Button>
+                <div className='flex flex-col'>
+                    <div className='w-full'>{info.row.original.datos_stock.datos_item.nombre}</div>
+                    <div className='mt-2 w-full'>
+                        <Button
+                            size='xs'
+                            className='!px-1'
+                            icon='DuoBox3'
+                            onClick={() => {
+                                if (info.row.original.datos_stock.datos_item.fabricante)
+                                    navigate(
+                                        `/registros/detalle-fabricante/${info.row.original.datos_stock.datos_item.fabricante}`,
+                                    );
+                            }}>
+                            {info.row.original.datos_stock.datos_item.datos_fabricante?.nombre ||
+                                'Sin Fabricante'}
+                        </Button>
                     </div>
-                    <div className="w-full">
-                        <Button size="xs" className="!px-1" icon="DuoAlignJustify" onClick={() => { if (info.row.original.datos_stock.datos_item.categoria) navigate(`/registros/detalle-categoria/${info.row.original.datos_stock.datos_item.categoria}`) }}>{info.row.original.datos_stock.datos_item.datos_categoria?.nombre || "Sin Categoria"}</Button>
+                    <div className='w-full'>
+                        <Button
+                            size='xs'
+                            className='!px-1'
+                            icon='DuoAlignJustify'
+                            onClick={() => {
+                                if (info.row.original.datos_stock.datos_item.categoria)
+                                    navigate(
+                                        `/registros/detalle-categoria/${info.row.original.datos_stock.datos_item.categoria}`,
+                                    );
+                            }}>
+                            {info.row.original.datos_stock.datos_item.datos_categoria?.nombre ||
+                                'Sin Categoria'}
+                        </Button>
                     </div>
                 </div>
             ),
-            header: "Item"
+            header: 'Item',
         }),
-        columnHelperItem.accessor("cantidad_rebajada", {
+        columnHelperItem.accessor('cantidad_rebajada', {
             cell: (info) => {
-                const [cantidad, setCantidad] = useState<number>(info.row.original.cantidad_rebajada)
-                const [isEdittingCantidad, setIsEdittingCantidad] = useState<boolean>(false)
+                const [cantidad, setCantidad] = useState<number>(
+                    info.row.original.cantidad_rebajada,
+                );
+                const [isEdittingCantidad, setIsEdittingCantidad] = useState<boolean>(false);
 
                 return (
                     <div>
                         {isEdittingCantidad ? (
                             <>
                                 <Input
-                                    name="cantidad_rebajada"
-                                    type="number"
+                                    name='cantidad_rebajada'
+                                    type='number'
                                     value={cantidad}
-                                    onChange={(e) => {setCantidad(parseInt(e.target.value))}}
+                                    onChange={(e) => {
+                                        setCantidad(parseInt(e.target.value));
+                                    }}
                                 />
                                 <div>
-                                    <Tooltip text="Cancelar">
-                                        <Button className="m-2" variant="solid" icon="HeroXMark" color="red" onClick={() => {setIsEdittingCantidad(false); setCantidad(info.row.original.cantidad_rebajada)}}></Button>
+                                    <Tooltip text='Cancelar'>
+                                        <Button
+                                            className='m-2'
+                                            variant='solid'
+                                            icon='HeroXMark'
+                                            color='red'
+                                            onClick={() => {
+                                                setIsEdittingCantidad(false);
+                                                setCantidad(info.row.original.cantidad_rebajada);
+                                            }}></Button>
                                     </Tooltip>
-                                    <Tooltip text="Guardar">
-                                        <Button className="m-2" variant="solid" icon="DuoSave" onClick={async () => {
-                                            if (!id) return
-                                            try {
-                                                const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/items-guia/${info.row.original.id}/editar-item/`, method: 'patch', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({nueva_cantidad: cantidad})})
-                                                if (response.data) {
-                                                    toast.success("Item de la guia editado", {autoClose: 1000})
-                                                    dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                                    dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
+                                    <Tooltip text='Guardar'>
+                                        <Button
+                                            className='m-2'
+                                            variant='solid'
+                                            icon='DuoSave'
+                                            onClick={async () => {
+                                                if (!id) return;
+                                                try {
+                                                    await editarItem({
+                                                        id_guia: id,
+                                                        item_id: info.row.original.id,
+                                                        nueva_cantidad: cantidad,
+                                                    }).unwrap();
+                                                    toast.success('Item de la guia editado', {
+                                                        autoClose: 1000,
+                                                    });
+                                                    setIsEdittingCantidad(false);
+                                                } catch (error: any) {
+                                                    toast.error(
+                                                        error.data || 'Error al editar la cantidad',
+                                                        { toastId: 'Error al editar la cantidad' },
+                                                    );
                                                 }
-                                            } catch (error: any) {
-                                                toast.error(error.response.data || "Error al editar la cantidad", {toastId: "Error al editar la cantidad"})
-                                            }
-                                        }}/>
+                                            }}
+                                        />
                                     </Tooltip>
                                 </div>
                             </>
                         ) : (
                             <>
                                 <div>{info.getValue()}</div>
-                                {!info.row.original.individualizado && (<Button className="m-2" variant="solid" onClick={() => {setIsEdittingCantidad(true)}}>Editar</Button>)}
+                                {!info.row.original.individualizado && (
+                                    <Button
+                                        className='m-2'
+                                        variant='solid'
+                                        onClick={() => {
+                                            setIsEdittingCantidad(true);
+                                        }}>
+                                        Editar
+                                    </Button>
+                                )}
                             </>
                         )}
                     </div>
-                )
+                );
             },
-            header: "Cantidad"
+            header: 'Cantidad',
         }),
-        columnHelperItem.accessor("individualizado", {
+        columnHelperItem.accessor('individualizado', {
             cell: (info) => {
                 return (
                     <div>
                         {info.row.original.individualizado ? (
-                            <div className="flex flex-col gap-2">
-                                {info.row.original.numero_serie.serie ? info.row.original.numero_serie.serie : ("Sin Numero")}
+                            <div className='flex flex-col gap-2'>
+                                {info.row.original.numero_serie.serie
+                                    ? info.row.original.numero_serie.serie
+                                    : 'Sin Numero'}
                                 <div>
-                                    <Button variant="solid" onClick={() => {setItemRebajaSelected(info.row.original); setIsOpenNumero(true)}}>Editar</Button>
+                                    <Button
+                                        variant='solid'
+                                        onClick={() => {
+                                            setItemRebajaSelected(info.row.original);
+                                            setIsOpenNumero(true);
+                                        }}>
+                                        Editar
+                                    </Button>
                                 </div>
                             </div>
-                        ) : "No"}
+                        ) : (
+                            'No'
+                        )}
                     </div>
-                )
-            },  
-            header: "Serializado"
+                );
+            },
+            header: 'Serializado',
         }),
         columnHelperItem.display({
-            id: "acciones",
+            id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Button className="m-2" variant="solid" color="red" onClick={async () => {
-                        if (!id) return
-                        const ok = await confirmAlert({
-                            title: "Eliminar item de la guia",
-                            text: "¿Esta seguro(a) de querer eliminar el item de la guia?",
-                            confirmText: "Eliminar",
-                            cancelText: "Cancelar",
-                            icon: "warning",
-                        })
-                        if (!ok) return
-                        try {
-                            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/items-guia/${info.row.original.id}/eliminar-item/`, method: 'delete'})
-                            if (response.data) {
-                                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
-                                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                                toast.success("Item eliminado de la guia", {autoClose: 1000})
+                    <Button
+                        className='m-2'
+                        variant='solid'
+                        color='red'
+                        onClick={async () => {
+                            if (!id) return;
+                            const result = await Swal.fire({
+                                title: '¿Eliminar item de la guía?',
+                                text: '¿Está seguro(a) de querer eliminar el item de la guía?',
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: 'Eliminar',
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonColor: '#dc2626',
+                            });
+                            if (result.isConfirmed) {
+                                try {
+                                    await eliminarItem({
+                                        id_guia: id,
+                                        item_id: info.row.original.id,
+                                    }).unwrap();
+                                    toast.success('Item eliminado de la guia', { autoClose: 1000 });
+                                } catch (error: any) {
+                                    toast.error(error.data || 'Error al eliminar el item');
+                                }
                             }
-                        } catch (error: any) {
-                            toast.error(error.response.data || "Error al eliminar la guia")
-                        }
-                    }}>Eliminar</Button>
+                        }}>
+                        Eliminar
+                    </Button>
                 </div>
-            )
-        })
-    ]
+            ),
+        }),
+    ];
 
     const tableItems = useReactTable({
         data: listaItemsEnGuiaSalidaBodega,
@@ -413,224 +558,362 @@ function DetalleGuiaSalidaBodega() {
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel()
-    })
+        getPaginationRowModel: getPaginationRowModel(),
+    });
 
     const completarGuia = async () => {
-        if (!id) return
-        const ok = await confirmAlert({
-            title: "Completar guia de salida",
-            text: "Estas seguro de completar la guia de salida?",
-            confirmText: "Completar",
-            cancelText: "Cancelar",
-            icon: "warning",
-        })
-        if (!ok) return
-        setCompletando(true)
-        try {
-            const response = await ApiService.fetchData({url: `/api/guia-salida/${id}/comprobar-guia/`, method: 'post'})
-            if (response.data) {
-                toast.success("Guia completada", {autoClose: 1000})
-                dispatch(detalleGuiaSalidaBodegaThunk({id_guia: id}))
-                dispatch(listaItemsEnGuiaSalidaBodegaThunk({id_guia: id}))
+        if (!id) return;
+        const result = await Swal.fire({
+            title: '¿Completar guía de salida?',
+            text: '¿Está seguro de completar la guía de salida?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Completar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#3085d6',
+        });
+        if (result.isConfirmed) {
+            setCompletando(true);
+            try {
+                await comprobarGuiaMutation(id).unwrap();
+                toast.success('Guia completada', { autoClose: 1000 });
+            } catch (error: any) {
+                toast.error(error.data?.detail || 'Error al completar la guia', {
+                    toastId: 'Error al completar la guia',
+                });
             }
-        } catch (error: any) {
-            toast.error(error.response?.data?.detail || "Error al completar la guia", {toastId: "Error al completar la guia"})
+            setCompletando(false);
         }
-        setCompletando(false)
-    }
+    };
 
     return (
-        <PageWrapper isProtectedRoute={true} name="Detalle de Guia de Salida de Items de Bodega" title="Detalle de Guia de Salida de Items de Bodega">
+        <PageWrapper
+            isProtectedRoute={true}
+            name='Detalle de Guia de Salida de Items de Bodega'
+            title='Detalle de Guia de Salida de Items de Bodega'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className="text-xl">Detalle de Guia de Salida de Items de Bodega</Badge>
-
+                    <Badge className='text-xl'>Detalle de Guia de Salida de Items de Bodega</Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <div className="flex flex-wrap gap-2">
+                    <div className='flex flex-wrap gap-2'>
+                        {/* Botón "Volver al Listado" eliminado */}
                         {detalleGuiaSalidaBodega?.orden_trabajo && (
-                            <Tooltip text="Ver OT Vinculada">
-                                <Button 
-                                    variant="solid" 
-                                    color="violet"
-                                    icon="HeroDocumentText"
-                                    onClick={() => navigate(`/orden-trabajo/detalle-orden-trabajo/${detalleGuiaSalidaBodega.orden_trabajo}`)}
-                                >
+                            <Tooltip text='Ver OT Vinculada'>
+                                <Button
+                                    variant='solid'
+                                    color='violet'
+                                    icon='HeroDocumentText'
+                                    onClick={() =>
+                                        navigate(
+                                            `/orden-trabajo/detalle-orden-trabajo/${detalleGuiaSalidaBodega.orden_trabajo}`,
+                                        )
+                                    }>
                                     OT Vinculada
                                 </Button>
                             </Tooltip>
                         )}
                         {isPendiente && (
-                            <ConfirmarEliminar
-                                mensaje={`Estas a punto de eliminar esta asistencia en ${detalleGuiaSalidaBodega?.id} ¿desea continuar?`}
-                                onDispatch={() => { navigate('/bodega/guias-salida-bodega') }}
-                                peticionUrl={`/api/guia-salida/${detalleGuiaSalidaBodega?.id}/`}
-                            />
+                            <Tooltip text='Eliminar Guía'>
+                                <Button
+                                    variant='solid'
+                                    color='red'
+                                    icon='HeroTrash'
+                                    onClick={async () => {
+                                        const result = await Swal.fire({
+                                            title: '¿Eliminar Guía de Salida?',
+                                            text: `Está a punto de eliminar la guía N°${detalleGuiaSalidaBodega?.id}. Esta acción no se puede deshacer.`,
+                                            icon: 'warning',
+                                            showCancelButton: true,
+                                            confirmButtonText: 'Eliminar',
+                                            cancelButtonText: 'Cancelar',
+                                            confirmButtonColor: '#dc2626',
+                                        });
+                                        if (result.isConfirmed) {
+                                            try {
+                                                await deleteGuia(id!).unwrap();
+                                                toast.success('Guía eliminada exitosamente', {
+                                                    autoClose: 1000,
+                                                });
+                                                navigate('/bodega/guias-salida-bodega');
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error?.data?.detail ||
+                                                        'Error al eliminar la guía',
+                                                );
+                                            }
+                                        }
+                                    }}
+                                />
+                            </Tooltip>
                         )}
-                        {detalleGuiaSalidaBodega?.estado === "ER" && (
+                        {detalleGuiaSalidaBodega?.estado === 'ER' &&
                             (() => {
                                 const soporte = detalleGuiaSalidaBodega?.soporte_tecnico;
-                                const faltaDatosSoporte = typeof soporte === 'object' && soporte !== null ? !!soporte.falta_datos : false;
+                                const faltaDatosSoporte =
+                                    typeof soporte === 'object' && soporte !== null
+                                        ? !!soporte.falta_datos
+                                        : false;
                                 const disabled = !!faltaDatosSoporte;
-                                const tooltip = disabled ? "Faltan datos en la OT (asignar técnico y fecha)" : "Firmar para Aprobar Guia";
+                                const tooltip = disabled
+                                    ? 'Faltan datos en la OT (asignar técnico y fecha)'
+                                    : 'Firmar para Aprobar Guia';
                                 return (
                                     <Tooltip text={tooltip}>
-                                        <div className={disabled ? "opacity-60 cursor-not-allowed" : ""}>
+                                        <div
+                                            className={
+                                                disabled ? 'cursor-not-allowed opacity-60' : ''
+                                            }>
                                             <Button
-                                                variant="solid"
+                                                variant='solid'
                                                 isDisable={disabled}
                                                 onClick={() => {
                                                     if (disabled) return;
                                                     setIsOpen(true);
                                                 }}
-                                                icon="HeroPencil"
-                                                color="emerald"
+                                                icon='HeroPencil'
+                                                color='emerald'
                                             />
                                         </div>
                                     </Tooltip>
                                 );
-                            })()
+                            })()}
+                        {detalleGuiaSalidaBodega?.estado === 'ER' && (
+                            <VolverAPendienteGuiaSalida guia_salida={detalleGuiaSalidaBodega} />
                         )}
-                        {detalleGuiaSalidaBodega?.estado === "ER" && (
-                            <VolverAPendienteGuiaSalida
-                                guia_salida={detalleGuiaSalidaBodega}
-                                onSuccess={() => { id && dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: id })) }}
-                            />
-                        )}
-                        {(detalleGuiaSalidaBodega?.estado === "ET" || detalleGuiaSalidaBodega?.estado === "C" || detalleGuiaSalidaBodega?.estado === "T") && (
+                        {(detalleGuiaSalidaBodega?.estado === 'ET' ||
+                            detalleGuiaSalidaBodega?.estado === 'C' ||
+                            detalleGuiaSalidaBodega?.estado === 'T') && (
                             <>
-                                <Tooltip text="Devolución Parcial">
-                                    <Button variant="solid" color="amber" icon="DuoIncomingBox" onClick={() => { navigate(`/bodega/devolucion-parcial-guia-salida-bodega/${id}`) }} />
-                                </Tooltip>
-                                <Tooltip text="Devolución Completa">
-                                    <Button variant="solid" color="emerald" icon="HeroInboxArrowDown" onClick={async () => {
-                                        try {
-                                            const response = await ApiService.fetchData({ url: `/api/guia-salida/${id}/devolver_a_bodega/`, method: 'post', headers: { 'Content-Type': 'application/json' } })
-                                            if (response.data) {
-                                                toast.success("Se devolvieron todos los items a bodega", { autoClose: 1000 })
-                                                id && dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: id }))
-                                            }
-                                        } catch (error: any) {
-                                            toast.error(error.response.data.detail)
-                                        }
-                                    }} />
-                                </Tooltip>
-                            </>
-                        )}
-                        {detalleGuiaSalidaBodega?.estado === "ET" && (
-                            <>
-                                <Tooltip text="Firmar para Entregar">
-                                    <Button variant="solid" color="lime" icon="DuoArchive" onClick={() => { setIsOpenFirma(true) }}></Button>
-                                </Tooltip>
-                                <Tooltip text="Terminar Guia">
-                                    <Button variant="solid" color="sky" icon="DuoBox3" onClick={async () => {
-                                        try {
-                                            const response = await ApiService.fetchData({ url: `/api/guia-salida/${id}/`, method: 'patch', headers: { 'Content-Type': 'application/json' }, data: JSON.stringify({ estado: "T" }) })
-                                            if (response.data) {
-                                                toast.success("Guia terminada", { autoClose: 1000 })
-                                                id && dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: id }))
-                                            }
-                                        } catch (error: any) {
-                                            const mensajesError = Object.values(error.response.data).flat().join(" ");
-                                            toast.error(mensajesError || "Error al terminar la guia", { toastId: "Error al terminar la guia" })
-                                        }
-                                    }}></Button>
-                                </Tooltip>
-                            </>
-                        )}
-                        {(["ER", "FR", "R", "PR", "E", "T"].includes(detalleGuiaSalidaBodega?.estado || "")) && (
-                            <Tooltip text="Descargar PDF">
-                                <Button 
-                                variant="solid" 
-                                color="red" 
-                                icon="HeroDocumentArrowDown" 
-                                onClick={async () => {
-                                    if (!id) return;
-                                    try {
-                                        const response = await ApiService.fetchData<BlobPart>({
-                                            url: `/api/guia-salida/${id}/descargar-pdf/`,
-                                            method: 'get',
-                                            responseType: 'blob',
-                                        });
-                                        if (response.data) {
-                                            const url = window.URL.createObjectURL(new Blob([response.data]));
-                                            const link = document.createElement('a');
-                                            link.href = url;
-                                            link.setAttribute(
-                                                'download',
-                                                `Guia_Salida_${id}.pdf`,
+                                <Tooltip text='Devolución Parcial'>
+                                    <Button
+                                        variant='solid'
+                                        color='amber'
+                                        icon='DuoIncomingBox'
+                                        onClick={() => {
+                                            navigate(
+                                                `/bodega/devolucion-parcial-guia-salida-bodega/${id}`,
                                             );
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            link.remove();
-                                            window.URL.revokeObjectURL(url);
+                                        }}
+                                    />
+                                </Tooltip>
+                                <Tooltip text='Devolución Completa'>
+                                    <Button
+                                        variant='solid'
+                                        color='emerald'
+                                        icon='HeroInboxArrowDown'
+                                        onClick={async () => {
+                                            const result = await Swal.fire({
+                                                title: '¿Devolver todos los items?',
+                                                text: 'Se devolverán todos los items de esta guía a la bodega.',
+                                                icon: 'question',
+                                                showCancelButton: true,
+                                                confirmButtonText: 'Devolver',
+                                                cancelButtonText: 'Cancelar',
+                                                confirmButtonColor: '#10b981',
+                                            });
+                                            if (result.isConfirmed) {
+                                                try {
+                                                    await devolverABodegaMutation({ id: id! }).unwrap();
+                                                    toast.success(
+                                                        'Se devolverieron todos los items a bodega',
+                                                        { autoClose: 1000 },
+                                                    );
+                                                } catch (error: any) {
+                                                    toast.error(
+                                                        error.data?.detail ||
+                                                            'Error al devolver items',
+                                                    );
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </Tooltip>
+                            </>
+                        )}
+                        {detalleGuiaSalidaBodega?.estado === 'ET' && (
+                            <>
+                                <Tooltip text='Firmar para Entregar'>
+                                    <Button
+                                        variant='solid'
+                                        color='lime'
+                                        icon='DuoArchive'
+                                        onClick={() => {
+                                            setIsOpenFirma(true);
+                                        }}></Button>
+                                </Tooltip>
+                                <Tooltip text='Terminar Guia'>
+                                    <Button
+                                        variant='solid'
+                                        color='sky'
+                                        icon='DuoBox3'
+                                        onClick={async () => {
+                                            const result = await Swal.fire({
+                                                title: '¿Terminar Guía?',
+                                                text: 'Marcará esta guía como terminada.',
+                                                icon: 'question',
+                                                showCancelButton: true,
+                                                confirmButtonText: 'Terminar',
+                                                cancelButtonText: 'Cancelar',
+                                                confirmButtonColor: '#0ea5e9',
+                                            });
+                                            if (result.isConfirmed) {
+                                                try {
+                                                    await updateGuia({
+                                                        id: id!,
+                                                        estado: 'T',
+                                                    }).unwrap();
+                                                    toast.success('Guia terminada', {
+                                                        autoClose: 1000,
+                                                    });
+                                                } catch (error: any) {
+                                                    const mensajesError = error.data
+                                                        ? Object.values(error.data).flat().join(' ')
+                                                        : 'Error al terminar la guia';
+                                                    toast.error(
+                                                        mensajesError ||
+                                                            'Error al terminar la guia',
+                                                        { toastId: 'Error al terminar la guia' },
+                                                    );
+                                                }
+                                            }
+                                        }}></Button>
+                                </Tooltip>
+                            </>
+                        )}
+                        {['ER', 'FR', 'R', 'PR', 'E', 'T'].includes(
+                            detalleGuiaSalidaBodega?.estado || '',
+                        ) && (
+                            <Tooltip text='Descargar PDF'>
+                                <Button
+                                    variant='solid'
+                                    color='red'
+                                    icon='HeroDocumentArrowDown'
+                                    onClick={async () => {
+                                        if (!id) return;
+                                        try {
+                                            const response = await descargarPdf(id!).unwrap();
+                                            if (response) {
+                                                const url = window.URL.createObjectURL(
+                                                    new Blob([response]),
+                                                );
+                                                const link = document.createElement('a');
+                                                link.href = url;
+                                                link.setAttribute(
+                                                    'download',
+                                                    `Guia_Salida_${id}.pdf`,
+                                                );
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                link.remove();
+                                                window.URL.revokeObjectURL(url);
+                                            }
+                                        } catch (error: any) {
+                                            toast.error('Error al descargar PDF');
                                         }
-                                    } catch (error: any) {
-                                        toast.error("Error al descargar PDF");
-                                    }
-                                }} 
+                                    }}
                                 />
                             </Tooltip>
                         )}
                     </div>
                 </SubheaderRight>
             </Subheader>
-            <Container className="w-full h-full">
-                <div className="flex flex-col gap-4">
-                    <div className="w-full">
+            <Container className='h-full w-full'>
+                <div className='flex flex-col gap-4'>
+                    <div className='w-full'>
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
-                                    <Badge className="text-xl">Datos</Badge>
+                                    <Badge className='text-xl'>Datos</Badge>
                                 </CardHeaderChild>
                                 <CardHeaderChild>
                                     {isEditting ? (
-                                        <div className="flex gap-4">
-                                            <Button variant="solid" color="red" onClick={() => {setIsEditting(false)}}>Cancelar</Button>
-                                            <Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
+                                        <div className='flex gap-4'>
+                                            <Button
+                                                variant='solid'
+                                                color='red'
+                                                onClick={() => {
+                                                    setIsEditting(false);
+                                                }}>
+                                                Cancelar
+                                            </Button>
+                                            <Button
+                                                variant='solid'
+                                                color='emerald'
+                                                onClick={() => {
+                                                    formik.handleSubmit();
+                                                }}>
+                                                Guardar
+                                            </Button>
                                         </div>
                                     ) : (
-                                        <Button variant="solid" onClick={() => {setIsEditting(true)}} icon="HeroPencil"></Button>
+                                        <Button
+                                            variant='solid'
+                                            color='blue'
+                                            onClick={() => {
+                                                setIsEditting(true);
+                                            }}
+                                            icon='HeroPencil'></Button>
                                     )}
                                 </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                                     {isEditting ? (
                                         <>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Estado</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.estado_label}</div>
+                                                <div className='ml-4 mt-1'>
+                                                    {(() => {
+                                                        let color: 'sky' | 'amber' | 'indigo' | 'emerald' | 'cyan' | 'zinc' | 'violet' | 'blue' = 'zinc';
+                                                        switch (detalleGuiaSalidaBodega?.estado) {
+                                                            case 'P': color = 'sky'; break;
+                                                            case 'ER': color = 'blue'; break;
+                                                            case 'ET': color = 'amber'; break;
+                                                            case 'FR': color = 'violet'; break;
+                                                            case 'E': color = 'emerald'; break;
+                                                            case 'PR': color = 'sky'; break;
+                                                            case 'R': color = 'zinc'; break;
+                                                            case 'T': color = 'violet'; break;
+                                                        }
+                                                        return <Badge color={color}>{detalleGuiaSalidaBodega?.estado_label}</Badge>;
+                                                    })()}
+                                                </div>
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Creado Por</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_creado_por}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.nombre_creado_por}
+                                                </div>
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Recibido Por</Badge>
                                                 <SelectReact
-                                                    name="recibido_por"
-                                                    placeholder="Seleccione un usuario"
+                                                    name='recibido_por'
+                                                    placeholder='Seleccione un usuario'
                                                     options={recibidoPorOptions}
                                                     value={recibidoPorSeleccionado}
                                                     onChange={(option) => {
                                                         formik.setFieldValue(
-                                                            "recibido_por",
-                                                            option ? (option as TSelectOption).value : "",
-                                                        )
+                                                            'recibido_por',
+                                                            option
+                                                                ? (option as TSelectOption).value
+                                                                : '',
+                                                        );
                                                     }}
                                                     onBlur={formik.handleBlur}
                                                 />
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Cliente</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.cliente_nombre}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.cliente_nombre}
+                                                </div>
                                             </div>
-                                            <div className="col-span-full">
+                                            <div className='col-span-full'>
                                                 <Badge>Motivo</Badge>
                                                 <Textarea
-                                                    name="motivo"
+                                                    name='motivo'
                                                     value={formik.values.motivo}
                                                     onChange={formik.handleChange}
                                                     onBlur={formik.handleBlur}
@@ -639,25 +922,49 @@ function DetalleGuiaSalidaBodega() {
                                         </>
                                     ) : (
                                         <>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Estado</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.estado_label}</div>
+                                                <div className='ml-4 mt-1'>
+                                                    {(() => {
+                                                        let color: 'sky' | 'amber' | 'indigo' | 'emerald' | 'cyan' | 'zinc' | 'violet' | 'blue' = 'zinc';
+                                                        switch (detalleGuiaSalidaBodega?.estado) {
+                                                            case 'P': color = 'sky'; break;
+                                                            case 'ER': color = 'blue'; break;
+                                                            case 'ET': color = 'amber'; break;
+                                                            case 'FR': color = 'violet'; break;
+                                                            case 'E': color = 'emerald'; break;
+                                                            case 'PR': color = 'sky'; break;
+                                                            case 'R': color = 'zinc'; break;
+                                                            case 'T': color = 'violet'; break;
+                                                        }
+                                                        return <Badge color={color}>{detalleGuiaSalidaBodega?.estado_label}</Badge>;
+                                                    })()}
+                                                </div>
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Creado Por</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_creado_por}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.nombre_creado_por}
+                                                </div>
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Recibido Por</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.nombre_recibido_por}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.nombre_recibido_por}
+                                                </div>
                                             </div>
-                                            <div className="w-full">
+                                            <div className='w-full'>
                                                 <Badge>Cliente</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.cliente_nombre}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.cliente_nombre}
+                                                </div>
                                             </div>
-                                            <div className="col-span-full">
+                                            <div className='col-span-full'>
                                                 <Badge>Motivo</Badge>
-                                                <div className="ml-4">{detalleGuiaSalidaBodega?.motivo || "Sin Motivo"}</div>
+                                                <div className='ml-4'>
+                                                    {detalleGuiaSalidaBodega?.motivo ||
+                                                        'Sin Motivo'}
+                                                </div>
                                             </div>
                                         </>
                                     )}
@@ -667,151 +974,187 @@ function DetalleGuiaSalidaBodega() {
                     </div>
                     {isPendiente && (
                         <>
-                            <div className="w-full">
+                            <div className='w-full'>
                                 <Card>
                                     <CardHeader>
                                         <CardHeaderChild>
-                                            <Badge className="text-xl">Items en stock de la bodega</Badge>
+                                            <Badge className='text-xl'>
+                                                Items en stock de la bodega
+                                            </Badge>
                                         </CardHeaderChild>
                                     </CardHeader>
-                                    <CardBody className="z-0">
-                                        <div className="overflow-auto">
-                                            <Table className='table-fixed min-w-[1000px]'>
+                                    <CardBody className='z-0'>
+                                        <div className='overflow-auto'>
+                                            <Table className='min-w-[1000px] table-fixed'>
                                                 <THead>
-                                                    {stockTable.getHeaderGroups().map((headerGroup) => (
-                                                        <Tr key={headerGroup.id}>
-                                                            {headerGroup.headers.map((header) => (
-                                                                <Th
-                                                                    key={header.id}
-                                                                    isColumnBorder={false}
-                                                                    className='text-left'>
-                                                                    {header.isPlaceholder ? null : (
-                                                                        <div
+                                                    {stockTable
+                                                        .getHeaderGroups()
+                                                        .map((headerGroup) => (
+                                                            <Tr key={headerGroup.id}>
+                                                                {headerGroup.headers.map(
+                                                                    (header) => (
+                                                                        <Th
                                                                             key={header.id}
-                                                                            aria-hidden='true'
-                                                                            {...{
-                                                                                className: header.column.getCanSort()
-                                                                                    ? 'cursor-pointer select-none flex items-center'
-                                                                                    : '',
-                                                                                onClick:
-                                                                                    header.column.getToggleSortingHandler(),
-                                                                            }}>
-                                                                            {flexRender(
-                                                                                header.column.columnDef.header,
-                                                                                header.getContext(),
+                                                                            isColumnBorder={false}
+                                                                            className='text-left'>
+                                                                            {header.isPlaceholder ? null : (
+                                                                                <div
+                                                                                    key={header.id}
+                                                                                    aria-hidden='true'
+                                                                                    {...{
+                                                                                        className:
+                                                                                            header.column.getCanSort()
+                                                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                                                : '',
+                                                                                        onClick:
+                                                                                            header.column.getToggleSortingHandler(),
+                                                                                    }}>
+                                                                                    {flexRender(
+                                                                                        header
+                                                                                            .column
+                                                                                            .columnDef
+                                                                                            .header,
+                                                                                        header.getContext(),
+                                                                                    )}
+                                                                                    {{
+                                                                                        asc: (
+                                                                                            <Icon
+                                                                                                icon='HeroChevronUp'
+                                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                            />
+                                                                                        ),
+                                                                                        desc: (
+                                                                                            <Icon
+                                                                                                icon='HeroChevronDown'
+                                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                            />
+                                                                                        ),
+                                                                                    }[
+                                                                                        header.column.getIsSorted() as string
+                                                                                    ] ?? null}
+                                                                                </div>
                                                                             )}
-                                                                            {{
-                                                                                asc: (
-                                                                                    <Icon
-                                                                                        icon='HeroChevronUp'
-                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                    />
-                                                                                ),
-                                                                                desc: (
-                                                                                    <Icon
-                                                                                        icon='HeroChevronDown'
-                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                    />
-                                                                                ),
-                                                                            }[header.column.getIsSorted() as string] ?? null}
-                                                                        </div>
-                                                                    )}
-                                                                </Th>
-                                                            ))}
-                                                        </Tr>
-                                                    ))}
+                                                                        </Th>
+                                                                    ),
+                                                                )}
+                                                            </Tr>
+                                                        ))}
                                                 </THead>
                                                 <TBody>
                                                     {stockTable.getRowModel().rows.map((row) => (
                                                         <Tr key={row.id}>
                                                             {row.getVisibleCells().map((cell) => (
                                                                 <Td key={cell.id}>
-                                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext(),
+                                                                    )}
                                                                 </Td>
                                                             ))}
                                                         </Tr>
                                                     ))}
                                                 </TBody>
                                             </Table>
-                                            <div className="mt-2 min-w-[1000px]">
+                                            <div className='mt-2 min-w-[1000px]'>
                                                 <TableCardFooterTemplateV2 table={stockTable} />
                                             </div>
                                         </div>
                                     </CardBody>
                                 </Card>
                             </div>
-                            <div className="w-full">
+                            <div className='w-full'>
                                 <Card>
                                     <CardHeader>
                                         <CardHeaderChild>
-                                            <Badge className="text-xl">Items de la Guia de Salida</Badge>
+                                            <Badge className='text-xl'>
+                                                Items de la Guia de Salida
+                                            </Badge>
                                         </CardHeaderChild>
                                         <CardHeaderChild>
-                                            <div className="flex gap-4">
-                                                <Button variant="solid" isDisable={completando} onClick={completarGuia}>Completar Guia de Salida</Button>
+                                            <div className='flex gap-4'>
+                                                <Button
+                                                    variant='solid'
+                                                    color='emerald'
+                                                    isDisable={completando}
+                                                    onClick={completarGuia}>
+                                                    Completar Guia de Salida
+                                                </Button>
                                             </div>
                                         </CardHeaderChild>
                                     </CardHeader>
-                                    <CardBody className="z-0">
-                                        <div className="overflow-auto">
-                                            <Table className='table-fixed min-w-[800px]'>
+                                    <CardBody className='z-0'>
+                                        <div className='overflow-auto'>
+                                            <Table className='min-w-[800px] table-fixed'>
                                                 <THead>
-                                                    {tableItems.getHeaderGroups().map((headerGroup) => (
-                                                        <Tr key={headerGroup.id}>
-                                                            {headerGroup.headers.map((header) => (
-                                                                <Th
-                                                                    key={header.id}
-                                                                    isColumnBorder={false}
-                                                                    className='text-left'>
-                                                                    {header.isPlaceholder ? null : (
-                                                                        <div
+                                                    {tableItems
+                                                        .getHeaderGroups()
+                                                        .map((headerGroup) => (
+                                                            <Tr key={headerGroup.id}>
+                                                                {headerGroup.headers.map(
+                                                                    (header) => (
+                                                                        <Th
                                                                             key={header.id}
-                                                                            aria-hidden='true'
-                                                                            {...{
-                                                                                className: header.column.getCanSort()
-                                                                                    ? 'cursor-pointer select-none flex items-center'
-                                                                                    : '',
-                                                                                onClick:
-                                                                                    header.column.getToggleSortingHandler(),
-                                                                            }}>
-                                                                            {flexRender(
-                                                                                header.column.columnDef.header,
-                                                                                header.getContext(),
+                                                                            isColumnBorder={false}
+                                                                            className='text-left'>
+                                                                            {header.isPlaceholder ? null : (
+                                                                                <div
+                                                                                    key={header.id}
+                                                                                    aria-hidden='true'
+                                                                                    {...{
+                                                                                        className:
+                                                                                            header.column.getCanSort()
+                                                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                                                : '',
+                                                                                        onClick:
+                                                                                            header.column.getToggleSortingHandler(),
+                                                                                    }}>
+                                                                                    {flexRender(
+                                                                                        header
+                                                                                            .column
+                                                                                            .columnDef
+                                                                                            .header,
+                                                                                        header.getContext(),
+                                                                                    )}
+                                                                                    {{
+                                                                                        asc: (
+                                                                                            <Icon
+                                                                                                icon='HeroChevronUp'
+                                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                            />
+                                                                                        ),
+                                                                                        desc: (
+                                                                                            <Icon
+                                                                                                icon='HeroChevronDown'
+                                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                            />
+                                                                                        ),
+                                                                                    }[
+                                                                                        header.column.getIsSorted() as string
+                                                                                    ] ?? null}
+                                                                                </div>
                                                                             )}
-                                                                            {{
-                                                                                asc: (
-                                                                                    <Icon
-                                                                                        icon='HeroChevronUp'
-                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                    />
-                                                                                ),
-                                                                                desc: (
-                                                                                    <Icon
-                                                                                        icon='HeroChevronDown'
-                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                    />
-                                                                                ),
-                                                                            }[header.column.getIsSorted() as string] ?? null}
-                                                                        </div>
-                                                                    )}
-                                                                </Th>
-                                                            ))}
-                                                        </Tr>
-                                                    ))}
+                                                                        </Th>
+                                                                    ),
+                                                                )}
+                                                            </Tr>
+                                                        ))}
                                                 </THead>
                                                 <TBody>
                                                     {tableItems.getRowModel().rows.map((row) => (
                                                         <Tr key={row.id}>
                                                             {row.getVisibleCells().map((cell) => (
                                                                 <Td key={cell.id}>
-                                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                    {flexRender(
+                                                                        cell.column.columnDef.cell,
+                                                                        cell.getContext(),
+                                                                    )}
                                                                 </Td>
                                                             ))}
                                                         </Tr>
                                                     ))}
                                                 </TBody>
                                             </Table>
-                                            <div className="mt-2 min-w-[800px]">
+                                            <div className='mt-2 min-w-[800px]'>
                                                 <TableCardFooterTemplateV2 table={tableItems} />
                                             </div>
                                         </div>
@@ -821,75 +1164,84 @@ function DetalleGuiaSalidaBodega() {
                         </>
                     )}
                     {!isPendiente && (
-                        <div className="w-full">
+                        <div className='w-full'>
                             <Card>
                                 <CardHeader>
                                     <CardHeaderChild>
-                                        <Badge className="text-xl">Items en la Guia</Badge>
+                                        <Badge className='text-xl'>Items en la Guia</Badge>
                                     </CardHeaderChild>
-                                    <CardHeaderChild>
-                                    </CardHeaderChild>
+                                    <CardHeaderChild></CardHeaderChild>
                                 </CardHeader>
-                                <CardBody className="z-0">
-                                    <div className="overflow-auto">
-                                        <Table className='table-fixed min-w-[600px]'>
+                                <CardBody className='z-0'>
+                                    <div className='overflow-auto'>
+                                        <Table className='min-w-[600px] table-fixed'>
                                             <THead>
-                                                {tableReadOnly.getHeaderGroups().map((headerGroup) => (
-                                                    <Tr key={headerGroup.id}>
-                                                        {headerGroup.headers.map((header) => (
-                                                            <Th
-                                                                key={header.id}
-                                                                isColumnBorder={false}
-                                                                className='text-left'>
-                                                                {header.isPlaceholder ? null : (
-                                                                    <div
-                                                                        key={header.id}
-                                                                        aria-hidden='true'
-                                                                        {...{
-                                                                            className: header.column.getCanSort()
-                                                                                ? 'cursor-pointer select-none flex items-center'
-                                                                                : '',
-                                                                            onClick:
-                                                                                header.column.getToggleSortingHandler(),
-                                                                        }}>
-                                                                        {flexRender(
-                                                                            header.column.columnDef.header,
-                                                                            header.getContext(),
-                                                                        )}
-                                                                        {{
-                                                                            asc: (
-                                                                                <Icon
-                                                                                    icon='HeroChevronUp'
-                                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                />
-                                                                            ),
-                                                                            desc: (
-                                                                                <Icon
-                                                                                    icon='HeroChevronDown'
-                                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                                />
-                                                                            ),
-                                                                        }[header.column.getIsSorted() as string] ?? null}
-                                                                    </div>
-                                                                )}
-                                                            </Th>
-                                                        ))}
-                                                    </Tr>
-                                                ))}
+                                                {tableReadOnly
+                                                    .getHeaderGroups()
+                                                    .map((headerGroup) => (
+                                                        <Tr key={headerGroup.id}>
+                                                            {headerGroup.headers.map((header) => (
+                                                                <Th
+                                                                    key={header.id}
+                                                                    isColumnBorder={false}
+                                                                    className='text-left'>
+                                                                    {header.isPlaceholder ? null : (
+                                                                        <div
+                                                                            key={header.id}
+                                                                            aria-hidden='true'
+                                                                            {...{
+                                                                                className:
+                                                                                    header.column.getCanSort()
+                                                                                        ? 'cursor-pointer select-none flex items-center'
+                                                                                        : '',
+                                                                                onClick:
+                                                                                    header.column.getToggleSortingHandler(),
+                                                                            }}>
+                                                                            {flexRender(
+                                                                                header.column
+                                                                                    .columnDef
+                                                                                    .header,
+                                                                                header.getContext(),
+                                                                            )}
+                                                                            {{
+                                                                                asc: (
+                                                                                    <Icon
+                                                                                        icon='HeroChevronUp'
+                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                    />
+                                                                                ),
+                                                                                desc: (
+                                                                                    <Icon
+                                                                                        icon='HeroChevronDown'
+                                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                                    />
+                                                                                ),
+                                                                            }[
+                                                                                header.column.getIsSorted() as string
+                                                                            ] ?? null}
+                                                                        </div>
+                                                                    )}
+                                                                </Th>
+                                                            ))}
+                                                        </Tr>
+                                                    ))}
                                             </THead>
                                             <TBody>
                                                 {tableReadOnly.getRowModel().rows.map((row) => (
                                                     <Tr key={row.id}>
                                                         {row.getVisibleCells().map((cell) => (
                                                             <Td key={cell.id}>
-                                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext(),
+                                                                )}
                                                             </Td>
                                                         ))}
                                                     </Tr>
                                                 ))}
                                             </TBody>
                                         </Table>
-                                        <div className="mt-2 min-w-[600px]">
+                                        <div className='mt-2 min-w-[600px]'>
                                             <TableCardFooterTemplateV2 table={tableReadOnly} />
                                         </div>
                                     </div>
@@ -899,13 +1251,28 @@ function DetalleGuiaSalidaBodega() {
                     )}
                 </div>
                 {isPendiente && (
-                    <AsignarNumeroDeSerie isOpen={isOpenNumero} setIsOpen={setIsOpenNumero} itemRebajaSelected={itemRebajaSelected} setItemRebajaSelected={setItemRebajaSelected} />
+                    <AsignarNumeroDeSerie
+                        isOpen={isOpenNumero}
+                        setIsOpen={setIsOpenNumero}
+                        itemRebajaSelected={itemRebajaSelected}
+                        setItemRebajaSelected={setItemRebajaSelected}
+                    />
                 )}
-                <AprobarGuiaSalida id_guia={id ? parseInt(id) : undefined} bodegaSelected={detalleGuiaSalidaBodega?.bodega.toString()} isOpen={isOpen} setIsOpen={setIsOpen} onSuccess={() => { id && dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: id })) }} />
-                <FirmarEntregarGuia id_guia={id ? parseInt(id) : undefined} bodegaSelected={detalleGuiaSalidaBodega?.bodega.toString()} isOpen={isOpenFirma} setIsOpen={setIsOpenFirma} onSuccess={() => { id && dispatch(detalleGuiaSalidaBodegaThunk({ id_guia: id })) }} />
+                <AprobarGuiaSalida
+                    id_guia={id ? parseInt(id) : undefined}
+                    bodegaSelected={detalleGuiaSalidaBodega?.bodega.toString()}
+                    isOpen={isOpen}
+                    setIsOpen={setIsOpen}
+                />
+                <FirmarEntregarGuia
+                    id_guia={id ? parseInt(id) : undefined}
+                    bodegaSelected={detalleGuiaSalidaBodega?.bodega.toString()}
+                    isOpen={isOpenFirma}
+                    setIsOpen={setIsOpenFirma}
+                />
             </Container>
         </PageWrapper>
-    )
+    );
 }
 
-export default DetalleGuiaSalidaBodega
+export default DetalleGuiaSalidaBodega;
