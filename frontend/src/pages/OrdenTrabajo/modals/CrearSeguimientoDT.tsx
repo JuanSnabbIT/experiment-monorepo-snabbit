@@ -60,7 +60,7 @@ const { userMe } = useAppSelector((state) => state.auth);
         onSubmit: async (values) => {
             try {
                 if (!detalleOrdenTrabajo || !detalleSeleccionado) return;
-                await crearSeguimientoDetalle({
+                const seguimientoResponse = await crearSeguimientoDetalle({
                     ordenId: detalleOrdenTrabajo.id,
                     detalleId: detalleSeleccionado,
                     data: {
@@ -70,26 +70,19 @@ const { userMe } = useAppSelector((state) => state.auth);
                         comentario: values.comentario,
                     },
                 }).unwrap();
-                toast.success('Seguimiento creado exitosamente');
-                setIsOpen(false);
-            } catch (error: unknown) {
-                toast.error(getErrorMessage(error) || 'Error al crear el seguimiento', {
-                    toastId: 'Error al crear el seguimiento',
-                });
-            }
-        },
-    });
-                if (seguimientoResponse.data) {
+                if (seguimientoResponse && seguimientoResponse.data) {
                     toast.success('Seguimiento creado exitosamente');
-                                        setIsOpen(false);
+                    setIsOpen(false);
                 } else {
                     toast.error('Error al crear el seguimiento', {
                         toastId: 'Error al crear el seguimiento',
                     });
                 }
             } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al crear el seguimiento', {
+                const mensajesError = error?.response?.data
+                    ? Object.values(error.response.data).flat().join(' ')
+                    : getErrorMessage(error) || 'Error al crear el seguimiento';
+                toast.error(mensajesError, {
                     toastId: 'Error al crear el seguimiento',
                 });
             }

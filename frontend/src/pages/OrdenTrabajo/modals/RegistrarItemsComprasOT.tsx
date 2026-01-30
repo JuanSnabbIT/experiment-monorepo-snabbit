@@ -164,8 +164,7 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
         });
 
         if (errores.length > 0) {
-            toast.error(errores.join('
-'), { autoClose: 5000 });
+            toast.error(errores.join('\n'), { autoClose: 5000 });
             return;
         }
 

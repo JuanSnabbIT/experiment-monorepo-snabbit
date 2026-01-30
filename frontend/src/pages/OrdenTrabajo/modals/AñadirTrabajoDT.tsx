@@ -119,7 +119,7 @@ const [optionsTrabajos, setOptionsTrabajos] = useState<
                         content_type: values.content_type,
                     },
                 }).unwrap();
-                await crearSeguimientoDetalle({
+                const seguimientoResponse = await crearSeguimientoDetalle({
                     ordenId: detalleOrdenTrabajo.id,
                     detalleId: detalleSeleccionado,
                     data: {
@@ -129,22 +129,15 @@ const [optionsTrabajos, setOptionsTrabajos] = useState<
                         comentario: values.comentario,
                     },
                 }).unwrap();
-                toast.success('Trabajo a?adido', { autoClose: 1000 });
-                setIsOpen(false);
-                formik.resetForm();
-            } catch (error: unknown) {
-                toast.error(getErrorMessage(error) || 'Error en la solicitud');
-            }
-        },
-    });
-                    if (seguimientoResponse.data) {
-                        toast.success('Trabajo añadido', { autoClose: 1000 });
-                                                setIsOpen(false);
-                        formik.resetForm();
-                    }
+                if (seguimientoResponse && seguimientoResponse.data) {
+                    toast.success('Trabajo añadido', { autoClose: 1000 });
+                    setIsOpen(false);
+                    formik.resetForm();
+                } else {
+                    toast.error('Error al crear el seguimiento');
                 }
             } catch (error: any) {
-                toast.error(error.response?.data || 'Error en la solicitud');
+                toast.error(getErrorMessage(error) || error?.response?.data || 'Error en la solicitud');
             }
         },
     });
