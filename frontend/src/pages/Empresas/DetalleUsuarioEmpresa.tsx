@@ -6,11 +6,10 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IUltimasActividadesUsuarioEmpresa } from '@/interface/empresas.interface';
-import { useAppDispatch, useAppSelector } from '@/store';
 import {
-    detalleUsuarioEmpresaPorUserThunk,
-    listaUltimasActividadesThunk,
-} from '@/store/slices/empresa/empresaSlice';
+    useGetUltimasActividadesUsuarioQuery,
+    useGetUsuarioDetallePorUserQuery,
+} from '@/store/slices/empresa/empresaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -29,27 +28,18 @@ import { useParams } from 'react-router-dom';
 const columnHelper = createColumnHelper<IUltimasActividadesUsuarioEmpresa>();
 
 function DetalleUsuarioEmpresa() {
-    const dispatch = useAppDispatch();
     const { id } = useParams();
-    const { detalleUsuarioEmpresa, listaUltimasActividades } = useAppSelector(
-        (state) => state.empresa,
+    const { data: detalleUsuarioEmpresa } = useGetUsuarioDetallePorUserQuery(id ?? '', {
+        skip: !id,
+    });
+    const { data: listaUltimasActividades = [] } = useGetUltimasActividadesUsuarioQuery(
+        detalleUsuarioEmpresa?.id ?? 0,
+        {
+            skip: !detalleUsuarioEmpresa?.id,
+        },
     );
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleUsuarioEmpresaPorUserThunk({ id_usuario: id }));
-        }
-    }, [id]);
-
-    useEffect(() => {
-        if (detalleUsuarioEmpresa) {
-            dispatch(
-                listaUltimasActividadesThunk({ id_usuario_empresa: detalleUsuarioEmpresa.id }),
-            );
-        }
-    }, [detalleUsuarioEmpresa]);
 
     const columns = [
         columnHelper.accessor('tipo', {

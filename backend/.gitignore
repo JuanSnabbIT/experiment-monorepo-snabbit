@@ -21,3 +21,6 @@ sw_erp/settings_produc.py
 
 firebase-adminsdk.json
 .env_chris
+
+# Email outputs (development only)
+email_outputs/

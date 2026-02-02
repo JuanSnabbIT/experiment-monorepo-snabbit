@@ -93,3 +93,60 @@ export interface ISolicitanteCotizacion {
     cotizacion: number;
     content_type: number;
 }
+
+export interface IEmpresaPublicaCotizacion {
+    id: number;
+    nombre: string;
+    rut_empresa?: string | null;
+    direccion_principal?: string | null;
+    telefono?: string | null;
+    email?: string | null;
+    sitio_web?: string | null;
+    logo?: string | null;
+}
+
+export interface IClientePublicoCotizacion {
+    id: number;
+    nombre: string;
+    rut_empresa?: string | null;
+}
+
+export interface IItemCotizacionPublico {
+    id: number;
+    nombre_display: string;
+    descripcion?: string | null;
+    cantidad: number;
+    precio_venta_unitario: number;
+    precio_venta_total: number;
+    aprobado: boolean;
+}
+
+export interface ISolicitantePublicoCotizacion {
+    id: number;
+    nombre: string;
+    email: string;
+    puede_responder: boolean;
+    ya_respondio: boolean;
+    aprobo: boolean | null;
+}
+
+export interface ICotizacionPublica {
+    numero_cotizacion: number;
+    nombre: string;
+    estado: string;
+    estado_display: string;
+    fecha_creacion: string;
+    fecha_vencimiento: string | null;
+    es_vigente: boolean;
+    descripcion?: string | null;
+    observaciones?: string | null;
+    tipo_moneda: string;
+    tipo_moneda_display: string;
+    simbolo_moneda: string;
+    total_estimado: number | string;
+    total_calculado: number | string;
+    empresa: IEmpresaPublicaCotizacion;
+    cliente: IClientePublicoCotizacion;
+    items: IItemCotizacionPublico[];
+    solicitante: ISolicitantePublicoCotizacion | null;
+}

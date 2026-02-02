@@ -4,8 +4,8 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
-import { IUsuarioEmpresa } from '@/interface/empresas.interface';
-import { listaUsuariosClienteThunk, useAppDispatch, useAppSelector } from '@/store';
+import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
+import { useGetUsuariosClienteQuery } from '@/store/slices/empresa/empresaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -21,9 +21,11 @@ import { useEffect, useState } from 'react';
 
 const columnHelper = createColumnHelper<IUsuarioEmpresa>();
 
-function TablaUsuariosDelCliente() {
-    const dispatch = useAppDispatch();
-    const { detalleCliente, listaUsuariosCliente } = useAppSelector((state) => state.empresa);
+interface TablaUsuariosDelClienteProps {
+    detalleCliente?: IRelacionEmpresa;
+}
+
+function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProps) {
     const [sucursalSelected, setSucursalSelected] = useState<{ value: string; label: string }>();
     const [optionSucursal, setOptionSucursal] = useState<{ value: string; label: string }[]>([]);
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -32,23 +34,38 @@ function TablaUsuariosDelCliente() {
     useEffect(() => {
         if (detalleCliente) {
             setOptionSucursal(
-                detalleCliente.info_cliente.sucursales.map((suc) => {
-                    return { value: suc.id.toString(), label: suc.nombre };
-                }),
+                detalleCliente.info_cliente.sucursales.map((suc) => ({
+                    value: suc.id.toString(),
+                    label: suc.nombre,
+                })),
             );
         }
     }, [detalleCliente]);
 
     useEffect(() => {
-        if (detalleCliente && sucursalSelected) {
-            dispatch(
-                listaUsuariosClienteThunk({
-                    id_empresa: detalleCliente.cliente,
-                    id_sucursal: sucursalSelected.value,
-                }),
-            );
+        setSucursalSelected(undefined);
+    }, [detalleCliente?.id]);
+
+    // Seleccionar la primera sucursal por defecto cuando las opciones estén disponibles
+    useEffect(() => {
+        if (optionSucursal && optionSucursal.length > 0 && !sucursalSelected) {
+            setSucursalSelected(optionSucursal[0]);
         }
-    }, [detalleCliente, sucursalSelected]);
+    }, [optionSucursal]);
+
+    const {
+        data: listaUsuariosCliente = [],
+    } = useGetUsuariosClienteQuery(
+        detalleCliente && sucursalSelected
+            ? {
+                  id_empresa: detalleCliente.cliente,
+                  id_sucursal: sucursalSelected.value,
+              }
+            : { id_empresa: '', id_sucursal: '' },
+        {
+            skip: !detalleCliente || !sucursalSelected,
+        },
+    );
 
     const columns = [
         columnHelper.accessor('nombre_usuario', {

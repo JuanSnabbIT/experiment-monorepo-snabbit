@@ -9,6 +9,7 @@ const asideRoutes: RouteProps[] = [
     { path: authPages.ConfirmarNuevaPass.to, element: null },
     { path: authPages.pdfContrato.to, element: null },
     { path: authPages.retroalimentacionOT.to, element: null },
+    { path: authPages.responderCotizacionPublica.to, element: null },
     { path: '/404', element: null },
 
     // Inventariar Bodega

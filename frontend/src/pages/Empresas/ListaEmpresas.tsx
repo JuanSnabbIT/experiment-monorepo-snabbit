@@ -15,9 +15,8 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
 import { IEmpresa } from '@/interface/empresas.interface';
-import { listaEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import CrearEmpresa from './modals/CrearEmpresa';
 import EliminarEmpresa from './modals/EliminarEmpresa';
 import CrearSucursal from './modals/CrearSucursal';
@@ -28,20 +27,25 @@ import Badge from '@/components/ui/Badge';
 import Card, { CardBody } from '@/components/ui/Card';
 import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { useGetEmpresasQuery } from '@/store/slices/empresa/empresaApi';
 
 const columnHelper = createColumnHelper<IEmpresa>();
 
 const ListaEmpresas = () => {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
-    const { listaEmpresas } = useAppSelector((state) => state.empresa);
+    const {
+        data: listaEmpresas = [],
+        refetch: refetchEmpresas,
+    } = useGetEmpresasQuery(undefined);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        dispatch(listaEmpresasThunk());
-    }, [personalizacionUsuario]);
+        if (personalizacionUsuario) {
+            refetchEmpresas();
+        }
+    }, [personalizacionUsuario, refetchEmpresas]);
 
     const columns = [
         columnHelper.accessor('nombre', {

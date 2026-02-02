@@ -9,9 +9,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch } from '@/store';
-import { listaEmpresasThunk, listaMisSucursalesThunk } from '@/store/slices/empresa/empresaSlice';
+import { useCreateSucursalMutation } from '@/store/slices/empresa/empresaApi';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -25,7 +23,7 @@ const validationSchema = Yup.object({
 });
 
 function CrearSucursal({ empresaId }: { empresaId: number | string | undefined }) {
-    const dispatch = useAppDispatch();
+    const [createSucursal] = useCreateSucursalMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     const formik = useFormik({
@@ -38,32 +36,25 @@ function CrearSucursal({ empresaId }: { empresaId: number | string | undefined }
             email: '',
         },
         onSubmit: async (values) => {
+            if (!empresaId) return;
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/empresas/${empresaId}/sucursales-empresa/`,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    data: JSON.stringify({
-                        empresa: empresaId,
+                await createSucursal({
+                    id_empresa: empresaId,
+                    data: {
+                        empresa: Number(empresaId),
                         nombre: values.nombre,
                         direccion: values.direccion,
                         telefono: values.telefono,
                         email: values.email,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Sucursal Creada', { autoClose: 1000 });
-                    dispatch(listaEmpresasThunk());
-                    dispatch(listaMisSucursalesThunk({ id_empresa: empresaId }));
-                    formik.resetForm();
-                    setIsOpen(false);
-                } else {
-                    toast.error('Error al crear la sucursal');
-                }
+                    },
+                }).unwrap();
+                toast.success('Sucursal Creada', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
             } catch (error: any) {
-                toast.error('Error al crear la sucursal');
+                toast.error(
+                    error.response?.data || 'Error al crear la sucursal',
+                );
             }
         },
     });

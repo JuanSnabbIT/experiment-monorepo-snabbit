@@ -147,7 +147,9 @@ class SeguimientoCotizacionSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.SerializerMethodField()
 
     def get_usuario_nombre(self, obj):
-        return f"{obj.usuario.usuario.first_name} {obj.usuario.usuario.last_name}"
+        if obj.usuario and obj.usuario.usuario:
+            return f"{obj.usuario.usuario.first_name} {obj.usuario.usuario.last_name}"
+        return "Sistema"
 
     class Meta:
         model = SeguimientoCotizacion

@@ -35,7 +35,6 @@ export const AsideBody: FC<IAsideBodyProps> = (props) => {
             data-component-name='Aside/AsideBody'
             className={classNames(
                 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6',
-                'no-scrollbar',
                 className,
             )}
             {...rest}>

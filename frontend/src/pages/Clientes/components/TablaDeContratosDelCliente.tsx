@@ -15,13 +15,17 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { IRelacionEmpresa } from '@/interface/empresas.interface';
 
-function TablaDeContratosDelCliente() {
+interface TablaDeContratosDelClienteProps {
+    detalleCliente?: IRelacionEmpresa;
+}
+
+function TablaDeContratosDelCliente({ detalleCliente }: TablaDeContratosDelClienteProps) {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { listaContentType } = useAppSelector((state) => state.core);
-    const { detalleCliente } = useAppSelector((state) => state.empresa);
     const { listaContratosDeEmpresaYCliente } = useAppSelector((state) => state.contrato);
     const [optionsContratos, setOptionsContratos] = useState<TSelectOption[]>([]);
 

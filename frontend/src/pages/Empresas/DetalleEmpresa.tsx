@@ -12,7 +12,11 @@ import Tooltip from '@/components/ui/Tooltip';
 import { ISucursalEmpresa } from '@/interface/empresas.interface';
 import ApiService from '@/services/ApiService';
 import { listaInvitacionesThunk, useAppDispatch, useAppSelector } from '@/store';
-import { detalleEmpresaThunk, listaMisSucursalesThunk } from '@/store/slices/empresa/empresaSlice';
+import {
+    useGetDetalleEmpresaQuery,
+    useGetSucursalesEmpresaQuery,
+    useUpdateEmpresaMutation,
+} from '@/store/slices/empresa/empresaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -46,9 +50,17 @@ function DetalleEmpresa() {
     const sigCanvas = useRef<SignatureCanvas | null>(null);
     const logoRef = useRef<HTMLInputElement | null>(null);
     const { id } = useParams();
-    const { detalleEmpresa, listaMisSucursales } = useAppSelector((state) => state.empresa);
     const { listaInvitaciones } = useAppSelector((state) => state.invitacion);
     const { listaGrupos } = useAppSelector((state) => state.auth);
+    const {
+        data: detalleEmpresa,
+        refetch: refetchDetalleEmpresa,
+    } = useGetDetalleEmpresaQuery(id ?? '', { skip: !id });
+    const {
+        data: listaMisSucursales = [],
+        refetch: refetchSucursales,
+    } = useGetSucursalesEmpresaQuery(id, { skip: !id });
+    const [updateEmpresa] = useUpdateEmpresaMutation();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [sortingInvitaciones, setSortingInvitaciones] = useState<SortingState>([]);
@@ -65,11 +77,9 @@ function DetalleEmpresa() {
 
     useEffect(() => {
         if (id) {
-            dispatch(detalleEmpresaThunk({ id_empresa: id }));
-            dispatch(listaMisSucursalesThunk({ id_empresa: id }));
-            dispatch(listaInvitacionesThunk()); // ← Cargar invitaciones al montar componente
+            dispatch(listaInvitacionesThunk());
         }
-    }, [id]);
+    }, [id, dispatch]);
 
     const columns = [
         columnHelper.accessor('nombre', {
@@ -265,21 +275,27 @@ function DetalleEmpresa() {
                 .nonNullable('Requerido'),
         }),
         onSubmit: async (values) => {
+            if (!id) return;
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/empresas/${detalleEmpresa?.id}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
-                });
-                if (response.data) {
-                    toast.success('Empresa editada', { autoClose: 1000 });
-                    dispatch(detalleEmpresaThunk({ id_empresa: id }));
-                    formik.resetForm();
-                    setIsEditing(false);
-                }
+                await updateEmpresa({
+                    id,
+                    data: {
+                        nombre: values.nombre,
+                        sitio_web: values.sitio_web,
+                        direccion_principal: values.direccion_principal,
+                        recargo: values.recargo,
+                        rut_empresa: values.rut_empresa,
+                        telefono: values.telefono,
+                        email: values.email,
+                        ppm: values.ppm,
+                    },
+                }).unwrap();
+                toast.success('Empresa editada', { autoClose: 1000 });
+                formik.resetForm();
+                setIsEditing(false);
+                refetchDetalleEmpresa();
             } catch (error: any) {
-                toast.error(error.response.data || 'Error al editar la empresa', {
+                toast.error(error.response?.data || 'Error al editar la empresa', {
                     toastId: 'Error al editar la empresa',
                 });
             }
@@ -302,13 +318,13 @@ function DetalleEmpresa() {
     }, [detalleEmpresa, isEditing]);
 
     useEffect(() => {
-        if (activeComponent === 'Sucursales') {
-            dispatch(listaMisSucursalesThunk({ id_empresa: id }));
+        if (activeComponent === 'Sucursales' && id) {
+            refetchSucursales();
         }
         if (activeComponent === 'Invitaciones') {
             dispatch(listaInvitacionesThunk());
         }
-    }, [activeComponent]);
+    }, [activeComponent, dispatch, id, refetchSucursales]);
 
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Empresa' title='Detalle Empresa'>
@@ -655,11 +671,7 @@ function DetalleEmpresa() {
                                                         toast.success('Logo y firma editados', {
                                                             autoClose: 1000,
                                                         });
-                                                        dispatch(
-                                                            detalleEmpresaThunk({
-                                                                id_empresa: detalleEmpresa?.id,
-                                                            }),
-                                                        );
+                                                        refetchDetalleEmpresa();
                                                         setEditandoLogo(false);
                                                     }
                                                 } catch (error: any) {
@@ -755,12 +767,7 @@ function DetalleEmpresa() {
                                                                         'Logo eliminado',
                                                                         { autoClose: 1000 },
                                                                     );
-                                                                    dispatch(
-                                                                        detalleEmpresaThunk({
-                                                                            id_empresa:
-                                                                                detalleEmpresa?.id,
-                                                                        }),
-                                                                    );
+                                                                    refetchDetalleEmpresa();
                                                                 }
                                                             } catch (error: any) {
                                                                 toast.error(
@@ -828,12 +835,7 @@ function DetalleEmpresa() {
                                                                         'Firma eliminada',
                                                                         { autoClose: 1000 },
                                                                     );
-                                                                    dispatch(
-                                                                        detalleEmpresaThunk({
-                                                                            id_empresa:
-                                                                                detalleEmpresa?.id,
-                                                                        }),
-                                                                    );
+                                                                    refetchDetalleEmpresa();
                                                                 }
                                                             } catch (error: any) {
                                                                 toast.error(
@@ -1036,6 +1038,7 @@ function DetalleEmpresa() {
                                         setGlobalFilter={setGlobalFilter}>
                                         <CrearInvitacionEmpresaDesdeDetalleEmpresa
                                             id_empresa={detalleEmpresa?.id}
+                                            sucursales={listaMisSucursales}
                                         />
                                     </AnimacionDeInputModoMovil>
                                 </CardHeaderChild>

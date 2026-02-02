@@ -237,6 +237,7 @@ class ItemCotizacion(ModeloBase):
         ppm_amount = base * (Decimal(self.cotizacion.ppm or 0) / Decimal(100))
         total = iva_venta - iva_compra + ppm_amount
         return total.quantize(Decimal("0.01"))
+
     @property
     def ganancia(self) -> Decimal:
         """
@@ -407,9 +408,7 @@ class ItemCotizacion(ModeloBase):
 
         dolar_obs = Decimal(self.cotizacion.dolar_observado or 0)
         unit_clp = venta_unitario_clp
-        unit_usd = (
-            venta_unitario_clp / dolar_obs if dolar_obs > 0 else Decimal("0.00")
-        )
+        unit_usd = venta_unitario_clp / dolar_obs if dolar_obs > 0 else Decimal("0.00")
 
         return {
             "clp": unit_clp.quantize(Decimal("0.01")),
@@ -586,5 +585,3 @@ class SolicitanteExterno(ModeloBase):
 
     def __str__(self):
         return f"{self.email} {self.nombre}"
-
-

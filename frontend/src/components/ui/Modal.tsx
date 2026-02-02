@@ -306,12 +306,15 @@ const Modal: FC<IModalProps> = (props) => {
         // Only animate if clicking exactly on the modal container
         if (event.target === event.currentTarget && isStaticBackdrop) {
             if (isStaticBackdropAnimation) {
-                // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-                refModal.current.classList.add('!scale-105');
-                // @ts-ignore
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-                setTimeout(() => refModal.current.classList.remove('!scale-105'), 300);
+                try {
+                    const dialogEl: any = ref?.current;
+                    if (dialogEl) {
+                        dialogEl.classList.add('animate-shake');
+                        setTimeout(() => dialogEl.classList.remove('animate-shake'), 450);
+                    }
+                } catch (e) {
+                    // noop
+                }
             }
         }
     };
@@ -353,7 +356,14 @@ const Modal: FC<IModalProps> = (props) => {
                             tabIndex={-1}
                             aria-labelledby={titleId}
                             aria-modal='true'
-                            onClick={handleModalClick}
+                            onClick={(e) => {
+                                // route click to either close or static-backdrop animation
+                                if (isStaticBackdrop) {
+                                    handleStaticBackdropClick(e as any);
+                                } else {
+                                    handleModalClick(e as any);
+                                }
+                            }}
                             onTouchStart={handleStaticBackdropClick}
                             {...animationProps}
                             {...rest}>

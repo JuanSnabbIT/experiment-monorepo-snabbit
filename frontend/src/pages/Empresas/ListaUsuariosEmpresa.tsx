@@ -11,8 +11,8 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import ApiService from '@/services/ApiService';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaUsuariosEmpresaThunk } from '@/store/slices/empresa/empresaSlice';
+import { useAppSelector } from '@/store';
+import { useGetUsuariosEmpresaQuery } from '@/store/slices/empresa/empresaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -31,16 +31,20 @@ import { toast } from 'react-toastify';
 const columnHelper = createColumnHelper<IUsuarioEmpresa>();
 
 function ListaUsuariosEmpresa() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
-    const { listaUsuariosEmpresa } = useAppSelector((state) => state.empresa);
+    const {
+        data: listaUsuariosEmpresa = [],
+        refetch: refetchUsuarios,
+    } = useGetUsuariosEmpresaQuery(undefined);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
     useEffect(() => {
-        dispatch(listaUsuariosEmpresaThunk());
-    }, [personalizacionUsuario]);
+        if (personalizacionUsuario) {
+            refetchUsuarios();
+        }
+    }, [personalizacionUsuario, refetchUsuarios]);
 
     const columns = [
         columnHelper.accessor('nombre_usuario', {
@@ -81,7 +85,7 @@ function ListaUsuariosEmpresa() {
                             peticionUrl={`/api/users/${info.row.original.usuario}/`}
                             method='delete'
                             onDispatch={() => {
-                                dispatch(listaUsuariosEmpresaThunk());
+                                refetchUsuarios();
                             }}
                         />
                     </Tooltip>
@@ -103,7 +107,7 @@ function ListaUsuariosEmpresa() {
                                             toast.success('Usuario desactivado', {
                                                 autoClose: 1000,
                                             });
-                                            dispatch(listaUsuariosEmpresaThunk());
+                                            refetchUsuarios();
                                         }
                                     } catch (error: any) {
                                         toast.error(error.response.data);
@@ -126,7 +130,7 @@ function ListaUsuariosEmpresa() {
                                         });
                                         if (response.data) {
                                             toast.success('Usuario activado', { autoClose: 1000 });
-                                            dispatch(listaUsuariosEmpresaThunk());
+                                            refetchUsuarios();
                                         }
                                     } catch (error: any) {
                                         toast.error(error.response.data);

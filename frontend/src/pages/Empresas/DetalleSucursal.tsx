@@ -8,35 +8,35 @@ import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
 import Validation from '@/components/form/Validation';
 import Input from '@/components/form/Input';
-import ApiService from '@/services/ApiService';
-import { detalleSucursalThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import {
+    useGetDetalleSucursalQuery,
+    useUpdateSucursalMutation,
+} from '@/store/slices/empresa/empresaApi';
 
 const DetelleSucursal = () => {
-    const dispatch = useAppDispatch();
     const { id, id_empresa } = useParams<{ id: string; id_empresa: string }>();
-    const { detalleSucursal } = useAppSelector((state) => state.empresa);
+    const {
+        data: detalleSucursal,
+        refetch: refetchSucursal,
+    } = useGetDetalleSucursalQuery(
+        { id_empresa: id_empresa ?? '', id_sucursal: id ?? '' },
+        {
+            skip: !id_empresa || !id,
+        },
+    );
+    const [updateSucursal] = useUpdateSucursalMutation();
     const [isEditing, setIsEditing] = useState(false);
     const { listaComunas, listaProvincias, listaRegiones } = useAppSelector((state) => state.core);
     const [optRegiones, setOptRegiones] = useState<{ value: string; label: string }[]>([]);
     const [optProvincias, setOptProvincias] = useState<{ value: string; label: string }[]>([]);
     const [optComunas, setOptComunas] = useState<{ value: string; label: string }[]>([]);
-
-    useEffect(() => {
-        if (id_empresa && id) {
-            dispatch(
-                detalleSucursalThunk({
-                    id_sucursal: id,
-                    id_empresa: id_empresa,
-                }),
-            );
-        }
-    }, [id_empresa, id, dispatch]);
 
     const formikSucursal = useFormik({
         enableReinitialize: true,
@@ -53,23 +53,24 @@ const DetelleSucursal = () => {
             nombre: Yup.string().required('El nombre es requerido'),
         }),
         onSubmit: async (values) => {
+            if (!id_empresa || !id) return;
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/empresas/${id_empresa}/sucursales-empresa/${id}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
-                });
-                if (response.data) {
-                    toast.success('Sucursal actualizada correctamente');
-                    dispatch(
-                        detalleSucursalThunk({
-                            id_sucursal: id,
-                            id_empresa: id_empresa,
-                        }),
-                    );
-                    setIsEditing(false);
-                }
+                await updateSucursal({
+                    id_empresa,
+                    id_sucursal: id,
+                    data: {
+                        nombre: values.nombre,
+                        email: values.email,
+                        direccion: values.direccion,
+                        telefono: values.telefono,
+                        region: Number(values.region),
+                        provincia: Number(values.provincia),
+                        comuna: Number(values.comuna),
+                    },
+                }).unwrap();
+                toast.success('Sucursal actualizada correctamente');
+                setIsEditing(false);
+                refetchSucursal();
             } catch (error) {
                 toast.error('Ocurrió un error al actualizar la sucursal');
             }

@@ -5,11 +5,9 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch } from '@/store';
+import { useDeleteEmpresaMutation } from '@/store/slices/empresa/empresaApi';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { listaEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import Tooltip from '@/components/ui/Tooltip';
 import Badge from '@/components/ui/Badge';
 
@@ -18,7 +16,7 @@ interface EliminarEmpresaProps {
 }
 
 function EliminarEmpresa({ empresaId }: EliminarEmpresaProps) {
-    const dispatch = useAppDispatch();
+    const [deleteEmpresa] = useDeleteEmpresaMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     return (
@@ -55,17 +53,14 @@ function EliminarEmpresa({ empresaId }: EliminarEmpresaProps) {
                             variant='solid'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/empresas/${empresaId}/`,
-                                        method: 'delete',
-                                    });
-                                    if (response.status === 204) {
-                                        toast.success('Empresa eliminada', { autoClose: 1000 });
-                                        dispatch(listaEmpresasThunk());
-                                        setIsOpen(false);
-                                    }
+                                    await deleteEmpresa(empresaId).unwrap();
+                                    toast.success('Empresa eliminada', { autoClose: 1000 });
+                                    setIsOpen(false);
                                 } catch (error: any) {
-                                    toast.error(error.response.data.detail);
+                                    toast.error(
+                                        error.response?.data?.detail ||
+                                            'Error al eliminar la empresa',
+                                    );
                                 }
                             }}>
                             Eliminar

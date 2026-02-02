@@ -179,11 +179,17 @@ def send_email_task(
 
         if on_success_cotizacion_id:
             Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
-            EnvioCorreoCotizacion = apps.get_model("cotizaciones", "EnvioCorreoCotizacion")
+            EnvioCorreoCotizacion = apps.get_model(
+                "cotizaciones", "EnvioCorreoCotizacion"
+            )
             correos_externos = on_success_correos_externos or ""
             if isinstance(correos_externos, list):
-                correos_externos = ", ".join([email for email in correos_externos if email])
-            Cotizacion.objects.filter(id=on_success_cotizacion_id).update(estado="enviada")
+                correos_externos = ", ".join(
+                    [email for email in correos_externos if email]
+                )
+            Cotizacion.objects.filter(id=on_success_cotizacion_id).update(
+                estado="enviada"
+            )
             EnvioCorreoCotizacion.objects.create(
                 cotizacion_id=on_success_cotizacion_id,
                 correos_externos=correos_externos,

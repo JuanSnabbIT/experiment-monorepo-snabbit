@@ -118,6 +118,9 @@ const VistaPreviaAdjunto = lazy(() => import('@/pages/OrdenTrabajo/components/Vi
 const FirmarContratoYAcuerdoConfidencialidad = lazy(
     () => import('@/pages/Contratos/components/FirmarContratoYAcuerdoConfidencialidad'),
 );
+const ResponderCotizacionPublica = lazy(
+    () => import('@/pages/Cotizaciones/ResponderCotizacionPublica'),
+);
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
 );
@@ -152,6 +155,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: authPages.pdfContrato.to,
         element: <PDFContrato />,
         authority: authPages.pdfContrato.authority,
+    },
+    {
+        path: authPages.responderCotizacionPublica.to,
+        element: <ResponderCotizacionPublica />,
+        authority: authPages.responderCotizacionPublica.authority,
     },
 
     {

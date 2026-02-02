@@ -61,6 +61,7 @@ class ItemCotizacionPublicSerializer(serializers.ModelSerializer):
             'cantidad',
             'precio_venta_unitario',
             'precio_venta_total',
+            'aprobado',
         ]
 
     def get_nombre_display(self, obj):

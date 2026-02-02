@@ -128,7 +128,7 @@
     {
       "label": "Backend: Make Migrations",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["manage.py", "makemigrations"],
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -137,7 +137,7 @@
     {
       "label": "Backend: Migrate",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["manage.py", "migrate"],
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -155,7 +155,7 @@
     {
       "label": "Backend: Setup Superuser",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["..\\dev\\scripts\\setup\\setup_superuser.py"],
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -170,7 +170,7 @@
     {
       "label": "Backend: Seed Base",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["..\\dev\\scripts\\setup\\seed_base.py"],
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -185,7 +185,7 @@
     {
       "label": "Backend: Reset DB",
       "type": "shell",
-      "command": "C:\\Users\\LuisRojasMolina\\anaconda3\\envs\\ENV\\python.exe",
+      "command": "${workspaceFolder}/backend/ENV/Scripts/python.exe",
       "args": ["..\\dev\\scripts\\setup\\reset_db.py"],
       "options": {
         "cwd": "${workspaceFolder}/backend"

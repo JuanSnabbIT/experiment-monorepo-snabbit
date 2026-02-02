@@ -10,32 +10,23 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
+import { ISucursalEmpresa } from '@/interface/empresas.interface';
+import { listaInvitacionesThunk, useAppDispatch } from '@/store';
 import ApiService from '@/services/ApiService';
-import {
-    listaInvitacionesThunk,
-    listaMisSucursalesThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
 function CrearInvitacionEmpresaDesdeDetalleEmpresa({
-    id_empresa,
+    id_empresa: _id_empresa,
+    sucursales = [],
 }: {
     id_empresa: number | string | undefined;
+    sucursales?: ISucursalEmpresa[];
 }) {
     const dispatch = useAppDispatch();
-    const { listaMisSucursales } = useAppSelector((state) => state.empresa);
     const [isOpen, setIsOpen] = useState<boolean>(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            dispatch(listaMisSucursalesThunk({ id_empresa }));
-        }
-    }, [isOpen]);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -102,29 +93,29 @@ function CrearInvitacionEmpresaDesdeDetalleEmpresa({
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.sucursal}
                                 invalidFeedback={formik.errors.sucursal}>
-                                <SelectReact
-                                    name='sucursal'
-                                    options={listaMisSucursales.map((suc) => ({
-                                        value: suc.id.toString(),
-                                        label: suc.nombre,
-                                    }))}
-                                    onBlur={formik.handleBlur}
-                                    onChange={(e) => {
-                                        formik.setFieldValue(
-                                            'sucursal',
-                                            (e as TSelectOption).value,
-                                        );
-                                    }}
-                                    noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
-                                    value={{
-                                        value: formik.values.sucursal,
-                                        label:
-                                            listaMisSucursales.find(
-                                                (suc) =>
-                                                    suc.id.toString() === formik.values.sucursal,
-                                            )?.nombre || '',
-                                    }}
-                                />
+                            <SelectReact
+                                name='sucursal'
+                                options={sucursales.map((suc) => ({
+                                    value: suc.id.toString(),
+                                    label: suc.nombre,
+                                }))}
+                                onBlur={formik.handleBlur}
+                                onChange={(e) => {
+                                    formik.setFieldValue(
+                                        'sucursal',
+                                        (e as TSelectOption).value,
+                                    );
+                                }}
+                                noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
+                                value={{
+                                    value: formik.values.sucursal,
+                                    label:
+                                        sucursales.find(
+                                            (suc) =>
+                                                suc.id.toString() === formik.values.sucursal,
+                                        )?.nombre || '',
+                                }}
+                            />
                             </Validation>
                         </div>
                         <div>

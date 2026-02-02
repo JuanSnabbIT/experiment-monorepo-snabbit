@@ -151,11 +151,14 @@ const LoginPage = () => {
                         </div>
                     </div>
                     <div>
-                        <span className='flex gap-2 text-sm'>
-                            <Link to='/recuperar-contraseña' className='hover:text-inherit'>
+                        <Link to='/recuperar-contraseña' className='block'>
+                            <Button
+                                size='lg'
+                                variant='outline'
+                                className='w-full font-semibold'>  
                                 Olvidaste tu contraseña
-                            </Link>
-                        </span>
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             </div>

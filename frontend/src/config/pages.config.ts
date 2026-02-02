@@ -29,7 +29,7 @@
     },
     ConfirmarNuevaPass: {
         id: 'ConfirmarNuevaPass',
-        to: '/cambio-contraseña/:uid/:token',
+        to: '/cambio-contra/:uid/:token',
         text: 'Confirmar Nueva Password',
         icon: 'HeroDocument',
         authority: [],
@@ -55,6 +55,13 @@
         icon: 'HeroDocument',
         authority: [],
     },
+    responderCotizacionPublica: {
+        id: 'responderCotizacionPublica',
+        to: '/cotizacion/responder/:token',
+        text: 'Responder Cotización',
+        icon: 'HeroDocumentText',
+        authority: [],
+    },
 };
 
 export const Pages = {
@@ -69,7 +76,7 @@ export const Pages = {
                 id: 'listaUsuariosEmpresa',
                 to: '/empresa/lista-usuarios-empresa',
                 text: 'Usuarios Empresa',
-                icon: 'DuoGroup',
+                icon: 'HeroUserGroup',
                 authority: ['staff', 'superadmin'],
             },
             detalleUsuarioEmpresa: {
@@ -90,21 +97,21 @@ export const Pages = {
                 id: 'detalleCliente',
                 to: '/empresa/detalle-cliente/:id',
                 text: 'Clientes',
-                icon: 'HeroBuildingOffice2',
+                icon: 'HeroUserCircle',
                 authority: ['staff', 'superadmin'],
             },
             listaEmpresas: {
                 id: 'listaEmpresas',
                 to: '/empresa/empresas',
                 text: 'Empresas',
-                icon: 'DuoBuilding',
+                icon: 'HeroBuildingOffice',
                 authority: ['staff', 'multi-empresas', 'superadmin'],
             },
             detalleEmpresa: {
                 id: 'detalleEmpresa',
                 to: '/empresas/:id',
                 text: 'Detalle Empresa',
-                icon: 'DuoAddressCard',
+                icon: 'HeroBuildingStorefront',
                 authority: ['staff', 'superadmin'],
             },
             // listaRendicionesSucursal: {
@@ -118,7 +125,7 @@ export const Pages = {
                 id: 'contratosDelCliente',
                 to: '/empresa/contratos-cliente/:id',
                 text: 'Contratos Del Cliente',
-                icon: 'HeroDocument',
+                icon: 'HeroDocumentDuplicate',
                 authority: ['staff', 'superadmin'],
             },
         },
@@ -128,7 +135,7 @@ export const Pages = {
         id: 'cotizacion',
         to: '/cotizacion',
         text: 'Cotización',
-        icon: 'DuoMailbox',
+        icon: 'HeroDocumentText',
         authority: ['staff', 'superadmin', 'tecnico'],
         subPages: {
             // listaCotizaciones: {
@@ -149,7 +156,7 @@ export const Pages = {
                 id: 'listaCotizacionesEmpresa',
                 to: '/cotizacion/lista-cotizaciones-empresa',
                 text: 'Cotizaciones Clientes',
-                icon: 'HeroDocument',
+                icon: 'HeroDocumentText',
                 authority: ['staff', 'superadmin', 'tecnico'],
             },
             // listaItemsCotizacion: {
@@ -187,7 +194,7 @@ export const Pages = {
         id: 'compras',
         to: '/compras',
         text: 'Compras',
-        icon: 'HeroSquares2X2',
+        icon: 'HeroShoppingCart',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaOrdenesCompra: {
@@ -201,7 +208,7 @@ export const Pages = {
                 id: 'listaMisOrdenesDeCompra',
                 to: '/compras/lista-mis-ordenes',
                 text: 'Mis Ordenes de Compra',
-                icon: 'HeroWallet',
+                icon: 'HeroClipboardDocumentCheck',
                 authority: ['staff', 'superadmin'],
             },
             detalleOrdenCompra: {
@@ -229,7 +236,7 @@ export const Pages = {
                 id: 'listaCompra',
                 to: '/compras/lista-compras',
                 text: 'Compras',
-                icon: 'HeroDocument',
+                icon: 'HeroShoppingBag',
                 authority: ['staff', 'superadmin'],
             },
             detalleCompra: {
@@ -246,14 +253,14 @@ export const Pages = {
         id: 'bodega',
         to: '/bodega',
         text: 'Bodega',
-        icon: 'DuoCommode2',
+        icon: 'HeroArchiveBox',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaBodegas: {
                 id: 'listaBodegas',
                 to: '/bodega/lista-bodegas',
                 text: 'Bodegas',
-                icon: 'DuoSafe',
+                icon: 'HeroArchiveBoxArrowDown',
                 authority: ['staff', 'superadmin'],
             },
             listaGuiaSalida: {
@@ -295,7 +302,7 @@ export const Pages = {
                 id: 'listaTomaDeInventario',
                 to: '/bodega/tomas-inventarios',
                 text: 'Tomas de Inventarios',
-                icon: 'HeroDocument',
+                icon: 'HeroClipboardDocumentList',
                 authority: ['staff', 'superadmin'],
             },
             detalleTomaInventario: {
@@ -319,14 +326,14 @@ export const Pages = {
         id: 'ordenTrabajo',
         to: '/orden-trabajo',
         text: 'Orden Trabajo',
-        icon: 'DuoMailbox',
+        icon: 'HeroClipboardDocumentList',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaOrdenesTrabajo: {
                 id: 'listaOrdenesTrabajo',
                 to: '/orden-trabajo/lista-ordenes-trabajo',
                 text: 'Ordenes Trabajo',
-                icon: 'DuoMailbox',
+                icon: 'HeroClipboardDocumentList',
                 authority: ['staff', 'superadmin'],
             },
             detalleOrdenTrabajo: {
@@ -340,7 +347,7 @@ export const Pages = {
                 id: 'listaVisitasSoporte',
                 to: '/orden-trabajo/lista-visitas-soporte',
                 text: 'Asistencias Técnicas',
-                icon: 'DuoMailbox',
+                icon: 'HeroWrenchScrewdriver',
                 authority: ['staff', 'superadmin'],
             },
             detalleVisitaSoporte: {
@@ -378,28 +385,28 @@ export const Pages = {
         id: 'registros',
         to: '/registros',
         text: 'Registros',
-        icon: 'DuoPuzzle',
+        icon: 'HeroCircleStack',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaCategorias: {
                 id: 'listaCategorias',
                 to: '/registros/lista-categorias',
                 text: 'Categorias',
-                icon: 'HeroDocument',
+                icon: 'HeroTag',
                 authority: ['staff', 'superadmin'],
             },
             listaFabricantes: {
                 id: 'listaFabricantes',
                 to: '/registros/lista-fabricantes',
                 text: 'Fabricantes',
-                icon: 'HeroDocument',
+                icon: 'HeroWrench',
                 authority: ['staff', 'superadmin'],
             },
             listaProveedoresEmpresa: {
                 id: 'listaFabricanteThunk',
                 to: '/registros/lista-proveedores-empresa',
                 text: 'Proveedores',
-                icon: 'HeroDocument',
+                icon: 'HeroTruck',
                 authority: ['staff', 'superadmin'],
             },
             detalleProveedorEmpresa: {
@@ -413,14 +420,14 @@ export const Pages = {
                 id: 'listaItemsEmpresa',
                 to: '/registros/lista-items-empresa',
                 text: 'Items',
-                icon: 'HeroDocument',
+                icon: 'HeroCube',
                 authority: ['staff', 'superadmin'],
             },
             listaUsuarios: {
                 id: 'listaUsuarios',
                 to: '/registros/lista-usuarios',
                 text: 'Usuarios',
-                icon: 'HeroDocument',
+                icon: 'HeroUsers',
                 authority: ['staff'],
             },
             detalleFabricante: {
@@ -451,49 +458,49 @@ export const Pages = {
         id: 'vacaciones',
         to: '/vacaciones',
         text: 'Vacaciones',
-        icon: 'DuoSunFog',
+        icon: 'HeroCalendarDays',
         authority: [],
         subPages: {
             pedirVacacionesUsuario: {
                 id: 'pedirVacacionesUsuario',
                 to: '/vacaciones/pedir-vacaciones-usuario',
                 text: 'Pedir Vacaciones Usuario',
-                icon: 'DuoSunset2',
+                icon: 'HeroPencilSquare',
                 authority: [],
             },
             pedirVacaciones: {
                 id: 'pedirVacaciones',
                 to: '/vacaciones/pedir-vacaciones',
                 text: 'Pedir Vacaciones',
-                icon: 'DuoSunset1',
+                icon: 'HeroPencilSquare',
                 authority: ['staff', 'superadmin'],
             },
             listaMisSolicitudesVacaciones: {
                 id: 'listaMisSolicitudesVacaciones',
                 to: '/vacaciones/lista-mis-solicitudes',
                 text: 'Lista Mis Solicitudes Vacaciones',
-                icon: 'DuoBulletList',
+                icon: 'HeroQueueList',
                 authority: [],
             },
             listaSolicitudesVacaciones: {
                 id: 'listaSolicitudesVacaciones',
                 to: '/vacaciones/lista-solicitudes-vacaciones',
                 text: 'Solicitudes Vacaciones',
-                icon: 'DuoBulletList',
+                icon: 'HeroQueueList',
                 authority: ['staff', 'superadmin'],
             },
             dashboardVacaciones: {
                 id: 'dashboardVacaciones',
                 to: '/vacaciones/dashboard',
                 text: 'Dashboard Vacaciones',
-                icon: 'DuoChartBar1',
+                icon: 'HeroChartBar',
                 authority: [],
             },
             detalleSolicitudVacaciones: {
                 id: 'detalleSolicitudVacaciones',
                 to: '/vacaciones/detalle-solicitud-vacaciones/:id',
                 text: 'Detalle Solicitud Vacaciones',
-                icon: 'DuoBulletList',
+                icon: 'HeroEye',
                 authority: [],
             },
             pdfSolicitudVacaciones: {
@@ -510,21 +517,21 @@ export const Pages = {
         id: 'recursos',
         to: '/recursos',
         text: 'Recursos',
-        icon: 'DuoTv1',
+        icon: 'HeroComputerDesktop',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaEquiposEmpresa: {
                 id: 'listaEquiposEmpresa',
                 to: '/lista-equipos-empresa',
                 text: 'Equipos',
-                icon: 'DuoTv1',
+                icon: 'HeroComputerDesktop',
                 authority: ['superadmin', 'staff'],
             },
             listaSoftware: {
                 id: 'listaSoftware',
                 to: '/recursos/lista-software',
                 text: 'Softwares',
-                icon: 'DuoLaptop',
+                icon: 'HeroCommandLine',
                 authority: ['superadmin', 'staff'],
             },
         },
@@ -534,28 +541,28 @@ export const Pages = {
         id: 'rendiciones',
         to: '/rendicion',
         text: 'Rendiciones',
-        icon: 'DuoDollar',
+        icon: 'HeroBanknotes',
         authority: [],
         subPages: {
             listaRendiciones: {
                 id: 'listaRendiciones',
                 to: '/rendicion/lista-rendiciones',
                 text: 'Rendiciones Admin',
-                icon: 'DuoDollar',
+                icon: 'HeroCurrencyDollar',
                 authority: ['staff', 'superadmin'],
             },
             detalleRendicion: {
                 id: 'detalleRendicion',
                 to: '/rendicion/detalle-rendicion/:id',
                 text: 'Detalle Rendicion',
-                icon: 'DuoDollar',
+                icon: 'HeroCurrencyDollar',
                 authority: [],
             },
             listaMisRendiciones: {
                 id: 'listaMisRendiciones',
                 to: '/rendicion/lista-mis-rendiciones',
                 text: 'Mis Rendiciones',
-                icon: 'DuoDollar',
+                icon: 'HeroCurrencyDollar',
                 authority: [],
             },
         },
@@ -565,14 +572,14 @@ export const Pages = {
         id: 'facturacion',
         to: '/facturacion',
         text: 'Facturaciones',
-        icon: 'DuoReceipt',
+        icon: 'HeroDocumentCheck',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaFacturas: {
                 id: 'listaFacturas',
                 to: '/facturacion/facturas',
                 text: 'Facturas',
-                icon: 'DuoReceipt',
+                icon: 'HeroReceiptPercent',
                 authority: ['staff', 'superadmin'],
             },
             crearFactura: {
@@ -586,7 +593,7 @@ export const Pages = {
                 id: 'detalleFactura',
                 to: '/facturacion/facturas/:id',
                 text: 'Detalle Factura',
-                icon: 'DuoEye',
+                icon: 'HeroDocumentMagnifyingGlass',
                 authority: ['staff', 'superadmin'],
             },
         },
@@ -596,7 +603,7 @@ export const Pages = {
         id: 'listaInvitacionesEmpresas',
         to: '/invitaciones-empresas',
         text: 'Invitaciones',
-        icon: 'DuoMailbox2',
+        icon: 'HeroEnvelope',
         authority: ['staff', 'superadmin'],
     },
     listaDiasCalendario: {

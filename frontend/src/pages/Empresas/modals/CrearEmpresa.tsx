@@ -9,16 +9,14 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch } from '@/store';
-import { listaEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
+import { useCreateEmpresaMutation } from '@/store/slices/empresa/empresaApi';
 import { useFormik } from 'formik';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
 function CrearEmpresa() {
-    const dispatch = useAppDispatch();
+    const [createEmpresa] = useCreateEmpresaMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     const formik = useFormik({
@@ -45,30 +43,20 @@ function CrearEmpresa() {
         }),
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: '/api/empresas/',
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                        nombre: values.nombre,
-                        sitio_web: values.sitio_web,
-                        direccion_principal: values.direccion_principal,
-                        rut_empresa: values.rut,
-                        telefono: values.telefono,
-                        email: values.email,
-                        recargo: values.recargo,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Empresa creada', { autoClose: 1000 });
-                    dispatch(listaEmpresasThunk());
-                    formik.resetForm();
-                    setIsOpen(false);
-                } else {
-                    toast.error('Error al crear la empresa');
-                }
+                await createEmpresa({
+                    nombre: values.nombre,
+                    sitio_web: values.sitio_web,
+                    direccion_principal: values.direccion_principal,
+                    rut_empresa: values.rut,
+                    telefono: values.telefono,
+                    email: values.email,
+                    recargo: Number(values.recargo),
+                }).unwrap();
+                toast.success('Empresa creada', { autoClose: 1000 });
+                formik.resetForm();
+                setIsOpen(false);
             } catch (error: any) {
-                toast.error('Error al crear la empresa');
+                toast.error(error.response?.data || 'Error al crear la empresa');
             }
         },
     });
@@ -84,7 +72,7 @@ function CrearEmpresa() {
                     icon='HeroPlus'
                 />
             </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop={true}>
                 <ModalHeader>
                     <Badge className='text-xl'>Crear Empresa</Badge>
                 </ModalHeader>

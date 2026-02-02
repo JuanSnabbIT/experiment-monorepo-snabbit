@@ -15,10 +15,14 @@ import 'dayjs/locale/es';
 import { useEffect, useState } from 'react';
 import CrearUsuarioVinculadoLicencia from '../modals/CrearUsuarioVinculadoLicencia';
 import ItemsTablaDeUsuariosVinculadosLicencias from './ItemsTablaDeUsuariosVinculadosLicencias';
+import { IRelacionEmpresa } from '@/interface/empresas.interface';
 
-function TablaDeUsuariosVinculadosLicencias() {
+interface TablaUsuariosVinculadosLicenciasProps {
+    detalleCliente?: IRelacionEmpresa;
+}
+
+function TablaDeUsuariosVinculadosLicencias({ detalleCliente }: TablaUsuariosVinculadosLicenciasProps) {
     const dispatch = useAppDispatch();
-    const { detalleCliente } = useAppSelector((state) => state.empresa);
     const {
         listaContratoLicenciaDeEmpresaYCliente,
         listaUsuariosVinculadosLicencia,

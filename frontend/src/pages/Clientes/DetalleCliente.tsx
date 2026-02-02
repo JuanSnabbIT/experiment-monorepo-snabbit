@@ -1,29 +1,21 @@
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { useEffect, useState } from 'react';
+import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Container from '@/components/layouts/Container/Container';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import { detalleClienteThunk } from '@/store/slices/empresa/empresaSlice';
 import Button from '@/components/ui/Button';
 import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
 
 const DetalleCliente = () => {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams();
-    const { detalleCliente } = useAppSelector((state) => state.empresa);
-    const [activeComponent, setActiveComponent] = useState<string>('');
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleClienteThunk({ id_relacion: id }));
-        }
-    }, [id]);
+    const { data: detalleCliente } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
+    const [activeComponent, setActiveComponent] = useState<string>('Usuarios');
 
     return (
         <PageWrapper isProtectedRoute={true} title='Detalle Cliente' name='Detalle Cliente'>
@@ -44,9 +36,9 @@ const DetalleCliente = () => {
                                     variant='solid'
                                     color='violet'
                                     onClick={() => {
-                                        navigate(
-                                            `/empresa/contratos-cliente/${detalleCliente?.id}`,
-                                        );
+                                            navigate(
+                                                `/empresa/contratos-cliente/${detalleCliente?.id}`,
+                                            );
                                     }}>
                                     Ir a los contratos
                                 </Button>
@@ -56,9 +48,9 @@ const DetalleCliente = () => {
                             <div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>
                                 <div>
                                     <Badge>Nombre</Badge>
-                                    <div className='ml-4'>
-                                        {detalleCliente?.info_cliente.nombre}
-                                    </div>
+                            <div className='ml-4'>
+                                {detalleCliente?.info_cliente.nombre}
+                            </div>
                                 </div>
                                 <div>
                                     <Badge>Dirección Principal</Badge>
@@ -160,11 +152,17 @@ const DetalleCliente = () => {
                         </CardBody>
                     </Card>
 
-                    {activeComponent === 'Usuarios' && <TablaUsuariosDelCliente />}
+                    {activeComponent === 'Usuarios' && (
+                        <TablaUsuariosDelCliente detalleCliente={detalleCliente} />
+                    )}
 
-                    {activeComponent === 'Contratos' && <TablaDeContratosDelCliente />}
+                    {activeComponent === 'Contratos' && (
+                        <TablaDeContratosDelCliente detalleCliente={detalleCliente} />
+                    )}
 
-                    {activeComponent === 'Licencias' && <TablaDeUsuariosVinculadosLicencias />}
+                    {activeComponent === 'Licencias' && (
+                        <TablaDeUsuariosVinculadosLicencias detalleCliente={detalleCliente} />
+                    )}
                 </div>
             </Container>
         </PageWrapper>

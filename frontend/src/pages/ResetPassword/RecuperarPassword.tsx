@@ -18,6 +18,7 @@ const validationSchema = Yup.object().shape({
 
 const RecuperarPassword = () => {
     const [isFormSubmitted, setIsFormSubmitted] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
     const formik = useFormik({
@@ -26,6 +27,7 @@ const RecuperarPassword = () => {
         },
         validationSchema,
         onSubmit: async (values) => {
+            setIsLoading(true);
             try {
                 const response = await ApiService.fetchData({
                     url: `/auth/users/reset_password/`,
@@ -45,6 +47,8 @@ const RecuperarPassword = () => {
                         'Error al enviar el enlace de restablecimiento de contraseña.',
                     { toastId: 'Error al enviar el enlace de restablecimiento de contraseña.' },
                 );
+            } finally {
+                setIsLoading(false);
             }
         },
     });
@@ -87,14 +91,25 @@ const RecuperarPassword = () => {
                             value={formik.values.email}
                             onChange={formik.handleChange}
                             onBlur={formik.handleBlur}
-                            className={`w-full rounded-md border p-2`}
+                            disabled={isLoading}
+                            className={`w-full rounded-md border p-2 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                     </Validation>
                     <Button
                         onClick={() => formik.handleSubmit()}
                         variant='solid'
-                        className='w-full rounded-md font-semibold transition-colors'>
-                        Recuperar
+                        isDisable={isLoading}
+                        className={`w-full rounded-md font-semibold transition-all ${
+                            isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-lg'
+                        }`}>
+                        {isLoading ? (
+                            <span className='flex items-center justify-center gap-2'>
+                                <span className='inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent'></span>
+                                Enviando...
+                            </span>
+                        ) : (
+                            'Recuperar'
+                        )}
                     </Button>
                 </div>
                 {isFormSubmitted && (
