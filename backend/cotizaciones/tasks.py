@@ -230,3 +230,102 @@ def refrescar_tipo_cambio_proyecciones() -> str:
         count += 1
         
     return f"Se programó actualización para {count} proyecciones futuras."
+
+
+@shared_task
+def notificar_respuesta_cotizacion(
+    cotizacion_id: int,
+    accion: str,  # 'aprobada' o 'rechazada'
+    solicitante_nombre: str,
+    solicitante_email: str,
+    items_aprobados: int = 0,
+    motivo_rechazo: str = None,
+) -> str:
+    """
+    Notifica al prestador de servicios (empresa emisora) cuando un cliente
+    aprueba o rechaza una cotización vía el enlace público.
+    
+    Args:
+        cotizacion_id: ID de la cotización
+        accion: 'aprobada' o 'rechazada'
+        solicitante_nombre: Nombre de quien respondió
+        solicitante_email: Email de quien respondió
+        items_aprobados: Cantidad de items aprobados (solo para aprobación)
+        motivo_rechazo: Razón del rechazo (solo para rechazo)
+    """
+    from core.tasks import send_email_task
+    import os
+    
+    Cotizacion = apps.get_model('cotizaciones', 'Cotizacion')
+    
+    try:
+        cotizacion = Cotizacion.objects.select_related('empresa', 'cliente').get(id=cotizacion_id)
+    except Cotizacion.DoesNotExist:
+        return f"Cotización {cotizacion_id} no encontrada."
+
+    # Obtener email de la empresa emisora
+    empresa = cotizacion.empresa
+    email_empresa = empresa.email
+    
+    if not email_empresa:
+        logger.warning(f"La empresa {empresa.nombre} no tiene email configurado para notificaciones.")
+        return f"Empresa sin email configurado."
+
+    frontend_url = os.getenv('FRONTEND_URL', 'https://gestion.snabbit.cl')
+    url_detalle = f"{frontend_url}/cotizacion/detalle-cotizacion/{cotizacion.numero_cotizacion}"
+
+    if accion == 'aprobada':
+        subject = f"✅ Cotización N°{cotizacion.numero_cotizacion} APROBADA"
+        emoji = "✅"
+        accion_display = "APROBADA"
+        color = "#28a745"
+        detalle_extra = f"<p><strong>Items aprobados:</strong> {items_aprobados}</p>"
+    else:
+        subject = f"❌ Cotización N°{cotizacion.numero_cotizacion} RECHAZADA"
+        emoji = "❌"
+        accion_display = "RECHAZADA"
+        color = "#dc3545"
+        detalle_extra = ""
+        if motivo_rechazo:
+            detalle_extra = f"<p><strong>Motivo del rechazo:</strong></p><blockquote style='border-left: 3px solid {color}; padding-left: 10px; color: #666;'>{motivo_rechazo}</blockquote>"
+
+    html_body = f"""
+    <div style="font-family: Arial, sans-serif;">
+        <h2 style="color: {color};">{emoji} Cotización {accion_display}</h2>
+        <p>La cotización <strong>N°{cotizacion.numero_cotizacion}</strong> ha sido <strong style="color: {color};">{accion_display}</strong>.</p>
+        
+        <table style="border-collapse: collapse; margin: 15px 0;">
+            <tr>
+                <td style="padding: 5px 15px 5px 0; color: #666;">Cliente:</td>
+                <td style="padding: 5px 0;"><strong>{cotizacion.cliente.nombre}</strong></td>
+            </tr>
+            <tr>
+                <td style="padding: 5px 15px 5px 0; color: #666;">Respondió:</td>
+                <td style="padding: 5px 0;">{solicitante_nombre} ({solicitante_email})</td>
+            </tr>
+            <tr>
+                <td style="padding: 5px 15px 5px 0; color: #666;">Cotización:</td>
+                <td style="padding: 5px 0;">{cotizacion.nombre}</td>
+            </tr>
+        </table>
+        
+        {detalle_extra}
+        
+        <p style="margin-top: 20px;">Para ver los detalles completos, haga clic en el siguiente enlace:</p>
+    </div>
+    """
+
+    try:
+        send_email_task.delay(
+            subject=subject,
+            recipient_list=[email_empresa],
+            html_body=html_body,
+            titulo=f"Cotización {cotizacion.numero_cotizacion} {accion_display}",
+            url_boton=url_detalle,
+            text_boton="Ver Cotización",
+        )
+        return f"Notificación enviada a {email_empresa} - Cotización {cotizacion.numero_cotizacion} {accion}"
+    except Exception as e:
+        logger.error(f"Error enviando notificación de respuesta: {e}")
+        return f"Error enviando notificación: {e}"
+

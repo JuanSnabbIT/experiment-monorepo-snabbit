@@ -435,12 +435,15 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="enviar-cotizacion-solicitantes")
     def enviar_cotizacion_solicitantes(self, request, pk=None):
         """
-        Action similar a 'enviar-cotizacion', pero en lugar de recibir los correos
-        desde el request, se obtienen de los solicitantes asociados.
-
-        Primero se envía el correo (llamando a send_email_task.delay) y luego,
-        de manera exitosa, se actualiza el estado de la cotización y se registra el envío.
-        Esto permite que si el envío falla, el estado no se actualice y se pueda reintentar.
+        Envía la cotización por correo a cada solicitante asociado.
+        
+        Cada solicitante recibe un email personalizado con su propio token único
+        que le permite aprobar o rechazar la cotización desde un enlace público.
+        
+        El flujo es:
+        1. Se genera/regenera token para cada solicitante
+        2. Se envía email personalizado a cada uno con su URL única
+        3. El solicitante puede ver la cotización y aprobar/rechazar desde el link
         """
         cotizacion = get_object_or_404(Cotizacion, pk=pk)
 
@@ -452,65 +455,78 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Recopilar los correos de los solicitantes
-        solicitantes = cotizacion.solicitantes.all()
-        correos_solicitantes = [
-            solicitante.usuario.email
-            for solicitante in solicitantes
-            if solicitante.content_type.model.lower() == "solicitanteexterno"
-            and hasattr(solicitante.usuario, "email")
-            and solicitante.usuario.email
-        ]
-        correos_usuarios = [
-            solicitante.usuario.usuario.email
-            for solicitante in solicitantes
-            if solicitante.content_type.model.lower() == "usuarioempresa"
-            and hasattr(solicitante.usuario.usuario, "email")
-            and solicitante.usuario.usuario.email
-        ]
+        # Obtener solicitantes con emails válidos
+        solicitantes = list(cotizacion.solicitantes.all())
+        solicitantes_con_email = []
+        
+        for solicitante in solicitantes:
+            email = solicitante.get_email()
+            if email:
+                solicitantes_con_email.append((solicitante, email))
 
-        # Combinar ambas listas de correos y eliminar duplicados
-        recipient_emails = list(set(correos_solicitantes + correos_usuarios))
-        if not recipient_emails:
+        if not solicitantes_con_email:
             return Response(
-                {"detail": "No se encontraron correos válidos."},
+                {"detail": "No se encontraron correos válidos en los solicitantes."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Generar PDF (uno solo, se adjunta a todos)
         pdf_bytes = generar_pdf_cotizacion_desde_model(cotizacion_id=cotizacion.pk)
         pdf_filename = (
             f"Coti_{cotizacion.numero_cotizacion}_{cotizacion.cliente.nombre}.pdf"
         )
 
-        # Construir el cuerpo del correo
-        html_body = f"""
-        <p>Estimado,</p>
-        <p>Adjunto encontrará la cotización número <strong>{cotizacion.numero_cotizacion}</strong>.</p>
-        <p>Fecha de vencimiento: {cotizacion.fecha_vencimiento.strftime('%Y-%m-%d') if cotizacion.fecha_vencimiento else 'N/A'}</p>
-        <p>Observaciones: {cotizacion.observaciones}</p>
-        <p>Para ver más detalles, haga clic en el siguiente enlace:</p>
-        """
-        url_cotizacion = (
-            f"{os.getenv('FRONTEND_URL')}/cotizacion/detalle-cotizacion/{cotizacion.numero_cotizacion}"
-        )
+        frontend_url = os.getenv('FRONTEND_URL', 'https://gestion.snabbit.cl')
+        emails_enviados = []
+        errores = []
 
         try:
-            send_email_task.delay(
-                subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",
-                recipient_list=recipient_emails,
-                html_body=html_body,
-                titulo=f"Cotización {cotizacion.numero_cotizacion}",
-                url_boton=url_cotizacion,
-                text_boton="Ver Cotización",
-                cc=[],
-                pdf_attachment=(pdf_filename, pdf_bytes),
-                on_success_cotizacion_id=cotizacion.pk,
-                on_success_correos_externos=recipient_emails,
-            )
+            for solicitante, email in solicitantes_con_email:
+                # Regenerar token si ya fue usado (permite reenvíos)
+                if solicitante.token_usado:
+                    import uuid
+                    solicitante.token = uuid.uuid4()
+                    solicitante.token_usado = False
+                    solicitante.save(update_fields=['token', 'token_usado'])
+                elif not solicitante.token:
+                    solicitante.save()  # Genera token en save()
+
+                # URL pública con token único para este solicitante
+                url_responder = f"{frontend_url}/cotizacion/responder/{solicitante.token}"
+                nombre_solicitante = solicitante.get_nombre()
+
+                # Construir el cuerpo del correo personalizado
+                html_body = f"""
+                <p>Estimado/a <strong>{nombre_solicitante}</strong>,</p>
+                <p>Adjunto encontrará la cotización número <strong>{cotizacion.numero_cotizacion}</strong>.</p>
+                <p><strong>Fecha de vencimiento:</strong> {cotizacion.fecha_vencimiento.strftime('%d-%m-%Y') if cotizacion.fecha_vencimiento else 'N/A'}</p>
+                {'<p><strong>Observaciones:</strong> ' + cotizacion.observaciones + '</p>' if cotizacion.observaciones else ''}
+                <p style="margin-top: 20px;">Puede revisar los detalles y <strong>aprobar o rechazar</strong> esta cotización directamente desde el siguiente enlace:</p>
+                """
+
+                send_email_task.delay(
+                    subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",
+                    recipient_list=[email],
+                    html_body=html_body,
+                    titulo=f"Cotización {cotizacion.numero_cotizacion}",
+                    url_boton=url_responder,
+                    text_boton="Ver y Responder Cotización",
+                    cc=[],
+                    pdf_attachment=(pdf_filename, pdf_bytes),
+                )
+                emails_enviados.append(email)
             
-            # Actualizar estado de la cotización inmediatamente para feedback instantáneo
+            # Actualizar estado de la cotización
             cotizacion.estado = "enviada"
             cotizacion.save()
+
+            # Registrar envío
+            from .models import EnvioCorreoCotizacion
+            envio = EnvioCorreoCotizacion.objects.create(
+                cotizacion=cotizacion,
+                correos_externos=", ".join(emails_enviados),
+            )
+
         except (OperationalError, CeleryError) as exc:
             logger.error(
                 "No se pudo encolar el envío de correo de cotización",
@@ -524,9 +540,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             )
 
         return Response(
-            {"detail": "Cotización enviada y registrada exitosamente."},
+            {
+                "detail": "Cotización enviada a los solicitantes.",
+                "emails_enviados": emails_enviados,
+                "total_enviados": len(emails_enviados),
+            },
             status=status.HTTP_200_OK,
         )
+
 
     @action(detail=True, methods=["post"], url_path="aprobar-cotizacion")
     def aprobar_cotizacion(self, request, pk=None):

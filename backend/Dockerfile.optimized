@@ -22,3 +22,8 @@ COPY entrypoint.sh /codigo_proyecto/entrypoint.sh
 RUN chmod +x /codigo_proyecto/entrypoint.sh
 
 ENTRYPOINT ["/codigo_proyecto/entrypoint.sh"]
+
+# Por defecto ejecuta el servidor web (Daphne)
+# Para Celery worker: docker run <image> celery-worker
+# Para Celery beat: docker run <image> celery-beat
+CMD ["web"]

@@ -16,4 +16,6 @@ TIPO_SEGUIMIENTO_COTIZACION = [
     ('comentario', 'Comentario'),
     ('incidencia', 'Incidencia'),
     ('actualizacion', 'Actualizacion'),
+    ('aprobacion', 'Aprobación'),
+    ('rechazo', 'Rechazo'),
 ]

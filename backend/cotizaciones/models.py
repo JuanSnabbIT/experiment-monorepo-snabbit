@@ -474,6 +474,8 @@ class SeguimientoCotizacion(models.Model):
         "empresas.UsuarioEmpresa",
         on_delete=models.CASCADE,
         verbose_name="Usuario responsable",
+        blank=True,
+        null=True,  # Permite null para seguimientos desde endpoints públicos
     )
 
     class Meta:
@@ -532,6 +534,13 @@ class SolicitanteCotizacion(ModeloBase):
     usuario = GenericForeignKey("content_type", "usuario_id")
     aprobo = models.BooleanField(default=False)
     fecha_aprobacion = models.DateTimeField(blank=True, null=True)
+    
+    # --- Campos para aprobación/rechazo vía email (público) ---
+    token = models.UUIDField(unique=True, editable=False, blank=True, null=True)
+    token_usado = models.BooleanField(default=False)
+    fecha_respuesta = models.DateTimeField(blank=True, null=True)
+    ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
+    motivo_rechazo = models.TextField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Solicitante de Cotización"
@@ -541,6 +550,30 @@ class SolicitanteCotizacion(ModeloBase):
         return (
             f"{self.pk} - Usuario: {self.usuario_id} Modelo: {self.content_type.model}"
         )
+
+    def save(self, *args, **kwargs):
+        import uuid
+        if not self.token:
+            self.token = uuid.uuid4()
+        super().save(*args, **kwargs)
+
+    def get_email(self):
+        """Retorna el email del solicitante según su tipo."""
+        if self.content_type.model == "solicitanteexterno":
+            return getattr(self.usuario, "email", None)
+        elif self.content_type.model == "usuarioempresa":
+            return getattr(getattr(self.usuario, "usuario", None), "email", None)
+        return None
+
+    def get_nombre(self):
+        """Retorna el nombre del solicitante según su tipo."""
+        if self.content_type.model == "solicitanteexterno":
+            return getattr(self.usuario, "nombre", "Solicitante Externo")
+        elif self.content_type.model == "usuarioempresa":
+            usuario = getattr(self.usuario, "usuario", None)
+            if usuario:
+                return usuario.get_nombre_completo() or usuario.email
+        return "Solicitante"
 
 
 class SolicitanteExterno(ModeloBase):

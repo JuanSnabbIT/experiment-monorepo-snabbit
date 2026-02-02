@@ -5,7 +5,7 @@ from core.models import ModeloBase
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import Group
 from django.db import models
-
+import uuid
 from .estados_modelo import *
 
 
@@ -23,6 +23,7 @@ class Empresa(ModeloBase):
     telefono = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
+    uuid = models.UUIDField(unique=True, editable=False, blank=True, null=True)
 
     class Meta:
         verbose_name = "Empresa"
@@ -30,6 +31,11 @@ class Empresa(ModeloBase):
 
     def __str__(self):
         return self.nombre
+
+    def save(self, *args, **kwargs):
+        if not self.uuid:
+            self.uuid = uuid.uuid4()
+        super().save(*args, **kwargs)
 
 
 class RelacionEmpresa(ModeloBase):
