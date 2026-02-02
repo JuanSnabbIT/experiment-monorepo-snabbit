@@ -6,18 +6,29 @@ Que hace:
 - Ejecuta setup_superuser.py (si no existe superusuario) y luego pobla datos base completos
 - Verifica exito de cada paso antes de continuar
 - Proporciona resumen al finalizar
-- Crea datos base Y flujos completos (Cotizaciones, OT, Contratos, Ordenes Compra)
+- Crea SOLO datos base (NO crea flujos transaccionales)
 
-NUEVO: Ahora crea flujos completos de negocio con datos realistas:
-- 10 Cotizaciones en diferentes estados
-- 3+ Órdenes de Trabajo vinculadas a cotizaciones
-- 5 Contratos de servicio
-- 5 Órdenes de Compra a proveedores
+IMPORTANTE: Este script pobla datos base para permitir pruebas manuales:
+- Empresas (con recargo entre 22-28% y PPM entre 3-7%)
+- Sucursales (con datos completos de región, provincia, comuna)
+- Usuarios internos y de clientes
+- Catálogos (Items, Proveedores, Categorías, Servicios, etc.)
+- Stock inicial en bodegas
+
+NO crea automáticamente:
+- Cotizaciones
+- Órdenes de Trabajo
+- Contratos
+- Órdenes de Compra
+- Compras
+- Guías de Salida
+
+Estos registros deben crearse manualmente para realizar pruebas reales del sistema.
 
 Cuando usar:
 - Despues de limpiar la base de datos para poblar sistema desde cero
 - Primera inicializacion del sistema
-- Testing con datos base solidos y flujos completos
+- Testing con datos base solidos
 
 Prerequisitos:
 - Base de datos limpia (por ejemplo, borrar db.sqlite3)
@@ -30,6 +41,7 @@ Uso:
 from __future__ import annotations
 
 import os
+import random
 import re
 import subprocess
 import sys
@@ -406,14 +418,22 @@ def ensure_groups() -> Dict[str, object]:
 
 def ensure_empresa_base() -> tuple[object, object]:
     from empresas.models import Empresa, SucursalEmpresa
+    from decimal import Decimal
+
+    # Generar recargo entre 22% y 28%
+    recargo = random.randint(22, 28)
+    # Generar ppm entre 3% y 7% (como decimal)
+    ppm = Decimal(str(random.uniform(3.0, 7.0)))
 
     empresa, _ = Empresa.objects.get_or_create(
         rut_empresa="11111111-1",
         defaults={
             "nombre": "Snabbit",
-            "direccion_principal": "Direccion Principal 123",
+            "direccion_principal": "Av. Providencia 1234, Santiago",
             "telefono": "+56912345678",
             "email": "contacto@snabbit.cl",
+            "recargo": recargo,
+            "ppm": ppm,
         },
     )
     updated = False
@@ -421,7 +441,13 @@ def ensure_empresa_base() -> tuple[object, object]:
         empresa.nombre = "Snabbit"
         updated = True
     if not empresa.direccion_principal:
-        empresa.direccion_principal = "Direccion Principal 123"
+        empresa.direccion_principal = "Av. Providencia 1234, Santiago"
+        updated = True
+    if empresa.recargo == 0:
+        empresa.recargo = recargo
+        updated = True
+    if empresa.ppm == 1:
+        empresa.ppm = ppm
         updated = True
     if updated:
         empresa.save()
@@ -433,8 +459,25 @@ def ensure_empresa_base() -> tuple[object, object]:
             "direccion": empresa.direccion_principal,
             "telefono": empresa.telefono,
             "email": empresa.email,
+            "region": 13,  # Región Metropolitana
+            "provincia": 131,  # Santiago
+            "comuna": 13101,  # Santiago Centro
         },
     )
+    # Actualizar sucursal si le faltan datos de ubicación
+    updated_suc = False
+    if sucursal.region == 0:
+        sucursal.region = 13
+        updated_suc = True
+    if sucursal.provincia == 0:
+        sucursal.provincia = 131
+        updated_suc = True
+    if sucursal.comuna == 0:
+        sucursal.comuna = 13101
+        updated_suc = True
+    if updated_suc:
+        sucursal.save()
+
     return empresa, sucursal
 
 
@@ -754,6 +797,12 @@ def ensure_client_companies(
 
     results: List[Dict[str, object]] = []
     for client in clients_config:
+        # Generar recargo entre 22% y 28% para cada empresa cliente
+        recargo = random.randint(22, 28)
+        # Generar ppm entre 3% y 7% (como decimal)
+        from decimal import Decimal
+        ppm = Decimal(str(random.uniform(3.0, 7.0)))
+
         empresa, _ = Empresa.objects.get_or_create(
             rut_empresa=client["rut"],
             defaults={
@@ -762,8 +811,21 @@ def ensure_client_companies(
                 "telefono": client.get("telefono") or "+56900000000",
                 "email": client.get("email")
                 or f"contacto@{slugify(client['nombre'])}.cl",
+                "recargo": recargo,
+                "ppm": ppm,
             },
         )
+
+        # Actualizar recargo y ppm si están en valores por defecto
+        updated = False
+        if empresa.recargo == 0:
+            empresa.recargo = recargo
+            updated = True
+        if empresa.ppm == 1:
+            empresa.ppm = ppm
+            updated = True
+        if updated:
+            empresa.save()
 
         sucursal, _ = SucursalEmpresa.objects.get_or_create(
             empresa=empresa,
@@ -1688,116 +1750,8 @@ def ensure_acuerdos_confidencialidad() -> None:
     )
 
 
-def ensure_cotizaciones(
-    empresa: object,
-    clientes: List[Dict[str, object]],
-    items: List[object],
-    usuarios: Dict[str, object],
-) -> List[object]:
-    """Crea cotizaciones realistas en diferentes estados."""
-    from cotizaciones.models import Cotizacion, ItemCotizacion
-    from decimal import Decimal
-
-    if not clientes or not items:
-        return []
-
-    cotizaciones_data = [
-        {
-            "cliente_idx": 0,
-            "nombre": "Cotizacion CCTV Oficina Principal",
-            "descripcion": "Sistema de 8 camaras IP con NVR y cableado",
-            "estado": "aceptada",
-            "items_indices": [0, 6, 34, 27, 26],
-            "cantidades": [8, 1, 1, 2, 1],
-            "dias_vencimiento": 30,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 25,
-        },
-        {
-            "cliente_idx": 1,
-            "nombre": "Cotizacion Control de Acceso Oficina",
-            "descripcion": "Control de acceso con lectores RFID",
-            "estado": "enviada",
-            "items_indices": [13, 14, 15, 16],
-            "cantidades": [1, 6, 6, 6],
-            "dias_vencimiento": 14,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 20,
-        },
-        {
-            "cliente_idx": 2,
-            "nombre": "Cotizacion Perimetro PTZ",
-            "descripcion": "Cobertura perimetral con camaras PTZ",
-            "estado": "pendiente",
-            "items_indices": [3, 9, 27, 21],
-            "cantidades": [2, 1, 1, 1],
-            "dias_vencimiento": 21,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 28,
-        },
-        {
-            "cliente_idx": 3,
-            "nombre": "Cotizacion Alarma e Intrusion",
-            "descripcion": "Panel con sensores y sirenas",
-            "estado": "aceptada",
-            "items_indices": [18, 19, 20, 17, 38],
-            "cantidades": [1, 10, 12, 2, 2],
-            "dias_vencimiento": 25,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 18,
-        },
-        {
-            "cliente_idx": 4,
-            "nombre": "Cotizacion Upgrade NVR",
-            "descripcion": "Upgrade de almacenamiento y monitor",
-            "estado": "rechazada",
-            "items_indices": [7, 35, 36],
-            "cantidades": [1, 2, 1],
-            "dias_vencimiento": -5,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 20,
-        },
-        {
-            "cliente_idx": 5,
-            "nombre": "Cotizacion Red y Conectividad",
-            "descripcion": "Switching y WiFi corporativo",
-            "estado": "enviada",
-            "items_indices": [10, 11, 12, 26, 43],
-            "cantidades": [1, 1, 4, 1, 20],
-            "dias_vencimiento": 20,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 22,
-        },
-        {
-            "cliente_idx": 6,
-            "nombre": "Cotizacion Videoportero IP",
-            "descripcion": "Kit de videoportero con UPS",
-            "estado": "pendiente",
-            "items_indices": [37, 27, 21],
-            "cantidades": [2, 1, 1],
-            "dias_vencimiento": 18,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 15,
-        },
-        {
-            "cliente_idx": 7,
-            "nombre": "Cotizacion CCTV Bodega",
-            "descripcion": "CCTV para bodega con canalizacion",
-            "estado": "aceptada",
-            "items_indices": [1, 7, 35, 27, 29],
-            "cantidades": [12, 1, 2, 3, 6],
-            "dias_vencimiento": 28,
-            "tipo_moneda": "2",
-            "porcentaje_recargo": 26,
-        },
-        {
-            "cliente_idx": 8,
-            "nombre": "Cotizacion Camaras Analogicas",
-            "descripcion": "Camaras analogicas con DVR",
-            "estado": "expirada",
-            "items_indices": [4, 8, 31, 32, 33],
-            "cantidades": [16, 1, 2, 4, 16],
-            "dias_vencimiento": -10,
+# FUNCIÓN ELIMINADA: ensure_cotizaciones
+# Las cotizaciones deben crearse manualmente por el usuario para pruebas reales
             "tipo_moneda": "2",
             "porcentaje_recargo": 24,
         },
@@ -1862,613 +1816,21 @@ def ensure_cotizaciones(
     return cotizaciones_creadas
 
 
-def ensure_ordenes_trabajo(
-    empresa: object,
-    clientes: List[Dict[str, object]],
-    usuarios: Dict[str, object],
-    cotizaciones: List[object],
-) -> List[object]:
-    """Crea órdenes de trabajo realistas vinculadas a cotizaciones."""
-    from ordentrabajov2.models import (
-        OrdenDeTrabajo,
-        SoporteTecnico,
-        ServicioEnOT,
-    )
-
-    if not clientes or not cotizaciones:
-        return []
-
-    # Solo crear OTs para cotizaciones aceptadas
-    cotizaciones_aceptadas = [c for c in cotizaciones if c.estado == "aceptada"]
-
-    ordenes_data = [
-        {
-            "cotizacion_idx": 0,
-            "tipo_servicio": "soporte_p",
-            "descripcion": "Instalacion sistema CCTV oficina principal",
-            "estado": "completada",
-            "prioridad": "1",
-            "dias_inicio": -15,
-            "dias_fin": -5,
-            "soportes": [
-                {
-                    "nombre": "Instalacion camaras perimetro",
-                    "descripcion": "Montaje de camaras exteriores",
-                    "estado": "completado",
-                },
-                {
-                    "nombre": "Instalacion camaras interiores",
-                    "descripcion": "Montaje de camaras interiores",
-                    "estado": "completado",
-                },
-            ],
-        },
-        {
-            "cotizacion_idx": 1,
-            "tipo_servicio": "soporte_p",
-            "descripcion": "Implementacion control de acceso",
-            "estado": "en_proceso",
-            "prioridad": "2",
-            "dias_inicio": -5,
-            "dias_fin": None,
-            "soportes": [
-                {
-                    "nombre": "Configuracion controladores",
-                    "descripcion": "Carga de perfiles y tarjetas",
-                    "estado": "en_proceso",
-                },
-            ],
-        },
-        {
-            "cotizacion_idx": 2,
-            "tipo_servicio": "general",
-            "descripcion": "Alarma e intrusion - ajuste y pruebas",
-            "estado": "cerrada",
-            "prioridad": "1",
-            "dias_inicio": -20,
-            "dias_fin": -10,
-            "servicios": [
-                {
-                    "nombre": "Diagnostico y pruebas",
-                    "descripcion": "Revision completa del sistema",
-                    "resuelto": True,
-                },
-                {
-                    "nombre": "Reemplazo componentes",
-                    "descripcion": "Cambio de sensores y sirenas",
-                    "resuelto": True,
-                },
-            ],
-        },
-    ]
-
-    ordenes_creadas = []
-    tecnico = usuarios.get("tecnico")
-
-    for ot_data in ordenes_data:
-        if ot_data["cotizacion_idx"] >= len(cotizaciones_aceptadas):
-            continue
-
-        cotizacion = cotizaciones_aceptadas[ot_data["cotizacion_idx"]]
-        cliente = cotizacion.cliente
-
-        fecha_inicio = (
-            date.today() + timedelta(days=ot_data["dias_inicio"])
-            if ot_data["dias_inicio"]
-            else None
-        )
-        fecha_fin = (
-            date.today() + timedelta(days=ot_data["dias_fin"])
-            if ot_data["dias_fin"]
-            else None
-        )
-
-        orden, created = OrdenDeTrabajo.objects.get_or_create(
-            empresa=empresa,
-            cliente=cliente,
-            descripcion=ot_data["descripcion"],
-            defaults={
-                "tipo_servicio": ot_data["tipo_servicio"],
-                "estado": ot_data["estado"],
-                "prioridad": ot_data["prioridad"],
-                "fecha_inicio_ot": fecha_inicio,
-                "fecha_finalizacion_ot": fecha_fin,
-                "tecnico_responsable_ot": tecnico,
-            },
-        )
-
-        if created:
-            # Vincular cotización
-            orden.cotizaciones.add(cotizacion)
-
-            # Crear soportes técnicos
-            for soporte_data in ot_data.get("soportes", []):
-                SoporteTecnico.objects.create(
-                    orden=orden,
-                    nombre=soporte_data["nombre"],
-                    descripcion=soporte_data["descripcion"],
-                    estado=soporte_data["estado"],
-                    tecnico_asignado=tecnico,
-                    fecha_soporte=fecha_inicio,
-                )
-
-            # Crear servicios generales
-            for servicio_data in ot_data.get("servicios", []):
-                ServicioEnOT.objects.create(
-                    orden=orden,
-                    nombre=servicio_data["nombre"],
-                    descripcion=servicio_data["descripcion"],
-                    estado="completado" if servicio_data["resuelto"] else "pendiente",
-                    resuelto=servicio_data["resuelto"],
-                    tecnico_asignado=tecnico,
-                    fecha_servicio=fecha_inicio,
-                )
-
-        ordenes_creadas.append(orden)
-
-    return ordenes_creadas
+# FUNCIÓN ELIMINADA: ensure_ordenes_trabajo
+# Las órdenes de trabajo deben crearse manualmente por el usuario para pruebas reales
 
 
-def ensure_contratos(
-    empresa: object,
-    clientes: List[Dict[str, object]],
-    usuarios: Dict[str, object],
-) -> List[object]:
-    """Crea contratos de servicio con clientes."""
-    from contratos.models import (
-        ContratoEmpresaCliente,
-        ContratoServicio,
-        ContratoVisita,
-        Servicio,
-        Visita,
-    )
-    from django.contrib.contenttypes.models import ContentType
-    from decimal import Decimal
-
-    if not clientes:
-        return []
-
-    # Obtener servicios del catálogo
-    servicios = list(Servicio.objects.all()[:3])
-    visitas = list(Visita.objects.all()[:3])
-
-    contratos_data = [
-        {
-            "cliente_idx": 0,
-            "nombre": "Contrato Mantenimiento Preventivo Anual",
-            "tipo": "servicios",
-            "estado": "activo",
-            "precio_unitario": Decimal("1200000"),
-            "dias_inicio": -90,
-            "dias_termino": 275,
-        },
-        {
-            "cliente_idx": 1,
-            "nombre": "Contrato Soporte Tecnico 24/7",
-            "tipo": "servicios",
-            "estado": "activo",
-            "precio_unitario": Decimal("800000"),
-            "dias_inicio": -60,
-            "dias_termino": 305,
-        },
-        {
-            "cliente_idx": 2,
-            "nombre": "Contrato Monitoreo Remoto",
-            "tipo": "servicios",
-            "estado": "activo",
-            "precio_unitario": Decimal("500000"),
-            "dias_inicio": -30,
-            "dias_termino": 335,
-        },
-        {
-            "cliente_idx": 3,
-            "nombre": "Contrato Desarrollo Sistema Personalizado",
-            "tipo": "venta",
-            "estado": "borrador",
-            "precio_unitario": Decimal("2500000"),
-            "dias_inicio": 0,
-            "dias_termino": 180,
-        },
-        {
-            "cliente_idx": 0,
-            "nombre": "Contrato Mantenimiento 2024",
-            "tipo": "servicios",
-            "estado": "finalizado",
-            "precio_unitario": Decimal("1000000"),
-            "dias_inicio": -400,
-            "dias_termino": -35,
-        },
-    ]
-
-    contratos_creados = []
-    admin = usuarios.get("admin")
-    servicio_ct = ContentType.objects.get_for_model(Servicio)
-
-    for contrato_data in contratos_data:
-        if contrato_data["cliente_idx"] >= len(clientes):
-            continue
-
-        cliente = clientes[contrato_data["cliente_idx"]]["empresa"]
-
-        fecha_inicio = date.today() + timedelta(days=contrato_data["dias_inicio"])
-        fecha_termino = date.today() + timedelta(days=contrato_data["dias_termino"])
-
-        contrato, created = ContratoEmpresaCliente.objects.get_or_create(
-            empresa_prestadora=empresa,
-            empresa_cliente=cliente,
-            nombre=contrato_data["nombre"],
-            defaults={
-                "tipo": contrato_data["tipo"],
-                "estado": contrato_data["estado"],
-                "observaciones": f"Contrato base {contrato_data['tipo']}",
-                "fecha_inicio": fecha_inicio,
-                "fecha_fin": fecha_termino,
-            },
-        )
-
-        if created and servicios:
-            servicio = servicios[0]
-            ContratoServicio.objects.get_or_create(
-                contrato=contrato,
-                content_type=servicio_ct,
-                object_id=servicio.id,
-                defaults={
-                    "cantidad": 1,
-                    "precio_unitario": contrato_data["precio_unitario"],
-                },
-            )
-
-        if created and visitas:
-            visita = visitas[0]
-            ContratoVisita.objects.get_or_create(
-                contrato=contrato,
-                visita=visita,
-                defaults={"frecuencia": "mensual", "cantidad": 1},
-            )
-
-        contratos_creados.append(contrato)
-
-    return contratos_creados
+# FUNCIÓN ELIMINADA: ensure_contratos
+# Los contratos deben crearse manualmente por el usuario para pruebas reales
 
 
-def ensure_ordenes_compra(
-    empresa: object,
-    proveedores: List[object],
-    items: List[object],
-    usuarios: Dict[str, object],
-) -> List[object]:
-    """Crea órdenes de compra a proveedores."""
-    from bodegas.models import OrdenCompra, ItemEnOrdenCompra
-    from decimal import Decimal
-
-    if not proveedores or not items:
-        return []
-
-    ordenes_data = [
-        {
-            "proveedor_idx": 0,
-            "estado": "5",  # Completada
-            "items_indices": [0, 6, 34],
-            "cantidades": [12, 2, 2],
-            "precios": [Decimal("45000"), Decimal("320000"), Decimal("85000")],
-        },
-        {
-            "proveedor_idx": 1,
-            "estado": "4",  # Parcialmente recibida
-            "items_indices": [1, 7, 35],
-            "cantidades": [10, 2, 2],
-            "precios": [Decimal("52000"), Decimal("420000"), Decimal("120000")],
-        },
-        {
-            "proveedor_idx": 4,
-            "estado": "1",  # Aprobada
-            "items_indices": [9, 10, 12],
-            "cantidades": [6, 2, 4],
-            "precios": [Decimal("85000"), Decimal("320000"), Decimal("150000")],
-        },
-        {
-            "proveedor_idx": 6,
-            "estado": "3",  # Enviada al proveedor
-            "items_indices": [13, 14, 16],
-            "cantidades": [1, 12, 6],
-            "precios": [Decimal("380000"), Decimal("35000"), Decimal("120000")],
-        },
-        {
-            "proveedor_idx": 9,
-            "estado": "-",  # Borrador
-            "items_indices": [27, 28, 29],
-            "cantidades": [4, 20, 10],
-            "precios": [Decimal("78000"), Decimal("12000"), Decimal("9000")],
-        },
-    ]
-
-    ordenes_creadas = []
-    admin = usuarios.get("admin")
-
-    for oc_data in ordenes_data:
-        if oc_data["proveedor_idx"] >= len(proveedores):
-            continue
-
-        proveedor = proveedores[oc_data["proveedor_idx"]]
-
-        orden, created = OrdenCompra.objects.get_or_create(
-            proveedor=proveedor,
-            estado=oc_data["estado"],
-            defaults={
-                "creado_por": admin,
-                "observaciones": f"OC para {proveedor.nombre}",
-            },
-        )
-
-        if created:
-            for item_idx, cantidad, precio in zip(
-                oc_data["items_indices"], oc_data["cantidades"], oc_data["precios"]
-            ):
-                if item_idx < len(items):
-                    item = items[item_idx]
-                    ItemEnOrdenCompra.objects.create(
-                        orden_compra=orden,
-                        item=item,
-                        cantidad=cantidad,
-                        precio=int(precio),
-                    )
-
-        ordenes_creadas.append(orden)
-
-    return ordenes_creadas
+# FUNCIÓN ELIMINADA: ensure_ordenes_compra
+# Las órdenes de compra deben crearse manualmente por el usuario para pruebas reales
 
 
-def ensure_compras_guias_movimientos(
-    empresa: object,
-    sucursal: object,
-    bodegas: Dict[str, object],
-    clientes: List[Dict[str, object]],
-    proveedores: List[object],
-    items: List[object],
-    usuarios: Dict[str, object],
-) -> Dict[str, List[object]]:
-    """Crea compras, guias de salida y movimientos de stock."""
-    from bodegas.models import (
-        Compra,
-        GuiaSalida,
-        ItemEnCompra,
-        ItemOrdenCompraEnStock,
-        ItemsGuiaSalida,
-        MovimientoStock,
-        StockItemEnBodega,
-    )
-    from bodegas.movimientos import (
-        registrar_ajuste_manual,
-        registrar_devolucion,
-        registrar_entrada,
-        registrar_salida,
-    )
-    from django.contrib.contenttypes.models import ContentType
-    from decimal import Decimal
-
-    if not items:
-        return {"compras": [], "guias": [], "movimientos": []}
-
-    admin = usuarios.get("admin")
-    bodeguero = usuarios.get("bodeguero")
-    tecnico = usuarios.get("tecnico")
-    bodega_principal = bodegas.get("Bodega Principal")
-    bodega_secundaria = bodegas.get("Bodega Secundaria")
-
-    stock_por_item = {
-        stock.item_id: stock
-        for stock in StockItemEnBodega.objects.select_related("item").all()
-    }
-
-    compras_data = [
-        {
-            "estado": "1",
-            "dias_compra": -12,
-            "items_indices": [0, 6, 34],
-            "cantidades": [6, 1, 1],
-            "precios": [Decimal("42000"), Decimal("310000"), Decimal("85000")],
-        },
-        {
-            "estado": "1",
-            "dias_compra": -20,
-            "items_indices": [1, 7, 35],
-            "cantidades": [6, 1, 1],
-            "precios": [Decimal("52000"), Decimal("420000"), Decimal("120000")],
-        },
-        {
-            "estado": "P",
-            "dias_compra": -7,
-            "items_indices": [9, 12, 27],
-            "cantidades": [3, 2, 1],
-            "precios": [Decimal("90000"), Decimal("150000"), Decimal("78000")],
-        },
-        {
-            "estado": "1",
-            "dias_compra": -3,
-            "items_indices": [14, 15, 16],
-            "cantidades": [10, 10, 6],
-            "precios": [Decimal("35000"), Decimal("8000"), Decimal("115000")],
-        },
-        {
-            "estado": "-",
-            "dias_compra": -1,
-            "items_indices": [23, 29, 43],
-            "cantidades": [8, 12, 20],
-            "precios": [Decimal("8500"), Decimal("9000"), Decimal("2500")],
-        },
-    ]
-
-    compras_creadas = []
-    movimientos_creados = []
-    ct_item_compra = ContentType.objects.get_for_model(ItemEnCompra)
-    ct_item_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
-
-    for idx, compra_data in enumerate(compras_data, 1):
-        compra, created = Compra.objects.get_or_create(
-            sucursal=sucursal,
-            estado=compra_data["estado"],
-            defaults={
-                "creado_por": admin,
-                "observaciones": f"Compra seed #{idx}",
-                "fecha_compra": date.today() + timedelta(days=compra_data["dias_compra"]),
-            },
-        )
-        compras_creadas.append(compra)
-
-        for item_idx, cantidad, precio in zip(
-            compra_data["items_indices"],
-            compra_data["cantidades"],
-            compra_data["precios"],
-        ):
-            if item_idx >= len(items):
-                continue
-            item = items[item_idx]
-            stock_item = stock_por_item.get(item.id)
-            if not stock_item:
-                continue
-            item_compra, created_item = ItemEnCompra.objects.get_or_create(
-                compra=compra,
-                item=item,
-                defaults={"cantidad": cantidad, "precio": int(precio)},
-            )
-            if not created_item:
-                continue
-
-            item_oc_stock, created_stock = ItemOrdenCompraEnStock.objects.get_or_create(
-                content_type=ct_item_compra,
-                item_oc_id=item_compra.id,
-                defaults={
-                    "stock_item": stock_item,
-                    "cantidad": cantidad,
-                },
-            )
-            if created_stock:
-                ya_entrada = MovimientoStock.objects.filter(
-                    content_type=ct_item_oc_stock,
-                    object_id=item_oc_stock.id,
-                    tipo_movimiento="ENTRADA",
-                ).exists()
-                if not ya_entrada:
-                    registrar_entrada(
-                        stock_item=stock_item,
-                        cantidad=cantidad,
-                        usuario=bodeguero or admin,
-                        origen=item_oc_stock,
-                        descripcion=f"Entrada por compra #{compra.id}",
-                    )
-                    movimientos_creados.append(item_oc_stock)
-
-    guias_data = [
-        {"cliente_idx": 0, "estado": "E", "items_indices": [0, 27], "cantidades": [2, 1]},
-        {"cliente_idx": 1, "estado": "FR", "items_indices": [13, 14], "cantidades": [1, 2]},
-        {"cliente_idx": 2, "estado": "ET", "items_indices": [1, 6], "cantidades": [3, 1]},
-        {"cliente_idx": 3, "estado": "P", "items_indices": [18, 19], "cantidades": [1, 4]},
-        {"cliente_idx": 4, "estado": "E", "items_indices": [7, 35], "cantidades": [1, 1]},
-        {"cliente_idx": 5, "estado": "T", "items_indices": [12, 43], "cantidades": [2, 10]},
-        {"cliente_idx": 6, "estado": "E", "items_indices": [37, 27], "cantidades": [1, 1]},
-        {"cliente_idx": 7, "estado": "P", "items_indices": [4, 31], "cantidades": [4, 1]},
-        {"cliente_idx": 8, "estado": "E", "items_indices": [9, 11], "cantidades": [1, 1]},
-        {"cliente_idx": 9, "estado": "T", "items_indices": [39, 36], "cantidades": [4, 1]},
-    ]
-
-    guias_creadas = []
-    ct_items_guia = ContentType.objects.get_for_model(ItemsGuiaSalida)
-
-    for idx, guia_data in enumerate(guias_data, 1):
-        if guia_data["cliente_idx"] >= len(clientes):
-            continue
-        cliente = clientes[guia_data["cliente_idx"]]["empresa"]
-        guia, created = GuiaSalida.objects.get_or_create(
-            bodega=bodega_principal or bodega_secundaria,
-            cliente=cliente,
-            estado=guia_data["estado"],
-            defaults={
-                "creado_por": bodeguero or admin,
-                "recibido_por": tecnico,
-                "entregado_a": tecnico,
-                "motivo": f"Salida seed #{idx}",
-            },
-        )
-        guias_creadas.append(guia)
-
-        for item_idx, cantidad in zip(
-            guia_data["items_indices"], guia_data["cantidades"]
-        ):
-            if item_idx >= len(items):
-                continue
-            item = items[item_idx]
-            stock_item = stock_por_item.get(item.id)
-            if not stock_item or stock_item.cantidad <= 1:
-                continue
-            cantidad_salida = min(cantidad, max(stock_item.cantidad - 1, 0))
-            if cantidad_salida <= 0:
-                continue
-
-            item_guia, created_item = ItemsGuiaSalida.objects.get_or_create(
-                guia=guia,
-                stock_item=stock_item,
-                defaults={
-                    "cantidad_original": cantidad_salida,
-                    "cantidad_rebajada": cantidad_salida,
-                },
-            )
-            if created_item:
-                ya_salida = MovimientoStock.objects.filter(
-                    content_type=ct_items_guia,
-                    object_id=item_guia.id,
-                    tipo_movimiento="SALIDA",
-                ).exists()
-                if not ya_salida:
-                    registrar_salida(
-                        stock_item=stock_item,
-                        cantidad=cantidad_salida,
-                        usuario=bodeguero or admin,
-                        origen=item_guia,
-                        descripcion=f"Salida por guia #{guia.id}",
-                    )
-                    movimientos_creados.append(item_guia)
-
-    # Devoluciones parciales para algunas guias
-    for guia in guias_creadas[:2]:
-        for item_guia in guia.itemsguiasalida_set.all()[:1]:
-            ya_devolucion = MovimientoStock.objects.filter(
-                content_type=ct_items_guia,
-                object_id=item_guia.id,
-                tipo_movimiento="DEVOLUCION",
-            ).exists()
-            if ya_devolucion:
-                continue
-            cantidad_devolver = max(1, item_guia.cantidad_rebajada // 2)
-            registrar_devolucion(
-                stock_item=item_guia.stock_item,
-                cantidad=cantidad_devolver,
-                usuario=bodeguero or admin,
-                origen=item_guia,
-                descripcion=f"Devolucion parcial guia #{guia.id}",
-            )
-            movimientos_creados.append(item_guia)
-
-    # Ajustes manuales controlados
-    ajustes = list(stock_por_item.values())[:3]
-    for stock_item in ajustes:
-        ya_ajuste = MovimientoStock.objects.filter(
-            stock_item=stock_item, tipo_movimiento="AJUSTE"
-        ).exists()
-        if ya_ajuste:
-            continue
-        registrar_ajuste_manual(
-            stock_item=stock_item,
-            cantidad_delta=1,
-            usuario=bodeguero or admin,
-            descripcion="Ajuste manual seed",
-        )
-        movimientos_creados.append(stock_item)
-
-    return {
-        "compras": compras_creadas,
-        "guias": guias_creadas,
-        "movimientos": movimientos_creados,
-    }
+# FUNCIÓN ELIMINADA: ensure_compras_guias_movimientos
+# Las compras, guías de salida y movimientos de stock deben crearse manualmente
+# por el usuario para pruebas reales de flujos operativos
 
 
 def run_seed() -> None:
@@ -2501,59 +1863,22 @@ def run_seed() -> None:
         ensure_rendiciones_categorias()
         ensure_acuerdos_confidencialidad()
 
-        # Crear flujos completos
-        print("\n==> Creando cotizaciones...")
-        cotizaciones = ensure_cotizaciones(empresa_base, clientes, items, internos)
-        print(f"    Creadas {len(cotizaciones)} cotizaciones")
-
-        print("\n==> Creando órdenes de trabajo...")
-        ordenes = ensure_ordenes_trabajo(empresa_base, clientes, internos, cotizaciones)
-        print(f"    Creadas {len(ordenes)} órdenes de trabajo")
-
-        print("\n==> Creando contratos...")
-        contratos = ensure_contratos(empresa_base, clientes, internos)
-        print(f"    Creados {len(contratos)} contratos")
-
-        print("\n==> Creando órdenes de compra...")
-        ordenes_compra = ensure_ordenes_compra(empresa_base, proveedores, items, internos)
-        print(f"    Creadas {len(ordenes_compra)} órdenes de compra")
-
-        print("\n==> Creando compras, guías y movimientos de stock...")
-        compras_guias = ensure_compras_guias_movimientos(
-            empresa_base,
-            sucursal_base,
-            bodegas,
-            clientes,
-            proveedores,
-            items,
-            internos,
-        )
-        print(
-            "    Creadas {compras} compras, {guias} guías, {movs} movimientos".format(
-                compras=len(compras_guias["compras"]),
-                guias=len(compras_guias["guias"]),
-                movs=len(compras_guias["movimientos"]),
-            )
-        )
-
     print("\n" + "=" * 80)
     print("Seed base completado exitosamente!".center(80))
     print("=" * 80)
-    print("\n📦 Datos creados:")
-    print("   ✅ Empresa base (Snabbit) + Sucursales")
+    print("\n📦 Datos base creados:")
+    print("   ✅ Empresa base (Snabbit) con recargo y PPM variables")
+    print("   ✅ Sucursal base con datos de ubicación completos")
     print("   ✅ Grupos de permisos")
     print("   ✅ Usuarios internos (Admin, Ventas, Bodega, Contabilidad, Supervisor, Técnico)")
-    print("   ✅ Empresas cliente + Relaciones")
-    print("   ✅ Categorías + Fabricantes + Proveedores")
-    print("   ✅ Items + Stock en bodegas")
-    print("   ✅ Software catálogo + Equipos")
-    print("   ✅ Servicios y contratos catálogo")
-    print("\n📄 Flujos de negocio creados:")
-    print("   ✅ 10 Cotizaciones (varios estados)")
-    print("   ✅ 3+ Órdenes de Trabajo vinculadas")
-    print("   ✅ 5 Contratos de servicio")
-    print("   ✅ 5 Órdenes de Compra")
-    print("   ✅ Compras, Guías de salida y Movimientos de stock")
+    print(f"   ✅ {len(clientes)} Empresas cliente con recargo y PPM variables")
+    print("   ✅ Relaciones empresa-cliente")
+    print("   ✅ Categorías, Fabricantes y Proveedores")
+    print(f"   ✅ {len(items)} Items con stock en bodegas")
+    print("   ✅ Catálogo de software y equipos")
+    print("   ✅ Catálogos de servicios, contratos y rendiciones")
+    print("\n📝 Nota: Cotizaciones, OT, Contratos, OC, Compras y Guías")
+    print("   NO se crean automáticamente para permitir pruebas manuales reales.")
     print()
 
 

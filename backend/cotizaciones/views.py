@@ -1,6 +1,5 @@
 import logging
 import os
-import threading
 from datetime import datetime
 
 from django.contrib.contenttypes.models import ContentType
@@ -52,15 +51,18 @@ def _has_manual_tipo_cambio(data):
 
 
 def _run_tipo_cambio_update(cotizacion_id, actualizar_dolar=True, actualizar_uf=True):
-    def run_tipo_cambio_update():
-        actualizar_tipo_cambio_cotizacion(
-            cotizacion_id,
+    """
+    Encolada una actualización asíncrona de tipo de cambio a Celery.
+    Se ejecuta en background para no bloquear la creación de cotizaciones.
+    """
+    try:
+        actualizar_tipo_cambio_cotizacion.delay(
+            cotizacion_id=cotizacion_id,
             actualizar_dolar=actualizar_dolar,
             actualizar_uf=actualizar_uf,
         )
-
-    hilo = threading.Thread(target=run_tipo_cambio_update)
-    hilo.start()
+    except Exception as e:
+        logger.error(f"Error encolando actualización de tipo de cambio: {e}")
 
 
 class CotizacionViewSet(viewsets.ModelViewSet):
@@ -96,7 +98,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 cotizacion.fecha_tipo_cambio = fecha_referencia
                 cotizacion.save(update_fields=['fecha_tipo_cambio'])
 
-        # Al crear, ejecutar de forma asíncrona para no bloquear la respuesta
+        # Ejecutar actualización asíncrona (no bloquea la respuesta)
         if not (manual_dolar and manual_uf):
             _run_tipo_cambio_update(
                 cotizacion.id,
@@ -156,7 +158,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             if manual_dolar:
                 cotizacion.fecha_tipo_cambio = fecha_referencia
             cotizacion.save(update_fields=['fecha_tipo_cambio'])
-
+        
         # Ejecutar actualización asíncrona si no es manual o si forzamos por cambio de fecha
         if not (manual_dolar and manual_uf) or forzar_refresco:
             _run_tipo_cambio_update(
@@ -164,12 +166,6 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 actualizar_dolar=not manual_dolar or forzar_refresco,
                 actualizar_uf=not manual_uf or forzar_refresco,
             )
-        usuario_empresa = UsuarioEmpresa.objects.get(usuario=self.request.user)
-        crear_seguimiento_cotizacion(
-            cotizacion_id=cotizacion.id,
-            usuario_id=usuario_empresa.id,
-            comentario=f"Cotización {cotizacion.numero_cotizacion} actualizada.",
-        )
 
     @action(detail=False, methods=["get"], url_path="cotizaciones-empresa")
     def cotizaciones_empresa(self, request):
@@ -208,7 +204,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
     def refrescar_tipo_cambio(self, request, pk=None):
         """
         Actualiza manualmente el tipo de cambio (dolar/UF) de la cotización.
-        Útil cuando el usuario cambia la fecha de facturación en el frontend.
+        Ejecuta de forma asíncrona y retorna inmediatamente.
+        El frontend debe hacer polling o refetch para obtener los valores actualizados.
         """
         cotizacion = self.get_object()
         
@@ -217,15 +214,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             actualizar_dolar=True,
             actualizar_uf=True,
         )
-        cotizacion.refresh_from_db()
+        
         serializer = self.get_serializer(cotizacion)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data)
 
-    @action(detail=True, methods=["post"], url_path="duplicar")
-    def duplicar(self, request, pk=None):
+    @action(detail=True, methods=["post"], url_path="crear-copia-rechazada")
+    def crear_copia_cotizacion_rechazada(self, request, pk=None):
         """
-        Duplica una cotizacion rechazada, copiando items y solicitantes.
-        La nueva cotizacion queda en estado pendiente.
+        Crea una copia de una cotización rechazada con estado pendiente.
         """
         cotizacion = self.get_object()
         if cotizacion.estado != "rechazada":

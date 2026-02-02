@@ -108,74 +108,7 @@ const DetalleCotizacion = () => {
     const [creandoSolicitante, setCreandoSolicitante] = useState<boolean>(false);
     const [refrescandoTipoCambio, setRefrescandoTipoCambio] = useState<boolean>(false);
     const [refrescandoEstado, setRefrescandoEstado] = useState<boolean>(false);
-
-    async function handleRefrescarValores() {
-        if (!detalleCotizacion?.id) return;
-        setRefrescandoTipoCambio(true);
-        try {
-            await ApiService.fetchData({
-                url: `/api/cotizaciones/${detalleCotizacion.id}/refrescar-tipo-cambio/`,
-                method: 'post',
-            });
-            refetch();
-            refetchItems();
-            // El polling se encargará de los siguientes 3 segundos para asegurar que el thread terminó
-        } catch (error: any) {
-            toast.error('Error al refrescar valores');
-            setRefrescandoTipoCambio(false);
-        }
-    }
-
-    // Polling para refrescar tipo de cambio
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (refrescandoTipoCambio) {
-            let attempts = 0;
-            refetch();
-            refetchItems();
-            interval = setInterval(() => {
-                attempts++;
-                refetch();
-                refetchItems();
-                if (attempts >= 3) {
-                    setRefrescandoTipoCambio(false);
-                }
-            }, 1500);
-        }
-        return () => clearInterval(interval);
-    }, [refrescandoTipoCambio, refetch, refetchItems]);
-
-    // Polling para refrescar estado después de acciones asíncronas (como enviar correo)
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (refrescandoEstado) {
-            let attempts = 0;
-            refetch();
-            interval = setInterval(() => {
-                attempts++;
-                refetch();
-                if (detalleCotizacion?.estado !== 'pendiente' || attempts >= 5) {
-                    setRefrescandoEstado(false);
-                }
-            }, 1500);
-        }
-        return () => clearInterval(interval);
-    }, [refrescandoEstado, refetch, detalleCotizacion?.estado]);
-
-    const handleStateChange = () => {
-        refetch();
-        refetchItems();
-    };
-
-    const isFutureDate =
-        detalleCotizacion?.fecha_facturacion &&
-        dayjs(detalleCotizacion.fecha_facturacion).isAfter(dayjs(), 'day');
-
-    const fechaTipoCambio = detalleCotizacion?.fecha_tipo_cambio;
-    const fechaTipoCambioLabel = fechaTipoCambio ? dayjs(fechaTipoCambio).format('DD/MM/YYYY') : '';
-    const tipoCambioTooltip = fechaTipoCambioLabel
-        ? `Tipo de cambio corresponde al día ${fechaTipoCambioLabel}`
-        : '';
+    const [pollingTipoCambio, setPollingTipoCambio] = useState<boolean>(false);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -248,6 +181,205 @@ const DetalleCotizacion = () => {
             }
         },
     });
+
+    async function handleRefrescarValores() {
+        if (!detalleCotizacion?.id) return;
+        setRefrescandoTipoCambio(true);
+        try {
+            await ApiService.fetchData({
+                url: `/api/cotizaciones/${detalleCotizacion.id}/refrescar-tipo-cambio/`,
+                method: 'post',
+            });
+            refetch();
+            refetchItems();
+            // El polling se encargará de los siguientes 3 segundos para asegurar que el thread terminó
+        } catch (error: any) {
+            toast.error('Error al refrescar valores');
+            setRefrescandoTipoCambio(false);
+        }
+    }
+
+    // Polling para refrescar estado después de acciones asíncronas (como enviar correo)
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (refrescandoEstado) {
+            let attempts = 0;
+            refetch();
+            interval = setInterval(() => {
+                attempts++;
+                refetch();
+                if (detalleCotizacion?.estado !== 'pendiente' || attempts >= 5) {
+                    setRefrescandoEstado(false);
+                }
+            }, 1500);
+        }
+        return () => clearInterval(interval);
+    }, [refrescandoEstado, refetch, detalleCotizacion?.estado]);
+
+    // Polling automático cuando dolar_observado o valor_uf están en 0
+    useEffect(() => {
+        if (!detalleCotizacion) return;
+
+        const necesitaDolar = detalleCotizacion.tipo_moneda === '1';
+        const necesitaUF = detalleCotizacion.tipo_moneda === '3';
+        const dolarValor = Number(detalleCotizacion.dolar_observado ?? 0);
+        const ufValor = Number(detalleCotizacion.valor_uf ?? 0);
+        const dolarEnCero = necesitaDolar && dolarValor === 0;
+        const ufEnCero = necesitaUF && ufValor === 0;
+
+        if (dolarEnCero || ufEnCero) {
+            setPollingTipoCambio(true);
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            const interval = setInterval(async () => {
+                attempts++;
+                const result = await refetch();
+                const data = result.data;
+                
+                if (data) {
+                    const dolarActual = Number(data.dolar_observado ?? 0);
+                    const ufActual = Number(data.valor_uf ?? 0);
+                    const dolarActualizado = !necesitaDolar || dolarActual > 0;
+                    const ufActualizada = !necesitaUF || ufActual > 0;
+                    
+                    if ((dolarActualizado && ufActualizada) || attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        setPollingTipoCambio(false);
+                    }
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(interval);
+                    setPollingTipoCambio(false);
+                }
+            }, 2000); // Polling cada 2 segundos
+
+            return () => {
+                clearInterval(interval);
+                setPollingTipoCambio(false);
+            };
+        }
+    }, [detalleCotizacion?.id, detalleCotizacion?.dolar_observado, detalleCotizacion?.valor_uf, detalleCotizacion?.tipo_moneda, refetch]);
+
+    // Asegurar que el spinner no quede encendido cuando no hay polling activo
+    useEffect(() => {
+        if (refrescandoTipoCambio) return;
+        if (!detalleCotizacion) {
+            setPollingTipoCambio(false);
+            return;
+        }
+
+        const necesitaDolar = detalleCotizacion.tipo_moneda === '1';
+        const necesitaUF = detalleCotizacion.tipo_moneda === '3';
+        const dolarValorActual = Number(detalleCotizacion.dolar_observado ?? 0);
+        const ufValorActual = Number(detalleCotizacion.valor_uf ?? 0);
+        const listoDolar = !necesitaDolar || dolarValorActual > 0;
+        const listoUF = !necesitaUF || ufValorActual > 0;
+
+        if (listoDolar && listoUF) {
+            setPollingTipoCambio(false);
+        }
+    }, [refrescandoTipoCambio, detalleCotizacion?.id, detalleCotizacion?.dolar_observado, detalleCotizacion?.valor_uf, detalleCotizacion?.tipo_moneda]);
+
+    // Polling cuando se solicita refrescar manualmente (cambio de fecha)
+    useEffect(() => {
+        if (!refrescandoTipoCambio || !detalleCotizacion) return;
+
+        let attempts = 0;
+        const maxAttempts = 5;
+        let pollingComplete = false;
+        
+        const valorInicial = {
+            dolar: Number(detalleCotizacion.dolar_observado ?? 0),
+            uf: Number(detalleCotizacion.valor_uf ?? 0),
+            fecha: detalleCotizacion.fecha_tipo_cambio,
+        };
+        
+        setPollingTipoCambio(true);
+
+        const interval = setInterval(async () => {
+            if (pollingComplete) return;
+            attempts++;
+            
+            try {
+                const result = await refetch();
+                const newData = result.data;
+
+                if (newData) {
+                    const necesitaDolar = newData.tipo_moneda === '1';
+                    const necesitaUF = newData.tipo_moneda === '3';
+                    
+                    const dolarActual = Number(newData.dolar_observado ?? 0);
+                    const ufActual = Number(newData.valor_uf ?? 0);
+
+                    const dolarCambio = necesitaDolar &&
+                        (dolarActual !== valorInicial.dolar ||
+                         newData.fecha_tipo_cambio !== valorInicial.fecha);
+                    
+                    const ufCambio = necesitaUF &&
+                        (ufActual !== valorInicial.uf ||
+                         newData.fecha_tipo_cambio !== valorInicial.fecha);
+                    
+                    if ((dolarCambio || ufCambio) && isEditing) {
+                        formik.setValues({
+                            ...formik.values,
+                            dolar_observado: newData.dolar_observado ?? formik.values.dolar_observado,
+                            valor_uf: newData.valor_uf ?? formik.values.valor_uf,
+                        });
+                    }
+                    
+                    if (dolarCambio || ufCambio) {
+                        pollingComplete = true;
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            setRefrescandoTipoCambio(false);
+                            setPollingTipoCambio(false);
+                        }, 300);
+                    } else if (attempts >= maxAttempts) {
+                        pollingComplete = true;
+                        clearInterval(interval);
+                        setRefrescandoTipoCambio(false);
+                        setPollingTipoCambio(false);
+                    }
+                }
+            } catch (error) {
+                if (attempts >= maxAttempts) {
+                    pollingComplete = true;
+                    clearInterval(interval);
+                    setRefrescandoTipoCambio(false);
+                    setPollingTipoCambio(false);
+                }
+            }
+        }, 1500);
+
+        return () => {
+            clearInterval(interval);
+            setPollingTipoCambio(false);
+        };
+    }, [refrescandoTipoCambio, detalleCotizacion?.id, isEditing, refetch, formik]);
+
+    const handleStateChange = () => {
+        refetch();
+        refetchItems();
+    };
+
+    const isFutureDate =
+        detalleCotizacion?.fecha_facturacion &&
+        dayjs(detalleCotizacion.fecha_facturacion).isAfter(dayjs(), 'day');
+
+    const fechaTipoCambio = detalleCotizacion?.fecha_tipo_cambio;
+    const fechaTipoCambioLabel = fechaTipoCambio ? dayjs(fechaTipoCambio).format('DD/MM/YYYY') : '';
+    const tipoCambioTooltip = fechaTipoCambioLabel
+        ? `Tipo de cambio corresponde al día ${fechaTipoCambioLabel}`
+        : '';
+
+    const necesitaDolarRender = detalleCotizacion?.tipo_moneda === '1';
+    const necesitaUfRender = detalleCotizacion?.tipo_moneda === '3';
+    const dolarValorRender = Number(detalleCotizacion?.dolar_observado ?? 0);
+    const ufValorRender = Number(detalleCotizacion?.valor_uf ?? 0);
+    const mostrarSpinnerDolar =
+        pollingTipoCambio && (refrescandoTipoCambio || (necesitaDolarRender && dolarValorRender === 0));
+    const mostrarSpinnerUf =
+        pollingTipoCambio && (refrescandoTipoCambio || (necesitaUfRender && ufValorRender === 0));
 
     // Refrescar automáticamente si cambia la fecha mientras se edita (debounce)
     useEffect(() => {
@@ -743,22 +875,28 @@ const DetalleCotizacion = () => {
                                                                 {tipoCambioTooltip ? (
                                                                     <Tooltip
                                                                         text={tipoCambioTooltip}>
-                                                                        <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                                        <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2'>
                                                                             ${' '}
                                                                             {formatPrice(
                                                                                 detalleCotizacion?.dolar_observado,
                                                                                 2,
                                                                                 0,
                                                                             )}
+                                                                            {mostrarSpinnerDolar && (
+                                                                                <Icon icon='HeroArrowPath' className='animate-spin text-blue-500 text-sm' />
+                                                                            )}
                                                                         </div>
                                                                     </Tooltip>
                                                                 ) : (
-                                                                    <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                                    <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2'>
                                                                         ${' '}
                                                                         {formatPrice(
                                                                             detalleCotizacion?.dolar_observado,
                                                                             2,
                                                                             0,
+                                                                        )}
+                                                                        {mostrarSpinnerDolar && (
+                                                                            <Icon icon='HeroArrowPath' className='animate-spin text-blue-500 text-sm' />
                                                                         )}
                                                                     </div>
                                                                 )}
@@ -840,22 +978,28 @@ const DetalleCotizacion = () => {
                                                                 {tipoCambioTooltip ? (
                                                                     <Tooltip
                                                                         text={tipoCambioTooltip}>
-                                                                        <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                                        <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2'>
                                                                             ${' '}
                                                                             {formatPrice(
                                                                                 detalleCotizacion?.valor_uf,
                                                                                 2,
                                                                                 0,
                                                                             )}
+                                                                            {mostrarSpinnerUf && (
+                                                                                <Icon icon='HeroArrowPath' className='animate-spin text-blue-500 text-sm' />
+                                                                            )}
                                                                         </div>
                                                                     </Tooltip>
                                                                 ) : (
-                                                                    <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                                    <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2'>
                                                                         ${' '}
                                                                         {formatPrice(
                                                                             detalleCotizacion?.valor_uf,
                                                                             2,
                                                                             0,
+                                                                        )}
+                                                                        {mostrarSpinnerUf && (
+                                                                            <Icon icon='HeroArrowPath' className='animate-spin text-blue-500 text-sm' />
                                                                         )}
                                                                     </div>
                                                                 )}

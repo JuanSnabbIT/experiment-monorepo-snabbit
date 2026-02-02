@@ -27,4 +27,12 @@ app.conf.beat_schedule = {
         'task': 'tareas2doplano.tareas.actualizar_contratos_vencidos',
         'schedule': crontab(hour=8, minute=0),
     },
+    'expirar_cotizaciones_vencidas': {
+        'task': 'cotizaciones.tasks.expirar_cotizaciones_vencidas',
+        'schedule': crontab(hour=0, minute=0),  # Diariamente a medianoche
+    },
+    'refrescar_tipo_cambio_proyecciones': {
+        'task': 'cotizaciones.tasks.refrescar_tipo_cambio_proyecciones',
+        'schedule': crontab(hour=6, minute=0),  # Diariamente a las 6 AM
+    },
 }
