@@ -9,6 +9,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import ItemDetailModal from '@/pages/Facturacion/ItemDetailModal';
 import { TColors } from '@/types/colors.type';
+import { TColorIntensity } from '@/types/colorIntensities.type';
 import ApiService from '@/services/ApiService';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
@@ -416,8 +417,10 @@ const DetalleFactura = () => {
         },
     });
 
+    const STATUS_BADGE_COLOR_INTENSITY: TColorIntensity = '400';
+
     const renderEstado = (estado: string) => {
-        let color: 'emerald' | 'red' | 'amber' | 'blue' | 'gray' = 'gray';
+        let color: TColors = 'gray';
         let label = estado;
 
         switch (estado) {
@@ -444,7 +447,11 @@ const DetalleFactura = () => {
         }
 
         return (
-            <Badge variant='solid' color={color} className='capitalize'>
+            <Badge
+                variant='solid'
+                color={color}
+                colorIntensity={STATUS_BADGE_COLOR_INTENSITY}
+                className='capitalize'>
                 {label}
             </Badge>
         );

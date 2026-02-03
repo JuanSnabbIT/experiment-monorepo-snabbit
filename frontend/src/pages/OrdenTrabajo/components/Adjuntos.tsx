@@ -1,4 +1,4 @@
-import Icon from '@/components/icon/Icon';
+﻿import Icon from '@/components/icon/Icon';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -35,7 +35,7 @@ function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
     const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId || '', {
         skip: !ordenId,
     });
-    const { data: listaAdjuntos = [], refetch: refetchAdjuntos } = useGetAdjuntosQuery(
+    const { data: listaAdjuntos = [] } = useGetAdjuntosQuery(
         ordenId || '',
         { skip: !ordenId },
     );
@@ -100,7 +100,6 @@ function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
                                 mensaje={`Estas seguro que deseas eliminar el adjunto ${info.row.original.tipo_label} ¿Desea continuar?`}
                                 peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/archivos-adjuntos/${info.row.original.id}/`}
                                 onDispatch={() => {
-                                    refetchAdjuntos();
                                 }}
                             />
                         )}

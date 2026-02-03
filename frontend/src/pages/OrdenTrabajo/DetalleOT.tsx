@@ -246,9 +246,7 @@ const DetalleOT = () => {
                     }).unwrap();
                     if (response) {
                         toast.success('Orden de trabajo actualizada', { autoClose: 1000 });
-                        refetchDetalle();
-                        refetchHistorial();
-                        refetchHistorialSimple();
+                        // No need for manual refetch - RTK Query invalidatesTags handles cache update
                         setIsEditing(false);
                         formik.resetForm();
                     }

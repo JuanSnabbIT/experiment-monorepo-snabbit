@@ -56,7 +56,7 @@ function DetalleGuiaSalidaBodega() {
     const { id } = useParams();
 
     // RTK Query Hooks
-    const { data: detalleGuiaSalidaBodega, isLoading: isLoadingDetalle } =
+    const { data: detalleGuiaSalidaBodega, isLoading: isLoadingDetalle, refetch: refetchDetalleGuia } =
         useGetDetalleGuiaSalidaQuery(id!, { skip: !id });
     const { data: listaItemsEnGuiaSalidaBodega = [], isLoading: isLoadingItems } =
         useGetItemsGuiaSalidaQuery(id!, { skip: !id });
@@ -679,7 +679,9 @@ function DetalleGuiaSalidaBodega() {
                                 );
                             })()}
                         {detalleGuiaSalidaBodega?.estado === 'ER' && (
-                            <VolverAPendienteGuiaSalida guia_salida={detalleGuiaSalidaBodega} />
+                            <VolverAPendienteGuiaSalida guia_salida={detalleGuiaSalidaBodega} onSuccess={() => {
+                                refetchDetalleGuia();
+                            }} />
                         )}
                         {(detalleGuiaSalidaBodega?.estado === 'ET' ||
                             detalleGuiaSalidaBodega?.estado === 'C' ||
@@ -1269,6 +1271,9 @@ function DetalleGuiaSalidaBodega() {
                     bodegaSelected={detalleGuiaSalidaBodega?.bodega.toString()}
                     isOpen={isOpenFirma}
                     setIsOpen={setIsOpenFirma}
+                    onSuccess={() => {
+                        refetchDetalleGuia();
+                    }}
                 />
             </Container>
         </PageWrapper>

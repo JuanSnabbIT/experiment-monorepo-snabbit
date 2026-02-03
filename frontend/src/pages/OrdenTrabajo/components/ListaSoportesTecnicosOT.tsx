@@ -1,4 +1,4 @@
-import Input from '@/components/form/Input';
+﻿import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
@@ -52,9 +52,9 @@ import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
 import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
 
-// ⚠️ DEPRECATED NOTICE (2026-01):
-// La funcionalidad de vincular guías directamente a soportes está deprecada.
-// Las guías deben vincularse a la OT, no a servicios/soportes individuales.
+// âš ï¸ DEPRECATED NOTICE (2026-01):
+// La funcionalidad de vincular guÃ­as directamente a soportes estÃ¡ deprecada.
+// Las guÃ­as deben vincularse a la OT, no a servicios/soportes individuales.
 // Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
 import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
 import ModalVincularGuia from '../modals/ModalVincularGuia';
@@ -70,16 +70,16 @@ function ListaSoportesTecnicosOT() {
     } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, { skip: !ordenId });
     const {
         data: listaSoportesTecnicos = [],
-        refetch: refetchSoportes,
+        refetch: refetchSoportesTecnicos,
     } = useGetSoportesTecnicosQuery(ordenId ?? 0, { skip: !ordenId });
-    const { refetch: refetchInsumos } = useGetInsumosOrdenTrabajoQuery(ordenId ?? 0, {
+    const { refetch: refetchInsumosOrdenTrabajo } = useGetInsumosOrdenTrabajoQuery(ordenId ?? 0, {
         skip: !ordenId,
     });
     const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
         personalizacionUsuario?.empresa ?? 0,
         { skip: !personalizacionUsuario?.empresa },
     );
-    const { refetch: refetchCompletibilidad } = useGetCheckCompletibilidadOTQuery(
+    const { refetch: refetchCompletibilidadOT } = useGetCheckCompletibilidadOTQuery(
         ordenId ?? 0,
         { skip: !ordenId },
     );
@@ -108,7 +108,6 @@ function ListaSoportesTecnicosOT() {
     const {
         data: seguimientos = [],
         isFetching: cargandoSeguimientos,
-        refetch: refetchSeguimientos,
     } = useGetSeguimientosSoporteQuery(
         {
             ordenId: ordenId ?? 0,
@@ -175,9 +174,6 @@ function ListaSoportesTecnicosOT() {
             );
             return;
         }
-        refetchSoportes();
-        refetchInsumos();
-        refetchDetalleOrdenTrabajo();
     };
 
     const abrirModalEntregaGuia = (guia: any, estadoTrabajo: string) => {
@@ -207,14 +203,11 @@ function ListaSoportesTecnicosOT() {
                             usuario: null,
                         },
                     }).unwrap();
-                    refetchSeguimientos();
                 } catch {
                     // ignore seguimiento error
                 }
             }
             toast.success('Estado cambiado', { autoClose: 1000 });
-            refetchSoportes();
-            refetchCompletibilidad();
             setIsOpenEstado(false);
             setEstadoNuevo(undefined);
             setComentario(undefined);
@@ -223,7 +216,6 @@ function ListaSoportesTecnicosOT() {
             setFechaEnModal(undefined);
 
             if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
-                refetchDetalleOrdenTrabajo();
             }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
@@ -394,10 +386,10 @@ function ListaSoportesTecnicosOT() {
                                     estado === 'completado' ||
                                     estado === 'medianamente_completado'
                                 ) {
-                                    if (detalleOrdenTrabajo) {
-                                        refetchSoportes();
-                                        refetchCompletibilidad();
-                                    }
+                                    refetchSoportesTecnicos();
+                                    refetchDetalleOrdenTrabajo();
+                                    refetchCompletibilidadOT();
+                                    refetchInsumosOrdenTrabajo();
                                     return;
                                 }
                                 // Para otros estados (no_realizado), hacer el cambio normal
@@ -411,8 +403,11 @@ function ListaSoportesTecnicosOT() {
                                     toast.success(`Estado cambiado a ${estado}`, {
                                         autoClose: 1000,
                                     });
-                                    refetchSoportes();
-                                    refetchCompletibilidad();
+                                    // Refetch to ensure banner updates immediately
+                                    refetchSoportesTecnicos();
+                                    refetchDetalleOrdenTrabajo();
+                                    refetchCompletibilidadOT();
+                                    refetchInsumosOrdenTrabajo();
                                 } catch (error: unknown) {
                                     toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
                                 }
@@ -460,7 +455,7 @@ function ListaSoportesTecnicosOT() {
                     );
                 }
 
-                // Únicamente pendiente llega aquí
+                // Ãšnicamente pendiente llega aquÃ­
                 return (
                     <Tooltip text={tooltipText}>
                         <div className={!canStart ? 'inline-block' : ''}>
@@ -610,7 +605,6 @@ function ListaSoportesTecnicosOT() {
                                                 toast.success('Soporte técnico eliminado', {
                                                     autoClose: 1000,
                                                 });
-                                                refetchSoportes();
                                             } catch (error: unknown) {
                                                 toast.error(
                                                     getErrorMessage(error) ||
@@ -624,10 +618,10 @@ function ListaSoportesTecnicosOT() {
                         )}
                         {isPendiente && (
                             <>
-                                {!tieneGuia ? // ⚠️ DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
+                                {!tieneGuia ? // âš ï¸ DESHABILITADO: BotÃ³n de vinculaciÃ³n antigua comentado (2026-01)
                                 // Para reactivar: descomentar
                                 /*
-									<Tooltip text='Vincular Guía de Salida'>
+									<Tooltip text='Vincular GuÃ­a de Salida'>
 										<Button
 											variant='solid'
 											color='emerald'
@@ -640,9 +634,9 @@ function ListaSoportesTecnicosOT() {
 									</Tooltip>
 									*/
                                 null : (
-                                    // ⚠️ DESHABILITADO: Botón de desvinculación antigua comentado
+                                    // âš ï¸ DESHABILITADO: BotÃ³n de desvinculaciÃ³n antigua comentado
                                     // Para reactivar: descomentar onClick
-                                    <Tooltip text='Desvincular Guía de Salida [DESHABILITADO]'>
+                                    <Tooltip text='Desvincular GuÃ­a de Salida [DESHABILITADO]'>
                                         <Button
                                             variant='solid'
                                             color='red'
@@ -675,8 +669,8 @@ function ListaSoportesTecnicosOT() {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
-    // ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
-    // Para reactivar desvinculación de guías de soportes, descomenta:
+    // âš ï¸ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+    // Para reactivar desvinculaciÃ³n de guÃ­as de soportes, descomenta:
     /*
 	const desvincularGuia = async (soporteId: number) => {
 		if (!detalleOrdenTrabajo) return;
@@ -758,7 +752,6 @@ function ListaSoportesTecnicosOT() {
                 }
                 toast.success('Técnico asignado', { autoClose: 1000 });
                 formikTecnico.resetForm();
-                refetchSoportes();
                 setIsOpenTecnico(false);
                 setDetalleSeleccionado(null);
                 setSelectedService(null);
@@ -794,7 +787,6 @@ function ListaSoportesTecnicosOT() {
             setIsOpenSeguimiento(false);
             setComentarioSeguimiento('');
             setTipoSeguimiento('comentario_tecnico');
-            refetchSeguimientos();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error al crear seguimiento');
         }
@@ -1069,8 +1061,6 @@ function ListaSoportesTecnicosOT() {
                     targetType='soporte'
                     targetId={soporteParaGuia ?? undefined}
                     onSuccess={() => {
-                        refetchSoportes();
-                        refetchInsumos();
                     }}
                 />
             )}
@@ -1310,7 +1300,6 @@ function ListaSoportesTecnicosOT() {
                                                 id: detalleOrdenTrabajo.id,
                                                 data: { estado: 'en_proceso' },
                                             }).unwrap();
-                                            refetchDetalleOrdenTrabajo();
                                         } catch (error) {
                                             console.error('Error auto-starting OT', error);
                                         }
@@ -1371,7 +1360,6 @@ function ListaSoportesTecnicosOT() {
                                         data: { fecha_soporte: fechaAsignar },
                                     }).unwrap();
                                     toast.success('Fecha asignada', { autoClose: 1000 });
-                                    refetchSoportes();
                                     setIsOpenAsignarFecha(false);
                                     setFechaAsignar(undefined);
                                     setSelectedService(null);
@@ -1398,10 +1386,10 @@ function ListaSoportesTecnicosOT() {
                 setIsOpen={setIsOpenFirmaModal}
                 onSuccess={() => {
                     setIsOpenFirmaModal(false);
-                    if (detalleOrdenTrabajo) {
-                        refetchSoportes();
-                        refetchCompletibilidad();
-                    }
+                    refetchSoportesTecnicos();
+                    refetchDetalleOrdenTrabajo();
+                    refetchCompletibilidadOT();
+                    refetchInsumosOrdenTrabajo();
                 }}
             />
 
@@ -1421,30 +1409,10 @@ function ListaSoportesTecnicosOT() {
                         setSoporteTecnicoUsuarios(null);
                     }}
                     onSaved={() => {
-                        refetchSoportes();
                     }}
                 />
             )}
 
-            {/* Modal Firmar y Completar Trabajo */}
-            <FirmarCompletarTrabajo
-                ordenId={detalleOrdenTrabajo?.id || 0}
-                trabajoId={firmaTrabajoId}
-                trabajoTipo={firmaTrabajoTipo}
-                estadoFinal={firmaEstadoFinal}
-                clienteId={detalleOrdenTrabajo?.cliente || 0}
-                tecnicoNombre={firmaTecnicoNombre}
-                comentariosTecnicos={firmaComentariosTecnicos}
-                isOpen={isOpenFirmaModal}
-                setIsOpen={setIsOpenFirmaModal}
-                onSuccess={() => {
-                    setIsOpenFirmaModal(false);
-                    if (detalleOrdenTrabajo) {
-                        refetchSoportes();
-                        refetchCompletibilidad();
-                    }
-                }}
-            />
         </Card>
     );
 }

@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-# Setup Script para Codex Web – Backend (Django) + Frontend (Node)
+# Setup Script para Codex Web (Entornos Linux/macOS)
+# 
+# Uso:
+#   bash dev/scripts/setup/codex_web_setup.sh
+#
+# Qué hace:
+# - Instala dependencias backend (Django)
+# - Aplica migraciones de base de datos
+# - Instala dependencias frontend (Node.js)
+#
+# Nota: Este script es para entornos Unix (Linux/macOS).
+#       En Windows usar comandos PowerShell desde README.md
 
 set -euo pipefail
 

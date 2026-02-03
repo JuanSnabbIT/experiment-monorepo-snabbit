@@ -75,10 +75,20 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'patch',
                 data: body,
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, { id }) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         deleteGuiaSalida: builder.mutation<void, number | string>({
             query: (id) => ({
@@ -158,20 +168,40 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'post',
                 data: body,
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, { id }) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         comprobarGuia: builder.mutation<IGuiaSalida, number | string>({
             query: (id) => ({
                 url: `/api/guia-salida/${id}/comprobar-guia/`,
                 method: 'post',
             }),
-            invalidatesTags: (_result, _error, id) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, id) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         confirmarRecepcion: builder.mutation<
             IGuiaSalida,
@@ -187,21 +217,41 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'post',
                 data: body,
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-                { type: 'GuiaSalidaItems', id },
-            ],
+            invalidatesTags: (result, _error, { id }) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                    { type: 'GuiaSalidaItems' as const, id },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         volverPendiente: builder.mutation<IGuiaSalida, number | string>({
             query: (id) => ({
                 url: `/api/guia-salida/${id}/volver-pendiente/`,
                 method: 'post',
             }),
-            invalidatesTags: (_result, _error, id) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, id) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         devolverABodega: builder.mutation<
             IGuiaSalida,
@@ -215,12 +265,22 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'post',
                 data: items ? { items } : undefined,
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'GuiaSalida', id },
-                { type: 'GuiaSalida', id: 'LIST' },
-                { type: 'StockItems', id: 'LIST' },
-                { type: 'GuiaSalidaItems', id },
-            ],
+            invalidatesTags: (result, _error, { id }) => {
+                const baseTags = [
+                    { type: 'GuiaSalida' as const, id },
+                    { type: 'GuiaSalida' as const, id: 'LIST' },
+                    { type: 'StockItems' as const, id: 'LIST' },
+                    { type: 'GuiaSalidaItems' as const, id },
+                ];
+                const ordenId = result?.orden_trabajo;
+                const ordenTags = ordenId
+                    ? ([
+                          { type: 'OrdenTrabajo' as const, id: ordenId },
+                          { type: 'OrdenTrabajoInsumos' as const, id: ordenId },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...ordenTags];
+            },
         }),
         descargarPdf: builder.mutation<BlobPart, number | string>({
             query: (id) => ({

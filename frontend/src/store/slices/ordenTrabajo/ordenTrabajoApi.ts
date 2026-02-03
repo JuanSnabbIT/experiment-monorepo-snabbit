@@ -69,10 +69,20 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'OrdenTrabajo', id },
-                'OrdenTrabajoList',
-            ],
+            invalidatesTags: (result, _error, { id }) => {
+                const baseTags = [
+                    { type: 'OrdenTrabajo' as const, id },
+                    'OrdenTrabajoList' as const,
+                ];
+                // Si la OT cambia de estado, invalidar las guías vinculadas
+                const extraTags = result?.id
+                    ? ([
+                          { type: 'GuiaSalida' as const, id: 'LIST' },
+                          { type: 'OrdenTrabajoInsumos' as const, id: result.id },
+                      ] as const)
+                    : [];
+                return [...baseTags, ...extraTags];
+            },
         }),
         deleteOrdenTrabajo: builder.mutation<void, number | string>({
             query: (id) => ({
@@ -336,6 +346,8 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             invalidatesTags: (_result, _error, { detalleId, ordenId }) => [
                 { type: 'OrdenTrabajoDetalleTrabajo', id: detalleId },
                 { type: 'OrdenTrabajo', id: ordenId },
+                { type: 'GuiaSalida', id: 'LIST' },
+                { type: 'OrdenTrabajoInsumos', id: ordenId },
             ],
         }),
         getDetalleConVisita: builder.query<
@@ -574,6 +586,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             invalidatesTags: (_result, _error, { ordenId, servicioId }) => [
                 { type: 'OrdenTrabajoServicios', id: ordenId },
                 { type: 'OrdenTrabajoDetalleTrabajo', id: servicioId },
+                { type: 'OrdenTrabajo', id: ordenId },
             ],
         }),
         completarTrabajoServicio: builder.mutation<
@@ -588,6 +601,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: (_result, _error, { ordenId }) => [
                 { type: 'OrdenTrabajoServicios', id: ordenId },
+                { type: 'OrdenTrabajo', id: ordenId },
             ],
         }),
         crearSeguimientoServicio: builder.mutation<
@@ -709,6 +723,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             invalidatesTags: (_result, _error, { ordenId, soporteId }) => [
                 { type: 'OrdenTrabajoSoportes', id: ordenId },
                 { type: 'OrdenTrabajoDetalleTrabajo', id: soporteId },
+                { type: 'OrdenTrabajo', id: ordenId },
             ],
         }),
         finalizarTrabajoSoporte: builder.mutation<
@@ -723,6 +738,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: (_result, _error, { ordenId }) => [
                 { type: 'OrdenTrabajoSoportes', id: ordenId },
+                { type: 'OrdenTrabajo', id: ordenId },
             ],
         }),
         crearSeguimientoSoporte: builder.mutation<

@@ -1,4 +1,4 @@
-import Input from '@/components/form/Input';
+﻿import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
@@ -69,13 +69,13 @@ function ListaServiciosOT() {
     } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, { skip: !ordenId });
     const {
         data: listaServiciosGenerales = [],
-        refetch: refetchServicios,
+        refetch: refetchServiciosGenerales,
     } = useGetServiciosGeneralesQuery(ordenId ?? 0, { skip: !ordenId });
     const { data: listaTecnicos = [] } = useGetTecnicosPorEmpresaQuery(
         personalizacionUsuario?.empresa ?? 0,
         { skip: !personalizacionUsuario?.empresa },
     );
-    const { refetch: refetchCompletibilidad } = useGetCheckCompletibilidadOTQuery(
+    const { refetch: refetchCompletibilidadOT } = useGetCheckCompletibilidadOTQuery(
         ordenId ?? 0,
         { skip: !ordenId },
     );
@@ -105,7 +105,6 @@ function ListaServiciosOT() {
     const {
         data: seguimientos = [],
         isFetching: cargandoSeguimientos,
-        refetch: refetchSeguimientos,
     } = useGetSeguimientosServicioQuery(
         {
             ordenId: ordenId ?? 0,
@@ -153,11 +152,11 @@ function ListaServiciosOT() {
 			});
 			const opciones = (resp.data || []).map((g) => ({
 				value: g.id.toString(),
-				label: `#${g.id} - ${g.motivo || 'Sin motivo'} (${g.estado_label}) - ${g.cantidad_items} ítems`,
+                label: `#${g.id} - ${g.motivo || 'Sin motivo'} (${g.estado_label}) - ${g.cantidad_items} ítems`,
 			}));
 			setGuiasDisponibles(opciones);
 		} catch (e: any) {
-			toast.error(e?.response?.data?.detail || 'No se pudieron cargar las guías disponibles');
+            toast.error(e?.response?.data?.detail || 'No se pudieron cargar las guías disponibles');
 		}
 	};
 	*/
@@ -174,11 +173,10 @@ function ListaServiciosOT() {
 				headers: { 'Content-Type': 'application/json' },
 				data: JSON.stringify({ guia_salida: guiaSeleccionada }),
 			});
-			toast.success('Guía vinculada');
-			refetchServicios();
+            toast.success('Guía vinculada');
 			setIsOpenGuia(false);
 		} catch (e: any) {
-			const msg = e?.response?.data?.detail || 'Error al vincular guía';
+            const msg = e?.response?.data?.detail || 'Error al vincular guía';
 			toast.error(msg);
 		}
 	};
@@ -203,10 +201,9 @@ function ListaServiciosOT() {
 				method: 'post',
 				headers: { 'Content-Type': 'application/json' },
 			});
-			toast.success('Guía desvinculada');
-			refetchServicios();
+            toast.success('Guía desvinculada');
 		} catch (e: any) {
-			const msg = e?.response?.data?.detail || 'Error al desvincular guía';
+            const msg = e?.response?.data?.detail || 'Error al desvincular guía';
 			toast.error(msg);
 		}
 	}
@@ -239,14 +236,13 @@ function ListaServiciosOT() {
                             usuario: null,
                         },
                     }).unwrap();
-                    refetchSeguimientos();
+                    // RTK Query cache invalidates automatically
                 } catch {
                     // ignore seguimiento error
                 }
             }
             toast.success('Estado cambiado', { autoClose: 1000 });
-            refetchServicios();
-            refetchCompletibilidad();
+            // RTK Query cache invalidates automatically
             setIsOpenEstado(false);
             setEstadoNuevo(undefined);
             setComentario(undefined);
@@ -259,7 +255,7 @@ function ListaServiciosOT() {
                     id: detalleOrdenTrabajo.id,
                     data: { estado: 'en_proceso' },
                 }).unwrap();
-                refetchDetalleOrdenTrabajo();
+                // RTK Query cache invalidates automatically
             }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
@@ -283,12 +279,11 @@ function ListaServiciosOT() {
                 data: { estado: 'en_proceso' },
             }).unwrap();
             toast.success('Servicio en proceso');
-            refetchServicios();
+            // RTK Query cache invalidates automatically
             await updateOrdenTrabajo({
                 id: detalleOrdenTrabajo.id,
                 data: { estado: 'en_proceso' },
             }).unwrap();
-            refetchDetalleOrdenTrabajo();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'No se pudo iniciar el servicio.');
         }
@@ -475,10 +470,9 @@ function ListaServiciosOT() {
                                     estado === 'completado' ||
                                     estado === 'medianamente_completado'
                                 ) {
-                                    if (detalleOrdenTrabajo) {
-                                        refetchServicios();
-                                        refetchCompletibilidad();
-                                    }
+                                    refetchServiciosGenerales();
+                                    refetchDetalleOrdenTrabajo();
+                                    refetchCompletibilidadOT();
                                     return;
                                 }
                                 // Para no_realizado, hacer el cambio normal
@@ -492,8 +486,10 @@ function ListaServiciosOT() {
                                     toast.success(`Estado cambiado a ${estado}`, {
                                         autoClose: 1000,
                                     });
-                                    refetchServicios();
-                                    refetchCompletibilidad();
+                                    // Refetch to ensure banner updates immediately
+                                    refetchServiciosGenerales();
+                                    refetchDetalleOrdenTrabajo();
+                                    refetchCompletibilidadOT();
                                 } catch (error: unknown) {
                                     toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
                                 }
@@ -596,7 +592,7 @@ function ListaServiciosOT() {
                                     />
                                 </Tooltip>
                                 {/* Vincular Cotización - Comentado: Funcionalidad pendiente de implementación backend
-								<Tooltip text='Vincular Cotización'>
+							<Tooltip text='Vincular Cotización'>
 									<Button
 										variant='solid'
 										color='emerald'
@@ -662,7 +658,6 @@ function ListaServiciosOT() {
                                                 toast.success('Servicio eliminado', {
                                                     autoClose: 1000,
                                                 });
-                                                refetchServicios();
                                             } catch (error: unknown) {
                                                 toast.error(
                                                     getErrorMessage(error) ||
@@ -734,12 +729,11 @@ function ListaServiciosOT() {
                 servicioId: selectedService.id,
                 data: { tecnico_asignado: null },
             }).unwrap();
-            toast.success('T??cnico quitado', { autoClose: 1000 });
-            refetchServicios();
+            toast.success('Técnico quitado', { autoClose: 1000 });
             setIsOpenDetail(false);
             setSelectedService(null);
         } catch (error: unknown) {
-            toast.error(getErrorMessage(error) || 'Error al quitar t??cnico');
+            toast.error(getErrorMessage(error) || 'Error al quitar técnico');
         }
     };
 
@@ -786,9 +780,8 @@ function ListaServiciosOT() {
                 } catch {
                     // ignore seguimiento error
                 }
-                toast.success('T??cnico asignado', { autoClose: 1000 });
+                toast.success('Técnico asignado', { autoClose: 1000 });
                 formikTecnico.resetForm();
-                refetchServicios();
                 setIsOpenTecnico(false);
                 setDetalleSeleccionado(null);
                 setSelectedService(null);
@@ -824,7 +817,6 @@ function ListaServiciosOT() {
             setIsOpenSeguimiento(false);
             setComentarioSeguimiento('');
             setTipoSeguimiento('comentario_tecnico');
-            refetchSeguimientos();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error al crear seguimiento');
         }
@@ -1146,18 +1138,18 @@ function ListaServiciosOT() {
                 </ModalFooter>
             </Modal>
             {/* ⚠️ MODAL ANTIGUO DESHABILITADO (2026-01)
-			Para reactivar modal de vinculación de guías a servicios, descomenta y reinstancia la lógica de cargar guías disponibles y vincular.
+            Para reactivar modal de vinculación de guías a servicios, descomenta y reinstancia la lógica de cargar guías disponibles y vincular.
 			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
 				<ModalHeader>
-					<Badge>Vincular Guía de Salida</Badge>
+                    <Badge>Vincular Guía de Salida</Badge>
 				</ModalHeader>
 				<ModalBody>
 					<div className='flex flex-col gap-4'>
 						<div className='w-full'>
-							<Badge>Guías Disponibles</Badge>
+                            <Badge>Guías Disponibles</Badge>
 							<SelectReact
 								name='guia_salida'
-								placeholder='Seleccione una guía'
+                                placeholder='Seleccione una guía'
 								options={guiasDisponibles}
 								onChange={(e) => setGuiaSeleccionada((e as TSelectOption).value)}
 								value={guiasDisponibles.find((g) => g.value === guiaSeleccionada)}
@@ -1355,7 +1347,6 @@ function ListaServiciosOT() {
                                                 id: detalleOrdenTrabajo.id,
                                                 data: { estado: 'en_proceso' },
                                             }).unwrap();
-                                            refetchDetalleOrdenTrabajo();
                                         } catch (error) {
                                             console.error('Error auto-starting OT', error);
                                         }
@@ -1432,7 +1423,6 @@ function ListaServiciosOT() {
                                         data: { fecha_servicio: fechaAsignar },
                                     }).unwrap();
                                     toast.success('Fecha asignada', { autoClose: 1000 });
-                                    refetchServicios();
                                     setIsOpenAsignarFecha(false);
                                     setFechaAsignar(undefined);
                                     setSelectedService(null);
@@ -1455,7 +1445,6 @@ function ListaServiciosOT() {
                     entityName={selectedService.nombre}
                     onSuccess={() => {
                         if (detalleOrdenTrabajo) {
-                            refetchServicios();
                         }
                     }}
                 />
@@ -1474,10 +1463,9 @@ function ListaServiciosOT() {
                 setIsOpen={setIsOpenFirmaModal}
                 onSuccess={() => {
                     setIsOpenFirmaModal(false);
-                    if (detalleOrdenTrabajo) {
-                        refetchServicios();
-                        refetchCompletibilidad();
-                    }
+                    refetchServiciosGenerales();
+                    refetchDetalleOrdenTrabajo();
+                    refetchCompletibilidadOT();
                 }}
             />
         </Card>

@@ -1,4 +1,4 @@
-import Icon from '@/components/icon/Icon';
+﻿import Icon from '@/components/icon/Icon';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -45,13 +45,11 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
     const soporteIdNumber = typeof soporteId === 'number' ? soporteId : null;
     const {
         data: listaUsuariosVinculadosOT = [],
-        refetch: refetchUsuariosVinculados,
     } = useGetUsuariosVinculadosOTQuery(ordenId ?? 0, {
         skip: !ordenId || isSoporteMode,
     });
     const {
         data: listaUsuariosAsignadosSoporte = [],
-        refetch: refetchUsuariosAsignados,
     } = useGetUsuariosAsignadosSoporteQuery(
         {
             ordenId: ordenId ?? 0,
@@ -67,7 +65,6 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
 
     const refreshSoporteLista = () => {
         if (detalleOrdenTrabajo && isSoporteMode && soporteIdNumber !== null) {
-            refetchUsuariosAsignados();
             if (onRefreshSoporte) onRefreshSoporte();
         }
     };
@@ -202,7 +199,6 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
                         <ConfirmarEliminar
                             mensaje='¿Esta seguro de desvincular a este usuario de la OT?'
                             onDispatch={() => {
-                                refetchUsuariosVinculados();
                             }}
                             peticionUrl={`/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/usuarios-vinculados/${info.row.original.id}/`}
                             nombre='Usuario'

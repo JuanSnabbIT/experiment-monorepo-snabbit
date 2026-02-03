@@ -32,7 +32,7 @@ function FotosAdjuntosOT() {
     const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(id || '', {
         skip: !id,
     });
-    const { data: listaAdjuntos = [], refetch: refetchAdjuntos } = useGetAdjuntosQuery(id || '', {
+    const { data: listaAdjuntos = [] } = useGetAdjuntosQuery(id || '', {
         skip: !id,
     });
     const [deleteAdjunto] = useDeleteAdjuntoMutation();
@@ -138,7 +138,7 @@ function FotosAdjuntosOT() {
                                                                 ordenId: detalleOrdenTrabajo.id,
                                                                 adjuntoId: imagenes[index].id,
                                                             }).unwrap();
-                                                            refetchAdjuntos();
+                                                            // RTK Query invalidatesTags will auto-refresh the list
                                                             setIndex(-1);
                                                         } catch (error: any) {
                                                             const mensajesError = Object.values(

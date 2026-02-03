@@ -377,9 +377,23 @@ const DetalleCotizacion = () => {
     const dolarValorRender = Number(detalleCotizacion?.dolar_observado ?? 0);
     const ufValorRender = Number(detalleCotizacion?.valor_uf ?? 0);
     const mostrarSpinnerDolar =
-        pollingTipoCambio && (refrescandoTipoCambio || (necesitaDolarRender && dolarValorRender === 0));
+        !isEditing && pollingTipoCambio && (refrescandoTipoCambio || (necesitaDolarRender && dolarValorRender === 0));
     const mostrarSpinnerUf =
-        pollingTipoCambio && (refrescandoTipoCambio || (necesitaUfRender && ufValorRender === 0));
+        !isEditing && pollingTipoCambio && (refrescandoTipoCambio || (necesitaUfRender && ufValorRender === 0));
+
+    // Apagar pollingTipoCambio automáticamente cuando no hay refresh activo y valores son válidos
+    useEffect(() => {
+        if (!refrescandoTipoCambio && pollingTipoCambio) {
+            const necesitaDolarCheck = detalleCotizacion?.tipo_moneda === '1';
+            const necesitaUfCheck = detalleCotizacion?.tipo_moneda === '3';
+            const dolarOk = !necesitaDolarCheck || Number(detalleCotizacion?.dolar_observado ?? 0) > 0;
+            const ufOk = !necesitaUfCheck || Number(detalleCotizacion?.valor_uf ?? 0) > 0;
+
+            if (dolarOk && ufOk) {
+                setPollingTipoCambio(false);
+            }
+        }
+    }, [refrescandoTipoCambio, pollingTipoCambio, detalleCotizacion?.dolar_observado, detalleCotizacion?.valor_uf, detalleCotizacion?.tipo_moneda]);
 
     // Refrescar automáticamente si cambia la fecha mientras se edita (debounce)
     useEffect(() => {

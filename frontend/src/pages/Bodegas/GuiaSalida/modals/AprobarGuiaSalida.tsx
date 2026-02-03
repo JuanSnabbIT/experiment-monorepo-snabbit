@@ -24,6 +24,7 @@ function AprobarGuiaSalida({
     id_guia,
     isOpen,
     setIsOpen,
+    onSuccess,
 }: {
     id_guia: number | undefined;
     bodegaSelected?: string | undefined;
@@ -135,6 +136,8 @@ function AprobarGuiaSalida({
                                     toast.success('Guia aprobada', { autoClose: 1000 });
                                     clear();
                                     setIsOpen(false);
+                                    // RTK Query cache invalidates automatically
+                                    onSuccess && onSuccess();
                                 } catch (error: any) {
                                     const msg =
                                         error?.data?.detail ||

@@ -97,7 +97,7 @@ function CrearRendicionesOT() {
                         setIsOpen(true);
                     }}></Button>
             </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop>
                 <ModalHeader>
                     <Badge className='text-xl'>Crear Gasto Operativo</Badge>
                 </ModalHeader>

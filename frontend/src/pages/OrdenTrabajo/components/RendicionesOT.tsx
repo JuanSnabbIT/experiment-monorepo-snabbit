@@ -1,4 +1,4 @@
-import Icon from '@/components/icon/Icon';
+﻿import Icon from '@/components/icon/Icon';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -35,7 +35,6 @@ function RendicionesOT() {
     });
     const {
         data: listaDetalleGastoRendicionOT = [],
-        refetch: refetchGastos,
     } = useGetGastosOperativosOTQuery(ordenId ?? 0, {
         skip: !ordenId,
     });
@@ -75,7 +74,6 @@ function RendicionesOT() {
                         mensaje='¿Esta seguro(a) de querer eliminar el gasto?'
                         nombre='Gasto'
                         onDispatch={() => {
-                            refetchGastos();
                         }}
                         peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo?.id}/gastos-operativos/${info.row.original.id}/`}
                     />

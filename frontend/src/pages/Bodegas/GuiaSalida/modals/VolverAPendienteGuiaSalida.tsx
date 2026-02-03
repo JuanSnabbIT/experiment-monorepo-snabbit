@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 
 function VolverAPendienteGuiaSalida({
     guia_salida,
+    onSuccess,
 }: {
     guia_salida: IGuiaSalida;
     onSuccess?: () => void;
@@ -60,6 +61,8 @@ function VolverAPendienteGuiaSalida({
                                         autoClose: 1000,
                                     });
                                     setIsOpen(false);
+                                    // RTK Query cache invalidates automatically
+                                    onSuccess && onSuccess();
                                 } catch (error: any) {
                                     const mensajesError = error.data
                                         ? Object.values(error.data).flat().join(' ')

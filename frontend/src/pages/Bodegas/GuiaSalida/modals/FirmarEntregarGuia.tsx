@@ -20,6 +20,7 @@ function FirmarEntregarGuia({
     id_guia,
     isOpen,
     setIsOpen,
+    onSuccess,
 }: {
     id_guia: number | undefined;
     bodegaSelected?: string | undefined;
@@ -63,6 +64,8 @@ function FirmarEntregarGuia({
                     toast.success('Firma guardada', { autoClose: 1000 });
                     clear();
                     setIsOpen(false);
+                    // RTK Query cache invalidates automatically
+                    onSuccess && onSuccess();
                 } catch (error: any) {
                     toast.error(error.data || 'Error al guardar la firma', {
                         toastId: 'Error al guardar la firma',

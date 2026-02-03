@@ -61,7 +61,7 @@ function ListaGuiaSalidaBodega() {
     const [guiaSelected, setGuiaSelected] = useState<number | undefined>(undefined);
 
     // RTK Query hooks
-    const { data: listaGuiaSalidaPorBodega = [], isLoading } = useGetGuiasSalidaPorBodegaQuery(
+    const { data: listaGuiaSalidaPorBodega = [], isLoading, refetch: refetchGuias } = useGetGuiasSalidaPorBodegaQuery(
         bodegaSelected!,
         {
             skip: !bodegaSelected,
@@ -330,7 +330,9 @@ function ListaGuiaSalidaBodega() {
                         </>
                     )}
                     {info.row.original.estado === 'ER' && (
-                        <VolverAPendienteGuiaSalida guia_salida={info.row.original} />
+                        <VolverAPendienteGuiaSalida guia_salida={info.row.original} onSuccess={() => {
+                            refetchGuias();
+                        }} />
                     )}
                     {['ER', 'FR', 'R', 'PR', 'E', 'T'].includes(info.row.original.estado) && (
                         <Tooltip text='Descargar PDF'>
@@ -537,6 +539,9 @@ function ListaGuiaSalidaBodega() {
                 bodegaSelected={bodegaSelected}
                 isOpen={isOpenFirma}
                 setIsOpen={setIsOpenFirma}
+                onSuccess={() => {
+                    refetchGuias();
+                }}
             />
         </PageWrapper>
     );

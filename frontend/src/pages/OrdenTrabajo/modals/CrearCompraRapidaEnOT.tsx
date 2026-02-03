@@ -414,7 +414,7 @@ function CrearCompraRapidaEnOT() {
                         setIsOpen(true);
                     }}></Button>
             </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop size='lg'>
                 <ModalHeader>
                     <Badge className='text-xl'>Crear Compra Rapida</Badge>
                 </ModalHeader>

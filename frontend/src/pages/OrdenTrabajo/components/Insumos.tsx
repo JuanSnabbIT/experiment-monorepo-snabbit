@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from 'react';
+﻿import { Fragment, useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     createColumnHelper,
@@ -69,12 +69,13 @@ function Insumos() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const ordenId = id ? Number(id) : undefined;
-    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
-        skip: !ordenId,
-    });
+    const { data: detalleOrdenTrabajo, refetch: refetchDetalleOrdenTrabajo } =
+        useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+            skip: !ordenId,
+        });
     const {
         data: listaInsumos = [],
-        refetch: refetchInsumos,
+        refetch: refetchInsumosOrdenTrabajo,
     } = useGetInsumosOrdenTrabajoQuery(ordenId ?? 0, {
         skip: !ordenId,
     });
@@ -86,8 +87,8 @@ function Insumos() {
     const [selectedGuiaId, setSelectedGuiaId] = useState<number | null>(null);
     const {
         data: selectedGuia,
-        refetch: refetchGuia,
         isFetching: cargandoGuia,
+        refetch: refetchDetalleGuia,
     } = useGetDetalleGuiaSalidaQuery(selectedGuiaId ?? 0, {
         skip: !selectedGuiaId,
     });
@@ -121,9 +122,8 @@ function Insumos() {
         setCompletandoGuia(true);
         try {
             await comprobarGuiaSalida(selectedGuia.id).unwrap();
-            toast.success('Gu??a completada', { autoClose: 1200 });
-            refetchGuia();
-            refetchInsumos();
+            toast.success('Guía completada', { autoClose: 1200 });
+            // RTK Query invalidatesTags automatically refreshes caches
         } catch (e: unknown) {
             toast.error(getErrorMessage(e) || 'No se pudo completar la guía');
         } finally {
@@ -838,10 +838,13 @@ function Insumos() {
                     clienteSolicitanteId={detalleOrdenTrabajo.cliente_solicitante}
                     clienteSolicitanteNombre={detalleOrdenTrabajo.nombre_solicitante}
                     onSuccess={() => {
+                        refetchDetalleGuia();
+                        refetchInsumosOrdenTrabajo();
+                        refetchDetalleOrdenTrabajo();
                         setIsOpenConfirmar(false);
                         setItemsPendientesFirma([]);
                         setIsOpenDetail(false);
-                        refetchInsumos();
+                        // RTK Query cache invalidates automatically
                     }}
                 />
             )}
@@ -854,9 +857,12 @@ function Insumos() {
                     isOpen={isOpenAprobar}
                     setIsOpen={setIsOpenAprobar}
                     onSuccess={() => {
+                        refetchDetalleGuia();
+                        refetchInsumosOrdenTrabajo();
+                        refetchDetalleOrdenTrabajo();
                         setIsOpenAprobar(false);
                         setIsOpenDetail(false);
-                        refetchInsumos();
+                        // RTK Query cache invalidates automatically
                     }}
                 />
             )}
@@ -871,7 +877,6 @@ function Insumos() {
                     clienteId={detalleOrdenTrabajo.cliente}
                     onSuccess={() => {
                         setIsOpenVincularCotizacion(false);
-                        refetchInsumos();
                     }}
                 />
             )}
@@ -882,7 +887,8 @@ function Insumos() {
                     otId={detalleOrdenTrabajo.id}
                     targetType='direct_ot'
                     onSuccess={() => {
-                        refetchInsumos();
+                        refetchInsumosOrdenTrabajo();
+                        refetchDetalleOrdenTrabajo();
                     }}
                 />
             )}

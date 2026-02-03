@@ -1,4 +1,4 @@
-import Container from '@/components/layouts/Container/Container';
+﻿import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
@@ -47,7 +47,6 @@ function AgregarItemsACompraDT({}) {
     );
     const {
         data: listaItemsCompra = [],
-        refetch: refetchItemsCompra,
     } = useGetItemsCompraDetalleQuery(detalleCompra?.id ?? 0, {
         skip: !detalleCompra?.id,
     });
@@ -110,7 +109,6 @@ function AgregarItemsACompraDT({}) {
                 toast.success('Item editado', { autoClose: 1000 });
                 formik.resetForm();
                 setEditarItem(undefined);
-                refetchItemsCompra();
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error) || 'Error al editar el item', {
                     toastId: 'Error al editar el item',
@@ -412,7 +410,6 @@ function AgregarItemsACompraDT({}) {
                                                                     toast.success('Item eliminado', {
                                                                         autoClose: 1000,
                                                                     });
-                                                                    refetchItemsCompra();
                                                                 } catch (error: any) {
                                                                     const mensajesError =
                                                                         Object.values(

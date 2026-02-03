@@ -4,8 +4,8 @@ import {
     useGetCheckCompletibilidadOTQuery,
     useGetDetalleOrdenTrabajoQuery,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
-import { useParams } from 'react-router-dom';
 import Marquee from 'react-fast-marquee';
+import { useParams } from 'react-router-dom';
 
 function MarqueeCompletibilidad() {
     const { id } = useParams<{ id: string }>();

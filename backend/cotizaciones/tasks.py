@@ -108,7 +108,7 @@ def _fetch_from_api(
         # Intento 1: Fecha específica
         logger.info(f"Consultando API {indicator} para {formatted_date}...")
         resp = requests.get(url_direct, timeout=API_TIMEOUT_SECONDS)
-        
+
         if resp.ok:
             data = resp.json()
             serie = data.get("serie", [])
@@ -117,15 +117,17 @@ def _fetch_from_api(
                 date_obj = _parse_mindicador_date(serie[0]["fecha"])
                 logger.info(f"API {indicator} exitosa: ${val} (fecha: {date_obj})")
                 return val, date_obj
-        
-        logger.warning(f"API {indicator} devolvió estatus {resp.status_code} para {formatted_date}")
+
+        logger.warning(
+            f"API {indicator} devolvió estatus {resp.status_code} para {formatted_date}"
+        )
 
         # Intento 2: Historial (si fecha específica falla, ej. feriado local no detectado)
         # Solo si el error no fue de conexión, sino de datos vacíos
         logger.info(f"Intentando historial de {indicator}...")
         url_series = f"{MINDICADOR_API_URL}/{indicator}"
         resp_series = requests.get(url_series, timeout=API_TIMEOUT_SECONDS)
-        
+
         if resp_series.ok:
             data = resp_series.json()
             serie = data.get("serie", [])
@@ -141,17 +143,25 @@ def _fetch_from_api(
 
             if best_entry:
                 val = Decimal(str(best_entry[0]["valor"]))
-                logger.info(f"Historial {indicator} encontrado: ${val} (fecha: {best_entry[1]})")
+                logger.info(
+                    f"Historial {indicator} encontrado: ${val} (fecha: {best_entry[1]})"
+                )
                 return val, best_entry[1]
-        
+
         logger.warning(f"Historial {indicator} sin datos para {search_date}")
 
     except requests.exceptions.Timeout as e:
-        logger.error(f"⏱️  TIMEOUT consultando API Mindicador ({indicator}): {e}. Timeout: {API_TIMEOUT_SECONDS}s")
+        logger.error(
+            f"⏱️  TIMEOUT consultando API Mindicador ({indicator}): {e}. Timeout: {API_TIMEOUT_SECONDS}s"
+        )
     except requests.exceptions.ConnectionError as e:
-        logger.error(f"🔌 ERROR DE CONEXIÓN consultando API Mindicador ({indicator}): {e}")
+        logger.error(
+            f"🔌 ERROR DE CONEXIÓN consultando API Mindicador ({indicator}): {e}"
+        )
     except requests.RequestException as e:
-        logger.error(f"❌ Error consultando API Mindicador ({indicator}): {type(e).__name__}: {e}")
+        logger.error(
+            f"❌ Error consultando API Mindicador ({indicator}): {type(e).__name__}: {e}"
+        )
 
     return None, None
 
@@ -160,7 +170,7 @@ def _fetch_from_db_last_known(indicator: str, max_date: date) -> Tuple[Decimal, 
     """
     Busca el último valor guardado en cotizaciones anteriores.
     Si no encuentra nada, lanza una excepción clara en lugar de retornar 0.
-    
+
     Estrategia:
     - Para CUALQUIER fecha: busca el valor más reciente que sea anterior a max_date (exacto)
     - Para fechas FUTURAS SOLAMENTE: si no hay exacto, busca el valor más reciente sin límite
@@ -196,9 +206,7 @@ def _fetch_from_db_last_known(indicator: str, max_date: date) -> Tuple[Decimal, 
             f"No hay cotización para {indicator} en {max_date} (futura), usando valor actual..."
         )
         fallback = (
-            Cotizacion.objects.filter(
-                **{f"{field}__isnull": False, f"{field}__gt": 0}
-            )
+            Cotizacion.objects.filter(**{f"{field}__isnull": False, f"{field}__gt": 0})
             .order_by("-fecha_tipo_cambio", "-fecha_facturacion")
             .first()
         )
@@ -213,9 +221,7 @@ def _fetch_from_db_last_known(indicator: str, max_date: date) -> Tuple[Decimal, 
                 return val, today  # Devolver HOY, no la fecha antigua
 
     # Para fechas PASADAS sin datos exactos: excepción clara
-    logger.error(
-        f"No hay tipo de cambio para {indicator} en {max_date}"
-    )
+    logger.error(f"No hay tipo de cambio para {indicator} en {max_date}")
     raise ValueError(
         f"No hay tipo de cambio disponible para {indicator} en {max_date}. "
         f"Intente con una fecha más reciente o cargue manualmente el valor."
@@ -256,7 +262,7 @@ def actualizar_tipo_cambio_cotizacion(
 
     target_date = cotizacion.fecha_facturacion or timezone.localdate()
     today = timezone.localdate()
-    
+
     # SIEMPRE pedimos la fecha exacta al API. El API tiene histórico completo.
     # Solo sustituimos por HOY si la fecha es futura Y queremos "proyección del día"
     search_date = target_date
@@ -279,8 +285,12 @@ def actualizar_tipo_cambio_cotizacion(
                 if cotizacion.tipo_moneda != "3":
                     # Usar ref_date del API, pero si fue fallback (ref_date es antigua) y es fecha futura,
                     # usar search_date en su lugar
-                    is_fallback = ref_date != search_date  # Si dates no coinciden, vino de fallback
-                    fecha_referencia = search_date if is_fallback and search_date > today else ref_date
+                    is_fallback = (
+                        ref_date != search_date
+                    )  # Si dates no coinciden, vino de fallback
+                    fecha_referencia = (
+                        search_date if is_fallback and search_date > today else ref_date
+                    )
                     cotizacion.fecha_tipo_cambio = fecha_referencia
                     updated_fields.append("fecha_tipo_cambio")
                 updated_fields.append("dolar_observado")
@@ -301,12 +311,18 @@ def actualizar_tipo_cambio_cotizacion(
                 if cotizacion.tipo_moneda == "3":
                     # Usar ref_date del API, pero si fue fallback (ref_date es antigua) y es fecha futura,
                     # usar search_date en su lugar
-                    is_fallback = ref_date != search_date  # Si dates no coinciden, vino de fallback
-                    fecha_referencia = search_date if is_fallback and search_date > today else ref_date
+                    is_fallback = (
+                        ref_date != search_date
+                    )  # Si dates no coinciden, vino de fallback
+                    fecha_referencia = (
+                        search_date if is_fallback and search_date > today else ref_date
+                    )
                     cotizacion.fecha_tipo_cambio = fecha_referencia
                     updated_fields.append("fecha_tipo_cambio")
                 updated_fields.append("valor_uf")
-                logger.info(f"UF actualizado: ${val} (ref_date={ref_date}, guardando: {cotizacion.fecha_tipo_cambio})")
+                logger.info(
+                    f"UF actualizado: ${val} (ref_date={ref_date}, guardando: {cotizacion.fecha_tipo_cambio})"
+                )
         except ValueError as e:
             logger.warning(f"No se pudo obtener tipo de cambio UF: {e}")
 
