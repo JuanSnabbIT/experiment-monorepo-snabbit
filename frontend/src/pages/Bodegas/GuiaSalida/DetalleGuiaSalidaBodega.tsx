@@ -11,12 +11,12 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { IItemGuiaSalida, IStockItemEnBodega } from '@/interface/bodega.interface';
+import ApiService from '@/services/ApiService';
 import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
     useAgregarItemGuiaMutation,
     useComprobarGuiaMutation,
     useDeleteGuiaSalidaMutation,
-    useDescargarPdfMutation,
     useDevolverABodegaMutation,
     useEditarItemGuiaMutation,
     useEliminarItemGuiaMutation,
@@ -72,8 +72,7 @@ function DetalleGuiaSalidaBodega() {
     const [eliminarItem] = useEliminarItemGuiaMutation();
     const [deleteGuia] = useDeleteGuiaSalidaMutation();
     const [comprobarGuiaMutation] = useComprobarGuiaMutation();
-    const [devolverABodegaMutation] = useDevolverABodegaMutation()
-    const [descargarPdf] = useDescargarPdfMutation();
+    const [devolverABodegaMutation] = useDevolverABodegaMutation();
 
     const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
@@ -794,22 +793,19 @@ function DetalleGuiaSalidaBodega() {
                                     onClick={async () => {
                                         if (!id) return;
                                         try {
-                                            const response = await descargarPdf(id!).unwrap();
-                                            if (response) {
-                                                const url = window.URL.createObjectURL(
-                                                    new Blob([response]),
-                                                );
-                                                const link = document.createElement('a');
-                                                link.href = url;
-                                                link.setAttribute(
-                                                    'download',
-                                                    `Guia_Salida_${id}.pdf`,
-                                                );
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                link.remove();
-                                                window.URL.revokeObjectURL(url);
-                                            }
+                                            const response = await ApiService.fetchData<Blob>({
+                                                url: `/api/guia-salida/${id}/descargar-pdf/`,
+                                                method: 'get',
+                                                responseType: 'blob',
+                                            });
+                                            const url = window.URL.createObjectURL(response.data);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.setAttribute('download', `Guia_Salida_${id}.pdf`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            link.remove();
+                                            window.URL.revokeObjectURL(url);
                                         } catch (error: any) {
                                             toast.error('Error al descargar PDF');
                                         }

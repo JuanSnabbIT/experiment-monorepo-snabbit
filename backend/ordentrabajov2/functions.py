@@ -1397,7 +1397,7 @@ def calcular_ejecutado_del_contrato(contrato, periodo_desde, periodo_hasta):
     return {"items": items, "total": float(total_ejecutado), "moneda": "CLP"}
 
 
-def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
+def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
     """
     Extrae los items ejecutados de un conjunto específico de OTs.
     Similar a calcular_ejecutado_del_contrato pero solo considera las OTs indicadas.
@@ -1423,6 +1423,7 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
     from bodegas.models import GuiaSalida, ItemsGuiaSalida
     from cotizaciones.models import Cotizacion
     from cotizaciones.models import ItemCotizacion
+    from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
     from ordentrabajov2.models import OrdenDeTrabajo
     from rendiciones.models import Rendicion
 
@@ -1430,6 +1431,46 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
 
     items = []
     total_ejecutado = Decimal("0.00")
+    dolar_override = None
+    uf_override = None
+
+    if fecha_prefactura:
+        try:
+            dolar_override, _ = obtener_tipo_cambio_mindicador_con_fallback(
+                "dolar", fecha_prefactura
+            )
+            uf_override, _ = obtener_tipo_cambio_mindicador_con_fallback(
+                "uf", fecha_prefactura
+            )
+        except Exception as exc:
+            logger.warning(
+                "No se pudo obtener tipo de cambio para fecha_prefactura=%s: %s",
+                fecha_prefactura,
+                exc,
+            )
+
+    def _precio_unitario_cotizacion_clp(item_cot: ItemCotizacion) -> float:
+        if not item_cot:
+            return 0.0
+
+        moneda_cot = item_cot.cotizacion.tipo_moneda
+        unit_base = Decimal(item_cot.precio_venta_neta_unitario_moneda_base or 0)
+
+        if moneda_cot == "1":
+            tasa_usd = Decimal(dolar_override or item_cot.cotizacion.dolar_observado or 0) + Decimal(
+                5
+            )
+            unit_clp = unit_base * tasa_usd if tasa_usd > 0 else Decimal("0.00")
+            return float(unit_clp.quantize(Decimal("0.01")))
+
+        if moneda_cot == "3":
+            tasa_uf = Decimal(uf_override or item_cot.cotizacion.valor_uf or 0)
+            unit_clp = unit_base * tasa_uf if tasa_uf > 0 else Decimal("0.00")
+            return float(unit_clp.quantize(Decimal("0.01")))
+
+        # Venta en CLP: mantener el cálculo original basado en CLP
+        unit_clp = Decimal(item_cot.precio_unitario_backend.get("clp", 0))
+        return float(unit_clp.quantize(Decimal("0.01")))
 
     # Contadores para resumen
     count_trabajos = 0
@@ -1571,7 +1612,7 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
                     oc = item_guia.source_item.orden_compra
                     cotizacion_id = getattr(oc, "relacion_cotizacion_id", None)
                     item_empresa_id = item_guia.source_item.item_id
-                    cache_key = (cotizacion_id, item_empresa_id)
+                    cache_key = (cotizacion_id, item_empresa_id, fecha_prefactura or "default")
                     if cotizacion_id and item_empresa_id:
                         if cache_key not in precio_cot_cache:
                             item_cot = (
@@ -1583,8 +1624,8 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids):
                                 .first()
                             )
                             if item_cot:
-                                precio_cot_cache[cache_key] = float(
-                                    item_cot.precio_unitario_backend.get("clp", 0)
+                                precio_cot_cache[cache_key] = _precio_unitario_cotizacion_clp(
+                                    item_cot
                                 )
                             else:
                                 precio_cot_cache[cache_key] = 0.0

@@ -1407,7 +1407,17 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        return super().create(request, *args, **kwargs)
+        # Establecer creado_por antes de crear
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        """Override para establecer creado_por automáticamente"""
+        usuario = obtener_usuario_empresa(self.request.user)
+        serializer.save(creado_por=usuario)
 
     def update(self, request, *args, **kwargs):
         """
@@ -2050,8 +2060,14 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 descripcion="Items añadidos a la guia",
             )
 
+            # Refrescar stock_item para asegurar que cantidad y cantidad_no_disponible están sincronizados
+            stock_item.refresh_from_db()
+
             serializer = ItemsGuiaSalidaSerializer(item_guia)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            data = serializer.data
+            # Agregar bodega_id para que el frontend pueda invalidar el cache correcto
+            data['bodega_id'] = guia_salida.bodega_id
+            return Response(data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response(
                 {"detail": f"Error al crear el ítem: {str(e)}"},
@@ -2221,6 +2237,9 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
 
         usuario_empresa = obtener_usuario_empresa(request.user)
 
+        # Guardar referencia al stock_item antes de eliminar
+        stock_item = item_guia.stock_item
+
         # NOTA: No llamamos registrar_devolucion aquí porque el signal pre_delete
         # de ItemsGuiaSalida ya maneja la devolución del stock automáticamente
 
@@ -2253,12 +2272,19 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
                     oc.save()
                     break
 
+        # Guardar bodega_id antes de eliminar
+        bodega_id = item_guia.guia.bodega_id
+        
         # Se elimina el item de la guía
         item_guia.delete()
 
+        # Refrescar stock_item para sincronización después del signal
+        stock_item.refresh_from_db()
+
         return Response(
             {
-                "detail": "Item eliminado, stock actualizado y serie restablecida correctamente."
+                "detail": "Item eliminado, stock actualizado y serie restablecida correctamente.",
+                "bodega_id": bodega_id,
             },
             status=status.HTTP_200_OK,
         )
@@ -2351,12 +2377,19 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             )
         # Si delta es 0, no hay cambios en el stock
 
+        # Refrescar stock_item para asegurar sincronización
+        if delta != 0:
+            stock_item.refresh_from_db()
+
         # Actualizar la cantidad rebajada en el registro del ítem en la guía
         item_guia.cantidad_rebajada = nueva_cantidad
         item_guia.save()
 
         serializer = self.get_serializer(item_guia)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = serializer.data
+        # Agregar bodega_id para invalidación de cache
+        data['bodega_id'] = item_guia.guia.bodega_id
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["patch"], url_path="actualizar-serie")
     def actualizar_serie(self, request, pk=None, guia_salida_bodega_pk=None):

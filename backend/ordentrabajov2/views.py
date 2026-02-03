@@ -15,6 +15,9 @@ from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from cotizaciones.models import Cotizacion
+from cotizaciones.tasks import actualizar_tipo_cambio_cotizacion
+
 logger = logging.getLogger(__name__)
 
 from .functions import (
@@ -1990,6 +1993,43 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         items = resultado.get("ots_incluidas", [])
         return [ot_id for ot_id in items if isinstance(ot_id, int)]
 
+    def _lock_cotizaciones_fecha_prefactura(self, prefactura: CierreAdministrativoOT):
+        ots_incluidas = self._prefactura_ots_incluidas(prefactura)
+        if not ots_incluidas:
+            return
+
+        fecha_prefactura = (
+            prefactura.fecha_prefactura
+            or (
+                prefactura.fecha_creacion.date()
+                if prefactura.fecha_creacion
+                else timezone.localdate()
+            )
+        )
+
+        cotizaciones = (
+            Cotizacion.objects.filter(
+                ordenes_trabajo_v2__id__in=set(ots_incluidas),
+                fecha_facturacion_congelada=False,
+            )
+            .distinct()
+        )
+        if not cotizaciones.exists():
+            return
+
+        for cotizacion in cotizaciones:
+            cotizacion.fecha_facturacion = fecha_prefactura
+            cotizacion.fecha_facturacion_congelada = True
+            cotizacion.fecha_tipo_cambio = fecha_prefactura
+
+        Cotizacion.objects.bulk_update(
+            cotizaciones,
+            ["fecha_facturacion", "fecha_facturacion_congelada", "fecha_tipo_cambio"],
+        )
+
+        for cotizacion in cotizaciones:
+            actualizar_tipo_cambio_cotizacion.delay(cotizacion.id)
+
     def get_queryset(self):
         qs = CierreAdministrativoOT.objects.select_related(
             "cliente", "creado_por", "actualizado_por"
@@ -2007,7 +2047,11 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Crear prefactura con auditoría automática y actualizar estado de OTs."""
         usuario_empresa = obtener_usuario_empresa(self.request.user)
-        prefactura = serializer.save(creado_por=usuario_empresa)
+        fecha_prefactura = self.request.data.get("fecha_prefactura")
+        prefactura = serializer.save(
+            creado_por=usuario_empresa,
+            fecha_prefactura=fecha_prefactura or timezone.localdate(),
+        )
         
         # Actualizar estado de las OTs incluidas a "facturada" (En proceso Factura)
         resultado = prefactura.resultado or {}
@@ -2015,6 +2059,8 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         
         if ots_incluidas:
             OrdenDeTrabajo.objects.filter(id__in=ots_incluidas).update(estado="facturada")
+
+        self._lock_cotizaciones_fecha_prefactura(prefactura)
 
     def perform_update(self, serializer):
         """Actualizar prefactura (solo borrador) con auditoría automática."""
@@ -2064,6 +2110,8 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         prefactura.estado_cierre = "aprobado"
         prefactura.actualizado_por = usuario_empresa
         prefactura.save()
+
+        self._lock_cotizaciones_fecha_prefactura(prefactura)
 
         serializer = self.get_serializer(prefactura)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -2128,6 +2176,7 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
         ots_ids = request.data.get("ots_ids", [])
         contrato_id = request.data.get("contrato_id")
+        fecha_prefactura = request.data.get("fecha_prefactura")
 
         if not ots_ids and not contrato_id:
             return Response(
@@ -2152,7 +2201,9 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
                 )
 
         if ots_ids:
-            ejecutado = calcular_ejecutado_de_ots_seleccionadas(ots_ids)
+            ejecutado = calcular_ejecutado_de_ots_seleccionadas(
+                ots_ids, fecha_prefactura=fecha_prefactura
+            )
 
             # Solo calcular diferencia si tenemos ambos valores
             if pactado is not None and ejecutado is not None:

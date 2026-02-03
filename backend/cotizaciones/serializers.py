@@ -147,6 +147,23 @@ class CotizacionSerializer(serializers.ModelSerializer):
             validated_data['fecha_facturacion'] = timezone.localdate()
         return super().create(validated_data)
 
+    def validate(self, attrs):
+        if self.instance:
+            if self.instance.fecha_facturacion_congelada:
+                if "fecha_facturacion" in attrs:
+                    nueva_fecha = attrs["fecha_facturacion"]
+                    if nueva_fecha != self.instance.fecha_facturacion:
+                        raise serializers.ValidationError(
+                            {"fecha_facturacion": "La fecha de facturación está bloqueada por una prefactura."}
+                        )
+                if attrs.get("fecha_facturacion_congelada") is False:
+                    raise serializers.ValidationError(
+                        {
+                            "fecha_facturacion_congelada": "No se puede desbloquear la fecha de facturación una vez fijada."
+                        }
+                    )
+        return super().validate(attrs)
+
 class SeguimientoCotizacionSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.SerializerMethodField()
 

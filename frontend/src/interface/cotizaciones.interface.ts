@@ -34,6 +34,7 @@ export interface ICotizacion {
     guias_count?: number;
     total_pedido?: number;
     total_recibido?: number;
+    fecha_facturacion_congelada?: boolean;
 }
 
 export interface IItemCotizacion {

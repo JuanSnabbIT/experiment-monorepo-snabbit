@@ -39,7 +39,10 @@ from .models import (
     SolicitanteCotizacion,
 )
 from .serializers import *
-from .tasks import actualizar_tipo_cambio_cotizacion
+from .tasks import (
+    actualizar_tipo_cambio_cotizacion,
+    obtener_tipo_cambio_mindicador_con_fallback,
+)
 
 
 def _has_manual_tipo_cambio(data):
@@ -224,6 +227,34 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(cotizacion)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="tipo-cambio")
+    def tipo_cambio(self, request):
+        fecha = request.query_params.get("fecha")
+        if not fecha:
+            return Response(
+                {"detail": "Parámetro 'fecha' requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            valor_dolar, fecha_dolar = obtener_tipo_cambio_mindicador_con_fallback(
+                "dolar", fecha
+            )
+            valor_uf, fecha_uf = obtener_tipo_cambio_mindicador_con_fallback(
+                "uf", fecha
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "fecha": fecha,
+                "fecha_dolar": fecha_dolar.isoformat() if fecha_dolar else None,
+                "fecha_uf": fecha_uf.isoformat() if fecha_uf else None,
+                "dolar": float(valor_dolar),
+                "uf": float(valor_uf),
+            }
+        )
 
     @action(detail=True, methods=["post"], url_path="crear-copia-rechazada")
     def crear_copia_cotizacion_rechazada(self, request, pk=None):
@@ -981,5 +1012,4 @@ class SolicitanteCotizacionViewSet(viewsets.ModelViewSet):
 class SolicitanteExternoViewSet(viewsets.ModelViewSet):
     serializer_class = SolicitanteExternoSerializer
     queryset = SolicitanteExterno.objects.all()
-
 

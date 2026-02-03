@@ -84,6 +84,11 @@ class Cotizacion(ModeloBase):
         help_text="Mensaje de error si falló la obtención del tipo de cambio",
     )
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
+    fecha_facturacion_congelada = models.BooleanField(
+        default=False,
+        verbose_name="Fecha de facturación congelada",
+        help_text="Indica si la fecha de facturación ya fue sincronizada desde una prefactura",
+    )
     copia_de = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -107,17 +112,7 @@ class Cotizacion(ModeloBase):
         # Ajuste: la relación correcta es 'items' (related_name en ItemCotizacion)
         total = Decimal(0)
         for item in self.items.all():
-            # precio_total_backend devuelve { 'clp': ..., 'usd': ... } con el precio final (con margen)
-            precios = item.precio_total_backend
-
-            if self.tipo_moneda == "1":  # USD
-                total += precios["usd"]
-            elif self.tipo_moneda == "2":  # CLP
-                total += precios["clp"]
-            elif self.tipo_moneda == "3":  # UF
-                # Convertir CLP a UF usando el valor UF de la cotización
-                valor_uf = Decimal(self.valor_uf or 1)
-                total += precios["clp"] / valor_uf
+            total += Decimal(item.precio_venta_neta_total_moneda_base or 0)
 
         # UF requiere mas precision (4 decimales) para que el total en la lista coincida con el detalle
         div = Decimal("0.0001") if self.tipo_moneda == "3" else Decimal("0.01")
