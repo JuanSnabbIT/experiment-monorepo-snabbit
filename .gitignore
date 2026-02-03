@@ -35,8 +35,8 @@ celerybeat.pid
 *.swp
 *.swo
 *~
-.vscode/settings.json.local
-.vscode/*.code-workspace
+.vscode/
+.github/
 
 # Node
 node_modules/
