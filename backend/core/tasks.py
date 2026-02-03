@@ -1,7 +1,6 @@
 import os
 
 from celery import shared_task
-from core.indicators import obtener_valor_dolar
 from django.apps import apps
 from django.core.mail import EmailMessage
 from dotenv import load_dotenv
@@ -197,21 +196,3 @@ def send_email_task(
         return f"Correo enviado a: {recipient_list}"
     except Exception as e:
         return f"Error enviando correo: {str(e)}"
-
-
-@shared_task
-def update_dolar_task(cotizacion_id):
-    """
-    Tarea para actualizar el valor del dolar observado de una cotización.
-    """
-    try:
-        Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
-        dolar_val = obtener_valor_dolar()
-        if dolar_val:
-            Cotizacion.objects.filter(id=cotizacion_id).update(
-                dolar_observado=dolar_val
-            )
-            return f"Cotización {cotizacion_id} actualizada con dolar: {dolar_val}"
-        return "No se pudo obtener el valor del dolar"
-    except Exception as e:
-        return f"Error actualizando dolar: {str(e)}"

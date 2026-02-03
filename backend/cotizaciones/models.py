@@ -70,6 +70,19 @@ class Cotizacion(ModeloBase):
         null=True, blank=True, decimal_places=2, max_digits=10
     )
     fecha_tipo_cambio = models.DateField(null=True, blank=True)
+    estado_tipo_cambio = models.CharField(
+        max_length=20,
+        choices=ESTADO_TIPO_CAMBIO,
+        default='pendiente',
+        verbose_name="Estado del tipo de cambio",
+        help_text="Indica si el tipo de cambio fue obtenido automáticamente, manualmente o falló",
+    )
+    error_tipo_cambio = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="Error de tipo de cambio",
+        help_text="Mensaje de error si falló la obtención del tipo de cambio",
+    )
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
     copia_de = models.ForeignKey(
         "self",

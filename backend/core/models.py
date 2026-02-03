@@ -111,3 +111,36 @@ class PreguntaEnRetroalimentacion(ModeloBase):
 
     def __str__(self):
         return f"Pregunta para {self.content_type}: {self.texto}"
+
+class IndicadorEconomico(ModeloBase):
+    """
+    Caché persistente de indicadores económicos del Banco Central (Mindicador.cl).
+    Reduce llamadas a API externa y provee histórico confiable.
+
+    Estrategia:
+    - Primera fuente de consulta antes de Redis/API externa
+    - Se llena automáticamente al consultar fechas nuevas
+    - Permite auditoría de valores históricos usados
+    """
+
+    TIPO_INDICADOR = [
+        ("dolar", "Dólar Observado"),
+        ("uf", "UF"),
+    ]
+
+    tipo = models.CharField(max_length=20, choices=TIPO_INDICADOR, verbose_name="Tipo de Indicador")
+    fecha = models.DateField(verbose_name="Fecha del Indicador")
+    valor = models.DecimalField(max_digits=12, decimal_places=4, verbose_name="Valor")
+    fuente = models.CharField(max_length=50, default="mindicador.cl", verbose_name="Fuente")
+
+    class Meta:
+        verbose_name = "Indicador Económico"
+        verbose_name_plural = "Indicadores Económicos"
+        unique_together = [["tipo", "fecha"]]
+        ordering = ["-fecha"]
+        indexes = [
+            models.Index(fields=["tipo", "fecha"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.fecha}: ${self.valor}"

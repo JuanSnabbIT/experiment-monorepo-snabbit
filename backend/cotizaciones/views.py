@@ -157,7 +157,14 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 cotizacion.fecha_tipo_cambio = fecha_referencia
             if manual_dolar:
                 cotizacion.fecha_tipo_cambio = fecha_referencia
-            cotizacion.save(update_fields=['fecha_tipo_cambio'])
+            # Marcar como ingreso manual
+            cotizacion.estado_tipo_cambio = 'manual'
+            cotizacion.error_tipo_cambio = None
+            cotizacion.save(update_fields=['fecha_tipo_cambio', 'estado_tipo_cambio', 'error_tipo_cambio'])
+        elif forzar_refresco:
+            # Cambio de fecha sin valores manuales: marcar pendiente mientras se actualiza
+            cotizacion.estado_tipo_cambio = 'pendiente'
+            cotizacion.save(update_fields=['estado_tipo_cambio'])
         
         # Ejecutar actualización asíncrona si no es manual o si forzamos por cambio de fecha
         if not (manual_dolar and manual_uf) or forzar_refresco:

@@ -50,12 +50,13 @@ def obtener_tipo_cambio_mindicador_con_fallback(
     """
     Núcleo unificado para obtener indicadores económicos (Dólar, UF).
 
-    Estrategia de obtención (5 niveles de fallback):
-    1. Búsqueda inteligente de fecha (evitar fines de semana).
-    2. Cache local (Redis, 24 horas).
-    3. API Mindicador (Fecha exacta).
-    4. API Mindicador (Historial para feriados/findes).
-    5. Fallback Base de Datos (Último valor conocido).
+    Estrategia de obtención (4 niveles de fallback):
+    1. Base de Datos (IndicadorEconomico) - Caché persistente.
+    2. Cache Redis (24 horas) - Caché temporal rápido.
+    3. API Mindicador (Fecha exacta + historial).
+    4. Fallback BD histórico (Cotizaciones anteriores).
+
+    Al obtener de API, guarda automáticamente en BD para futuras consultas.
 
     NOTA: Esta función es importada desde bodegas/views.py para obtener tipos de cambio
     en operaciones de compra. No debe ser modificada sin coordinar cambios en ese módulo.
@@ -70,30 +71,64 @@ def obtener_tipo_cambio_mindicador_con_fallback(
     Raises:
         ValueError: Si no hay indicador disponible en ninguna fuente
     """
+    IndicadorEconomico = apps.get_model("core", "IndicadorEconomico")
+
     # Estandarizar fecha
     if isinstance(target_date, str):
         target_date = datetime.fromisoformat(target_date.replace("Z", "")).date()
     elif isinstance(target_date, datetime):
         target_date = target_date.date()
 
-    # 1. Busqueda inteligente de fecha (evitar findes)
+    # Normalizar fecha (API Mindicador no tiene datos de fines de semana)
     search_date = _get_previous_business_day(target_date)
     cache_key = f"cotizaciones:indicator:{indicator}:{search_date.isoformat()}"
 
-    # 2. Cache
+    # 1. BD (IndicadorEconomico) - Caché persistente
+    try:
+        indicador_bd = IndicadorEconomico.objects.get(tipo=indicator, fecha=search_date)
+        logger.info(
+            f"✅ {indicator} desde BD: ${indicador_bd.valor} ({search_date})"
+        )
+        return indicador_bd.valor, indicador_bd.fecha
+    except IndicadorEconomico.DoesNotExist:
+        pass
+
+    # 2. Cache Redis - Caché temporal
     cached_val = cache.get(cache_key)
     if cached_val:
+        logger.info(f"✅ {indicator} desde Redis: ${cached_val} ({search_date})")
         return Decimal(str(cached_val)), search_date
 
-    # 3. API Fetch (Intento directo)
+    # 3. API Mindicador
     api_val, api_date = _fetch_from_api(indicator, search_date)
 
     if api_val:
-        # Guardar en cache y retornar
+        # Guardar en BD (persistente) - usar get_or_create para evitar duplicados
+        IndicadorEconomico.objects.get_or_create(
+            tipo=indicator,
+            fecha=api_date or search_date,
+            defaults={"valor": api_val, "fuente": "mindicador.cl"}
+        )
+        # Guardar en Redis (rápido)
         cache.set(cache_key, str(api_val), timeout=CACHE_TIMEOUT_SECONDS)
+        logger.info(
+            f"✅ {indicator} desde API y guardado en BD: ${api_val} ({api_date or search_date})"
+        )
         return api_val, api_date or search_date
 
-    # 4. Fallback DB (Si la API falló totalmente)
+    # 4. Fallback: Buscar fecha anterior en BD (IndicadorEconomico)
+    indicador_historico = IndicadorEconomico.objects.filter(
+        tipo=indicator,
+        fecha__lte=search_date
+    ).order_by("-fecha").first()
+
+    if indicador_historico:
+        logger.info(
+            f"⚠️ {indicator} desde BD (histórico): ${indicador_historico.valor} ({indicador_historico.fecha})"
+        )
+        return indicador_historico.valor, indicador_historico.fecha
+
+    # 5. Fallback final: Cotizaciones anteriores (legacy)
     return _fetch_from_db_last_known(indicator, search_date)
 
 
@@ -272,6 +307,7 @@ def actualizar_tipo_cambio_cotizacion(
     )
 
     updated_fields = []
+    errores = []
 
     # Dolar
     if actualizar_dolar:
@@ -299,6 +335,7 @@ def actualizar_tipo_cambio_cotizacion(
                 )
         except ValueError as e:
             logger.warning(f"No se pudo obtener tipo de cambio dólar: {e}")
+            errores.append(f"Dólar: {e}")
 
     # UF
     if actualizar_uf:
@@ -325,8 +362,24 @@ def actualizar_tipo_cambio_cotizacion(
                 )
         except ValueError as e:
             logger.warning(f"No se pudo obtener tipo de cambio UF: {e}")
+            errores.append(f"UF: {e}")
+
+    # Actualizar estado según resultado
+    if errores:
+        # Hubo errores en la obtención
+        cotizacion.estado_tipo_cambio = "error"
+        cotizacion.error_tipo_cambio = " | ".join(errores)
+        updated_fields.extend(["estado_tipo_cambio", "error_tipo_cambio"])
+        logger.error(f"Cotización {cotizacion_id} con errores de tipo de cambio: {errores}")
+    elif updated_fields:
+        # Actualización exitosa
+        cotizacion.estado_tipo_cambio = "actualizado"
+        cotizacion.error_tipo_cambio = None
+        updated_fields.extend(["estado_tipo_cambio", "error_tipo_cambio"])
 
     if updated_fields:
+        # Eliminar duplicados manteniendo orden
+        updated_fields = list(dict.fromkeys(updated_fields))
         cotizacion.save(update_fields=updated_fields)
         return f"Cotización {cotizacion_id} actualizada: {updated_fields}"
 

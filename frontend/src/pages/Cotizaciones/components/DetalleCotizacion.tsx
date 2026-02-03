@@ -109,6 +109,7 @@ const DetalleCotizacion = () => {
     const [refrescandoTipoCambio, setRefrescandoTipoCambio] = useState<boolean>(false);
     const [refrescandoEstado, setRefrescandoEstado] = useState<boolean>(false);
     const [pollingTipoCambio, setPollingTipoCambio] = useState<boolean>(false);
+    const [modoIngresoManual, setModoIngresoManual] = useState<boolean>(false);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -170,6 +171,7 @@ const DetalleCotizacion = () => {
 
                     formik.resetForm();
                     setIsEditing(false);
+                    setModoIngresoManual(false);
                 } else {
                     toast.error('Error al actualizar la cotización');
                 }
@@ -631,6 +633,7 @@ const DetalleCotizacion = () => {
                                                     variant='solid'
                                                     onClick={() => {
                                                         setIsEditing(false);
+                                                        setModoIngresoManual(false);
                                                         formik.resetForm();
                                                     }}
                                                     icon='HeroXMark'
@@ -794,6 +797,52 @@ const DetalleCotizacion = () => {
                                                     </div>
                                                     Esta cotización tiene fecha futura. Los valores
                                                     de moneda son estimados.
+                                                </div>
+                                            )}
+                                            {detalleCotizacion?.estado_tipo_cambio === 'error' && !modoIngresoManual && (
+                                                <div className='mb-4 rounded-lg border-l-4 border-red-500 bg-red-100 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300'>
+                                                    <div className='flex items-center gap-2 font-bold'>
+                                                        <Icon icon='HeroExclamationCircle' />
+                                                        Error al obtener tipo de cambio
+                                                    </div>
+                                                    <p className='mt-1'>
+                                                        {detalleCotizacion?.error_tipo_cambio || 'No se pudo obtener el valor del dólar/UF desde la API.'}
+                                                    </p>
+                                                    <div className='mt-2 flex gap-2'>
+                                                        <Button
+                                                            variant='outline'
+                                                            color='red'
+                                                            size='xs'
+                                                            icon='HeroPencil'
+                                                            onClick={() => {
+                                                                setModoIngresoManual(true);
+                                                                setIsEditing(true);
+                                                            }}
+                                                        >
+                                                            Ingresar manualmente
+                                                        </Button>
+                                                        <Button
+                                                            variant='outline'
+                                                            color='zinc'
+                                                            size='xs'
+                                                            icon='HeroArrowPath'
+                                                            onClick={handleRefrescarValores}
+                                                            isLoading={refrescandoTipoCambio}
+                                                        >
+                                                            Reintentar
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {modoIngresoManual && isEditing && (
+                                                <div className='mb-4 rounded-lg border-l-4 border-blue-500 bg-blue-100 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'>
+                                                    <div className='flex items-center gap-2 font-bold'>
+                                                        <Icon icon='HeroInformationCircle' />
+                                                        Modo ingreso manual
+                                                    </div>
+                                                    <p className='mt-1'>
+                                                        Ingresa los valores de Dólar y/o UF manualmente y guarda los cambios.
+                                                    </p>
                                                 </div>
                                             )}
                                             <div className='flex flex-col gap-4'>

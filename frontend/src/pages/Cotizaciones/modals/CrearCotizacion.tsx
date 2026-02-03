@@ -81,13 +81,8 @@ function CrearCotizacion({
                     data: { ...values, empresa: personalizacionUsuario?.empresa },
                 });
                 if (response.data) {
-                    // Refrescar tipo de cambio en segundo plano
-                    ApiService.fetchData({
-                        url: `/api/cotizaciones/${response.data.id}/refrescar-tipo-cambio/`,
-                        method: 'post',
-                    }).catch(() => {
-                        // Silenciar error, no es crítico
-                    });
+                    // El backend dispara automáticamente la actualización de tipo de cambio
+                    // via Celery en perform_create, no es necesario llamar refrescar-tipo-cambio
 
                     toast.success('Cotización creada', { autoClose: 1000 });
                     if (empresa) {

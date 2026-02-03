@@ -20,6 +20,9 @@ export interface ICotizacion {
     dolar_observado: string;
     valor_uf: string;
     fecha_tipo_cambio?: string;
+    estado_tipo_cambio: 'pendiente' | 'actualizado' | 'error' | 'manual';
+    estado_tipo_cambio_label: string;
+    error_tipo_cambio?: string | null;
     ppm: string;
     empresa: number;
     cliente: number;

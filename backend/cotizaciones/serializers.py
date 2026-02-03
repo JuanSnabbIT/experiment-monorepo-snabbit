@@ -86,6 +86,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
     es_vigente = serializers.SerializerMethodField()
     total_estimado = serializers.SerializerMethodField()
     copias_count = serializers.SerializerMethodField()
+    estado_tipo_cambio_label = serializers.SerializerMethodField()
 
     # Alias para el criterio "tipo_cambio_usado" (se persiste en dolar_observado).
     tipo_cambio_usado = serializers.DecimalField(
@@ -123,6 +124,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
         if hasattr(obj, "_prefetched_objects_cache") and "copias" in obj._prefetched_objects_cache:
             return len(obj._prefetched_objects_cache["copias"])
         return obj.copias.count()
+
+    def get_estado_tipo_cambio_label(self, obj):
+        return obj.get_estado_tipo_cambio_display()
 
     class Meta:
         model = Cotizacion
