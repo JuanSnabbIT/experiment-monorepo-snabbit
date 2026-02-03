@@ -421,6 +421,12 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
         null=True,
         verbose_name="Comentario interno",
     )
+    fecha_prefactura = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha definida en prefactura",
+        help_text="Fecha que se acordó en la prefactura antes de aprobarla",
+    )
 
     class Meta:
         verbose_name = "Cierre Administrativo de OT (Manual)"

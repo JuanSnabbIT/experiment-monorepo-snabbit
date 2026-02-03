@@ -1,598 +1,492 @@
-﻿````markdown
-# Frontend Guide - React + TypeScript + Redux (Documento Exhaustivo)
+﻿# Frontend Guide - Monorepo ERP
 
-Guía completa de convenciones, módulos y patrones del frontend React.
-
----
-
-## 1. Estructura de `src/`
-
-```
-src/
-├── pages/              # Vistas por módulo de negocio
-│   ├── Dashboard/
-│   ├── Empresas/
-│   ├── Clientes/
-│   ├── Items/
-│   ├── Bodegas/
-│   │   ├── OrdenCompra/
-│   │   ├── GuiaSalida/
-│   │   ├── Compra/
-│   │   ├── TomaInventario/
-│   │   └── Devoluciones/
-│   ├── Cotizaciones/
-│   ├── OrdenTrabajo/
-│   ├── Rendiciones/
-│   ├── Contratos/
-│   ├── Visitas/
-│   ├── Recursos/
-│   ├── Calendario/
-│   ├── Facturacion/
-│   ├── Core/
-│   ├── InvitacionEmpresa/
-│   ├── ResetPassword/
-│   └── Login.page.tsx
-├── components/         # Componentes reutilizables
-│   ├── ui/             # Componentes UI base (Button, Modal, Card, etc.)
-│   ├── form/           # Componentes de formulario
-│   ├── modals/         # Modales específicos
-│   ├── layouts/        # Layouts de página
-│   ├── helper/         # Componentes auxiliares
-│   └── icon/           # Iconos personalizados
-├── store/              # Redux Toolkit
-│   ├── slices/         # Slices por dominio
-│   ├── hook.ts         # useAppDispatch, useAppSelector
-│   ├── storeSetup.ts   # Configuración del store
-│   ├── rootReducer.ts  # Combina reducers
-│   └── index.ts        # Exportaciones
-├── services/           # Servicios HTTP
-│   ├── BaseService.ts  # Axios con interceptores
-│   ├── ApiService.ts   # Wrapper de BaseService
-│   └── RtkQueryService.ts  # Base RTK Query
-├── interface/          # Tipos TypeScript (¡carpeta singular!)
-├── hooks/              # Custom hooks
-├── routes/             # Definición de rutas
-├── utils/              # Utilidades
-├── config/             # Configuración (pages.config.ts)
-├── styles/             # Estilos globales
-├── App.tsx
-└── main.tsx
-```
-
-**⚠️ IMPORTANTE:** La carpeta de interfaces es `interface/` (singular), no `interfaces/`.
+Guía de convenciones, patrones y estándares para desarrollo frontend en React + TypeScript.
 
 ---
 
-## 2. Módulos por Página
+## 1. Stack Frontend
 
-### 2.1 Dashboard
-- Vista principal del usuario
-- Widgets de resumen
-
-### 2.2 Empresas
-- Gestión de empresas propias
-- Sucursales
-- Usuarios de empresa
-
-### 2.3 Clientes
-- Detalle de clientes (empresas cliente)
-- Usuarios del cliente
-
-### 2.4 Items
-- Catálogo de productos
-- Proveedores
-- Categorías
-- Fabricantes
-
-### 2.5 Bodegas
-- **Bodegas** - CRUD de almacenes
-- **Stock** - Stock por bodega
-- **OrdenCompra** - Órdenes de compra a proveedores
-- **GuiaSalida** - Guías de salida de inventario
-- **Compra** - Compras rápidas
-- **TomaInventario** - Inventarios físicos
-- **Devoluciones** - Vouchers de devolución
-
-### 2.6 Cotizaciones
-- Creación y edición de cotizaciones
-- Items de cotización
-- Solicitantes y aprobación
-- Seguimientos
-
-### 2.7 OrdenTrabajo
-- Órdenes de trabajo completas
-- Soportes técnicos
-- Servicios generales
-- Historial de cambios
-- Adjuntos
-- Gastos operativos
-- Cierre administrativo
-
-### 2.8 Rendiciones
-- Rendiciones de gastos
-- Detalle de gastos
-- Vinculación con OT
-
-### 2.9 Contratos
-- Contratos empresa-cliente
-- Servicios contratados
-- Licencias
-
-### 2.10 Visitas
-- Visitas de soporte
-- Asistencia a usuarios
-- Entregas de equipo
-
-### 2.11 Recursos
-- Equipos de cómputo
-- Asignación de equipos
-- Software instalado
-
-### 2.12 Calendario
-- Calendario de eventos
-- Días feriados
-- Solicitudes de vacaciones
-
-### 2.13 Facturación
-- Cierres administrativos
-- Prefacturas
+| Herramienta | Versión | Propósito |
+|-------------|---------|----------|
+| React | 18.x | Framework UI |
+| TypeScript | 5.x | Tipado estático |
+| Vite | 5.x | Bundler y dev server |
+| Redux Toolkit | 1.9.x | Estado global |
+| RTK Query | Integrado | API queries y mutations |
+| Axios | 1.x | HTTP client (legacy) |
+| Formik + Yup | - | Formularios y validación |
+| TailwindCSS | 3.x | Estilos utilidad |
+| React Router | 6.x | Enrutamiento |
 
 ---
 
-## 3. Store (Redux Toolkit)
-
-### 3.1 Estructura de Slices
+## 2. Estructura del Código
 
 ```
-store/slices/
-├── auth/                  # Autenticación y tokens
-├── bodega/                # Bodegas, stock, OC, guías
-├── calendario/            # Calendario
-├── contratos/             # Contratos
-├── core/                  # Personalización, temas
-├── cotizaciones/          # Cotizaciones
-├── dashboard/             # Dashboard
-├── empresa/               # Empresas
-├── invitacion/            # Invitaciones
-├── item/                  # Items del catálogo
-├── ordenTrabajo/          # OT (slice + RTK Query Api)
-│   ├── ordenTrabajoSlice.ts
-│   ├── ordenTrabajoApi.ts    # Endpoints RTK Query
-│   └── thunks.ts             # Thunks async
-├── recursos/              # Recursos
-├── rendiciones/           # Rendiciones
-└── visita/                # Visitas
+frontend/src/
+├── pages/                    # Componentes de página (por módulo)
+│   ├── cuentas/
+│   │   ├── Login.tsx
+│   │   ├── Registro.tsx
+│   │   └── PerfilUsuario.tsx
+│   ├── empresas/
+│   │   ├── ListadoEmpresas.tsx
+│   │   ├── CrearEmpresa.tsx
+│   │   └── DetalleEmpresa.tsx
+│   ├── ordenes/
+│   │   ├── ListadoOrdenes.tsx
+│   │   ├── CrearOrden.tsx
+│   │   ├── DetalleOrden.tsx
+│   │   └── EditarOrden.tsx
+│   ├── cotizaciones/
+│   ├── bodegas/
+│   └── ...
+│
+├── components/               # Componentes reutilizables
+│   ├── forms/                # Formularios
+│   │   ├── FormularioOrden.tsx
+│   │   ├── FormularioCotizacion.tsx
+│   │   └── FormularioEmpresa.tsx
+│   ├── tables/               # Tablas
+│   │   ├── TablaOrdenes.tsx
+│   │   ├── TablaBodegas.tsx
+│   │   └── TablaGeneral.tsx
+│   ├── modals/               # Modales
+│   │   ├── ModalConfirmar.tsx
+│   │   └── ModalDetalle.tsx
+│   ├── buttons/              # Botones especializados
+│   │   └── BotonAccion.tsx
+│   ├── spinners/             # Indicadores de carga
+│   │   └── Spinner.tsx
+│   └── layouts/              # Layouts principales
+│       ├── LayoutPrincipal.tsx
+│       └── LayoutPublico.tsx
+│
+├── store/                    # Redux + RTK Query
+│   ├── slices/               # Reducers por dominio
+│   │   ├── ordenesTrabajo.ts
+│   │   ├── cotizaciones.ts
+│   │   ├── bodegas.ts
+│   │   ├── empresas.ts
+│   │   ├── auth.ts
+│   │   └── usuarios.ts
+│   ├── hooks.ts              # Hooks de Redux (useAppDispatch, useAppSelector)
+│   └── index.ts              # Configuración del store
+│
+├── services/                 # Servicios HTTP
+│   ├── BaseService.ts        # Clase base (Axios)
+│   ├── RtkQueryService.ts    # RTK Query - API centralizada
+│   ├── OrdeneService.ts      # (Legacy) Servicio específico órdenes
+│   ├── CotizacionesService.ts # (Legacy) Servicio cotizaciones
+│   └── ...
+│
+├── interface/                # Tipos TypeScript
+│   ├── index.ts              # Tipos principales (OrdenDeTrabajo, Cotizacion, etc.)
+│   └── api.ts                # Tipos de respuestas API
+│
+├── hooks/                    # Custom hooks
+│   ├── useAuth.ts            # Contexto de autenticación
+│   ├── useEmpresa.ts         # Empresa actual del usuario
+│   ├── useFetch.ts           # Hook para fetch genérico
+│   └── useForm.ts            # Wrapper de Formik
+│
+├── utils/                    # Funciones utilitarias
+│   ├── formatters.ts         # Formateo de datos (fechas, moneda)
+│   ├── validators.ts         # Validaciones
+│   ├── constants.ts          # Constantes globales
+│   └── helpers.ts            # Helpers varios
+│
+├── context/                  # React Context (si se usa)
+│   └── AuthContext.tsx
+│
+├── assets/                   # Recursos estáticos
+│   ├── images/
+│   ├── icons/
+│   └── styles/               # Estilos globales
+│
+├── App.tsx                   # Componente raíz
+├── App.css                   # Estilos globales (TailwindCSS)
+├── main.tsx                  # Entry point
+└── index.css
 ```
 
-### 3.2 Hook Tipado
+---
+
+## 3. Convenciones de Nombres
+
+### Componentes
+
+**Patrón:** `PascalCase` + sufijo si es específico
 
 ```typescript
-// store/hook.ts
-import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
-import type { RootState, AppDispatch } from './storeSetup';
+// ✅ CORRECTO
+export const ListadoOrdenes = () => { ... }
+export const FormularioCrearOrden = () => { ... }
+export const TablaOrdenes = () => { ... }
+export const BotonAccion = ({ onClick }) => { ... }
 
-export const useAppDispatch = () => useDispatch<AppDispatch>();
-export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+// ❌ INCORRECTO
+export const listadoOrdenes = () => { ... }   // lowercase
+export const FormularioOrdenCrear = () => { }  // sufijo al final
 ```
 
-**Regla:** SIEMPRE usar `useAppDispatch` y `useAppSelector` en lugar de los hooks base de Redux.
+### Archivos
+
+**Regla:**
+- Componentes React: `PascalCase.tsx`
+- Servicios/hooks: `camelCase.ts`
+- Tipos: `camelCase.ts` (en `interface/`)
+- Stores/slices: `camelCase.ts`
+
+```
+✅ CORRECTO:
+- pages/ordenes/ListadoOrdenes.tsx
+- services/RtkQueryService.ts
+- store/slices/ordenesTrabajo.ts
+- hooks/useAuth.ts
+
+❌ INCORRECTO:
+- pages/ordenes/listado_ordenes.tsx
+- services/rtk-query-service.ts
+- store/slices/ordenes-trabajo.ts
+```
+
+### Props y State
+
+**Patrón:** `camelCase`
+
+```typescript
+interface ListadoOrdenesProps {
+    filtroEstado?: string;
+    onActualizar?: () => void;
+    mostrarAcciones: boolean;
+}
+
+const ListadoOrdenes: React.FC<ListadoOrdenesProps> = ({
+    filtroEstado,
+    onActualizar,
+    mostrarAcciones,
+}) => {
+    const [ordenesSeleccionadas, setOrdenesSeleccionadas] = useState([]);
+    // ...
+};
+```
 
 ---
 
-## 4. RTK Query - Sistema de Cache
+## 4. Redux Toolkit + RTK Query
 
-### 4.1 Servicio Base
+### 4.1 Estructura de un Slice
+
+**Ubicación:** `frontend/src/store/slices/ordenesTrabajo.ts`
 
 ```typescript
-// services/RtkQueryService.ts
-const RtkQueryService = createApi({
-    reducerPath: 'rtkApi',
-    baseQuery: axiosBaseQuery(),
-    tagTypes: [
-        'Cotizaciones', 'CotizacionesItems', 'CotizacionesSolicitantes',
-        'OrdenCompra', 'OrdenCompraItems', 'OrdenCompraList',
-        'GuiaSalida', 'GuiaSalidaItems', 'StockItems',
-        'OrdenTrabajo', 'OrdenTrabajoList', 'OrdenTrabajoSoportes',
-        'Empresas', 'UsuariosEmpresa', 'Clientes',
-        // ... más tags
-    ],
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { OrdenDeTrabajo } from '@/interface';
+
+interface OrdenesState {
+    lista: OrdenDeTrabajo[];
+    filtro: {
+        estado?: string;
+        empresa?: number;
+    };
+    cargando: boolean;
+}
+
+const initialState: OrdenesState = {
+    lista: [],
+    filtro: {},
+    cargando: false,
+};
+
+const ordenesTrabajo = createSlice({
+    name: 'ordenesTrabajo',
+    initialState,
+    reducers: {
+        setFiltro: (state, action: PayloadAction<OrdenesState['filtro']>) => {
+            state.filtro = action.payload;
+        },
+        setCargando: (state, action: PayloadAction<boolean>) => {
+            state.cargando = action.payload;
+        },
+        limpiar: (state) => {
+            state.lista = [];
+            state.filtro = {};
+        },
+    },
 });
+
+export const { setFiltro, setCargando, limpiar } = ordenesTrabajo.actions;
+export default ordenesTrabajo.reducer;
 ```
 
-### 4.2 Inyección de Endpoints
+**Uso en componente:**
 
 ```typescript
-// store/slices/ordenTrabajo/ordenTrabajoApi.ts
-export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
-    overrideExisting: true,
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setFiltro } from '@/store/slices/ordenesTrabajo';
+
+const ListadoOrdenes = () => {
+    const dispatch = useAppDispatch();
+    const { filtro } = useAppSelector((state) => state.ordenesTrabajo);
+
+    const handleFiltroChange = (nuevoFiltro) => {
+        dispatch(setFiltro(nuevoFiltro));
+    };
+
+    return <div>...</div>;
+};
+```
+
+### 4.2 RTK Query - Centralización de APIs
+
+**Ubicación:** `frontend/src/services/RtkQueryService.ts`
+
+```typescript
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { OrdenDeTrabajo, Cotizacion } from '@/interface';
+
+export const rtkApi = createApi({
+    reducerPath: 'rtkApi',
+    baseQuery: fetchBaseQuery({
+        baseUrl: 'http://localhost:8000/api',
+        prepareHeaders: (headers, { getState }: any) => {
+            const token = getState().auth?.access || localStorage.getItem('access');
+            if (token) {
+                headers.set('Authorization', `Bearer ${token}`);
+            }
+            return headers;
+        },
+    }),
+    tagTypes: ['Ordenes', 'Cotizaciones', 'Bodegas', 'Usuarios'],
     endpoints: (builder) => ({
-        // Query (GET)
-        getOrdenesTrabajo: builder.query<IOrdenDeTrabajo[], void>({
-            query: () => ({
-                url: '/api/ordenes-de-trabajo/',
-                method: 'get',
-            }),
-            providesTags: ['OrdenTrabajoList'],
+        // Queries (GET)
+        getOrdenes: builder.query<OrdenDeTrabajo[], void>({
+            query: () => '/ordenes/',
+            invalidatesTags: ['Ordenes'],
         }),
-        
-        // Query con parámetro
-        getDetalleOrdenTrabajo: builder.query<IOrdenDeTrabajo, number | string>({
-            query: (id) => ({
-                url: `/api/ordenes-de-trabajo/${id}/`,
-                method: 'get',
-            }),
-            providesTags: (_result, _error, id) => [{ type: 'OrdenTrabajo', id }],
+
+        getOrdenById: builder.query<OrdenDeTrabajo, number>({
+            query: (id) => `/ordenes/${id}/`,
+            invalidatesTags: (_, __, id) => [{ type: 'Ordenes', id }],
         }),
-        
-        // Mutation (POST/PATCH/DELETE)
-        updateOrdenTrabajo: builder.mutation<
-            IOrdenDeTrabajo,
-            { id: number | string; data: Partial<IOrdenDeTrabajo> }
+
+        // Mutations (POST, PATCH, DELETE)
+        createOrden: builder.mutation<
+            OrdenDeTrabajo,
+            Partial<OrdenDeTrabajo>
+        >({
+            query: (body) => ({
+                url: '/ordenes/',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: ['Ordenes'],
+        }),
+
+        updateOrden: builder.mutation<
+            OrdenDeTrabajo,
+            { id: number; data: Partial<OrdenDeTrabajo> }
         >({
             query: ({ id, data }) => ({
-                url: `/api/ordenes-de-trabajo/${id}/`,
-                method: 'patch',
-                data,
+                url: `/ordenes/${id}/`,
+                method: 'PATCH',
+                body: data,
             }),
-            invalidatesTags: (_result, _error, { id }) => [
-                { type: 'OrdenTrabajo', id },
-                'OrdenTrabajoList',
+            invalidatesTags: (_, __, { id }) => [
+                { type: 'Ordenes', id },
+                'Ordenes',
             ],
+        }),
+
+        deleteOrden: builder.mutation<void, number>({
+            query: (id) => ({
+                url: `/ordenes/${id}/`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Ordenes'],
         }),
     }),
 });
 
-// Exportar hooks auto-generados
 export const {
-    useGetOrdenesTrabajoQuery,
-    useGetDetalleOrdenTrabajoQuery,
-    useUpdateOrdenTrabajoMutation,
-} = ordenTrabajoApi;
+    useGetOrdenesQuery,
+    useGetOrdenByIdQuery,
+    useCreateOrdenMutation,
+    useUpdateOrdenMutation,
+    useDeleteOrdenMutation,
+} = rtkApi;
 ```
 
-### 4.3 Uso en Componentes
+**Uso en componentes:**
 
 ```typescript
-// En componente
-const { data, isLoading, error } = useGetOrdenesTrabajoQuery();
-const [updateOT] = useUpdateOrdenTrabajoMutation();
+const DetalleOrden: React.FC<{ ordenId: number }> = ({ ordenId }) => {
+    const { data: orden, isLoading } = useGetOrdenByIdQuery(ordenId);
+    const [updateOrden] = useUpdateOrdenMutation();
 
-// Actualizar
-await updateOT({ id: 123, data: { estado: 'completada' } });
-// La invalidación automática refrescará las listas
-```
+    const handleActualizar = async (nuevosDatos) => {
+        await updateOrden({ id: ordenId, data: nuevosDatos }).unwrap();
+        // RTK Query invalida automáticamente el cache
+    };
 
-### 4.4 Reglas Críticas de RTK Query
-
-**✅ CORRECTO:**
-```typescript
-// Confiar en invalidatesTags para revalidación
-invalidatesTags: ['OrdenTrabajoList']
-```
-
-**❌ INCORRECTO:**
-```typescript
-// NO usar refetch() manual después de mutations
-// NO importar queryClient ni usar invalidateQueries
-```
-
----
-
-## 5. Servicios HTTP
-
-### 5.1 BaseService
-
-```typescript
-// services/BaseService.ts
-const BaseService = axios.create({
-    timeout: 60000,
-    baseURL: process.env.VITE_API_URL,
-});
-
-// Interceptor de solicitud - inyecta JWT
-BaseService.interceptors.request.use((config) => {
-    const token = store.getState().auth.access;
-    if (token) {
-        config.headers['Authorization'] = 'Bearer ' + token;
-    }
-    return config;
-});
-
-// Interceptor de respuesta - maneja refresh token
-BaseService.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            // Intentar refresh
-            const refreshToken = store.getState().auth.refresh;
-            const response = await axios.post('/auth/jwt/refresh', { refresh: refreshToken });
-            store.dispatch(GUARDAR_TOKEN(response.data.access));
-            // Reintentar request original
-            return BaseService(originalRequest);
-        }
-        return Promise.reject(error);
-    }
-);
-```
-
-### 5.2 ApiService
-
-```typescript
-// services/ApiService.ts
-const ApiService = {
-    fetchData: <T>(config: AxiosRequestConfig): Promise<T> => {
-        return BaseService(config).then(response => response.data);
-    }
+    if (isLoading) return <Spinner />;
+    return <div>{orden?.numero}</div>;
 };
 ```
 
-**Regla:** Usar `ApiService.fetchData()` para llamadas HTTP directas (fuera de RTK Query).
+### 4.3 Diferencia Slice vs RTK Query
+
+| Aspecto | Slice (Redux) | RTK Query |
+|--------|---------------|-----------|
+| **Caso de uso** | Estado local, lógica compleja | Queries HTTP, sincronización con API |
+| **Automatización** | Manual | Automática (refetch, caché, invalidación) |
+| **Cuando usar Slice** | Filtros, UI state, datos computados | - |
+| **Cuando usar RTK Query** | Fetching, mutations, sincronización | - |
+
+**REGLA IMPORTANTE:** NO usar Slice para almacenar datos de API. RTK Query maneja eso mejor.
 
 ---
 
-## 6. Interfaces TypeScript
+## 5. Componentes React
 
-### 6.1 Archivos de Interfaces
+### 5.1 Componentes Funcionales
 
-```
-interface/
-├── bodega.interface.ts        # IBodega, IGuiaSalida, IOrdenCompra, IStockItemEnBodega
-├── calendario.interface.ts    # IDiaCalendario, ISolicitudVacaciones
-├── contrato.interface.ts      # IContrato, IContratoServicio, IContratoLicencia
-├── core.interface.ts          # IPersonalizacionUsuario, ISoftware
-├── cotizaciones.interface.ts  # ICotizacion, IItemCotizacion, ISolicitante
-├── empresas.interface.ts      # IEmpresa, IUsuarioEmpresa, ISucursalEmpresa
-├── items.interface.ts         # IItemEmpresa, IProveedor, ICategoria
-├── ordenTrabajo.interface.ts  # IOrdenDeTrabajo, ISoporteTecnico, IServicioEnOT
-├── recursos.interface.ts      # IEquipo, IUsuarioEquipo, ISoftwareInstalado
-├── rendicion.interface.ts     # IRendicion, IDetalleGasto
-├── user.interface.ts          # IUser
-└── visitas.interface.ts       # IVisitaSoporte, IAsistencia, IEntrega
-```
-
-### 6.2 Patrón de Nomenclatura
+**Patrón:**
 
 ```typescript
-// Prefijo I para interfaces
-interface IOrdenDeTrabajo {
-    id: number;
-    estado: string;
-    // ...
+import React, { useState } from 'react';
+import { useAppSelector } from '@/store/hooks';
+
+interface MiComponenteProps {
+    titulo: string;
+    onGuardar?: (data: any) => void;
 }
 
-// Sin prefijo para tipos simples
-type EstadoOT = 'pendiente' | 'en_proceso' | 'completada';
-```
+export const MiComponente: React.FC<MiComponenteProps> = ({
+    titulo,
+    onGuardar,
+}) => {
+    const [estado, setEstado] = useState('');
+    const datos = useAppSelector((state) => state.miDato);
 
----
-
-## 7. Hooks Personalizados
-
-### 7.1 Hooks Disponibles
-
-```
-hooks/
-├── useAppDispatch/Selector    # En store/hook.ts (Redux tipado)
-├── useAsideStatus.ts          # Estado del sidebar
-├── useAuthority.ts            # Permisos del usuario
-├── useAxiosFunction.ts        # Llamadas HTTP con estado
-├── useDarkMode.ts             # Modo oscuro
-├── useDescargarCotizacionPdf.ts  # Descarga PDF cotización
-├── useDeviceScreen.ts         # Detección de pantalla
-├── useEstadoOT.ts             # Estados de OT
-├── useFontSize.ts             # Tamaño de fuente
-├── useLocalStorage.ts         # Persistencia local
-├── useSaveBtn.ts              # Estado de botón guardar
-└── ...
-```
-
-### 7.2 Ejemplo de Hook
-
-```typescript
-// hooks/useEstadoOT.ts
-export const useEstadoOT = (estado: string) => {
-    const colores = {
-        pendiente: 'yellow',
-        en_proceso: 'blue',
-        completada: 'green',
-        // ...
+    const handleClick = () => {
+        setEstado('nuevo');
+        onGuardar?.({ estado });
     };
-    return colores[estado] || 'gray';
-};
-```
 
----
-
-## 8. Componentes UI
-
-### 8.1 Componentes Base
-
-```
-components/ui/
-├── Alert.tsx          # Alertas
-├── Badge.tsx          # Badges
-├── Button.tsx         # Botones
-├── ButtonGroup.tsx    # Grupos de botones
-├── Card.tsx           # Cards
-├── Dropdown.tsx       # Dropdowns
-├── Modal.tsx          # Modales
-├── OffCanvas.tsx      # Panel lateral
-├── Progress.tsx       # Barras de progreso
-├── Table.tsx          # Tablas
-└── Tooltip.tsx        # Tooltips
-```
-
-### 8.2 Componentes de Formulario
-
-```
-components/form/
-├── Input.tsx          # Inputs
-├── Select.tsx         # Selects
-├── Checkbox.tsx       # Checkboxes
-├── Radio.tsx          # Radios
-├── Textarea.tsx       # Textareas
-├── DatePicker.tsx     # Selector de fecha
-└── ...
-```
-
----
-
-## 9. Rutas
-
-### 9.1 Estructura de Rutas
-
-```
-routes/
-├── asideRoutes.tsx    # Rutas del sidebar
-├── contentRoutes.tsx  # Rutas principales (contenido)
-├── headerRoutes.tsx   # Rutas del header
-└── footerRoutes.tsx   # Rutas del footer
-```
-
-### 9.2 Configuración de Páginas
-
-```typescript
-// config/pages.config.ts
-export const authPages = {
-    loginPage: { id: 'login', to: '/login' },
-    // ...
+    return (
+        <div>
+            <h1>{titulo}</h1>
+            <button onClick={handleClick}>Guardar</button>
+        </div>
+    );
 };
 
-export const appPages = {
-    dashboard: { id: 'dashboard', to: '/' },
-    empresas: { id: 'empresas', to: '/empresas' },
-    ordenesTrabajo: { id: 'ordenes-trabajo', to: '/ordenes-trabajo' },
-    // ...
-};
+export default MiComponente;
 ```
 
----
+### 5.2 Componentes de Formulario
 
-## 10. Alertas y Notificaciones
-
-### 10.1 Confirmaciones (SweetAlert2)
-
-```typescript
-import { confirmAlert } from '@/utils/sweetAlert';
-
-const handleDelete = async () => {
-    const result = await confirmAlert({
-        title: '¿Eliminar registro?',
-        text: 'Esta acción no se puede deshacer',
-        icon: 'warning',
-        confirmButtonText: 'Eliminar',
-    });
-    
-    if (result.isConfirmed) {
-        await deleteItem(id);
-    }
-};
-```
-
-### 10.2 Toast (react-toastify)
-
-```typescript
-import { toast } from 'react-toastify';
-
-// Éxito
-toast.success('Registro guardado correctamente');
-
-// Error
-toast.error('Error al guardar');
-
-// Advertencia
-toast.warning('Hay campos sin completar');
-
-// Info
-toast.info('Procesando...');
-```
-
-**Regla:**
-- `confirmAlert` → Confirmaciones pre-acción (eliminar, cancelar)
-- `toast` → Feedback post-acción (guardado, error)
-
----
-
-## 11. Formularios (Formik + Yup)
-
-### 11.1 Patrón Básico
+**Patrón con Formik:**
 
 ```typescript
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 
-const validationSchema = Yup.object({
-    nombre: Yup.string().required('El nombre es requerido'),
-    email: Yup.string().email('Email inválido').required('El email es requerido'),
+const validationSchema = Yup.object().shape({
+    nombre: Yup.string().required('Nombre es requerido'),
+    email: Yup.string().email().required('Email es requerido'),
+    estado: Yup.string().oneOf(['pendiente', 'completada']),
 });
 
-const MiFormulario = () => (
-    <Formik
-        initialValues={{ nombre: '', email: '' }}
-        validationSchema={validationSchema}
-        onSubmit={async (values) => {
-            await guardarDatos(values);
-        }}
-    >
-        {({ isSubmitting }) => (
-            <Form>
-                <Field name="nombre" />
-                <ErrorMessage name="nombre" />
-                
-                <Field name="email" type="email" />
-                <ErrorMessage name="email" />
-                
-                <button type="submit" disabled={isSubmitting}>
-                    Guardar
-                </button>
-            </Form>
-        )}
-    </Formik>
-);
+interface FormOrdenProps {
+    onSubmit: (valores: any) => void;
+    valorInicial?: any;
+}
+
+export const FormOrden: React.FC<FormOrdenProps> = ({
+    onSubmit,
+    valorInicial,
+}) => {
+    return (
+        <Formik
+            initialValues={valorInicial || { nombre: '', email: '', estado: '' }}
+            validationSchema={validationSchema}
+            onSubmit={onSubmit}
+        >
+            {({ isSubmitting }) => (
+                <Form>
+                    <div>
+                        <label>Nombre:</label>
+                        <Field name="nombre" type="text" />
+                        <ErrorMessage name="nombre" component="div" />
+                    </div>
+
+                    <div>
+                        <label>Email:</label>
+                        <Field name="email" type="email" />
+                        <ErrorMessage name="email" component="div" />
+                    </div>
+
+                    <button type="submit" disabled={isSubmitting}>
+                        Guardar
+                    </button>
+                </Form>
+            )}
+        </Formik>
+    );
+};
 ```
 
----
+### 5.3 Componentes de Tabla
 
-## 12. Tablas (TanStack Table)
-
-### 12.1 Patrón Básico
+**Patrón:**
 
 ```typescript
-import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table';
+interface TablaOrdenesProps {
+    datos: OrdenDeTrabajo[];
+    onEditar?: (id: number) => void;
+    onEliminar?: (id: number) => void;
+    cargando?: boolean;
+}
 
-const columns = [
-    { accessorKey: 'nombre', header: 'Nombre' },
-    { accessorKey: 'estado', header: 'Estado' },
-];
+export const TablaOrdenes: React.FC<TablaOrdenesProps> = ({
+    datos,
+    onEditar,
+    onEliminar,
+    cargando,
+}) => {
+    if (cargando) return <Spinner />;
 
-const MiTabla = ({ data }) => {
-    const table = useReactTable({
-        data,
-        columns,
-        getCoreRowModel: getCoreRowModel(),
-    });
-    
     return (
-        <table>
+        <table className="w-full border-collapse">
             <thead>
-                {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                        {headerGroup.headers.map(header => (
-                            <th key={header.id}>
-                                {flexRender(header.column.columnDef.header, header.getContext())}
-                            </th>
-                        ))}
-                    </tr>
-                ))}
+                <tr className="bg-gray-100">
+                    <th className="border p-2">ID</th>
+                    <th className="border p-2">Estado</th>
+                    <th className="border p-2">Acciones</th>
+                </tr>
             </thead>
             <tbody>
-                {table.getRowModel().rows.map(row => (
-                    <tr key={row.id}>
-                        {row.getVisibleCells().map(cell => (
-                            <td key={cell.id}>
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </td>
-                        ))}
+                {datos.map((orden) => (
+                    <tr key={orden.id}>
+                        <td className="border p-2">{orden.id}</td>
+                        <td className="border p-2">{orden.estado}</td>
+                        <td className="border p-2">
+                            <button
+                                onClick={() => onEditar?.(orden.id)}
+                                className="bg-blue-500 text-white px-2 py-1 rounded mr-2"
+                            >
+                                Editar
+                            </button>
+                            <button
+                                onClick={() => onEliminar?.(orden.id)}
+                                className="bg-red-500 text-white px-2 py-1 rounded"
+                            >
+                                Eliminar
+                            </button>
+                        </td>
                     </tr>
                 ))}
             </tbody>
@@ -603,78 +497,341 @@ const MiTabla = ({ data }) => {
 
 ---
 
-## 13. Convenciones de Código
+## 6. Custom Hooks
 
-### 13.1 Nomenclatura de Archivos
+### 6.1 useAuth
 
-```
-# Páginas
-NombreModulo.page.tsx
-DetalleModulo.page.tsx
-
-# Componentes
-NombreComponente.tsx
-
-# Hooks
-useNombreHook.ts
-
-# Interfaces
-nombreModulo.interface.ts
-
-# Slices
-nombreSlice.ts
-nombreApi.ts (RTK Query)
-```
-
-### 13.2 Imports
+**Ubicación:** `frontend/src/hooks/useAuth.ts`
 
 ```typescript
-// Orden: React, librerías externas, alias (@/), relativos
-import { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import { useAppSelector } from '@/store/hook';
-import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
-import { MiComponente } from './MiComponente';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+
+export const useAuth = () => {
+    const dispatch = useAppDispatch();
+    const { usuario, access, refresh } = useAppSelector((state) => state.auth);
+
+    const logout = () => {
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
+        dispatch(setUsuario(null));
+    };
+
+    const isAuthenticated = !!usuario;
+
+    return {
+        usuario,
+        access,
+        refresh,
+        isAuthenticated,
+        logout,
+    };
+};
 ```
 
-### 13.3 Alias de Paths
+**Uso:**
 
 ```typescript
-// Configurado en tsconfig.json y vite.config.ts
-import { algo } from '@/components/algo';  // src/components/algo
+const { isAuthenticated, logout } = useAuth();
+
+if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+}
+```
+
+### 6.2 useEmpresa
+
+```typescript
+export const useEmpresa = () => {
+    const { empresa_actual } = useAppSelector((state) => state.empresas);
+    return empresa_actual;
+};
 ```
 
 ---
 
-## 14. Validaciones Locales
+## 7. Servicios HTTP
+
+### 7.1 BaseService (Legacy - Prefiere RTK Query)
+
+```typescript
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
+export abstract class BaseService {
+    protected client: AxiosInstance;
+    protected baseURL: string;
+
+    constructor(baseURL: string) {
+        this.baseURL = baseURL;
+        this.client = axios.create({ baseURL });
+
+        // Interceptor de request (agregar token)
+        this.client.interceptors.request.use((config) => {
+            const token = localStorage.getItem('access');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+            return config;
+        });
+
+        // Interceptor de response (refrescar token si expira)
+        this.client.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                if (error.response?.status === 401) {
+                    const refresh = localStorage.getItem('refresh');
+                    try {
+                        const { data } = await axios.post(
+                            `${this.baseURL}/auth/refresh/`,
+                            { refresh }
+                        );
+                        localStorage.setItem('access', data.access);
+                        error.config.headers.Authorization = `Bearer ${data.access}`;
+                        return this.client(error.config);
+                    } catch {
+                        // Redirigir a login
+                        window.location.href = '/login';
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+    }
+
+    async get<T>(endpoint: string, config?: AxiosRequestConfig): Promise<T> {
+        const response = await this.client.get<T>(endpoint, config);
+        return response.data;
+    }
+
+    async post<T>(endpoint: string, data: any, config?: AxiosRequestConfig): Promise<T> {
+        const response = await this.client.post<T>(endpoint, data, config);
+        return response.data;
+    }
+
+    async patch<T>(endpoint: string, data: any, config?: AxiosRequestConfig): Promise<T> {
+        const response = await this.client.patch<T>(endpoint, data, config);
+        return response.data;
+    }
+
+    async delete<T>(endpoint: string, config?: AxiosRequestConfig): Promise<T> {
+        const response = await this.client.delete<T>(endpoint, config);
+        return response.data;
+    }
+}
+```
+
+---
+
+## 8. Tipos TypeScript
+
+### 8.1 Estructura de Tipos
+
+**Ubicación:** `frontend/src/interface/index.ts`
+
+```typescript
+// Modelos principales
+export interface OrdenDeTrabajo {
+    id: number;
+    numero: string;
+    estado: 'pendiente' | 'en_proceso' | 'completada' | 'cerrada' | 'facturada';
+    empresa: number;
+    usuario_asignado?: number;
+    descripcion: string;
+    fecha_creacion: string;
+    fecha_actualizacion: string;
+}
+
+export interface Cotizacion {
+    id: number;
+    numero: string;
+    cliente: string;
+    moneda: '1' | '2' | '3'; // 1=USD, 2=CLP, 3=UF
+    monto_total: number;
+    estado: 'borrador' | 'enviada' | 'aceptada' | 'rechazada';
+    token_publico?: string; // Para acceso sin auth
+}
+
+export interface ItemBodega {
+    id: number;
+    bodega: number;
+    item: number;
+    cantidad: number; // SIEMPRE es delta (cambio), no saldo
+}
+
+export interface Usuario {
+    id: number;
+    username: string;
+    email: string;
+    nombre_completo: string;
+}
+
+export interface Empresa {
+    id: number;
+    nombre: string;
+    rut: string;
+    ciudad: string;
+}
+```
+
+---
+
+## 9. TailwindCSS - Estilos
+
+### 9.1 Clases Comunes
+
+```typescript
+// Colores
+className="text-red-500"        // Rojo
+className="bg-blue-100"         // Fondo azul claro
+className="border-gray-300"     // Borde gris
+
+// Flexbox
+className="flex justify-between items-center"
+className="flex flex-col gap-4"
+
+// Grid
+className="grid grid-cols-3 gap-4"
+
+// Espaciado
+className="p-4"                 // Padding
+className="m-2"                 // Margin
+className="mb-6"                // Margin-bottom
+
+// Responsive
+className="md:grid-cols-2 lg:grid-cols-3"
+
+// Estados
+className="hover:bg-gray-100 cursor-pointer"
+className="disabled:opacity-50 disabled:cursor-not-allowed"
+```
+
+---
+
+## 10. Testing
+
+### 10.1 Setup
 
 ```bash
-# Lint
-npm run lint
+npm install --save-dev @testing-library/react @testing-library/jest-dom vitest
+```
 
-# Build (verificar errores de TypeScript)
-npm run build
+### 10.2 Ejemplo Test
 
-# Formatear código
-npm run prettier:fix
+```typescript
+// __tests__/ListadoOrdenes.test.tsx
+import { render, screen } from '@testing-library/react';
+import { ListadoOrdenes } from '@/pages/ordenes/ListadoOrdenes';
+
+describe('ListadoOrdenes', () => {
+    it('debería renderizar la tabla de órdenes', () => {
+        render(<ListadoOrdenes />);
+        expect(screen.getByRole('table')).toBeInTheDocument();
+    });
+
+    it('debería mostrar mensaje de carga', () => {
+        render(<ListadoOrdenes />);
+        expect(screen.getByText(/cargando/i)).toBeInTheDocument();
+    });
+});
 ```
 
 ---
 
-## 15. Variables de Entorno
+## 11. Configuración Vite + Build
+
+### 11.1 vite.config.ts
+
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+    plugins: [react()],
+    server: {
+        port: 5173,
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8000',
+                changeOrigin: true,
+                rewrite: (path) => path,
+            },
+        },
+    },
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, './src'),
+        },
+    },
+    build: {
+        target: 'esnext',
+        outDir: 'dist',
+        minify: 'terser',
+    },
+});
+```
+
+### 11.2 Build & Deploy
 
 ```bash
-# .env
-VITE_API_URL=http://localhost:8000
-```
-
-**Acceso en código:**
-```typescript
-const apiUrl = import.meta.env.VITE_API_URL;
-// O via process.env.VITE_API_URL (configurado en vite.config.ts)
+npm run build        # Genera dist/
+npm run preview      # Previsualiza build
 ```
 
 ---
 
-Última actualización: 2026-02-03
-````
+## 12. Convenciones de CSS/Tailwind
+
+### JAMÁS hacer inline styles
+
+❌ **INCORRECTO:**
+```typescript
+<div style={{ color: 'red', fontSize: '16px' }}>
+    Texto
+</div>
+```
+
+✅ **CORRECTO:**
+```typescript
+<div className="text-red-500 text-base">
+    Texto
+</div>
+```
+
+### Componentes con variantes
+
+```typescript
+interface BotonProps {
+    variante?: 'primary' | 'secondary' | 'danger';
+}
+
+const Boton: React.FC<BotonProps> = ({ variante = 'primary' }) => {
+    const colorMap = {
+        primary: 'bg-blue-500 text-white',
+        secondary: 'bg-gray-300 text-black',
+        danger: 'bg-red-500 text-white',
+    };
+
+    return (
+        <button className={`px-4 py-2 rounded ${colorMap[variante]}`}>
+            Botón
+        </button>
+    );
+};
+```
+
+---
+
+## 13. Reglas Críticas
+
+1. **TypeScript estricto:** `strict: true` en `tsconfig.json`
+2. **RTK Query > BaseService:** Prefiere RTK Query para nuevas APIs
+3. **Filtro por empresa:** Componentes que listan datos deben filtrar por `useEmpresa()`
+4. **No propagar callbacks profundamente:** Max 2-3 niveles, luego usar Redux
+5. **Componentes pequeños:** Max 300 líneas por archivo
+6. **Nombres descriptivos:** `ListadoOrdenesActivas` > `Lista`
+7. **Props tipadas:** Siempre definir `interface Props`
+
+---
+
+Última actualización: 2025-02-12
+Responsable: Equipo frontend

@@ -401,6 +401,7 @@ class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
     )
     # Exponer directamente el JSON `resultado`
     resultado = serializers.JSONField(required=False)
+    fecha_prefactura = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = CierreAdministrativoOT
@@ -413,6 +414,7 @@ class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
             "creado_por",
             "actualizado_por",
             "comentario",
+            "fecha_prefactura",
             "fecha_creacion",
             "fecha_modificacion",
         ]

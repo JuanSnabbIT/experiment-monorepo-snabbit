@@ -98,7 +98,7 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
             invalidatesTags: [{ type: 'GuiaSalida', id: 'LIST' }],
         }),
         agregarItemGuia: builder.mutation<
-            IItemGuiaSalida,
+            IItemGuiaSalida & { bodega_id?: number },
             {
                 id_guia: number | string;
                 stock_item_id: number;
@@ -111,14 +111,22 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'post',
                 data: body,
             }),
-            invalidatesTags: (_result, _error, { id_guia }) => [
-                { type: 'GuiaSalidaItems', id: id_guia },
-                { type: 'GuiaSalida', id: id_guia },
-                { type: 'StockItems', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, { id_guia }) => {
+                const tags: any[] = [
+                    { type: 'GuiaSalidaItems', id: id_guia },
+                    { type: 'GuiaSalida', id: id_guia },
+                ];
+                // Invalidar con bodega_id específico si está disponible
+                if (result?.bodega_id) {
+                    tags.push({ type: 'StockItems', id: result.bodega_id });
+                } else {
+                    tags.push({ type: 'StockItems', id: 'LIST' });
+                }
+                return tags;
+            },
         }),
         editarItemGuia: builder.mutation<
-            IItemGuiaSalida,
+            IItemGuiaSalida & { bodega_id?: number },
             { id_guia: number | string; item_id: number | string; nueva_cantidad: number }
         >({
             query: ({ id_guia, item_id, nueva_cantidad }) => ({
@@ -126,25 +134,41 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 method: 'patch',
                 data: { nueva_cantidad },
             }),
-            invalidatesTags: (_result, _error, { id_guia }) => [
-                { type: 'GuiaSalidaItems', id: id_guia },
-                { type: 'GuiaSalida', id: id_guia },
-                { type: 'StockItems', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, { id_guia }) => {
+                const tags: any[] = [
+                    { type: 'GuiaSalidaItems', id: id_guia },
+                    { type: 'GuiaSalida', id: id_guia },
+                ];
+                // Invalidar con bodega_id específico si está disponible
+                if (result?.bodega_id) {
+                    tags.push({ type: 'StockItems', id: result.bodega_id });
+                } else {
+                    tags.push({ type: 'StockItems', id: 'LIST' });
+                }
+                return tags;
+            },
         }),
         eliminarItemGuia: builder.mutation<
-            void,
+            { detail: string; bodega_id?: number },
             { id_guia: number | string; item_id: number | string }
         >({
             query: ({ id_guia, item_id }) => ({
                 url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/eliminar-item/`,
                 method: 'delete',
             }),
-            invalidatesTags: (_result, _error, { id_guia }) => [
-                { type: 'GuiaSalidaItems', id: id_guia },
-                { type: 'GuiaSalida', id: id_guia },
-                { type: 'StockItems', id: 'LIST' },
-            ],
+            invalidatesTags: (result, _error, { id_guia }) => {
+                const tags: any[] = [
+                    { type: 'GuiaSalidaItems', id: id_guia },
+                    { type: 'GuiaSalida', id: id_guia },
+                ];
+                // Invalidar con bodega_id específico si está disponible
+                if (result?.bodega_id) {
+                    tags.push({ type: 'StockItems', id: result.bodega_id });
+                } else {
+                    tags.push({ type: 'StockItems', id: 'LIST' });
+                }
+                return tags;
+            },
         }),
         actualizarSerieItem: builder.mutation<
             IItemGuiaSalida,
@@ -282,13 +306,7 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 return [...baseTags, ...ordenTags];
             },
         }),
-        descargarPdf: builder.mutation<BlobPart, number | string>({
-            query: (id) => ({
-                url: `/api/guia-salida/${id}/descargar-pdf/`,
-                method: 'get',
-                responseType: 'blob',
-            }),
-        }),
+
     }),
     overrideExisting: true,
 });
@@ -311,5 +329,4 @@ export const {
     useConfirmarRecepcionMutation,
     useVolverPendienteMutation,
     useDevolverABodegaMutation,
-    useDescargarPdfMutation,
 } = guiaSalidaApi;

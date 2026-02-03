@@ -1,7 +1,6 @@
-﻿````markdown
-# Security - Autenticación, Autorización y Seguridad (Documento Exhaustivo)
+﻿# Security - Autenticación, Autorización y Seguridad
 
-Guía completa de configuración de seguridad del sistema.
+Guía completa de configuración de seguridad del sistema ERP.
 
 ---
 
@@ -9,8 +8,11 @@ Guía completa de configuración de seguridad del sistema.
 
 ### 1.1 Configuración SimpleJWT
 
+**Ubicación:** `backend/sw_erp/settings.py`
+
 ```python
-# backend/sw_erp/settings.py
+from datetime import timedelta
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=10),
@@ -19,323 +21,426 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 ```
 
-### 1.2 Tokens
+### 1.2 Ciclo de Vida de Tokens
 
-| Token | Duración | Uso |
-|-------|----------|-----|
-| **Access Token** | 5 horas | Autenticación de requests |
-| **Refresh Token** | 10 horas | Obtener nuevo access token |
+| Token | Duración | Propósito | Rotación |
+|-------|----------|-----------|----------|
+| **Access Token** | 5 horas | Autenticar requests HTTP | Automática |
+| **Refresh Token** | 10 horas | Obtener nuevo access token | Sí (ROTATE_REFRESH_TOKENS) |
 
 ### 1.3 Header de Autenticación
 
 ```http
-Authorization: Bearer <access_token>
+GET /api/ordenes/ HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-### 1.4 Flujo de Refresh
+### 1.4 Flujo de Refresh de Token
 
-1. Access token expira (401 Unauthorized)
-2. Frontend envía refresh token a `/auth/jwt/refresh/`
-3. Backend retorna nuevo access token
-4. Frontend reintenta request original
-5. Si refresh falla → logout y redirect a login
+**Cuando Access Token expira:**
+
+1. Frontend recibe respuesta `401 Unauthorized`
+2. Frontend envía: `POST /api/auth/token/refresh/` con refresh token
+3. Backend valida refresh token y emite nuevo access token
+4. Frontend reintentar request original con nuevo token
+5. Si refresh token también expiró → **logout** y redirect a `/login`
+
+**Implementación Frontend (RTK Query):**
+
+```typescript
+const rtkApi = createApi({
+    baseQuery: fetchBaseQuery({
+        baseUrl: 'http://localhost:8000/api',
+        prepareHeaders: (headers, { getState }: any) => {
+            const token = getState().auth?.access;
+            if (token) headers.set('Authorization', `Bearer ${token}`);
+            return headers;
+        },
+    }),
+    // RTK Query maneja refresh automáticamente
+});
+```
 
 ---
 
 ## 2. Configuración Djoser
 
+**Ubicación:** `backend/sw_erp/settings.py`
+
 ```python
-# backend/sw_erp/settings.py
 DJOSER = {
-    "LOGIN_FIELD": "email",                    # Login con email, no username
-    "USER_CREATE_PASSWORD_RETYPE": True,       # Confirmar contraseña en registro
-    "SEND_CONFIRMATION_EMAIL": True,           # Email al registrar
-    "SEND_ACTIVATION_EMAIL": True,             # Email de activación
-    
-    # URLs de frontend para emails
-    "PASSWORD_RESET_CONFIRM_URL": "cambio-contra/{uid}/{token}",
-    "ACTIVATION_URL": "verificacion/{uid}/{token}",
-    
-    # Serializers personalizados
-    "SERIALIZERS": {
-        "user": "cuentas.serializers.UserSerializer",
-        "current_user": "cuentas.serializers.UserSerializer",
-        "user_create": "cuentas.serializers.UserCreateSerializer",
-    },
+    "PASSWORD_RESET_CONFIRM_URL": "password/reset/confirm/{uid}/{token}/",
+    "ACTIVATION_URL": "activate/{uid}/{token}/",
+    "SEND_ACTIVATION_EMAIL": True,
+    "SEND_CONFIRMATION_EMAIL": True,
+    "PASSWORD_CHANGED_EMAIL_CONFIRMATION": True,
+    "USER_CREATE_PASSWORD_RETYPE": True,
+    "SET_PASSWORD_RETYPE": True,
+    "TOKEN_MODEL": None,  # Usar SimpleJWT, no token auth legacy
 }
 ```
 
----
-
-## 3. Endpoints de Autenticación
-
-### 3.1 Login y Tokens
+### Endpoints Djoser Automáticos
 
 | Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `/auth/jwt/create/` | POST | Login, retorna access + refresh |
-| `/auth/jwt/refresh/` | POST | Refrescar access token |
-| `/auth/jwt/verify/` | POST | Verificar validez de token |
-
-### 3.2 Usuarios
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/auth/users/` | POST | Registro de usuario |
-| `/auth/users/me/` | GET | Datos del usuario actual |
-| `/auth/users/activation/` | POST | Activar cuenta |
-| `/auth/users/reset_password/` | POST | Solicitar reset password |
-| `/auth/users/reset_password_confirm/` | POST | Confirmar reset password |
+| `/api/auth/jwt/create/` | POST | Login (retorna access + refresh tokens) |
+| `/api/auth/jwt/refresh/` | POST | Refrescar access token |
+| `/api/auth/jwt/verify/` | POST | Verificar que token es válido |
+| `/api/auth/users/` | POST | Registrar usuario (con validation URL) |
+| `/api/auth/users/confirm-email/` | POST | Confirmar email |
+| `/api/auth/users/reset-password/` | POST | Solicitar reset password |
+| `/api/auth/users/reset-password-confirm/` | POST | Confirmar reset password |
 
 ---
 
-## 4. Configuración REST Framework
+## 3. REST Framework - Configuración de Permisos
+
+### 3.1 Configuración Global
 
 ```python
 # backend/sw_erp/settings.py
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",  # ⚠️ Por defecto AllowAny
+        "rest_framework.permissions.AllowAny",  # ⚠️ POR DEFECTO: ACCESO PÚBLICO
     ],
-    "DEFAULT_RENDERER_CLASSES": [
-        "rest_framework.renderers.JSONRenderer",
-    ],
-    "DEFAULT_PARSER_CLASSES": [
-        "rest_framework.parsers.JSONParser",
-    ],
+    # ... resto de configuración
 }
 ```
 
-**⚠️ IMPORTANTE:** `DEFAULT_PERMISSION_CLASSES` está en `AllowAny`. Cada ViewSet DEBE definir sus permisos explícitamente.
+**⚠️ CRÍTICO:** `DEFAULT_PERMISSION_CLASSES = [AllowAny]`
 
----
+Esto significa que **TODOS los endpoints son públicos por defecto**.
 
-## 5. Permisos en ViewSets
+**Cada ViewSet DEBE definir explícitamente su `permission_classes`.**
 
-### 5.1 Definir Permisos Explícitos
+### 3.2 Clases de Permiso Disponibles
 
 ```python
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAdminUser,
+    IsAuthenticatedOrReadOnly,
+)
 
 class MiViewSet(viewsets.ModelViewSet):
+    # Solo usuarios autenticados
     permission_classes = [IsAuthenticated]
-    # ...
+    
+    # O mezcla de permisos
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def datos_publicos(self, request):
+        pass
 ```
 
-### 5.2 Permisos Disponibles
+**Tabla de Permisos:**
 
-| Clase | Descripción |
-|-------|-------------|
-| `AllowAny` | Sin restricción (público) |
-| `IsAuthenticated` | Solo usuarios logueados |
-| `IsAdminUser` | Solo staff/admin |
-| `IsAuthenticatedOrReadOnly` | Lectura pública, escritura autenticada |
-
-### 5.3 Permisos Personalizados
-
-```python
-from rest_framework.permissions import BasePermission
-
-class EsAdminEmpresa(BasePermission):
-    def has_permission(self, request, view):
-        usuario_empresa = obtener_usuario_empresa(request.user)
-        return usuario_empresa and usuario_empresa.es_admin
-```
+| Clase | Lectura | Escritura | Caso de Uso |
+|-------|---------|-----------|-----------|
+| `AllowAny` | ✅ Público | ✅ Público | Endpoints públicos (login, feedback, cotización pública) |
+| `IsAuthenticated` | ✅ Autenticado | ✅ Autenticado | APIs internas (órdenes, bodegas, etc.) |
+| `IsAdminUser` | ✅ Admin | ✅ Admin | Admin panel |
+| `IsAuthenticatedOrReadOnly` | ✅ Público | ✅ Autenticado | Lectura pública, edición autenticada |
 
 ---
 
-## 6. Multi-tenancy (Aislamiento de Datos)
+## 4. Multi-tenancy (Aislamiento de Datos)
 
-### 6.1 Patrón Obligatorio
+### 4.1 Patrón Obligatorio
 
-Todos los ViewSets DEBEN filtrar datos por empresa del usuario:
+**TODOS los ViewSets DEBEN implementar:**
 
 ```python
 from core.models import PersonalizacionUsuario
 
 class MiViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    
     def get_queryset(self):
         user = self.request.user
-        personalizacion = PersonalizacionUsuario.objects.filter(
-            usuario=user
-        ).first()
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
         
-        if not personalizacion or not personalizacion.sucursal_principal:
-            return self.queryset.model.objects.none()
+        if personalizacion and personalizacion.sucursal_principal:
+            return MiModelo.objects.filter(
+                empresa=personalizacion.sucursal_principal.empresa
+            )
         
-        empresa = personalizacion.sucursal_principal.empresa
-        return self.queryset.model.objects.filter(empresa=empresa)
+        # CRÍTICO: Retornar .none(), no lista vacía []
+        return MiModelo.objects.none()
 ```
 
-### 6.2 Riesgo de No Implementar
+### 4.2 Riesgo: Sin Filtro Multi-tenancy
 
-Si no se implementa el filtro por empresa:
-- Usuario A podría ver/modificar datos de Usuario B
-- Violación de privacidad de datos
-- Riesgo de seguridad crítico
+**Impacto: FUGA DE DATOS ENTRE EMPRESAS**
+
+Si `get_queryset()` no filtra por empresa:
+- Usuario de Empresa A puede ver datos de Empresa B
+- Usuario de Empresa A puede editar/eliminar datos de Empresa B
+- Acceso no autorizado a información confidencial
+
+**Ejemplo Vulnerable:**
+```python
+class MiViewSet(viewsets.ModelViewSet):
+    queryset = MiModelo.objects.all()  # ❌ EXPONE TODAS LAS EMPRESAS
+    # Sin override de get_queryset()
+```
 
 ---
 
-## 7. CORS (Cross-Origin Resource Sharing)
+## 5. Permisos Personalizados
 
-### 7.1 Configuración Actual (Desarrollo)
+### 5.1 Crear Permiso Custom
+
+```python
+# backend/core/permissions.py
+from rest_framework.permissions import BasePermission
+
+class EsAdminEmpresa(BasePermission):
+    """
+    Permite acceso solo si usuario es admin de su empresa.
+    """
+    def has_permission(self, request, view):
+        from cuentas.functions import obtener_usuario_empresa
+        
+        usuario_empresa = obtener_usuario_empresa(request.user)
+        return usuario_empresa and usuario_empresa.es_admin
+
+    def has_object_permission(self, request, view, obj):
+        # Validación a nivel de objeto específico
+        return obj.empresa == request.user.personalizacion.sucursal_principal.empresa
+```
+
+### 5.2 Usar Permiso Custom
+
+```python
+from core.permissions import EsAdminEmpresa
+
+class EmpresaViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, EsAdminEmpresa]
+    # Solo admins de su empresa pueden acceder
+```
+
+---
+
+## 6. CORS (Cross-Origin Resource Sharing)
+
+### 6.1 Configuración Producción
 
 ```python
 # backend/sw_erp/settings.py
-CORS_ORIGIN_ALLOW_ALL = True  # ⚠️ Solo para desarrollo
-```
-
-### 7.2 Configuración Recomendada (Producción)
-
-```python
-CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOWED_ORIGINS = [
-    "https://tudominio.com",
-    "https://app.tudominio.com",
+    "https://app.miempresa.com",
+    "https://www.miempresa.com",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+```
+
+### 6.2 Configuración Desarrollo
+
+```python
+# settings.py (desarrollo)
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",    # Frontend Vite
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",    # Alternativa
+    ]
 ```
 
 ---
 
-## 8. Frontend - Manejo de Tokens
+## 7. CSRF (Cross-Site Request Forgery)
 
-### 8.1 Almacenamiento
+### 7.1 Configuración
 
-- Tokens se almacenan en Redux state (`auth.access`, `auth.refresh`)
-- **NO** se usa localStorage directamente para inyectar JWT
+```python
+# backend/sw_erp/settings.py
+CSRF_COOKIE_SECURE = True       # HTTPS only
+CSRF_COOKIE_HTTPONLY = False    # JavaScript puede leer (necesario en SPAs)
+CSRF_COOKIE_SAMESITE = 'Lax'    # No enviar en requests cross-site
+CSRF_TRUSTED_ORIGINS = [
+    'https://app.miempresa.com',
+]
+```
 
-### 8.2 Interceptor de Request
+### 7.2 Manejo en Frontend
 
 ```typescript
-// services/BaseService.ts
-BaseService.interceptors.request.use((config) => {
-    const token = store.getState().auth.access;
-    if (token) {
-        config.headers['Authorization'] = 'Bearer ' + token;
-    }
-    return config;
-});
-```
+// Frontend (Axios)
+// Django envía X-CSRFToken en cookie
+const csrftoken = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('csrftoken='))
+    ?.split('=')[1];
 
-### 8.3 Interceptor de Response (Refresh)
-
-```typescript
-// services/BaseService.ts
-BaseService.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-            const refreshToken = store.getState().auth.refresh;
-            
-            try {
-                const response = await axios.post('/auth/jwt/refresh', {
-                    refresh: refreshToken
-                });
-                store.dispatch(GUARDAR_TOKEN(response.data.access));
-                return BaseService(originalRequest);
-            } catch {
-                store.dispatch(LOGOUT());
-                window.location.href = '/login';
-            }
-        }
-        return Promise.reject(error);
-    }
-);
+axios.defaults.headers.common['X-CSRFToken'] = csrftoken;
 ```
 
 ---
 
-## 9. Endpoints Públicos (Sin Autenticación)
+## 8. Seguridad de Contraseñas
 
-### 9.1 Cotizaciones Públicas
+### 8.1 Configuración Django
 
 ```python
-# cotizaciones/urls.py
-path('public/cotizacion/<str:token>/', PublicCotizacionView.as_view()),
-path('public/cotizacion/<str:token>/aprobar/', PublicAprobarCotizacionView.as_view()),
-path('public/cotizacion/<str:token>/rechazar/', PublicRechazarCotizacionView.as_view()),
+# backend/sw_erp/settings.py
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8}
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 ```
 
-Estos endpoints permiten a solicitantes externos aprobar/rechazar cotizaciones sin cuenta.
+### 8.2 Hash de Contraseñas
 
-### 9.2 Seguridad de Tokens Públicos
+Django automáticamente:
+- Hash con PBKDF2 (por defecto)
+- Salt único por contraseña
+- Múltiples iteraciones para ralentizar ataques
 
-- Tokens generados con `uuid4()` (128 bits de entropía)
-- Expiran después de cierto tiempo
-- Solo permiten acciones específicas (aprobar/rechazar)
+**JAMÁS almacenar contraseñas en texto plano.**
 
 ---
 
-## 10. Validaciones de Seguridad
+## 9. GAP ANALYSIS - Audit de Seguridad
 
-### 10.1 No Hardcodear Credenciales
+**Fecha de auditoría:** 2025-02-12
 
-```python
-# ❌ INCORRECTO
-SECRET_KEY = "mi-clave-super-secreta"
+### 9.1 ViewSets Sin Permission Classes Definido (🔴 CRÍTICO)
 
-# ✅ CORRECTO
-SECRET_KEY = os.getenv("SECRET_KEY")
-```
+| App | ViewSet | Riesgo | Estado |
+|-----|---------|--------|--------|
+| **items** | `CategoriaViewSet` | Acceso público a catálogo de categorías | **INCORRECTO** |
+| **items** | `FabricanteViewSet` | Acceso público a fabricantes | **INCORRECTO** |
+| **contratos** | `ServicioViewSet` | Acceso público a servicios de contratos | **INCORRECTO** |
+| **contratos** | `PlanServicioViewSet` | Acceso público a planes de servicios | **INCORRECTO** |
+| **contratos** | `CaracteristicaServicioViewSet` | Acceso público a características | **INCORRECTO** |
+| **contratos** | `VisitaViewSet` | Acceso público a plantilla de visitas | **INCORRECTO** |
+| **contratos** | `LicenciaViewSet` | Acceso público a licencias SIN filtro multi-tenancy | **CRÍTICO** |
+| **contratos** | `CondicionEspecialViewSet` | Acceso público a condiciones especiales | **INCORRECTO** |
+| **core** | `SoftwareViewSet` | Acceso público a catálogo software | **INCORRECTO** |
+| **core** | `AcuerdoConfidencialidadBaseViewSet` | Acceso público a acuerdos base | **INCORRECTO** |
 
-### 10.2 Variables de Entorno Sensibles
+### 9.2 ViewSets Con Filtro Multi-tenancy Incompleto (⚠️ ALTO)
 
-| Variable | Descripción |
-|----------|-------------|
-| `SECRET_KEY` | Clave secreta Django |
-| `DATABASE_URL` | Conexión a BD |
-| `REDIS_HOST` | Host de Redis |
-| `EMAIL_HOST_PASSWORD` | Contraseña de correo |
+| App | ViewSet | Problema | Estado |
+|-----|---------|----------|--------|
+| **items** | `ItemEmpresaViewset` | Filtra por `empresa_pk` en URL pero no por usuario logueado | **PARCIAL** |
+| **visitas** | `AsistenciaUsuarioViewSet` | Sin filtro multi-tenancy explícito | **INCORRECTO** |
+| **visitas** | `EntregaDeEquipoViewSet` | Sin filtro multi-tenancy explícito | **INCORRECTO** |
+| **recursos** | `SoftwareInstaladoViewSet` | Sin permission_classes ni filtro | **INCORRECTO** |
+| **recursos** | `MonitorEquipoViewSet` | Sin permission_classes explícito | **INCORRECTO** |
+| **recursos** | `UsuarioEquipoViewSet` | Sin permission_classes explícito | **INCORRECTO** |
+| **recursos** | `AlmacenamientoEquipoViewSet` | Sin permission_classes explícito | **INCORRECTO** |
+| **recursos** | `FotoEquipoViewSet` | Sin permission_classes explícito | **INCORRECTO** |
 
-### 10.3 Checklist de Seguridad
+### 9.3 ViewSets Correctamente Implementados (✅ CORRECTO)
 
-- [ ] `DEBUG = False` en producción
-- [ ] `SECRET_KEY` en variable de entorno
-- [ ] `CORS_ALLOWED_ORIGINS` definido (no `CORS_ORIGIN_ALLOW_ALL`)
-- [ ] Todos los ViewSets con permisos explícitos
-- [ ] Multi-tenancy implementado en todos los ViewSets
-- [ ] HTTPS habilitado
-- [ ] Credenciales de BD en variables de entorno
+| App | ViewSet | Permission | Multi-tenancy | Estado |
+|-----|---------|-----------|----------------|--------|
+| **ordentrabajov2** | `OrdenDeTrabajoViewSet` | `IsAuthenticated` | ✅ Filtra por empresa | **CORRECTO** |
+| **ordentrabajov2** | `SoporteTecnicoViewSet` | `IsAuthenticated` | ✅ Filtra por empresa | **CORRECTO** |
+| **bodegas** | `BodegaViewSet` | `IsAuthenticated` | ✅ Filtra por empresa | **CORRECTO** |
+| **bodegas** | `GuiaSalidaViewSet` | `IsAuthenticated` | ✅ Filtra por empresa | **CORRECTO** |
+| **empresas** | `UsuarioEmpresaViewSet` | `IsAuthenticated` | ✅ Filtra por sucursal | **CORRECTO** |
+| **visitas** | `VisitaSoporteViewSet` | `IsAuthenticated` | ✅ Filtra por empresa | **CORRECTO** |
+| **retroalimentacion** | `RetroalimentacionPorTokenView` | `AllowAny` | N/A (público intencional) | **CORRECTO** |
 
----
+### 9.4 Resumen del GAP
 
-## 11. Auditoría
-
-### 11.1 django-simple-history
-
-Modelos que heredan de `ModeloBaseHistorico` tienen auditoría automática:
-
-```python
-from core.models import ModeloBaseHistorico
-
-class MiModelo(ModeloBaseHistorico):
-    # Automáticamente registra quién y cuándo modificó
-    pass
-```
-
-### 11.2 Historial Manual
-
-Algunos modelos tienen su propio historial:
-
-```python
-# ordentrabajov2/models.py
-class HistorialCambiosOrden(models.Model):
-    orden = models.ForeignKey(OrdenDeTrabajo, on_delete=models.CASCADE)
-    fecha = models.DateTimeField(auto_now_add=True)
-    descripcion = models.TextField()
-    usuario = models.ForeignKey(UsuarioEmpresa, on_delete=models.SET_NULL)
-```
+- **Total ViewSets:** ~50+
+- **Con permisos explícitos:** ~15 ✅
+- **Sin permisos explícitos:** ~10+ 🔴
+- **Con filtro multi-tenancy:** ~20 ✅
+- **Sin filtro multi-tenancy:** ~15+ ⚠️
 
 ---
 
-Última actualización: 2026-02-03
-````
+## 10. Recomendaciones de Corrección
+
+### 10.1 INMEDIATO (Crítico)
+
+1. **Agregar `permission_classes`** a todos los ViewSets en `items/`, `contratos/`, `core/`
+
+   ```python
+   class CategoriaViewSet(viewsets.ModelViewSet):
+       permission_classes = [permissions.IsAuthenticated]  # ← AGREGAR
+   ```
+
+2. **Implementar filtro multi-tenancy** en `LicenciaViewSet`:
+
+   ```python
+   def get_queryset(self):
+       user = self.request.user
+       personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+       if personalizacion and personalizacion.sucursal_principal:
+           return Licencia.objects.filter(
+               empresa=personalizacion.sucursal_principal.empresa
+           )
+       return Licencia.objects.none()
+   ```
+
+### 10.2 CORTO PLAZO (1-2 semanas)
+
+3. Auditar todos los `get_queryset()` para asegurar filtro de empresa
+4. Agregar tests que validen que usuarios de empresa A NO pueden acceder a datos de empresa B
+5. Documento en RISKLOG.md con lista de vulnerabilidades
+
+### 10.3 LARGO PLAZO (Sprint siguiente)
+
+6. Implementar custom permission class `EsDeEmpresa` reutilizable
+7. Crear middleware de auditoría que logee accesos
+8. Implementar rate limiting para endpoints públicos
+
+---
+
+## 11. Checklist de Seguridad
+
+- [ ] Todos los ViewSets tienen `permission_classes` explícito
+- [ ] Todos los ViewSets implementan `get_queryset()` con filtro de empresa
+- [ ] Tokens JWT se envían HTTPS en producción
+- [ ] CORS está configurado restrictivamente en producción
+- [ ] CSRF_COOKIE_SECURE = True en producción
+- [ ] Passwords validadas con validadores fuertes
+- [ ] No hay hardcodeados secrets en código
+- [ ] SECRET_KEY es único y fuerte en producción
+- [ ] DEBUG = False en producción
+- [ ] Logs de seguridad se registran (logins fallidos, accesos denegados)
+
+---
+
+Última actualización: 2025-02-12  
+Responsable: Equipo de Seguridad  
+**ESTADO:** 🔴 10 vulnerabilidades críticas identificadas (ver RISKLOG.md)

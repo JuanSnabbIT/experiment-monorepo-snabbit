@@ -61,6 +61,13 @@ import TablaVenta from './TablaVenta';
 
 const columnHelper = createColumnHelper<IItemCotizacion>();
 
+type UsoInternoField =
+    | 'tipo_moneda'
+    | 'dolar_observado'
+    | 'fecha_facturacion'
+    | 'valor_uf'
+    | 'ppm';
+
 const DetalleCotizacion = () => {
     const dispatch = useAppDispatch();
     const { numero_cotizacion } = useParams();
@@ -76,6 +83,10 @@ const DetalleCotizacion = () => {
         skip: !numeroKey,
         refetchOnMountOrArgChange: true,
     });
+
+    const isPendingState = detalleCotizacion?.estado === 'pendiente';
+    const canEditUsoInternoField = (field: UsoInternoField) =>
+        isEditing && (isPendingState || field === 'fecha_facturacion');
 
     const idKey = detalleCotizacion?.id ? String(detalleCotizacion.id) : '';
 
@@ -613,7 +624,7 @@ const DetalleCotizacion = () => {
                                     />
                                 </>
                             )}
-                            {detalleCotizacion?.estado === 'pendiente' && (
+                            {!detalleCotizacion?.fecha_facturacion_congelada && (
                                 <div className='flex items-center justify-end'>
                                     {isEditing ? (
                                         <div className='flex gap-2'>
@@ -803,7 +814,7 @@ const DetalleCotizacion = () => {
                                                     )}>
                                                     <div>
                                                         <Badge>Moneda de Venta</Badge>
-                                                        {isEditing ? (
+                                                        {canEditUsoInternoField('tipo_moneda') ? (
                                                             <Validation
                                                                 isValid={formik.isValid}
                                                                 isTouched={
@@ -842,7 +853,7 @@ const DetalleCotizacion = () => {
                                                     </div>
                                                     <div>
                                                         <Badge>Dolar Observado</Badge>
-                                                        {isEditing ? (
+                                                        {canEditUsoInternoField('dolar_observado') ? (
                                                             <Validation
                                                                 isValid={formik.isValid}
                                                                 isTouched={
@@ -919,7 +930,7 @@ const DetalleCotizacion = () => {
                                                     </div>
                                                     <div>
                                                         <Badge>Fecha de Facturación</Badge>
-                                                        {isEditing ? (
+                                                        {canEditUsoInternoField('fecha_facturacion') ? (
                                                             <Validation
                                                                 isValid={formik.isValid}
                                                                 isTouched={
@@ -949,7 +960,7 @@ const DetalleCotizacion = () => {
                                                     </div>
                                                     <div>
                                                         <Badge>UF Observado</Badge>
-                                                        {isEditing ? (
+                                                        {canEditUsoInternoField('valor_uf') ? (
                                                             <Validation
                                                                 isValid={formik.isValid}
                                                                 isTouched={formik.touched.valor_uf}
@@ -1022,7 +1033,7 @@ const DetalleCotizacion = () => {
                                                     </div>
                                                     <div>
                                                         <Badge>PPM</Badge>
-                                                        {isEditing ? (
+                                                        {canEditUsoInternoField('ppm') ? (
                                                             <Validation
                                                                 isValid={formik.isValid}
                                                                 isTouched={formik.touched.ppm}

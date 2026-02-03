@@ -53,6 +53,7 @@ interface CotizacionRelacionada {
     total_estimado: number;
     fecha_vencimiento?: string | null;
     dolar_observado?: number | null;
+    fecha_facturacion?: string | null;
 }
 
 interface IComparativaData {
@@ -73,6 +74,14 @@ interface IComparativaData {
         cotizaciones?: CotizacionRelacionada[];
     };
     diferencia: number;
+}
+
+interface ITipoCambioResponse {
+    fecha: string;
+    fecha_dolar: string | null;
+    fecha_uf: string | null;
+    dolar: number;
+    uf: number;
 }
 
 const FacturacionesComparativa = () => {
@@ -126,6 +135,17 @@ const FacturacionesComparativa = () => {
     );
 
     const [creatingPrefactura, setCreatingPrefactura] = useState<boolean>(false);
+    const [fechaPrefactura, setFechaPrefactura] = useState<string>(
+        dayjs().format('YYYY-MM-DD'),
+    );
+    const [tipoCambioSeleccionado, setTipoCambioSeleccionado] = useState<{
+        dolar: number | null;
+        uf: number | null;
+        fecha: string | null;
+    } | null>(null);
+    const [cargandoTipoCambio, setCargandoTipoCambio] = useState<boolean>(false);
+    const [errorTipoCambio, setErrorTipoCambio] = useState<string | null>(null);
+    const fechaInicialSetRef = useRef(false);
 
     // OTs que ya están incluidas en otras prefacturas (excluirlas del dropdown)
     const [excludedOtIds, setExcludedOtIds] = useState<number[]>([]);
@@ -197,6 +217,7 @@ const FacturacionesComparativa = () => {
                 resultado: itemsJsonPayload,
                 comentario: '',
                 estado_cierre: 'borrador',
+                fecha_prefactura: fechaPrefactura,
             };
 
             // POST a /cierres-administrativos/
@@ -276,6 +297,18 @@ const FacturacionesComparativa = () => {
         }
     }, [selectedEmpresaClienteId, dispatch]);
 
+    useEffect(() => {
+        if (fechaInicialSetRef.current) return;
+        if (cotizacionesRelacionadas.length > 0) {
+            const fecha = cotizacionesRelacionadas[0].fecha_facturacion;
+            if (fecha) {
+                setFechaPrefactura(dayjs(fecha).format('YYYY-MM-DD'));
+                fechaInicialSetRef.current = true;
+            }
+        }
+    }, [cotizacionesRelacionadas]);
+
+
     // Cargar comparativa automáticamente cuando cambian contrato u OTs
     useEffect(() => {
         if (selectedContratoId && selectedOts.length > 0) {
@@ -286,6 +319,7 @@ const FacturacionesComparativa = () => {
                 data: {
                     ots_ids: selectedOts,
                     contrato_id: selectedContratoId,
+                    fecha_prefactura: fechaPrefactura,
                 },
             })
                 .then((response) => {
@@ -301,11 +335,51 @@ const FacturacionesComparativa = () => {
                 })
                 .finally(() => {
                     setLoadingComparativa(false);
-                });
+            });
         } else {
             setComparativaData(null);
         }
-    }, [selectedContratoId, selectedOts]);
+    }, [selectedContratoId, selectedOts, fechaPrefactura]);
+
+    useEffect(() => {
+        if (!fechaPrefactura) {
+            setTipoCambioSeleccionado(null);
+            return;
+        }
+
+        let active = true;
+        setCargandoTipoCambio(true);
+        setErrorTipoCambio(null);
+
+        ApiService.fetchData<ITipoCambioResponse>({
+            url: `/api/cotizaciones/tipo-cambio/?fecha=${fechaPrefactura}`,
+            method: 'get',
+        })
+            .then((response) => {
+                if (!active) return;
+                setTipoCambioSeleccionado({
+                    dolar: response.data.dolar,
+                    uf: response.data.uf,
+                    fecha: response.data.fecha,
+                });
+            })
+            .catch((error) => {
+                if (!active) return;
+                const mensaje =
+                    error?.response?.data?.detail ||
+                    'No se pudo cargar el tipo de cambio.';
+                setErrorTipoCambio(mensaje);
+                setTipoCambioSeleccionado(null);
+            })
+            .finally(() => {
+                if (!active) return;
+                setCargandoTipoCambio(false);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [fechaPrefactura]);
 
     // Cargar datos de OTs seleccionadas apenas se seleccionen (sin esperar contrato)
     useEffect(() => {
@@ -316,6 +390,7 @@ const FacturacionesComparativa = () => {
                 method: 'post',
                 data: {
                     ots_ids: selectedOts,
+                    fecha_prefactura: fechaPrefactura,
                     // No enviar contrato_id, backend ahora soporta parámetros opcionales
                 },
             })
@@ -350,7 +425,7 @@ const FacturacionesComparativa = () => {
             setEjecutadoData(null);
             setItemsConfig(new Map());
         }
-    }, [selectedOts]);
+    }, [selectedOts, fechaPrefactura]);
 
     // Cargar datos de contrato apenas se seleccione
     useEffect(() => {
@@ -533,16 +608,12 @@ const FacturacionesComparativa = () => {
         [otasDisponibles, selectedOts],
     );
 
-    const getPrecioUnitario = (item: IItemCotizacion, moneda: 'CLP' | 'USD' | 'UF') => {
-        if (moneda === 'USD') return Number(item.precio_unitario_backend?.usd || 0);
-        if (moneda === 'UF') return Number(item.precio_venta_neta_unitario_moneda_base || 0);
-        return Number(item.precio_unitario_backend?.clp || 0);
+    const getPrecioUnitario = (item: IItemCotizacion) => {
+        return Number(item.precio_venta_neta_unitario_moneda_base || 0);
     };
 
-    const getPrecioTotal = (item: IItemCotizacion, moneda: 'CLP' | 'USD' | 'UF') => {
-        if (moneda === 'USD') return Number(item.precio_total_backend?.usd || 0);
-        if (moneda === 'UF') return Number(item.precio_venta_neta_total_moneda_base || 0);
-        return Number(item.precio_total_backend?.clp || 0);
+    const getPrecioTotal = (item: IItemCotizacion) => {
+        return Number(item.precio_venta_neta_total_moneda_base || 0);
     };
 
     // Calcular valores para items ejecutados según moneda activa (visual)
@@ -564,12 +635,13 @@ const FacturacionesComparativa = () => {
             }
         }
 
-        // Si hay dolar observado en el item o en cotizacion relacionada, convertir
+        const fallbackDolar =
+            cotizacionesRelacionadas.length > 0 &&
+            (cotizacionDetallesById[cotizacionesRelacionadas[0].id]?.dolar_observado ??
+                cotizacionesRelacionadas[0].dolar_observado);
+
         const dolarObservado =
-            item.dolar_observado ||
-            (cotizacionesRelacionadas.length > 0 &&
-                (cotizacionDetallesById[cotizacionesRelacionadas[0].id]?.dolar_observado ??
-                    cotizacionesRelacionadas[0].dolar_observado));
+            tipoCambioSeleccionado?.dolar ?? item.dolar_observado ?? fallbackDolar;
 
         if (dolarObservado && (item.precio_unitario || item.total)) {
             const unidad = Number(item.precio_unitario ?? 0) / Number(dolarObservado);
@@ -1217,8 +1289,7 @@ const FacturacionesComparativa = () => {
                                                             cotizacionItemsById[cotizacion.id] ??
                                                             [];
                                                         const totalItems = items.reduce(
-                                                            (acc, item) =>
-                                                                acc + getPrecioTotal(item, moneda),
+                                                            (acc, item) => acc + getPrecioTotal(item),
                                                             0,
                                                         );
                                                         const titulo = `Nro${detalle.numero_cotizacion ?? cotizacion.numero_cotizacion} - ${
@@ -1353,19 +1424,13 @@ const FacturacionesComparativa = () => {
                                                                                             </td>
                                                                                             <td className='px-3 py-2 text-right'>
                                                                                                 {formatCurrency(
-                                                                                                    getPrecioUnitario(
-                                                                                                        item,
-                                                                                                        moneda,
-                                                                                                    ),
+                                                                                                    getPrecioUnitario(item),
                                                                                                     moneda,
                                                                                                 )}
                                                                                             </td>
                                                                                             <td className='px-3 py-2 text-right font-semibold text-gray-800'>
                                                                                                 {formatCurrency(
-                                                                                                    getPrecioTotal(
-                                                                                                        item,
-                                                                                                        moneda,
-                                                                                                    ),
+                                                                                                    getPrecioTotal(item),
                                                                                                     moneda,
                                                                                                 )}
                                                                                             </td>
@@ -1463,6 +1528,50 @@ const FacturacionesComparativa = () => {
                                                 Acciones
                                             </h3>
                                             <div className='flex flex-wrap items-center gap-3'>
+                                                <div className='flex flex-col gap-1'>
+                                                    <label className='text-xs font-semibold uppercase text-gray-500'>
+                                                        Fecha de prefactura
+                                                    </label>
+                                                    <input
+                                                        type='date'
+                                                        className='h-9 rounded border border-gray-300 px-2 text-sm shadow-sm'
+                                                        value={fechaPrefactura}
+                                                        onChange={(event) =>
+                                                            setFechaPrefactura(
+                                                                event.target.value,
+                                                            )
+                                                        }
+                                                    />
+                                                    {cargandoTipoCambio && (
+                                                        <span className='text-xs text-gray-400'>
+                                                            Cargando dólar/UF...
+                                                        </span>
+                                                    )}
+                                                    {!cargandoTipoCambio &&
+                                                        tipoCambioSeleccionado && (
+                                                            <span className='text-xs text-gray-500'>
+                                                                Dólar:{' '}
+                                                                {formatCurrency(
+                                                                    tipoCambioSeleccionado.dolar ??
+                                                                        0,
+                                                                    'CLP',
+                                                                )}{' '}
+                                                                + $5 | UF:{' '}
+                                                                {formatCurrency(
+                                                                    tipoCambioSeleccionado.uf ??
+                                                                        0,
+                                                                    'CLP',
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    {!cargandoTipoCambio &&
+                                                        !tipoCambioSeleccionado &&
+                                                        errorTipoCambio && (
+                                                            <span className='text-xs text-red-500'>
+                                                                {errorTipoCambio}
+                                                            </span>
+                                                        )}
+                                                </div>
                                                 <Button
                                                     isDisable={
                                                         totales.countFacturables === 0 ||
