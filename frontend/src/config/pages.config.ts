@@ -134,7 +134,7 @@ export const Pages = {
     cotizacion: {
         id: 'cotizacion',
         to: '/cotizacion',
-        text: 'Cotización',
+        text: 'Cotizaciones',
         icon: 'HeroDocumentText',
         authority: ['staff', 'superadmin', 'tecnico'],
         subPages: {
@@ -252,7 +252,7 @@ export const Pages = {
     bodega: {
         id: 'bodega',
         to: '/bodega',
-        text: 'Bodega',
+        text: 'Bodegas',
         icon: 'HeroArchiveBox',
         authority: ['staff', 'superadmin'],
         subPages: {
@@ -325,7 +325,7 @@ export const Pages = {
     ordenTrabajo: {
         id: 'ordenTrabajo',
         to: '/orden-trabajo',
-        text: 'Orden Trabajo',
+        text: 'Asesorías',
         icon: 'HeroClipboardDocumentList',
         authority: ['staff', 'superadmin'],
         subPages: {

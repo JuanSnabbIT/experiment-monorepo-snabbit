@@ -66,9 +66,6 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.empresa.subPages.listaUsuariosEmpresa.icon}
                                     id={Pages.empresa.subPages.listaUsuariosEmpresa.id}></NavItem>
                             </AuthorityCheckNav>
-                            {/* <AuthorityCheckNav authority={Pages.empresa.subPages.listaClientes.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.empresa.subPages.listaClientes.text} to={Pages.empresa.subPages.listaClientes.to} icon={Pages.empresa.subPages.listaClientes.icon} id={Pages.empresa.subPages.listaClientes.id}></NavItem>
-							</AuthorityCheckNav> */}
 
                             <AuthorityCheckNav
                                 authority={Pages.empresa.subPages.detalleCliente.authority}
@@ -91,195 +88,6 @@ const DefaultAsideTemplate = () => {
                                         <NavItem text='Sin Clientes' icon='HeroXMark'></NavItem>
                                     )}
                                 </NavCollapse>
-                            </AuthorityCheckNav>
-
-                            {/* <AuthorityCheckNav authority={Pages.empresa.subPages.detalleEmpresa.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={detalleEmpresa?.nombre || ''} to={`/empresas/${detalleEmpresa?.id}`} icon={Pages.empresa.subPages.detalleEmpresa.icon} id={Pages.empresa.subPages.detalleEmpresa.id}></NavItem>
-							</AuthorityCheckNav */}
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* cotizacion */}
-                    <AuthorityCheckNav
-                        authority={Pages.cotizacion.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.cotizacion.text}
-                            icon={Pages.cotizacion.icon}
-                            to={Pages.cotizacion.to}>
-                            {/* <AuthorityCheckNav authority={Pages.cotizacion.subPages.listaCotizaciones.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.cotizacion.subPages.listaCotizaciones.text} to={Pages.cotizacion.subPages.listaCotizaciones.to} icon={Pages.cotizacion.subPages.listaCotizaciones.icon} id={Pages.cotizacion.subPages.listaCotizaciones.id}></NavItem>
-							</AuthorityCheckNav> */}
-                            <AuthorityCheckNav
-                                authority={
-                                    Pages.cotizacion.subPages.listaCotizacionesEmpresa.authority
-                                }
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.cotizacion.subPages.listaCotizacionesEmpresa.text}
-                                    to={Pages.cotizacion.subPages.listaCotizacionesEmpresa.to}
-                                    icon={Pages.cotizacion.subPages.listaCotizacionesEmpresa.icon}
-                                    id={
-                                        Pages.cotizacion.subPages.listaCotizacionesEmpresa.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* navcollapse compras */}
-                    <AuthorityCheckNav
-                        authority={Pages.compras.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.compras.text}
-                            icon={Pages.compras.icon}
-                            to={Pages.compras.to}>
-                            <AuthorityCheckNav
-                                authority={Pages.compras.subPages.listaOrdenesCompra.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.compras.subPages.listaOrdenesCompra.text}
-                                    to={Pages.compras.subPages.listaOrdenesCompra.to}
-                                    icon={Pages.compras.subPages.listaOrdenesCompra.icon}
-                                    id={Pages.compras.subPages.listaOrdenesCompra.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.compras.subPages.listaMisOrdenesDeCompra.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.compras.subPages.listaMisOrdenesDeCompra.text}
-                                    to={Pages.compras.subPages.listaMisOrdenesDeCompra.to}
-                                    icon={Pages.compras.subPages.listaMisOrdenesDeCompra.icon}
-                                    id={
-                                        Pages.compras.subPages.listaMisOrdenesDeCompra.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.compras.subPages.listaCompra.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.compras.subPages.listaCompra.text}
-                                    to={Pages.compras.subPages.listaCompra.to}
-                                    icon={Pages.compras.subPages.listaCompra.icon}
-                                    id={Pages.compras.subPages.listaCompra.id}></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* bodegas */}
-                    <AuthorityCheckNav
-                        authority={Pages.bodega.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.bodega.text}
-                            icon={Pages.bodega.icon}
-                            to={Pages.bodega.to}>
-                            <AuthorityCheckNav
-                                authority={Pages.bodega.subPages.listaBodegas.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.bodega.subPages.listaBodegas.text}
-                                    to={Pages.bodega.subPages.listaBodegas.to}
-                                    icon={Pages.bodega.subPages.listaBodegas.icon}
-                                    id={Pages.bodega.subPages.listaBodegas.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.bodega.subPages.listaGuiaSalida.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.bodega.subPages.listaGuiaSalida.text}
-                                    to={Pages.bodega.subPages.listaGuiaSalida.to}
-                                    icon={Pages.bodega.subPages.listaGuiaSalida.icon}
-                                    id={Pages.bodega.subPages.listaGuiaSalida.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.bodega.subPages.listaTomaInventario.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.bodega.subPages.listaTomaInventario.text}
-                                    to={Pages.bodega.subPages.listaTomaInventario.to}
-                                    icon={Pages.bodega.subPages.listaTomaInventario.icon}
-                                    id={Pages.bodega.subPages.listaTomaInventario.id}></NavItem>
-                            </AuthorityCheckNav>
-                            {listaBodegas.length > 0 && (
-                                <NavCollapse text='Bodegas' icon='HeroDocument' to='/bodega/detalle-bodega'>
-                                    {listaBodegas.map((bodega, index) => (
-                                        <NavItem
-                                            key={index}
-                                            text={bodega.nombre}
-                                            icon='HeroDocument'
-                                            to={`/bodega/detalle-bodega/${bodega.id}`}
-                                            id={bodega.id.toString()}></NavItem>
-                                    ))}
-                                </NavCollapse>
-                            )}
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* orden trabajo */}
-                    <AuthorityCheckNav
-                        authority={Pages.ordenTrabajo.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.ordenTrabajo.text}
-                            icon={Pages.ordenTrabajo.icon}
-                            to={Pages.ordenTrabajo.to}>
-                            <AuthorityCheckNav
-                                authority={
-                                    Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.authority
-                                }
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.text}
-                                    to={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.to}
-                                    icon={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.icon}
-                                    id={
-                                        Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-
-                            {/* navcollapse visitas */}
-                            <AuthorityCheckNav
-                                authority={
-                                    Pages.ordenTrabajo.subPages.listaVisitasSoporte.authority
-                                }
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.ordenTrabajo.subPages.listaVisitasSoporte.text}
-                                    to={Pages.ordenTrabajo.subPages.listaVisitasSoporte.to}
-                                    icon={Pages.ordenTrabajo.subPages.listaVisitasSoporte.icon}
-                                    id={
-                                        Pages.ordenTrabajo.subPages.listaVisitasSoporte.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* Recursos */}
-                    <AuthorityCheckNav
-                        authority={Pages.recursos.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.recursos.text}
-                            icon={Pages.recursos.icon}
-                            to={Pages.recursos.to}>
-                            <AuthorityCheckNav
-                                authority={Pages.recursos.subPages.listaEquiposEmpresa.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.recursos.subPages.listaEquiposEmpresa.text}
-                                    to={Pages.recursos.subPages.listaEquiposEmpresa.to}
-                                    icon={Pages.recursos.subPages.listaEquiposEmpresa.icon}
-                                    id={Pages.recursos.subPages.listaEquiposEmpresa.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.recursos.subPages.listaSoftware.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.recursos.subPages.listaSoftware.text}
-                                    to={Pages.recursos.subPages.listaSoftware.to}
-                                    icon={Pages.recursos.subPages.listaSoftware.icon}
-                                    id={Pages.recursos.subPages.listaSoftware.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
@@ -344,7 +152,238 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    {/* navcollapse vacaciones */}
+                    {/* Recursos */}
+                    <AuthorityCheckNav
+                        authority={Pages.recursos.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.recursos.text}
+                            icon={Pages.recursos.icon}
+                            to={Pages.recursos.to}>
+                            <AuthorityCheckNav
+                                authority={Pages.recursos.subPages.listaEquiposEmpresa.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.recursos.subPages.listaEquiposEmpresa.text}
+                                    to={Pages.recursos.subPages.listaEquiposEmpresa.to}
+                                    icon={Pages.recursos.subPages.listaEquiposEmpresa.icon}
+                                    id={Pages.recursos.subPages.listaEquiposEmpresa.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.recursos.subPages.listaSoftware.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.recursos.subPages.listaSoftware.text}
+                                    to={Pages.recursos.subPages.listaSoftware.to}
+                                    icon={Pages.recursos.subPages.listaSoftware.icon}
+                                    id={Pages.recursos.subPages.listaSoftware.id}></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Bodegas */}
+                    <AuthorityCheckNav
+                        authority={Pages.bodega.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.bodega.text}
+                            icon={Pages.bodega.icon}
+                            to={Pages.bodega.to}>
+                            <AuthorityCheckNav
+                                authority={Pages.bodega.subPages.listaBodegas.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.bodega.subPages.listaBodegas.text}
+                                    to={Pages.bodega.subPages.listaBodegas.to}
+                                    icon={Pages.bodega.subPages.listaBodegas.icon}
+                                    id={Pages.bodega.subPages.listaBodegas.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.bodega.subPages.listaGuiaSalida.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.bodega.subPages.listaGuiaSalida.text}
+                                    to={Pages.bodega.subPages.listaGuiaSalida.to}
+                                    icon={Pages.bodega.subPages.listaGuiaSalida.icon}
+                                    id={Pages.bodega.subPages.listaGuiaSalida.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.bodega.subPages.listaTomaInventario.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.bodega.subPages.listaTomaInventario.text}
+                                    to={Pages.bodega.subPages.listaTomaInventario.to}
+                                    icon={Pages.bodega.subPages.listaTomaInventario.icon}
+                                    id={Pages.bodega.subPages.listaTomaInventario.id}></NavItem>
+                            </AuthorityCheckNav>
+                            {listaBodegas.length > 0 && (
+                                <NavCollapse text='Bodegas' icon='HeroDocument' to='/bodega/detalle-bodega'>
+                                    {listaBodegas.map((bodega, index) => (
+                                        <NavItem
+                                            key={index}
+                                            text={bodega.nombre}
+                                            icon='HeroDocument'
+                                            to={`/bodega/detalle-bodega/${bodega.id}`}
+                                            id={bodega.id.toString()}></NavItem>
+                                    ))}
+                                </NavCollapse>
+                            )}
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Cotizaciones */}
+                    <AuthorityCheckNav
+                        authority={Pages.cotizacion.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.cotizacion.text}
+                            icon={Pages.cotizacion.icon}
+                            to={Pages.cotizacion.to}>
+                            <AuthorityCheckNav
+                                authority={
+                                    Pages.cotizacion.subPages.listaCotizacionesEmpresa.authority
+                                }
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.cotizacion.subPages.listaCotizacionesEmpresa.text}
+                                    to={Pages.cotizacion.subPages.listaCotizacionesEmpresa.to}
+                                    icon={Pages.cotizacion.subPages.listaCotizacionesEmpresa.icon}
+                                    id={
+                                        Pages.cotizacion.subPages.listaCotizacionesEmpresa.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Compras */}
+                    <AuthorityCheckNav
+                        authority={Pages.compras.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.compras.text}
+                            icon={Pages.compras.icon}
+                            to={Pages.compras.to}>
+                            <AuthorityCheckNav
+                                authority={Pages.compras.subPages.listaOrdenesCompra.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.compras.subPages.listaOrdenesCompra.text}
+                                    to={Pages.compras.subPages.listaOrdenesCompra.to}
+                                    icon={Pages.compras.subPages.listaOrdenesCompra.icon}
+                                    id={Pages.compras.subPages.listaOrdenesCompra.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.compras.subPages.listaMisOrdenesDeCompra.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.compras.subPages.listaMisOrdenesDeCompra.text}
+                                    to={Pages.compras.subPages.listaMisOrdenesDeCompra.to}
+                                    icon={Pages.compras.subPages.listaMisOrdenesDeCompra.icon}
+                                    id={
+                                        Pages.compras.subPages.listaMisOrdenesDeCompra.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.compras.subPages.listaCompra.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.compras.subPages.listaCompra.text}
+                                    to={Pages.compras.subPages.listaCompra.to}
+                                    icon={Pages.compras.subPages.listaCompra.icon}
+                                    id={Pages.compras.subPages.listaCompra.id}></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Asesorías */}
+                    <AuthorityCheckNav
+                        authority={Pages.ordenTrabajo.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.ordenTrabajo.text}
+                            icon={Pages.ordenTrabajo.icon}
+                            to={Pages.ordenTrabajo.to}>
+                            <AuthorityCheckNav
+                                authority={
+                                    Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.authority
+                                }
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.text}
+                                    to={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.to}
+                                    icon={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.icon}
+                                    id={
+                                        Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={
+                                    Pages.ordenTrabajo.subPages.listaVisitasSoporte.authority
+                                }
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.ordenTrabajo.subPages.listaVisitasSoporte.text}
+                                    to={Pages.ordenTrabajo.subPages.listaVisitasSoporte.to}
+                                    icon={Pages.ordenTrabajo.subPages.listaVisitasSoporte.icon}
+                                    id={
+                                        Pages.ordenTrabajo.subPages.listaVisitasSoporte.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Rendiciones */}
+                    <AuthorityCheckNav
+                        authority={Pages.rendiciones.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.rendiciones.text}
+                            icon={Pages.rendiciones.icon}
+                            to={Pages.rendiciones.to}>
+                            <AuthorityCheckNav
+                                authority={Pages.rendiciones.subPages.listaRendiciones.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.rendiciones.subPages.listaRendiciones.text}
+                                    to={Pages.rendiciones.subPages.listaRendiciones.to}
+                                    icon={Pages.rendiciones.subPages.listaRendiciones.icon}
+                                    id={Pages.rendiciones.subPages.listaRendiciones.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.rendiciones.subPages.listaMisRendiciones.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.rendiciones.subPages.listaMisRendiciones.text}
+                                    to={Pages.rendiciones.subPages.listaMisRendiciones.to}
+                                    icon={Pages.rendiciones.subPages.listaMisRendiciones.icon}
+                                    id={
+                                        Pages.rendiciones.subPages.listaMisRendiciones.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Facturaciones */}
+                    <AuthorityCheckNav
+                        authority={Pages.facturacion.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.facturacion.text}
+                            icon={Pages.facturacion.icon}
+                            to={Pages.facturacion.to}>
+                            <AuthorityCheckNav
+                                authority={Pages.facturacion.subPages.listaFacturas.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.facturacion.subPages.listaFacturas.text}
+                                    to={Pages.facturacion.subPages.listaFacturas.to}
+                                    icon={Pages.facturacion.subPages.listaFacturas.icon}
+                                    id={Pages.facturacion.subPages.listaFacturas.id}></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Vacaciones */}
                     <AuthorityCheckNav
                         authority={Pages.vacaciones.authority}
                         userAuthority={listaGrupos?.grupos}>
