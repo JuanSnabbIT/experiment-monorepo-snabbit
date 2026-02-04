@@ -182,6 +182,11 @@ class ItemCotizacion(ModeloBase):
         max_digits=10, decimal_places=2, verbose_name="Costo total", blank=True
     )
     recargo_dolar = models.IntegerField(default=5, null=True, blank=True)
+    porcentaje_recargo = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Porcentaje de recargo del item",
+        help_text="Si es 0, usa el porcentaje de la cotización",
+    )
 
     #
     # ——————————————————————
@@ -223,7 +228,8 @@ class ItemCotizacion(ModeloBase):
         Redondeado a 2 decimales.
         """
         costo = self._costo_total_en_clp
-        factor = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor = Decimal(recargo_pct) / Decimal(100)
         base = costo + (costo * factor) if factor else costo
 
         ppm_amount = base * (Decimal(self.cotizacion.ppm or 0) / Decimal(100))
@@ -237,7 +243,8 @@ class ItemCotizacion(ModeloBase):
         donde IVA venta = (costo+recargo)*0.19; IVA compra = costo*0.19; PPM_amount = valor_ppm.
         """
         costo = self._costo_total_en_clp
-        factor = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor = Decimal(recargo_pct) / Decimal(100)
         base = costo + (costo * factor) if factor else costo
 
         iva_venta = base * Decimal("0.19")
@@ -257,7 +264,8 @@ class ItemCotizacion(ModeloBase):
         Redondea a 2 decimales.
         """
         costo = self._costo_total_en_clp
-        factor = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor = Decimal(recargo_pct) / Decimal(100)
         recargo = costo * factor if factor else Decimal("0.00")
 
         # self.total_impuesto ya está en CLP
@@ -331,13 +339,15 @@ class ItemCotizacion(ModeloBase):
         """
         Devuelve el precio de venta neto unitario (Costo + Recargo)
         en la moneda de la COTIZACIÓN (CLP, USD o UF).
+        Usa porcentaje_recargo del item, con fallback a cotización.
         """
         costo_unitario_clp = (
             self._costo_total_en_clp / Decimal(self.cantidad)
             if self.cantidad
             else Decimal("0.00")
         )
-        factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor_rec = Decimal(recargo_pct) / Decimal(100)
         venta_unitario_clp = (
             costo_unitario_clp * (Decimal("1.00") + factor_rec)
             if factor_rec
@@ -366,9 +376,11 @@ class ItemCotizacion(ModeloBase):
         """
         Devuelve el precio de venta neto total (Costo + Recargo) * Cantidad
         en la moneda de la COTIZACIÓN (CLP, USD o UF).
+        Usa porcentaje_recargo del item, con fallback a cotización.
         """
         costo_total_clp = self._costo_total_en_clp
-        factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor_rec = Decimal(recargo_pct) / Decimal(100)
         venta_total_clp = (
             costo_total_clp * (Decimal("1.00") + factor_rec)
             if factor_rec
@@ -401,13 +413,15 @@ class ItemCotizacion(ModeloBase):
         """
         Devuelve un dict con el "precio neto por unidad" (Costo + Recargo)
         convertido a CLP y USD para propósitos de impuestos y márgenes internos.
+        Usa porcentaje_recargo del item, con fallback a cotización.
         """
         costo_unitario_clp = (
             self._costo_total_en_clp / Decimal(self.cantidad)
             if self.cantidad
             else Decimal("0.00")
         )
-        factor_rec = Decimal(self.cotizacion.porcentaje_recargo or 0) / Decimal(100)
+        recargo_pct = self.porcentaje_recargo or self.cotizacion.porcentaje_recargo or 0
+        factor_rec = Decimal(recargo_pct) / Decimal(100)
         venta_unitario_clp = (
             costo_unitario_clp * (Decimal("1.00") + factor_rec)
             if factor_rec

@@ -214,9 +214,6 @@ function ListaSoportesTecnicosOT() {
             setSelectedService(null);
             setTecnicoSeleccionado(undefined);
             setFechaEnModal(undefined);
-
-            if (estadoNuevo === 'en_proceso' && detalleOrdenTrabajo.estado === 'pendiente') {
-            }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error al cambiar el estado');
         }

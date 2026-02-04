@@ -1444,8 +1444,8 @@ function ListaServiciosOT() {
                     ordenId={detalleOrdenTrabajo.id}
                     entityName={selectedService.nombre}
                     onSuccess={() => {
-                        if (detalleOrdenTrabajo) {
-                        }
+                        refetchServiciosGenerales();
+                        refetchDetalleOrdenTrabajo();
                     }}
                 />
             )}

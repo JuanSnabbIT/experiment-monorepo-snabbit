@@ -470,7 +470,7 @@ function CrearCompraRapidaEnOT() {
                             </Validation>
                         </div>
 
-                        <div className='rounded border border-gray-200 bg-white p-3'>
+                        <div className='rounded border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800'>
                             <div className='mb-3 flex items-center justify-between'>
                                 <Badge>Agregar Item</Badge>
                             </div>
@@ -918,11 +918,11 @@ function CrearCompraRapidaEnOT() {
                             </div>
                         </div>
 
-                        <div className='rounded border border-gray-200 bg-gray-50 p-3'>
+                        <div className='rounded border border-gray-200 bg-gray-50 p-3 dark:border-zinc-700 dark:bg-zinc-900'>
                             <div className='mb-2 flex items-center justify-between'>
                                 <Badge>Items comprados</Badge>
                             </div>
-                            <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 md:grid-cols-12'>
+                            <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 dark:text-gray-400 md:grid-cols-12'>
                                 <div className='md:col-span-6'>Item</div>
                                 <div className='md:col-span-2'>Cantidad</div>
                                 <div className='md:col-span-2'>Precio</div>

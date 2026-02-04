@@ -614,7 +614,7 @@ function CrearUsuarioAsignadoOT({
                             </div>
 
                             {!isSoporteMode && mostrarCampoCorreo && nombreExterno && (
-                                <div className='rounded-lg border bg-blue-50 p-4'>
+                                <div className='rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-900/20'>
                                     <Badge className='mb-2'>Usuario Externo: {nombreExterno}</Badge>
                                     <div className='flex gap-2'>
                                         <div className='flex-1'>
@@ -713,7 +713,7 @@ function CrearUsuarioAsignadoOT({
                             )}
 
                             {usuariosPendientes.length === 0 && !mostrarCampoCorreo && (
-                                <div className='rounded-lg border border-dashed bg-gray-50 py-4 text-center text-gray-500'>
+                                <div className='rounded-lg border border-dashed border-gray-300 bg-gray-50 py-4 text-center text-gray-500 dark:border-gray-600 dark:bg-zinc-900 dark:text-gray-400'>
                                     {isSoporteMode
                                         ? 'Seleccione usuarios de equipo para agregar a la lista'
                                         : 'Seleccione usuarios para agregar a la lista'}

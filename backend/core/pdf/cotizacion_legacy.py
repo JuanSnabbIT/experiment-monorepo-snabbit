@@ -38,9 +38,21 @@ def draw_datos_cliente(pdf, nombre, rut, direccion, destinatarios, mx, y):
     else:
         y -= 20
     if destinatarios:
+        label = "Estimado/a:"
         pdf.setFont(*FONTS["datos_label"])
-        pdf.drawString(mx, y, f"Estimado/a: {destinatarios}")
-        y -= 20
+        pdf.drawString(mx, y, label)
+
+        pdf.setFont(*FONTS["datos"])
+        label_width = pdf.stringWidth(label, *FONTS["datos_label"]) + 6
+        lines = wrap(str(destinatarios), width=90)
+        if not lines:
+            lines = [""]
+
+        for idx, line in enumerate(lines):
+            x = mx + label_width if idx == 0 else mx + label_width
+            pdf.drawString(x, y, line)
+            y -= 14
+        y -= 6
     return y
 
 
