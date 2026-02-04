@@ -659,8 +659,8 @@ const FacturacionesComparativa = () => {
                     (ci) => ci.id === item.item_cotizacion_id || ci.nombre_item === item.nombre,
                 );
                 if (match) {
-                    const unit = getPrecioUnitario(match as any, 'USD');
-                    const total = getPrecioTotal(match as any, 'USD');
+                    const unit = getPrecioUnitario(match as any);
+                    const total = getPrecioTotal(match as any);
                     return { unit, total };
                 }
             }
@@ -670,8 +670,8 @@ const FacturacionesComparativa = () => {
                     (ci) => ci.nombre_item === item.nombre || ci.nombre_item === item.descripcion,
                 );
                 if (match) {
-                    const unit = getPrecioUnitario(match as any, 'USD');
-                    const total = getPrecioTotal(match as any, 'USD');
+                    const unit = getPrecioUnitario(match as any);
+                    const total = getPrecioTotal(match as any);
                     return { unit, total };
                 }
             }

@@ -56,6 +56,7 @@ const validationSchema = Yup.object({
         .required('Requerido')
         .nonNullable('Requerido')
         .min(-1, 'No puede ser menor a 0'),
+    tipo_moneda: Yup.string().required('Tipo de moneda es requerido'),
 });
 
 function DetalleProveedorEmpresa() {
@@ -110,6 +111,7 @@ function DetalleProveedorEmpresa() {
             comuna: detalleProveedorEmpresa?.comuna || '',
             catalogo_web: detalleProveedorEmpresa?.catalogo_web || '',
             recargo_dolar: detalleProveedorEmpresa?.recargo_dolar || 0,
+            tipo_moneda: detalleProveedorEmpresa?.tipo_moneda || '2',
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -345,6 +347,7 @@ function DetalleProveedorEmpresa() {
                                         comuna: detalleProveedorEmpresa?.comuna || '',
                                         catalogo_web: detalleProveedorEmpresa?.catalogo_web || '',
                                         recargo_dolar: detalleProveedorEmpresa?.recargo_dolar || 0,
+                                        tipo_moneda: detalleProveedorEmpresa?.tipo_moneda || '2',
                                     });
                                 }}
                                 color='red'>
@@ -680,6 +683,56 @@ function DetalleProveedorEmpresa() {
                                                     {detalleProveedorEmpresa?.catalogo_web
                                                         ? detalleProveedorEmpresa.catalogo_web
                                                         : 'Sin Catalogo'}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className='w-full'>
+                                            <Badge>Tipo de Moneda</Badge>
+                                            {isEditing ? (
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.tipo_moneda}
+                                                    invalidFeedback={formik.errors.tipo_moneda}>
+                                                    <SelectReact
+                                                        name='tipo_moneda'
+                                                        placeholder='Seleccione un Tipo de Moneda'
+                                                        options={[
+                                                            { value: '1', label: 'USD' },
+                                                            { value: '2', label: 'CLP' },
+                                                            { value: '3', label: 'UF' },
+                                                        ]}
+                                                        onChange={(e) => {
+                                                            formik.setFieldValue(
+                                                                'tipo_moneda',
+                                                                (e as TSelectOption).value,
+                                                            );
+                                                        }}
+                                                        value={[
+                                                            { value: '1', label: 'USD' },
+                                                            { value: '2', label: 'CLP' },
+                                                            { value: '3', label: 'UF' },
+                                                        ].find(
+                                                            (moneda) =>
+                                                                moneda.value ===
+                                                                formik.values.tipo_moneda,
+                                                        )}
+                                                    />
+                                                </Validation>
+                                            ) : (
+                                                <div className='ml-4'>
+                                                    {(() => {
+                                                        const monedasMap: { [key: string]: string } = {
+                                                            '1': 'USD',
+                                                            '2': 'CLP',
+                                                            '3': 'UF',
+                                                        };
+                                                        return (
+                                                            monedasMap[
+                                                                detalleProveedorEmpresa?.tipo_moneda ||
+                                                                    '2'
+                                                            ] || 'CLP'
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
                                         </div>

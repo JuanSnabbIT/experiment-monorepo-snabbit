@@ -1,7 +1,7 @@
 ---
-Responsable: -
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: canonical
 ---
 
@@ -22,7 +22,7 @@ Estado: canonical
 - ❌ Notas operativas diarias → usa `notas.md`
 - ❌ **No crear archivos nuevos para documentar épicas** → usa secciones aquí
 
-- **Mantenimiento:**
+**Mantenimiento:**
 - Actualizar estado de épicas cada semana
 - Mover épicas completadas a `changelog.md`
 - Mantener máximo 3-4 épicas activas simultáneamente
@@ -117,6 +117,59 @@ Estado: canonical
 
 ### C. Automatización Celery Tasks
 **Objetivo:** Tareas automáticas (expiración cotizaciones, recordatorios OT, etc.)
+
+---
+
+## Backlog Operativo (Migrado desde notas)
+
+### Módulo: cotizaciones
+- Permitir crear items nuevos desde el modal de agregar items.
+- Revisar autoselección de proveedor al elegir item (un item puede tener múltiples proveedores con precios distintos).
+- Revisar UI del detalle: evitar “flash” de datos de la cotización anterior al navegar entre detalles.
+
+### Módulo: compras (OC)
+- Revisar generación de PDF y opciones rápidas en UI.
+- Revisar botones de acción en lista (p.ej. ocultar eliminar si estado != borrador).
+- Validar dólar observado: no permitir fecha de compra futura.
+- Permitir crear items nuevos desde el modal de agregar items en OC.
+
+### Módulo: guías de salida
+- Mejorar UI en lista y detalle (botones y flujo).
+- Ajustar vínculo GS ↔ OT para soportar múltiples guías por OT.
+- Trazabilidad Cotización → OC → GS → OT (qué items se entregaron vs pactaron).
+
+### Módulo: órdenes de trabajo (OT)
+- Mejorar pestañas: Compras, Insumos, Usuarios, Gastos Operativos, Devoluciones.
+- UX: detalle en modal + enlace a vista completa (validar si aplica a gastos).
+- Gastos operativos: tabla maestra para precargar precios por categoría.
+- Asignación de fechas más rápida + hora en fecha.
+- Firmas: Guías, Serializados y Trabajos (opcional); permitir “otro” con nombre + firma.
+- Tab “Insumos”: mostrar items de la guía (tabla anidada) y cotizaciones asociadas.
+- Evitar usuarios duplicados en servicios de soporte.
+- Permitir desvincular guías o cotizaciones.
+- Permitir editar gastos operativos en OT.
+
+### Módulo: facturación manual
+- Botones para navegar a vistas de items (no solo OTs).
+- Filtro de listas de prefacturas no funciona: corregir.
+
+### Módulo: rendiciones
+- Revisar modelos con campos desactualizados/no usados.
+- Actualizar PDF de rendiciones (fase 5 pendiente).
+
+### Módulo: empresas / sucursales / items
+- En edición de empresa, evitar cambios de layout al entrar/salir de modo edición.
+- Impedir seleccionar la misma empresa como cliente.
+- Región/Provincia/Comuna: asegurar reactividad al cambiar región.
+- En modal de items, permitir crear Fabricante/Categoría in-place.
+- Formato de precio: aceptar `123.456,78`.
+
+### Módulo: infra
+- Revisar estabilidad de task `send_email` (retry / Celery).
+- Mejorar menú sidebar (scroll y navegación cuando el contenido es largo).
+
+### Módulo: equipos
+- Evaluar agregar JSONField para historial de mantenimientos/asignaciones.
 
 ---
 

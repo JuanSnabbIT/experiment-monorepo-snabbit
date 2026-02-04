@@ -1,7 +1,7 @@
 ---
-Responsable: -
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: canonical
 ---
 
@@ -111,7 +111,7 @@ Estado: canonical
 
 **Frontend:** Multiple pages + services + slices
 - `src/pages/OrdenTrabajo/` (detalle, lista, formulario, servicios, soportes)
-- `src/services/OrdenTrabjoService.ts`
+- `src/services/RtkQueryService.ts` (RTK Query)
 - `src/store/slices/ordenTrabajo`
 
 **Decisión técnica:** Refactores cosméticos deferred (renderBadgeValue, confirmAlert patterns ya presentes)
@@ -240,37 +240,3 @@ def get_queryset(self):
  
 ---
 
-## Matriz de permisos UI — Órdenes de Trabajo (importado desde `dev/docs/orden_trabajo_ui_permissions.md`)
-
-Este apartado resume las reglas de visibilidad/habilitación en la UI para Órdenes de Trabajo. Las reglas descritas aquí fueron importadas desde `orden_trabajo_ui_permissions.md` y deben servir como contrato visual para implementaciones frontend.
-
-### Convención encontrada
-
-- Checks inline en JSX: ternarios/condicionales en markup
-- Estados por componente: cada componente verifica `detalleOrdenTrabajo.estado`
-- No existe centralización actual (cada componente decide)
-
-### Cambios puntuales recomendados (resumen)
-
-1. `ListaOT` — Botón `Eliminar OT`: mostrar solo si `estado === 'pendiente'` (envolver `ModalEliminar` con check)
-2. `ListaServiciosOT` / `ListaSoportesTecnicosOT` — Vincular/Desvincular Guías: mostrar solo en `pendiente`
-3. `ComprasEnOT` / `RendicionesOT` — Crear Compra/Rendición: permitir solo en `en_proceso`
-4. `Adjuntos` / `Fotos` — Permitir creación en `pendiente|en_proceso|completada` (verificar consistencia)
-
-### Tabla de cambios (resumen)
-
-| Componente | Acción | Recomendación |
-|---|---:|---|
-| ListaOT | Eliminar OT | Mostrar solo en `pendiente` |
-
----
-| ListaServiciosOT | Vincular/Desvincular Guía | Mostrar solo en `pendiente` |
-| ComprasEnOT | Crear Compra | Permitir solo en `en_proceso` |
-| RendicionesOT | Crear Rendición | Permitir solo en `en_proceso` |
-
-### Implementación (nota)
-
-- Seguir patrón existente: cambios mínimos por componente (inline checks)
-- Antes de aplicar cambios masivos, validar con mantenedor ya que algunas condiciones pueden depender de workflows locales
-
----

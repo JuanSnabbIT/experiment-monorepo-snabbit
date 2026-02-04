@@ -16,6 +16,7 @@ import ApiService from '@/services/ApiService';
 import {
     listaCamposAdicionalesItemThunk,
     listaCategoriasThunk,
+    listaFabricanteThunk,
     listaItemsEmpresaFiltroThunk,
     listaProveedoresEmpresaThunk,
     useAppDispatch,
@@ -42,6 +43,7 @@ function CrearItemCotizacion({
     const {
         listaItemsEmpresaFiltro,
         listaCategorias,
+        listaFabricante,
         listaProveedoresEmpresa,
         listaCamposAdicionalesItem,
     } = useAppSelector((state) => state.item);
@@ -56,6 +58,8 @@ function CrearItemCotizacion({
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [creandoItem, setCreandoItem] = useState<boolean>(false);
     const [showCategoria, setShowCategoria] = useState<boolean>(false);
+    const [isCreatingCategoria, setIsCreatingCategoria] = useState<boolean>(false);
+    const [isCreatingFabricante, setIsCreatingFabricante] = useState<boolean>(false);
     const [isService, setIsService] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -103,6 +107,8 @@ function CrearItemCotizacion({
             cantidad: 1,
             precio_unitario: '',
             recargo_dolar: 0,
+            categoria: '',
+            fabricante: '',
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -156,6 +162,49 @@ function CrearItemCotizacion({
                 }
                 setIsSubmitting(true);
                 try {
+                    let categoriaId: string | null = values.categoria || null;
+                    let fabricanteId: string | null = values.fabricante || null;
+
+                    if (isCreatingCategoria && values.categoria) {
+                        const responseCategoria = await ApiService.fetchData<
+                            { id: number; nombre: string },
+                            string
+                        >({
+                            url: `/api/categorias/`,
+                            method: 'post',
+                            headers: { 'Content-Type': 'application/json' },
+                            data: JSON.stringify({ nombre: values.categoria }),
+                        });
+                        if (responseCategoria.data) {
+                            categoriaId = responseCategoria.data.id.toString();
+                        } else {
+                            toast.error('Error al crear la categoría', {
+                                toastId: 'Error al crear la categoría',
+                            });
+                            categoriaId = null;
+                        }
+                    }
+
+                    if (isCreatingFabricante && values.fabricante) {
+                        const responseFabricante = await ApiService.fetchData<
+                            { id: number; nombre: string },
+                            string
+                        >({
+                            url: `/api/fabricantes/`,
+                            method: 'post',
+                            headers: { 'Content-Type': 'application/json' },
+                            data: JSON.stringify({ nombre: values.fabricante }),
+                        });
+                        if (responseFabricante.data) {
+                            fabricanteId = responseFabricante.data.id.toString();
+                        } else {
+                            toast.error('Error al crear el fabricante', {
+                                toastId: 'Error al crear el fabricante',
+                            });
+                            fabricanteId = null;
+                        }
+                    }
+
                     const response = await ApiService.fetchData<IItemEmpresa, string>({
                         url: `/api/items-empresa/`,
                         method: 'post',
@@ -165,6 +214,8 @@ function CrearItemCotizacion({
                             descripcion_corta: values.descripcion,
                             proveedores_empresa: [proveedorSeleccionado?.id],
                             empresa: cotizacion?.empresa,
+                            categoria: categoriaId,
+                            fabricante: fabricanteId,
                         }),
                     });
                     if (response.data) {
@@ -241,6 +292,7 @@ function CrearItemCotizacion({
             dispatch(listaItemsEmpresaFiltroThunk({ id_empresa: cotizacion.empresa }));
             dispatch(listaProveedoresEmpresaThunk({ id_empresa: cotizacion.empresa }));
             dispatch(listaCategoriasThunk());
+            dispatch(listaFabricanteThunk());
         } else {
             formik.resetForm();
             setItemSeleccionado(undefined);
@@ -248,6 +300,8 @@ function CrearItemCotizacion({
             setCategoriaSeleccionada('');
             setValorSeleccionado(undefined);
             setShowCategoria(false);
+            setIsCreatingCategoria(false);
+            setIsCreatingFabricante(false);
         }
     }, [isOpen]);
 
@@ -387,18 +441,6 @@ function CrearItemCotizacion({
                         <div className='col-span-full'>
                             <div className='flex items-center justify-between gap-3'>
                                 <Badge>Item de la Empresa</Badge>
-                                <Button
-                                    size='xs'
-                                    variant='outline'
-                                    color='gray'
-                                    onClick={() => {
-                                        setCreandoItem((prev) => !prev);
-                                        setItemSeleccionado(undefined);
-                                        setProveedorSeleccionado(undefined);
-                                        setShowCategoria(false);
-                                    }}>
-                                    {creandoItem ? 'Seleccionar existente' : 'Crear nuevo'}
-                                </Button>
                             </div>
                             {!creandoItem ? (
                                 <div className='flex flex-row gap-2'>
@@ -410,8 +452,22 @@ function CrearItemCotizacion({
                                                 value: item.id.toString(),
                                                 label: item.nombre,
                                             }))}
+                                            isCreatable
+                                            formatCreateLabel={(inputValue) =>
+                                                `Crear nuevo "${inputValue}"`
+                                            }
+                                            onCreateOption={(inputValue) => {
+                                                setCreandoItem(true);
+                                                setItemSeleccionado(undefined);
+                                                setProveedorSeleccionado(undefined);
+                                                setShowCategoria(false);
+                                                setIsCreatingCategoria(false);
+                                                setIsCreatingFabricante(false);
+                                                formik.setFieldValue('nombre', inputValue);
+                                            }}
                                             onChange={(e) => {
                                                 if (e) {
+                                                    setCreandoItem(false);
                                                     const sel = itemsEmpresaDisponibles.find(
                                                         (i) =>
                                                             i.id.toString() ===
@@ -489,10 +545,18 @@ function CrearItemCotizacion({
                                         <Badge>Proveedor</Badge>
                                         <SelectReact
                                             name='proveedor_empresa'
-                                            options={listaProveedoresEmpresa.map((pro) => ({
-                                                value: pro.id.toString(),
-                                                label: pro.nombre,
-                                            }))}
+                                            options={listaProveedoresEmpresa.map((pro) => {
+                                                const moneda =
+                                                    pro.tipo_moneda === '1'
+                                                        ? 'USD'
+                                                        : pro.tipo_moneda === '3'
+                                                          ? 'UF'
+                                                          : 'CLP';
+                                                return {
+                                                    value: pro.id.toString(),
+                                                    label: `${pro.nombre} (${moneda})`,
+                                                };
+                                            })}
                                             onChange={(e) => {
                                                 if (e) {
                                                     const prov = listaProveedoresEmpresa.find(
@@ -513,12 +577,106 @@ function CrearItemCotizacion({
                                                 proveedorSeleccionado
                                                     ? {
                                                           value: proveedorSeleccionado.id.toString(),
-                                                          label: proveedorSeleccionado.nombre,
+                                                          label: (() => {
+                                                              const moneda =
+                                                                  proveedorSeleccionado.tipo_moneda ===
+                                                                  '1'
+                                                                      ? 'USD'
+                                                                      : proveedorSeleccionado.tipo_moneda ===
+                                                                          '3'
+                                                                        ? 'UF'
+                                                                        : 'CLP';
+                                                              return `${proveedorSeleccionado.nombre} (${moneda})`;
+                                                          })(),
                                                       }
                                                     : undefined
                                             }
                                             placeholder='Seleccione un proveedor'
                                             isClearable
+                                        />
+                                    </div>
+                                    <div className='col-span-3'>
+                                        <Badge>Fabricante</Badge>
+                                        <SelectReact
+                                            name='fabricante'
+                                            placeholder='Seleccione un fabricante'
+                                            isClearable
+                                            isCreatable
+                                            formatCreateLabel={(inputValue) =>
+                                                `Crear nuevo "${inputValue}"`
+                                            }
+                                            onCreateOption={(inputValue) => {
+                                                formik.setFieldValue('fabricante', inputValue);
+                                                setIsCreatingFabricante(true);
+                                            }}
+                                            onChange={(e) => {
+                                                formik.setFieldValue(
+                                                    'fabricante',
+                                                    e ? (e as TSelectOption).value : '',
+                                                );
+                                                setIsCreatingFabricante(false);
+                                            }}
+                                            value={
+                                                formik.values.fabricante
+                                                    ? {
+                                                          value: formik.values.fabricante,
+                                                          label: isCreatingFabricante
+                                                              ? formik.values.fabricante
+                                                              : listaFabricante.find(
+                                                                    (fab) =>
+                                                                        fab.id.toString() ===
+                                                                        formik.values.fabricante,
+                                                                )?.nombre ||
+                                                                formik.values.fabricante,
+                                                      }
+                                                    : undefined
+                                            }
+                                            options={listaFabricante.map((fab) => ({
+                                                value: fab.id.toString(),
+                                                label: fab.nombre,
+                                            }))}
+                                        />
+                                    </div>
+                                    <div className='col-span-3'>
+                                        <Badge>Categoría</Badge>
+                                        <SelectReact
+                                            name='categoria'
+                                            placeholder='Seleccione una categoría'
+                                            isClearable
+                                            isCreatable
+                                            formatCreateLabel={(inputValue) =>
+                                                `Crear nuevo "${inputValue}"`
+                                            }
+                                            onCreateOption={(inputValue) => {
+                                                formik.setFieldValue('categoria', inputValue);
+                                                setIsCreatingCategoria(true);
+                                            }}
+                                            onChange={(e) => {
+                                                formik.setFieldValue(
+                                                    'categoria',
+                                                    e ? (e as TSelectOption).value : '',
+                                                );
+                                                setIsCreatingCategoria(false);
+                                            }}
+                                            value={
+                                                formik.values.categoria
+                                                    ? {
+                                                          value: formik.values.categoria,
+                                                          label: isCreatingCategoria
+                                                              ? formik.values.categoria
+                                                              : listaCategorias.find(
+                                                                    (cat) =>
+                                                                        cat.id.toString() ===
+                                                                        formik.values.categoria,
+                                                                )?.nombre ||
+                                                                formik.values.categoria,
+                                                      }
+                                                    : undefined
+                                            }
+                                            options={listaCategorias.map((cat) => ({
+                                                value: cat.id.toString(),
+                                                label: cat.nombre,
+                                            }))}
                                         />
                                     </div>
                                 </div>
@@ -566,7 +724,17 @@ function CrearItemCotizacion({
                                             proveedorSeleccionado
                                                 ? {
                                                       value: proveedorSeleccionado.id.toString(),
-                                                      label: proveedorSeleccionado.nombre,
+                                                      label: (() => {
+                                                          const moneda =
+                                                              proveedorSeleccionado.tipo_moneda ===
+                                                              '1'
+                                                                  ? 'USD'
+                                                                  : proveedorSeleccionado.tipo_moneda ===
+                                                                      '3'
+                                                                    ? 'UF'
+                                                                    : 'CLP';
+                                                          return `${proveedorSeleccionado.nombre} (${moneda})`;
+                                                      })(),
                                                   }
                                                 : undefined
                                         }

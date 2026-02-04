@@ -46,6 +46,46 @@ export const cotizacionApi = RtkQueryService.injectEndpoints({
                 url: `/api/cotizaciones/${id}/solicitantes-cotizacion/sin-relacionar/`,
                 method: 'get',
             }),
+            providesTags: (_result, _error, id) => [
+                { type: 'CotizacionesSolicitantes' as const, id: `DISPONIBLES_${id}` },
+            ],
+        }),
+        createSolicitanteCotizacion: builder.mutation<
+            ISolicitanteCotizacion,
+            { cotizacion: number; usuario_id: number | string; content_type: number }
+        >({
+            query: (data) => ({
+                url: `/api/solicitantes-cotizacion/`,
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { cotizacion }) => [
+                { type: 'CotizacionesSolicitantes' as const, id: cotizacion },
+                { type: 'CotizacionesSolicitantes' as const, id: `DISPONIBLES_${cotizacion}` },
+            ],
+        }),
+        deleteSolicitanteCotizacion: builder.mutation<
+            void,
+            { id: number; cotizacionId: number }
+        >({
+            query: ({ id }) => ({
+                url: `/api/solicitantes-cotizacion/${id}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_result, _error, { cotizacionId }) => [
+                { type: 'CotizacionesSolicitantes' as const, id: cotizacionId },
+                { type: 'CotizacionesSolicitantes' as const, id: `DISPONIBLES_${cotizacionId}` },
+            ],
+        }),
+        createSolicitanteExterno: builder.mutation<
+            { email: string; nombre: string; id: number },
+            { nombre: string; email: string }
+        >({
+            query: (data) => ({
+                url: `/api/solicitantes-externos/`,
+                method: 'post',
+                data,
+            }),
         }),
     }),
     overrideExisting: false,
@@ -57,4 +97,7 @@ export const {
     useGetSolicitantesCotizacionQuery,
     useGetSeguimientoCotizacionQuery,
     useGetUsuariosParaSolicitanteQuery,
+    useCreateSolicitanteCotizacionMutation,
+    useDeleteSolicitanteCotizacionMutation,
+    useCreateSolicitanteExternoMutation,
 } = cotizacionApi;

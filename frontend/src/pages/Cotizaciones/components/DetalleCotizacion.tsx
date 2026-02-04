@@ -24,10 +24,12 @@ import {
     useGetItemsEnCotizacionQuery,
     useGetSeguimientoCotizacionQuery,
     useGetSolicitantesCotizacionQuery,
+    useDeleteSolicitanteCotizacionMutation,
 } from '@/store/slices/cotizaciones/cotizacionApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { formatCurrency, formatPrice } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -99,7 +101,6 @@ const DetalleCotizacion = () => {
     const {
         data: solicitantesCotizacion = [],
         isFetching: fetchingSolicitantes,
-        refetch: refetchSolicitantes,
     } = useGetSolicitantesCotizacionQuery(idKey, { skip: !idKey });
 
     const {
@@ -110,6 +111,8 @@ const DetalleCotizacion = () => {
 
     const { listaGrupos } = useAppSelector((state) => state.auth);
     const { listaContentType } = useAppSelector((state) => state.core);
+
+    const [deleteSolicitanteCotizacion] = useDeleteSolicitanteCotizacionMutation();
 
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -1224,7 +1227,6 @@ const DetalleCotizacion = () => {
                                         creandoSolicitante={creandoSolicitante}
                                         setCreandoSolicitante={setCreandoSolicitante}
                                         cotizacionId={detalleCotizacion?.id}
-                                        onSolicitanteChange={refetchSolicitantes}
                                     />
                                     {solicitantesCotizacion.length > 0 ? (
                                         solicitantesCotizacion.map((solicitante) => (
@@ -1258,14 +1260,37 @@ const DetalleCotizacion = () => {
                                                         <div>
                                                             {detalleCotizacion?.estado ===
                                                                 'pendiente' && (
-                                                                <ConfirmarEliminar
-                                                                    mensaje='¿Estas seguro(a) de eliminar al solicitante?'
-                                                                    onDispatch={() => {
-                                                                        refetchSolicitantes();
-                                                                    }}
-                                                                    peticionUrl={`/api/solicitantes-cotizacion/${solicitante.id}/`}
-                                                                    nombre='Solicitante'
-                                                                />
+                                                                <Tooltip text='Eliminar Solicitante'>
+                                                                    <Button
+                                                                        icon='HeroTrash'
+                                                                        color='red'
+                                                                        variant='solid'
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const confirmed = await confirmAlert({
+                                                                                title: 'Confirmar eliminación',
+                                                                                text: '¿Estás seguro(a) de eliminar al solicitante?',
+                                                                                confirmText: 'Eliminar',
+                                                                                cancelText: 'Cancelar',
+                                                                                icon: 'warning',
+                                                                                confirmColor: '#ef4444',
+                                                                            });
+                                                                            
+                                                                            if (confirmed) {
+                                                                                try {
+                                                                                    await deleteSolicitanteCotizacion({
+                                                                                        id: solicitante.id,
+                                                                                        cotizacionId: detalleCotizacion.id,
+                                                                                    }).unwrap();
+                                                                                    toast.success('Solicitante eliminado correctamente', { autoClose: 1000 });
+                                                                                } catch (error: any) {
+                                                                                    const errorMsg = error?.data?.detail || error?.message || 'Error desconocido';
+                                                                                    toast.error(`Error eliminando Solicitante: ${errorMsg}`);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Tooltip>
                                                             )}
                                                         </div>
                                                     </div>

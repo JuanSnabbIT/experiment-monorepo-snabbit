@@ -1,7 +1,7 @@
 ---
-Responsable: -
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: canonical
 ---
 
@@ -21,7 +21,7 @@ Estado: canonical
 - ❌ Planes de mejora futuro → usa `planificacion.md`
 - ❌ Detalles técnicos de implementación → usa `sistemas.md`
 
-- **Mantenimiento:**
+**Mantenimiento:**
 - Actualizar cuando estados/transiciones cambien
 - Usar diagramas de estado cuando sea necesario
 - Incluir siempre: prerequisitos, acciones, transiciones, requisitos para avanzar
@@ -219,6 +219,30 @@ Estados OT: pendiente, en_proceso, completada, cerrada, facturada/cancelada.
 - Estado `en_proceso`: ejecutar trabajos, seguimientos, adjuntar guias (propuesto: permitir multiples GS). Transicion: `completada` / `cerrada`.
 - Estado `completada` / `cerrada`: trabajos finalizados; cierre administrativo puede generarse al poner `cerrada` (validaciones factura/retroalimentacion/compra/guia).
 - Otros (`facturada` / `cancelada`): uso manual/operativo.
+
+### Matriz de permisos UI — Órdenes de Trabajo
+
+Resumen de reglas de visibilidad/habilitación en la UI para OTs.
+
+**Convención encontrada:**
+- Checks inline en JSX (ternarios/condicionales en markup)
+- Estados por componente: cada componente verifica `detalleOrdenTrabajo.estado`
+- No existe centralización actual
+
+**Cambios puntuales recomendados (resumen):**
+1. `ListaOT` — Botón `Eliminar OT`: mostrar solo si `estado === 'pendiente'`
+2. `ListaServiciosOT` / `ListaSoportesTecnicosOT` — Vincular/Desvincular Guías: mostrar solo en `pendiente`
+3. `ComprasEnOT` / `RendicionesOT` — Crear Compra/Rendición: permitir solo en `en_proceso`
+4. `Adjuntos` / `Fotos` — Permitir creación en `pendiente|en_proceso|completada`
+
+**Tabla de cambios (resumen):**
+
+| Componente | Acción | Recomendación |
+|---|---:|---|
+| ListaOT | Eliminar OT | Mostrar solo en `pendiente` |
+| ListaServiciosOT | Vincular/Desvincular Guía | Mostrar solo en `pendiente` |
+| ComprasEnOT | Crear Compra | Permitir solo en `en_proceso` |
+| RendicionesOT | Crear Rendición | Permitir solo en `en_proceso` |
 
 ## Casos de uso (Cotizacion -> OC -> Guia -> OT)
 ### Caso 1: Entrega unica

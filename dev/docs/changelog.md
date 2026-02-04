@@ -1,13 +1,21 @@
 # Changelog Estratégico – Monorepo ERP
 
 ---
-Responsable: -
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: canonical
 ---
 
 **Propósito único:** Timeline de entregas completadas, releases y cambios de estado del sistema en producción.
+
+## 2026-02-04 — Normalización de documentación dev/docs
+
+**Status:** ✅ COMPLETADO
+
+Se consolidaron documentos temporales en `analisis.md`, se limpiaron reglas y metadatos en `README.md`, y se actualizaron responsables/fechas de revisión en los documentos canónicos.
+
+Referencias: `dev/docs/analisis.md`, `dev/docs/README.md`, `dev/docs/planificacion.md`, `dev/docs/flujos_operativos.md`, `dev/docs/sistemas.md`, `dev/docs/notas.md`
 
 ## 2026-01-15 — Reorganización: Front-matter + README de dev/docs
 

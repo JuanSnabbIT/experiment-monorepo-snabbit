@@ -1,14 +1,13 @@
-﻿# ---
----
-Responsable: -
+﻿---
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: staging
 ---
 
 # Notas de Desarrollo — Bloc Rápido
 
-Última edición: 2026-01-15
+Última edición: 2026-02-04
 
 Propósito: notas rápidas y tareas personales; mantener breve, agrupado por módulo, con enlaces a docs canónicos.
 
@@ -22,115 +21,149 @@ Template rápido para una nota
 - Contexto — 1 línea
 - Próximo paso/TODO — 1 línea
 
-Ejemplos rápidos (activos)
-- [ ] Actualizar PDF de Rendiciones — mostrar 3 totales (reembolso técnico, facturable cliente, no facturable)
-- [ ] Revisar filtros `PersonalizacionUsuario` en ViewSets sospechosos
-- [ ] Añadir `empresa_propietaria` a `Equipo` (ver `analisis.md`)
+## Notas activas (breves)
+- Sin notas activas; ver planificacion.md para backlog.
 
---------------------------------------------------
+---
 
-## Cotizaciones
-- [✅] Revisar: manejo de usuarios externos. 
-- [✅] Dolar observado: carga asíncrona al crear (rápido), actualización automática en tiempo real al cambiar fecha en edición (2026-01-27)
-- [✅] Revisar el añadir items a la cotización: actualmente en el modal al seleccionar un item, rellena el proveedor, pero no rellena correctamente los datos que vienen con el proveedor, talvez no se deba rellenar el proveedor al seleccionar el item, ya que un mismo item puede tener varios proveedores con distintos precios y condiciones. 
-- [✅] Revisar el renderizado del frontend: al abrir la vista del detalle de una cotizacion y luego salir y entrar nuevamene a la vista del detalle de otra cotización, se ve por un momento los datos de la cotización anterior y luego se recargan los datos y muestran los datos de la cotización actual.		
-- [✅] Revisar modals para aplicar SweetAlert2 en frontend en los modals (Eliminar solicitante, eliminar item de cotización, etc)
-- [✅] UI: Revisar colores en pestaña "Cotización Final"
+## Notas migradas a planificacion.md (2026-02-04)
+
+### Cotizaciones
+- [✅] Revisar: manejo de usuarios externos.
+- [✅] Dólar observado: carga asíncrona al crear (rápido), actualización automática en tiempo real al cambiar fecha en edición (2026-01-27).
+- [✅] Revisar el añadir items a la cotización: actualmente en el modal al seleccionar un item, rellena el proveedor, pero no rellena correctamente los datos que vienen con el proveedor; quizá no se deba rellenar el proveedor al seleccionar el item, ya que un mismo item puede tener varios proveedores con distintos precios y condiciones.
+- [✅] Revisar renderizado del frontend: al abrir el detalle de una cotización y luego entrar a otra, se ve por un momento la cotización anterior y luego se recargan los datos.
+- [✅] Revisar modals para aplicar SweetAlert2 en frontend (Eliminar solicitante, eliminar item de cotización, etc.).
+- [✅] UI: revisar colores en pestaña "Cotización Final".
 - [✅] Revisar modo claro y modo oscuro.
-- Revisar la capcacidad de crear items nuevos desde el modal de agregar items a la cotización, actualmente solo se pueden seleccionar items ya existentes en el sistema, pero no crear items nuevos desde ese modal.
-  
-## Órdenes de Compra
-- Revisar generación de PDF y opciones rápidas en UI.
-- [✅] Revisar los estados de la OC y agregar un boton de "avanzar a recepción" de manera que el sistema permita hacer todo el proceso "largo" de la Orden de Compra, o una vez generada, avanzar directamente a la recepción de los items.
-- [✅] Ver función boton "Subir cotización"
-- Revisarar los botones de acción en la lista de OCs, por ejemplo el boton de Eliminar deberia de desaparecer si la OC esta en otro estado que no sea "Borrador".
-- Revisar Dolar observado; no permitir fechas de compras superiores al dia actual.
-- [✅] En ordenes de Compra, al recepcionar si el item ya existe en bodega pero su stock es 0, permita vincular a una nueva bodega la compra entrante.
-- [✅]  Boton de "Guardar" sea mas informativo visualmente, "Guardar en bodega"
-- Revisar la capacidad de crear items nuevos desde el modal de agregar items a la OC.
+- Revisar la capacidad de crear items nuevos desde el modal de agregar items a la cotización.
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Guías de Salida
+### Órdenes de Compra
+- Revisar generación de PDF y opciones rápidas en UI.
+- [✅] Revisar estados de la OC y agregar botón de "avanzar a recepción".
+- [✅] Ver función botón "Subir cotización".
+- Revisar botones de acción en la lista de OCs (p.ej., eliminar solo en borrador).
+- Revisar dólar observado; no permitir fechas de compra futuras.
+- [✅] Recepción: si el item ya existe en bodega pero stock es 0, permitir vincular a nueva bodega.
+- [✅] Botón "Guardar" más informativo: "Guardar en bodega".
+- Revisar capacidad de crear items nuevos desde el modal de agregar items a la OC.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Guías de Salida
 - [✅] Vincular GS ↔ OT: permitir múltiples GS por OT (evitar 1:1 automática).
 - Mantener guías como fuente de lo entregado vs cotización como lo pactado.
-- Actualmente el sistema permite vincular GS mediante un trabajo dentro de la OT, osea un trabajo puede tener una GS. Estoy pensando en hacer que una cotización pueda tener múltiples GS asociadas y luego se pueda vincular cotizaciones a las OTs. El razonamiento es que el proceso actualmente no es tan "fluido" y que no hay actualmente una forma de seguir el flujo de: Un cliente solicita una cotización -> la cotización puede generar una o varias OCs ->  los items de las OCs se recepcionan en bodega -> se genera la guia de salida y la OT -> se vincula la GS a la OT, ya que no hay forma de decir que items de una cotización/OC fueron los que se entregaron en la GS y luego en la OT.
-- Revisar UI de la vista de la lista y la vista detalle de guias de salida, revisar botones y funcionalidad
+- Se propone: cotización con múltiples GS asociadas y vincular cotizaciones a OTs para seguir el flujo completo.
+- Revisar UI de lista y detalle de guías de salida (botones y funcionalidad).
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Órdenes de Trabajo (OT)
-- Mejorar pestañas: Compras, Insumos, Usuarios, Gastos Operativos, Devoluciones (EN DESARROLLO). 
-- UX: mostrar detalles en modal + enlace a vista completa. (COMPLETA?: MODAL PARA COMPRAS Y GUIAS, DEBE GASTOS TENER?)
-- Gastos Operatios: Crear tabla maestra dentro de Core/Models para la preestableción de los preciós de los gastos operativos según la categoria (ejemplo: Si se selecciona "Transporte Publico" como categoria de gasto, que prellene el precio según la tabla maestra).
-- Revisar y modificar la vinculación de guias de salida y OTs: ocupar las cotizaciones como "punto de partida" sobre
-lo que se pide y las guias de salida sobre "lo que se tiene"
-- Rapidez en la asignación de fechas (2 formas, rapida y manual), tambien agregar horas en la fecha.
-- Que las guias vinculadas sin Responsable, asignarle el responsable en la OT a las guias de salida.
-- Firmas: Tres tipos de firmas, Guias, Serializados y Trabajos (opcional por el tecnico), no pedir usuarioEmpresa, para casos de prospectos, poner el nombre como string y la firma. (lista de usuarios y "otro" que permita escribir)
-- Tab "Insumos": Que muestre los items de la guia y no la guia en si.
-		Aplicar tabla anidada: que muestre primero la fila de la Guia y luego las filas de sus items.
-- Tambien deberia de mostrarse las cotizaciones asociadas a la OT en la misma pestaña de "Insumos", ya que actualmente no hay forma de ver que items de que cotizacion estan asociados a la OT.
+### Órdenes de Trabajo (OT)
+- Mejorar pestañas: Compras, Insumos, Usuarios, Gastos Operativos, Devoluciones.
+- UX: mostrar detalles en modal + enlace a vista completa (validar si aplica a gastos).
+- Gastos operativos: tabla maestra en Core/Models para preestablecer precios según categoría.
+- Revisar y modificar vinculación GS ↔ OT usando cotizaciones como punto de partida.
+- Rapidez en asignación de fechas (rápida y manual), y agregar horas.
+- Si una guía vinculada no tiene responsable, asignar el responsable de la OT.
+- Firmas: Guías, Serializados y Trabajos (opcional por técnico); permitir “otro” con nombre + firma.
+- Tab "Insumos": mostrar items de la guía (tabla anidada) y cotizaciones asociadas.
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Rendiciones
-- Seguir modificaciones, la forma actual es una idea antigua.
-- Revisar los modelos: veo varios campos de varios modelos desactualizados o que no se usan.
-- Revisar la generación del PDF de rendiciones.
+### Rendiciones
+- Seguir modificaciones; la forma actual es una idea antigua.
+- Revisar modelos con campos desactualizados o no usados.
+- Revisar generación del PDF de rendiciones.
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Facturación (manual por OTs)
+### Facturación (manual por OTs)
 - Flujo: OT completada → Rendición (auto) → disponible para facturación (excluir rechazadas).
 - Regla práctica: incluir estados `0,1,2,4` en queries de facturación.
 - Estructura: items individuales (compra / gasto_operativo) referenciados desde `Rendicion`.
+✅ Migrado a planificacion.md (2026-02-04)
 
-Migraciones / Especificaciones
-- Especificación `CierreAdministrativoOT` (2026-01-12) — ✅ Migrado a `dev/docs/analisis.md` (2026-01-15)
+### Bodegas
+- [✅] Arreglar registro de stock de items.
+- Botones en “movimientos del stock” deben abrir modal similar a OTs.
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Bodegas
-- Arreglar registro de stock de items [✅]
-- Que los botones en "movimientos del stock" abran un modal similar a los de las OTs
+### Otros / Infra
+- Revisar Celery: `send_email` task (estabilidad/retry).
+- Revisar funcionamiento de Celery, puntualmente `send_email`.
+- Mejorar menú sidebar: iconos y desplazamiento con contenido largo.
+✅ Migrado a planificacion.md (2026-02-04)
 
+### Equipos
+- Evaluar JSONField para historial de mantenimientos/asignaciones/usuarios.
+✅ Migrado a planificacion.md (2026-02-04)
 
-## Otros / Infra
-- Revisar Celery: `send_email` task (estabilidad/retry).  
-- Revisar el funcionamiento de el celery, puntualmente el de send email task
-- Revisar y mejorar menu sidebar: agregar/mejorar iconos, agregar función de desplazamiento cuando el contenido es muy largo.
+---
 
-## Equipos
-- Estaba pensando en añadir un campo JSONField al modelo de equipos, ya que como ultimamente he usado JSONField para las facturaciones y ahora para las firmas en las OTs. Esto permitiria tener un control mas flexible sobre las asignaciones de los equipos, por ejemplo crear el registro historico de mantenimientos, asignaciones a usuarios, etc.
+## Notas migradas a planificacion.md (detalles adicionales)
 
---------------------------------------------------
+### Empresas
+- La ubicación de los campos cambia al entrar/salir del modo edición.
+- Permite añadir como empresa cliente a la misma empresa en sesión.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Sucursales
+- Región/Provincia/Comuna no reaccionan al cambiar región.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Items
+- En modal de items, permitir crear Fabricante/Categoría si no existen.
+- Formato de precio: aceptar `123.456,78`.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Órdenes de Trabajo — Servicios de Soporte Técnico
+- En asignación de usuarios, se pueden agregar duplicados.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Órdenes de Trabajo — Insumos
+- Si una cotización con item A genera OC con item B adicional, al vincular cotización en OT solo aparece A pero la GS incluye A+B. Definir comportamiento esperado.
+- No permite desvincular guías o cotizaciones.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Órdenes de Trabajo — Gastos Operativos
+- No es posible editar gastos operativos una vez creados.
+✅ Migrado a planificacion.md (2026-02-04)
+
+### Órdenes de Trabajo — Facturación Manual
+- Faltan botones para ir a vistas de items (solo OTs).
+- Filtro en lista de prefacturas no funciona.
+✅ Migrado a planificacion.md (2026-02-04)
+
+---
 
 Notas de proceso
-- Mantener `notas.md` como staging; cuando una nota se estabiliza, copiar al doc canónico y añadir en la nota original la marca: `✅ Migrado a <archivo> (YYYY-MM-DD)`.
-
-
-
-
------
-
-
-# Empresas 
-- La ubicación de los campos cambia cuando se entra y sale del modo edición.
-- Esta permitiendo añadir como empresa cliente a la misma empresa que se esta en sesión.
-
-## Sucursales:
-- Pareciera que los valores de "region", "provincia" y "comuna" no son "reactivos" (al seleccionar una region, no se actualizan las provincias asociadas a esa region). Revisar este comportamiento.
-
-# Items:
-- Al crear items, deberia permitir en el mismo modal donde aparecen los campos "Fabricante" y "Categoria" crear estos registros si no existe el que se busca.
+- Mantener `notas.md` como staging; cuando una nota se estabiliza, copiar al doc canónico y añadir `✅ Migrado a <archivo> (YYYY-MM-DD)`.
 
 ## Cotizaciones
-- Al agregar items a la cotización, permitir crear items nuevos desde el mismo modal de agregar items.
-- Verificar que al agregar le precio a los items, permita agregar en el formato "123.456,78" (punto como separador de miles y coma como separador decimal)
+- Se crean cotizaciones correctamente, se pueden agregar items (si no existen tambien permite crearlos), permite agregar los solicitantes.
+- El correo no se esta enviando correctamente en producción, tampoco el reenvio.
+- Tampoco permite aprobar manualmente desde el detalle.
+- El pdf se descarga correctamente.
 
-# Ordenes de Trabajo
+## Órdenes de Compra
+- Se crean OCs correctamente, se pueden agregar items (si no existen tambien permite crearlos).
+- El avance de estados funciona correctamente.
+- El pdf se descarga correctamente.
+- Permite crear seriales de los items correctamente.
+- Existe la funcionalidad previa de subir una cotización, pero no he interactuado con ella.
 
-## Servicios de Soporte Tecnico
-- En la asignación de usuarios para el servicio, esta permitiendo agregar usuarios duplicados.
+## Bodegas
+- Permite crear bodeegas correctamente.
+- El stock de items y el historico es correcto.
+- Las bodegas tienen opción de descarga de PDF, no funciona.
 
-## Insumos
-- Revisar que si se crea una Cotización con item A, luego cuando se aprueba y crea la orden de compra se le agrega a esa compra ademas el item B. Con esto cuando estemos en la OT y se trate de vincular una cotización, aparece solo el Item A, pero al hacer el vinculo, se crea la Guia de Salida con ambos items A y B. ¿Que deberia ocurrir, que al vincular la cotización, se muestren todos los items asociados a la orden de compra generada a partir de esa cotización o que al vincular la cotización, solo se creen las guias de salida con los items que estaban en la cotización original?
-- No esta permitiendo desvincular guias o cotizaciones
+## Guias de Salida
+- Permite crear guías de salida correctamente, se pueden agregar items.
+- El pdf se descarga correctamente.
+- Se avanza de estados sin problemas.
+- Se estan creando sin "Creado Por"
+- Permite agregar items serializados correctamente.
 
-## Gastos Operativos
-- Deberia de poder editarse los registros que se generan en la OT, actualmente no es posible editar los gastos operativos una vez creados.
-
-## Facturación Manual
-- Falta los botones para ir a las vistas respectivas de los items (solo se puede ir a las OTs desde los items que sean Trabajos)
-- Filtro en la vista de las listas de prefacturas no funciona.
+## Órdenes de Trabajo
+- Se crean correctamente las Ordenes de trabajo de tipo Servicio General
+- Se crean correctamente las Ordenes de trabajo de tipo Soporte Tecnico Remoto y Presencial
+- Permite asignar correctamente a usuarios que se le haran soporte, aunque tambien lo permite en el soporte tecnico remoto.
+- Permite agregar guías de salida correctamente.
+- No esta permitiendo el desvinculado de guias de salida.

@@ -37,6 +37,8 @@ celerybeat.pid
 *~
 .vscode/
 .github/
+.codex/
+AGENTS.md
 
 # Node
 node_modules/

@@ -1,7 +1,7 @@
 ---
-Responsable: -
+Responsable: Fabián
 Email: -
-Proxima_revision: -
+Proxima_revision: 2026-08-04
 Estado: canonical
 ---
 
@@ -42,6 +42,172 @@ Estado: canonical
 
 Los siguientes análisis y especificaciones se integran aquí desde documentos temporales encontrados en el repositorio. Se conservaron títulos, fechas y contenido técnico para trazabilidad.
  
+---
+
+# Análisis: Auditoría de Seguridad (2025-02-12)
+
+**Fecha:** 2025-02-12  
+**Estado:** Pendiente de remediación  
+**Contexto:** Auditoría de permisos y multi-tenancy en ViewSets
+
+## Resumen ejecutivo
+- **ViewSets auditados:** 50+
+- **Hallazgos críticos:** 10+ (acceso público y fugas multi-tenant)
+- **Riesgo:** exposición de datos entre empresas y endpoints sin autenticación
+
+## Vulnerabilidades Críticas (CVE-like)
+
+### CVE-ERP-001: Acceso público a `CategoriaViewSet`
+**Severidad:** 🔴 CRÍTICO | **CVSS:** 8.2  
+**Archivo:** `backend/items/views.py`
+
+**Problema:** ausencia de `permission_classes`.
+
+**Remediación:**
+```python
+permission_classes = [permissions.IsAuthenticated]
+```
+
+---
+
+### CVE-ERP-002: Acceso público a `FabricanteViewSet`
+**Severidad:** 🔴 CRÍTICO | **CVSS:** 8.2  
+**Archivo:** `backend/items/views.py`
+
+**Problema:** ausencia de `permission_classes`.
+
+**Remediación:**
+```python
+permission_classes = [permissions.IsAuthenticated]
+```
+
+---
+
+### CVE-ERP-003: Fuga multi-tenant en `LicenciaViewSet`
+**Severidad:** 🔴 CRÍTICO | **CVSS:** 9.0  
+**Archivo:** `backend/contratos/views.py`
+
+**Problema:** `queryset = Licencia.objects.all()` sin `get_queryset()`.
+
+**Remediación (patrón multi-tenant):**
+```python
+def get_queryset(self):
+  user = self.request.user
+  personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+  if personalizacion and personalizacion.sucursal_principal:
+    return Licencia.objects.filter(
+      empresa=personalizacion.sucursal_principal.empresa
+    )
+  return Licencia.objects.none()
+```
+
+---
+
+### CVE-ERP-004 a CVE-ERP-008: Acceso público en contratos
+**Severidad:** 🟡 ALTO | **Archivo:** `backend/contratos/views.py`
+
+**ViewSets afectados:**
+- `ServicioViewSet`
+- `PlanServicioViewSet`
+- `CaracteristicaServicioViewSet`
+- `VisitaViewSet`
+- `CondicionEspecialViewSet`
+
+**Remediación:** agregar `permission_classes = [permissions.IsAuthenticated]`.
+
+---
+
+### CVE-ERP-009: Acceso público a `SoftwareViewSet`
+**Severidad:** 🟡 ALTO | **Archivo:** `backend/core/views.py`
+
+**Remediación:** `permission_classes = [permissions.IsAuthenticated]`.
+
+---
+
+### CVE-ERP-010: Acceso público a `AcuerdoConfidencialidadBaseViewSet`
+**Severidad:** 🟠 MEDIO | **Archivo:** `backend/core/views.py`
+
+**Remediación:** `permission_classes = [permissions.IsAuthenticated]`.
+
+## Vulnerabilidades Altas
+
+### RISK-HIGH-001: `AsistenciaUsuarioViewSet` sin filtro multi-tenant
+**Archivo:** `backend/visitas/views.py`
+
+**Problema:** filtra solo por visita, no por empresa.
+
+**Remediación:** agregar filtro por empresa en `get_queryset()`.
+
+---
+
+### RISK-HIGH-002: `EntregaDeEquipoViewSet` sin filtro explícito
+**Archivo:** `backend/visitas/views.py`
+
+**Remediación:** aplicar patrón PersonalizacionUsuario (empresa/sucursal).
+
+---
+
+### RISK-HIGH-003 a RISK-HIGH-007: Recursos sin `permission_classes`
+**Archivo:** `backend/recursos/views.py`
+
+**ViewSets afectados:**
+- `SoftwareInstaladoViewSet`
+- `UsuarioEquipoViewSet`
+- `MonitorEquipoViewSet`
+- `AlmacenamientoEquipoViewSet`
+- `FotoEquipoViewSet`
+
+**Remediación:** agregar `permission_classes` y filtro multi-tenant.
+
+## Vulnerabilidades Medias
+
+### RISK-MED-001: `ItemEmpresaViewset` sin `empresa_pk`
+**Archivo:** `backend/items/views.py`
+
+**Problema:** sin `empresa_pk` retorna todos los items.
+
+**Remediación:** requerir `empresa_pk` o devolver `none()`.
+
+## Plan de remediación propuesto
+
+### Fase 1 (Crítico)
+- Agregar `permission_classes = [IsAuthenticated]` a viewsets públicos.
+- Implementar filtro multi-tenant en `LicenciaViewSet`.
+- Crear tests de aislamiento de datos.
+
+### Fase 2 (Alto)
+- Aplicar filtros multi-tenant en `recursos` y `visitas`.
+- Crear permission reusable `EsDeEmpresa`.
+
+### Fase 3 (Medio)
+- Auditoría de accesos y rate limiting en endpoints públicos.
+
+---
+
+# Análisis: RTK Query — Fix de Invalidación de Cache (OrdenTrabajo)
+
+**Fecha:** 2025-02-03  
+**Estado:** ✅ Completado  
+**Contexto:** RTK Query invalidatesTags funcionando, pero el UI no actualizaba por uso de `refetch()` manual.
+
+## Problema
+- Mutations ya tenían `invalidatesTags`.
+- Componentes capturaban `refetch()` y lo llamaban manualmente.
+- Resultado: doble fetch + condiciones de carrera + datos stale.
+
+## Solución aplicada
+1. **Eliminar `refetch()` en handlers** (uso manual invalida el mecanismo automático).
+2. **Mantener `refetch()` solo en botones de refresh manual**.
+3. **Confiar en `invalidatesTags` como fuente única de refresco**.
+
+## Resultado esperado
+- UI se actualiza sin reload.
+- Una sola request por mutación.
+- Consistencia de datos.
+
+## Referencias
+- Guía RTK Query: `.github/instructions/rtk-query-best-practices.md`
+
 ---
 
 # Análisis: Propiedad vs Ubicación del Equipo

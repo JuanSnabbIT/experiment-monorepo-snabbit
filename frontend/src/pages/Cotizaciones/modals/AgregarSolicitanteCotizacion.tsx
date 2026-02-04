@@ -3,9 +3,12 @@ import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
-import ApiService from '@/services/ApiService';
 import { useAppSelector } from '@/store';
-import { useGetUsuariosParaSolicitanteQuery } from '@/store/slices/cotizaciones/cotizacionApi';
+import {
+    useCreateSolicitanteCotizacionMutation,
+    useCreateSolicitanteExternoMutation,
+    useGetUsuariosParaSolicitanteQuery,
+} from '@/store/slices/cotizaciones/cotizacionApi';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -17,14 +20,12 @@ function AgregarSolicitanteCotizacion({
     creandoSolicitante,
     setCreandoSolicitante,
     cotizacionId,
-    onSolicitanteChange,
 }: {
     setIsEditing: Dispatch<SetStateAction<boolean>>;
     isEditing: boolean;
     setCreandoSolicitante: Dispatch<SetStateAction<boolean>>;
     creandoSolicitante: boolean;
     cotizacionId: number | undefined;
-    onSolicitanteChange?: () => void;
 }) {
     const { data: listaUsuariosParaSolicitante = [] } = useGetUsuariosParaSolicitanteQuery(
         cotizacionId || '',
@@ -33,6 +34,9 @@ function AgregarSolicitanteCotizacion({
     const { listaContentType } = useAppSelector((state: any) => state.core);
     const [isUser, setIsUser] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    const [createSolicitanteCotizacion] = useCreateSolicitanteCotizacionMutation();
+    const [createSolicitanteExterno] = useCreateSolicitanteExternoMutation();
 
     useEffect(() => {
         if (!isEditing) {
@@ -63,66 +67,39 @@ function AgregarSolicitanteCotizacion({
         onSubmit: async (values) => {
             setIsSubmitting(true);
             try {
-                let data: {} = { cotizacion: cotizacionId };
                 if (isUser) {
-                    data = {
-                        ...data,
+                    await createSolicitanteCotizacion({
+                        cotizacion: cotizacionId!,
                         usuario_id: values.usuario,
                         content_type: listaContentType.find(
                             (ct: any) => ct.model === 'usuarioempresa',
                         )?.id,
-                    };
-                    const response = await ApiService.fetchData({
-                        url: `/api/solicitantes-cotizacion/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify(data),
-                    });
-                    if (response.data) {
-                        toast.success('Solicitante Creado', { autoClose: 1000 });
-                        setIsEditing(false);
-                        // dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: cotizacionId}));
-                        if (onSolicitanteChange) onSolicitanteChange();
-                    }
+                    }).unwrap();
+                    
+                    toast.success('Solicitante Creado', { autoClose: 1000 });
+                    setIsEditing(false);
                 } else {
-                    const responseExterno = await ApiService.fetchData<
-                        { email: string; nombre: string; id: number },
-                        string
-                    >({
-                        url: `/api/solicitantes-externos/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({ nombre: values.nombre, email: values.email }),
-                    });
-                    if (responseExterno.data) {
-                        data = {
-                            ...data,
-                            nombre: values.nombre,
-                            email: values.email,
-                            content_type: listaContentType.find(
-                                (ct: any) => ct.model === 'solicitanteexterno',
-                            )?.id,
-                            usuario_id: responseExterno.data.id,
-                        };
-                        const response = await ApiService.fetchData({
-                            url: `/api/solicitantes-cotizacion/`,
-                            method: 'post',
-                            headers: { 'Content-Type': 'application/json' },
-                            data: JSON.stringify(data),
-                        });
-                        if (response.data) {
-                            toast.success('Solicitante Creado', { autoClose: 1000 });
-                            setIsEditing(false);
-                            // dispatch(listaSolicitantesCotizacionThunk({id_cotizacion: cotizacionId}));
-                            if (onSolicitanteChange) onSolicitanteChange();
-                        }
-                    }
+                    const responseExterno = await createSolicitanteExterno({
+                        nombre: values.nombre,
+                        email: values.email,
+                    }).unwrap();
+
+                    await createSolicitanteCotizacion({
+                        cotizacion: cotizacionId!,
+                        usuario_id: responseExterno.id,
+                        content_type: listaContentType.find(
+                            (ct: any) => ct.model === 'solicitanteexterno',
+                        )?.id,
+                    }).unwrap();
+
+                    toast.success('Solicitante Creado', { autoClose: 1000 });
+                    setIsEditing(false);
                 }
             } catch (error: any) {
                 const errorMessage =
-                    error.response?.data?.detail ||
-                    error.response?.data ||
-                    error.message ||
+                    error?.data?.detail ||
+                    error?.data ||
+                    error?.message ||
                     'Error al crear solicitante de cotizacion';
                 toast.error(
                     typeof errorMessage === 'string'
