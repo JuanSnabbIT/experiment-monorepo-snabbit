@@ -3,6 +3,7 @@ from rest_framework_nested import routers
 from .views import *
 from .public_views import (
     PublicCotizacionDetailView,
+    PublicCotizacionPDFView,
     PublicAprobarCotizacionView,
     PublicRechazarCotizacionView,
 )
@@ -23,6 +24,7 @@ cotizaciones_router.register(r'solicitantes-cotizacion', SolicitanteCotizacionVi
 # Frontend debe montar página en: {FRONTEND_URL}/cotizacion/responder/{token}
 public_urlpatterns = [
     path('public/cotizacion/<uuid:token>/', PublicCotizacionDetailView.as_view(), name='public-cotizacion-detail'),
+    path('public/cotizacion/<uuid:token>/pdf/', PublicCotizacionPDFView.as_view(), name='public-cotizacion-pdf'),
     path('public/cotizacion/<uuid:token>/aprobar/', PublicAprobarCotizacionView.as_view(), name='public-cotizacion-aprobar'),
     path('public/cotizacion/<uuid:token>/rechazar/', PublicRechazarCotizacionView.as_view(), name='public-cotizacion-rechazar'),
 ]

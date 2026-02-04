@@ -90,7 +90,7 @@ class CampoAdicionalItem(ModeloBase):
 class ItemEmpresa(ModeloBase):
     nombre = models.CharField(max_length=250)
     descripcion_corta = models.CharField(
-        "Algo que lo referencie", max_length=45, blank=True, null=True
+        "Algo que lo referencie", max_length=250, blank=True, null=True
     )
     fabricante = models.ForeignKey(
         Fabricante,

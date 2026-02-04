@@ -89,6 +89,8 @@ class SolicitanteInfoSerializer(serializers.Serializer):
     puede_responder = serializers.SerializerMethodField()
     ya_respondio = serializers.BooleanField(source='token_usado', read_only=True)
     aprobo = serializers.BooleanField(read_only=True)
+    fecha_respuesta = serializers.DateTimeField(read_only=True, allow_null=True, required=False)
+    motivo_rechazo = serializers.CharField(read_only=True, allow_null=True, required=False)
 
     def get_nombre(self, obj):
         return obj.get_nombre()

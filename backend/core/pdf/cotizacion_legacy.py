@@ -1,6 +1,7 @@
 import base64
 from datetime import datetime
 from io import BytesIO
+from textwrap import wrap
 
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle, Paragraph

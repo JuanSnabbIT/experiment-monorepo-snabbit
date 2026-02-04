@@ -44,6 +44,7 @@ CÓDIGOS DE ERROR:
 import logging
 
 from django.db import transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from items.models import ItemEmpresa
 from rest_framework import status
@@ -52,7 +53,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .functions import crear_seguimiento_cotizacion
+from .functions import crear_seguimiento_cotizacion, generar_pdf_cotizacion_desde_model
 from .models import Cotizacion, ItemCotizacion, SolicitanteCotizacion
 from .public_serializers import (
     AprobarCotizacionPublicSerializer,
@@ -133,6 +134,47 @@ class PublicCotizacionDetailView(RetrieveAPIView):
             cotizacion, context={"request": request, "solicitante": solicitante}
         )
         return Response(serializer.data)
+
+
+class PublicCotizacionPDFView(APIView):
+    """
+    GET /api/public/cotizacion/{token}/pdf/
+    
+    Descarga el PDF de la cotización.
+    No requiere autenticación - el token actúa como credencial.
+    
+    Response 200: PDF file (application/pdf)
+    Response 404: Token no válido
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        try:
+            solicitante = SolicitanteCotizacion.objects.select_related(
+                'cotizacion',
+                'cotizacion__empresa',
+                'cotizacion__cliente',
+            ).get(token=token)
+        except SolicitanteCotizacion.DoesNotExist:
+            return Response(
+                {"detail": "Token no válido o cotización no encontrada."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        cotizacion = solicitante.cotizacion
+
+        try:
+            pdf_bytes = generar_pdf_cotizacion_desde_model(cotizacion_id=cotizacion.pk)
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            filename = f"Cotizacion_{cotizacion.numero_cotizacion}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        except Exception as e:
+            logger.error(f"Error generando PDF para cotización {cotizacion.pk}: {e}")
+            return Response(
+                {"detail": "Error al generar el PDF."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PublicAprobarCotizacionView(APIView):
