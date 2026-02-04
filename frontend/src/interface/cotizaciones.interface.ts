@@ -132,6 +132,8 @@ export interface ISolicitantePublicoCotizacion {
     puede_responder: boolean;
     ya_respondio: boolean;
     aprobo: boolean | null;
+    fecha_respuesta?: string | null;
+    motivo_rechazo?: string | null;
 }
 
 export interface ICotizacionPublica {
