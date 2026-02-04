@@ -47,7 +47,7 @@ function CompletarOT() {
     const ordenId = id ? Number(id) : undefined;
     const {
         data: detalleOrdenTrabajo,
-        refetch: refetchDetalleOrdenTrabajo,
+        // ✅ No capturamos refetch - confiar en invalidatesTags
     } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
         skip: !ordenId,
     });
@@ -284,7 +284,7 @@ function CompletarOT() {
             }
 
             toast.success('Orden de Trabajo actualizada', { autoClose: 1000 });
-            refetchDetalleOrdenTrabajo();
+            // ✅ NO llamar refetch - RTK Query invalidará automáticamente
             setIsOpen(false);
         } catch (error: unknown) {
             const msg = getErrorMessage(error) || 'Error al completar la OT';

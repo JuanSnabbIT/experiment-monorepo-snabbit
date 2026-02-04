@@ -461,102 +461,102 @@ class MovimientoStock(ModeloBase):
 class VoucherDevolucion(ModeloBase):
     """
     Comprobante consolidado de devoluciones realizadas al completar una OT.
-    
+
     Agrupa todos los MovimientoStock de tipo 'DEVOLUCION' asociados a una OT
     para generar un documento formal imprimible (PDF/HTML).
-    
+
     Sigue el patrón M2M con tabla intermedia (through) estándar del sistema.
     """
+
     numero = models.CharField(
-        max_length=50, 
-        unique=True, 
+        max_length=50,
+        unique=True,
         db_index=True,
-        help_text="Número único del voucher, ej: VDEV-2025-0001"
+        help_text="Número único del voucher, ej: VDEV-2025-0001",
     )
     orden_trabajo = models.OneToOneField(
         "ordentrabajov2.OrdenDeTrabajo",
         on_delete=models.CASCADE,
         related_name="voucher_devolucion",
-        help_text="Orden de trabajo asociada a estas devoluciones"
+        help_text="Orden de trabajo asociada a estas devoluciones",
     )
     movimientos = models.ManyToManyField(
         MovimientoStock,
         through="bodegas.MovimientoEnVoucher",
         related_name="vouchers",
-        help_text="Movimientos de stock tipo DEVOLUCION incluidos en este voucher"
+        help_text="Movimientos de stock tipo DEVOLUCION incluidos en este voucher",
     )
     observaciones = models.TextField(
-        blank=True,
-        help_text="Notas adicionales sobre las devoluciones"
+        blank=True, help_text="Notas adicionales sobre las devoluciones"
     )
-    
+
     class Meta:
         verbose_name = "Voucher de Devolución"
         verbose_name_plural = "Vouchers de Devolución"
         ordering = ["-fecha_creacion"]
-    
+
     def __str__(self):
         return f"{self.numero} - OT #{self.orden_trabajo.id}"
-    
+
     @property
     def total_items_devueltos(self):
         """Cantidad total de ítems devueltos en este voucher."""
         return sum(m.cantidad for m in self.movimientos.all())
-    
+
     def save(self, *args, **kwargs):
         """Auto-genera número de voucher si no existe."""
         if not self.numero:
             # Formato: VDEV-YYYY-NNNN
             from django.utils import timezone
+
             year = timezone.now().year
-            ultimo = VoucherDevolucion.objects.filter(
-                numero__startswith=f"VDEV-{year}"
-            ).order_by('-numero').first()
-            
+            ultimo = (
+                VoucherDevolucion.objects.filter(numero__startswith=f"VDEV-{year}")
+                .order_by("-numero")
+                .first()
+            )
+
             if ultimo:
                 # Extraer número y sumar 1
-                ultimo_num = int(ultimo.numero.split('-')[-1])
+                ultimo_num = int(ultimo.numero.split("-")[-1])
                 nuevo_num = ultimo_num + 1
             else:
                 nuevo_num = 1
-            
+
             self.numero = f"VDEV-{year}-{nuevo_num:04d}"
-        
+
         super().save(*args, **kwargs)
 
 
 class MovimientoEnVoucher(ModeloBase):
     """
     Tabla intermedia M2M entre VoucherDevolucion y MovimientoStock.
-    
+
     Permite agregar metadatos específicos de la relación si es necesario
     (ej: orden de aparición, notas, etc.).
     """
+
     voucher = models.ForeignKey(
-        VoucherDevolucion,
-        on_delete=models.CASCADE,
-        related_name="movimientos_voucher"
+        VoucherDevolucion, on_delete=models.CASCADE, related_name="movimientos_voucher"
     )
     movimiento = models.ForeignKey(
         MovimientoStock,
         on_delete=models.CASCADE,
-        limit_choices_to={'tipo_movimiento': 'DEVOLUCION'},
-        help_text="Solo movimientos de tipo DEVOLUCION"
+        limit_choices_to={"tipo_movimiento": "DEVOLUCION"},
+        help_text="Solo movimientos de tipo DEVOLUCION",
     )
     orden = models.PositiveIntegerField(
-        default=0,
-        help_text="Orden de aparición en el voucher (opcional)"
+        default=0, help_text="Orden de aparición en el voucher (opcional)"
     )
     notas = models.TextField(
-        blank=True,
-        help_text="Notas específicas sobre este movimiento en el voucher"
+        blank=True, help_text="Notas específicas sobre este movimiento en el voucher"
     )
-    
+
     class Meta:
         verbose_name = "Movimiento en Voucher"
         verbose_name_plural = "Movimientos en Vouchers"
-        ordering = ['orden', '-fecha_creacion']
-        unique_together = ['voucher', 'movimiento']
-    
+        ordering = ["orden", "-fecha_creacion"]
+        unique_together = ["voucher", "movimiento"]
+
     def __str__(self):
         return f"{self.voucher.numero} → {self.movimiento}"

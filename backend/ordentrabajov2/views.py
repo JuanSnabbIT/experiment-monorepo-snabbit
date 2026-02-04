@@ -975,6 +975,24 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
         for g in guias_directas:
             detalles = obtener_detalles_guia(g)
+            # Detectar si la guía viene de una cotización verificando la cadena de relaciones
+            # Guía → Items → source_item (ItemEnOrdenCompra) → orden_compra → relacion_cotizacion
+            cotizacion_relacionada = None
+            try:
+                items_guia = ItemsGuiaSalida.objects.filter(guia=g).select_related(
+                    "source_item__orden_compra__relacion_cotizacion"
+                )
+                for item in items_guia:
+                    if (
+                        item.source_item
+                        and item.source_item.orden_compra
+                        and item.source_item.orden_compra.relacion_cotizacion
+                    ):
+                        cotizacion_relacionada = item.source_item.orden_compra.relacion_cotizacion
+                        break
+            except Exception:
+                pass
+            
             out.append(
                 {
                     "id": g.id,
@@ -994,6 +1012,10 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                     },
                     "estado_label": "Directo OT",
                     "tipo": "guia_directa",
+                    "cotizacion_relacionada": {
+                        "id": cotizacion_relacionada.id,
+                        "numero": cotizacion_relacionada.numero_cotizacion,
+                    } if cotizacion_relacionada else None,
                     "items": items_por_guia.get(g.id, []),
                 }
             )
@@ -2305,9 +2327,29 @@ class InsumoViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        cotizaciones_ids = list(
+            ItemsGuiaSalida.objects.filter(
+                guia=guia,
+                source_item__orden_compra__relacion_cotizacion__isnull=False,
+            )
+            .values_list(
+                "source_item__orden_compra__relacion_cotizacion_id",
+                flat=True,
+            )
+            .distinct()
+        )
+
         # Desvincular la guía de la OT
         guia.orden_trabajo = None
         guia.save(update_fields=["orden_trabajo"])
+
+        if cotizaciones_ids:
+            for cot_id in cotizaciones_ids:
+                if not GuiaSalida.objects.filter(
+                    orden_trabajo=orden,
+                    itemsguiasalida__source_item__orden_compra__relacion_cotizacion_id=cot_id,
+                ).exists():
+                    orden.cotizaciones.remove(cot_id)
 
         return Response(
             {"detail": "Guía desvinculada correctamente"},

@@ -138,8 +138,6 @@ Notas de proceso
 
 ## Cotizaciones
 - Se crean cotizaciones correctamente, se pueden agregar items (si no existen tambien permite crearlos), permite agregar los solicitantes.
-- El correo no se esta enviando correctamente en producción, tampoco el reenvio.
-- Tampoco permite aprobar manualmente desde el detalle.
 - El pdf se descarga correctamente.
 
 ## Órdenes de Compra
@@ -165,5 +163,34 @@ Notas de proceso
 - Se crean correctamente las Ordenes de trabajo de tipo Servicio General
 - Se crean correctamente las Ordenes de trabajo de tipo Soporte Tecnico Remoto y Presencial
 - Permite asignar correctamente a usuarios que se le haran soporte, aunque tambien lo permite en el soporte tecnico remoto.
-- Permite agregar guías de salida correctamente.
-- No esta permitiendo el desvinculado de guias de salida.
+- Permite agregar guías de salida y cotizaciones correctamente.
+- Permite desvincular las guias de salida
+- Permite agregar comentarios de seguimiento y finalizar los trabajos.
+- Falta que permita la opcionalidad de firmar los trabajos finalizados.
+- Permite agregar gastos operativos correctamente.
+- Permite agregar compras rapidas correctamente.
+- Las compras rapidas permiten crear items, (no permite crear nuevas categorias ni fabricantes) y los items se crean en bodega con el PPM = precio de la compra rapida, que es incorrecto.
+- Permite la devolución correcta e las compras rapidas o de las guias de salida.
+- No he probado que si los serializados de las guias de salida se transforman en equipos en la realización del trabajo, no permita despues la devolucion de estos items.
+- Hay error en la descarga del pdf.
+- Se avanza correctamente de estado con las validaciones especificas.
+- Al completarse la OT, se crean las rendiciones correctamente.
+- Avanza de estado si se crea una prefactura correctamente y si se elimina vuelve a "Completada".
+- No permite avanzar de estado a "Validada y cerrada" si ni la Rendición ni la Prefactura estan finalizadas.
+
+## Rendiciones
+- Se crean correctamente las rendiciones a partir de las OTs completadas, con los datos correctos.
+- El pdf descarga, pero esta en una versión primitiva.
+- Permite avanzar de estado correctamente, aunque falta aplicar SweetAlert2 en el frontend.
+
+
+## Facturación
+- Permite crear prefacturas correctamente a partir de las OTs completas.
+- Se trae los datos correctamente, 
+- Se crea correctamente la prefactura.
+- Hay incosistencias en las descripciones de todos los items excepto los de las guias.
+- Falta agregar la navegación a los detalles de los items desde la prefactura, excepto a los items Trabajo.
+- El boton para avanzar de estado es primitivo.
+- Falta agregar el flujo final de aprobación, que sería agregar el documento de la factura a la prefactura.
+- Permite anular prefacturas para volver a crear nuevas prefacturas.
+- Permite eliminar las prefacturas anuladas.

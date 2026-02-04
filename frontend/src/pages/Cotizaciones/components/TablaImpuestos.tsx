@@ -16,6 +16,7 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
+import classNames from 'classnames';
 import { useState } from 'react';
 
 const columnHelper = createColumnHelper<IItemCotizacion>();
@@ -162,7 +163,14 @@ function TablaImpuestos({ items = [] }: { items: IItemCotizacion[] }) {
                         </THead>
                         <TBody>
                             {table.getRowModel().rows.map((row) => (
-                                <Tr key={row.id}>
+                                <Tr 
+                                    key={row.id}
+                                    className={classNames(
+                                        row.original.aprobado 
+                                            ? 'border-l-4 border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10' 
+                                            : 'border-l-4 border-l-transparent'
+                                    )}
+                                >
                                     {row.getVisibleCells().map((cell) => (
                                         <Td key={cell.id}>
                                             {flexRender(

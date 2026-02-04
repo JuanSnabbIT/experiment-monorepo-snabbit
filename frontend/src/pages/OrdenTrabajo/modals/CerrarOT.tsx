@@ -22,7 +22,8 @@ import { useParams } from 'react-router-dom';
 function CerrarOT() {
     const { id } = useParams<{ id: string }>();
     const ordenId = id ? Number(id) : undefined;
-    const { data: detalleOrdenTrabajo, refetch: refetchDetalle } = useGetDetalleOrdenTrabajoQuery(
+    // ✅ No capturamos refetch - confiar en invalidatesTags
+    const { data: detalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(
         ordenId ?? 0,
         { skip: !ordenId },
     );
@@ -173,7 +174,7 @@ function CerrarOT() {
                                                 data: { estado: 'cerrada' },
                                             }).unwrap();
                                             toast.success('Orden cerrada', { autoClose: 1000 });
-                                            refetchDetalle();
+                                            // ✅ NO llamar refetchDetalle() - RTK Query invalidará automáticamente
                                             setIsOpen(false);
                                         } catch (error: unknown) {
                                             const mensajeError = getErrorMessage(error);

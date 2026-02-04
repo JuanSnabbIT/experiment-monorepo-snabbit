@@ -2,33 +2,31 @@
 Funciones para el módulo de Ordenes de Trabajo (Cierres Administrativos/Facturación)
 """
 
-from decimal import Decimal
+import base64
 import io
 import os
 from datetime import datetime
-from django.conf import settings
-from django.db import transaction
-from django.db.models import Q, Sum, Count
-from django.utils import timezone
-import base64
+from decimal import Decimal
 from textwrap import wrap
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.platypus import Paragraph, Table, TableStyle
 
-from core.pdf.styles import FONTS, CELL_STYLE, BRAND_BLUE, LIGHT_GRAY
-from core.pdf.components import LOGO_PATH
 from core.pdf.canvas_utils import (
     draw_encabezado,
-    draw_titulo,
     draw_footer,
     draw_paginacion,
+    draw_titulo,
 )
+from core.pdf.components import LOGO_PATH
+from core.pdf.styles import BRAND_BLUE, CELL_STYLE, FONTS, LIGHT_GRAY
 from core.pdf.utils import format_currency
-
-
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Count, Q, Sum
+from django.utils import timezone
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph, Table, TableStyle
 
 
 def _obtener_cache_asignacion(usuario_asignado):
@@ -51,7 +49,9 @@ def _obtener_cache_asignacion(usuario_asignado):
 
 
 def _es_misma_firma_usuario(item, entry):
-    if item.get("tipo") == entry.get("tipo") and item.get("objeto_id") == entry.get("objeto_id"):
+    if item.get("tipo") == entry.get("tipo") and item.get("objeto_id") == entry.get(
+        "objeto_id"
+    ):
         return True
     # Compatibilidad con registros legacy
     if entry.get("tipo") == "asignacion_equipo":
@@ -190,10 +190,14 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     - Todas las OCs están en estado recepcionado (4/5/6).
     - No están vinculadas a otra OT (M2M o guías).
     """
-    from bodegas.models import ItemsGuiaSalida, OrdenCompra
-    from bodegas.models import ItemEnOrdenCompra, ItemOrdenCompraEnStock, MovimientoStock
-    from cotizaciones.models import Cotizacion
-    from cotizaciones.models import ItemCotizacion
+    from bodegas.models import (
+        ItemEnOrdenCompra,
+        ItemOrdenCompraEnStock,
+        ItemsGuiaSalida,
+        MovimientoStock,
+        OrdenCompra,
+    )
+    from cotizaciones.models import Cotizacion, ItemCotizacion
     from django.contrib.contenttypes.models import ContentType
 
     _validar_ot_pendiente(orden)
@@ -237,7 +241,22 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
         .exclude(ordenes_trabajo_v2=orden)
         .values_list("id", flat=True)
     )
-    excluidas_ids.update(orden.cotizaciones.values_list("id", flat=True))
+
+    cotizaciones_en_ot = set(orden.cotizaciones.values_list("id", flat=True))
+    cotizaciones_en_ot &= set(elegibles_ids)
+    if cotizaciones_en_ot:
+        cotizaciones_con_guias_faltantes = set(
+            ItemsGuiaSalida.objects.filter(
+                source_item__orden_compra__relacion_cotizacion_id__in=cotizaciones_en_ot,
+                guia__orden_trabajo__isnull=True,
+            ).values_list(
+                "source_item__orden_compra__relacion_cotizacion_id",
+                flat=True,
+            )
+        )
+        for cot_id in cotizaciones_en_ot:
+            if cot_id not in cotizaciones_con_guias_faltantes:
+                excluidas_ids.add(cot_id)
 
     relaciones_guias = ItemsGuiaSalida.objects.filter(
         source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids,
@@ -255,32 +274,32 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
         return [], {}
 
     resumen = {}
-    resumen_ocs = OrdenCompra.objects.filter(
-        relacion_cotizacion_id__in=elegibles_ids
-    ).values("relacion_cotizacion_id").annotate(
-        oc_count=Count("id"),
-        oc_recibidas_count=Count("id", filter=Q(estado__in=estados_validos)),
+    resumen_ocs = (
+        OrdenCompra.objects.filter(relacion_cotizacion_id__in=elegibles_ids)
+        .values("relacion_cotizacion_id")
+        .annotate(
+            oc_count=Count("id"),
+            oc_recibidas_count=Count("id", filter=Q(estado__in=estados_validos)),
+        )
     )
-    resumen_ocs_map = {
-        row["relacion_cotizacion_id"]: row for row in resumen_ocs
-    }
+    resumen_ocs_map = {row["relacion_cotizacion_id"]: row for row in resumen_ocs}
 
-    resumen_guias = ItemsGuiaSalida.objects.filter(
-        source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids
-    ).values(
-        "source_item__orden_compra__relacion_cotizacion_id"
-    ).annotate(
-        guias_count=Count("guia_id", distinct=True)
+    resumen_guias = (
+        ItemsGuiaSalida.objects.filter(
+            source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids
+        )
+        .values("source_item__orden_compra__relacion_cotizacion_id")
+        .annotate(guias_count=Count("guia_id", distinct=True))
     )
     resumen_guias_map = {
         row["source_item__orden_compra__relacion_cotizacion_id"]: row["guias_count"]
         for row in resumen_guias
     }
 
-    pedido_rows = ItemCotizacion.objects.filter(
-        cotizacion_id__in=elegibles_ids
-    ).values("cotizacion_id").annotate(
-        total_pedido=Sum("cantidad")
+    pedido_rows = (
+        ItemCotizacion.objects.filter(cotizacion_id__in=elegibles_ids)
+        .values("cotizacion_id")
+        .annotate(total_pedido=Sum("cantidad"))
     )
     pedido_map = {row["cotizacion_id"]: row["total_pedido"] or 0 for row in pedido_rows}
 
@@ -289,7 +308,9 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
         orden_compra__relacion_cotizacion_id__in=elegibles_ids
     ).values("id", "orden_compra__relacion_cotizacion_id")
     item_oc_ids = [row["id"] for row in item_oc_rows]
-    item_oc_to_cot = {row["id"]: row["orden_compra__relacion_cotizacion_id"] for row in item_oc_rows}
+    item_oc_to_cot = {
+        row["id"]: row["orden_compra__relacion_cotizacion_id"] for row in item_oc_rows
+    }
 
     if item_oc_ids:
         ct_item_oc = ContentType.objects.get_for_model(ItemEnOrdenCompra)
@@ -303,15 +324,21 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
         oc_stock_ids = list(oc_stock_to_cot.keys())
         if oc_stock_ids:
             ct_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
-            movs = MovimientoStock.objects.filter(
-                content_type=ct_oc_stock,
-                object_id__in=oc_stock_ids,
-                tipo_movimiento="ENTRADA",
-            ).values("object_id").annotate(total=Sum("cantidad"))
+            movs = (
+                MovimientoStock.objects.filter(
+                    content_type=ct_oc_stock,
+                    object_id__in=oc_stock_ids,
+                    tipo_movimiento="ENTRADA",
+                )
+                .values("object_id")
+                .annotate(total=Sum("cantidad"))
+            )
             for row in movs:
                 cot_id = oc_stock_to_cot.get(row["object_id"])
                 if cot_id:
-                    total_recibido_map[cot_id] = total_recibido_map.get(cot_id, 0) + (row["total"] or 0)
+                    total_recibido_map[cot_id] = total_recibido_map.get(cot_id, 0) + (
+                        row["total"] or 0
+                    )
 
     for cotizacion in cotizaciones:
         if cotizacion.id not in elegibles_ids:
@@ -328,23 +355,25 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     return [c for c in cotizaciones if c.id in elegibles_ids], resumen
 
 
-
 def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     """
     Vincula cotizaciones a una OT y genera guías de salida automáticamente
     con los items recepcionados (agrupadas por bodega).
     """
-    from django.contrib.contenttypes.models import ContentType
+    from bodegas.functions import (
+        add_oc_items_to_guia,
+        obtener_guia_pendiente_por_cotizacion,
+    )
     from bodegas.models import (
         GuiaSalida,
         ItemEnOrdenCompra,
         ItemOrdenCompraEnStock,
         ItemsGuiaSalida,
+        MovimientoStock,
         OrdenCompra,
     )
-    from bodegas.functions import add_oc_items_to_guia, obtener_guia_pendiente_por_cotizacion
-    from bodegas.models import MovimientoStock
     from cotizaciones.models import Cotizacion
+    from django.contrib.contenttypes.models import ContentType
 
     _validar_ot_pendiente(orden)
     cotizaciones_ids = _normalizar_ids(cotizaciones_ids)
@@ -407,20 +436,16 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     content_type_item_oc = ContentType.objects.get_for_model(ItemEnOrdenCompra)
     content_type_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
 
-    oc_stock_qs = (
-        ItemOrdenCompraEnStock.objects.filter(
-            content_type=content_type_item_oc, item_oc_id__in=item_oc_ids
-        )
-        .select_related("stock_item__bodega", "bodega_temporal")
-    )
+    oc_stock_qs = ItemOrdenCompraEnStock.objects.filter(
+        content_type=content_type_item_oc, item_oc_id__in=item_oc_ids
+    ).select_related("stock_item__bodega", "bodega_temporal")
     oc_stock_map = {oc_stock.item_oc_id: oc_stock for oc_stock in oc_stock_qs}
     if len(oc_stock_map) < len(item_oc_ids):
         faltantes_stock = [
             str(item_id) for item_id in item_oc_ids if item_id not in oc_stock_map
         ]
         raise ValueError(
-            "Faltan registros de recepción para items OC: "
-            + ", ".join(faltantes_stock)
+            "Faltan registros de recepción para items OC: " + ", ".join(faltantes_stock)
         )
 
     movs = (
@@ -483,9 +508,9 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
                     total_pendiente += pendiente
                     bodegas_lookup[bodega.id] = bodega
                     creador_por_bodega.setdefault(bodega.id, oc.creado_por or usuario)
-                    mapa_bodegas.setdefault(bodega.id, {}).setdefault(
-                        oc.id, {}
-                    )[item_oc.id] = pendiente
+                    mapa_bodegas.setdefault(bodega.id, {}).setdefault(oc.id, {})[
+                        item_oc.id
+                    ] = pendiente
 
             guias_existentes = (
                 GuiaSalida.objects.filter(
@@ -506,7 +531,10 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
                     cotizacion, bodega, cotizacion.cliente
                 )
                 if not guia:
-                    motivo = cotizacion.descripcion or f"Cotización #{cotizacion.numero_cotizacion}"
+                    motivo = (
+                        cotizacion.descripcion
+                        or f"Cotización #{cotizacion.numero_cotizacion}"
+                    )
                     guia = GuiaSalida.objects.create(
                         bodega=bodega,
                         cliente=orden.cliente,
@@ -553,6 +581,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         "guias_creadas": guias_creadas,
     }
 
+
 def vincular_guias_a_ot(orden, guias_ids):
     """
     Vincula guías directamente a una OT y auto-vincula cotizaciones por trazabilidad.
@@ -565,9 +594,7 @@ def vincular_guias_a_ot(orden, guias_ids):
     if not guias_ids:
         raise ValueError("Debes enviar al menos una guía.")
 
-    guias = list(
-        GuiaSalida.objects.filter(id__in=guias_ids).select_related("cliente")
-    )
+    guias = list(GuiaSalida.objects.filter(id__in=guias_ids).select_related("cliente"))
     encontrados = {guia.id for guia in guias}
     faltantes = [gid for gid in guias_ids if gid not in encontrados]
     if faltantes:
@@ -596,14 +623,10 @@ def vincular_guias_a_ot(orden, guias_ids):
     cotizaciones = []
     if cotizaciones_ids:
         cotizaciones = list(
-            Cotizacion.objects.filter(id__in=cotizaciones_ids).select_related(
-                "cliente"
-            )
+            Cotizacion.objects.filter(id__in=cotizaciones_ids).select_related("cliente")
         )
         encontrados_cot = {c.id for c in cotizaciones}
-        faltantes_cot = [
-            cid for cid in cotizaciones_ids if cid not in encontrados_cot
-        ]
+        faltantes_cot = [cid for cid in cotizaciones_ids if cid not in encontrados_cot]
         if faltantes_cot:
             raise ValueError(
                 f"Cotizaciones no encontradas: {', '.join(map(str, faltantes_cot))}."
@@ -681,9 +704,9 @@ def vincular_cotizaciones_a_ot(orden, cotizaciones_ids):
     )
 
     guias = list(
-        GuiaSalida.objects.filter(id__in=guias_ids, estado__in=["ER", "FR"]).select_related(
-            "cliente"
-        )
+        GuiaSalida.objects.filter(
+            id__in=guias_ids, estado__in=["ER", "FR"]
+        ).select_related("cliente")
     )
     for guia in guias:
         if guia.orden_trabajo_id and guia.orden_trabajo_id != orden.id:
@@ -720,8 +743,8 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
     """
     from bodegas.models import ItemsGuiaSalida
     from empresas.models import UsuarioEmpresa
-    from recursos.models import Equipo, UsuarioEquipo
     from ordentrabajov2.models import OrdenDeTrabajo
+    from recursos.models import Equipo, UsuarioEquipo
 
     if not firma:
         raise ValueError("La firma es requerida.")
@@ -732,9 +755,10 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
         usuario_asignado
     )
 
-    usuario_empresa = (
-        usuario_asignado.usuario_empresa
-        or (usuario_asignado.usuario_equipo.usuario if usuario_asignado.usuario_equipo else None)
+    usuario_empresa = usuario_asignado.usuario_empresa or (
+        usuario_asignado.usuario_equipo.usuario
+        if usuario_asignado.usuario_equipo
+        else None
     )
     if not usuario_empresa:
         raise ValueError("No hay usuario asociado para aplicar la asignacion.")
@@ -756,7 +780,10 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
         if not item_guia_id:
             raise ValueError("Debe indicar item_guia_id.")
         item_guia = ItemsGuiaSalida.objects.select_related("guia").get(pk=item_guia_id)
-        if not item_guia.guia.orden_trabajo_id or item_guia.guia.orden_trabajo_id != orden.id:
+        if (
+            not item_guia.guia.orden_trabajo_id
+            or item_guia.guia.orden_trabajo_id != orden.id
+        ):
             raise ValueError("El item no pertenece a una guia vinculada a esta OT.")
         serie = (item_guia.numero_serie or {}).get("serie")
         if not serie:
@@ -768,7 +795,9 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
             "empresa_propietaria": (
                 getattr(getattr(usuario_ejecutor, "sucursal", None), "empresa", None)
                 if usuario_ejecutor
-                else getattr(getattr(usuario_empresa, "sucursal", None), "empresa", None)
+                else getattr(
+                    getattr(usuario_empresa, "sucursal", None), "empresa", None
+                )
             ),
         }
         nuevo_equipo, _ = Equipo.objects.get_or_create(
@@ -796,7 +825,8 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
             .first()
         )
         if actual_usuario_equipo and (
-            nuevo_equipo is None or actual_usuario_equipo.equipo_id != getattr(nuevo_equipo, "id", None)
+            nuevo_equipo is None
+            or actual_usuario_equipo.equipo_id != getattr(nuevo_equipo, "id", None)
         ):
             actual_usuario_equipo.estado = False
             actual_usuario_equipo.fecha_devolucion = timezone.now().date()
@@ -804,7 +834,10 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
 
         usuario_equipo_nuevo = None
         if nuevo_equipo:
-            if actual_usuario_equipo and actual_usuario_equipo.equipo_id == nuevo_equipo.id:
+            if (
+                actual_usuario_equipo
+                and actual_usuario_equipo.equipo_id == nuevo_equipo.id
+            ):
                 usuario_equipo_nuevo = actual_usuario_equipo
             else:
                 usuario_equipo_nuevo = UsuarioEquipo.objects.create(
@@ -830,7 +863,9 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
             original=original,
             historial_entry=historial_entry,
         )
-        usuario_asignado.save(update_fields=["usuario_equipo", "resuelto", "cache_asignacion"])
+        usuario_asignado.save(
+            update_fields=["usuario_equipo", "resuelto", "cache_asignacion"]
+        )
 
         entry = _construir_entry_firma(
             usuario_asignado=usuario_asignado,
@@ -849,7 +884,9 @@ def aplicar_cache_asignacion_usuario(usuario_asignado, *, firma, usuario_ejecuto
     return entry
 
 
-def guardar_firma_asignacion_pendiente(usuario_asignado, *, firma, usuario_ejecutor=None):
+def guardar_firma_asignacion_pendiente(
+    usuario_asignado, *, firma, usuario_ejecutor=None
+):
     """
     Guarda una firma pendiente de aplicar para un UsuarioAsignadoSoporte.
     """
@@ -862,9 +899,10 @@ def guardar_firma_asignacion_pendiente(usuario_asignado, *, firma, usuario_ejecu
     if cache.get("firma_pendiente"):
         raise ValueError("La asignacion ya tiene una firma pendiente.")
 
-    usuario_empresa = (
-        usuario_asignado.usuario_empresa
-        or (usuario_asignado.usuario_equipo.usuario if usuario_asignado.usuario_equipo else None)
+    usuario_empresa = usuario_asignado.usuario_empresa or (
+        usuario_asignado.usuario_equipo.usuario
+        if usuario_asignado.usuario_equipo
+        else None
     )
     if not usuario_empresa:
         raise ValueError("No hay usuario asociado para aplicar la asignacion.")
@@ -897,7 +935,9 @@ def guardar_firma_asignacion_pendiente(usuario_asignado, *, firma, usuario_ejecu
     return entry
 
 
-def _resolver_equipo_desde_seleccion(seleccion, orden, usuario_empresa, usuario_ejecutor=None):
+def _resolver_equipo_desde_seleccion(
+    seleccion, orden, usuario_empresa, usuario_ejecutor=None
+):
     from bodegas.models import ItemsGuiaSalida
     from recursos.models import Equipo
 
@@ -915,7 +955,10 @@ def _resolver_equipo_desde_seleccion(seleccion, orden, usuario_empresa, usuario_
         if not item_guia_id:
             raise ValueError("Debe indicar item_guia_id.")
         item_guia = ItemsGuiaSalida.objects.select_related("guia").get(pk=item_guia_id)
-        if not item_guia.guia.orden_trabajo_id or item_guia.guia.orden_trabajo_id != orden.id:
+        if (
+            not item_guia.guia.orden_trabajo_id
+            or item_guia.guia.orden_trabajo_id != orden.id
+        ):
             raise ValueError("El item no pertenece a una guia vinculada a esta OT.")
         serie = (item_guia.numero_serie or {}).get("serie")
         if not serie:
@@ -927,7 +970,9 @@ def _resolver_equipo_desde_seleccion(seleccion, orden, usuario_empresa, usuario_
             "empresa_propietaria": (
                 getattr(getattr(usuario_ejecutor, "sucursal", None), "empresa", None)
                 if usuario_ejecutor
-                else getattr(getattr(usuario_empresa, "sucursal", None), "empresa", None)
+                else getattr(
+                    getattr(usuario_empresa, "sucursal", None), "empresa", None
+                )
             ),
         }
         nuevo_equipo, _ = Equipo.objects.get_or_create(
@@ -959,20 +1004,18 @@ def aplicar_cache_asignacion_swap(
     if usuario_actual.resuelto or usuario_otro.resuelto:
         raise ValueError("Una de las asignaciones ya fue resuelta.")
 
-    cache_actual, seleccion_actual, movimientos_actual, original_actual = _obtener_cache_asignacion(
-        usuario_actual
+    cache_actual, seleccion_actual, movimientos_actual, original_actual = (
+        _obtener_cache_asignacion(usuario_actual)
     )
-    cache_otro, seleccion_otro, movimientos_otro, original_otro = _obtener_cache_asignacion(
-        usuario_otro
+    cache_otro, seleccion_otro, movimientos_otro, original_otro = (
+        _obtener_cache_asignacion(usuario_otro)
     )
 
-    usuario_empresa_actual = (
-        usuario_actual.usuario_empresa
-        or (usuario_actual.usuario_equipo.usuario if usuario_actual.usuario_equipo else None)
+    usuario_empresa_actual = usuario_actual.usuario_empresa or (
+        usuario_actual.usuario_equipo.usuario if usuario_actual.usuario_equipo else None
     )
-    usuario_empresa_otro = (
-        usuario_otro.usuario_empresa
-        or (usuario_otro.usuario_equipo.usuario if usuario_otro.usuario_equipo else None)
+    usuario_empresa_otro = usuario_otro.usuario_empresa or (
+        usuario_otro.usuario_equipo.usuario if usuario_otro.usuario_equipo else None
     )
     if not usuario_empresa_actual or not usuario_empresa_otro:
         raise ValueError("No hay usuario asociado para aplicar la asignacion.")
@@ -1001,7 +1044,8 @@ def aplicar_cache_asignacion_swap(
 
         if actual_usuario_equipo and (
             nuevo_equipo_actual is None
-            or actual_usuario_equipo.equipo_id != getattr(nuevo_equipo_actual, "id", None)
+            or actual_usuario_equipo.equipo_id
+            != getattr(nuevo_equipo_actual, "id", None)
         ):
             actual_usuario_equipo.estado = False
             actual_usuario_equipo.fecha_devolucion = timezone.now().date()
@@ -1031,7 +1075,10 @@ def aplicar_cache_asignacion_swap(
 
         usuario_equipo_nuevo_actual = None
         if nuevo_equipo_actual:
-            if actual_usuario_equipo and actual_usuario_equipo.equipo_id == nuevo_equipo_actual.id:
+            if (
+                actual_usuario_equipo
+                and actual_usuario_equipo.equipo_id == nuevo_equipo_actual.id
+            ):
                 usuario_equipo_nuevo_actual = actual_usuario_equipo
             else:
                 usuario_equipo_nuevo_actual = UsuarioEquipo.objects.create(
@@ -1042,7 +1089,10 @@ def aplicar_cache_asignacion_swap(
 
         usuario_equipo_nuevo_otro = None
         if nuevo_equipo_otro:
-            if otro_usuario_equipo and otro_usuario_equipo.equipo_id == nuevo_equipo_otro.id:
+            if (
+                otro_usuario_equipo
+                and otro_usuario_equipo.equipo_id == nuevo_equipo_otro.id
+            ):
                 usuario_equipo_nuevo_otro = otro_usuario_equipo
             else:
                 usuario_equipo_nuevo_otro = UsuarioEquipo.objects.create(
@@ -1059,7 +1109,9 @@ def aplicar_cache_asignacion_swap(
             seleccion=seleccion_actual,
             movimientos=movimientos_actual,
             equipo_id_resultante=getattr(nuevo_equipo_actual, "id", None),
-            usuario_equipo_id_resultante=getattr(usuario_equipo_nuevo_actual, "id", None),
+            usuario_equipo_id_resultante=getattr(
+                usuario_equipo_nuevo_actual, "id", None
+            ),
             item_guia_id=item_guia_actual,
             usuario_ejecutor=usuario_ejecutor,
         )
@@ -1068,7 +1120,9 @@ def aplicar_cache_asignacion_swap(
             original=original_actual,
             historial_entry=historial_actual,
         )
-        usuario_actual.save(update_fields=["usuario_equipo", "resuelto", "cache_asignacion"])
+        usuario_actual.save(
+            update_fields=["usuario_equipo", "resuelto", "cache_asignacion"]
+        )
 
         usuario_otro.usuario_equipo = usuario_equipo_nuevo_otro
         usuario_otro.resuelto = True
@@ -1087,7 +1141,9 @@ def aplicar_cache_asignacion_swap(
             original=original_otro,
             historial_entry=historial_otro,
         )
-        usuario_otro.save(update_fields=["usuario_equipo", "resuelto", "cache_asignacion"])
+        usuario_otro.save(
+            update_fields=["usuario_equipo", "resuelto", "cache_asignacion"]
+        )
 
         entry_actual = _construir_entry_firma(
             usuario_asignado=usuario_actual,
@@ -1097,7 +1153,9 @@ def aplicar_cache_asignacion_swap(
             movimientos=movimientos_actual,
             original=original_actual,
             equipo_id_resultante=getattr(nuevo_equipo_actual, "id", None),
-            usuario_equipo_id_resultante=getattr(usuario_equipo_nuevo_actual, "id", None),
+            usuario_equipo_id_resultante=getattr(
+                usuario_equipo_nuevo_actual, "id", None
+            ),
             item_guia_id=item_guia_actual,
             aplicada=True,
         )
@@ -1421,8 +1479,7 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
     import logging
 
     from bodegas.models import GuiaSalida, ItemsGuiaSalida
-    from cotizaciones.models import Cotizacion
-    from cotizaciones.models import ItemCotizacion
+    from cotizaciones.models import Cotizacion, ItemCotizacion
     from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
     from ordentrabajov2.models import OrdenDeTrabajo
     from rendiciones.models import Rendicion
@@ -1457,9 +1514,9 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
         unit_base = Decimal(item_cot.precio_venta_neta_unitario_moneda_base or 0)
 
         if moneda_cot == "1":
-            tasa_usd = Decimal(dolar_override or item_cot.cotizacion.dolar_observado or 0) + Decimal(
-                5
-            )
+            tasa_usd = Decimal(
+                dolar_override or item_cot.cotizacion.dolar_observado or 0
+            ) + Decimal(5)
             unit_clp = unit_base * tasa_usd if tasa_usd > 0 else Decimal("0.00")
             return float(unit_clp.quantize(Decimal("0.01")))
 
@@ -1486,12 +1543,12 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
 
     cotizaciones_ids = set()
     for orden in ordenes:
-        cotizaciones_ids.update(
-            orden.cotizaciones.values_list("id", flat=True)
-        )
+        cotizaciones_ids.update(orden.cotizaciones.values_list("id", flat=True))
 
     guias_ids = list(
-        GuiaSalida.objects.filter(orden_trabajo__in=ordenes).values_list("id", flat=True)
+        GuiaSalida.objects.filter(orden_trabajo__in=ordenes).values_list(
+            "id", flat=True
+        )
     )
     if guias_ids:
         cotizaciones_ids.update(
@@ -1499,9 +1556,7 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
                 guia_id__in=guias_ids,
                 source_item__orden_compra__relacion_cotizacion__isnull=False,
             )
-            .values_list(
-                "source_item__orden_compra__relacion_cotizacion_id", flat=True
-            )
+            .values_list("source_item__orden_compra__relacion_cotizacion_id", flat=True)
             .distinct()
         )
 
@@ -1568,7 +1623,11 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
         # Procesar Guías de Salida vinculadas directamente a esta OT
         guias_ot = GuiaSalida.objects.filter(
             orden_trabajo=orden,  # Filtrar por OT específica (relación directa)
-            estado__in=["E", "PR", "R"],  # Entregada / Parcialmente Revertida / Revertida
+            estado__in=[
+                "E",
+                "PR",
+                "R",
+            ],  # Entregada / Parcialmente Revertida / Revertida
         ).prefetch_related("itemsguiasalida_set__stock_item__item")
 
         precio_cot_cache = {}
@@ -1612,7 +1671,11 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
                     oc = item_guia.source_item.orden_compra
                     cotizacion_id = getattr(oc, "relacion_cotizacion_id", None)
                     item_empresa_id = item_guia.source_item.item_id
-                    cache_key = (cotizacion_id, item_empresa_id, fecha_prefactura or "default")
+                    cache_key = (
+                        cotizacion_id,
+                        item_empresa_id,
+                        fecha_prefactura or "default",
+                    )
                     if cotizacion_id and item_empresa_id:
                         if cache_key not in precio_cot_cache:
                             item_cot = (
@@ -1624,8 +1687,8 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
                                 .first()
                             )
                             if item_cot:
-                                precio_cot_cache[cache_key] = _precio_unitario_cotizacion_clp(
-                                    item_cot
+                                precio_cot_cache[cache_key] = (
+                                    _precio_unitario_cotizacion_clp(item_cot)
                                 )
                             else:
                                 precio_cot_cache[cache_key] = 0.0
@@ -1700,9 +1763,7 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
                         compra = obj
                         items_compra = compra.itemencompra_set.select_related("item")
                         if not items_compra.exists():
-                            logger.info(
-                                f"  → Compra {compra.id}: sin items en compra"
-                            )
+                            logger.info(f"  → Compra {compra.id}: sin items en compra")
                             continue
 
                         for item_compra in items_compra:
@@ -1860,26 +1921,28 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
     pdf = canvas.Canvas(buffer, pagesize=A4)
     ancho, alto = A4
     mx, my = 40, 40
-    
+
     logo_b64 = None
     if os.path.exists(LOGO_PATH):
-       try: 
-           with open(LOGO_PATH, "rb") as f:
-               logo_bytes = f.read()
-               logo_b64 = "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
-       except:
-           pass
-           
+        try:
+            with open(LOGO_PATH, "rb") as f:
+                logo_bytes = f.read()
+                logo_b64 = (
+                    "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
+                )
+        except:
+            pass
+
     ubicacion = "Santiago"
     fecha_str = orden.fecha_creacion.strftime("%d de %B de %Y")
-    
+
     # --- Helper Interno para dibujar datos ---
     def draw_kv_line(p, x, y, label, value, x2=None, label2=None, value2=None):
         p.setFont(*FONTS["datos_label"])
         p.drawString(x, y, label)
         p.setFont(*FONTS["datos"])
         p.drawString(x + 100, y, str(value))
-        
+
         if x2 and label2:
             p.setFont(*FONTS["datos_label"])
             p.drawString(x2, y, label2)
@@ -1891,16 +1954,24 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
         if curr_y < limit:
             pdf.showPage()
             draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
-            draw_titulo(pdf, orden.id, ancho, alto, mx, 40, titulo_texto="Orden de Trabajo N\u00b0")
+            draw_titulo(
+                pdf,
+                orden.id,
+                ancho,
+                alto,
+                mx,
+                40,
+                titulo_texto="Orden de Trabajo N\u00b0",
+            )
             return alto - 40 - 90
         return curr_y
 
     def draw_module_title(p, y, text):
-        p.setFont(*FONTS["titulo"]) # Reusing title font for module headers
+        p.setFont(*FONTS["titulo"])  # Reusing title font for module headers
         p.drawString(mx, y, text)
         p.line(mx, y - 4, ancho - mx, y - 4)
         return y - 25
-        
+
     def draw_section_head(p, y, text):
         p.setFont(*FONTS["datos_label"])
         p.drawString(mx, y, text)
@@ -1908,10 +1979,12 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
 
     # 1. Header & Title (Pag 1)
     draw_encabezado(pdf, ubicacion, fecha_str, logo_b64, ancho, alto, mx, my=40)
-    draw_titulo(pdf, orden.id, ancho, alto, mx, 40, titulo_texto="Orden de Trabajo N\u00b0")
-    
+    draw_titulo(
+        pdf, orden.id, ancho, alto, mx, 40, titulo_texto="Orden de Trabajo N\u00b0"
+    )
+
     y = alto - 40 - 90
-    
+
     # Estado
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawRightString(ancho - mx, y, f"Estado: {orden.get_estado_display().upper()}")
@@ -1919,44 +1992,56 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
 
     # 2. Información General
     y = draw_module_title(pdf, y, "INFORMACIÓN GENERAL")
-    
+
     # Cols setup
     col2_x = ancho / 2 + 10
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(mx, y, "Cliente:")
     pdf.setFont(*FONTS["datos"])
     pdf.drawString(mx + 60, y, orden.cliente.nombre)
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(col2_x, y, "Solicitante:")
     pdf.setFont(*FONTS["datos"])
-    solicitante = orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante else "N/A"
+    solicitante = (
+        orden.cliente_solicitante.usuario.get_nombre_completo()
+        if orden.cliente_solicitante
+        else "N/A"
+    )
     pdf.drawString(col2_x + 80, y, solicitante)
     y -= 14
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(mx, y, "Prioridad:")
     pdf.setFont(*FONTS["datos"])
     pdf.drawString(mx + 60, y, orden.get_prioridad_display())
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(col2_x, y, "Responsable:")
     pdf.setFont(*FONTS["datos"])
-    responsable = orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else "N/A"
+    responsable = (
+        orden.tecnico_responsable_ot.usuario.get_nombre_completo()
+        if orden.tecnico_responsable_ot
+        else "N/A"
+    )
     pdf.drawString(col2_x + 80, y, responsable)
     y -= 14
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(mx, y, "Inicio:")
     pdf.setFont(*FONTS["datos"])
     ini = orden.fecha_inicio_ot.strftime("%d/%m/%Y") if orden.fecha_inicio_ot else "N/A"
     pdf.drawString(mx + 60, y, ini)
-    
+
     pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(col2_x, y, "Fin:")
     pdf.setFont(*FONTS["datos"])
-    fin = orden.fecha_finalizacion_ot.strftime("%d/%m/%Y") if orden.fecha_finalizacion_ot else "N/A"
+    fin = (
+        orden.fecha_finalizacion_ot.strftime("%d/%m/%Y")
+        if orden.fecha_finalizacion_ot
+        else "N/A"
+    )
     pdf.drawString(col2_x + 80, y, fin)
     y -= 25
 
@@ -1972,58 +2057,69 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
 
     # 4. Resumen Ejecutivo
     y = check_page(y, 150)
-    y = draw_module_title(pdf, y, "RESUMEN EJECUTIVO") # Header
-    
+    y = draw_module_title(pdf, y, "RESUMEN EJECUTIVO")  # Header
+
     # Table data
     resumen_data = [
         ["Concepto", "Cantidad / Valor"],
         ["Servicios/Soportes registrados", str(len(servicios) + len(soportes))],
         ["Guías de Salida asociadas", str(len(guias))],
-        ["Gastos Operativos totales", format_currency(sum(g.monto_total for g in gastos))],
+        [
+            "Gastos Operativos totales",
+            format_currency(sum(g.monto_total for g in gastos)),
+        ],
     ]
-    
+
     # Draw simple table manually or using platypus Table via wrapOn/drawOn
-    t_width = ancho - 2*mx
+    t_width = ancho - 2 * mx
     resumen_table = Table(resumen_data, colWidths=[t_width * 0.7, t_width * 0.3])
-    resumen_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), BRAND_BLUE),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
-        ('PADDING', (0, 0), (-1, -1), 6),
-    ]))
+    resumen_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("GRID", (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
     w, h = resumen_table.wrap(t_width, y)
     resumen_table.drawOn(pdf, mx, y - h)
-    y -= (h + 20)
+    y -= h + 20
 
     # 5. Servicios y Soportes
     if servicios or soportes:
         y = check_page(y, 100)
         y = draw_module_title(pdf, y, "SERVICIOS Y SOPORTES")
-        
+
         all_activities = list(soportes) + list(servicios)
-        
+
         for act in all_activities:
-            is_soporte = hasattr(act, 'guia_salida')
+            is_soporte = hasattr(act, "guia_salida")
             tipo = "Soporte Técnico" if is_soporte else "Servicio General"
-            
-            y = check_page(y, 120) 
+
+            y = check_page(y, 120)
             pdf.setFont("Helvetica-Bold", 10)
             pdf.drawString(mx, y, f"{act.nombre} ({tipo})")
             y -= 14
-            
+
             # Info line
-            tecnico = act.tecnico_asignado.usuario.get_nombre_completo() if act.tecnico_asignado and act.tecnico_asignado.usuario else "No asignado"
+            tecnico = (
+                act.tecnico_asignado.usuario.get_nombre_completo()
+                if act.tecnico_asignado and act.tecnico_asignado.usuario
+                else "No asignado"
+            )
             estado = act.get_estado_display()
             fecha_act = act.fecha_soporte if is_soporte else act.fecha_servicio
             fecha_str_act = fecha_act.strftime("%d/%m/%Y") if fecha_act else "N/A"
-            
+
             pdf.setFont("Helvetica", 9)
             info_str = f"Fecha: {fecha_str_act} | Técnico: {tecnico} | Estado: {estado}"
             pdf.drawString(mx, y, info_str)
             y -= 12
-            
+
             # Desc
             pdf.setFont("Helvetica-Oblique", 9)
             desc_act = wrap(act.descripcion or "", width=100)
@@ -2031,11 +2127,11 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
                 y = check_page(y)
                 pdf.drawString(mx, y, line)
                 y -= 10
-            
+
             y -= 10
             # Line separator
             pdf.setStrokeColor(LIGHT_GRAY)
-            pdf.line(mx, y, ancho-mx, y)
+            pdf.line(mx, y, ancho - mx, y)
             pdf.setStrokeColor(colors.black)
             y -= 15
 
@@ -2043,47 +2139,71 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
     if guias:
         y = check_page(y, 100)
         y = draw_module_title(pdf, y, "GUÍAS DE SALIDA Y MATERIALES")
-        
+
         for guia in guias:
             y = check_page(y, 80)
             pdf.setFont("Helvetica-Bold", 10)
-            pdf.drawString(mx, y, f"Guía Nº {guia.id} - Bodega: {guia.bodega.nombre if guia.bodega else 'N/A'}")
+            pdf.drawString(
+                mx,
+                y,
+                f"Guía Nº {guia.id} - Bodega: {guia.bodega.nombre if guia.bodega else 'N/A'}",
+            )
             y -= 14
-            
-            entregado = guia.entregado_a.usuario.get_nombre_completo() if guia.entregado_a and guia.entregado_a.usuario else "N/A"
+
+            entregado = (
+                guia.entregado_a.usuario.get_nombre_completo()
+                if guia.entregado_a and guia.entregado_a.usuario
+                else "N/A"
+            )
             pdf.setFont("Helvetica", 9)
-            pdf.drawString(mx, y, f"Entregado a: {entregado} | Motivo: {guia.motivo or '-'}")
+            pdf.drawString(
+                mx, y, f"Entregado a: {entregado} | Motivo: {guia.motivo or '-'}"
+            )
             y -= 14
-            
+
             # Items table
             headers = ["Item", "Cant", "Serie"]
             data_items = [headers]
             for item in guia.itemsguiasalida_set.all():
-                nombre = item.stock_item.item.nombre if item.stock_item and item.stock_item.item else "Desconocido"
+                nombre = (
+                    item.stock_item.item.nombre
+                    if item.stock_item and item.stock_item.item
+                    else "Desconocido"
+                )
                 # Serial fix:
-                serial_val = str(item.numero_serie.get("serie", "N/A") if isinstance(item.numero_serie, dict) else (item.numero_serie or "N/A"))
+                serial_val = str(
+                    item.numero_serie.get("serie", "N/A")
+                    if isinstance(item.numero_serie, dict)
+                    else (item.numero_serie or "N/A")
+                )
                 data_items.append([nombre, str(item.cantidad_rebajada), serial_val])
-            
-            t_items = Table(data_items, colWidths=[t_width*0.6, t_width*0.15, t_width*0.25])
-            t_items.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), LIGHT_GRAY),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ]))
-            
-            w, h = t_items.wrap(t_width, y) # check height
+
+            t_items = Table(
+                data_items, colWidths=[t_width * 0.6, t_width * 0.15, t_width * 0.25]
+            )
+            t_items.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), LIGHT_GRAY),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                        ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ]
+                )
+            )
+
+            w, h = t_items.wrap(t_width, y)  # check height
             if y - h < 50:
-                y = check_page(0) # Force new page
-            
+                y = check_page(0)  # Force new page
+
             t_items.drawOn(pdf, mx, y - h)
-            y -= (h + 20)
+            y -= h + 20
 
     # 7. Gastos
     if gastos:
         y = check_page(y, 100)
         y = draw_module_title(pdf, y, "GASTOS OPERATIVOS")
-        
+
         headers = ["Fecha", "Categoría", "Detalle", "Monto"]
         data_gastos = [headers]
         total_gastos = 0
@@ -2094,56 +2214,76 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
             det = g.detalle or "-"
             monto = format_currency(g.monto_total)
             data_gastos.append([fecha_g, cat, det, monto])
-            
+
         data_gastos.append(["", "", "TOTAL", format_currency(total_gastos)])
-        
-        t_gastos = Table(data_gastos, colWidths=[t_width*0.15, t_width*0.25, t_width*0.4, t_width*0.2])
-        t_gastos.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), LIGHT_GRAY),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (-2, -1), (-1, -1), 'Helvetica-Bold'), # Total row bold
-            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ]))
-        
+
+        t_gastos = Table(
+            data_gastos,
+            colWidths=[t_width * 0.15, t_width * 0.25, t_width * 0.4, t_width * 0.2],
+        )
+        t_gastos.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), LIGHT_GRAY),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    (
+                        "FONTNAME",
+                        (-2, -1),
+                        (-1, -1),
+                        "Helvetica-Bold",
+                    ),  # Total row bold
+                    ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ]
+            )
+        )
+
         w, h = t_gastos.wrap(t_width, y)
         if y - h < 50:
-             y = check_page(0)
-             
+            y = check_page(0)
+
         t_gastos.drawOn(pdf, mx, y - h)
-        y -= (h + 30)
+        y -= h + 30
 
     # 8. Cierre y Firmas
     y = check_page(y, 150)
     y = draw_module_title(pdf, y, "VALIDACIÓN FINAL")
     y -= 30
-    
+
     # Firmas blocks
     # Box 1: Tecnico
     box_w = (t_width / 2) - 10
-    
+
     pdf.line(mx, y, mx + box_w, y)
     pdf.line(mx + box_w + 20, y, ancho - mx, y)
     y -= 15
-    
+
     pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawCentredString(mx + box_w/2, y, "Técnico Responsable")
-    pdf.drawCentredString(mx + box_w + 20 + box_w/2, y, "Aprobación Cliente")
+    pdf.drawCentredString(mx + box_w / 2, y, "Técnico Responsable")
+    pdf.drawCentredString(mx + box_w + 20 + box_w / 2, y, "Aprobación Cliente")
     y -= 12
-    
-    nom_tec = orden.tecnico_responsable_ot.usuario.get_nombre_completo() if orden.tecnico_responsable_ot else ""
-    nom_cli = orden.cliente_solicitante.usuario.get_nombre_completo() if orden.cliente_solicitante and orden.cliente_solicitante.usuario else ""
-    
+
+    nom_tec = (
+        orden.tecnico_responsable_ot.usuario.get_nombre_completo()
+        if orden.tecnico_responsable_ot
+        else ""
+    )
+    nom_cli = (
+        orden.cliente_solicitante.usuario.get_nombre_completo()
+        if orden.cliente_solicitante and orden.cliente_solicitante.usuario
+        else ""
+    )
+
     pdf.setFont("Helvetica", 9)
-    pdf.drawCentredString(mx + box_w/2, y, nom_tec)
-    pdf.drawCentredString(mx + box_w + 20 + box_w/2, y, nom_cli)
-    
+    pdf.drawCentredString(mx + box_w / 2, y, nom_tec)
+    pdf.drawCentredString(mx + box_w + 20 + box_w / 2, y, nom_cli)
+
     # Final Footer
     draw_footer(pdf, ancho, mx, my)
     draw_paginacion(pdf, ancho, mx, my)
     pdf.showPage()
-    
+
     pdf.save()
     buffer.seek(0)
     return buffer

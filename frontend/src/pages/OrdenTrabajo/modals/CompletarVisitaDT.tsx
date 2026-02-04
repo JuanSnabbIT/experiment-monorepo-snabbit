@@ -25,7 +25,8 @@ function CompletarVisitaDT({ id_visita }: { id_visita: number | string | undefin
     const dispatch = useAppDispatch();
     const { id } = useParams<{ id: string }>();
     const ordenId = id ? Number(id) : undefined;
-    const { refetch: refetchDetalleOrdenTrabajo } = useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
+    // ✅ Obtener query pero sin guardar refetch - confiar en invalidatesTags
+    useGetDetalleOrdenTrabajoQuery(ordenId ?? 0, {
         skip: !ordenId,
     });
     const { listaEntregaEquipos, listaAsistenciaUsuarios } = useAppSelector(
@@ -155,7 +156,7 @@ function CompletarVisitaDT({ id_visita }: { id_visita: number | string | undefin
                                             { autoClose: 1000 },
                                         );
                                         setIsOpen(false);
-                                        refetchDetalleOrdenTrabajo();
+                                        // ✅ NO llamar refetch - RTK Query invalidará automáticamente
                                     }
                                 } catch (error: any) {
                                     const mensajesError = Object.values(error.response.data)

@@ -207,7 +207,7 @@ export const duplicarCotizacionThunk = createAsyncThunk<
 >('cotizacion/duplicarCotizacionThunk', async ({ id_cotizacion }, { rejectWithValue }) => {
     try {
         const response = await ApiService.fetchData<ICotizacion>({
-            url: `/api/cotizaciones/${id_cotizacion}/duplicar/`,
+            url: `/api/cotizaciones/${id_cotizacion}/crear-copia-rechazada/`,
             method: 'post',
         });
         return response.data;

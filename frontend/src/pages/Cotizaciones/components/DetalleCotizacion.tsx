@@ -1235,17 +1235,24 @@ const DetalleCotizacion = () => {
                                                 key={solicitante.id}>
                                                 <div>
                                                     <Badge>Nombre</Badge>
-                                                    <div className='ml-4 flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100'>
-                                                        {solicitante.nombre_usuario}{' '}
-                                                        {solicitante.aprobo && (
-                                                            <Tooltip
-                                                                text={`Cotización Aceptada por ${solicitante.nombre_usuario}`}>
-                                                                <Icon
-                                                                    size='text-4xl'
-                                                                    icon={'HeroCheckCircle'}
-                                                                    color={'emerald'}
-                                                                />
-                                                            </Tooltip>
+                                                    <div className='ml-4 flex flex-col gap-1 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                        <div className='flex items-center gap-2'>
+                                                            {solicitante.nombre_usuario}
+                                                            {solicitante.aprobo && (
+                                                                <Tooltip
+                                                                    text={`Cotización Aceptada por ${solicitante.nombre_usuario}`}>
+                                                                    <Icon
+                                                                        size='text-2xl'
+                                                                        icon={'HeroCheckCircle'}
+                                                                        color={'emerald'}
+                                                                    />
+                                                                </Tooltip>
+                                                            )}
+                                                        </div>
+                                                        {solicitante.aprobo && solicitante.fecha_aprobacion && (
+                                                            <span className='text-xs text-emerald-600 dark:text-emerald-400'>
+                                                                Aprobado el {dayjs(solicitante.fecha_aprobacion).format('DD/MM/YYYY HH:mm')}
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -1504,7 +1511,14 @@ const DetalleCotizacion = () => {
                                             </THead>
                                             <TBody>
                                                 {table.getRowModel().rows.map((row) => (
-                                                    <Tr key={row.id}>
+                                                    <Tr 
+                                                        key={row.id}
+                                                        className={classNames(
+                                                            row.original.aprobado 
+                                                                ? 'border-l-4 border-l-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10' 
+                                                                : 'border-l-4 border-l-transparent'
+                                                        )}
+                                                    >
                                                         {row.getVisibleCells().map((cell) => (
                                                             <Td key={cell.id}>
                                                                 {flexRender(

@@ -7,21 +7,17 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { detalleRendicionThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect, useState } from 'react';
+import { useUpdateRendicionMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useAppSelector } from '@/store';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function CambiarEstadoRendicion() {
-    const dispatch = useAppDispatch();
     const { detalleRendicion } = useAppSelector((state) => state.rendicion);
     const [isOpen, setIsOpen] = useState<boolean>(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            dispatch(detalleRendicionThunk({ id_rendicion: detalleRendicion?.id }));
-        }
-    }, [isOpen]);
+    const [isBusy, setIsBusy] = useState<boolean>(false);
+    const [updateRendicion] = useUpdateRendicionMutation();
 
     return (
         <>
@@ -92,33 +88,27 @@ function CambiarEstadoRendicion() {
                             <Button
                                 variant='solid'
                                 color='red'
+                                isDisable={isBusy}
                                 onClick={async () => {
+                                    if (!detalleRendicion) return;
+                                    setIsBusy(true);
                                     try {
-                                        const response = await ApiService.fetchData({
-                                            url: `/api/rendiciones/${detalleRendicion.id}/`,
-                                            method: 'patch',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            data: JSON.stringify({ estado: '3' }),
+                                        await updateRendicion({
+                                            id: detalleRendicion.id,
+                                            data: { estado: '3' },
+                                        }).unwrap();
+                                        toast.success('Rendición rechazada', {
+                                            autoClose: 1000,
                                         });
-                                        if (response.data) {
-                                            toast.success('Rendición rechazada', {
-                                                autoClose: 1000,
-                                            });
-                                            setIsOpen(false);
-                                            dispatch(
-                                                detalleRendicionThunk({
-                                                    id_rendicion: detalleRendicion.id,
-                                                }),
-                                            );
-                                        }
-                                    } catch (error: any) {
-                                        const mensajesError = Object.values(error.response.data)
-                                            .flat()
-                                            .join(' ');
+                                        setIsOpen(false);
+                                    } catch (error: unknown) {
+                                        const mensajeError = getErrorMessage(error);
                                         toast.error(
-                                            mensajesError || 'Error al rechazar la rendición',
+                                            mensajeError || 'Error al rechazar la rendición',
                                             { toastId: 'Error al rechazar la rendición' },
                                         );
+                                    } finally {
+                                        setIsBusy(false);
                                     }
                                 }}>
                                 Rechazar
@@ -128,6 +118,7 @@ function CambiarEstadoRendicion() {
                     <ModalFooterChild>
                         <Button
                             color='red'
+                            isDisable={isBusy}
                             onClick={() => {
                                 setIsOpen(false);
                             }}>
@@ -135,40 +126,45 @@ function CambiarEstadoRendicion() {
                         </Button>
                         <Button
                             variant='solid'
+                            isDisable={isBusy}
                             onClick={async () => {
+                                if (!detalleRendicion) return;
+                                setIsBusy(true);
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/rendiciones/${detalleRendicion?.id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({
-                                            estado:
-                                                detalleRendicion?.estado === '0'
-                                                    ? '1'
-                                                    : detalleRendicion?.estado === '1'
-                                                      ? '2'
-                                                      : detalleRendicion?.estado === '2'
-                                                        ? '4'
-                                                        : '',
-                                        }),
-                                    });
-                                    if (response.data) {
-                                        setIsOpen(false);
-                                        dispatch(
-                                            detalleRendicionThunk({
-                                                id_rendicion: detalleRendicion?.id,
-                                            }),
+                                    const nuevoEstado =
+                                        detalleRendicion.estado === '0'
+                                            ? '1'
+                                            : detalleRendicion.estado === '1'
+                                              ? '2'
+                                              : detalleRendicion.estado === '2'
+                                                ? '4'
+                                                : '';
+
+                                    if (!nuevoEstado) {
+                                        toast.error(
+                                            'No se puede cambiar el estado de esta rendición',
+                                            {
+                                                toastId:
+                                                    'Error al cambiar el estado de la rendicion',
+                                            },
                                         );
+                                        return;
                                     }
-                                } catch (error: any) {
-                                    const mensajesError = Object.values(error.response.data)
-                                        .flat()
-                                        .join(' ');
+
+                                    await updateRendicion({
+                                        id: detalleRendicion.id,
+                                        data: { estado: nuevoEstado },
+                                    }).unwrap();
+                                    setIsOpen(false);
+                                } catch (error: unknown) {
+                                    const mensajeError = getErrorMessage(error);
                                     toast.error(
-                                        mensajesError ||
+                                        mensajeError ||
                                             'Error al cambiar el estado de la rendicion',
                                         { toastId: 'Error al cambiar el estado de la rendicion' },
                                     );
+                                } finally {
+                                    setIsBusy(false);
                                 }
                             }}>
                             {detalleRendicion?.estado === '0'

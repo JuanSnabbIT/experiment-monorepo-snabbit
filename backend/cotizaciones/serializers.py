@@ -1,6 +1,7 @@
 from .models import *
 from rest_framework import serializers
 from django.utils import timezone
+from cuentas.models import User
 
 
 class ItemCotizacionSerializer(serializers.ModelSerializer):
@@ -203,6 +204,23 @@ class SolicitanteCotizacionSerializer(serializers.ModelSerializer):
         return ""
 
 class SolicitanteExternoSerializer(serializers.ModelSerializer):
+    def validate_email(self, value):
+        email = (value or "").strip()
+        if not email:
+            return value
+
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("El email ya existe como usuario del sistema.")
+
+        solicitante_qs = SolicitanteExterno.objects.filter(email__iexact=email)
+        if self.instance:
+            solicitante_qs = solicitante_qs.exclude(pk=self.instance.pk)
+
+        if solicitante_qs.exists():
+            raise serializers.ValidationError("El email ya existe como solicitante externo.")
+
+        return value
+
     class Meta:
         model = SolicitanteExterno
         fields = '__all__'

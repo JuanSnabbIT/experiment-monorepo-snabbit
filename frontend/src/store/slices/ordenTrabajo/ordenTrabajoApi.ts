@@ -868,6 +868,19 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 url: `/api/rendiciones/${id}/`,
                 method: 'get',
             }),
+            providesTags: (_result, _error, id) => [{ type: 'Rendicion', id }],
+        }),
+        updateRendicion: builder.mutation<
+            { estado: string; [key: string]: unknown },
+            { id: number | string; data: Record<string, unknown> }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/rendiciones/${id}/`,
+                method: 'patch',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify(data),
+            }),
+            invalidatesTags: (_result, _error, { id }) => [{ type: 'Rendicion', id }],
         }),
 
         // ===== Gastos operativos =====
@@ -1297,6 +1310,7 @@ export const {
     useGetUsuariosAsignadosPendientesQuery,
     useGetItemsSerializadosQuery,
     useGetRendicionDetalleQuery,
+    useUpdateRendicionMutation,
     useGetGastosOperativosOTQuery,
     useCrearGastoOperativoOTMutation,
     useDeleteGastoOperativoOTMutation,

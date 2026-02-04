@@ -42,70 +42,71 @@ CÓDIGOS DE ERROR:
 """
 
 import logging
+
 from django.db import transaction
 from django.utils import timezone
+from items.models import ItemEmpresa
 from rest_framework import status
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from items.models import ItemEmpresa
-
+from .functions import crear_seguimiento_cotizacion
 from .models import Cotizacion, ItemCotizacion, SolicitanteCotizacion
 from .public_serializers import (
     AprobarCotizacionPublicSerializer,
     CotizacionPublicSerializer,
     RechazarCotizacionPublicSerializer,
 )
-from .functions import crear_seguimiento_cotizacion
 
 logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request):
     """Obtiene la IP real del cliente, considerando proxies."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
 
 
 class PublicCotizacionDetailView(RetrieveAPIView):
     """
     GET /api/public/cotizacion/{token}/
-    
+
     Retorna los datos completos de una cotización para vista pública.
     No requiere autenticación - el token actúa como credencial.
-    
+
     Permite ver la cotización múltiples veces (no marca el token como usado).
-    
+
     Response 200:
         Ver CotizacionPublicSerializer para estructura completa.
-    
+
     Response 404:
         { "detail": "Token no válido o cotización no encontrada." }
-    
+
     Response 410:
         { "detail": "Esta cotización ha expirado.", "fecha_vencimiento": "2026-01-15" }
     """
+
     permission_classes = [AllowAny]
     serializer_class = CotizacionPublicSerializer
-    lookup_field = 'token'
-    lookup_url_kwarg = 'token'
+    lookup_field = "token"
+    lookup_url_kwarg = "token"
 
     def get_queryset(self):
         return SolicitanteCotizacion.objects.select_related(
-            'cotizacion',
-            'cotizacion__empresa',
-            'cotizacion__cliente',
+            "cotizacion",
+            "cotizacion__empresa",
+            "cotizacion__cliente",
         ).prefetch_related(
-            'cotizacion__items',
-            'cotizacion__items__item_empresa',
+            "cotizacion__items",
+            "cotizacion__items__item_empresa",
         )
 
     def get_object(self):
-        token = self.kwargs.get('token')
+        token = self.kwargs.get("token")
         try:
             solicitante = self.get_queryset().get(token=token)
             return solicitante
@@ -114,23 +115,22 @@ class PublicCotizacionDetailView(RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         solicitante = self.get_object()
-        
+
         if not solicitante:
             return Response(
                 {"detail": "Token no válido o cotización no encontrada."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
-        
+
         cotizacion = solicitante.cotizacion
-        
+
         # Verificar expiración (pero permitir ver)
-        if not cotizacion.es_vigente and cotizacion.estado == 'enviada':
+        if not cotizacion.es_vigente and cotizacion.estado == "enviada":
             # Permitir ver pero indicar que expiró
             pass
-        
+
         serializer = self.serializer_class(
-            cotizacion,
-            context={'request': request, 'solicitante': solicitante}
+            cotizacion, context={"request": request, "solicitante": solicitante}
         )
         return Response(serializer.data)
 
@@ -138,47 +138,52 @@ class PublicCotizacionDetailView(RetrieveAPIView):
 class PublicAprobarCotizacionView(APIView):
     """
     POST /api/public/cotizacion/{token}/aprobar/
-    
+
     Aprueba una cotización. Uso único del token.
-    
+
     Request body:
         {
             "item_ids": [1, 2, 3]  // Opcional. Si vacío, aprueba todos los items.
         }
-    
+
     Response 200:
         {
             "detail": "Cotización aprobada exitosamente.",
             "numero_cotizacion": 850,
             "items_aprobados": 3
         }
-    
+
     Response 400:
         { "detail": "Este enlace ya fue utilizado para responder." }
         { "detail": "La cotización no está en estado válido para aprobar." }
         { "detail": "Algunos items no pertenecen a esta cotización." }
-    
+
     Response 404:
         { "detail": "Token no válido o cotización no encontrada." }
-    
+
     Response 410:
         { "detail": "Esta cotización ha expirado y no puede ser aprobada." }
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request, token):
         # 1. Validar token
         try:
-            solicitante = SolicitanteCotizacion.objects.select_related(
-                'cotizacion',
-                'cotizacion__empresa',
-            ).prefetch_related(
-                'cotizacion__items',
-            ).get(token=token)
+            solicitante = (
+                SolicitanteCotizacion.objects.select_related(
+                    "cotizacion",
+                    "cotizacion__empresa",
+                )
+                .prefetch_related(
+                    "cotizacion__items",
+                )
+                .get(token=token)
+            )
         except SolicitanteCotizacion.DoesNotExist:
             return Response(
                 {"detail": "Token no válido o cotización no encontrada."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         cotizacion = solicitante.cotizacion
@@ -187,17 +192,17 @@ class PublicAprobarCotizacionView(APIView):
         if solicitante.token_usado:
             return Response(
                 {"detail": "Este enlace ya fue utilizado para responder."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 3. Validar que la cotización esté en estado válido
-        if cotizacion.estado != 'enviada':
+        if cotizacion.estado != "enviada":
             return Response(
                 {
                     "detail": "La cotización no está en estado válido para aprobar.",
-                    "estado_actual": cotizacion.estado
+                    "estado_actual": cotizacion.estado,
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 4. Validar que no haya expirado
@@ -205,15 +210,19 @@ class PublicAprobarCotizacionView(APIView):
             return Response(
                 {
                     "detail": "Esta cotización ha expirado y no puede ser aprobada.",
-                    "fecha_vencimiento": cotizacion.fecha_vencimiento.isoformat() if cotizacion.fecha_vencimiento else None
+                    "fecha_vencimiento": (
+                        cotizacion.fecha_vencimiento.isoformat()
+                        if cotizacion.fecha_vencimiento
+                        else None
+                    ),
                 },
-                status=status.HTTP_410_GONE
+                status=status.HTTP_410_GONE,
             )
 
         # 5. Validar body
         serializer = AprobarCotizacionPublicSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        item_ids = serializer.validated_data.get('item_ids', [])
+        item_ids = serializer.validated_data.get("item_ids", [])
 
         # 6. Si no se especifican items, aprobar todos
         all_items = list(cotizacion.items.all())
@@ -227,9 +236,9 @@ class PublicAprobarCotizacionView(APIView):
                 return Response(
                     {
                         "detail": "Algunos items no pertenecen a esta cotización.",
-                        "items_invalidos": list(invalid_ids)
+                        "items_invalidos": list(invalid_ids),
                     },
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             items_a_aprobar = [item for item in all_items if item.id in item_ids]
 
@@ -244,10 +253,15 @@ class PublicAprobarCotizacionView(APIView):
             solicitante.fecha_aprobacion = ahora
             solicitante.fecha_respuesta = ahora
             solicitante.ip_respuesta = ip_cliente
-            solicitante.save(update_fields=[
-                'aprobo', 'token_usado', 'fecha_aprobacion', 
-                'fecha_respuesta', 'ip_respuesta'
-            ])
+            solicitante.save(
+                update_fields=[
+                    "aprobo",
+                    "token_usado",
+                    "fecha_aprobacion",
+                    "fecha_respuesta",
+                    "ip_respuesta",
+                ]
+            )
 
             # Resetear items y aprobar los seleccionados
             cotizacion.items.all().update(aprobado=False)
@@ -264,26 +278,27 @@ class PublicAprobarCotizacionView(APIView):
                     item.item_empresa = item_empresa
 
                 item.aprobado = True
-                item.save(update_fields=['aprobado', 'item_empresa'])
+                item.save(update_fields=["aprobado", "item_empresa"])
 
             # Cambiar estado cotización
-            cotizacion.estado = 'aceptada'
-            cotizacion.save(update_fields=['estado'])
+            cotizacion.estado = "aceptada"
+            cotizacion.save(update_fields=["estado"])
 
             # Crear seguimiento
             crear_seguimiento_cotizacion(
                 cotizacion_id=cotizacion.id,
                 usuario_id=None,  # No hay usuario autenticado
                 comentario=f"Cotización aprobada vía email por {solicitante.get_nombre()} ({solicitante.get_email()}). Items aprobados: {len(items_a_aprobar)}.",
-                tipo="aprobacion"
+                tipo="aprobacion",
             )
 
         # 8. Notificar al emisor (async)
         from .tasks import notificar_respuesta_cotizacion
+
         try:
             notificar_respuesta_cotizacion.delay(
                 cotizacion_id=cotizacion.id,
-                accion='aprobada',
+                accion="aprobada",
                 solicitante_nombre=solicitante.get_nombre(),
                 solicitante_email=solicitante.get_email(),
                 items_aprobados=len(items_a_aprobar),
@@ -291,53 +306,57 @@ class PublicAprobarCotizacionView(APIView):
         except Exception as e:
             logger.warning(f"No se pudo encolar notificación de aprobación: {e}")
 
-        return Response({
-            "detail": "Cotización aprobada exitosamente.",
-            "numero_cotizacion": cotizacion.numero_cotizacion,
-            "items_aprobados": len(items_a_aprobar)
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "detail": "Cotización aprobada exitosamente.",
+                "numero_cotizacion": cotizacion.numero_cotizacion,
+                "items_aprobados": len(items_a_aprobar),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PublicRechazarCotizacionView(APIView):
     """
     POST /api/public/cotizacion/{token}/rechazar/
-    
+
     Rechaza una cotización. Uso único del token.
-    
+
     Request body:
         {
             "motivo": "El precio excede nuestro presupuesto"  // Opcional
         }
-    
+
     Response 200:
         {
             "detail": "Cotización rechazada.",
             "numero_cotizacion": 850
         }
-    
+
     Response 400:
         { "detail": "Este enlace ya fue utilizado para responder." }
         { "detail": "La cotización no está en estado válido para rechazar." }
-    
+
     Response 404:
         { "detail": "Token no válido o cotización no encontrada." }
-    
+
     Response 410:
         { "detail": "Esta cotización ha expirado." }
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request, token):
         # 1. Validar token
         try:
             solicitante = SolicitanteCotizacion.objects.select_related(
-                'cotizacion',
-                'cotizacion__empresa',
+                "cotizacion",
+                "cotizacion__empresa",
             ).get(token=token)
         except SolicitanteCotizacion.DoesNotExist:
             return Response(
                 {"detail": "Token no válido o cotización no encontrada."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         cotizacion = solicitante.cotizacion
@@ -346,17 +365,17 @@ class PublicRechazarCotizacionView(APIView):
         if solicitante.token_usado:
             return Response(
                 {"detail": "Este enlace ya fue utilizado para responder."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 3. Validar que la cotización esté en estado válido
-        if cotizacion.estado != 'enviada':
+        if cotizacion.estado != "enviada":
             return Response(
                 {
                     "detail": "La cotización no está en estado válido para rechazar.",
-                    "estado_actual": cotizacion.estado
+                    "estado_actual": cotizacion.estado,
                 },
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         # 4. Validar que no haya expirado (para rechazar también validamos)
@@ -364,15 +383,19 @@ class PublicRechazarCotizacionView(APIView):
             return Response(
                 {
                     "detail": "Esta cotización ha expirado.",
-                    "fecha_vencimiento": cotizacion.fecha_vencimiento.isoformat() if cotizacion.fecha_vencimiento else None
+                    "fecha_vencimiento": (
+                        cotizacion.fecha_vencimiento.isoformat()
+                        if cotizacion.fecha_vencimiento
+                        else None
+                    ),
                 },
-                status=status.HTTP_410_GONE
+                status=status.HTTP_410_GONE,
             )
 
         # 5. Validar body
         serializer = RechazarCotizacionPublicSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        motivo = serializer.validated_data.get('motivo', '')
+        motivo = serializer.validated_data.get("motivo", "")
 
         # 6. Ejecutar rechazo atómico
         with transaction.atomic():
@@ -385,33 +408,39 @@ class PublicRechazarCotizacionView(APIView):
             solicitante.fecha_respuesta = ahora
             solicitante.ip_respuesta = ip_cliente
             solicitante.motivo_rechazo = motivo or None
-            solicitante.save(update_fields=[
-                'aprobo', 'token_usado', 'fecha_respuesta', 
-                'ip_respuesta', 'motivo_rechazo'
-            ])
+            solicitante.save(
+                update_fields=[
+                    "aprobo",
+                    "token_usado",
+                    "fecha_respuesta",
+                    "ip_respuesta",
+                    "motivo_rechazo",
+                ]
+            )
 
             # Cambiar estado cotización
-            cotizacion.estado = 'rechazada'
-            cotizacion.save(update_fields=['estado'])
+            cotizacion.estado = "rechazada"
+            cotizacion.save(update_fields=["estado"])
 
             # Crear seguimiento
             comentario = f"Cotización rechazada vía email por {solicitante.get_nombre()} ({solicitante.get_email()})."
             if motivo:
                 comentario += f" Motivo: {motivo}"
-            
+
             crear_seguimiento_cotizacion(
                 cotizacion_id=cotizacion.id,
                 usuario_id=None,
                 comentario=comentario,
-                tipo="rechazo"
+                tipo="rechazo",
             )
 
         # 7. Notificar al emisor (async)
         from .tasks import notificar_respuesta_cotizacion
+
         try:
             notificar_respuesta_cotizacion.delay(
                 cotizacion_id=cotizacion.id,
-                accion='rechazada',
+                accion="rechazada",
                 solicitante_nombre=solicitante.get_nombre(),
                 solicitante_email=solicitante.get_email(),
                 motivo_rechazo=motivo,
@@ -419,7 +448,10 @@ class PublicRechazarCotizacionView(APIView):
         except Exception as e:
             logger.warning(f"No se pudo encolar notificación de rechazo: {e}")
 
-        return Response({
-            "detail": "Cotización rechazada.",
-            "numero_cotizacion": cotizacion.numero_cotizacion
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "detail": "Cotización rechazada.",
+                "numero_cotizacion": cotizacion.numero_cotizacion,
+            },
+            status=status.HTTP_200_OK,
+        )

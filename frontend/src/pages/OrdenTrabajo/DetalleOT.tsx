@@ -59,18 +59,19 @@ const DetalleOT = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const { personalizacionUsuario, access } = useAppSelector((state) => state.auth);
-    const { data: detalleOrdenTrabajo, refetch: refetchDetalle } =
+    // ✅ No capturamos refetch - confiar en invalidatesTags
+    const { data: detalleOrdenTrabajo } =
         useGetDetalleOrdenTrabajoQuery(id || '', {
         skip: !id,
         refetchOnMountOrArgChange: true,
     });
     const {
         data: listaHistorialCambios = [],
-        refetch: refetchHistorial,
     } = useGetHistorialCambiosQuery(id || '', {
         skip: !id,
     });
-    const { refetch: refetchHistorialSimple } = useGetHistorialSimpleQuery(id || '', {
+    // ✅ Obtener query pero sin guardar refetch
+    useGetHistorialSimpleQuery(id || '', {
         skip: !id,
     });
     const [updateOrdenTrabajo] = useUpdateOrdenTrabajoMutation();
@@ -109,12 +110,8 @@ const DetalleOT = () => {
         );
     };
 
-    useEffect(() => {
-        if (personalizacionUsuario && personalizacionUsuario.empresa && id) {
-            refetchDetalle();
-            refetchHistorial();
-        }
-    }, [personalizacionUsuario, id, refetchDetalle, refetchHistorial]);
+    // ✅ No necesitamos useEffect para refetch manual
+    // RTK Query invalidará automáticamente cuando los datos cambien
 
     useEffect(() => {
         if (detalleOrdenTrabajo) {

@@ -67,9 +67,12 @@ function TablaVenta({
                                         <div
                                             key={index}
                                             className={classNames(
-                                                'grid grid-cols-5 gap-4 rounded-xl border border-zinc-200 transition-all duration-200 dark:border-zinc-800',
+                                                'grid grid-cols-5 gap-4 rounded-xl border transition-all duration-200',
                                                 'odd:bg-zinc-50 dark:odd:bg-zinc-900/40',
                                                 'hover:border-blue-200 hover:bg-blue-50/50 dark:hover:border-blue-800 dark:hover:bg-blue-900/10',
+                                                item.aprobado
+                                                    ? 'border-l-4 border-l-emerald-500 border-zinc-200 bg-emerald-50/30 dark:border-zinc-800 dark:bg-emerald-900/10'
+                                                    : 'border-l-4 border-l-transparent border-zinc-200 dark:border-zinc-800',
                                             )}>
                                             <div className='col-span-2 border-r border-zinc-200 p-4 dark:border-zinc-800'>
                                                 <div className='font-medium text-zinc-900 dark:text-zinc-100'>

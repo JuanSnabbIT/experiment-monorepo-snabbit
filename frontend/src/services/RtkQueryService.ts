@@ -68,6 +68,7 @@ const RtkQueryService = createApi({
         'OrdenTrabajoGastos',
         'OrdenTrabajoGuiasDisponibles',
         'OrdenTrabajoDetalleTrabajo',
+        'Rendicion',
         'Empresas',
         'Empresa',
         'Sucursales',

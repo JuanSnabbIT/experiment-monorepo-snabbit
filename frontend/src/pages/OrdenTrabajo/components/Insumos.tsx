@@ -37,6 +37,7 @@ import {
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
+import ApiService from '@/services/ApiService';
 import { IInsumo } from '@/interface/ordenTrabajo.interface';
 import ModalConfirmarRecepcionGuia from '../modals/ModalConfirmarRecepcionGuia';
 import ModalVincularGuia from '../modals/ModalVincularGuia';
@@ -56,6 +57,7 @@ type InsumoItemRow = {
     cantidadPendiente: number;
     numeroSerie?: string | null;
     tipoOrigen?: IInsumo['tipo'];
+    cotizacionRelacionada?: { id: number; numero: number } | null;
 };
 
 const columnHelper = createColumnHelper<InsumoItemRow>();
@@ -109,6 +111,10 @@ function Insumos() {
     const [comprobarGuiaSalida] = useComprobarGuiaSalidaMutation();
     const [completandoGuia, setCompletandoGuia] = useState(false);
     const [isOpenAprobar, setIsOpenAprobar] = useState(false);
+    const [isOpenModalCotizacion, setIsOpenModalCotizacion] = useState(false);
+    const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState<{ id: number; numero: number } | null | undefined>(null);
+    const [desvinculando, setDesvinculando] = useState(false);
+
     const completarGuia = async () => {
         if (!selectedGuia?.id) return;
         const ok = await confirmAlert({
@@ -241,9 +247,9 @@ function Insumos() {
     const dataFiltrada: InsumoItemRow[] = useMemo(() => {
         if (!listaInsumos) return [];
         const filas: InsumoItemRow[] = [];
-        listaInsumos.forEach((insumo) => {
+        listaInsumos.forEach((insumo: any) => {
             if (!insumo.guia || !insumo.items?.length) return;
-            insumo.items.forEach((item) => {
+            insumo.items.forEach((item: any) => {
                 const rebajada = item.cantidad_rebajada ?? 0;
                 const devuelta = item.cantidad_devuelta ?? 0;
                 filas.push({
@@ -262,6 +268,7 @@ function Insumos() {
                     cantidadPendiente: Math.max(rebajada - devuelta, 0),
                     numeroSerie: item.numero_serie?.serie ?? null,
                     tipoOrigen: insumo.tipo,
+                    cotizacionRelacionada: insumo.cotizacion_relacionada ?? null,
                 });
             });
         });
@@ -295,6 +302,7 @@ function Insumos() {
                 guiaEstadoLabel: string | null;
                 guiaClienteNombre: string | null;
                 tipoOrigen?: IInsumo['tipo'];
+                cotizacionRelacionada?: { id: number; numero: number } | null;
                 rows: typeof paginatedRows;
                 totalRebajada: number;
                 totalDevuelta: number;
@@ -308,6 +316,7 @@ function Insumos() {
                 guiaEstadoLabel = null,
                 guiaClienteNombre = null,
                 tipoOrigen = undefined,
+                cotizacionRelacionada = null,
                 cantidadRebajada = 0,
                 cantidadDevuelta = 0,
                 cantidadPendiente = 0,
@@ -318,6 +327,7 @@ function Insumos() {
                     guiaEstadoLabel,
                     guiaClienteNombre,
                     tipoOrigen,
+                    cotizacionRelacionada,
                     rows: [],
                     totalRebajada: 0,
                     totalDevuelta: 0,
@@ -470,12 +480,27 @@ function Insumos() {
                                                                         'Sin estado'}
                                                                 </Badge>
 
-                                                                {group.tipoOrigen && (
+                                                                {group.cotizacionRelacionada ? (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setCotizacionSeleccionada(group.cotizacionRelacionada);
+                                                                            setSelectedGuiaId(group.guiaId);
+                                                                            setIsOpenModalCotizacion(true);
+                                                                        }}
+                                                                        className='cursor-pointer'>
+                                                                        <Badge
+                                                                            color='amber'
+                                                                            variant='solid'
+                                                                            className='font-medium hover:opacity-80 transition'>
+                                                                            Cotización N°{group.cotizacionRelacionada.numero}
+                                                                        </Badge>
+                                                                    </button>
+                                                                ) : (
                                                                     <Badge
                                                                         color='blue'
                                                                         variant='outline'
                                                                         className='font-medium'>
-                                                                        {group.tipoOrigen}
+                                                                        Guía agregada directa
                                                                     </Badge>
                                                                 )}
 
@@ -547,6 +572,44 @@ function Insumos() {
                                                                     }}
                                                                     isDisable={!group.guiaId}>
                                                                     Detalle
+                                                                </Button>
+                                                            </Tooltip>
+                                                            <Tooltip text='Desvincular guía de salida'>
+                                                                <Button
+                                                                    variant='solid'
+                                                                    size='sm'
+                                                                    color='red'
+                                                                    icon='HeroXMark'
+                                                                    onClick={async (event) => {
+                                                                        event.stopPropagation();
+                                                                        const ok = await confirmAlert({
+                                                                            title: 'Desvincular Guía',
+                                                                            text: '¿Estás seguro de desvincular esta guía de la orden?',
+                                                                            confirmText: 'Desvincular',
+                                                                            cancelText: 'Cancelar',
+                                                                            icon: 'warning',
+                                                                        });
+                                                                        if (ok && group.guiaId) {
+                                                                            setDesvinculando(true);
+                                                                            try {
+                                                                                await ApiService.fetchData({
+                                                                                    url: `/api/ordenes-de-trabajo/${ordenId}/insumos/${group.guiaId}/desasociar-guia/`,
+                                                                                    method: 'post',
+                                                                                });
+                                                                                toast.success('Guía desvinculada correctamente');
+                                                                                refetchInsumosOrdenTrabajo();
+                                                                            } catch (error: unknown) {
+                                                                                toast.error(
+                                                                                    getErrorMessage(error) ||
+                                                                                        'Error al desvincular la guía',
+                                                                                );
+                                                                            } finally {
+                                                                                setDesvinculando(false);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    isDisable={!group.guiaId || desvinculando}>
+                                                                    Desvincular
                                                                 </Button>
                                                             </Tooltip>
                                                         </div>
@@ -876,6 +939,7 @@ function Insumos() {
                     entityName='Orden de Trabajo'
                     clienteId={detalleOrdenTrabajo.cliente}
                     onSuccess={() => {
+                        refetchInsumosOrdenTrabajo();
                         setIsOpenVincularCotizacion(false);
                     }}
                 />
@@ -892,6 +956,152 @@ function Insumos() {
                     }}
                 />
             )}
+            <Modal isOpen={isOpenModalCotizacion} setIsOpen={setIsOpenModalCotizacion} size='xl'>
+                <ModalHeader>
+                    <Badge className='text-xl'>
+                        Cotización N°{cotizacionSeleccionada?.numero}
+                    </Badge>
+                </ModalHeader>
+                <ModalBody>
+                    {selectedGuia ? (
+                        <div className='flex flex-col gap-4'>
+                            <div className='rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20'>
+                                <p className='text-sm font-medium text-amber-900 dark:text-amber-200'>
+                                    Items generados desde la Cotización N°{cotizacionSeleccionada?.numero}
+                                </p>
+                            </div>
+                            <div className='grid grid-cols-2 gap-4'>
+                                <div>
+                                    <Badge>Estado</Badge>
+                                    <div className='ml-4'>
+                                        <Badge color='blue' variant='solid' className='font-medium'>
+                                            {selectedGuia.estado_label}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Creado Por</Badge>
+                                    <div className='ml-4'>
+                                        {selectedGuia.nombre_creado_por || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Recibido Por</Badge>
+                                    <div className='ml-4'>
+                                        {selectedGuia.nombre_recibido_por || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Cliente</Badge>
+                                    <div className='ml-4'>
+                                        {selectedGuia.cliente_nombre || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Motivo</Badge>
+                                    <div className='ml-4'>
+                                        {selectedGuia.motivo || 'Sin Motivo'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Fecha Creación</Badge>
+                                    <div className='ml-4'>
+                                        {dayjs(selectedGuia.fecha_creacion)
+                                            .locale('es')
+                                            .format('DD/MM/YYYY')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className='mt-2'>
+                                <div className='mb-3 flex items-center justify-between gap-3'>
+                                    <Badge className='text-base'>Items en la Guía</Badge>
+                                    <div className='flex items-center gap-3'>
+                                        <span className='text-xs text-gray-500'>
+                                            {itemsGuia.length} item
+                                            {itemsGuia.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                                    {cargandoItems || cargandoGuia ? (
+                                        <div className='flex items-center justify-center py-8'>
+                                            <div className='text-sm text-gray-500'>
+                                                Cargando items...
+                                            </div>
+                                        </div>
+                                    ) : itemsGuia && itemsGuia.length > 0 ? (
+                                        <div className='overflow-x-auto'>
+                                            <table className='min-w-full divide-y divide-gray-200'>
+                                                <thead className='bg-gray-100'>
+                                                    <tr>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                            Item
+                                                        </th>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                            Cantidad Original
+                                                        </th>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                            Cantidad Rebajada
+                                                        </th>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                            Cantidad Devuelta
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                                    {itemsGuia.map((item: any) => (
+                                                        <tr key={item.id}>
+                                                            <td className='px-4 py-3 text-xs text-gray-700'>
+                                                                {item.datos_stock?.datos_item?.nombre ||
+                                                                    item.datos_stock?.datos_item
+                                                                        ?.descripcion_corta ||
+                                                                    'Sin nombre'}
+                                                            </td>
+                                                            <td className='px-4 py-3 text-sm text-gray-700'>
+                                                                {item.cantidad_original || 0}
+                                                            </td>
+                                                            <td className='px-4 py-3 text-sm text-gray-700'>
+                                                                {item.cantidad_rebajada || 0}
+                                                            </td>
+                                                            <td className='px-4 py-3 text-sm text-gray-700'>
+                                                                {item.cantidad_devuelta || 0}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className='py-6 text-center text-sm text-gray-500'>
+                                            No hay items en esta guía
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className='py-6 text-center text-sm text-gray-500'>
+                            No se pudo cargar la guía asociada a esta cotización.
+                        </div>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild>
+                        <Button
+                            color='blue'
+                            variant='solid'
+                            onClick={() => {
+                                navigate(
+                                    `/cotizacion/detalle-cotizacion/${cotizacionSeleccionada?.numero}`,
+                                );
+                                setIsOpenModalCotizacion(false);
+                            }}>
+                            Ver Cotización Completa
+                        </Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
         </>
     );
 }

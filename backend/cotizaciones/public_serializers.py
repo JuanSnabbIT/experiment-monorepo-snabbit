@@ -100,7 +100,7 @@ class SolicitanteInfoSerializer(serializers.Serializer):
         """
         El solicitante puede responder si:
         1. No ha usado el token (no ha respondido)
-        2. La cotización está en estado 'enviada'
+        2. La cotización está en estado 'enviada' (solo una respuesta permitida)
         3. La cotización no ha expirado
         """
         if obj.token_usado:
