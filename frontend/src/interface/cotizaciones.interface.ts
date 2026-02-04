@@ -5,6 +5,7 @@ export interface ICotizacion {
     empresa_nombre: string;
     cliente_nombre: string;
     recargo_cliente: number;
+    porcentaje_recargo: number;
     es_vigente: boolean;
     fecha_creacion: string;
     fecha_modificacion: string;
@@ -155,4 +156,5 @@ export interface ICotizacionPublica {
     cliente: IClientePublicoCotizacion;
     items: IItemCotizacionPublico[];
     solicitante: ISolicitantePublicoCotizacion | null;
+    solicitante_respuesta?: ISolicitantePublicoCotizacion | null;
 }

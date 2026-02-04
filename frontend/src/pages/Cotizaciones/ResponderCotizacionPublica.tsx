@@ -81,6 +81,9 @@ const ResponderCotizacionPublica = () => {
     const puedeResponder = cotizacion?.solicitante?.puede_responder ?? false;
     const yaRespondio = cotizacion?.solicitante?.ya_respondio ?? false;
     const aprobo = cotizacion?.solicitante?.aprobo ?? null;
+    const solicitanteRespuesta = cotizacion?.solicitante_respuesta ?? null;
+    const aproboRespuesta = solicitanteRespuesta?.aprobo ?? null;
+    const cotizacionRespondida = cotizacion?.estado === 'aceptada' || cotizacion?.estado === 'rechazada';
 
     const totalCalculado = useMemo(() => {
         if (!cotizacion) return null;
@@ -93,8 +96,8 @@ const ResponderCotizacionPublica = () => {
             return selectedTotal;
         }
 
-        // Si ya respondió, mostrar total de items aprobados
-        if (yaRespondio) {
+        // Si la cotización ya fue respondida (aceptada/rechazada), mostrar total de items aprobados
+        if (cotizacionRespondida) {
             const approvedItems = cotizacion.items.filter((item) => item.aprobado);
             if (approvedItems.length > 0) {
                 const approvedTotal = approvedItems.reduce(
@@ -107,7 +110,7 @@ const ResponderCotizacionPublica = () => {
 
         // Por defecto, mostrar total completo
         return cotizacion.total_calculado ?? cotizacion.total_estimado;
-    }, [cotizacion, selectedItemIds, puedeResponder, yaRespondio]);
+    }, [cotizacion, selectedItemIds, puedeResponder, cotizacionRespondida]);
 
     // Cálculos de paginación
     const totalItems = cotizacion?.items?.length || 0;
@@ -422,63 +425,69 @@ const ResponderCotizacionPublica = () => {
                         </div>
 
                         {/* Card: Estado / acción (solo si fue aprobada o rechazada) */}
-                        {yaRespondio && (
+                        {cotizacionRespondida && (
                             <div className='rounded-lg border border-gray-200 bg-white p-5'>
                                 <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
                                     <div className='flex items-center gap-2'>
                                         <Icon
-                                            icon={aprobo ? 'HeroCheckCircle' : 'HeroXCircle'}
-                                            className={`h-5 w-5 ${aprobo ? 'text-green-600' : 'text-red-600'}`}
+                                            icon={cotizacion.estado === 'aceptada' ? 'HeroCheckCircle' : 'HeroXCircle'}
+                                            className={`h-5 w-5 ${
+                                                cotizacion.estado === 'aceptada' ? 'text-green-600' : 'text-red-600'
+                                            }`}
                                         />
                                         <div>
                                             <p className='text-xs font-medium uppercase tracking-wide text-gray-400'>Estado</p>
                                             <p className='text-base font-semibold text-gray-900'>
-                                                {aprobo ? 'Aprobada' : 'Rechazada'}
+                                                {cotizacion.estado === 'aceptada' ? 'Aprobada' : 'Rechazada'}
                                             </p>
                                         </div>
                                     </div>
 
                                     <span
                                         className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
-                                            aprobo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            cotizacion.estado === 'aceptada'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-red-100 text-red-700'
                                         }`}>
-                                        {aprobo ? 'Aprobada' : 'Rechazada'}
+                                        {cotizacion.estado === 'aceptada' ? 'Aprobada' : 'Rechazada'}
                                     </span>
                                 </div>
 
-                                <div className='mt-4 overflow-hidden rounded-md border border-gray-100'>
-                                    <dl className='divide-y divide-gray-100 text-sm'>
-                                        <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[160px,1fr] sm:gap-3'>
-                                            <dt className='text-gray-500'>Realizada por</dt>
-                                            <dd className='font-medium text-gray-900'>
-                                                {cotizacion.solicitante?.nombre || 'No especificado'}
-                                                {cotizacion.solicitante?.email ? (
-                                                    <span className='font-normal text-gray-500'> ({cotizacion.solicitante.email})</span>
-                                                ) : null}
-                                            </dd>
-                                        </div>
-
-                                        {cotizacion.solicitante?.fecha_respuesta && (
+                                {solicitanteRespuesta && (
+                                    <div className='mt-4 overflow-hidden rounded-md border border-gray-100'>
+                                        <dl className='divide-y divide-gray-100 text-sm'>
                                             <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[160px,1fr] sm:gap-3'>
-                                                <dt className='text-gray-500'>Fecha de acción</dt>
+                                                <dt className='text-gray-500'>Realizada por</dt>
                                                 <dd className='font-medium text-gray-900'>
-                                                    {dayjs(cotizacion.solicitante.fecha_respuesta).format('DD/MM/YYYY HH:mm')}
+                                                    {solicitanteRespuesta.nombre || 'No especificado'}
+                                                    {solicitanteRespuesta.email ? (
+                                                        <span className='font-normal text-gray-500'> ({solicitanteRespuesta.email})</span>
+                                                    ) : null}
                                                 </dd>
                                             </div>
-                                        )}
 
-                                        {!aprobo && (
-                                            <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[160px,1fr] sm:gap-3'>
-                                                <dt className='text-gray-500'>Motivo</dt>
-                                                <dd className='mt-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:mt-0'>
-                                                    {cotizacion.solicitante?.motivo_rechazo?.trim()
-                                                        ? cotizacion.solicitante.motivo_rechazo
-                                                        : 'No informado'}
-                                                </dd>
-                                            </div>
-                                        )}
-                                    </dl>
-                                </div>
+                                            {solicitanteRespuesta.fecha_respuesta && (
+                                                <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                                    <dt className='text-gray-500'>Fecha de acción</dt>
+                                                    <dd className='font-medium text-gray-900'>
+                                                        {dayjs(solicitanteRespuesta.fecha_respuesta).format('DD/MM/YYYY HH:mm')}
+                                                    </dd>
+                                                </div>
+                                            )}
+
+                                            {aproboRespuesta === false && (
+                                                <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                                    <dt className='text-gray-500'>Motivo</dt>
+                                                    <dd className='mt-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:mt-0'>
+                                                        {solicitanteRespuesta.motivo_rechazo?.trim()
+                                                            ? solicitanteRespuesta.motivo_rechazo
+                                                            : 'No informado'}
+                                                    </dd>
+                                                </div>
+                                            )}
+                                        </dl>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -526,7 +535,7 @@ const ResponderCotizacionPublica = () => {
                                         <tr
                                             key={item.id}
                                             className={
-                                                item.aprobado && yaRespondio
+                                                item.aprobado && cotizacionRespondida
                                                     ? 'bg-green-50'
                                                     : selectedItemIds.includes(item.id) && puedeResponder
                                                       ? 'bg-blue-50'

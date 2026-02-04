@@ -2,6 +2,7 @@ from .models import *
 from rest_framework import serializers
 from django.utils import timezone
 from cuentas.models import User
+from empresas.models import UsuarioEmpresa
 
 
 class ItemCotizacionSerializer(serializers.ModelSerializer):
@@ -185,6 +186,64 @@ class SolicitanteCotizacionSerializer(serializers.ModelSerializer):
         model = SolicitanteCotizacion
         fields = '__all__'
 
+    def validate(self, data):
+        """
+        Validar que no exista el mismo email en múltiples solicitantes
+        de la MISMA cotización.
+        """
+        cotizacion = data.get('cotizacion')
+        content_type = data.get('content_type')
+        usuario_id = data.get('usuario_id')
+        
+        if not cotizacion or not content_type or not usuario_id:
+            return data
+        
+        # Obtener el email del usuario que se intenta agregar
+        email_a_agregar = None
+        if content_type.model == "solicitanteexterno":
+            try:
+                solicitante_ext = SolicitanteExterno.objects.get(pk=usuario_id)
+                email_a_agregar = solicitante_ext.email
+            except SolicitanteExterno.DoesNotExist:
+                pass
+        elif content_type.model == "usuarioempresa":
+            try:
+                usuario_emp = UsuarioEmpresa.objects.get(pk=usuario_id)
+                email_a_agregar = usuario_emp.usuario.email
+            except UsuarioEmpresa.DoesNotExist:
+                pass
+        
+        if email_a_agregar:
+            # Verificar si existe otro solicitante con el mismo email en la MISMA cotización
+            from django.contrib.contenttypes.models import ContentType as CT
+            solicitantes_cotizacion = SolicitanteCotizacion.objects.filter(
+                cotizacion=cotizacion
+            ).exclude(pk=self.instance.pk if self.instance else None)
+            
+            for solicitante in solicitantes_cotizacion:
+                email_existente = None
+                if solicitante.content_type.model == "solicitanteexterno":
+                    try:
+                        email_existente = SolicitanteExterno.objects.get(
+                            pk=solicitante.usuario_id
+                        ).email
+                    except SolicitanteExterno.DoesNotExist:
+                        pass
+                elif solicitante.content_type.model == "usuarioempresa":
+                    try:
+                        email_existente = UsuarioEmpresa.objects.get(
+                            pk=solicitante.usuario_id
+                        ).usuario.email
+                    except UsuarioEmpresa.DoesNotExist:
+                        pass
+                
+                if email_existente and email_existente.lower() == email_a_agregar.lower():
+                    raise serializers.ValidationError(
+                        "Este email ya está agregado como solicitante en esta cotización."
+                    )
+        
+        return data
+
     def get_nombre_usuario(self, obj):
         # Si es un solicitante externo, usamos el atributo "nombre"
         if obj.content_type.model == "solicitanteexterno":
@@ -204,23 +263,6 @@ class SolicitanteCotizacionSerializer(serializers.ModelSerializer):
         return ""
 
 class SolicitanteExternoSerializer(serializers.ModelSerializer):
-    def validate_email(self, value):
-        email = (value or "").strip()
-        if not email:
-            return value
-
-        if User.objects.filter(email__iexact=email).exists():
-            raise serializers.ValidationError("El email ya existe como usuario del sistema.")
-
-        solicitante_qs = SolicitanteExterno.objects.filter(email__iexact=email)
-        if self.instance:
-            solicitante_qs = solicitante_qs.exclude(pk=self.instance.pk)
-
-        if solicitante_qs.exists():
-            raise serializers.ValidationError("El email ya existe como solicitante externo.")
-
-        return value
-
     class Meta:
         model = SolicitanteExterno
         fields = '__all__'

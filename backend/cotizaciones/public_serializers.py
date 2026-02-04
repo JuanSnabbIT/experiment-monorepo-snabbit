@@ -173,6 +173,7 @@ class CotizacionPublicSerializer(serializers.ModelSerializer):
     cliente = ClientePublicSerializer(read_only=True)
     items = ItemCotizacionPublicSerializer(many=True, read_only=True)
     solicitante = serializers.SerializerMethodField()
+    solicitante_respuesta = serializers.SerializerMethodField()
     
     estado_display = serializers.SerializerMethodField()
     tipo_moneda_display = serializers.SerializerMethodField()
@@ -201,6 +202,7 @@ class CotizacionPublicSerializer(serializers.ModelSerializer):
             'cliente',
             'items',
             'solicitante',
+            'solicitante_respuesta',
         ]
 
     def get_estado_display(self, obj):
@@ -226,6 +228,24 @@ class CotizacionPublicSerializer(serializers.ModelSerializer):
         solicitante = self.context.get('solicitante')
         if solicitante:
             return SolicitanteInfoSerializer(solicitante).data
+        return None
+
+    def get_solicitante_respuesta(self, obj):
+        """
+        Retorna información del solicitante que aprobó/rechazó la cotización.
+        Solo aplica cuando la cotización está aceptada o rechazada.
+        """
+        if obj.estado not in ['aceptada', 'rechazada']:
+            return None
+
+        solicitante_respuesta = obj.solicitantes.filter(
+            token_usado=True
+        ).exclude(
+            aprobo__isnull=True
+        ).first()
+
+        if solicitante_respuesta:
+            return SolicitanteInfoSerializer(solicitante_respuesta).data
         return None
 
 

@@ -68,7 +68,8 @@ type UsoInternoField =
     | 'dolar_observado'
     | 'fecha_facturacion'
     | 'valor_uf'
-    | 'ppm';
+    | 'ppm'
+    | 'porcentaje_recargo';
 
 const DetalleCotizacion = () => {
     const dispatch = useAppDispatch();
@@ -137,6 +138,7 @@ const DetalleCotizacion = () => {
             dolar_observado: detalleCotizacion?.dolar_observado || 0,
             valor_uf: detalleCotizacion?.valor_uf || 0,
             tipo_moneda: detalleCotizacion?.tipo_moneda || '2',
+            porcentaje_recargo: detalleCotizacion?.porcentaje_recargo || 0,
         },
         validationSchema: Yup.object().shape({
             nombre: Yup.string().required('Requerido').nonNullable('Requerido'),
@@ -473,7 +475,7 @@ const DetalleCotizacion = () => {
         }),
         columnHelper.accessor('precio_unitario', {
             cell: (info) => {
-                const porcentajeRecargo = detalleCotizacion?.recargo_cliente ?? 0;
+                const porcentajeRecargo = info.row.original.porcentaje_recargo ?? detalleCotizacion?.porcentaje_recargo ?? 0;
                 return (
                     <div>
                         {formatCurrency(
@@ -579,16 +581,6 @@ const DetalleCotizacion = () => {
                         <AuthorityCheckNav
                             authority={['staff', 'superadmin']}
                             userAuthority={listaGrupos?.grupos}>
-                            {!(
-                                detalleCotizacion.estado === 'expirada' ||
-                                detalleCotizacion.estado === 'rechazada' ||
-                                detalleCotizacion.estado === 'pendiente'
-                            ) && (
-                                <EnviarCotizacion
-                                    cotizacion={detalleCotizacion}
-                                    onSuccess={handleStateChange}
-                                />
-                            )}
                             {detalleCotizacion.estado === 'pendiente' && (
                                 <EnviarCotizacionParaAprobar
                                     cotizacion={detalleCotizacion}
@@ -1113,6 +1105,36 @@ const DetalleCotizacion = () => {
                                                             </div>
                                                         )}
                                                     </div>
+                                                    <div>
+                                                        <Badge>Porcentaje de Recargo</Badge>
+                                                        {canEditUsoInternoField('porcentaje_recargo') ? (
+                                                            <Validation
+                                                                isValid={formik.isValid}
+                                                                isTouched={formik.touched.porcentaje_recargo}
+                                                                invalidFeedback={formik.errors.porcentaje_recargo}>
+                                                                <Input
+                                                                    name='porcentaje_recargo'
+                                                                    type='number'
+                                                                    onChange={(e) => {
+                                                                        formik.setFieldValue(
+                                                                            'porcentaje_recargo',
+                                                                            Number(e.target.value),
+                                                                        );
+                                                                    }}
+                                                                    onBlur={formik.handleBlur}
+                                                                    value={formik.values.porcentaje_recargo}
+                                                                />
+                                                            </Validation>
+                                                        ) : (
+                                                            <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
+                                                                {formatPrice(
+                                                                    detalleCotizacion?.porcentaje_recargo,
+                                                                    2,
+                                                                )}
+                                                                %
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </CardBody>
@@ -1183,37 +1205,33 @@ const DetalleCotizacion = () => {
                                         <AuthorityCheckNav
                                             authority={['staff', 'superadmin']}
                                             userAuthority={listaGrupos?.grupos}>
-                                            {detalleCotizacion?.estado === 'pendiente' && (
+                                            {crearSolicitante ? (
                                                 <>
-                                                    {crearSolicitante ? (
-                                                        <>
-                                                            <Button
-                                                                color='red'
-                                                                onClick={() => {
-                                                                    setCrearSolicitante(false);
-                                                                }}>
-                                                                Cancelar
-                                                            </Button>
-                                                            <Button
-                                                                variant='solid'
-                                                                onClick={() => {
-                                                                    setCreandoSolicitante(true);
-                                                                }}>
-                                                                Crear
-                                                            </Button>
-                                                        </>
-                                                    ) : (
-                                                        <Tooltip text='Añadir Solicitantes'>
-                                                            <Button
-                                                                variant='solid'
-                                                                onClick={() => {
-                                                                    setCrearSolicitante(true);
-                                                                }}
-                                                                icon='HeroPlus'
-                                                            />
-                                                        </Tooltip>
-                                                    )}
+                                                    <Button
+                                                        color='red'
+                                                        onClick={() => {
+                                                            setCrearSolicitante(false);
+                                                        }}>
+                                                        Cancelar
+                                                    </Button>
+                                                    <Button
+                                                        variant='solid'
+                                                        onClick={() => {
+                                                            setCreandoSolicitante(true);
+                                                        }}>
+                                                        Crear
+                                                    </Button>
                                                 </>
+                                            ) : (
+                                                <Tooltip text='Añadir Solicitantes'>
+                                                    <Button
+                                                        variant='solid'
+                                                        onClick={() => {
+                                                            setCrearSolicitante(true);
+                                                        }}
+                                                        icon='HeroPlus'
+                                                    />
+                                                </Tooltip>
                                             )}
                                         </AuthorityCheckNav>
                                     </div>
@@ -1263,10 +1281,44 @@ const DetalleCotizacion = () => {
                                                             {solicitante.email_usuario}
                                                         </div>
                                                     </div>
-                                                    <div>
-                                                        <div>
-                                                            {detalleCotizacion?.estado ===
-                                                                'pendiente' && (
+                                                    <div className='flex items-center gap-2'>
+                                                        <AuthorityCheckNav
+                                                            authority={['staff', 'superadmin']}
+                                                            userAuthority={listaGrupos?.grupos}>
+                                                            {(detalleCotizacion?.estado === 'enviada' || detalleCotizacion?.estado === 'aceptada') && (
+                                                                <Tooltip text='Enviar copia de la cotización'>
+                                                                    <Button
+                                                                        icon='HeroEnvelope'
+                                                                        color='blue'
+                                                                        variant='solid'
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            const confirmed = await confirmAlert({
+                                                                                title: 'Enviar copia',
+                                                                                text: `¿Enviar cotización a ${solicitante.email_usuario}?`,
+                                                                                confirmText: 'Enviar',
+                                                                                cancelText: 'Cancelar',
+                                                                            });
+                                                                            
+                                                                            if (confirmed) {
+                                                                                try {
+                                                                                    await ApiService.fetchData({
+                                                                                        url: `/api/cotizaciones/${detalleCotizacion?.id}/enviar-copia-solicitante/`,
+                                                                                        method: 'post',
+                                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                                        data: JSON.stringify({ solicitante_id: solicitante.id }),
+                                                                                    });
+                                                                                    toast.success('Copia enviada correctamente', { autoClose: 1000 });
+                                                                                } catch (error: any) {
+                                                                                    const errorMsg = error?.data?.detail || error?.message || 'Error desconocido';
+                                                                                    toast.error(`Error enviando copia: ${errorMsg}`);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Tooltip>
+                                                            )}
+                                                            {detalleCotizacion?.estado === 'pendiente' && (
                                                                 <Tooltip text='Eliminar Solicitante'>
                                                                     <Button
                                                                         icon='HeroTrash'
@@ -1299,7 +1351,7 @@ const DetalleCotizacion = () => {
                                                                     />
                                                                 </Tooltip>
                                                             )}
-                                                        </div>
+                                                        </AuthorityCheckNav>
                                                     </div>
                                                 </div>
                                             </div>

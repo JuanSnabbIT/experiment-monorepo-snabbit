@@ -194,3 +194,8 @@ Notas de proceso
 - Falta agregar el flujo final de aprobación, que sería agregar el documento de la factura a la prefactura.
 - Permite anular prefacturas para volver a crear nuevas prefacturas.
 - Permite eliminar las prefacturas anuladas.
+
+
+- Ajustar cotización
+
+- Ajustar envio de cotizaciones por mail

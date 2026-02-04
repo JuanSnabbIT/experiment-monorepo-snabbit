@@ -97,6 +97,10 @@ function CrearItemCotizacion({
             .required('Requerido')
             .nonNullable('Requerido')
             .min(0, 'Debe ser mayor o igual a 0'),
+        porcentaje_recargo: Yup.number()
+            .required('Requerido')
+            .nonNullable('Requerido')
+            .min(0, 'Debe ser mayor o igual a 0'),
     });
 
     const formik = useFormik({
@@ -107,6 +111,7 @@ function CrearItemCotizacion({
             cantidad: 1,
             precio_unitario: '',
             recargo_dolar: 0,
+            porcentaje_recargo: cotizacion?.porcentaje_recargo || 0,
             categoria: '',
             fabricante: '',
         },
@@ -133,6 +138,7 @@ function CrearItemCotizacion({
                                 descripcion: values.descripcion,
                                 proveedor_empresa: proveedorSeleccionado.id,
                                 recargo_dolar: values.recargo_dolar,
+                                porcentaje_recargo: values.porcentaje_recargo,
                             }),
                         });
                         if (response.data) {
@@ -762,6 +768,22 @@ function CrearItemCotizacion({
                                     ) : (
                                         <div />
                                     )}
+                                </div>
+                                <div className='col-span-3'>
+                                    <Badge>Porcentaje de Recargo (%)</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.porcentaje_recargo}
+                                        invalidFeedback={formik.errors.porcentaje_recargo}>
+                                        <Input
+                                            name='porcentaje_recargo'
+                                            type='number'
+                                            placeholder='Heredado de la cotización'
+                                            onBlur={formik.handleBlur}
+                                            onChange={formik.handleChange}
+                                            value={formik.values.porcentaje_recargo}
+                                        />
+                                    </Validation>
                                 </div>
                             </>
                         )}

@@ -297,6 +297,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                     cantidad=item.cantidad,
                     precio_unitario=item.precio_unitario,
                     recargo_dolar=item.recargo_dolar,
+                    porcentaje_recargo=item.porcentaje_recargo,
                 )
 
             for solicitante in cotizacion.solicitantes.all():
@@ -582,6 +583,101 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=True, methods=["post"], url_path="enviar-copia-solicitante")
+    def enviar_copia_solicitante(self, request, pk=None):
+        """
+        Envía una copia/reenvío de la cotización a un solicitante específico.
+        
+        Body esperado:
+        {
+            "solicitante_id": 123
+        }
+        """
+        cotizacion = get_object_or_404(Cotizacion, pk=pk)
+        solicitante_id = request.data.get("solicitante_id")
+
+        if not solicitante_id:
+            return Response(
+                {"detail": "solicitante_id es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            solicitante = SolicitanteCotizacion.objects.get(
+                id=solicitante_id, 
+                cotizacion=cotizacion
+            )
+        except SolicitanteCotizacion.DoesNotExist:
+            return Response(
+                {"detail": "Solicitante no encontrado en esta cotización."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        email = solicitante.get_email()
+        if not email:
+            return Response(
+                {"detail": "El solicitante no tiene email válido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Regenerar token si ya fue usado (para permitir reenvíos)
+        if solicitante.token_usado:
+            import uuid
+            solicitante.token = uuid.uuid4()
+            solicitante.token_usado = False
+            solicitante.save(update_fields=['token', 'token_usado'])
+        elif not solicitante.token:
+            solicitante.save()  # Genera token en save()
+
+        # Generar PDF
+        pdf_bytes = generar_pdf_cotizacion_desde_model(cotizacion_id=cotizacion.pk)
+        pdf_filename = (
+            f"Coti_{cotizacion.numero_cotizacion}_{cotizacion.cliente.nombre}.pdf"
+        )
+
+        frontend_url = os.getenv('FRONTEND_URL', 'https://gestion.snabbit.cl')
+        url_responder = f"{frontend_url}/cotizacion/responder/{solicitante.token}"
+        nombre_solicitante = solicitante.get_nombre()
+
+        # Construir el cuerpo del correo personalizado
+        html_body = f"""
+        <p>Estimado/a <strong>{nombre_solicitante}</strong>,</p>
+        <p>Le reenviamos la cotización número <strong>{cotizacion.numero_cotizacion}</strong>.</p>
+        <p><strong>Fecha de vencimiento:</strong> {cotizacion.fecha_vencimiento.strftime('%d-%m-%Y') if cotizacion.fecha_vencimiento else 'N/A'}</p>
+        {'<p><strong>Observaciones:</strong> ' + cotizacion.observaciones + '</p>' if cotizacion.observaciones else ''}
+        <p style="margin-top: 20px;">Puede revisar los detalles y <strong>aprobar o rechazar</strong> esta cotización directamente desde el siguiente enlace:</p>
+        """
+
+        try:
+            send_email_task.delay(
+                subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",
+                recipient_list=[email],
+                html_body=html_body,
+                titulo=f"Cotización {cotizacion.numero_cotizacion}",
+                url_boton=url_responder,
+                text_boton="Ver y Responder Cotización",
+                cc=[],
+                pdf_attachment=(pdf_filename, pdf_bytes),
+            )
+        except (OperationalError, CeleryError) as exc:
+            logger.error(
+                "No se pudo encolar el envío de copia de cotización",
+                exc_info=exc,
+            )
+            return Response(
+                {
+                    "detail": "No se pudo programar el envío. Verifique que Celery y Redis estén disponibles."
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {
+                "detail": f"Copia enviada a {nombre_solicitante} ({email}).",
+                "email_enviado": email,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=["post"], url_path="aprobar-cotizacion")
     def aprobar_cotizacion(self, request, pk=None):
@@ -914,6 +1010,12 @@ class ItemCotizacionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Interceptar la creación para agregar seguimiento"""
+        # Si no se especifica porcentaje_recargo, heredar de la cotización
+        if not serializer.validated_data.get('porcentaje_recargo'):
+            cotizacion = serializer.validated_data.get('cotizacion')
+            if cotizacion:
+                serializer.validated_data['porcentaje_recargo'] = cotizacion.porcentaje_recargo
+        
         item = serializer.save()
         usuario_empresa = UsuarioEmpresa.objects.get(usuario=self.request.user)
 
