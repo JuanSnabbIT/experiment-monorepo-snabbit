@@ -897,6 +897,178 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(cot)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="metricas-dashboard")
+    def metricas_dashboard(self, request):
+        """
+        Endpoint para métricas del dashboard de cotizaciones.
+        Retorna conteo por estado, moneda, tasa conversión y tendencia temporal.
+        
+        Query params:
+        - fecha_inicio: Fecha inicio del período (default: primer día del mes actual)
+        - fecha_fin: Fecha fin del período (default: hoy)
+        """
+        from django.db.models.functions import TruncDate
+        from datetime import date, timedelta
+        
+        # Obtener empresa del usuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal or not personalizacion.sucursal_principal.empresa:
+            return Response(
+                {"detail": "No se encontró empresa asociada al usuario"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        empresa_id = personalizacion.sucursal_principal.empresa.id
+        
+        # Parsear fechas del período
+        fecha_inicio_str = request.query_params.get("fecha_inicio")
+        fecha_fin_str = request.query_params.get("fecha_fin")
+        
+        hoy = date.today()
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = date.fromisoformat(fecha_inicio_str)
+            except ValueError:
+                fecha_inicio = hoy.replace(day=1)
+        else:
+            fecha_inicio = hoy.replace(day=1)
+        
+        if fecha_fin_str:
+            try:
+                fecha_fin = date.fromisoformat(fecha_fin_str)
+            except ValueError:
+                fecha_fin = hoy
+        else:
+            fecha_fin = hoy
+        
+        # Queryset base filtrado por empresa y período
+        qs_base = Cotizacion.objects.filter(
+            empresa_id=empresa_id,
+            fecha_creacion__date__gte=fecha_inicio,
+            fecha_creacion__date__lte=fecha_fin
+        )
+        
+        # Queryset para cotizaciones activas (sin filtro de fecha)
+        qs_activas = Cotizacion.objects.filter(empresa_id=empresa_id)
+        
+        # 1. Conteo por estado
+        conteo_estados = dict(qs_activas.values_list("estado").annotate(count=Count("id")))
+        estados_resultado = {
+            "pendiente": conteo_estados.get("pendiente", 0),
+            "enviada": conteo_estados.get("enviada", 0),
+            "aceptada": conteo_estados.get("aceptada", 0),
+            "rechazada": conteo_estados.get("rechazada", 0),
+            "expirada": conteo_estados.get("expirada", 0),
+        }
+        
+        # 2. Cotizaciones próximas a expirar (fecha_vencimiento <= hoy+7, estado=enviada)
+        fecha_7_dias = hoy + timedelta(days=7)
+        proximas_expirar = qs_activas.filter(
+            estado="enviada",
+            fecha_vencimiento__isnull=False,
+            fecha_vencimiento__lte=fecha_7_dias,
+            fecha_vencimiento__gte=hoy
+        ).count()
+        
+        # 3. Cotizaciones expiradas (fecha_vencimiento < hoy, estado=enviada)
+        expiradas_sin_respuesta = qs_activas.filter(
+            estado="enviada",
+            fecha_vencimiento__isnull=False,
+            fecha_vencimiento__lt=hoy
+        ).count()
+        
+        # 4. Tasa de conversión (aceptadas / (enviadas + aceptadas + rechazadas) * 100)
+        total_enviadas = estados_resultado["enviada"] + estados_resultado["aceptada"] + estados_resultado["rechazada"]
+        tasa_conversion = (
+            round((estados_resultado["aceptada"] / total_enviadas) * 100, 1)
+            if total_enviadas > 0 else 0
+        )
+        
+        # 5. Conteo por moneda (en el período)
+        conteo_moneda = dict(qs_base.values_list("tipo_moneda").annotate(count=Count("id")))
+        moneda_resultado = {
+            "USD": conteo_moneda.get("1", 0),
+            "CLP": conteo_moneda.get("2", 0),
+            "UF": conteo_moneda.get("3", 0),
+        }
+        
+        # 6. Monto total por moneda (en el período)
+        montos_por_moneda = qs_base.values("tipo_moneda").annotate(total=Sum("total_estimado"))
+        monto_resultado = {"USD": 0, "CLP": 0, "UF": 0}
+        for m in montos_por_moneda:
+            if m["tipo_moneda"] == "1":
+                monto_resultado["USD"] = float(m["total"] or 0)
+            elif m["tipo_moneda"] == "2":
+                monto_resultado["CLP"] = float(m["total"] or 0)
+            elif m["tipo_moneda"] == "3":
+                monto_resultado["UF"] = float(m["total"] or 0)
+        
+        # 7. Ganancia estimada total - calculada sumando costo_total de items en el período
+        # Nota: ganancia real es una propiedad calculada, aquí usamos costo_total como aproximación
+        costo_total_items = ItemCotizacion.objects.filter(
+            cotizacion__empresa_id=empresa_id,
+            cotizacion__fecha_creacion__date__gte=fecha_inicio,
+            cotizacion__fecha_creacion__date__lte=fecha_fin
+        ).aggregate(total=Sum("costo_total"))["total"] or 0
+        
+        # 8. Tendencia últimos 30 días
+        fecha_30_dias = hoy - timedelta(days=30)
+        tendencia = list(
+            Cotizacion.objects.filter(
+                empresa_id=empresa_id,
+                fecha_creacion__date__gte=fecha_30_dias
+            )
+            .annotate(fecha=TruncDate("fecha_creacion"))
+            .values("fecha")
+            .annotate(total=Count("id"))
+            .order_by("fecha")
+        )
+        tendencia_resultado = [
+            {"fecha": t["fecha"].isoformat(), "total": t["total"]}
+            for t in tendencia
+        ]
+        
+        # 9. Top 5 clientes con más cotizaciones (en el período)
+        top_clientes = list(
+            qs_base.values("cliente__id", "cliente__nombre")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        clientes_resultado = [
+            {
+                "id": c["cliente__id"],
+                "nombre": c["cliente__nombre"],
+                "total": c["total"]
+            }
+            for c in top_clientes
+        ]
+        
+        # 10. Cotizaciones con error de tipo de cambio
+        con_error_tipo_cambio = qs_activas.filter(estado_tipo_cambio="error").count()
+        
+        return Response({
+            "periodo": {
+                "fecha_inicio": fecha_inicio.isoformat(),
+                "fecha_fin": fecha_fin.isoformat(),
+            },
+            "resumen": {
+                "total_periodo": qs_base.count(),
+                "proximas_expirar": proximas_expirar,
+                "expiradas_sin_respuesta": expiradas_sin_respuesta,
+                "tasa_conversion": tasa_conversion,
+                "costo_total_items": float(costo_total_items),
+                "con_error_tipo_cambio": con_error_tipo_cambio,
+            },
+            "por_estado": estados_resultado,
+            "por_moneda": moneda_resultado,
+            "monto_por_moneda": monto_resultado,
+            "top_clientes": clientes_resultado,
+            "tendencia_30_dias": tendencia_resultado,
+        })
+
 
 class ItemCotizacionViewSet(viewsets.ModelViewSet):
     serializer_class = ItemCotizacionSerializer

@@ -4,6 +4,8 @@ from bodegas.models import GuiaSalida, ItemsGuiaSalida
 from bodegas.serializers import GuiaSalidaSerializer, ItemsGuiaSalidaSerializer
 from cuentas.functions import obtener_usuario_empresa
 from django.db import transaction
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -1021,6 +1023,187 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
             )
 
         return Response(out, status=200)
+
+    @action(detail=False, methods=["get"], url_path="metricas-dashboard")
+    def metricas_dashboard(self, request):
+        """
+        Endpoint para métricas del dashboard.
+        Retorna conteo por estado, prioridad, técnicos y tendencia temporal.
+        
+        Query params:
+        - fecha_inicio: Fecha inicio del período (default: primer día del mes actual)
+        - fecha_fin: Fecha fin del período (default: hoy)
+        """
+        from django.db.models import Count, Avg, F, ExpressionWrapper, DurationField
+        from django.db.models.functions import TruncDate
+        from datetime import date, timedelta
+        from core.models import PersonalizacionUsuario
+        
+        # Obtener empresa del usuario a través de PersonalizacionUsuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal or not personalizacion.sucursal_principal.empresa:
+            return Response(
+                {"detail": "No se encontró empresa asociada al usuario"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        empresa_id = personalizacion.sucursal_principal.empresa.id
+        # Parsear fechas del período
+        fecha_inicio_str = request.query_params.get("fecha_inicio")
+        fecha_fin_str = request.query_params.get("fecha_fin")
+        
+        hoy = date.today()
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = date.fromisoformat(fecha_inicio_str)
+            except ValueError:
+                fecha_inicio = hoy.replace(day=1)
+        else:
+            fecha_inicio = hoy.replace(day=1)
+        
+        if fecha_fin_str:
+            try:
+                fecha_fin = date.fromisoformat(fecha_fin_str)
+            except ValueError:
+                fecha_fin = hoy
+        else:
+            fecha_fin = hoy
+        
+        # Queryset base filtrado por empresa y período
+        qs_base = OrdenDeTrabajo.objects.filter(
+            empresa_id=empresa_id,
+            fecha_creacion__date__gte=fecha_inicio,
+            fecha_creacion__date__lte=fecha_fin
+        )
+        
+        # Queryset para OTs activas (sin filtro de fecha para conteos actuales)
+        qs_activas = OrdenDeTrabajo.objects.filter(empresa_id=empresa_id)
+        
+        # 1. Conteo por estado (activas, sin filtro de fecha)
+        conteo_estados = dict(qs_activas.values_list("estado").annotate(count=Count("id")))
+        estados_resultado = {
+            "pendiente": conteo_estados.get("pendiente", 0),
+            "en_proceso": conteo_estados.get("en_proceso", 0),
+            "completada": conteo_estados.get("completada", 0),
+            "cerrada": conteo_estados.get("cerrada", 0),
+            "facturada": conteo_estados.get("facturada", 0),
+            "cancelada": conteo_estados.get("cancelada", 0),
+        }
+        
+        # 2. Conteo por prioridad (en el período)
+        conteo_prioridad = dict(qs_base.values_list("prioridad").annotate(count=Count("id")))
+        prioridad_resultado = {
+            "alta": conteo_prioridad.get("1", 0),
+            "media": conteo_prioridad.get("2", 0),
+            "baja": conteo_prioridad.get("3", 0),
+        }
+        
+        # 3. OTs vencidas (fecha_finalizacion_ot pasada y no completadas/cerradas)
+        ots_vencidas = qs_activas.filter(
+            fecha_finalizacion_ot__lt=hoy,
+            estado__in=["pendiente", "en_proceso"]
+        ).count()
+        
+        # 4. Top 5 técnicos con más OTs (en el período)
+        top_tecnicos = list(
+            qs_base.filter(tecnico_responsable_ot__isnull=False)
+            .values(
+                "tecnico_responsable_ot__id",
+                "tecnico_responsable_ot__usuario__first_name",
+                "tecnico_responsable_ot__usuario__last_name"
+            )
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        tecnicos_resultado = [
+            {
+                "id": t["tecnico_responsable_ot__id"],
+                "nombre": f"{t['tecnico_responsable_ot__usuario__first_name']} {t['tecnico_responsable_ot__usuario__last_name']}".strip() or "Sin nombre",
+                "total": t["total"]
+            }
+            for t in top_tecnicos
+        ]
+        
+        # 5. Top 5 clientes con más OTs (en el período)
+        top_clientes = list(
+            qs_base.values("cliente__id", "cliente__nombre")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        clientes_resultado = [
+            {
+                "id": c["cliente__id"],
+                "nombre": c["cliente__nombre"],
+                "total": c["total"]
+            }
+            for c in top_clientes
+        ]
+        
+        # 6. Tendencia de OTs creadas (últimos 30 días)
+        fecha_30_dias = hoy - timedelta(days=30)
+        tendencia = list(
+            OrdenDeTrabajo.objects.filter(
+                empresa_id=empresa_id,
+                fecha_creacion__date__gte=fecha_30_dias
+            )
+            .annotate(fecha=TruncDate("fecha_creacion"))
+            .values("fecha")
+            .annotate(total=Count("id"))
+            .order_by("fecha")
+        )
+        tendencia_resultado = [
+            {"fecha": t["fecha"].isoformat(), "total": t["total"]}
+            for t in tendencia
+        ]
+        
+        # 7. Total gastos OT en el período
+        total_gastos = GastoOperativoEnOt.objects.filter(
+            orden__empresa_id=empresa_id,
+            fecha_compra__gte=fecha_inicio,
+            fecha_compra__lte=fecha_fin
+        ).aggregate(total=Sum("monto_total"))["total"] or 0
+        
+        # 8. OTs completadas en el período
+        ots_completadas_periodo = qs_base.filter(estado="completada").count()
+        
+        # 9. Conteo cierres administrativos por estado (filtrado por cliente de la empresa)
+        cierres = CierreAdministrativoOT.objects.filter(
+            cliente_id=empresa_id
+        ).values_list("estado_cierre").annotate(count=Count("id"))
+        cierres_resultado = {
+            "borrador": 0,
+            "en_revision": 0,
+            "aprobado": 0,
+            "facturado": 0,
+            "pagado": 0,
+            "anulado": 0,
+        }
+        for estado, count in cierres:
+            if estado in cierres_resultado:
+                cierres_resultado[estado] = count
+        
+        return Response({
+            "periodo": {
+                "fecha_inicio": fecha_inicio.isoformat(),
+                "fecha_fin": fecha_fin.isoformat(),
+            },
+            "resumen": {
+                "total_periodo": qs_base.count(),
+                "total_activas": qs_activas.exclude(estado__in=["cerrada", "cancelada"]).count(),
+                "ots_vencidas": ots_vencidas,
+                "completadas_periodo": ots_completadas_periodo,
+                "total_gastos": float(total_gastos),
+            },
+            "por_estado": estados_resultado,
+            "por_prioridad": prioridad_resultado,
+            "cierres_administrativos": cierres_resultado,
+            "top_tecnicos": tecnicos_resultado,
+            "top_clientes": clientes_resultado,
+            "tendencia_30_dias": tendencia_resultado,
+        })
 
 
 class SoporteTecnicoViewSet(BaseWriteViewSet):

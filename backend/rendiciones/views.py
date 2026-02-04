@@ -290,6 +290,162 @@ class RendicionViewSet(viewsets.ModelViewSet):
         serializer = CompraRendicionSerializer(compras_disponibles, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="metricas-dashboard")
+    def metricas_dashboard(self, request):
+        """
+        Endpoint para métricas del dashboard de rendiciones.
+        Retorna conteo por estado, montos y usuarios con más rendiciones.
+        
+        NOTA: Las métricas son del sistema completo (empresa), NO por usuario.
+        
+        Query params:
+        - fecha_inicio: Fecha inicio del período (default: primer día del mes actual)
+        - fecha_fin: Fecha fin del período (default: hoy)
+        """
+        from django.db.models import Count, Sum
+        from django.db.models.functions import TruncDate
+        from datetime import date, timedelta
+        
+        # Obtener empresa del usuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal or not personalizacion.sucursal_principal.empresa:
+            return Response(
+                {"detail": "No se encontró empresa asociada al usuario"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        empresa_id = personalizacion.sucursal_principal.empresa.id
+        
+        # Parsear fechas del período
+        fecha_inicio_str = request.query_params.get("fecha_inicio")
+        fecha_fin_str = request.query_params.get("fecha_fin")
+        
+        hoy = date.today()
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = date.fromisoformat(fecha_inicio_str)
+            except ValueError:
+                fecha_inicio = hoy.replace(day=1)
+        else:
+            fecha_inicio = hoy.replace(day=1)
+        
+        if fecha_fin_str:
+            try:
+                fecha_fin = date.fromisoformat(fecha_fin_str)
+            except ValueError:
+                fecha_fin = hoy
+        else:
+            fecha_fin = hoy
+        
+        # Queryset base filtrado por empresa (a través de usuario.sucursal.empresa)
+        qs_base = Rendicion.objects.filter(
+            usuario__sucursal__empresa_id=empresa_id,
+            fecha_rendicion__gte=fecha_inicio,
+            fecha_rendicion__lte=fecha_fin
+        )
+        
+        # Queryset para rendiciones activas (sin filtro de fecha)
+        qs_activas = Rendicion.objects.filter(usuario__sucursal__empresa_id=empresa_id)
+        
+        # 1. Conteo por estado
+        conteo_estados = dict(qs_activas.values_list("estado").annotate(count=Count("id")))
+        estados_resultado = {
+            "borrador": conteo_estados.get("0", 0),
+            "pendiente_aprobacion": conteo_estados.get("1", 0),
+            "aprobada": conteo_estados.get("2", 0),
+            "rechazada": conteo_estados.get("3", 0),
+            "pagada": conteo_estados.get("4", 0),
+        }
+        
+        # 2. Calcular montos totales (usando la propiedad total_reembolso_tecnico)
+        # Nota: Como es una propiedad calculada, necesitamos iterar
+        monto_pendiente_aprobacion = 0
+        monto_pendiente_pago = 0
+        
+        rendiciones_pendientes_aprobacion = qs_activas.filter(estado="1")
+        for r in rendiciones_pendientes_aprobacion:
+            monto_pendiente_aprobacion += r.total_reembolso_tecnico
+        
+        rendiciones_aprobadas = qs_activas.filter(estado="2")
+        for r in rendiciones_aprobadas:
+            monto_pendiente_pago += r.total_reembolso_tecnico
+        
+        # 3. Rendiciones rechazadas sin atender
+        rechazadas = estados_resultado["rechazada"]
+        
+        # 4. Top 5 usuarios con más rendiciones (en el período)
+        top_usuarios = list(
+            qs_base.values(
+                "usuario__id",
+                "usuario__usuario__first_name",
+                "usuario__usuario__last_name"
+            )
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        usuarios_resultado = [
+            {
+                "id": u["usuario__id"],
+                "nombre": f"{u['usuario__usuario__first_name']} {u['usuario__usuario__last_name']}".strip() or "Sin nombre",
+                "total": u["total"]
+            }
+            for u in top_usuarios
+        ]
+        
+        # 5. Top 5 clientes con más rendiciones (en el período)
+        top_clientes = list(
+            qs_base.filter(cliente__isnull=False)
+            .values("cliente__id", "cliente__nombre")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        clientes_resultado = [
+            {
+                "id": c["cliente__id"],
+                "nombre": c["cliente__nombre"],
+                "total": c["total"]
+            }
+            for c in top_clientes
+        ]
+        
+        # 6. Tendencia últimos 30 días
+        fecha_30_dias = hoy - timedelta(days=30)
+        tendencia = list(
+            Rendicion.objects.filter(
+                usuario__sucursal__empresa_id=empresa_id,
+                fecha_rendicion__gte=fecha_30_dias
+            )
+            .annotate(fecha=TruncDate("fecha_rendicion"))
+            .values("fecha")
+            .annotate(total=Count("id"))
+            .order_by("fecha")
+        )
+        tendencia_resultado = [
+            {"fecha": t["fecha"].isoformat(), "total": t["total"]}
+            for t in tendencia
+        ]
+        
+        return Response({
+            "periodo": {
+                "fecha_inicio": fecha_inicio.isoformat(),
+                "fecha_fin": fecha_fin.isoformat(),
+            },
+            "resumen": {
+                "total_periodo": qs_base.count(),
+                "pendientes_aprobacion": estados_resultado["pendiente_aprobacion"],
+                "monto_pendiente_aprobacion": float(monto_pendiente_aprobacion),
+                "monto_pendiente_pago": float(monto_pendiente_pago),
+                "rechazadas": rechazadas,
+            },
+            "por_estado": estados_resultado,
+            "top_usuarios": usuarios_resultado,
+            "top_clientes": clientes_resultado,
+            "tendencia_30_dias": tendencia_resultado,
+        })
+
 
 class ItemRendicionViewSet(viewsets.ModelViewSet):
     queryset = ItemRendicion.objects.all()

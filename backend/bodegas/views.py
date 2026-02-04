@@ -1169,6 +1169,171 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(ordenes, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="metricas-dashboard")
+    def metricas_dashboard(self, request):
+        """
+        Endpoint para métricas del dashboard de Órdenes de Compra y Bodegas.
+        
+        Query params:
+        - fecha_inicio: Fecha inicio del período (default: primer día del mes actual)
+        - fecha_fin: Fecha fin del período (default: hoy)
+        """
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDate
+        from datetime import date, timedelta
+        
+        # Obtener empresa del usuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal or not personalizacion.sucursal_principal.empresa:
+            return Response(
+                {"detail": "No se encontró empresa asociada al usuario"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        empresa_id = personalizacion.sucursal_principal.empresa.id
+        
+        # Parsear fechas del período
+        fecha_inicio_str = request.query_params.get("fecha_inicio")
+        fecha_fin_str = request.query_params.get("fecha_fin")
+        
+        hoy = date.today()
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = date.fromisoformat(fecha_inicio_str)
+            except ValueError:
+                fecha_inicio = hoy.replace(day=1)
+        else:
+            fecha_inicio = hoy.replace(day=1)
+        
+        if fecha_fin_str:
+            try:
+                fecha_fin = date.fromisoformat(fecha_fin_str)
+            except ValueError:
+                fecha_fin = hoy
+        else:
+            fecha_fin = hoy
+        
+        # === MÉTRICAS DE ÓRDENES DE COMPRA ===
+        qs_oc_base = OrdenCompra.objects.filter(
+            oc_empresa_id=empresa_id,
+            fecha_creacion__date__gte=fecha_inicio,
+            fecha_creacion__date__lte=fecha_fin
+        )
+        
+        qs_oc_activas = OrdenCompra.objects.filter(oc_empresa_id=empresa_id)
+        
+        # 1. Conteo OC por estado
+        conteo_oc_estados = dict(qs_oc_activas.values_list("estado").annotate(count=Count("id")))
+        oc_estados = {
+            "borrador": conteo_oc_estados.get("-", 0),
+            "pendiente_aprobacion": conteo_oc_estados.get("0", 0),
+            "aprobada": conteo_oc_estados.get("1", 0),
+            "rechazada": conteo_oc_estados.get("2", 0),
+            "enviada_proveedor": conteo_oc_estados.get("3", 0),
+            "parcialmente_recibida": conteo_oc_estados.get("4", 0),
+            "completada": conteo_oc_estados.get("5", 0),
+            "cancelada": conteo_oc_estados.get("6", 0),
+            "cerrada": conteo_oc_estados.get("7", 0),
+        }
+        
+        # 2. OC pendientes de recepción (enviadas + parcialmente recibidas)
+        oc_pendientes_recepcion = oc_estados["enviada_proveedor"] + oc_estados["parcialmente_recibida"]
+        
+        # === MÉTRICAS DE GUÍAS DE SALIDA ===
+        qs_guias_activas = GuiaSalida.objects.filter(
+            bodega__sucursal__empresa_id=empresa_id
+        )
+        
+        # 3. Conteo guías por estado
+        conteo_guias = dict(qs_guias_activas.values_list("estado").annotate(count=Count("id")))
+        guias_estados = {
+            "pendiente": conteo_guias.get("P", 0),
+            "espera_firma": conteo_guias.get("ER", 0),
+            "firmada": conteo_guias.get("FR", 0),
+            "en_transito": conteo_guias.get("ET", 0),
+            "revertida": conteo_guias.get("R", 0),
+            "parcialmente_revertida": conteo_guias.get("PR", 0),
+            "entregada": conteo_guias.get("E", 0),
+            "terminada": conteo_guias.get("T", 0),
+        }
+        
+        # 4. Guías pendientes de firma
+        guias_pendientes_firma = guias_estados["espera_firma"]
+        
+        # 5. Guías en tránsito
+        guias_en_transito = guias_estados["en_transito"]
+        
+        # === MÉTRICAS DE STOCK ===
+        qs_stock = StockItemEnBodega.objects.filter(
+            bodega__sucursal__empresa_id=empresa_id
+        )
+        
+        # 6. Items sin stock
+        items_sin_stock = qs_stock.filter(cantidad=0).count()
+        
+        # 7. Items con stock bajo (cantidad < 5)
+        items_stock_bajo = qs_stock.filter(cantidad__gt=0, cantidad__lt=5).count()
+        
+        # 8. Valor total inventario aproximado
+        # Nota: Esto es una aproximación, el precio real vendría de ItemEnOrdenCompra
+        total_items_stock = qs_stock.aggregate(total=Sum("cantidad"))["total"] or 0
+        
+        # === MÉTRICAS DE COMPRAS RÁPIDAS ===
+        qs_compras = Compra.objects.filter(
+            sucursal__empresa_id=empresa_id
+        )
+        
+        # 9. Compras pendientes de rendición
+        compras_pendientes_rendicion = qs_compras.filter(estado="P").count()
+        
+        # === TENDENCIAS ===
+        fecha_30_dias = hoy - timedelta(days=30)
+        
+        # 10. Tendencia OC creadas
+        tendencia_oc = list(
+            OrdenCompra.objects.filter(
+                oc_empresa_id=empresa_id,
+                fecha_creacion__date__gte=fecha_30_dias
+            )
+            .annotate(fecha=TruncDate("fecha_creacion"))
+            .values("fecha")
+            .annotate(total=Count("id"))
+            .order_by("fecha")
+        )
+        tendencia_oc_resultado = [
+            {"fecha": t["fecha"].isoformat(), "total": t["total"]}
+            for t in tendencia_oc
+        ]
+        
+        return Response({
+            "periodo": {
+                "fecha_inicio": fecha_inicio.isoformat(),
+                "fecha_fin": fecha_fin.isoformat(),
+            },
+            "ordenes_compra": {
+                "total_periodo": qs_oc_base.count(),
+                "pendientes_recepcion": oc_pendientes_recepcion,
+                "por_estado": oc_estados,
+                "tendencia_30_dias": tendencia_oc_resultado,
+            },
+            "guias_salida": {
+                "pendientes_firma": guias_pendientes_firma,
+                "en_transito": guias_en_transito,
+                "por_estado": guias_estados,
+            },
+            "inventario": {
+                "items_sin_stock": items_sin_stock,
+                "items_stock_bajo": items_stock_bajo,
+                "total_items_en_stock": total_items_stock,
+            },
+            "compras_rapidas": {
+                "pendientes_rendicion": compras_pendientes_rendicion,
+            },
+        })
+
 
 class ItemEnOrdenCompraViewSet(viewsets.ModelViewSet):
     queryset = ItemEnOrdenCompra.objects.all()

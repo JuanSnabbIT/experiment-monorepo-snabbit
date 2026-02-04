@@ -92,6 +92,9 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <NavSeparator />
+                    <NavTitle>Gestión Operativa</NavTitle>
+
                     {/* Registros */}
                     <AuthorityCheckNav
                         authority={Pages.registros.authority}
@@ -231,6 +234,9 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <NavSeparator />
+                    <NavTitle>Ventas & Compras</NavTitle>
+
                     {/* Cotizaciones */}
                     <AuthorityCheckNav
                         authority={Pages.cotizacion.authority}
@@ -332,6 +338,9 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <NavSeparator />
+                    <NavTitle>Gestión Financiera</NavTitle>
+
                     {/* Rendiciones */}
                     <AuthorityCheckNav
                         authority={Pages.rendiciones.authority}
@@ -382,6 +391,9 @@ const DefaultAsideTemplate = () => {
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
+
+                    <NavSeparator />
+                    <NavTitle>Recursos Humanos</NavTitle>
 
                     {/* Vacaciones */}
                     <AuthorityCheckNav
@@ -452,72 +464,6 @@ const DefaultAsideTemplate = () => {
                                     to={Pages.vacaciones.subPages.dashboardVacaciones.to}
                                     icon={Pages.vacaciones.subPages.dashboardVacaciones.icon}
                                     id={Pages.vacaciones.subPages.dashboardVacaciones.id}></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* rendiciones */}
-                    {/* <AuthorityCheckNav authority={Pages.rendiciones.authority} userAuthority={listaGrupos?.grupos}>
-						<NavCollapse text={Pages.rendiciones.text} icon={Pages.rendiciones.icon} to={Pages.rendiciones.to}>
-							<AuthorityCheckNav authority={Pages.rendiciones.subPages.listaRendiciones.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.rendiciones.subPages.listaRendiciones.text} to={Pages.rendiciones.subPages.listaRendiciones.to} icon={Pages.rendiciones.subPages.listaRendiciones.icon} id={Pages.rendiciones.subPages.listaRendiciones.id}></NavItem>
-							</AuthorityCheckNav>
-							<AuthorityCheckNav authority={Pages.rendiciones.subPages.listaMisRendiciones.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.rendiciones.subPages.listaMisRendiciones.text} to={Pages.rendiciones.subPages.listaMisRendiciones.to} icon={Pages.rendiciones.subPages.listaMisRendiciones.icon} id={Pages.rendiciones.subPages.listaMisRendiciones.id}></NavItem>
-							</AuthorityCheckNav>
-							<AuthorityCheckNav authority={Pages.rendiciones.subPages.listaRendicionesSucursal.authority} userAuthority={listaGrupos?.grupos}>
-								<NavItem text={Pages.rendiciones.subPages.listaRendicionesSucursal.text} to={Pages.rendiciones.subPages.listaRendicionesSucursal.to} icon={Pages.rendiciones.subPages.listaRendicionesSucursal.icon} id={Pages.rendiciones.subPages.listaRendicionesSucursal.id}></NavItem>
-							</AuthorityCheckNav>
-						</NavCollapse>
-					</AuthorityCheckNav> */}
-
-                    {/* Rendiciones */}
-                    <AuthorityCheckNav
-                        authority={Pages.rendiciones.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.rendiciones.text}
-                            icon={Pages.rendiciones.icon}
-                            to={Pages.rendiciones.to}>
-                            <AuthorityCheckNav
-                                authority={Pages.rendiciones.subPages.listaRendiciones.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.rendiciones.subPages.listaRendiciones.text}
-                                    to={Pages.rendiciones.subPages.listaRendiciones.to}
-                                    icon={Pages.rendiciones.subPages.listaRendiciones.icon}
-                                    id={Pages.rendiciones.subPages.listaRendiciones.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.rendiciones.subPages.listaMisRendiciones.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.rendiciones.subPages.listaMisRendiciones.text}
-                                    to={Pages.rendiciones.subPages.listaMisRendiciones.to}
-                                    icon={Pages.rendiciones.subPages.listaMisRendiciones.icon}
-                                    id={
-                                        Pages.rendiciones.subPages.listaMisRendiciones.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* Facturaciones */}
-                    <AuthorityCheckNav
-                        authority={Pages.facturacion.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.facturacion.text}
-                            icon={Pages.facturacion.icon}
-                            to={Pages.facturacion.to}>
-                            <AuthorityCheckNav
-                                authority={Pages.facturacion.subPages.listaFacturas.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.facturacion.subPages.listaFacturas.text}
-                                    to={Pages.facturacion.subPages.listaFacturas.to}
-                                    icon={Pages.facturacion.subPages.listaFacturas.icon}
-                                    id={Pages.facturacion.subPages.listaFacturas.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>

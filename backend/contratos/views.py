@@ -404,6 +404,138 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         # response['Content-Disposition'] = f'inline; filename="prueeaa.pdf"'
         return response
 
+    @action(detail=False, methods=["get"], url_path="metricas-dashboard")
+    def metricas_dashboard(self, request):
+        """
+        Endpoint para métricas del dashboard de contratos.
+        
+        Query params:
+        - fecha_inicio: Fecha inicio del período (default: primer día del mes actual)
+        - fecha_fin: Fecha fin del período (default: hoy)
+        """
+        from core.models import PersonalizacionUsuario
+        from django.db.models import Count, Sum
+        from datetime import date, timedelta
+        
+        # Obtener empresa del usuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal or not personalizacion.sucursal_principal.empresa:
+            return Response(
+                {"detail": "No se encontró empresa asociada al usuario"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        empresa_id = personalizacion.sucursal_principal.empresa.id
+        hoy = date.today()
+        
+        # Queryset base para contratos de la empresa
+        qs_contratos = ContratoEmpresaCliente.objects.filter(
+            models.Q(empresa_prestadora_id=empresa_id) | 
+            models.Q(empresa_cliente_id=empresa_id)
+        )
+        
+        # 1. Conteo por estado
+        conteo_estados = dict(qs_contratos.values_list("estado").annotate(count=Count("id")))
+        estados_resultado = {
+            "borrador": conteo_estados.get("borrador", 0),
+            "activo": conteo_estados.get("activo", 0),
+            "suspendido": conteo_estados.get("suspendido", 0),
+            "finalizado": conteo_estados.get("finalizado", 0),
+        }
+        
+        # 2. Contratos próximos a vencer (fecha_fin <= hoy+30, estado=activo)
+        fecha_30_dias = hoy + timedelta(days=30)
+        contratos_por_vencer = list(
+            qs_contratos.filter(
+                estado="activo",
+                fecha_fin__isnull=False,
+                fecha_fin__lte=fecha_30_dias,
+                fecha_fin__gte=hoy
+            ).values("id", "nombre", "empresa_cliente__nombre", "fecha_fin")[:10]
+        )
+        contratos_por_vencer_resultado = [
+            {
+                "id": c["id"],
+                "nombre": c["nombre"],
+                "cliente": c["empresa_cliente__nombre"],
+                "fecha_fin": c["fecha_fin"].isoformat() if c["fecha_fin"] else None,
+                "dias_restantes": (c["fecha_fin"] - hoy).days if c["fecha_fin"] else None,
+            }
+            for c in contratos_por_vencer
+        ]
+        
+        # 3. Contratos vencidos sin cerrar
+        contratos_vencidos = qs_contratos.filter(
+            estado="activo",
+            fecha_fin__isnull=False,
+            fecha_fin__lt=hoy
+        ).count()
+        
+        # 4. Licencias próximas a vencer (usando fecha_fin de ContratoLicencia)
+        licencias_por_vencer = list(
+            ContratoLicencia.objects.filter(
+                contrato__in=qs_contratos.filter(estado="activo"),
+                fecha_fin__isnull=False,
+                fecha_fin__lte=fecha_30_dias,
+                fecha_fin__gte=hoy
+            ).select_related("licencia", "contrato").values(
+                "id",
+                "licencia__nombre",
+                "contrato__nombre",
+                "fecha_fin"
+            )[:10]
+        )
+        licencias_por_vencer_resultado = [
+            {
+                "id": l["id"],
+                "nombre": l["licencia__nombre"],
+                "contrato": l["contrato__nombre"],
+                "fecha_vencimiento": l["fecha_fin"].isoformat() if l["fecha_fin"] else None,
+                "dias_restantes": (l["fecha_fin"] - hoy).days if l["fecha_fin"] else None,
+            }
+            for l in licencias_por_vencer
+        ]
+        
+        # 5. Firmas pendientes (EnvioContratoFirmaUsuario.usuario -> UsuarioVinculadoContrato.contrato)
+        firmas_pendientes = EnvioContratoFirmaUsuario.objects.filter(
+            usuario__contrato__in=qs_contratos,
+            fecha_firma__isnull=True
+        ).count()
+        
+        # 6. Top 5 clientes con más contratos
+        top_clientes = list(
+            qs_contratos.filter(empresa_prestadora_id=empresa_id)
+            .values("empresa_cliente__id", "empresa_cliente__nombre")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+        clientes_resultado = [
+            {
+                "id": c["empresa_cliente__id"],
+                "nombre": c["empresa_cliente__nombre"],
+                "total": c["total"]
+            }
+            for c in top_clientes
+        ]
+        
+        return Response({
+            "resumen": {
+                "total_contratos": qs_contratos.count(),
+                "contratos_activos": estados_resultado["activo"],
+                "contratos_vencidos": contratos_vencidos,
+                "firmas_pendientes": firmas_pendientes,
+                "licencias_por_vencer": len(licencias_por_vencer_resultado),
+            },
+            "por_estado": estados_resultado,
+            "contratos_por_vencer": contratos_por_vencer_resultado,
+            "licencias_por_vencer": licencias_por_vencer_resultado,
+            "top_clientes": clientes_resultado,
+        })
+
+
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioVinculadoContratoSerializer
 

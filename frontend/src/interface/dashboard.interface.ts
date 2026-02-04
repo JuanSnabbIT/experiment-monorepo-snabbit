@@ -3,6 +3,12 @@ export interface IPreferenciasDashboard {
     empresa_seleccionada: boolean;
     actualizaciones_oc: boolean;
     ultimos_eventos: boolean;
+    // Widgets de módulos
+    ot: boolean;
+    cotizaciones: boolean;
+    rendiciones: boolean;
+    contratos: boolean;
+    vacaciones: boolean;
 }
 
 export interface IndicadoresEconomicos {

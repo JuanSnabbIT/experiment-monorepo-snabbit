@@ -75,3 +75,6 @@ backend/jupyter_notebooks/
 
 # Development data files (user imports, test data)
 dev/scripts/data/
+
+# Template base (referencia de diseño, no subir)
+tema_base/

@@ -1,6 +1,5 @@
 import Header, { HeaderLeft, HeaderRight } from '../../../components/layouts/Header/Header';
 import DefaultHeaderRightCommon from './_common/DefaultHeaderRight.common';
-import SelectSucursalEmpresa from './_partial/SelectSucursalEmpresa';
 
 const DefaultHeaderTemplate = () => {
     return (
@@ -10,7 +9,6 @@ const DefaultHeaderTemplate = () => {
                 {/* <SearchPartial /> */}
             </HeaderLeft>
             <HeaderRight>
-                <SelectSucursalEmpresa />
                 <DefaultHeaderRightCommon />
             </HeaderRight>
         </Header>
