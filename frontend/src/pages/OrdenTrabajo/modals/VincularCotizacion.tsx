@@ -257,22 +257,22 @@ const VincularCotizacion = ({
                                     )}
                                 </div>
                             </div>
-                            <div className='w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
-                                <table className='min-w-full divide-y divide-gray-200'>
-                                    <thead className='bg-gray-100'>
+                            <div className='w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900'>
+                                <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                    <thead className='bg-gray-100 dark:bg-zinc-800'>
                                         <tr>
-                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                 Item
                                             </th>
-                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                 Cant. pedida
                                             </th>
-                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                            <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                 Cant. recibida
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className='divide-y divide-gray-200 bg-white'>
+                                    <tbody className='divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800'>
                                         {selectedCotizaciones.map((cot) => {
                                             const items = itemsResumen[cot.id.toString()] ?? [];
                                             const totalPedido = items.reduce(

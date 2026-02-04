@@ -143,8 +143,8 @@ function FirmarCompletarTrabajo({
                 <div className='space-y-4'>
                     <div ref={topRef} />
                     {/* Información con comentarios sin paréntesis y saltos de línea */}
-                    <div className='rounded-lg border border-blue-200 bg-blue-50 p-4'>
-                        <div className='space-y-2 text-sm font-medium leading-relaxed text-blue-900'>
+                    <div className='rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-900/20'>
+                        <div className='space-y-2 text-sm font-medium leading-relaxed text-blue-900 dark:text-blue-200'>
                             <div>
                                 El técnico <span className='font-bold'>{tecnicoNombre}</span>{' '}
                                 realizó los siguientes trabajos:
@@ -162,7 +162,7 @@ function FirmarCompletarTrabajo({
                                     </div>
                                 )}
                             </div>
-                            <div className='border-t border-blue-200 pt-2'>
+                            <div className='border-t border-blue-200 pt-2 dark:border-blue-900'>
                                 Usted{' '}
                                 <span className='font-bold' id='nombre-receptor'>
                                     seleccione receptor
@@ -209,7 +209,7 @@ function FirmarCompletarTrabajo({
                         <label className='block text-sm font-medium text-gray-700'>
                             Firma de conformidad:
                         </label>
-                        <div className='flex justify-center overflow-auto rounded-lg border-2 border-gray-300 bg-white'>
+                        <div className='flex justify-center overflow-auto rounded-lg border-2 border-gray-300 bg-white dark:border-zinc-600 dark:bg-zinc-800'>
                             <SignatureCanvas
                                 ref={sigCanvas}
                                 canvasProps={{

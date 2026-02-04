@@ -31,7 +31,7 @@ function MarqueeCompletibilidad() {
                                     <div
                                         key={index}
                                         className='mx-10 flex flex-wrap items-center gap-2 text-2xl'>
-                                        <Icon icon='DuoCircle' className='text-blue-500'></Icon>
+                                        <Icon icon='DuoCircle' className='text-blue-500 dark:text-blue-400'></Icon>
                                         {raz}
                                     </div>
                                 ))

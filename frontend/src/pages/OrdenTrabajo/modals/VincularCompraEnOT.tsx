@@ -134,8 +134,8 @@ function VincularCompraEnOT() {
                             </Validation>
                         </div>
 
-                        <div className='rounded border border-blue-200 bg-blue-50 p-3'>
-                            <p className='text-sm text-blue-700'>
+                        <div className='rounded border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-900/20'>
+                            <p className='text-sm text-blue-700 dark:text-blue-200'>
                                 <strong>Nota:</strong> La compra quedarÇ­ asociada a la Orden de
                                 Trabajo seleccionada.
                             </p>
