@@ -522,7 +522,7 @@ export const Pages = {
         subPages: {
             listaEquiposEmpresa: {
                 id: 'listaEquiposEmpresa',
-                to: '/lista-equipos-empresa',
+                to: '/recursos/lista-equipos-empresa',
                 text: 'Equipos',
                 icon: 'HeroComputerDesktop',
                 authority: ['superadmin', 'staff'],

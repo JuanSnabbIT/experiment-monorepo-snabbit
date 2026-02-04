@@ -76,7 +76,7 @@ const DefaultAsideTemplate = () => {
                                 <NavCollapse
                                     text={Pages.empresa.subPages.detalleCliente.text}
                                     icon={Pages.empresa.subPages.detalleCliente.icon}
-                                    to={Pages.empresa.subPages.detalleCliente.to}>
+                                    to='/empresa/clientes'>
                                     <CrearClienteEnMenu />
                                     {listaMisClientes.length > 0 ? (
                                         listaMisClientes.map((cli, index) => (
@@ -202,7 +202,7 @@ const DefaultAsideTemplate = () => {
                                     id={Pages.bodega.subPages.listaTomaInventario.id}></NavItem>
                             </AuthorityCheckNav>
                             {listaBodegas.length > 0 && (
-                                <NavCollapse text='Bodegas' icon='HeroDocument' to='/'>
+                                <NavCollapse text='Bodegas' icon='HeroDocument' to='/bodega/detalle-bodega'>
                                     {listaBodegas.map((bodega, index) => (
                                         <NavItem
                                             key={index}

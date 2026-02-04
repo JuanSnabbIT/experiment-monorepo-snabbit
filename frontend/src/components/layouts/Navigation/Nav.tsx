@@ -1,16 +1,15 @@
-import React, { FC, HTMLAttributes, ReactNode, useEffect, useId, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
 import classNames from 'classnames';
-import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { TIcons } from '../../../types/icons.type';
-import Icon, { IIconProps } from '../../icon/Icon';
-import useAsideStatus from '../../../hooks/useAsideStatus';
+import React, { FC, HTMLAttributes, ReactNode, useEffect, useId, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { NavLink, useLocation } from 'react-router-dom';
 import themeConfig from '../../../config/theme.config';
-import Tooltip from '../../ui/Tooltip';
-import Avatar from '../../Avatar';
+import useAsideStatus from '../../../hooks/useAsideStatus';
 import { TColors } from '../../../types/colors.type';
-import Badge from '@/components/ui/Badge';
+import { TIcons } from '../../../types/icons.type';
+import Avatar from '../../Avatar';
+import Icon, { IIconProps } from '../../icon/Icon';
+import Tooltip from '../../ui/Tooltip';
 
 const navItemClasses = {
     default: classNames(
@@ -281,7 +280,37 @@ export const NavCollapse: FC<INavCollapseProps> = (props) => {
     const { asideStatus } = useAsideStatus();
 
     const location = useLocation();
-    const here = to !== '/' && location.pathname.includes(to);
+    
+    // Función helper para verificar si una ruta está activa
+    // Soporta rutas exactas, rutas con hijos y rutas con parámetros dinámicos
+    const isRouteActive = (routePath: string, currentPath: string): boolean => {
+        if (routePath === '/') return false;
+        
+        // Coincidencia exacta
+        if (currentPath === routePath) return true;
+        
+        // Verificar si es una ruta hija (debe empezar con routePath + '/')
+        if (currentPath.startsWith(routePath + '/')) return true;
+        
+        // Manejar rutas con parámetros dinámicos (ej: /empresa/detalle-cliente/:id)
+        // Extraer la parte base sin el parámetro
+        const routeParts = routePath.split('/');
+        const hasParams = routeParts.some(part => part.startsWith(':'));
+        
+        if (hasParams) {
+            // Obtener la ruta base hasta el primer parámetro
+            const baseRouteParts = routeParts.slice(0, routeParts.findIndex(part => part.startsWith(':')));
+            const baseRoute = baseRouteParts.join('/');
+            
+            if (baseRoute && currentPath.startsWith(baseRoute + '/')) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+    
+    const here = isRouteActive(to, location.pathname);
 
     useEffect(() => {
         setIsActive(here);
