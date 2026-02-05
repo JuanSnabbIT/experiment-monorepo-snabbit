@@ -59,7 +59,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
         const parts = text.split(regex);
         return parts.map((part, i) =>
             regex.test(part) ? (
-                <mark key={i} className='bg-yellow-200 font-semibold'>
+                <mark key={i} className='bg-yellow-200 font-semibold dark:bg-yellow-500/30 dark:text-yellow-200'>
                     {part}
                 </mark>
             ) : (
@@ -102,7 +102,9 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                     <Badge className='text-xl'>Comentarios</Badge>
                 </CardHeader>
                 <CardBody>
-                    <div className='text-sm text-gray-500'>Cargando comentarios...</div>
+                    <div className='text-sm text-gray-500 dark:text-gray-400'>
+                        Cargando comentarios...
+                    </div>
                 </CardBody>
             </Card>
         );
@@ -133,8 +135,8 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                 onClick={() => setSelectedTipo(null)}
                                 className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
                                     selectedTipo === null
-                                        ? 'bg-gray-700 text-white'
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        ? 'bg-gray-700 text-white dark:bg-zinc-200 dark:text-zinc-900'
+                                        : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-zinc-600'
                                 }`}>
                                 Todos ({listaSeguimientosOT.length})
                             </button>
@@ -183,7 +185,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                         return (
                                             <div
                                                 key={seguimiento.id}
-                                                className='w-80 flex-shrink-0 rounded-lg border border-gray-200 bg-white p-3 shadow-sm'>
+                                                className='w-80 flex-shrink-0 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 shadow-sm'>
                                                 <div className='mb-2 flex items-center gap-2'>
                                                     <Icon
                                                         icon={obtenerIconoTipo(seguimiento.tipo)}
@@ -193,22 +195,22 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                         color={obtenerColorTipo(seguimiento.tipo)}>
                                                         {obtenerLabelTipo(seguimiento.tipo)}
                                                     </Badge>
-                                                    <span className='ml-auto text-xs text-gray-500'>
+                                                    <span className='ml-auto text-xs text-gray-500 dark:text-gray-400'>
                                                         {dayjs(seguimiento.fecha_creacion).format(
                                                             'DD/MM/YYYY HH:mm',
                                                         )}
                                                     </span>
                                                 </div>
-                                                <div className='text-xs text-gray-500'>
+                                                <div className='text-xs text-gray-500 dark:text-gray-400'>
                                                     {seguimiento.usuario_nombre ||
                                                         'Usuario Desconocido'}
                                                 </div>
-                                                <div className='mb-2 text-xs text-gray-400'>
+                                                <div className='mb-2 text-xs text-gray-400 dark:text-gray-300'>
                                                     {getDateLabel(seguimiento.fecha_creacion)}
                                                 </div>
                                                 <div className='mb-2 flex flex-wrap gap-2 text-xs'>
                                                     {seguimiento.servicio_nombre && (
-                                                        <span className='inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-blue-700'>
+                                                        <span className='inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
                                                             <Icon
                                                                 icon='HeroWrenchScrewdriver'
                                                                 className='h-3 w-3'
@@ -217,7 +219,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                         </span>
                                                     )}
                                                     {seguimiento.soporte_nombre && (
-                                                        <span className='inline-flex items-center gap-1 rounded bg-violet-50 px-2 py-1 text-violet-700'>
+                                                        <span className='inline-flex items-center gap-1 rounded bg-violet-50 px-2 py-1 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'>
                                                             <Icon
                                                                 icon='HeroComputerDesktop'
                                                                 className='h-3 w-3'
@@ -226,7 +228,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                         </span>
                                                     )}
                                                     {!hasOrigen && (
-                                                        <span className='inline-flex items-center rounded bg-gray-100 px-2 py-1 text-gray-600'>
+                                                        <span className='inline-flex items-center rounded bg-gray-100 dark:bg-zinc-800 px-2 py-1 text-gray-600 dark:text-gray-400'>
                                                             Orden de trabajo
                                                         </span>
                                                     )}
@@ -234,7 +236,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                 {comentario ? (
                                                     <div className='relative'>
                                                         <div
-                                                            className={`flex-1 whitespace-pre-wrap rounded bg-gray-50 p-3 text-sm leading-relaxed ${
+                                                            className={`flex-1 whitespace-pre-wrap rounded bg-gray-50 dark:bg-zinc-800 p-3 text-sm leading-relaxed ${
                                                                 !isExpanded && isLongComment
                                                                     ? 'line-clamp-3'
                                                                     : ''
@@ -247,7 +249,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                                     onClick={() =>
                                                                         toggleExpand(seguimiento.id)
                                                                     }
-                                                                    className='text-xs text-blue-600 hover:underline'>
+                                                                    className='text-xs text-blue-600 hover:underline dark:text-blue-400'>
                                                                     {isExpanded
                                                                         ? 'Ver menos'
                                                                         : 'Ver mas'}
@@ -257,7 +259,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                                 onClick={() =>
                                                                     copyToClipboard(comentario)
                                                                 }
-                                                                className='flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800'>
+                                                                className='flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100'>
                                                                 <Icon
                                                                     icon='HeroClipboard'
                                                                     className='h-3 w-3'
@@ -267,7 +269,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <span className='italic text-gray-400'>
+                                                    <span className='italic text-gray-400 dark:text-gray-300'>
                                                         Sin comentario
                                                     </span>
                                                 )}
@@ -279,7 +281,7 @@ const SeguimientosOT = ({ ordenId }: { ordenId: number | undefined }) => {
                         })()}
                     </div>
                 ) : (
-                    <div className='py-8 text-center text-gray-500'>
+                    <div className='py-8 text-center text-gray-500 dark:text-gray-400'>
                         {listaSeguimientosOT.length === 0
                             ? 'No hay comentarios registrados'
                             : 'No hay comentarios que coincidan con la busqueda'}

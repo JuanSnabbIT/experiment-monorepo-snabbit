@@ -64,7 +64,7 @@ const DetalleVoucherDevolucion = () => {
                             icon='HeroEllipsisHorizontal'
                             className='mx-auto h-8 w-8 animate-spin text-blue-500'
                         />
-                        <p className='mt-2 text-gray-600'>Cargando detalle del voucher...</p>
+                        <p className='mt-2 text-gray-600 dark:text-gray-400 dark:text-gray-300'>Cargando detalle del voucher...</p>
                     </div>
                 </div>
             </PageWrapper>
@@ -125,7 +125,7 @@ const DetalleVoucherDevolucion = () => {
             <Subheader>
                 <SubheaderLeft>
                     <Badge>Voucher de Devolución</Badge>
-                    <h1 className='text-xl font-bold text-gray-800'>{detalleVoucher.numero}</h1>
+                    <h1 className='text-xl font-bold text-gray-800 dark:text-gray-100'>{detalleVoucher.numero}</h1>
                 </SubheaderLeft>
                 <SubheaderRight>
                     <Tooltip text='Descargar PDF'>
@@ -151,34 +151,34 @@ const DetalleVoucherDevolucion = () => {
                 {/* Información General */}
                 <Card>
                     <CardBody>
-                        <h2 className='mb-4 text-lg font-semibold text-gray-800'>
+                        <h2 className='mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100'>
                             Información General
                         </h2>
                         <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
-                            <div className='rounded-lg border border-gray-200 p-3'>
-                                <p className='text-sm text-gray-600'>Número de Voucher</p>
-                                <p className='mt-1 font-semibold text-gray-900'>
+                            <div className='rounded-lg border border-gray-200 dark:border-zinc-700 p-3'>
+                                <p className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Número de Voucher</p>
+                                <p className='mt-1 font-semibold text-gray-900 dark:text-gray-100'>
                                     {detalleVoucher.numero}
                                 </p>
                             </div>
-                            <div className='rounded-lg border border-gray-200 p-3'>
-                                <p className='text-sm text-gray-600'>Orden de Trabajo</p>
+                            <div className='rounded-lg border border-gray-200 dark:border-zinc-700 p-3'>
+                                <p className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Orden de Trabajo</p>
                                 <p className='mt-1 font-semibold text-blue-600'>
                                     OT #{detalleVoucher.orden_trabajo}
                                 </p>
                             </div>
-                            <div className='rounded-lg border border-gray-200 p-3'>
-                                <p className='text-sm text-gray-600'>Fecha de Creación</p>
-                                <p className='mt-1 font-semibold text-gray-900'>
+                            <div className='rounded-lg border border-gray-200 dark:border-zinc-700 p-3'>
+                                <p className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Fecha de Creación</p>
+                                <p className='mt-1 font-semibold text-gray-900 dark:text-gray-100'>
                                     {dayjs(detalleVoucher.fecha_creacion).format('DD/MM/YYYY')}
                                 </p>
                             </div>
                         </div>
 
                         <div className='mt-4 grid grid-cols-1 gap-4 md:grid-cols-2'>
-                            <div className='rounded-lg border border-gray-200 p-3'>
-                                <p className='text-sm text-gray-600'>Items Devueltos</p>
-                                <p className='mt-1 flex items-center gap-2 text-gray-900'>
+                            <div className='rounded-lg border border-gray-200 dark:border-zinc-700 p-3'>
+                                <p className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Items Devueltos</p>
+                                <p className='mt-1 flex items-center gap-2 text-gray-900 dark:text-gray-100'>
                                     <Badge color='blue' variant='solid'>
                                         {detalleVoucher.total_items_devueltos ?? 0}
                                     </Badge>
@@ -190,9 +190,9 @@ const DetalleVoucherDevolucion = () => {
                                 </p>
                             </div>
                             {detalleVoucher.observaciones && (
-                                <div className='rounded-lg border border-gray-200 p-3'>
-                                    <p className='text-sm text-gray-600'>Observaciones</p>
-                                    <p className='mt-1 font-semibold text-gray-900'>
+                                <div className='rounded-lg border border-gray-200 dark:border-zinc-700 p-3'>
+                                    <p className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Observaciones</p>
+                                    <p className='mt-1 font-semibold text-gray-900 dark:text-gray-100'>
                                         {detalleVoucher.observaciones}
                                     </p>
                                 </div>
@@ -206,7 +206,7 @@ const DetalleVoucherDevolucion = () => {
                     detalleVoucher.movimientos_agrupados.length > 0 && (
                         <Card>
                             <CardBody>
-                                <h2 className='mb-4 text-lg font-semibold text-gray-800'>
+                                <h2 className='mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100'>
                                     Movimientos
                                 </h2>
                                 <div className='space-y-4'>
@@ -214,9 +214,9 @@ const DetalleVoucherDevolucion = () => {
                                         (grupo, idx: number) => (
                                             <div
                                                 key={idx}
-                                                className='rounded-lg border border-gray-200 p-4'>
+                                                className='rounded-lg border border-gray-200 dark:border-zinc-700 p-4'>
                                                 <div className='mb-3 flex items-center justify-between'>
-                                                    <h3 className='font-semibold text-gray-900'>
+                                                    <h3 className='font-semibold text-gray-900 dark:text-gray-100'>
                                                         {grupo.origen_nombre || `Grupo ${idx + 1}`}
                                                     </h3>
                                                     <Badge color='blue' variant='outline'>
@@ -232,21 +232,21 @@ const DetalleVoucherDevolucion = () => {
                                                                 (mov, movIdx: number) => (
                                                                     <div
                                                                         key={movIdx}
-                                                                        className='flex items-center justify-between rounded-md bg-gray-50 p-2 text-sm'>
+                                                                        className='flex items-center justify-between rounded-md bg-gray-50 dark:bg-zinc-800 p-2 text-sm'>
                                                                         <div>
-                                                                            <p className='font-semibold text-gray-900'>
+                                                                            <p className='font-semibold text-gray-900 dark:text-gray-100'>
                                                                                 {mov.item_nombre ||
                                                                                     `Item #${mov.item_id}`}
                                                                             </p>
                                                                             {mov.descripcion && (
-                                                                                <p className='text-xs text-gray-600'>
+                                                                                <p className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                                                                     {
                                                                                         mov.descripcion
                                                                                     }
                                                                                 </p>
                                                                             )}
                                                                         </div>
-                                                                        <p className='font-semibold text-gray-900'>
+                                                                        <p className='font-semibold text-gray-900 dark:text-gray-100'>
                                                                             {mov.cantidad}
                                                                         </p>
                                                                     </div>

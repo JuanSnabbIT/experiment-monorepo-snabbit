@@ -84,7 +84,7 @@ export function ItemEnTabla({
 
     return (
         <>
-            <div className='grid grid-cols-4 items-center gap-4 rounded-xl border border-blue-500 py-2'>
+            <div className='grid grid-cols-6 items-center gap-4 rounded-xl border border-blue-500 py-2'>
                 <div>
                     <div className='ml-4'>{item.nombre_item}</div>
                 </div>
@@ -123,6 +123,14 @@ export function ItemEnTabla({
                     ) : (
                         <div className='ml-4'>${item.precio}</div>
                     )}
+                </div>
+                <div>
+                    <div className='ml-4'>{item.cantidad_devuelta ?? 0}</div>
+                </div>
+                <div>
+                    <div className='ml-4'>
+                        {item.cantidad_usada ?? 0} {item.estado_uso_label ? `(${item.estado_uso_label})` : ''}
+                    </div>
                 </div>
                 <div className='flex flex-wrap gap-2'>
                     {detalleCompra &&
@@ -227,7 +235,7 @@ function TablaItemsCompra() {
                     <div className='flex h-full flex-col gap-4'>
                         {items.length > 0 ? (
                             <>
-                                <div className='grid grid-cols-4 items-center gap-4'>
+                                <div className='grid grid-cols-6 items-center gap-4'>
                                     <div>
                                         <Badge>Nombre</Badge>
                                     </div>
@@ -236,6 +244,12 @@ function TablaItemsCompra() {
                                     </div>
                                     <div>
                                         <Badge>Precio</Badge>
+                                    </div>
+                                    <div>
+                                        <Badge>Devuelto</Badge>
+                                    </div>
+                                    <div>
+                                        <Badge>Usado</Badge>
                                     </div>
                                 </div>
                                 {items.map((item, index) => (

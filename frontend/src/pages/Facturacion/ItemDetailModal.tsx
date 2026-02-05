@@ -23,6 +23,9 @@ interface PrefacturaItem {
     stock_item_id?: number | null;
     compra_id?: number;
     parent_id?: number;
+    orden_trabajo_id?: number;
+    orden_trabajo?: number;
+    item_rendicion_id?: number;
     [n: string]: any;
 }
 
@@ -407,7 +410,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     <div className='grid grid-cols-2 gap-4'>
                         <div>
                             <Badge className='mb-1'>Solicitud</Badge>
-                            <div className='ml-4 text-base font-medium text-gray-900'>
+                            <div className='ml-4 text-base font-medium text-gray-900 dark:text-gray-100'>
                                 {data.nombre || 'Sin nombre'}
                             </div>
                         </div>
@@ -424,19 +427,19 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         </div>
                         <div>
                             <Badge className='mb-1'>Técnico Asignado</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 {data.nombre_tecnico || data.tecnico_asignado ? (
                                     <span className='font-medium'>
                                         {data.nombre_tecnico || 'Asignado'}
                                     </span>
                                 ) : (
-                                    <span className='italic text-gray-400'>Sin Técnico</span>
+                                    <span className='italic text-gray-400 dark:text-gray-300'>Sin Técnico</span>
                                 )}
                             </div>
                         </div>
                         <div>
                             <Badge className='mb-1'>Fecha trabajo</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 {data.fecha_servicio || data.fecha_trabajo ? (
                                     <span className='font-medium'>
                                         {dayjs(data.fecha_servicio || data.fecha_trabajo)
@@ -444,18 +447,18 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                             .format('DD/MM/YYYY')}
                                     </span>
                                 ) : (
-                                    <span className='italic text-gray-400'>Sin fecha</span>
+                                    <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
                                 )}
                             </div>
                         </div>
                     </div>
                     {/* Descripción si existe */}
                     {(data.descripcion || data.descripcion_corta) && (
-                        <div className='mt-3 rounded bg-white p-3 shadow-sm'>
-                            <div className='mb-1 text-xs font-medium text-gray-600'>
+                        <div className='mt-3 rounded bg-white dark:bg-zinc-900 p-3 shadow-sm'>
+                            <div className='mb-1 text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                 📝 Descripción
                             </div>
-                            <div className='text-sm text-gray-700'>
+                            <div className='text-sm text-gray-700 dark:text-gray-300'>
                                 {data.descripcion || data.descripcion_corta}
                             </div>
                         </div>
@@ -463,9 +466,9 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                 </div>
 
                 {/* Seguimientos */}
-                <div className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
-                    <div className='mb-4 flex items-center gap-2 border-b border-gray-200 pb-2'>
-                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-700'>
+                <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm'>
+                    <div className='mb-4 flex items-center gap-2 border-b border-gray-200 dark:border-zinc-700 pb-2'>
+                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300'>
                             Seguimientos del Trabajo
                         </span>
                         <Badge color='gray' variant='outline' className='ml-auto'>
@@ -475,7 +478,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     <div className='max-h-72 space-y-3 overflow-auto'>
                         {loadingSeguimientos ? (
                             <div className='flex items-center justify-center py-8'>
-                                <div className='text-sm text-gray-500'>
+                                <div className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                     Cargando seguimientos...
                                 </div>
                             </div>
@@ -510,7 +513,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                     },
                                     default: {
                                         color: 'zinc',
-                                        bgColor: 'bg-gray-50',
+                                        bgColor: 'bg-gray-50 dark:bg-zinc-800',
                                         borderColor: 'border-l-gray-500',
                                         icon: '📝',
                                     },
@@ -530,7 +533,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                 return (
                                     <div
                                         key={seg.id || idx}
-                                        className={`rounded border-l-4 bg-white p-3 shadow-sm transition-all hover:shadow-md ${config.borderColor}`}>
+                                        className={`rounded border-l-4 bg-white dark:bg-zinc-900 p-3 shadow-sm transition-all hover:shadow-md ${config.borderColor}`}>
                                         <div className='mb-2 flex items-center gap-2'>
                                             <span className='text-base'>{config.icon}</span>
                                             <Badge
@@ -545,10 +548,10 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className='text-sm text-gray-700'>
+                                        <div className='text-sm text-gray-700 dark:text-gray-300'>
                                             {seg.comentario}
                                         </div>
-                                        <div className='mt-2 flex items-center justify-between text-xs text-gray-500'>
+                                        <div className='mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             {seg.usuario_nombre && (
                                                 <span>👤 {seg.usuario_nombre}</span>
                                             )}
@@ -562,7 +565,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                 );
                             })
                         ) : (
-                            <div className='py-8 text-center text-sm text-gray-500'>
+                            <div className='py-8 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                 Sin seguimientos
                             </div>
                         )}
@@ -625,7 +628,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         {data.nombre_creado_por && (
                             <div>
                                 <Badge className='mb-1'>Creado Por</Badge>
-                                <div className='ml-4 text-sm text-gray-700'>
+                                <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                     {data.nombre_creado_por}
                                 </div>
                             </div>
@@ -633,7 +636,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         {data.nombre_recibido_por && (
                             <div>
                                 <Badge className='mb-1'>Recibido Por</Badge>
-                                <div className='ml-4 text-sm text-gray-700'>
+                                <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                     {data.nombre_recibido_por}
                                 </div>
                             </div>
@@ -641,7 +644,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         {data.cliente_nombre && (
                             <div>
                                 <Badge className='mb-1'>Cliente</Badge>
-                                <div className='ml-4 text-sm text-gray-700'>
+                                <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                     {data.cliente_nombre}
                                 </div>
                             </div>
@@ -649,7 +652,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         {data.motivo && (
                             <div className='col-span-2'>
                                 <Badge className='mb-1'>Motivo</Badge>
-                                <div className='ml-4 text-sm text-gray-700'>
+                                <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                     {data.motivo || 'Sin motivo'}
                                 </div>
                             </div>
@@ -658,52 +661,52 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                 </div>
 
                 {/* Items en la guía (renombrado a Item de la guía) */}
-                <div className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
-                    <div className='mb-3 border-b border-gray-200 pb-2'>
-                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-600'>
+                <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm'>
+                    <div className='mb-3 border-b border-gray-200 dark:border-zinc-700 pb-2'>
+                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                             ITEM DE LA GUÍA
                         </span>
                     </div>
                     {itemsGuia.length === 0 ? (
-                        <div className='py-8 text-center text-sm text-gray-500'>
+                        <div className='py-8 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                             Sin items en esta guía
                         </div>
                     ) : (
                         <div className='overflow-x-auto'>
-                            <table className='min-w-full divide-y divide-gray-200'>
-                                <thead className='bg-gray-50'>
+                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                <thead className='bg-gray-50 dark:bg-zinc-800'>
                                     <tr>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Item
                                         </th>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cantidad Original
                                         </th>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cantidad Rebajada
                                         </th>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cantidad Devuelta
                                         </th>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Serializado
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                     {itemsGuia.map((itemGuia: any, idx: number) => (
-                                        <tr key={itemGuia.id || idx} className='hover:bg-gray-50'>
-                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900'>
+                                        <tr key={itemGuia.id || idx} className='hover:bg-gray-50 dark:hover:bg-zinc-800'>
+                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900 dark:text-gray-100'>
                                                 {itemGuia.datos_stock?.datos_item?.nombre ||
                                                     `Item ${itemGuia.id}`}
                                             </td>
-                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                 {itemGuia.cantidad_original ?? '—'}
                                             </td>
-                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                 {itemGuia.cantidad_rebajada ?? '—'}
                                             </td>
-                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                            <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                 {itemGuia.cantidad_devuelta ?? 0}
                                             </td>
                                             <td className='whitespace-nowrap px-3 py-2 text-sm'>
@@ -722,8 +725,8 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                                         <span
                                                             className={
                                                                 isSerializado
-                                                                    ? 'text-sm font-medium text-gray-900'
-                                                                    : 'text-sm text-gray-500'
+                                                                    ? 'text-sm font-medium text-gray-900 dark:text-gray-100'
+                                                                    : 'text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'
                                                             }>
                                                             {isSerializado ? 'Sí' : 'No'}
                                                         </span>
@@ -750,9 +753,9 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
         if (tipo !== 'soporte_tecnico' || !vinculados || vinculados.length === 0) return null;
 
         return (
-            <div className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
-                <div className='mb-3 flex items-center justify-between border-b border-gray-200 pb-2'>
-                    <span className='text-sm font-semibold uppercase tracking-wide text-gray-700'>
+            <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm'>
+                <div className='mb-3 flex items-center justify-between border-b border-gray-200 dark:border-zinc-700 pb-2'>
+                    <span className='text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300'>
                         Usuarios Vinculados
                     </span>
                     <button
@@ -770,19 +773,19 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         {vinculados.map((usuario: any, idx: number) => (
                             <div
                                 key={usuario.id || idx}
-                                className='rounded border border-gray-200 bg-gray-50 p-3 transition-colors hover:bg-gray-100'>
+                                className='rounded border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 p-3 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800'>
                                 <div className='flex items-start justify-between gap-3'>
                                     <div className='flex-1'>
-                                        <div className='font-medium text-gray-900'>
+                                        <div className='font-medium text-gray-900 dark:text-gray-100'>
                                             {usuario.nombre_usuario || usuario.nombre || '—'}
                                         </div>
                                         {usuario.numero_serie_equipo && (
-                                            <div className='mt-1 text-xs text-gray-500'>
+                                            <div className='mt-1 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 📱 {usuario.numero_serie_equipo}
                                             </div>
                                         )}
                                         {usuario.tipo_equipo && (
-                                            <div className='text-xs text-gray-500'>
+                                            <div className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 {usuario.tipo_equipo}
                                             </div>
                                         )}
@@ -799,7 +802,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                     </div>
                                 </div>
                                 {usuario.trabajo_realizado && (
-                                    <div className='mt-2 text-xs italic text-gray-600'>
+                                    <div className='mt-2 text-xs italic text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                         "{usuario.trabajo_realizado}"
                                     </div>
                                 )}
@@ -860,7 +863,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     <div className='mb-4 grid grid-cols-2 gap-4'>
                         <div>
                             <Badge className='mb-1'>Código</Badge>
-                            <div className='ml-4 text-sm font-medium text-gray-900'>
+                            <div className='ml-4 text-sm font-medium text-gray-900 dark:text-gray-100'>
                                 {data.codigo || '—'}
                             </div>
                         </div>
@@ -877,7 +880,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         </div>
                         <div>
                             <Badge className='mb-1'>Fecha Compra</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 {data.fecha_compra
                                     ? new Date(data.fecha_compra).toLocaleDateString('es-CL')
                                     : '—'}
@@ -895,7 +898,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     {data.nombre_creado_por && (
                         <div>
                             <Badge className='mb-1'>Comprador</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 {data.nombre_creado_por}
                             </div>
                         </div>
@@ -905,63 +908,63 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     {data.observaciones && (
                         <div className='mt-3 border-t border-violet-100 pt-3'>
                             <Badge className='mb-1'>Descripción</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>{data.observaciones}</div>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>{data.observaciones}</div>
                         </div>
                     )}
                 </div>
 
                 {/* Items en la compra */}
-                <div className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
-                    <div className='mb-3 border-b border-gray-200 pb-2'>
-                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-600'>
+                <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm'>
+                    <div className='mb-3 border-b border-gray-200 dark:border-zinc-700 pb-2'>
+                        <span className='text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                             ITEM DE LA COMPRA
                         </span>
                     </div>
                     {itemsCompra.length === 0 ? (
-                        <div className='py-8 text-center text-sm text-gray-500'>
+                        <div className='py-8 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                             Sin items en esta compra
                         </div>
                     ) : (
                         <div className='overflow-x-auto'>
-                            <table className='min-w-full divide-y divide-gray-200'>
-                                <thead className='bg-gray-50'>
+                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                <thead className='bg-gray-50 dark:bg-zinc-800'>
                                     <tr>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Nombre
                                         </th>
-                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cantidad
                                         </th>
-                                        <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Precio Unitario
                                         </th>
-                                        <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                        <th className='px-3 py-2 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Subtotal
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                     {itemsCompra.map((itemCompra: any, idx: number) => {
                                         const subtotal =
                                             (itemCompra.cantidad || 0) * (itemCompra.precio || 0);
                                         return (
                                             <tr
                                                 key={itemCompra.id || idx}
-                                                className='hover:bg-gray-50'>
-                                                <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900'>
+                                                className='hover:bg-gray-50 dark:hover:bg-zinc-800'>
+                                                <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900 dark:text-gray-100'>
                                                     {itemCompra.nombre_item ||
                                                         `Item ${itemCompra.id}`}
                                                 </td>
-                                                <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                                <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                     {itemCompra.cantidad ?? '—'}
                                                 </td>
-                                                <td className='whitespace-nowrap px-3 py-2 text-right text-sm text-gray-700'>
+                                                <td className='whitespace-nowrap px-3 py-2 text-right text-sm text-gray-700 dark:text-gray-300'>
                                                     $
                                                     {(itemCompra.precio ?? 0).toLocaleString(
                                                         'es-CL',
                                                     )}
                                                 </td>
-                                                <td className='whitespace-nowrap px-3 py-2 text-right text-sm font-medium text-gray-900'>
+                                                <td className='whitespace-nowrap px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100'>
                                                     ${subtotal.toLocaleString('es-CL')}
                                                 </td>
                                             </tr>
@@ -1017,21 +1020,21 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     <div className='grid grid-cols-2 gap-4'>
                         <div>
                             <Badge className='mb-1'>Categoría</Badge>
-                            <div className='ml-4 text-sm font-medium text-gray-900'>
+                            <div className='ml-4 text-sm font-medium text-gray-900 dark:text-gray-100'>
                                 {categoriaNombre}
                             </div>
                         </div>
                         <div>
                             <Badge className='mb-1'>Fecha Gasto</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>{fechaFormateada}</div>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>{fechaFormateada}</div>
                         </div>
                         <div>
                             <Badge className='mb-1'>Cantidad</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>{data.cantidad || 1}</div>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>{data.cantidad || 1}</div>
                         </div>
                         <div>
                             <Badge className='mb-1'>Monto Unitario</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 ${data.monto_unitario?.toLocaleString('es-CL') || '0'}
                             </div>
                         </div>
@@ -1047,7 +1050,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     {data.detalle && (
                         <div className='mt-3 border-t border-amber-100 pt-3'>
                             <Badge className='mb-1'>Detalle</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>{data.detalle}</div>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>{data.detalle}</div>
                         </div>
                     )}
 
@@ -1055,7 +1058,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     {(data.usuario_comprador || data.nombre_creado_por) && (
                         <div className='mt-2'>
                             <Badge className='mb-1'>Comprador</Badge>
-                            <div className='ml-4 text-sm text-gray-700'>
+                            <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                 {typeof data.usuario_comprador === 'object'
                                     ? data.usuario_comprador?.nombre ||
                                       data.usuario_comprador?.usuario?.nombre
@@ -1106,10 +1109,10 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         <div className='grid grid-cols-3 gap-4'>
                             <div>
                                 <Badge className='mb-1'>Total Reembolso Técnico</Badge>
-                                <div className='text-lg font-semibold text-gray-900'>
+                                <div className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
                                     ${totalReembolso.toLocaleString('es-CL')}
                                 </div>
-                                <p className='text-xs text-gray-500'>
+                                <p className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                     Lo que paga la empresa al técnico
                                 </p>
                             </div>
@@ -1118,69 +1121,69 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                 <div className='text-lg font-semibold text-green-700'>
                                     ${totalFacturable.toLocaleString('es-CL')}
                                 </div>
-                                <p className='text-xs text-gray-500'>Se cobrará en la factura</p>
+                                <p className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>Se cobrará en la factura</p>
                             </div>
                             <div>
                                 <Badge className='mb-1'>Total No Facturable</Badge>
                                 <div className='text-lg font-semibold text-amber-700'>
                                     ${totalNoFacturable.toLocaleString('es-CL')}
                                 </div>
-                                <p className='text-xs text-gray-500'>Asumido por la empresa</p>
+                                <p className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>Asumido por la empresa</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
-                        <div className='mb-3 border-b border-gray-200 pb-2'>
-                            <span className='text-sm font-semibold uppercase tracking-wide text-gray-600'>
+                    <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm'>
+                        <div className='mb-3 border-b border-gray-200 dark:border-zinc-700 pb-2'>
+                            <span className='text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                 Items de la Rendición ({itemsRend.length})
                             </span>
                         </div>
                         {itemsRend.length === 0 ? (
-                            <div className='py-6 text-center text-sm text-gray-500'>
+                            <div className='py-6 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                 Sin gastos registrados
                             </div>
                         ) : (
                             <div className='overflow-x-auto'>
-                                <table className='min-w-full divide-y divide-gray-200'>
-                                    <thead className='bg-gray-50'>
+                                <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                    <thead className='bg-gray-50 dark:bg-zinc-800'>
                                         <tr>
-                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Detalle
                                             </th>
-                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Categoría
                                             </th>
-                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Cantidad
                                             </th>
-                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Monto Total
                                             </th>
-                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+                                            <th className='px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Fecha
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className='divide-y divide-gray-200 bg-white'>
+                                    <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                         {itemsRend.map((r: any, idx: number) => {
                                             const fecha =
                                                 r.fecha_gasto || r.fecha_compra || r.fecha || '';
                                             return (
-                                                <tr key={r.id || idx} className='hover:bg-gray-50'>
-                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900'>
+                                                <tr key={r.id || idx} className='hover:bg-gray-50 dark:hover:bg-zinc-800'>
+                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-900 dark:text-gray-100'>
                                                         {r.detalle || r.descripcion || '—'}
                                                     </td>
-                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                         {r.categoria_nombre ||
                                                             r.nombre_categoria ||
                                                             r.descripcion_categoria ||
                                                             '—'}
                                                     </td>
-                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                         {r.cantidad ?? 1}
                                                     </td>
-                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                         $
                                                         {(
                                                             r.monto_total ??
@@ -1189,7 +1192,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                                             0
                                                         ).toLocaleString('es-CL')}
                                                     </td>
-                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700'>
+                                                    <td className='whitespace-nowrap px-3 py-2 text-sm text-gray-700 dark:text-gray-300'>
                                                         {fecha
                                                             ? new Date(fecha).toLocaleDateString(
                                                                   'es-CL',
@@ -1217,12 +1220,36 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
             case 'soporte_tecnico':
                 return `/orden-trabajo/detalle-orden-trabajo/${item.ot_id}`;
             case 'guia_salida':
-                return item.guia_id ? `/bodega/detalle-guia-salida-bodega/${item.guia_id}` : null;
+                {
+                    const guiaId =
+                        item.guia_id ??
+                        item.parent_id ??
+                        data?.id ??
+                        itemsGuia?.[0]?.guia?.id ??
+                        null;
+                    return guiaId ? `/bodega/detalle-guia-salida-bodega/${guiaId}` : null;
+                }
             case 'rendicion_gasto':
             case 'compra_material':
                 return item.rendicion_id
                     ? `/rendicion/detalle-rendicion/${item.rendicion_id}`
                     : null;
+            case 'compra':
+                {
+                    const compraId = item.compra_id ?? item.parent_id ?? item.item_id ?? item.id;
+                    return compraId ? `/compras/detalle-compra/${compraId}` : null;
+                }
+            case 'gasto_operativo':
+                {
+                    const otId =
+                        item.ot_id ??
+                        item.orden_trabajo_id ??
+                        item.orden_trabajo ??
+                        null;
+                    return otId
+                        ? `/orden-trabajo/detalle-orden-trabajo/${otId}?tab=gastos-operativos`
+                        : null;
+                }
             default:
                 return null;
         }
@@ -1236,7 +1263,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
             <ModalBody isScrollable>
                 <div className='space-y-4'>
                     {loading ? (
-                        <div className='py-8 text-center text-sm text-gray-500'>
+                        <div className='py-8 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                             Cargando detalles...
                         </div>
                     ) : error ? (

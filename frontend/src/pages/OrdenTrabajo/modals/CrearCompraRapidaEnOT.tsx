@@ -45,6 +45,10 @@ type CompraItemForm = {
     categoria: string;
     comentarios: string;
     codigo_barras: string;
+    creandoFabricante: boolean;
+    nombreFabricante: string;
+    creandoCategoria: boolean;
+    nombreCategoria: string;
 };
 
 type CompraItemDraft = Omit<CompraItemForm, 'id'>;
@@ -62,6 +66,10 @@ const nuevoItemDraft = (): CompraItemDraft => ({
     categoria: '',
     comentarios: '',
     codigo_barras: '',
+    creandoFabricante: false,
+    nombreFabricante: '',
+    creandoCategoria: false,
+    nombreCategoria: '',
 });
 
 const getErrorMessage = (error: unknown): string => {
@@ -169,8 +177,51 @@ function CrearCompraRapidaEnOT() {
 
                     if (itemsNuevos.length > 0) {
                         await Promise.all(
-                            itemsNuevos.map((item) =>
-                                ApiService.fetchData({
+                            itemsNuevos.map(async (item) => {
+                                let fabricanteId: number | null = item.fabricante
+                                    ? Number(item.fabricante)
+                                    : null;
+                                let categoriaId: number | null = item.categoria
+                                    ? Number(item.categoria)
+                                    : null;
+
+                                // Crear fabricante si es necesario
+                                if (item.creandoFabricante && item.nombreFabricante) {
+                                    try {
+                                        const fabricanteResponse = await ApiService.fetchData<{
+                                            id: number;
+                                        }>({
+                                            url: `/api/fabricantes/`,
+                                            method: 'post',
+                                            data: { nombre: item.nombreFabricante },
+                                        });
+                                        if (fabricanteResponse.data) {
+                                            fabricanteId = fabricanteResponse.data.id;
+                                        }
+                                    } catch (error) {
+                                        console.error('Error creando fabricante:', error);
+                                    }
+                                }
+
+                                // Crear categoría si es necesario
+                                if (item.creandoCategoria && item.nombreCategoria) {
+                                    try {
+                                        const categoriaResponse = await ApiService.fetchData<{
+                                            id: number;
+                                        }>({
+                                            url: `/api/categorias/`,
+                                            method: 'post',
+                                            data: { nombre: item.nombreCategoria },
+                                        });
+                                        if (categoriaResponse.data) {
+                                            categoriaId = categoriaResponse.data.id;
+                                        }
+                                    } catch (error) {
+                                        console.error('Error creando categoría:', error);
+                                    }
+                                }
+
+                                return ApiService.fetchData({
                                     url: `/api/compras/${compraId}/items-compras/crear-item-empresa/`,
                                     method: 'post',
                                     headers: { 'Content-Type': 'application/json' },
@@ -181,15 +232,15 @@ function CrearCompraRapidaEnOT() {
                                         item_empresa: {
                                             nombre: item.nombre,
                                             descripcion_corta: item.descripcion_corta || null,
-                                            fabricante: item.fabricante || null,
-                                            categoria: item.categoria || null,
-                                            comentarios: item.comentarios || '',
-                                            codigo_barras: item.codigo_barras || '',
+                                            fabricante: fabricanteId,
+                                            categoria: categoriaId,
+                                            comentarios: item.comentarios || null,
+                                            codigo_barras: item.codigo_barras || null,
                                             empresa: empresaId,
                                         },
                                     }),
-                                }),
-                            ),
+                                });
+                            }),
                         );
                     }
 
@@ -259,6 +310,10 @@ function CrearCompraRapidaEnOT() {
                 categoria: values.categoria,
                 comentarios: values.comentarios,
                 codigo_barras: values.codigo_barras,
+                creandoFabricante: values.creandoFabricante,
+                nombreFabricante: values.nombreFabricante,
+                creandoCategoria: values.creandoCategoria,
+                nombreCategoria: values.nombreCategoria,
             };
 
             if (!nuevoItem.creando && !nuevoItem.nombre) {
@@ -470,7 +525,7 @@ function CrearCompraRapidaEnOT() {
                             </Validation>
                         </div>
 
-                        <div className='rounded border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-800'>
+                        <div className='rounded border border-gray-200 bg-white dark:bg-zinc-900 p-3 dark:border-zinc-700 dark:bg-zinc-800'>
                             <div className='mb-3 flex items-center justify-between'>
                                 <Badge>Agregar Item</Badge>
                             </div>
@@ -576,6 +631,22 @@ function CrearCompraRapidaEnOT() {
                                                                 'codigo_barras',
                                                                 '',
                                                             );
+                                                            itemFormik.setFieldValue(
+                                                                'creandoFabricante',
+                                                                false,
+                                                            );
+                                                            itemFormik.setFieldValue(
+                                                                'nombreFabricante',
+                                                                '',
+                                                            );
+                                                            itemFormik.setFieldValue(
+                                                                'creandoCategoria',
+                                                                false,
+                                                            );
+                                                            itemFormik.setFieldValue(
+                                                                'nombreCategoria',
+                                                                '',
+                                                            );
                                                         }}
                                                         onChange={(e) => {
                                                             if (e) {
@@ -610,6 +681,22 @@ function CrearCompraRapidaEnOT() {
                                                                 );
                                                                 itemFormik.setFieldValue(
                                                                     'codigo_barras',
+                                                                    '',
+                                                                );
+                                                                itemFormik.setFieldValue(
+                                                                    'creandoFabricante',
+                                                                    false,
+                                                                );
+                                                                itemFormik.setFieldValue(
+                                                                    'nombreFabricante',
+                                                                    '',
+                                                                );
+                                                                itemFormik.setFieldValue(
+                                                                    'creandoCategoria',
+                                                                    false,
+                                                                );
+                                                                itemFormik.setFieldValue(
+                                                                    'nombreCategoria',
                                                                     '',
                                                                 );
                                                             } else {
@@ -678,30 +765,76 @@ function CrearCompraRapidaEnOT() {
                                                             }>
                                                             <SelectReact
                                                                 name='fabricante'
-                                                                placeholder='Seleccione un fabricante'
+                                                                placeholder='Seleccionar o crear fabricante...'
+                                                                isCreatable={true}
                                                                 isClearable
+                                                                formatCreateLabel={(inputValue) =>
+                                                                    `Crear fabricante "${inputValue}"`
+                                                                }
                                                                 options={listaFabricante.map(
                                                                     (fab) => ({
                                                                         value: fab.id.toString(),
                                                                         label: fab.nombre,
                                                                     }),
                                                                 )}
+                                                                onCreateOption={(inputValue) => {
+                                                                    itemFormik.setFieldValue(
+                                                                        'creandoFabricante',
+                                                                        true,
+                                                                    );
+                                                                    itemFormik.setFieldValue(
+                                                                        'nombreFabricante',
+                                                                        inputValue,
+                                                                    );
+                                                                    itemFormik.setFieldValue(
+                                                                        'fabricante',
+                                                                        '',
+                                                                    );
+                                                                }}
                                                                 onChange={(e) => {
                                                                     if (e) {
+                                                                        itemFormik.setFieldValue(
+                                                                            'creandoFabricante',
+                                                                            false,
+                                                                        );
                                                                         itemFormik.setFieldValue(
                                                                             'fabricante',
                                                                             (e as TSelectOption)
                                                                                 .value,
                                                                         );
+                                                                        itemFormik.setFieldValue(
+                                                                            'nombreFabricante',
+                                                                            '',
+                                                                        );
                                                                     } else {
                                                                         itemFormik.setFieldValue(
+                                                                            'creandoFabricante',
+                                                                            false,
+                                                                        );
+                                                                        itemFormik.setFieldValue(
                                                                             'fabricante',
+                                                                            '',
+                                                                        );
+                                                                        itemFormik.setFieldValue(
+                                                                            'nombreFabricante',
                                                                             '',
                                                                         );
                                                                     }
                                                                 }}
                                                                 onBlur={itemFormik.handleBlur}
-                                                                value={fabricanteSeleccionado}
+                                                                value={
+                                                                    itemFormik.values
+                                                                        .creandoFabricante
+                                                                        ? {
+                                                                              value: itemFormik
+                                                                                  .values
+                                                                                  .nombreFabricante,
+                                                                              label: itemFormik
+                                                                                  .values
+                                                                                  .nombreFabricante,
+                                                                          }
+                                                                        : fabricanteSeleccionado
+                                                                }
                                                             />
                                                         </Validation>
                                                     </div>
@@ -716,30 +849,76 @@ function CrearCompraRapidaEnOT() {
                                                             }>
                                                             <SelectReact
                                                                 name='categoria'
-                                                                placeholder='Seleccione una categoria'
+                                                                placeholder='Seleccionar o crear categoría...'
+                                                                isCreatable={true}
                                                                 isClearable
+                                                                formatCreateLabel={(inputValue) =>
+                                                                    `Crear categoría "${inputValue}"`
+                                                                }
                                                                 options={listaCategorias.map(
                                                                     (cat) => ({
                                                                         value: cat.id.toString(),
                                                                         label: cat.nombre,
                                                                     }),
                                                                 )}
+                                                                onCreateOption={(inputValue) => {
+                                                                    itemFormik.setFieldValue(
+                                                                        'creandoCategoria',
+                                                                        true,
+                                                                    );
+                                                                    itemFormik.setFieldValue(
+                                                                        'nombreCategoria',
+                                                                        inputValue,
+                                                                    );
+                                                                    itemFormik.setFieldValue(
+                                                                        'categoria',
+                                                                        '',
+                                                                    );
+                                                                }}
                                                                 onChange={(e) => {
                                                                     if (e) {
+                                                                        itemFormik.setFieldValue(
+                                                                            'creandoCategoria',
+                                                                            false,
+                                                                        );
                                                                         itemFormik.setFieldValue(
                                                                             'categoria',
                                                                             (e as TSelectOption)
                                                                                 .value,
                                                                         );
+                                                                        itemFormik.setFieldValue(
+                                                                            'nombreCategoria',
+                                                                            '',
+                                                                        );
                                                                     } else {
                                                                         itemFormik.setFieldValue(
+                                                                            'creandoCategoria',
+                                                                            false,
+                                                                        );
+                                                                        itemFormik.setFieldValue(
                                                                             'categoria',
+                                                                            '',
+                                                                        );
+                                                                        itemFormik.setFieldValue(
+                                                                            'nombreCategoria',
                                                                             '',
                                                                         );
                                                                     }
                                                                 }}
                                                                 onBlur={itemFormik.handleBlur}
-                                                                value={categoriaSeleccionada}
+                                                                value={
+                                                                    itemFormik.values
+                                                                        .creandoCategoria
+                                                                        ? {
+                                                                              value: itemFormik
+                                                                                  .values
+                                                                                  .nombreCategoria,
+                                                                              label: itemFormik
+                                                                                  .values
+                                                                                  .nombreCategoria,
+                                                                          }
+                                                                        : categoriaSeleccionada
+                                                                }
                                                             />
                                                         </Validation>
                                                     </div>
@@ -918,11 +1097,11 @@ function CrearCompraRapidaEnOT() {
                             </div>
                         </div>
 
-                        <div className='rounded border border-gray-200 bg-gray-50 p-3 dark:border-zinc-700 dark:bg-zinc-900'>
+                        <div className='rounded border border-gray-200 bg-gray-50 dark:bg-zinc-800 p-3 dark:border-zinc-700 dark:bg-zinc-900'>
                             <div className='mb-2 flex items-center justify-between'>
                                 <Badge>Items comprados</Badge>
                             </div>
-                            <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 dark:text-gray-400 md:grid-cols-12'>
+                            <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300 md:grid-cols-12'>
                                 <div className='md:col-span-6'>Item</div>
                                 <div className='md:col-span-2'>Cantidad</div>
                                 <div className='md:col-span-2'>Precio</div>
@@ -933,12 +1112,12 @@ function CrearCompraRapidaEnOT() {
                                     items.map((item) => (
                                         <div
                                             key={item.id}
-                                            className='grid grid-cols-1 gap-2 rounded border border-gray-200 bg-white p-2 md:grid-cols-12'>
+                                            className='grid grid-cols-1 gap-2 rounded border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2 md:grid-cols-12'>
                                             <div className='md:col-span-6'>
                                                 <div className='font-medium'>
                                                     {item.nombre || 'Item sin nombre'}
                                                 </div>
-                                                <div className='text-xs text-gray-500'>
+                                                <div className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                     {item.creando ? 'Nuevo' : 'Existente'}
                                                 </div>
                                             </div>
@@ -955,10 +1134,10 @@ function CrearCompraRapidaEnOT() {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className='text-sm text-gray-500'>Sin items</div>
+                                    <div className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>Sin items</div>
                                 )}
                             </div>
-                            <p className='mt-2 text-xs text-gray-500'>
+                            <p className='mt-2 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                 Si dejas los items vacios, podras agregarlos despues desde el
                                 detalle de compra.
                             </p>

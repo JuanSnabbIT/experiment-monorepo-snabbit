@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from ordentrabajov2.cierre_validaciones import validar_requisitos_cierre_ot
 
 from cotizaciones.models import Cotizacion
 from cotizaciones.tasks import actualizar_tipo_cambio_cotizacion
@@ -688,8 +689,8 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
         # Validar requisitos si intenta pasar a "cerrada"
         nuevo_estado = data.get("estado")
-        if nuevo_estado == "cerrada" and estado_anterior == "facturada":
-            errores = self._validar_requisitos_cierre(instance)
+        if nuevo_estado == "cerrada" and estado_anterior == "En proceso Factura":
+            errores = validar_requisitos_cierre_ot(instance)
             if errores:
                 return Response(
                     {"detail": " ".join(errores)},

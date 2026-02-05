@@ -1,5 +1,38 @@
 import Swal, { SweetAlertIcon, SweetAlertResult } from 'sweetalert2';
 
+const getSweetAlertTheme = (overrides?: {
+    confirmButtonColor?: string;
+    cancelButtonColor?: string;
+}) => {
+    const isDarkTheme =
+        typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark');
+
+    const confirmButtonColor = overrides?.confirmButtonColor
+        ? overrides.confirmButtonColor
+        : isDarkTheme
+          ? '#6366f1'
+          : undefined;
+    const cancelButtonColor = overrides?.cancelButtonColor
+        ? overrides.cancelButtonColor
+        : isDarkTheme
+          ? '#52525b'
+          : undefined;
+
+    return {
+        background: isDarkTheme ? '#18181b' : undefined,
+        color: isDarkTheme ? '#e4e4e7' : undefined,
+        confirmButtonColor,
+        cancelButtonColor,
+        inputAttributes: isDarkTheme
+            ? {
+                  style:
+                      'background:#27272a;color:#e4e4e7;border:1px solid #3f3f46;',
+              }
+            : undefined,
+    };
+};
+
 type BaseAlertOptions = {
     title: string;
     text: string;
@@ -32,6 +65,7 @@ export const showAlert = async ({
         text,
         icon,
         confirmButtonText: confirmText,
+        ...getSweetAlertTheme(),
     });
 
 export const confirmAlert = async ({
@@ -50,8 +84,10 @@ export const confirmAlert = async ({
         showCancelButton: true,
         confirmButtonText: confirmText,
         cancelButtonText: cancelText,
-        confirmButtonColor: confirmColor,
-        cancelButtonColor: cancelColor,
+        ...getSweetAlertTheme({
+            confirmButtonColor: confirmColor,
+            cancelButtonColor: cancelColor,
+        }),
         reverseButtons: true,
     });
 
@@ -65,13 +101,16 @@ export const confirmCritical = async ({
     cancelText = 'Cancelar',
     confirmPhrase = 'CONFIRMAR',
 }: ConfirmCriticalOptions): Promise<boolean> => {
+    const theme = getSweetAlertTheme();
     const result = await Swal.fire({
+        ...theme,
         title,
         text,
         icon: 'warning',
         input: 'text',
         inputPlaceholder: confirmPhrase,
         inputAttributes: {
+            ...(theme.inputAttributes || {}),
             autocapitalize: 'off',
         },
         showCancelButton: true,

@@ -864,8 +864,8 @@ const FacturacionesComparativa = () => {
         <PageWrapper name='Facturación - Matching Manual'>
             <Subheader>
                 <SubheaderLeft>
-                    <h2 className='text-2xl font-bold'>Matching Manual de Facturación</h2>
-                    <p className='mt-1 text-sm text-gray-600'>
+                    <h2 className='text-2xl font-bold dark:text-white'>Matching Manual de Facturación</h2>
+                    <p className='mt-1 text-sm text-gray-600 dark:text-gray-400'>
                         Selecciona un contrato y sus órdenes de trabajo para comparar y hacer
                         matching
                     </p>
@@ -882,7 +882,7 @@ const FacturacionesComparativa = () => {
                 <div className='grid grid-cols-1 gap-6 lg:grid-cols-3'>
                     {/* DROPDOWN EMPRESA CLIENTE */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700'>
+                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
                             Selecciona Empresa Cliente
                         </label>
                         <select
@@ -892,7 +892,7 @@ const FacturacionesComparativa = () => {
                                     e.target.value ? Number(e.target.value) : null,
                                 )
                             }
-                            className='w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 font-semibold text-gray-900 transition focus:border-blue-500 focus:outline-none'>
+                            className='w-full rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 font-semibold text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100'>
                             <option value=''>-- Selecciona una empresa --</option>
                             {empresasClienteDisponibles.map((empresaId) => (
                                 <option key={empresaId} value={empresaId}>
@@ -904,17 +904,17 @@ const FacturacionesComparativa = () => {
 
                     {/* DROPDOWN CONTRATOS */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700'>
+                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
                             Selecciona Contrato
                         </label>
                         <select
                             value={selectedContratoId}
                             onChange={(e) => handleSelectContrato(Number(e.target.value) || '')}
                             disabled={selectedEmpresaClienteId === null}
-                            className={`w-full rounded-lg border-2 border-gray-300 px-4 py-3 font-semibold transition focus:border-blue-500 focus:outline-none ${
+                            className={`w-full rounded-lg border-2 border-gray-300 dark:border-gray-700 px-4 py-3 font-semibold transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:border-gray-500 ${
                                 selectedEmpresaClienteId === null
-                                    ? 'cursor-not-allowed bg-gray-100 text-gray-500'
-                                    : 'bg-white text-gray-900'
+                                    ? 'cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                                    : 'bg-white dark:bg-gray-900 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
                             }`}>
                             <option value=''>-- Selecciona un contrato --</option>
                             {listaContratosDeEmpresaYCliente.map((contrato) => (
@@ -924,7 +924,7 @@ const FacturacionesComparativa = () => {
                             ))}
                         </select>
                         {selectedEmpresaClienteId === null && (
-                            <p className='text-xs italic text-gray-500'>
+                            <p className='text-xs italic text-gray-500 dark:text-gray-400'>
                                 Selecciona una empresa cliente primero
                             </p>
                         )}
@@ -932,7 +932,7 @@ const FacturacionesComparativa = () => {
 
                     {/* SELECTOR DE OTs */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700'>
+                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
                             Selecciona Órdenes de Trabajo
                         </label>
                         <div className='relative' ref={dropdownRef}>
@@ -941,13 +941,13 @@ const FacturacionesComparativa = () => {
                                     if (selectedEmpresaClienteId === null) return;
                                     setShowOtDropdown(!showOtDropdown);
                                 }}
-                                className={`w-full cursor-pointer rounded-lg border-2 border-gray-300 px-4 py-3 font-semibold transition focus:outline-none ${
+                                className={`w-full cursor-pointer rounded-lg border-2 border-gray-300 dark:border-gray-700 px-4 py-3 font-semibold transition focus:outline-none ${
                                     selectedEmpresaClienteId === null
-                                        ? 'pointer-events-none cursor-not-allowed bg-gray-100 text-gray-500'
-                                        : 'bg-white text-gray-900 hover:border-gray-400'
+                                        ? 'pointer-events-none cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                        : 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:border-gray-400 dark:border-gray-600'
                                 }`}>
                                 {selectedOts.length === 0 ? (
-                                    <span className='text-sm text-gray-500'>
+                                    <span className='text-sm text-gray-500 dark:text-gray-400'>
                                         -- Selecciona OTs --
                                     </span>
                                 ) : (
@@ -958,14 +958,14 @@ const FacturacionesComparativa = () => {
                             </div>
 
                             {showOtDropdown && selectedEmpresaClienteId !== null && (
-                                <div className='absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border-2 border-gray-300 bg-white shadow-lg'>
-                                    <div className='border-b border-gray-200 p-3'>
+                                <div className='absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg dark:border-gray-600 dark:border-gray-500 dark:bg-gray-800'>
+                                    <div className='border-b border-gray-200 dark:border-gray-700 p-3'>
                                         <input
                                             type='text'
                                             placeholder='Buscar OT por ID o cliente...'
                                             value={searchOtInput}
                                             onChange={(e) => setSearchOtInput(e.target.value)}
-                                            className='w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+                                            className='w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
                                         />
                                     </div>
 
@@ -974,7 +974,7 @@ const FacturacionesComparativa = () => {
                                             otasFiltradas.map((ot) => (
                                                 <label
                                                     key={ot.id}
-                                                    className='flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-2 last:border-0 hover:bg-gray-100'>
+                                                    className='flex cursor-pointer items-center gap-3 border-b border-gray-100 dark:border-gray-700 px-4 py-2 last:border-0 hover:bg-gray-100 dark:hover:bg-gray-700'>
                                                     <input
                                                         type='checkbox'
                                                         checked={selectedOts.includes(ot.id)}
@@ -985,7 +985,7 @@ const FacturacionesComparativa = () => {
                                                         <p className='font-medium'>
                                                             OT #{ot.id} - {ot.cliente_nombre}
                                                         </p>
-                                                        <p className='text-xs text-gray-600'>
+                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                             Finalizada:{' '}
                                                             {dayjs(ot.fecha_finalizacion_ot).format(
                                                                 'DD/MM/YYYY',
@@ -995,7 +995,7 @@ const FacturacionesComparativa = () => {
                                                 </label>
                                             ))
                                         ) : (
-                                            <div className='p-4 text-center text-sm text-gray-500'>
+                                            <div className='p-4 text-center text-sm text-gray-500 dark:text-gray-400'>
                                                 No hay OTs disponibles
                                             </div>
                                         )}
@@ -1037,11 +1037,11 @@ const FacturacionesComparativa = () => {
                                         {selectedContratoId && contratoSeleccionado ? (
                                             <>
                                                 {/* HEADER COMPACTO */}
-                                                <div className='border-b pb-2'>
-                                                    <h3 className='text-sm font-bold text-blue-600'>
+                                                <div className='border-b border-gray-200 pb-2 dark:border-gray-700'>
+                                                    <h3 className='text-sm font-bold text-blue-600 dark:text-blue-400'>
                                                         {contratoSeleccionado.nombre}
                                                     </h3>
-                                                    <p className='text-xs text-gray-500'>
+                                                    <p className='text-xs text-gray-500 dark:text-gray-400'>
                                                         ID #{contratoSeleccionado.id} |{' '}
                                                         {contratoSeleccionado.datos_empresa?.nombre}
                                                     </p>
@@ -1051,22 +1051,22 @@ const FacturacionesComparativa = () => {
                                                 {(contratoSeleccionado as any)?.contrato_servicios
                                                     ?.length > 0 ? (
                                                     <div>
-                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
                                                             Servicios Contratados
                                                         </h4>
-                                                        <div className='overflow-hidden rounded border'>
-                                                            <table className='w-full text-xs'>
-                                                                <thead className='bg-gray-100'>
+                                                        <div className='overflow-hidden rounded border border-gray-300 dark:border-gray-600'>
+                                                            <table className='w-full text-xs dark:text-gray-100'>
+                                                                <thead className='bg-gray-100 dark:bg-gray-800'>
                                                                     <tr>
-                                                                        <th className='px-2 py-1 text-left font-medium text-gray-700'>
+                                                                        <th className='px-2 py-1 text-left font-medium text-gray-700 dark:text-gray-300'>
                                                                             Servicio
                                                                         </th>
-                                                                        <th className='px-2 py-1 text-right font-medium text-gray-700'>
+                                                                        <th className='px-2 py-1 text-right font-medium text-gray-700 dark:text-gray-300'>
                                                                             Monto
                                                                         </th>
                                                                     </tr>
                                                                 </thead>
-                                                                <tbody className='divide-y bg-white'>
+                                                                <tbody className='divide-y bg-white dark:bg-gray-900'>
                                                                     {(
                                                                         contratoSeleccionado as any
                                                                     ).contrato_servicios.map(
@@ -1076,13 +1076,13 @@ const FacturacionesComparativa = () => {
                                                                         ) => (
                                                                             <tr
                                                                                 key={idx}
-                                                                                className='hover:bg-gray-50'>
-                                                                                <td className='px-2 py-1.5 text-gray-800'>
+                                                                                className='hover:bg-gray-50 dark:hover:bg-gray-700'>
+                                                                                <td className='px-2 py-1.5 text-gray-800 dark:text-gray-100'>
                                                                                     {servicio.nombre ||
                                                                                         servicio.descripcion ||
                                                                                         'Servicio'}
                                                                                 </td>
-                                                                                <td className='px-2 py-1.5 text-right font-medium text-gray-800'>
+                                                                                <td className='px-2 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100'>
                                                                                     $
                                                                                     {(
                                                                                         servicio.precio ||
@@ -1099,11 +1099,11 @@ const FacturacionesComparativa = () => {
                                                         </div>
                                                     </div>
                                                 ) : loadingPactado ? (
-                                                    <div className='py-4 text-center text-xs text-gray-600'>
+                                                    <div className='py-4 text-center text-xs text-gray-600 dark:text-gray-400'>
                                                         Cargando...
                                                     </div>
                                                 ) : (
-                                                    <div className='py-4 text-center text-xs text-gray-500'>
+                                                    <div className='py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
                                                         Sin servicios contratados
                                                     </div>
                                                 )}
@@ -1115,7 +1115,7 @@ const FacturacionesComparativa = () => {
                                                         .contrato_condiciones_especiales.length >
                                                         0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
                                                                 Condiciones Especiales
                                                             </h4>
                                                             <div className='space-y-2'>
@@ -1125,9 +1125,9 @@ const FacturacionesComparativa = () => {
                                                                     (cond: any, idx: number) => (
                                                                         <div
                                                                             key={idx}
-                                                                            className='rounded-md bg-yellow-50 px-3 py-2 text-xs text-gray-800'>
+                                                                            className='rounded-md bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 px-3 py-2 text-xs text-gray-800 dark:text-yellow-200'>
                                                                             <details className='cursor-pointer'>
-                                                                                <summary className='font-medium text-yellow-900'>
+                                                                                <summary className='font-medium text-yellow-900 dark:text-yellow-300'>
                                                                                     {typeof cond ===
                                                                                     'string'
                                                                                         ? cond.substring(
@@ -1142,7 +1142,7 @@ const FacturacionesComparativa = () => {
                                                                                           cond.nombre ||
                                                                                           'Condición'}
                                                                                 </summary>
-                                                                                <p className='mt-2 text-xs text-gray-700'>
+                                                                                <p className='mt-2 text-xs text-gray-700 dark:text-gray-300'>
                                                                                     {typeof cond ===
                                                                                     'string'
                                                                                         ? cond
@@ -1160,11 +1160,11 @@ const FacturacionesComparativa = () => {
 
                                                 {/* OBSERVACIONES */}
                                                 {(contratoSeleccionado as any)?.observaciones && (
-                                                    <div className='mt-3 rounded-md border-l-4 border-blue-400 bg-blue-50 p-3'>
-                                                        <p className='mb-1 text-xs font-semibold text-blue-900'>
+                                                    <div className='mt-3 rounded-md border-l-4 border-blue-400 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 p-3'>
+                                                        <p className='mb-1 text-xs font-semibold text-blue-900 dark:text-blue-300'>
                                                             Observaciones
                                                         </p>
-                                                        <p className='text-xs leading-relaxed text-blue-800'>
+                                                        <p className='text-xs leading-relaxed text-blue-800 dark:text-blue-200'>
                                                             {
                                                                 (contratoSeleccionado as any)
                                                                     .observaciones
@@ -1180,24 +1180,24 @@ const FacturacionesComparativa = () => {
                                                     (contratoSeleccionado as any).contrato_visitas
                                                         .length > 0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
                                                                 Visitas Programadas
                                                             </h4>
-                                                            <div className='space-y-2 rounded-md border border-green-300 bg-green-50 p-2'>
+                                                            <div className='space-y-2 rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 p-2'>
                                                                 {(
                                                                     contratoSeleccionado as any
                                                                 ).contrato_visitas.map(
                                                                     (visita: any, idx: number) => (
                                                                         <div
                                                                             key={idx}
-                                                                            className='flex items-start justify-between rounded bg-white p-2'>
+                                                                            className='flex items-start justify-between rounded bg-white dark:bg-gray-800 p-2'>
                                                                             <div>
-                                                                                <p className='font-medium text-gray-800'>
+                                                                                <p className='font-medium text-gray-800 dark:text-gray-100'>
                                                                                     {visita.tipo ||
                                                                                         visita.nombre ||
                                                                                         'Visita'}
                                                                                 </p>
-                                                                                <p className='text-xs text-gray-600'>
+                                                                                <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                                                     Frecuencia:{' '}
                                                                                     {visita.frecuencia ||
                                                                                         'Mensual'}
@@ -1218,19 +1218,19 @@ const FacturacionesComparativa = () => {
                                                     (contratoSeleccionado as any)
                                                         .usuarios_vinculados.length > 0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
                                                                 Usuarios Vinculados
                                                             </h4>
-                                                            <div className='overflow-x-auto rounded-md border'>
-                                                                <table className='w-full text-xs'>
-                                                                    <thead className='bg-gray-100'>
+                                                            <div className='overflow-x-auto rounded-md border border-gray-300 dark:border-gray-600'>
+                                                                <table className='w-full text-xs dark:text-gray-100'>
+                                                                    <thead className='bg-gray-100 dark:bg-gray-800 dark:text-gray-300'>
                                                                         <tr>
-                                                                            <th className='p-2 text-left font-semibold text-gray-700'>
+                                                                            <th className='p-2 text-left font-semibold text-gray-700 dark:text-gray-300'>
                                                                                 Usuario
                                                                             </th>
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody className='divide-y'>
+                                                                    <tbody className='divide-y dark:divide-gray-700'>
                                                                         {(
                                                                             contratoSeleccionado as any
                                                                         ).usuarios_vinculados.map(
@@ -1240,8 +1240,8 @@ const FacturacionesComparativa = () => {
                                                                             ) => (
                                                                                 <tr
                                                                                     key={idx}
-                                                                                    className='hover:bg-gray-50'>
-                                                                                    <td className='p-2 text-gray-800'>
+                                                                                    className='hover:bg-gray-50 dark:hover:bg-gray-700'>
+                                                                                    <td className='p-2 text-gray-800 dark:text-gray-100'>
                                                                                         Usuario #
                                                                                         {usuarioId}
                                                                                     </td>
@@ -1256,7 +1256,7 @@ const FacturacionesComparativa = () => {
                                             </>
                                         ) : (
                                             <div className='py-6 text-center'>
-                                                <p className='text-sm font-semibold text-gray-600'>
+                                                <p className='text-sm font-semibold text-gray-600 dark:text-gray-400'>
                                                     Selecciona un contrato para ver los detalles
                                                 </p>
                                             </div>
@@ -1269,12 +1269,12 @@ const FacturacionesComparativa = () => {
                                     <Card className='shadow-md'>
                                         <CardBody className='space-y-3'>
                                             <CardTitle>
-                                                <h3 className='text-sm font-bold text-blue-600'>
+                                                <h3 className='text-sm font-bold text-blue-600 dark:text-blue-400'>
                                                     Cotizaciones relacionadas
                                                 </h3>
                                             </CardTitle>
                                             {loadingCotizaciones && (
-                                                <div className='text-xs text-gray-500'>
+                                                <div className='text-xs text-gray-500 dark:text-gray-400'>
                                                     Cargando cotizaciones...
                                                 </div>
                                             )}
@@ -1295,17 +1295,24 @@ const FacturacionesComparativa = () => {
                                                         const titulo = `Nro${detalle.numero_cotizacion ?? cotizacion.numero_cotizacion} - ${
                                                             detalle.nombre ?? cotizacion.nombre
                                                         }`;
+                                                        const aprobadosItems = items.filter(
+                                                            (item) => item.aprobado,
+                                                        );
+                                                        const totalAprobados = aprobadosItems.reduce(
+                                                            (acc, item) => acc + getPrecioTotal(item),
+                                                            0,
+                                                        );
 
                                                         return (
                                                             <div
                                                                 key={cotizacion.id}
-                                                                className='rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
+                                                                className='rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
                                                                 <div className='flex flex-wrap items-start justify-between gap-2'>
                                                                     <div>
-                                                                        <p className='text-sm font-semibold text-gray-800'>
+                                                                        <p className='text-sm font-semibold text-gray-800 dark:text-gray-100'>
                                                                             {titulo}
                                                                         </p>
-                                                                        <p className='text-xs text-gray-500'>
+                                                                        <p className='text-xs text-gray-500 dark:text-gray-400'>
                                                                             Estado:{' '}
                                                                             {detalle.estado_label ??
                                                                                 cotizacion.estado_label ??
@@ -1313,12 +1320,12 @@ const FacturacionesComparativa = () => {
                                                                                 cotizacion.estado}
                                                                         </p>
                                                                     </div>
-                                                                    <span className='text-xs text-gray-500'>
+                                                                    <span className='text-xs text-gray-500 dark:text-gray-400'>
                                                                         {items.length} items
                                                                     </span>
                                                                 </div>
 
-                                                                <div className='mt-3 grid grid-cols-1 gap-2 text-xs text-gray-700 md:grid-cols-2'>
+                                                                <div className='mt-3 grid grid-cols-1 gap-2 text-xs text-gray-700 dark:text-gray-300 md:grid-cols-2'>
                                                                     <div>
                                                                         <span className='font-semibold'>
                                                                             Descripcion:
@@ -1376,9 +1383,9 @@ const FacturacionesComparativa = () => {
                                                                     </div>
                                                                 </div>
 
-                                                                <div className='mt-4 overflow-x-auto rounded-md border border-gray-200'>
-                                                                    <table className='w-full text-xs'>
-                                                                        <thead className='bg-gray-100 text-gray-700'>
+                                                                <div className='mt-4 overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700'>
+                                                                    <table className='w-full text-xs dark:text-gray-100'>
+                                                                        <thead className='bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'>
                                                                             <tr>
                                                                                 <th className='px-3 py-2 text-left font-semibold'>
                                                                                     Nombre
@@ -1394,7 +1401,7 @@ const FacturacionesComparativa = () => {
                                                                                 </th>
                                                                             </tr>
                                                                         </thead>
-                                                                        <tbody className='divide-y bg-white'>
+                                                                        <tbody className='divide-y bg-white dark:bg-gray-800 dark:divide-gray-700'>
                                                                             {items.length > 0 ? (
                                                                                 items.map(
                                                                                     (item) => (
@@ -1402,7 +1409,11 @@ const FacturacionesComparativa = () => {
                                                                                             key={
                                                                                                 item.id
                                                                                             }
-                                                                                            className='text-gray-800'>
+                                                                                            className={`border-l-4 ${
+                                                                                                item.aprobado
+                                                                                                    ? 'border-l-green-500 bg-white dark:bg-gray-800 dark:text-gray-100'
+                                                                                                    : 'border-l-gray-200 bg-gray-50 dark:border-l-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                                                            }`}>
                                                                                             <td className='px-3 py-2'>
                                                                                                 <div className='font-medium'>
                                                                                                     {
@@ -1410,7 +1421,7 @@ const FacturacionesComparativa = () => {
                                                                                                     }
                                                                                                 </div>
                                                                                                 {item.descripcion && (
-                                                                                                    <div className='text-[11px] text-gray-500'>
+                                                                                                    <div className='text-[11px] text-gray-500 dark:text-gray-400'>
                                                                                                         {
                                                                                                             item.descripcion
                                                                                                         }
@@ -1428,7 +1439,7 @@ const FacturacionesComparativa = () => {
                                                                                                     moneda,
                                                                                                 )}
                                                                                             </td>
-                                                                                            <td className='px-3 py-2 text-right font-semibold text-gray-800'>
+                                                                                            <td className='px-3 py-2 text-right font-semibold text-gray-800 dark:text-gray-100'>
                                                                                                 {formatCurrency(
                                                                                                     getPrecioTotal(item),
                                                                                                     moneda,
@@ -1441,7 +1452,7 @@ const FacturacionesComparativa = () => {
                                                                                 <tr>
                                                                                     <td
                                                                                         colSpan={4}
-                                                                                        className='px-3 py-4 text-center text-xs text-gray-500'>
+                                                                                        className='px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
                                                                                         Sin items en
                                                                                         la
                                                                                         cotizacion
@@ -1452,21 +1463,47 @@ const FacturacionesComparativa = () => {
                                                                     </table>
                                                                 </div>
 
-                                                                <div className='mt-3 text-right text-xs text-gray-600'>
-                                                                    Total:{' '}
-                                                                    <span className='font-semibold text-gray-800'>
-                                                                        {formatCurrency(
-                                                                            totalItems,
-                                                                            moneda,
-                                                                        )}
-                                                                    </span>
+                                                                <div className='mt-3 space-y-2 text-right text-xs text-gray-600 dark:text-gray-400'>
+                                                                    {aprobadosItems.length > 0 && (
+                                                                        <div>
+                                                                            Total Aprobados:{' '}
+                                                                            <span className='font-semibold text-green-600'>
+                                                                                {formatCurrency(
+                                                                                    totalAprobados,
+                                                                                    moneda,
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {items.length !== aprobadosItems.length && (
+                                                                        <div>
+                                                                            Total General:{' '}
+                                                                            <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                                {formatCurrency(
+                                                                                    totalItems,
+                                                                                    moneda,
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {items.length === aprobadosItems.length && (
+                                                                        <div>
+                                                                            Total:{' '}
+                                                                            <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                                {formatCurrency(
+                                                                                    totalItems,
+                                                                                    moneda,
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
                                                 </div>
                                             ) : (
-                                                <div className='py-4 text-center text-xs text-gray-500'>
+                                                <div className='py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
                                                     Sin cotizaciones vinculadas
                                                 </div>
                                             )}
@@ -1492,27 +1529,27 @@ const FacturacionesComparativa = () => {
                                         {/* Resumen */}
                                         <div className='mb-4 grid grid-cols-4 gap-2 text-center'>
                                             <div>
-                                                <p className='text-xs text-gray-600'>Trabajos</p>
+                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Trabajos</p>
                                                 <p className='text-lg font-bold text-green-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.trabajos ||
                                                         0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600'>Guías</p>
+                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Guías</p>
                                                 <p className='text-lg font-bold text-green-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.guias || 0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600'>Compras</p>
+                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Compras</p>
                                                 <p className='text-lg font-bold text-green-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.compras ||
                                                         0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600'>
+                                                <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                     Gastos Operativos
                                                 </p>
                                                 <p className='text-lg font-bold text-green-600'>
@@ -1523,18 +1560,18 @@ const FacturacionesComparativa = () => {
                                         </div>
 
                                         {/* Acciones de prefactura */}
-                                        <div className='mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
+                                        <div className='mb-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
                                             <h3 className='mb-3 text-base font-semibold'>
                                                 Acciones
                                             </h3>
                                             <div className='flex flex-wrap items-center gap-3'>
                                                 <div className='flex flex-col gap-1'>
-                                                    <label className='text-xs font-semibold uppercase text-gray-500'>
+                                                    <label className='text-xs font-semibold uppercase text-gray-500 dark:text-gray-400'>
                                                         Fecha de prefactura
                                                     </label>
                                                     <input
                                                         type='date'
-                                                        className='h-9 rounded border border-gray-300 px-2 text-sm shadow-sm'
+                                                        className='h-9 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 text-sm shadow-sm'
                                                         value={fechaPrefactura}
                                                         onChange={(event) =>
                                                             setFechaPrefactura(
@@ -1543,13 +1580,13 @@ const FacturacionesComparativa = () => {
                                                         }
                                                     />
                                                     {cargandoTipoCambio && (
-                                                        <span className='text-xs text-gray-400'>
+                                                        <span className='text-xs text-gray-400 dark:text-gray-300'>
                                                             Cargando dólar/UF...
                                                         </span>
                                                     )}
                                                     {!cargandoTipoCambio &&
                                                         tipoCambioSeleccionado && (
-                                                            <span className='text-xs text-gray-500'>
+                                                            <span className='text-xs text-gray-500 dark:text-gray-400'>
                                                                 Dólar:{' '}
                                                                 {formatCurrency(
                                                                     tipoCambioSeleccionado.dolar ??
@@ -1587,7 +1624,7 @@ const FacturacionesComparativa = () => {
                                                     items)
                                                 </Button>
                                                 {totales.countNoFacturables > 0 && (
-                                                    <span className='text-sm text-gray-600'>
+                                                    <span className='text-sm text-gray-600 dark:text-gray-400'>
                                                         {totales.countNoFacturables} items excluidos
                                                     </span>
                                                 )}
@@ -1599,8 +1636,8 @@ const FacturacionesComparativa = () => {
                                         Array.isArray(ejecutadoData.ejecutado.items) &&
                                         ejecutadoData.ejecutado.items.length > 0 ? (
                                             <div className='overflow-x-auto'>
-                                                <table className='w-full text-xs'>
-                                                    <thead className='border-b-2 border-gray-300 bg-gray-100'>
+                                                <table className='w-full text-xs dark:text-gray-100'>
+                                                    <thead className='border-b-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800'>
                                                         <tr>
                                                             <th className='p-2 text-left font-semibold'>
                                                                 Tipo
@@ -1617,7 +1654,7 @@ const FacturacionesComparativa = () => {
                                                             <th className='p-2 text-right font-semibold'>
                                                                 Total
                                                             </th>
-                                                            <th className='border-l-2 border-gray-300 p-2 text-center font-semibold'>
+                                                            <th className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center font-semibold'>
                                                                 Facturar
                                                             </th>
                                                             <th className='p-2 text-right font-semibold'>
@@ -1666,7 +1703,7 @@ const FacturacionesComparativa = () => {
                                                                             }>
                                                                             <td
                                                                                 colSpan={8}
-                                                                                className='p-2 font-bold text-gray-700'>
+                                                                                className='p-2 font-bold text-gray-700 dark:text-gray-300'>
                                                                                 OT #{otId}
                                                                             </td>
                                                                         </tr>,
@@ -1813,10 +1850,10 @@ const FacturacionesComparativa = () => {
                                                                             rows.push(
                                                                                 <tr
                                                                                     key={`sep-grupo-${otId}-${grupoKey}`}
-                                                                                    className='bg-gray-100'>
+                                                                                    className='bg-gray-100 dark:bg-gray-800'>
                                                                                     <td
                                                                                         colSpan={8}
-                                                                                        className='p-1.5 pl-6 text-xs font-semibold text-gray-600'>
+                                                                                        className='p-1.5 pl-6 text-xs font-semibold text-gray-600 dark:text-gray-400'>
                                                                                         {
                                                                                             nombreGrupo
                                                                                         }
@@ -1841,7 +1878,7 @@ const FacturacionesComparativa = () => {
                                                                                     rows.push(
                                                                                         <tr
                                                                                             key={`${item.tipo}_${item.id}_${item.ot_id || 'no_ot'}`}
-                                                                                            className='border-b hover:bg-gray-50'>
+                                                                                            className='border-b hover:bg-gray-50 dark:hover:bg-gray-700'>
                                                                                             <td className='p-2 pl-8'>
                                                                                                 <Badge
                                                                                                     variant={
@@ -1856,7 +1893,7 @@ const FacturacionesComparativa = () => {
                                                                                                     }
                                                                                                 </Badge>
                                                                                             </td>
-                                                                                            <td className='p-2 text-gray-800'>
+                                                                                            <td className='p-2 text-gray-800 dark:text-gray-100'>
                                                                                                 <div className='font-medium'>
                                                                                                     {item.nombre ||
                                                                                                         'Sin nombre'}
@@ -1887,7 +1924,7 @@ const FacturacionesComparativa = () => {
                                                                                                     'CLP',
                                                                                                 )}
                                                                                             </td>
-                                                                                            <td className='border-l-2 border-gray-300 p-2 text-center'>
+                                                                                            <td className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center'>
                                                                                                 <input
                                                                                                     type='checkbox'
                                                                                                     checked={
@@ -1937,7 +1974,7 @@ const FacturacionesComparativa = () => {
                                                                                                             },
                                                                                                         )
                                                                                                     }
-                                                                                                    className='w-20 rounded border px-2 py-1 text-right text-xs'
+                                                                                                    className='w-20 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-right text-xs'
                                                                                                 />
                                                                                             </td>
                                                                                             <td className='p-2'>
@@ -1961,7 +1998,7 @@ const FacturacionesComparativa = () => {
                                                                                                             },
                                                                                                         )
                                                                                                     }
-                                                                                                    className='w-full rounded border px-2 py-1 text-xs'
+                                                                                                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-xs'
                                                                                                 />
                                                                                             </td>
                                                                                         </tr>,
@@ -1980,35 +2017,35 @@ const FacturacionesComparativa = () => {
 
                                                 {/* Totales de prefactura */}
                                                 <div className='mt-4 grid grid-cols-4 gap-3'>
-                                                    <div className='rounded-lg bg-blue-50 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600'>
+                                                    <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                             Items
                                                         </p>
-                                                        <p className='text-lg font-bold'>
+                                                        <p className='text-lg font-bold dark:text-gray-100'>
                                                             {totales.totalItems}
                                                         </p>
                                                     </div>
-                                                    <div className='rounded-lg bg-green-50 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600'>
+                                                    <div className='rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                             A Facturar
                                                         </p>
-                                                        <p className='text-lg font-bold text-green-600'>
+                                                        <p className='text-lg font-bold text-green-600 dark:text-green-400'>
                                                             {totales.countFacturables}
                                                         </p>
                                                     </div>
-                                                    <div className='rounded-lg bg-red-50 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600'>
+                                                    <div className='rounded-lg bg-red-50 dark:bg-red-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                             No Facturar
                                                         </p>
-                                                        <p className='text-lg font-bold text-red-600'>
+                                                        <p className='text-lg font-bold text-red-600 dark:text-red-400'>
                                                             {totales.countNoFacturables}
                                                         </p>
                                                     </div>
-                                                    <div className='rounded-lg bg-purple-50 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600'>
+                                                    <div className='rounded-lg bg-purple-50 dark:bg-purple-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
                                                             Total
                                                         </p>
-                                                        <p className='text-lg font-bold text-purple-600'>
+                                                        <p className='text-lg font-bold text-purple-600 dark:text-purple-400'>
                                                             {formatCurrency(
                                                                 totales.totalFacturable,
                                                                 'CLP',
@@ -2018,8 +2055,8 @@ const FacturacionesComparativa = () => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className='mt-4 rounded-lg border-2 border-dashed border-gray-300 p-4 text-center'>
-                                                <p className='text-sm text-gray-500'>
+                                            <div className='mt-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 p-4 text-center'>
+                                                <p className='text-sm text-gray-500 dark:text-gray-400'>
                                                     No hay servicios registrados
                                                 </p>
                                             </div>
@@ -2029,7 +2066,7 @@ const FacturacionesComparativa = () => {
                             ) : (
                                 <Card>
                                     <CardBody>
-                                        <p className='text-sm text-gray-500'>
+                                        <p className='text-sm text-gray-500 dark:text-gray-400'>
                                             Selecciona OTs para ver el ejecutado.
                                         </p>
                                     </CardBody>
@@ -2049,18 +2086,18 @@ const FacturacionesComparativa = () => {
                                 <h3 className='text-lg font-bold'>Resumen Comparativo</h3>
                             </CardTitle>
                             <div className='mt-4 grid grid-cols-1 gap-4 md:grid-cols-3'>
-                                <div className='rounded-lg bg-blue-50 p-4 text-center'>
-                                    <p className='text-sm text-gray-600'>Total Pactado</p>
-                                    <p className='text-3xl font-bold text-blue-600'>
+                                <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-4 text-center'>
+                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Total Pactado</p>
+                                    <p className='text-3xl font-bold text-blue-600 dark:text-blue-400'>
                                         $
                                         {Number(comparativaData.pactado.total).toLocaleString(
                                             'es-CL',
                                         )}
                                     </p>
                                 </div>
-                                <div className='rounded-lg bg-green-50 p-4 text-center'>
-                                    <p className='text-sm text-gray-600'>Total Ejecutado</p>
-                                    <p className='text-3xl font-bold text-green-600'>
+                                <div className='rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30 p-4 text-center'>
+                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Total Ejecutado</p>
+                                    <p className='text-3xl font-bold text-green-600 dark:text-green-400'>
                                         $
                                         {Number(comparativaData.ejecutado.total).toLocaleString(
                                             'es-CL',
@@ -2070,22 +2107,22 @@ const FacturacionesComparativa = () => {
                                 <div
                                     className={`rounded-lg p-4 text-center ${
                                         comparativaData.diferencia >= 0
-                                            ? 'bg-emerald-50'
-                                            : 'bg-red-50'
+                                            ? 'bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30'
+                                            : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-30'
                                     }`}>
-                                    <p className='text-sm text-gray-600'>Diferencia</p>
+                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Diferencia</p>
                                     <p
                                         className={`text-3xl font-bold ${
                                             comparativaData.diferencia >= 0
-                                                ? 'text-emerald-600'
-                                                : 'text-red-600'
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : 'text-red-600 dark:text-red-400'
                                         }`}>
                                         $
                                         {Math.abs(comparativaData.diferencia).toLocaleString(
                                             'es-CL',
                                         )}
                                     </p>
-                                    <p className='mt-2 text-xs text-gray-500'>
+                                    <p className='mt-2 text-xs text-gray-500 dark:text-gray-400'>
                                         {comparativaData.diferencia >= 0 ? '+ Sobra' : '- Falta'}
                                     </p>
                                 </div>
@@ -2108,3 +2145,6 @@ const FacturacionesComparativa = () => {
 };
 
 export default FacturacionesComparativa;
+
+
+

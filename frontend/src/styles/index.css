@@ -88,6 +88,14 @@
     .svg-icon {
         @apply h-[1em] w-[1em];
     }
+
+    .signature-surface {
+        @apply rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-100;
+    }
+
+    .signature-canvas {
+        @apply block h-full w-full bg-white;
+    }
 }
 
 @layer utilities {

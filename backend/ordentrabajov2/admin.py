@@ -162,6 +162,7 @@ class CierreAdministrativoOTAdmin(admin.ModelAdmin):
         "fecha_modificacion",
         "creado_por",
         "actualizado_por",
+        "documento_factura",
     ]
     raw_id_fields = ["cliente", "creado_por", "actualizado_por"]
 

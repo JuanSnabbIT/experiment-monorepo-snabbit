@@ -2,6 +2,7 @@ import React, { FC, memo } from 'react';
 import ReactApexChart, { Props } from 'react-apexcharts';
 import colors from 'tailwindcss/colors';
 import _ from 'lodash';
+import useDarkMode from '../hooks/useDarkMode';
 
 export interface IChartProps extends Props {
     width?: string | number;
@@ -10,6 +11,11 @@ export interface IChartProps extends Props {
 
 const Chart: FC<IChartProps> = (props) => {
     const { series, options, type, width = '100%', height = 'auto' } = props;
+    const { isDarkTheme } = useDarkMode();
+
+    const gridColor = isDarkTheme ? `${colors.zinc['700']}55` : `${colors.zinc['300']}55`;
+    const axisColor = isDarkTheme ? `${colors.zinc['600']}80` : `${colors.zinc['400']}80`;
+    const labelColor = isDarkTheme ? colors.zinc['300'] : colors.zinc['600'];
 
     const defaultOptions: Props['options'] = {
         chart: {
@@ -29,7 +35,7 @@ const Chart: FC<IChartProps> = (props) => {
         },
         grid: {
             show: true,
-            borderColor: `${colors.zinc['500']}25`,
+            borderColor: gridColor,
             strokeDashArray: 0,
             xaxis: {
                 lines: {
@@ -51,7 +57,7 @@ const Chart: FC<IChartProps> = (props) => {
         },
         legend: {
             labels: {
-                colors: colors.zinc['500'],
+                colors: labelColor,
             },
         },
         plotOptions: {
@@ -78,32 +84,32 @@ const Chart: FC<IChartProps> = (props) => {
         },
 
         tooltip: {
-            theme: 'dark',
+            theme: isDarkTheme ? 'dark' : 'light',
         },
 
         xaxis: {
             axisBorder: {
                 show: true,
-                color: `${colors.zinc['500']}50`,
+                color: axisColor,
             },
             axisTicks: {
                 show: false,
             },
             labels: {
                 style: {
-                    colors: colors.zinc['500'],
+                    colors: labelColor,
                 },
             },
         },
         yaxis: {
             labels: {
                 style: {
-                    colors: colors.zinc['500'],
+                    colors: labelColor,
                 },
             },
             title: {
                 style: {
-                    color: colors.zinc['500'],
+                    color: labelColor,
                 },
             },
         },

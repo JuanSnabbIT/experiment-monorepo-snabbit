@@ -437,7 +437,7 @@ export default RetroalimentacionOT;
 //                                 <AnimatePresence initial={false} mode="wait" custom={direction}>
 //                                     <motion.div
 //                                         key={page} // clave única por “página”
-//                                         className="w-full h-full border bg-white rounded-lg p-4"
+//                                         className="w-full h-full border bg-white dark:bg-zinc-900 rounded-lg p-4"
 //                                         variants={variants}
 //                                         // También lo pasamos aquí para la tarjeta entrante
 //                                         custom={direction}

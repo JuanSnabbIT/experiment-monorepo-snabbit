@@ -1306,10 +1306,10 @@ const ProfilePage = () => {
                                                                 <div className='h-1 w-1 rounded-full bg-amber-500' />
                                                                 <div className='h-1 w-1 rounded-full bg-emerald-500' />
                                                             </div>
-                                                            <div className='flex aspect-video w-56 bg-zinc-100'>
-                                                                <div className='h-full w-1/4 border-e border-zinc-300/25 bg-white' />
+                                                            <div className='flex aspect-video w-56 bg-zinc-100 dark:bg-zinc-800'>
+                                                                <div className='h-full w-1/4 border-e border-zinc-300/25 dark:border-zinc-700/25 bg-white dark:bg-zinc-900' />
                                                                 <div className='h-full w-3/4'>
-                                                                    <div className='h-4 w-full border-b border-zinc-300/25 bg-white' />
+                                                                    <div className='h-4 w-full border-b border-zinc-300/25 dark:border-zinc-700/25 bg-white dark:bg-zinc-900' />
                                                                     <div />
                                                                 </div>
                                                             </div>
@@ -1336,10 +1336,10 @@ const ProfilePage = () => {
                                                                     </div>
                                                                 </div>
                                                                 {/* Parte Clara */}
-                                                                <div className='h-full w-1/2 bg-zinc-100'>
-                                                                    <div className='h-full w-1/4 border-e border-zinc-300/25 bg-white' />
+                                                                <div className='h-full w-1/2 bg-zinc-100 dark:bg-zinc-800'>
+                                                                    <div className='h-full w-1/4 border-e border-zinc-300/25 dark:border-zinc-700/25 bg-white dark:bg-zinc-900' />
                                                                     <div className='h-full w-3/4'>
-                                                                        <div className='h-4 w-full border-b border-zinc-300/25 bg-white' />
+                                                                        <div className='h-4 w-full border-b border-zinc-300/25 dark:border-zinc-700/25 bg-white dark:bg-zinc-900' />
                                                                         <div />
                                                                     </div>
                                                                 </div>

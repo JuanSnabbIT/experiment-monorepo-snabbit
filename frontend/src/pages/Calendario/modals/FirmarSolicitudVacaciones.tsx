@@ -40,7 +40,7 @@ function FirmarSolicitudVacaciones({ solicitud_id }: { solicitud_id: number }) {
                 <ModalBody>
                     <Badge className='text-lg'>Firma</Badge>
                     <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
-                        <div className='bg-white'>
+                        <div className='bg-white dark:bg-zinc-900'>
                             <SignatureCanvas
                                 ref={(ref) => {
                                     sigCanvas.current = ref;
@@ -48,8 +48,7 @@ function FirmarSolicitudVacaciones({ solicitud_id }: { solicitud_id: number }) {
                                 penColor='black'
                                 canvasProps={{
                                     height: 200,
-                                    className: 'sigCanvas',
-                                    style: { width: '100%', border: '1px solid #000' },
+                                    className: 'signature-canvas',
                                 }}
                             />
                         </div>

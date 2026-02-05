@@ -168,8 +168,8 @@ Notas de proceso
 - Permite agregar comentarios de seguimiento y finalizar los trabajos.
 - Falta que permita la opcionalidad de firmar los trabajos finalizados.
 - Permite agregar gastos operativos correctamente.
-- Permite agregar compras rapidas correctamente.
-- Las compras rapidas permiten crear items, (no permite crear nuevas categorias ni fabricantes) y los items se crean en bodega con el PPM = precio de la compra rapida, que es incorrecto.
+- [✅ 2026-02-04/05] Permite agregar compras rapidas correctamente con creación de items, categorías y fabricantes directamente desde el modal.
+- Los items se crean en bodega con el PPM = precio de la compra rapida, que es incorrecto.
 - Permite la devolución correcta e las compras rapidas o de las guias de salida.
 - No he probado que si los serializados de las guias de salida se transforman en equipos en la realización del trabajo, no permita despues la devolucion de estos items.
 - Hay error en la descarga del pdf.

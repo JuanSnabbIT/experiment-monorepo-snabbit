@@ -48,7 +48,7 @@ export const SubheaderSeparator: FC<ISubheaderSeparatorProps> = (props) => {
         <div
             data-component-name='Subheader/SubheaderSeparator'
             className={classNames(
-                'h-full border-e border-zinc-300/25 dark:border-zinc-800/50',
+                'h-full border-e border-zinc-300/25 dark:border-zinc-700/25 dark:border-zinc-800/50',
                 className,
             )}
             {...rest}
@@ -76,7 +76,7 @@ const Subheader: FC<ISubheaderProps> = (props) => {
                 className={classNames(
                     'sticky top-[var(--header-height)] z-[9]',
                     'flex flex-wrap justify-between gap-4',
-                    'border-b border-zinc-300/25 bg-white/75',
+                    'border-b border-zinc-300/25 dark:border-zinc-700/25 bg-white dark:bg-zinc-900/75',
                     'px-6 py-4',
                     'backdrop-blur-md',
                     'dark:border-zinc-800/50 dark:bg-zinc-900/75 dark:text-white',

@@ -75,7 +75,7 @@ const Wrapper: FC<IWrapperProps> = (props) => {
                         transition: 'opacity 0.2s, transform 0.2s',
                         zIndex: 1000,
                     }}>
-                    <div className='flex items-center justify-center rounded-full bg-gray-300 p-2'>
+                    <div className='flex items-center justify-center rounded-full bg-zinc-200 p-2 dark:bg-zinc-800'>
                         <div className='h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent'></div>
                     </div>
                 </div>

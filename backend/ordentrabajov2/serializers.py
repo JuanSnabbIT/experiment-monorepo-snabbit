@@ -100,8 +100,23 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
             return None
 
     def get_cierre_administrativo(self, obj):
-        if hasattr(obj, "cierre_administrativo_v2"):
-            return CierreAdministrativoOTSerializer(obj.cierre_administrativo_v2).data
+        """
+        Busca el CierreAdministrativoOT que contiene esta OT en su JSON resultado.ots_incluidas
+        """
+        if not obj.cliente_id:
+            return None
+        
+        # Buscar entre los cierres del cliente que incluyan esta OT
+        cierres = CierreAdministrativoOT.objects.filter(
+            cliente_id=obj.cliente_id
+        ).only("id", "estado_cierre", "resultado", "fecha_creacion")
+        
+        for cierre in cierres:
+            resultado = cierre.resultado or {}
+            ots_incluidas = resultado.get("ots_incluidas", [])
+            if isinstance(ots_incluidas, list) and obj.id in ots_incluidas:
+                return CierreAdministrativoOTSerializer(cierre).data
+        
         return None
 
     prefactura_asociada_id = serializers.SerializerMethodField()

@@ -241,11 +241,11 @@ const VincularCotizacion = ({
                             <div className='flex items-center justify-between'>
                                 <Badge>Detalle de cotizaciones</Badge>
                                 <div className='flex items-center gap-3'>
-                                    <span className='text-sm text-gray-500'>
+                                    <span className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                         {selectedQuoteIds.length} cotizaciones
                                     </span>
                                     {loadingItemsResumen && (
-                                        <span className='text-xs text-gray-400'>
+                                        <span className='text-xs text-gray-400 dark:text-gray-300'>
                                             Actualizando...
                                         </span>
                                     )}
@@ -257,7 +257,7 @@ const VincularCotizacion = ({
                                     )}
                                 </div>
                             </div>
-                            <div className='w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50 dark:border-zinc-700 dark:bg-zinc-900'>
+                            <div className='w-full overflow-auto rounded-lg border border-gray-200 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 dark:bg-zinc-900'>
                                 <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
                                     <thead className='bg-gray-100 dark:bg-zinc-800'>
                                         <tr>
@@ -272,7 +272,7 @@ const VincularCotizacion = ({
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className='divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800'>
+                                    <tbody className='divide-y divide-gray-200 bg-white dark:bg-zinc-900 dark:divide-zinc-700 dark:bg-zinc-800'>
                                         {selectedCotizaciones.map((cot) => {
                                             const items = itemsResumen[cot.id.toString()] ?? [];
                                             const totalPedido = items.reduce(
@@ -300,13 +300,13 @@ const VincularCotizacion = ({
                                                     {items.length ? (
                                                         items.map((item) => (
                                                             <tr key={`${cot.id}-${item.id}`}>
-                                                                <td className='px-4 py-3 text-sm text-gray-900'>
+                                                                <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                     {item.item_nombre}
                                                                 </td>
-                                                                <td className='px-4 py-3 text-sm text-gray-900'>
+                                                                <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                     {item.cantidad_pedida}
                                                                 </td>
-                                                                <td className='px-4 py-3 text-sm text-gray-900'>
+                                                                <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                     {item.cantidad_recibida}
                                                                 </td>
                                                             </tr>
@@ -314,7 +314,7 @@ const VincularCotizacion = ({
                                                     ) : (
                                                         <tr>
                                                             <td
-                                                                className='px-4 py-3 text-sm text-gray-500'
+                                                                className='px-4 py-3 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'
                                                                 colSpan={3}>
                                                                 Sin items para mostrar.
                                                             </td>

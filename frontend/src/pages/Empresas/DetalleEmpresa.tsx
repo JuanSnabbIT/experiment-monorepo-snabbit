@@ -781,7 +781,7 @@ function DetalleEmpresa() {
                                         <div className='col-span-full'>
                                             <Badge>Firma de la Empresa</Badge>
                                             <div
-                                                className='dark:bg-white'
+                                                className='signature-surface'
                                                 style={{
                                                     width: '100%',
                                                     maxWidth: '600px',
@@ -794,11 +794,7 @@ function DetalleEmpresa() {
                                                     penColor='black'
                                                     canvasProps={{
                                                         height: 200,
-                                                        className: 'sigCanvas',
-                                                        style: {
-                                                            width: '100%',
-                                                            border: '1px solid #000',
-                                                        },
+                                                        className: 'signature-canvas',
                                                     }}
                                                 />
                                             </div>
@@ -861,7 +857,7 @@ function DetalleEmpresa() {
                                             <Badge>Firma de la Empresa</Badge>
                                             {detalleEmpresa && detalleEmpresa.firma_empresa ? (
                                                 <div
-                                                    className='dark:bg-white'
+                                                    className='signature-surface'
                                                     style={{
                                                         width: '100%',
                                                         maxWidth: '600px',

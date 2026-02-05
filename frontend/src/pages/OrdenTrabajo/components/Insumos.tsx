@@ -34,6 +34,7 @@ import {
     useGetInsumosOrdenTrabajoQuery,
     useGetItemsGuiaSalidaQuery,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useGetDetalleCotizacionPorNumeroQuery, useGetItemsEnCotizacionQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
@@ -114,6 +115,14 @@ function Insumos() {
     const [isOpenModalCotizacion, setIsOpenModalCotizacion] = useState(false);
     const [cotizacionSeleccionada, setCotizacionSeleccionada] = useState<{ id: number; numero: number } | null | undefined>(null);
     const [desvinculando, setDesvinculando] = useState(false);
+    const { data: detalleCotizacion, isFetching: cargandoCotizacion } = useGetDetalleCotizacionPorNumeroQuery(
+        cotizacionSeleccionada?.numero ?? 0,
+        { skip: !cotizacionSeleccionada?.numero || !isOpenModalCotizacion }
+    );
+    const { data: itemsCotizacion = [], isFetching: cargandoItemsCotizacion } = useGetItemsEnCotizacionQuery(
+        cotizacionSeleccionada?.id ?? 0,
+        { skip: !cotizacionSeleccionada?.id || !isOpenModalCotizacion }
+    );
 
     const completarGuia = async () => {
         if (!selectedGuia?.id) return;
@@ -452,24 +461,24 @@ function Insumos() {
                                 <TBody>
                                     {groupedRows.map((group) => (
                                         <Fragment key={`guia-${group.guiaId ?? 'sin'}`}>
-                                            <Tr className='border-l-4 border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50'>
+                                            <Tr className='border-l-4 border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:border-blue-400 dark:from-blue-950/40 dark:to-indigo-950/30'>
                                                 <Td colSpan={columnCount} className='px-4 py-3'>
                                                     <div className='flex flex-wrap items-center justify-between gap-4'>
                                                         <div className='flex flex-wrap items-center gap-4'>
                                                             <div className='flex items-center gap-2'>
                                                                 <Icon
                                                                     icon='HeroDocumentText'
-                                                                    className='text-blue-600'
+                                                                    className='text-blue-600 dark:text-blue-400'
                                                                     size='text-lg'
                                                                 />
-                                                                <span className='text-base font-bold text-slate-800'>
+                                                                <span className='text-base font-bold text-slate-800 dark:text-zinc-100'>
                                                                     {group.guiaId
                                                                         ? `Guía de salida #${group.guiaId}`
                                                                         : 'Guía sin número'}
                                                                 </span>
                                                             </div>
 
-                                                            <div className='h-6 w-px bg-slate-300' />
+                                                            <div className='h-6 w-px bg-slate-300 dark:bg-zinc-700' />
 
                                                             <div className='flex flex-wrap items-center gap-3'>
                                                                 <Badge
@@ -484,7 +493,6 @@ function Insumos() {
                                                                     <button
                                                                         onClick={() => {
                                                                             setCotizacionSeleccionada(group.cotizacionRelacionada);
-                                                                            setSelectedGuiaId(group.guiaId);
                                                                             setIsOpenModalCotizacion(true);
                                                                         }}
                                                                         className='cursor-pointer'>
@@ -505,7 +513,7 @@ function Insumos() {
                                                                 )}
 
                                                                 {group.guiaClienteNombre && (
-                                                                    <div className='flex items-center gap-1.5 text-sm text-slate-600'>
+                                                                    <div className='flex items-center gap-1.5 text-sm text-slate-600 dark:text-zinc-300'>
                                                                         <Icon
                                                                             icon='HeroUser'
                                                                             size='text-sm'
@@ -519,38 +527,38 @@ function Insumos() {
                                                                 )}
                                                             </div>
 
-                                                            <div className='h-6 w-px bg-slate-300' />
+                                                            <div className='h-6 w-px bg-slate-300 dark:bg-zinc-700' />
 
                                                             <div className='flex flex-wrap items-center gap-4 text-xs'>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Items
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-slate-700'>
+                                                                    <span className='text-sm font-bold text-slate-700 dark:text-zinc-200'>
                                                                         {group.rows.length}
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Rebajada
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-slate-700'>
+                                                                    <span className='text-sm font-bold text-slate-700 dark:text-zinc-200'>
                                                                         {group.totalRebajada}
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Devuelta
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-green-600'>
+                                                                    <span className='text-sm font-bold text-green-600 dark:text-emerald-400'>
                                                                         {group.totalDevuelta}
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Pendiente
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-orange-600'>
+                                                                    <span className='text-sm font-bold text-orange-600 dark:text-amber-400'>
                                                                         {group.totalPendiente}
                                                                     </span>
                                                                 </div>
@@ -574,44 +582,46 @@ function Insumos() {
                                                                     Detalle
                                                                 </Button>
                                                             </Tooltip>
-                                                            <Tooltip text='Desvincular guía de salida'>
-                                                                <Button
-                                                                    variant='solid'
-                                                                    size='sm'
-                                                                    color='red'
-                                                                    icon='HeroXMark'
-                                                                    onClick={async (event) => {
-                                                                        event.stopPropagation();
-                                                                        const ok = await confirmAlert({
-                                                                            title: 'Desvincular Guía',
-                                                                            text: '¿Estás seguro de desvincular esta guía de la orden?',
-                                                                            confirmText: 'Desvincular',
-                                                                            cancelText: 'Cancelar',
-                                                                            icon: 'warning',
-                                                                        });
-                                                                        if (ok && group.guiaId) {
-                                                                            setDesvinculando(true);
-                                                                            try {
-                                                                                await ApiService.fetchData({
-                                                                                    url: `/api/ordenes-de-trabajo/${ordenId}/insumos/${group.guiaId}/desasociar-guia/`,
-                                                                                    method: 'post',
-                                                                                });
-                                                                                toast.success('Guía desvinculada correctamente');
-                                                                                refetchInsumosOrdenTrabajo();
-                                                                            } catch (error: unknown) {
-                                                                                toast.error(
-                                                                                    getErrorMessage(error) ||
-                                                                                        'Error al desvincular la guía',
-                                                                                );
-                                                                            } finally {
-                                                                                setDesvinculando(false);
+                                                            {detalleOrdenTrabajo?.estado === 'pendiente' && (
+                                                                <Tooltip text='Desvincular guía de salida'>
+                                                                    <Button
+                                                                        variant='solid'
+                                                                        size='sm'
+                                                                        color='red'
+                                                                        icon='HeroXMark'
+                                                                        onClick={async (event) => {
+                                                                            event.stopPropagation();
+                                                                            const ok = await confirmAlert({
+                                                                                title: 'Desvincular Guía',
+                                                                                text: '¿Estás seguro de desvincular esta guía de la orden?',
+                                                                                confirmText: 'Desvincular',
+                                                                                cancelText: 'Cancelar',
+                                                                                icon: 'warning',
+                                                                            });
+                                                                            if (ok && group.guiaId) {
+                                                                                setDesvinculando(true);
+                                                                                try {
+                                                                                    await ApiService.fetchData({
+                                                                                        url: `/api/ordenes-de-trabajo/${ordenId}/insumos/${group.guiaId}/desasociar-guia/`,
+                                                                                        method: 'post',
+                                                                                    });
+                                                                                    toast.success('Guía desvinculada correctamente');
+                                                                                    refetchInsumosOrdenTrabajo();
+                                                                                } catch (error: unknown) {
+                                                                                    toast.error(
+                                                                                        getErrorMessage(error) ||
+                                                                                            'Error al desvincular la guía',
+                                                                                    );
+                                                                                } finally {
+                                                                                    setDesvinculando(false);
+                                                                                }
                                                                             }
-                                                                        }
-                                                                    }}
-                                                                    isDisable={!group.guiaId || desvinculando}>
-                                                                    Desvincular
-                                                                </Button>
-                                                            </Tooltip>
+                                                                        }}
+                                                                        isDisable={!group.guiaId || desvinculando}>
+                                                                        Desvincular
+                                                                    </Button>
+                                                                </Tooltip>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </Td>
@@ -637,7 +647,7 @@ function Insumos() {
                             </div>
                         </div>
                     ) : (
-                        <div className='py-6 text-center text-gray-500'>
+                        <div className='py-6 text-center text-gray-500 dark:text-gray-400'>
                             <p>No hay items de guías vinculados a esta Orden de Trabajo</p>
                         </div>
                     )}
@@ -736,58 +746,58 @@ function Insumos() {
                                 <div className='mb-3 flex items-center justify-between gap-3'>
                                     <Badge className='text-base'>Items en la Guía</Badge>
                                     <div className='flex items-center gap-3'>
-                                        <span className='text-xs text-gray-500'>
+                                        <span className='text-xs text-gray-500 dark:text-gray-400'>
                                             {itemsGuia.length} item
                                             {itemsGuia.length !== 1 ? 's' : ''}
                                         </span>
                                     </div>
                                 </div>
-                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700 dark:bg-zinc-900'>
                                     {cargandoItems || cargandoGuia ? (
                                         <div className='flex items-center justify-center py-8'>
-                                            <div className='text-sm text-gray-500'>
+                                            <div className='text-sm text-gray-500 dark:text-zinc-400'>
                                                 Cargando items...
                                             </div>
                                         </div>
                                     ) : itemsGuia.length > 0 ? (
                                         <div className='overflow-x-auto'>
-                                            <table className='min-w-full divide-y divide-gray-200'>
-                                                <thead className='bg-gray-100'>
+                                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                                <thead className='bg-gray-100 dark:bg-zinc-800'>
                                                     <tr>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Item
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-zinc-300'>
                                                             Cantidad Original
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-zinc-300'>
                                                             Cantidad Rebajada
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-zinc-300'>
                                                             Cantidad Devuelta
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                                <tbody className='divide-y divide-gray-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900'>
                                                     {itemsGuia.map((item, idx) => (
                                                         <tr
                                                             key={item.id}
                                                             className={
                                                                 idx % 2 === 0
-                                                                    ? 'bg-white'
-                                                                    : 'bg-gray-50'
+                                                                    ? 'bg-white dark:bg-zinc-900'
+                                                                    : 'bg-gray-50 dark:bg-zinc-800'
                                                             }>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-zinc-100'>
                                                                 {item.datos_stock?.datos_item
                                                                     ?.nombre || 'Sin nombre'}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-zinc-100'>
                                                                 {item.cantidad_original}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-zinc-100'>
                                                                 {item.cantidad_rebajada}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-zinc-100'>
                                                                 {isEditingDevolucion ? (
                                                                     <div>
                                                                         <input
@@ -816,9 +826,9 @@ function Insumos() {
                                                                                     ) || 0,
                                                                                 )
                                                                             }
-                                                                            className='w-full rounded border border-gray-300 px-2 py-1 text-sm'
+                                                                            className='w-full rounded border border-gray-300 dark:border-zinc-700 px-2 py-1 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200'
                                                                         />
-                                                                        <p className='mt-1 text-xs text-gray-500'>
+                                                                        <p className='mt-1 text-xs text-gray-500 dark:text-zinc-400'>
                                                                             Actual:{' '}
                                                                             {item.cantidad_devuelta}
                                                                         </p>
@@ -835,10 +845,10 @@ function Insumos() {
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
                                             <span className='mb-2 text-4xl'>📦</span>
-                                            <p className='text-sm font-medium text-gray-600'>
+                                            <p className='text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-zinc-400'>
                                                 No hay items registrados
                                             </p>
-                                            <p className='text-xs text-gray-500'>
+                                            <p className='text-xs text-gray-500 dark:text-gray-400'>
                                                 Esta guía no tiene items asociados
                                             </p>
                                         </div>
@@ -963,7 +973,13 @@ function Insumos() {
                     </Badge>
                 </ModalHeader>
                 <ModalBody>
-                    {selectedGuia ? (
+                    {cargandoCotizacion ? (
+                        <div className='flex items-center justify-center py-8'>
+                            <div className='text-sm text-gray-500 dark:text-gray-400'>
+                                Cargando cotización...
+                            </div>
+                        </div>
+                    ) : detalleCotizacion ? (
                         <div className='flex flex-col gap-4'>
                             <div className='rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-900/20'>
                                 <p className='text-sm font-medium text-amber-900 dark:text-amber-200'>
@@ -975,38 +991,40 @@ function Insumos() {
                                     <Badge>Estado</Badge>
                                     <div className='ml-4'>
                                         <Badge color='blue' variant='solid' className='font-medium'>
-                                            {selectedGuia.estado_label}
+                                            {detalleCotizacion.estado_label}
                                         </Badge>
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>Creado Por</Badge>
+                                    <Badge>Empresa</Badge>
                                     <div className='ml-4'>
-                                        {selectedGuia.nombre_creado_por || '-'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Badge>Recibido Por</Badge>
-                                    <div className='ml-4'>
-                                        {selectedGuia.nombre_recibido_por || '-'}
+                                        {detalleCotizacion.empresa_nombre || '-'}
                                     </div>
                                 </div>
                                 <div>
                                     <Badge>Cliente</Badge>
                                     <div className='ml-4'>
-                                        {selectedGuia.cliente_nombre || '-'}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Badge>Motivo</Badge>
-                                    <div className='ml-4'>
-                                        {selectedGuia.motivo || 'Sin Motivo'}
+                                        {detalleCotizacion.cliente_nombre || '-'}
                                     </div>
                                 </div>
                                 <div>
                                     <Badge>Fecha Creación</Badge>
                                     <div className='ml-4'>
-                                        {dayjs(selectedGuia.fecha_creacion)
+                                        {dayjs(detalleCotizacion.fecha_creacion)
+                                            .locale('es')
+                                            .format('DD/MM/YYYY')}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Moneda</Badge>
+                                    <div className='ml-4'>
+                                        {detalleCotizacion.tipo_moneda_label || '-'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge>Fecha Vencimiento</Badge>
+                                    <div className='ml-4'>
+                                        {dayjs(detalleCotizacion.fecha_vencimiento)
                                             .locale('es')
                                             .format('DD/MM/YYYY')}
                                     </div>
@@ -1014,57 +1032,52 @@ function Insumos() {
                             </div>
                             <div className='mt-2'>
                                 <div className='mb-3 flex items-center justify-between gap-3'>
-                                    <Badge className='text-base'>Items en la Guía</Badge>
+                                    <Badge className='text-base'>Items en la Cotización</Badge>
                                     <div className='flex items-center gap-3'>
-                                        <span className='text-xs text-gray-500'>
-                                            {itemsGuia.length} item
-                                            {itemsGuia.length !== 1 ? 's' : ''}
+                                        <span className='text-xs text-gray-500 dark:text-gray-400'>
+                                            {itemsCotizacion?.length || 0} item
+                                            {(itemsCotizacion?.length || 0) !== 1 ? 's' : ''}
                                         </span>
                                     </div>
                                 </div>
-                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
-                                    {cargandoItems || cargandoGuia ? (
-                                        <div className='flex items-center justify-center py-8'>
-                                            <div className='text-sm text-gray-500'>
-                                                Cargando items...
-                                            </div>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800'>
+                                    {cargandoItemsCotizacion ? (
+                                        <div className='py-6 text-center text-sm text-gray-500 dark:text-gray-400'>
+                                            Cargando items...
                                         </div>
-                                    ) : itemsGuia && itemsGuia.length > 0 ? (
+                                    ) : itemsCotizacion && itemsCotizacion.length > 0 ? (
                                         <div className='overflow-x-auto'>
-                                            <table className='min-w-full divide-y divide-gray-200'>
-                                                <thead className='bg-gray-100'>
+                                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                                <thead className='bg-gray-100 dark:bg-zinc-800'>
                                                     <tr>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Item
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
-                                                            Cantidad Original
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                            Cantidad
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
-                                                            Cantidad Rebajada
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                            Valor Unit.
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
-                                                            Cantidad Devuelta
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                            Total
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className='divide-y divide-gray-200 bg-white'>
-                                                    {itemsGuia.map((item: any) => (
+                                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
+                                                    {itemsCotizacion.map((item) => (
                                                         <tr key={item.id}>
-                                                            <td className='px-4 py-3 text-xs text-gray-700'>
-                                                                {item.datos_stock?.datos_item?.nombre ||
-                                                                    item.datos_stock?.datos_item
-                                                                        ?.descripcion_corta ||
-                                                                    'Sin nombre'}
+                                                            <td className='px-4 py-3 text-xs text-gray-700 dark:text-gray-300'>
+                                                                {item.nombre_item || 'Sin nombre'}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-700'>
-                                                                {item.cantidad_original || 0}
+                                                            <td className='px-4 py-3 text-sm text-gray-700 dark:text-gray-300'>
+                                                                {item.cantidad || 0}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-700'>
-                                                                {item.cantidad_rebajada || 0}
+                                                            <td className='px-4 py-3 text-sm text-gray-700 dark:text-gray-300'>
+                                                                ${parseFloat(item.precio_unitario || '0').toLocaleString('es-CL')}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-700'>
-                                                                {item.cantidad_devuelta || 0}
+                                                            <td className='px-4 py-3 text-sm text-gray-700 dark:text-gray-300'>
+                                                                ${parseFloat(item.costo_total || '0').toLocaleString('es-CL')}
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -1072,16 +1085,16 @@ function Insumos() {
                                             </table>
                                         </div>
                                     ) : (
-                                        <div className='py-6 text-center text-sm text-gray-500'>
-                                            No hay items en esta guía
+                                        <div className='py-6 text-center text-sm text-gray-500 dark:text-gray-400'>
+                                            No hay items en esta cotización
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className='py-6 text-center text-sm text-gray-500'>
-                            No se pudo cargar la guía asociada a esta cotización.
+                        <div className='py-6 text-center text-sm text-gray-500 dark:text-gray-400'>
+                            No se pudo cargar la cotización.
                         </div>
                     )}
                 </ModalBody>

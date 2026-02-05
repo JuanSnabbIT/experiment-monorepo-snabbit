@@ -205,6 +205,48 @@ const DetalleFactura = () => {
         input.click();
     };
 
+    const handleDescargarDocumento = () => {
+        if (!factura?.documento_factura) return;
+        
+        const url = typeof factura.documento_factura === 'string' 
+            ? factura.documento_factura 
+            : '';
+        
+        if (url) {
+            window.open(url, '_blank');
+        }
+    };
+
+    const handleEliminarDocumento = async () => {
+        if (!factura) return;
+
+        const ok = await confirmAlert({
+            title: 'Eliminar documento',
+            text: '¿Confirmas eliminar el documento asociado? Esta acción no se puede deshacer.',
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            icon: 'warning',
+            confirmColor: '#dc2626',
+        });
+        if (!ok) return;
+
+        setUploadingDocument(true);
+        try {
+            await ApiService.fetchData({
+                url: `/api/cierres-administrativos/${factura.id}/`,
+                method: 'patch',
+                data: { documento_factura: null },
+            });
+            toast.success('Documento eliminado exitosamente');
+            fetchFactura();
+        } catch (error: any) {
+            const message = error?.response?.data?.detail || 'Error al eliminar documento';
+            toast.error(message);
+        } finally {
+            setUploadingDocument(false);
+        }
+    };
+
     const handleFacturar = async () => {
         if (!factura) return;
 
@@ -415,8 +457,8 @@ const DetalleFactura = () => {
 
                         {/* Contenido expandible con la info adicional (usando campos del JSON) */}
                         {isExpanded && (
-                            <div className='space-y-2 border-t border-gray-300 pt-2 text-xs text-gray-600 dark:border-gray-600'>
-                                <div className='font-semibold text-gray-700 dark:text-gray-200'>
+                            <div className='space-y-2 border-t border-gray-300 dark:border-zinc-700 pt-2 text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300 dark:border-gray-600 dark:border-zinc-500'>
+                                <div className='font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200'>
                                     {detalles}
                                 </div>
                                 {/* Comentario mostrado en la tabla; no repetir en el área expandida */}
@@ -438,7 +480,7 @@ const DetalleFactura = () => {
         columnHelper.accessor('precio_ajustado', {
             cell: (info) => {
                 const val = Number(info.getValue() ?? 0);
-                if (val === 0) return <div className='text-center text-gray-400'>—</div>;
+                if (val === 0) return <div className='text-center text-gray-400 dark:text-gray-300'>—</div>;
                 const formatted = `$${Math.ceil(val).toLocaleString('es-CL')}`;
                 return (
                     <div className='font-mono text-sm font-semibold text-green-600'>
@@ -465,7 +507,7 @@ const DetalleFactura = () => {
         }),
         columnHelper.accessor('comentario', {
             cell: (info) => (
-                <div className='max-w-xs truncate text-sm text-gray-600 dark:text-gray-400'>
+                <div className='max-w-xs truncate text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                     {info.getValue() || '—'}
                 </div>
             ),
@@ -561,23 +603,23 @@ const DetalleFactura = () => {
             const usuarios = (item as any).usuarios_asignados || [];
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-200'>
+                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
                         Usuarios Asignados ({usuarios.length})
                     </div>
                     {usuarios.length === 0 ? (
-                        <div className='text-xs text-gray-500'>Sin usuarios asignados</div>
+                        <div className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>Sin usuarios asignados</div>
                     ) : (
                         <div className='space-y-1'>
                             {usuarios.map((usuario: any, idx: number) => (
                                 <div
                                     key={usuario.id || idx}
-                                    className='flex items-center justify-between gap-1 rounded border border-gray-200 bg-white p-1 text-xs dark:border-gray-700 dark:bg-gray-800'>
+                                    className='flex items-center justify-between gap-1 rounded border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-1 text-xs dark:border-gray-700 dark:bg-gray-800'>
                                     <div>
                                         <div className='font-medium text-gray-700 dark:text-gray-300'>
                                             {usuario.nombre_usuario}
                                         </div>
                                         {usuario.numero_serie_equipo && (
-                                            <div className='text-gray-500 dark:text-gray-400'>
+                                            <div className='text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 📱 {usuario.numero_serie_equipo}
                                             </div>
                                         )}
@@ -599,10 +641,10 @@ const DetalleFactura = () => {
             const guiaId = (item as any).parent_id ?? (item as any).guia_id ?? '?';
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-200'>
+                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
                         Items en Guía ({cantItems})
                     </div>
-                    <div className='text-xs text-gray-600 dark:text-gray-400'>
+                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                         Guía de Salida #{guiaId} con {cantItems} items
                     </div>
                 </div>
@@ -611,10 +653,10 @@ const DetalleFactura = () => {
             const cantDetalles = (item as any).cantidad_detalles || 0;
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-200'>
+                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
                         Detalles de Rendición ({cantDetalles})
                     </div>
-                    <div className='text-xs text-gray-600 dark:text-gray-400'>
+                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                         Rendición #{(item as any).parent_id ?? (item as any).rendicion_id} con{' '}
                         {cantDetalles} líneas
                     </div>
@@ -776,7 +818,7 @@ const DetalleFactura = () => {
                 {loading ? (
                     <Card>
                         <CardBody>
-                            <div className='py-12 text-center text-sm text-gray-600'>
+                            <div className='py-12 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                 Cargando factura...
                             </div>
                         </CardBody>
@@ -784,7 +826,7 @@ const DetalleFactura = () => {
                 ) : !factura ? (
                     <Card>
                         <CardBody>
-                            <div className='py-12 text-center text-sm text-gray-600'>
+                            <div className='py-12 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                 Factura no encontrada.
                             </div>
                         </CardBody>
@@ -802,7 +844,7 @@ const DetalleFactura = () => {
                             <CardBody>
                                 <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500'>
+                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cliente
                                         </div>
                                         <div className='text-lg font-bold text-gray-900 dark:text-gray-100'>
@@ -810,7 +852,7 @@ const DetalleFactura = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500'>
+                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Estado
                                         </div>
                                         <div className='mt-1'>
@@ -818,7 +860,7 @@ const DetalleFactura = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500'>
+                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Fecha creación
                                         </div>
                                         <div className='text-lg text-gray-700 dark:text-gray-300'>
@@ -873,7 +915,7 @@ const DetalleFactura = () => {
                             </CardBody>
                         </Card>
 
-                        {factura.estado_cierre === 'aprobado' && (
+                        {(factura.estado_cierre === 'aprobado' || factura.estado_cierre === 'facturado') && (
                             <Card className='mb-4 border-l-4 border-l-violet-500'>
                                 <CardHeader>
                                     <CardHeaderChild>
@@ -885,20 +927,54 @@ const DetalleFactura = () => {
                                 </CardHeader>
                                 <CardBody>
                                     {factura.documento_factura ? (
-                                        <div className='flex items-center gap-4 rounded-lg bg-emerald-50 p-4 dark:bg-emerald-900/20'>
-                                            <Icon
-                                                icon='HeroCheckCircle'
-                                                className='size-8 text-emerald-600 dark:text-emerald-400'
-                                            />
-                                            <div className='flex-1'>
-                                                <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                                                    Documento asociado
+                                        <div className='rounded-lg bg-emerald-50 p-4 dark:bg-emerald-900/20'>
+                                            <div className='flex items-center gap-4'>
+                                                <Icon
+                                                    icon='HeroCheckCircle'
+                                                    className='size-8 text-emerald-600 dark:text-emerald-400'
+                                                />
+                                                <div className='flex-1'>
+                                                    <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                                                        Documento asociado
+                                                    </div>
+                                                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                                        {typeof factura.documento_factura === 'string'
+                                                            ? factura.documento_factura.split('/').pop() || 'documento'
+                                                            : 'Documento vinculado'}
+                                                    </div>
                                                 </div>
-                                                <div className='text-xs text-gray-600 dark:text-gray-400'>
-                                                    {typeof factura.documento_factura === 'string'
-                                                        ? factura.documento_factura
-                                                        : 'Documento vinculado'}
-                                                </div>
+                                            </div>
+                                            <div className='mt-4 flex gap-2'>
+                                                <Button
+                                                    variant='solid'
+                                                    color='blue'
+                                                    size='sm'
+                                                    icon='HeroArrowDownTray'
+                                                    onClick={handleDescargarDocumento}>
+                                                    Descargar
+                                                </Button>
+                                                {factura.estado_cierre === 'aprobado' && (
+                                                    <>
+                                                        <Button
+                                                            variant='solid'
+                                                            color='amber'
+                                                            size='sm'
+                                                            icon='HeroArrowPath'
+                                                            isDisable={uploadingDocument}
+                                                            onClick={handleAsociarDocumento}>
+                                                            {uploadingDocument ? 'Subiendo...' : 'Cambiar'}
+                                                        </Button>
+                                                        <Button
+                                                            variant='solid'
+                                                            color='red'
+                                                            size='sm'
+                                                            icon='HeroTrash'
+                                                            isDisable={uploadingDocument}
+                                                            onClick={handleEliminarDocumento}>
+                                                            Eliminar
+                                                        </Button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
@@ -911,7 +987,7 @@ const DetalleFactura = () => {
                                                 <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
                                                     Sin documento asociado
                                                 </div>
-                                                <div className='text-xs text-gray-600 dark:text-gray-400'>
+                                                <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                                     Debes asociar un documento para poder facturar
                                                 </div>
                                             </div>
@@ -929,7 +1005,7 @@ const DetalleFactura = () => {
                             </CardHeader>
                             <CardBody>
                                 {items.length === 0 ? (
-                                    <div className='py-8 text-center text-sm text-gray-600'>
+                                    <div className='py-8 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                         No hay items en esta prefactura.
                                     </div>
                                 ) : (
@@ -1006,20 +1082,20 @@ const DetalleFactura = () => {
                 </ModalHeader>
                 <ModalBody>
                     {otsIncluidas.length === 0 ? (
-                        <div className='py-6 text-sm text-gray-600'>
+                        <div className='py-6 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                             No hay OTs incluidas en esta prefactura.
                         </div>
                     ) : otsLoading ? (
-                        <div className='py-6 text-sm text-gray-600'>Cargando OTs...</div>
+                        <div className='py-6 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Cargando OTs...</div>
                     ) : (
                         <div className='space-y-3'>
                             {otsIncluidas.map((otId) => (
                                 <div
                                     key={otId}
-                                    className='flex items-center justify-between rounded border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3'>
+                                    className='flex items-center justify-between rounded border border-gray-200 dark:border-zinc-700 bg-gradient-to-r from-purple-50 to-white p-3'>
                                     <div className='space-y-1'>
-                                        <div className='font-semibold text-gray-800'>OT #{otId}</div>
-                                        <div className='text-xs text-gray-600'>
+                                        <div className='font-semibold text-gray-800 dark:text-gray-100'>OT #{otId}</div>
+                                        <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                             {otsInfo[otId]?.cliente_nombre || 'Cliente no disponible'}
                                         </div>
                                         <div className='flex flex-wrap items-center gap-2 text-xs'>

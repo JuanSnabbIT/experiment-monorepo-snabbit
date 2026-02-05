@@ -28,7 +28,7 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
 
     const renderDetalleListado = (detalle?: string | null) => {
         if (!detalle) {
-            return <p className='text-sm text-gray-500'>Sin informacion</p>;
+            return <p className='text-sm text-gray-500 dark:text-gray-400'>Sin informacion</p>;
         }
 
         const partes = detalle
@@ -37,7 +37,7 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
             .filter(Boolean);
 
         if (partes.length === 0) {
-            return <p className='text-sm text-gray-500'>Sin informacion</p>;
+            return <p className='text-sm text-gray-500 dark:text-gray-400'>Sin informacion</p>;
         }
 
         return (
@@ -101,7 +101,7 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
                 {listaHistorialCambios.length > 0 ? (
                     <>
                         <div className='relative min-w-0'>
-                            <div className='absolute left-0 right-0 top-3 h-px bg-zinc-200' />
+                            <div className='absolute left-0 right-0 top-3 h-px bg-zinc-200 dark:bg-zinc-700' />
                             <div className='relative flex snap-x snap-mandatory items-stretch gap-6 overflow-x-auto pb-4 pr-2 pt-6'>
                                 {visibleRows.map((row) => {
                                     const item = row.original;
@@ -112,27 +112,27 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
                                                 className={`relative flex h-[220px] min-h-0 w-[320px] flex-none snap-start flex-col rounded-lg border p-4 text-left shadow-sm transition ${
                                                     isSelected
                                                         ? 'border-blue-400 bg-blue-50/40 shadow-md'
-                                                        : 'border-zinc-200 bg-white hover:border-blue-200 hover:shadow-md'
+                                                        : 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 hover:border-blue-200 dark:hover:border-blue-300 hover:shadow-md'
                                                 }`}>
                                                 <div className='absolute -top-4 left-6 h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow-sm' />
                                                 <div className='flex min-h-0 flex-1 flex-col gap-3'>
                                                     <div className='flex flex-col gap-2'>
-                                                        <div className='text-xs uppercase tracking-wide text-gray-500'>
+                                                        <div className='text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400'>
                                                             Fecha del cambio
                                                         </div>
-                                                        <div className='text-sm font-semibold text-gray-900'>
+                                                        <div className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
                                                             {dayjs(item.fecha_cambio).format(
                                                                 'DD-MM-YYYY',
                                                             )}
                                                         </div>
-                                                        <div className='text-sm text-gray-600'>
+                                                        <div className='text-sm text-gray-600 dark:text-gray-400'>
                                                             Usuario:{' '}
                                                             {item.nombre_usuario || 'Sin usuario'}
                                                         </div>
                                                     </div>
                                                     <div>
                                                         <Badge className='mb-1'>Comentario</Badge>
-                                                        <p className='text-sm text-gray-700'>
+                                                        <p className='text-sm text-gray-700 dark:text-gray-300'>
                                                             {item.comentario || 'Sin comentario'}
                                                         </p>
                                                     </div>
@@ -164,11 +164,11 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
                                                 </div>
                                             </div>
                                             {isSelected && (
-                                                <div className='relative flex h-[220px] min-h-0 w-[360px] flex-none snap-start flex-col overflow-hidden rounded-lg border border-blue-200 bg-white p-4 text-left shadow-sm'>
+                                                <div className='relative flex h-[220px] min-h-0 w-[360px] flex-none snap-start flex-col overflow-hidden rounded-lg border border-blue-200 bg-white dark:border-blue-900/50 dark:bg-zinc-900 p-4 text-left shadow-sm'>
                                                     <div className='absolute -top-4 left-6 h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow-sm' />
                                                     <div className='flex min-h-0 flex-1 flex-col gap-2'>
                                                         <div className='grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1'>
-                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 p-3'>
+                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 p-3'>
                                                                 <Badge className='mb-1'>
                                                                     Estado Anterior
                                                                 </Badge>
@@ -178,7 +178,7 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 p-3'>
+                                                            <div className='rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 p-3'>
                                                                 <Badge className='mb-1'>
                                                                     Estado Actual
                                                                 </Badge>
@@ -202,7 +202,9 @@ const HistorialCambios = ({ ordenId }: { ordenId: number | string | undefined })
                         </div>
                     </>
                 ) : (
-                    <div className='text-center text-gray-500'>No hay cambios sobre la OT.</div>
+                    <div className='text-center text-gray-500 dark:text-gray-400'>
+                        No hay cambios sobre la OT.
+                    </div>
                 )}
             </CardBody>
         </Card>

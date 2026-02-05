@@ -107,7 +107,7 @@ function DetalleConfidencialidadContrato() {
                                             <Badge>Firma</Badge>
                                             <div className='p-2'>
                                                 <img
-                                                    className='dark:bg-white'
+                                                    className='signature-surface'
                                                     src={firma.archivo_firma}
                                                     alt=''
                                                 />

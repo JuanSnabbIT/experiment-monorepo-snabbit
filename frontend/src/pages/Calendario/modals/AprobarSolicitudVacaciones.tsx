@@ -118,8 +118,7 @@ function AprobarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number }) 
                                     penColor="black"
                                     canvasProps={{
                                         height: 200,
-                                        className: 'sigCanvas',
-                                        style: { width: '100%', border: '1px solid #000' },
+                                        className: 'signature-canvas',
                                     }}
                                 />
                                 <Button className="mt-2" variant="solid" onClick={clear}>Limpiar</Button>

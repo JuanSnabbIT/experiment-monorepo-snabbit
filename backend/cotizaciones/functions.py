@@ -37,6 +37,8 @@ def generar_pdf_cotizacion(
     firma_empresa_b64=None,
     ubicacion="Santiago",
     tipo_moneda="1",
+    estado=None,
+    aprobador_info=None,
 ):
     return generar_pdf_cotizacion_legacy(
         datos_cotizacion=datos_cotizacion,
@@ -53,6 +55,8 @@ def generar_pdf_cotizacion(
         firma_empresa_b64=firma_empresa_b64,
         ubicacion=ubicacion,
         tipo_moneda=tipo_moneda,
+        estado=estado,
+        aprobador_info=aprobador_info,
     )
 
 def generar_pdf_cotizacion_desde_model(cotizacion_id, ubicacion="Santiago"):
@@ -116,6 +120,24 @@ def generar_pdf_cotizacion_desde_model(cotizacion_id, ubicacion="Santiago"):
 
     destinatarios = " / ".join(destinatarios_list)
     
+    # Obtener información del solicitante que aprobó/rechazó
+    aprobador_info = None
+    if cot.estado in ['aceptada', 'rechazada']:
+        solicitante_que_respondio = cot.solicitantes.filter(
+            token_usado=True
+        ).exclude(
+            aprobo__isnull=True
+        ).first()
+        
+        if solicitante_que_respondio:
+            aprobador_info = {
+                'nombre': solicitante_que_respondio.get_nombre(),
+                'email': solicitante_que_respondio.get_email(),
+                'aprobo': solicitante_que_respondio.aprobo,
+                'fecha_respuesta': solicitante_que_respondio.fecha_respuesta,
+                'motivo_rechazo': solicitante_que_respondio.motivo_rechazo,
+            }
+    
     items = []
     for it in cot.items.all():
         if cot.tipo_moneda == "1":
@@ -130,7 +152,7 @@ def generar_pdf_cotizacion_desde_model(cotizacion_id, ubicacion="Santiago"):
             
         items.append({
             'nombre': it.item_empresa.nombre if it.item_empresa else (it.nombre or ''),
-            'descripcion': it.item_empresa.descripcion_corta if it.item_empresa else (it.descripcion or ''),
+            'descripcion': (it.item_empresa.descripcion_corta if it.item_empresa else it.descripcion) or '',
             'cantidad': it.cantidad,
             'precio_unitario': f"{pu_backend:.2f}", # Pasamos numero como string, formateo en generador
             'total_neto': f"{tn_backend:.2f}"
@@ -152,7 +174,9 @@ def generar_pdf_cotizacion_desde_model(cotizacion_id, ubicacion="Santiago"):
         cargo2='Snabbit Tecnologías',
         firma_empresa_b64=firma_empresa_b64,
         ubicacion=ubicacion,
-        tipo_moneda=cot.tipo_moneda
+        tipo_moneda=cot.tipo_moneda,
+        estado=cot.estado,
+        aprobador_info=aprobador_info
     )
 
 

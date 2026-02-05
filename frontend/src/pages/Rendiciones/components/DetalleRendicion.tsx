@@ -97,6 +97,16 @@ const DetalleRendicion = () => {
     }, [isOpenDetail, selectedCompra]);
 
     useEffect(() => {
+        if (!selectedCompra?.id || !listaItemsRendicion) return;
+        const actualizado = listaItemsRendicion.find(
+            (item) => item?.detalle_data?.id === selectedCompra.id,
+        );
+        if (actualizado?.detalle_data) {
+            setSelectedCompra(actualizado.detalle_data as ICompra);
+        }
+    }, [listaItemsRendicion, selectedCompra?.id]);
+
+    useEffect(() => {
         if (id) {
             dispatch(detalleRendicionThunk({ id_rendicion: id }));
             dispatch(listaItemsRendicionThunk({ id_rendicion: id }));
@@ -552,7 +562,7 @@ const DetalleRendicion = () => {
                                 {editando ? (
                                     <>
                                         <div>
-                                            <Badge>Fecha de la Rendición</Badge>
+                                            <Badge className='text-zinc-700 dark:text-zinc-300'>Fecha de la Rendición</Badge>
                                             <Validation
                                                 isValid={formik.isValid}
                                                 isTouched={formik.touched.fecha_rendicion}
@@ -568,7 +578,7 @@ const DetalleRendicion = () => {
                                             </Validation>
                                         </div>
                                         <div>
-                                            <Badge>Observaciones</Badge>
+                                            <Badge className='text-zinc-700 dark:text-zinc-300'>Observaciones</Badge>
                                             <Validation
                                                 isValid={formik.isValid}
                                                 isTouched={formik.touched.observaciones}
@@ -685,7 +695,7 @@ const DetalleRendicion = () => {
                                     {detalleRendicion?.estado === '3' && (
                                         <div className='w-full md:col-span-2'>
                                             <Badge>Motivo de Rechazo</Badge>
-                                            <div className='ml-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800'>
+                                            <div className='ml-4 rounded border border-red-900/30 bg-red-950/20 p-3 text-sm text-red-400 dark:border-red-900/50 dark:text-red-300'>
                                                 {detalleRendicion?.motivo_rechazo}
                                             </div>
                                         </div>
@@ -772,7 +782,7 @@ const DetalleRendicion = () => {
                                                 return (
                                                     <Tr
                                                         key={row.id}
-                                                        className='border-l-4 border-emerald-500 bg-gradient-to-r from-emerald-50 to-teal-50'>
+                                                        className='border-l-4 border-emerald-500 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30'>
                                                         <Td
                                                             colSpan={
                                                                 table.getVisibleFlatColumns().length
@@ -783,10 +793,10 @@ const DetalleRendicion = () => {
                                                                     <div className='flex items-center gap-2'>
                                                                         <Icon
                                                                             icon='HeroShoppingCart'
-                                                                            className='text-emerald-600'
+                                                                            className='text-emerald-600 dark:text-emerald-400'
                                                                             size='text-lg'
                                                                         />
-                                                                        <span className='text-base font-bold text-slate-800'>
+                                                                        <span className='text-base font-bold text-slate-800 dark:text-zinc-100'>
                                                                             Compra{' '}
                                                                             {compra.codigo ||
                                                                                 `#${compra.id}`}
@@ -857,7 +867,7 @@ const DetalleRendicion = () => {
                                                     className={
                                                         original.is_subitem
                                                             ? 'border-l-2 border-blue-300 bg-blue-50/60 hover:bg-blue-100/70'
-                                                            : 'hover:bg-gray-50'
+                                                            : 'hover:bg-gray-50 dark:hover:bg-zinc-800'
                                                     }>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <Td
@@ -945,7 +955,7 @@ const DetalleRendicion = () => {
                                                 .locale('es')
                                                 .format('DD/MM/YYYY')
                                         ) : (
-                                            <span className='italic text-gray-400'>Sin fecha</span>
+                                            <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
                                         )}
                                     </div>
                                 </div>
@@ -973,59 +983,74 @@ const DetalleRendicion = () => {
                             <div className='col-span-2 mt-4'>
                                 <div className='mb-3 flex items-center justify-between'>
                                     <Badge className='text-base'>Items de la Compra</Badge>
-                                    <span className='text-xs text-gray-500'>
+                                    <span className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                         {itemsCompra.length} item
                                         {itemsCompra.length !== 1 ? 's' : ''}
                                     </span>
                                 </div>
-                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800'>
                                     {cargandoItems ? (
                                         <div className='flex items-center justify-center py-8'>
-                                            <div className='text-sm text-gray-500'>
+                                            <div className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Cargando items...
                                             </div>
                                         </div>
                                     ) : itemsCompra.length > 0 ? (
                                         <div className='overflow-x-auto'>
-                                            <table className='min-w-full divide-y divide-gray-200'>
-                                                <thead className='bg-gray-100'>
+                                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                                <thead className='bg-gray-100 dark:bg-zinc-800'>
                                                     <tr>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Nombre
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Cantidad
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Precio Unitario
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                            Devuelto
+                                                        </th>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                            Usado
+                                                        </th>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Subtotal
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                                     {itemsCompra.map((item, idx) => (
                                                         <tr
                                                             key={item.id}
                                                             className={
                                                                 idx % 2 === 0
-                                                                    ? 'bg-white'
-                                                                    : 'bg-gray-50'
+                                                                    ? 'bg-white dark:bg-zinc-900'
+                                                                    : 'bg-gray-50 dark:bg-zinc-800'
                                                             }>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 {item.nombre_item}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 {item.cantidad}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 $
                                                                 {item.precio.toLocaleString(
                                                                     'es-CL',
                                                                 )}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm font-semibold text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                                {item.cantidad_devuelta ?? 0}
+                                                            </td>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                                {item.cantidad_usada ?? 0}
+                                                                {item.estado_uso_label
+                                                                    ? ` (${item.estado_uso_label})`
+                                                                    : ''}
+                                                            </td>
+                                                            <td className='px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100'>
                                                                 $
                                                                 {(
                                                                     item.cantidad * item.precio
@@ -1039,10 +1064,10 @@ const DetalleRendicion = () => {
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
                                             <span className='mb-2 text-4xl'>📦</span>
-                                            <p className='text-sm font-medium text-gray-600'>
+                                            <p className='text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                                 No hay items registrados
                                             </p>
-                                            <p className='text-xs text-gray-500'>
+                                            <p className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Esta compra no tiene items asociados
                                             </p>
                                         </div>

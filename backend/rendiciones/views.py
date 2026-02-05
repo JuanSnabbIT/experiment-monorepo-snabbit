@@ -515,6 +515,9 @@ class RendicionViewSet(viewsets.ModelViewSet):
         rendicion.revisado_por = request.user
         rendicion.fecha_revision = timezone.now()
         rendicion.save()
+
+        # Actualizar estado de compras asociadas a la rendición
+        self._actualizar_estado_compras(rendicion, "C")
         
         # TODO: Enviar notificación al usuario que creó la rendición
         # notify_user(rendicion.usuario.usuario, f"Tu rendición ha sido rechazada: {motivo}")
@@ -545,12 +548,35 @@ class RendicionViewSet(viewsets.ModelViewSet):
         rendicion.revisado_por = request.user
         rendicion.fecha_revision = timezone.now()
         rendicion.save()
+
+        # Actualizar estado de compras asociadas a la rendición
+        self._actualizar_estado_compras(rendicion, "R")
         
         # TODO: Enviar notificación al usuario que creó la rendición
         # notify_user(rendicion.usuario.usuario, "Tu rendición ha sido aprobada")
         
         serializer = self.get_serializer(rendicion)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _actualizar_estado_compras(rendicion: Rendicion, nuevo_estado: str) -> None:
+        """
+        Actualiza el estado de las compras asociadas a la rendición.
+        Solo afecta compras en estado 'P' (Pendiente de rendición).
+        """
+        ct_compra = ContentType.objects.get(app_label="bodegas", model="compra")
+        compra_ids = (
+            ItemRendicion.objects.filter(
+                rendicion=rendicion, content_type=ct_compra
+            )
+            .values_list("detalle_id", flat=True)
+            .distinct()
+        )
+
+        if compra_ids:
+            Compra.objects.filter(id__in=compra_ids, estado="P").update(
+                estado=nuevo_estado
+            )
 
     @action(detail=True, methods=["post"], url_path="pagar")
     def pagar(self, request, pk=None):

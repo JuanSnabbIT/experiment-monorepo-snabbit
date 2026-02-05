@@ -546,7 +546,7 @@ function ListaServiciosOT() {
         }),
         columnHelper.accessor('nombre_tecnico', {
             cell: (info) =>
-                info.getValue() ?? <span className='italic text-gray-400'>Sin Técnico</span>,
+                info.getValue() ?? <span className='italic text-gray-400 dark:text-gray-300'>Sin Técnico</span>,
             header: 'Técnico Asignado',
         }),
         columnHelper.accessor('fecha_servicio', {
@@ -554,7 +554,7 @@ function ListaServiciosOT() {
                 info.getValue() ? (
                     dayjs(info.getValue()).locale('es').format('DD/MM/YYYY')
                 ) : (
-                    <span className='italic text-gray-400'>Sin fecha</span>
+                    <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
                 ),
             header: 'Fecha trabajo',
         }),
@@ -894,7 +894,7 @@ function ListaServiciosOT() {
                             </Table>
                         </>
                     ) : (
-                        <div className='text-center text-gray-500'>No hay servicios generales.</div>
+                        <div className='text-center text-gray-500 dark:text-gray-400 dark:text-gray-300'>No hay servicios generales.</div>
                     )}
                 </div>
 
@@ -936,7 +936,7 @@ function ListaServiciosOT() {
                                     <Badge>Técnico Asignado</Badge>
                                     <div className='ml-4'>
                                         {selectedService.nombre_tecnico ?? (
-                                            <span className='italic text-gray-400'>
+                                            <span className='italic text-gray-400 dark:text-gray-300'>
                                                 Sin Técnico
                                             </span>
                                         )}
@@ -950,7 +950,7 @@ function ListaServiciosOT() {
                                                 .locale('es')
                                                 .format('DD/MM/YYYY')
                                         ) : (
-                                            <span className='italic text-gray-400'>Sin fecha</span>
+                                            <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
                                         )}
                                     </div>
                                 </div>
@@ -961,7 +961,7 @@ function ListaServiciosOT() {
                                 </div>
                                 <div className='mt-2 max-h-48 overflow-auto rounded-lg border'>
                                     {cargandoSeguimientos ? (
-                                        <div className='py-4 text-center text-sm text-gray-500'>
+                                        <div className='py-4 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             Cargando...
                                         </div>
                                     ) : seguimientos.length > 0 ? (
@@ -969,7 +969,7 @@ function ListaServiciosOT() {
                                             {seguimientos.map((seg, idx) => (
                                                 <li
                                                     key={seg.id}
-                                                    className='p-3 transition-colors hover:bg-gray-50'>
+                                                    className='p-3 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800'>
                                                     <div className='flex items-start justify-between gap-2'>
                                                         <div className='flex-1'>
                                                             <div className='mb-1 flex items-center gap-2'>
@@ -991,11 +991,11 @@ function ListaServiciosOT() {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <p className='whitespace-pre-wrap text-sm text-gray-700'>
+                                                            <p className='whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300'>
                                                                 {seg.comentario || 'Sin comentario'}
                                                             </p>
                                                         </div>
-                                                        <span className='whitespace-nowrap text-xs text-gray-500'>
+                                                        <span className='whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                             {seg.fecha
                                                                 ? dayjs(seg.fecha)
                                                                     .locale('es')
@@ -1007,7 +1007,7 @@ function ListaServiciosOT() {
                                             ))}
                                         </ul>
                                     ) : (
-                                        <div className='py-4 text-center text-sm text-gray-500'>
+                                        <div className='py-4 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                             No hay seguimientos registrados
                                         </div>
                                     )}

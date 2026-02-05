@@ -112,7 +112,7 @@ function ListaDiasCalendarioV2() {
                 start: dayjs(ot.fecha_inicio_ot).toDate(),
                 end: dayjs(ot.fecha_finalizacion_ot).toDate(),
                 classNames: [
-                    `${ot.estado === 'pendiente' ? 'bg-gray-300 hover:bg-gray-500' : ot.estado === 'en_proceso' ? 'bg-lime-300 hover:bg-lime-500' : ot.estado === 'completada' ? 'bg-emerald-300 hover:bg-emerald-500' : ot.estado === 'cerrada' ? 'bg-amber-300 hover:bg-amber-500' : ot.estado === 'facturada' ? 'bg-sky-300 hover:bg-sky-500' : ot.estado === 'cancelada' ? 'bg-red-300 hover:bg-red-500' : ''}`,
+                    `${ot.estado === 'pendiente' ? 'bg-gray-300 dark:bg-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-8000' : ot.estado === 'en_proceso' ? 'bg-lime-300 hover:bg-lime-500' : ot.estado === 'completada' ? 'bg-emerald-300 hover:bg-emerald-500' : ot.estado === 'cerrada' ? 'bg-amber-300 hover:bg-amber-500' : ot.estado === 'facturada' ? 'bg-sky-300 hover:bg-sky-500' : ot.estado === 'cancelada' ? 'bg-red-300 hover:bg-red-500' : ''}`,
                 ],
                 extendedProps: {
                     tipo_evento: 'orden_trabajo',

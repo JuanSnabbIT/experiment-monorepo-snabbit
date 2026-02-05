@@ -33,7 +33,7 @@ import {
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import Adjuntos from './components/Adjuntos';
@@ -52,12 +52,12 @@ import SeguimientoOTDropdown from './components/SeguimientoOTDropdown';
 import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
 import CerrarOT from './modals/CerrarOT';
 import CompletarOT from './modals/CompletarOT';
-import FacturarOT from './modals/FacturarOT';
 
 const DetalleOT = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
     const { personalizacionUsuario, access } = useAppSelector((state) => state.auth);
     // ? No capturamos refetch - confiar en invalidatesTags
     const { data: detalleOrdenTrabajo } =
@@ -89,7 +89,7 @@ const DetalleOT = () => {
         emptyLabel: string = 'Sin informacion',
     ) => {
         if (!detalle) {
-            return <p className='text-sm text-gray-500'>{emptyLabel}</p>;
+            return <p className='text-sm text-gray-500 dark:text-gray-400'>{emptyLabel}</p>;
         }
 
         const partes = detalle
@@ -98,7 +98,7 @@ const DetalleOT = () => {
             .filter(Boolean);
 
         if (partes.length === 0) {
-            return <p className='text-sm text-gray-500'>{emptyLabel}</p>;
+            return <p className='text-sm text-gray-500 dark:text-gray-400'>{emptyLabel}</p>;
         }
 
         return (
@@ -115,11 +115,35 @@ const DetalleOT = () => {
 
     useEffect(() => {
         if (detalleOrdenTrabajo) {
-            // Ajustar el tab activo seg�n el tipo de servicio
-            if (detalleOrdenTrabajo.tipo_servicio === 'general') {
+            const tabParam = searchParams.get('tab')?.toLowerCase().trim();
+            const tabMap: Record<string, string> = {
+                'trabajos-en-ot': 'Trabajos en OT',
+                trabajos: 'Trabajos en OT',
+                servicios: 'Servicios Generales',
+                'servicios-generales': 'Servicios Generales',
+                compras: 'Compras',
+                adjuntos: 'Adjuntos',
+                historial: 'Historial de cambios',
+                'historial-de-cambios': 'Historial de cambios',
+                insumos: 'Insumos',
+                comentarios: 'Comentarios',
+                fotos: 'Fotos',
+                usuarios: 'Usuarios',
+                retroalimentaciones: 'Retroalimentaciones',
+                'gastos-operativos': 'GastosOperativos',
+                gastosoperativos: 'GastosOperativos',
+                gastos_operativos: 'GastosOperativos',
+            };
+
+            if (tabParam && tabMap[tabParam]) {
+                setActiveComponent(tabMap[tabParam]);
+            } else if (detalleOrdenTrabajo.tipo_servicio === 'general') {
                 setActiveComponent('Servicios Generales');
             } else {
                 setActiveComponent('Trabajos en OT');
+            }
+
+            if (detalleOrdenTrabajo.tipo_servicio !== 'general') {
                 // Alinear empresa activa con la empresa de la OT si difiere
                 (async () => {
                     try {
@@ -162,6 +186,7 @@ const DetalleOT = () => {
         }
     }, [
         detalleOrdenTrabajo?.id,
+        searchParams,
         dispatch,
         selectEmpresas,
         personalizacionUsuario?.sucursal_principal,
@@ -351,7 +376,6 @@ const DetalleOT = () => {
                             )}
                             {detalleOrdenTrabajo.estado === 'en_proceso' && <CompletarOT />}
                             {detalleOrdenTrabajo.estado === 'facturada' && <CerrarOT />}
-                            {detalleOrdenTrabajo.estado === 'cerrada' && <FacturarOT />}
                             {detalleOrdenTrabajo.estado !== 'pendiente' && (
                                 <Tooltip text='Descargar PDF'>
                                     <Button
@@ -653,7 +677,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Fecha de Inicio</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_inicio_ot ? 'italic text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_inicio_ot ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.fecha_inicio_ot
                                                     ? dayjs(
                                                           detalleOrdenTrabajo?.fecha_inicio_ot,
@@ -664,7 +688,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Fecha de Finalizaci�n</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_finalizacion_ot ? 'italic text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_finalizacion_ot ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.fecha_finalizacion_ot
                                                     ? dayjs(
                                                           detalleOrdenTrabajo?.fecha_finalizacion_ot,
@@ -681,7 +705,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Responsable</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_responsable ? 'italic text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_responsable ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.nombre_responsable ||
                                                     'Por confirmar'}
                                             </div>
@@ -689,7 +713,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Solicitante</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_solicitante ? 'italic text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_solicitante ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.nombre_solicitante ||
                                                     'Por confirmar'}
                                             </div>

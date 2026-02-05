@@ -2920,6 +2920,46 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Normalizar codigo_barras: convertir string vacío a None
+            if "codigo_barras" in item_empresa_data:
+                codigo_barras = item_empresa_data.get("codigo_barras")
+                if codigo_barras == "" or codigo_barras is None:
+                    item_empresa_data["codigo_barras"] = None
+
+            # Normalizar comentarios: convertir string vacío a None
+            if "comentarios" in item_empresa_data:
+                comentarios = item_empresa_data.get("comentarios")
+                if comentarios == "":
+                    item_empresa_data["comentarios"] = None
+
+            # Normalizar posibles formatos de 'fabricante' (string id, dict {value,label}, int)
+            try:
+                if (
+                    "fabricante" in item_empresa_data
+                    and item_empresa_data.get("fabricante") is not None
+                ):
+                    fab_val = item_empresa_data.get("fabricante")
+                    # Si viene como objeto {value,label}
+                    if isinstance(fab_val, dict):
+                        fab_val = fab_val.get("value") or fab_val.get("id")
+                    # Si viene como string numérica
+                    if isinstance(fab_val, str) and fab_val.isdigit():
+                        fab_val = int(fab_val)
+
+                    if fab_val:
+                        try:
+                            from items.models import Fabricante
+                            fab_obj = Fabricante.objects.get(pk=fab_val)
+                            item_empresa_data["fabricante"] = fab_obj.pk
+                        except Fabricante.DoesNotExist:
+                            # No existe el fabricante indicado; dejar en None para evitar error
+                            item_empresa_data["fabricante"] = None
+                    else:
+                        item_empresa_data["fabricante"] = None
+            except Exception:
+                # Si algo falla en la normalización, no interrumpimos la creación
+                item_empresa_data["fabricante"] = None
+
             # Normalizar posibles formatos de 'categoria' (string id, dict {value,label}, int)
             try:
                 if (
