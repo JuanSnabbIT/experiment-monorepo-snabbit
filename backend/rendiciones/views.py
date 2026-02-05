@@ -413,20 +413,48 @@ class RendicionViewSet(viewsets.ModelViewSet):
         
         # 6. Tendencia últimos 30 días
         fecha_30_dias = hoy - timedelta(days=30)
-        tendencia = list(
-            Rendicion.objects.filter(
-                usuario__sucursal__empresa_id=empresa_id,
-                fecha_rendicion__gte=fecha_30_dias
+        
+        # Para compatibilidad con SQLite, usar date() en lugar de TruncDate
+        from django.db.models.functions import Cast
+        from django.db import models as db_models
+        
+        try:
+            # Intentar con TruncDate (funciona en PostgreSQL)
+            tendencia = list(
+                Rendicion.objects.filter(
+                    usuario__sucursal__empresa_id=empresa_id,
+                    fecha_rendicion__gte=fecha_30_dias,
+                    fecha_rendicion__isnull=False
+                )
+                .annotate(fecha=TruncDate("fecha_rendicion"))
+                .values("fecha")
+                .annotate(total=Count("id"))
+                .order_by("fecha")
             )
-            .annotate(fecha=TruncDate("fecha_rendicion"))
-            .values("fecha")
-            .annotate(total=Count("id"))
-            .order_by("fecha")
-        )
-        tendencia_resultado = [
-            {"fecha": t["fecha"].isoformat(), "total": t["total"]}
-            for t in tendencia
-        ]
+            tendencia_resultado = [
+                {"fecha": t["fecha"].isoformat(), "total": t["total"]}
+                for t in tendencia
+            ]
+        except Exception:
+            # Fallback para SQLite: agrupar por fecha manualmente
+            rendiciones_30_dias = Rendicion.objects.filter(
+                usuario__sucursal__empresa_id=empresa_id,
+                fecha_rendicion__gte=fecha_30_dias,
+                fecha_rendicion__isnull=False
+            ).values_list('fecha_rendicion', flat=True)
+            
+            from collections import defaultdict
+            tendencia_dict = defaultdict(int)
+            for fecha_rendicion in rendiciones_30_dias:
+                if fecha_rendicion:
+                    fecha_str = fecha_rendicion.date().isoformat() if hasattr(fecha_rendicion, 'date') else fecha_rendicion.isoformat()
+                    tendencia_dict[fecha_str] += 1
+            
+            tendencia_resultado = [
+                {"fecha": fecha, "total": total}
+                for fecha, total in sorted(tendencia_dict.items())
+            ]
+        
         
         return Response({
             "periodo": {

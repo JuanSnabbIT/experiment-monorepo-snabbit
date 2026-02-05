@@ -38,18 +38,42 @@ const RendicionesAdmin = () => {
         dispatch(listaRendicionesThunk());
     }, [dispatch]);
 
+    const getEstadoColor = (estado: string): 'emerald' | 'red' | 'amber' | 'zinc' => {
+        const estadoLower = estado?.toLowerCase() || '';
+
+        if (estadoLower.includes('borrador')) return 'zinc';
+        if (estadoLower.includes('pendiente') || estadoLower.includes('espera')) return 'amber';
+        if (estadoLower.includes('aprobada') || estadoLower.includes('pagada')) return 'emerald';
+        if (estadoLower.includes('rechazada')) return 'red';
+
+        return 'zinc';
+    };
+
     const columns = [
         columnHelper.accessor('datos_usuario.nombre_usuario', {
-            cell: (info) => <div>{info.row.original.datos_usuario.nombre_usuario}</div>,
+            cell: (info) => (
+                <div className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                    {info.row.original.datos_usuario.nombre_usuario}
+                </div>
+            ),
             header: 'Usuario',
         }),
         columnHelper.accessor('estado', {
-            cell: (info) => <div>{info.row.original.estado_label}</div>,
+            cell: (info) => (
+                <Badge
+                    variant='solid'
+                    color={getEstadoColor(info.row.original.estado_label)}
+                    className='capitalize shadow-sm'>
+                    {info.row.original.estado_label}
+                </Badge>
+            ),
             header: 'Estado',
         }),
         columnHelper.accessor('fecha_rendicion', {
             cell: (info) => (
-                <div>{dayjs(info.row.original.fecha_rendicion).format('DD/MM/YYYY')}</div>
+                <div className='text-sm text-zinc-500 dark:text-zinc-400'>
+                    {dayjs(info.row.original.fecha_rendicion).format('DD/MM/YYYY')}
+                </div>
             ),
             header: 'Fecha Rendición',
         }),
@@ -62,7 +86,7 @@ const RendicionesAdmin = () => {
                             color='violet'
                             variant='solid'
                             onClick={() => {
-                                navigate(`/rendicion/detalle-rendicion/${info.row.original.id}/`);
+                                navigate(`/rendicion/detalle-rendicion/${info.row.original.id}`);
                             }}
                             icon='HeroEye'></Button>
                     </Tooltip>
@@ -95,7 +119,9 @@ const RendicionesAdmin = () => {
         <PageWrapper isProtectedRoute={true} name='Rendiciones Admin' title='Rendiciones Admin'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className='text-xl'>Rendiciones Admin</Badge>
+                    <Badge className='text-xl text-zinc-800 dark:text-zinc-100'>
+                        Rendiciones Admin
+                    </Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
                     <div className='flex items-center justify-between'>
@@ -110,10 +136,10 @@ const RendicionesAdmin = () => {
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>
-                <Card>
-                    <CardBody className='z-0'>
+                <Card className='h-full border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'>
+                    <CardBody className='z-0 overflow-auto'>
                         <div className='overflow-auto'>
-                            <Table className='min-w-[600px] table-fixed'>
+                            <Table className='min-w-[900px] table-fixed'>
                                 <THead>
                                     {table.getHeaderGroups().map((headerGroup) => (
                                         <Tr key={headerGroup.id}>
@@ -121,7 +147,7 @@ const RendicionesAdmin = () => {
                                                 <Th
                                                     key={header.id}
                                                     isColumnBorder={false}
-                                                    className='text-left'>
+                                                    className='text-left font-semibold text-zinc-500 dark:text-zinc-400'>
                                                     {header.isPlaceholder ? null : (
                                                         <div
                                                             key={header.id}
@@ -142,13 +168,13 @@ const RendicionesAdmin = () => {
                                                                 asc: (
                                                                     <Icon
                                                                         icon='HeroChevronUp'
-                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                        className='text-zinc-400 ltr:ml-1.5 rtl:mr-1.5'
                                                                     />
                                                                 ),
                                                                 desc: (
                                                                     <Icon
                                                                         icon='HeroChevronDown'
-                                                                        className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                        className='text-zinc-400 ltr:ml-1.5 rtl:mr-1.5'
                                                                     />
                                                                 ),
                                                             }[
@@ -163,9 +189,13 @@ const RendicionesAdmin = () => {
                                 </THead>
                                 <TBody>
                                     {table.getRowModel().rows.map((row) => (
-                                        <Tr key={row.id}>
+                                        <Tr
+                                            key={row.id}
+                                            className='transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50'>
                                             {row.getVisibleCells().map((cell) => (
-                                                <Td key={cell.id}>
+                                                <Td
+                                                    key={cell.id}
+                                                    className='border-b border-zinc-100 dark:border-zinc-800/50'>
                                                     {flexRender(
                                                         cell.column.columnDef.cell,
                                                         cell.getContext(),
@@ -176,7 +206,7 @@ const RendicionesAdmin = () => {
                                     ))}
                                 </TBody>
                             </Table>
-                            <div className='mt-2 min-w-[600px]'>
+                            <div className='mt-2 min-w-[900px]'>
                                 <TableCardFooterTemplateV2 table={table} />
                             </div>
                         </div>

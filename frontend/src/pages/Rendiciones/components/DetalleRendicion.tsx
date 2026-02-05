@@ -260,9 +260,20 @@ const DetalleRendicion = () => {
         columnHelper.display({
             id: 'categoria',
             cell: (info) => {
-                const det = info.row.original.detalle_data;
-                const detObj = typeof det === 'object' && det !== null ? det : null;
-                if (detObj && 'codigo' in detObj) return <div>Compra</div>;
+                const original = info.row.original as any;
+                const detObj = original.detalle_data;
+                
+                if (original.is_subitem) {
+                    // Para sub-items (items de compra), mostrar la categoría del item
+                    return <div>{detObj?.nombre_categoria || '-'}</div>;
+                }
+                
+                if (detObj && 'codigo' in detObj) {
+                    // Para compras padre
+                    return <div>Compra</div>;
+                }
+                
+                // Para gastos regulares
                 return <div>{detObj?.nombre_categoria || '-'}</div>;
             },
             header: 'Categoria',
@@ -444,6 +455,47 @@ const DetalleRendicion = () => {
                                 />
                             </Tooltip>
                         )}
+                        {detalleRendicion &&
+                            detalleRendicion.estado != '0' &&
+                            detalleRendicion.estado != '3' && (
+                                <Tooltip text='Descargar PDF'>
+                                    <Button
+                                        variant='solid'
+                                        color='red'
+                                        icon='HeroDocumentArrowDown'
+                                        onClick={async () => {
+                                            try {
+                                                const response =
+                                                    await ApiService.fetchData<BlobPart>({
+                                                        url: `/api/rendiciones/${detalleRendicion.id}/descargar-pdf`,
+                                                        method: 'get',
+                                                        headers: {
+                                                            'Content-Type': 'application/pdf',
+                                                        },
+                                                    });
+                                                const url = window.URL.createObjectURL(
+                                                    new Blob([response.data]),
+                                                );
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `rendicion_${id}.pdf`;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                a.remove();
+                                                window.URL.revokeObjectURL(url);
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.response.data ||
+                                                        'Error al descargar el pdf',
+                                                    {
+                                                        toastId: 'Error al descargar el pdf',
+                                                    },
+                                                );
+                                            }
+                                        }}
+                                    />
+                                </Tooltip>
+                            )}
                         <CambiarEstadoRendicion />
                     </div>
                 </SubheaderRight>
@@ -493,49 +545,6 @@ const DetalleRendicion = () => {
                                         )}
                                     </div>
                                 )}
-                                {detalleRendicion &&
-                                    detalleRendicion.estado != '0' &&
-                                    detalleRendicion.estado != '3' && (
-                                        <Tooltip text='Descargar PDF'>
-                                            <Button
-                                                variant='solid'
-                                                color='red'
-                                                icon='DuoDownloadedFile'
-                                                onClick={async () => {
-                                                    try {
-                                                        const response =
-                                                            await ApiService.fetchData<BlobPart>({
-                                                                url: `/api/rendiciones/${detalleRendicion.id}/descargar-pdf`,
-                                                                method: 'get',
-                                                                headers: {
-                                                                    'Content-Type':
-                                                                        'application/pdf',
-                                                                },
-                                                            });
-                                                        const url = window.URL.createObjectURL(
-                                                            new Blob([response.data]),
-                                                        );
-                                                        const a = document.createElement('a');
-                                                        a.href = url;
-                                                        a.download = `rendicion_${id}.pdf`;
-                                                        document.body.appendChild(a);
-                                                        a.click();
-                                                        a.remove();
-                                                        window.URL.revokeObjectURL(url);
-                                                    } catch (error: any) {
-                                                        toast.error(
-                                                            error.response.data ||
-                                                                'Error al descargar el pdf',
-                                                            {
-                                                                toastId:
-                                                                    'Error al descargar el pdf',
-                                                            },
-                                                        );
-                                                    }
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    )}
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
