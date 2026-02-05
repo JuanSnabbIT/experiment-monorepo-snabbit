@@ -2,8 +2,11 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IBodega } from '@/interface/bodega.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { listaBodegasThunk } from '@/store/slices/bodega/bodegaSlice';
@@ -19,11 +22,8 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
-import CrearBodega from './modals/CrearBodega';
-import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import Tooltip from '@/components/ui/Tooltip';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import CrearBodega from './modals/CrearBodega';
 
 const columnHelper = createColumnHelper<IBodega>();
 
@@ -82,14 +82,15 @@ function ListaBodegas() {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Bodega' title='Lista Bodega'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={140}>
-                        <CrearBodega />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={140}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearBodega />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

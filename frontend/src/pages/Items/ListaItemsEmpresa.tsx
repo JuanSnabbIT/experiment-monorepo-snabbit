@@ -122,14 +122,15 @@ function ListaItemsEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Item' title='Lista Item'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={200}>
-                        <CrearItemEmpresa />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearItemEmpresa />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

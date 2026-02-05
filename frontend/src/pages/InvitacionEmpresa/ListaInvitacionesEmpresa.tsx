@@ -1,16 +1,20 @@
-import Input from '@/components/form/Input';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IInvitacionEmpresa } from '@/interface/invitacion.interface';
+import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
     listaInvitacionesFiltroThunk,
     listaInvitacionesThunk,
 } from '@/store/slices/invitacion/invitacionSlice';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
     flexRender,
@@ -22,14 +26,9 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import CrearInvitacionEmpresa from './modals/CrearInvitacionEmpresa';
 import EliminarInvitacionRechazada from './modals/EliminarInvitacionRechazada';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import Card, { CardBody } from '@/components/ui/Card';
-import Tooltip from '@/components/ui/Tooltip';
-import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 
 const TABS: {
     [key in 'TODAS' | 'ACEPTADAS' | 'PENDIENTES' | 'EXPIRADAS']:
@@ -199,20 +198,20 @@ function ListaInvitacionesEmpresa() {
                             {i}
                         </Button>
                     ))}
-                </SubheaderLeft>
-                <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={250}>
-                        {personalizacionUsuario &&
-                            personalizacionUsuario.empresa &&
-                            personalizacionUsuario.sucursal_principal && (
-                                <CrearInvitacionEmpresa
-                                    sucural={personalizacionUsuario.sucursal_principal}
-                                />
-                            )}
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={250}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    {personalizacionUsuario &&
+                        personalizacionUsuario.empresa &&
+                        personalizacionUsuario.sucursal_principal && (
+                            <CrearInvitacionEmpresa
+                                sucural={personalizacionUsuario.sucursal_principal}
+                            />
+                        )}
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

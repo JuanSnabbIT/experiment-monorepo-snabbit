@@ -3,7 +3,6 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -162,12 +161,13 @@ function ListaUsuariosEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Usuarios' title='Lista Usuarios'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}></AnimacionDeInputModoMovil>
-                </SubheaderRight>
+                        setGlobalFilter={setGlobalFilter}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container className='h-full w-full'>
                 <Card>

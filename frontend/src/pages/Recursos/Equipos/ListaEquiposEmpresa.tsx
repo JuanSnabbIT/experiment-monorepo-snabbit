@@ -149,7 +149,13 @@ function ListaEquiposEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista Equipos' name='Lista Equipos'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
                 <SubheaderRight>
                     {listaMisClientes.length > 5 ? (
                         <SelectReact
@@ -205,11 +211,6 @@ function ListaEquiposEmpresa() {
                             </div>
                         </>
                     )}
-                    <AnimacionDeInputModoMovil
-                        globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}
-                        anchoInput={200}
-                    />
                     {/* <CrearEquipoEmpresa /> */}
                 </SubheaderRight>
             </Subheader>

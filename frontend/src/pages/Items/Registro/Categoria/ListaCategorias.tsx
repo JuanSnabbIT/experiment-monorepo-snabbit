@@ -98,13 +98,14 @@ const ListaCategorias = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Categorias' title='Lista Categorias'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}>
-                        <CrearCategoria />
-                    </AnimacionDeInputModoMovil>
+                        setGlobalFilter={setGlobalFilter}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearCategoria />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

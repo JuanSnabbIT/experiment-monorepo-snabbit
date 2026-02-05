@@ -1,4 +1,6 @@
-import Label from '@/components/form/Label';
+import Input from '@/components/form/Input';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Validation from '@/components/form/Validation';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -6,19 +8,16 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
-import Validation from '@/components/form/Validation';
-import Input from '@/components/form/Input';
 import { useAppSelector } from '@/store';
+import {
+    useGetDetalleSucursalQuery,
+    useUpdateSucursalMutation,
+} from '@/store/slices/empresa/empresaApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import {
-    useGetDetalleSucursalQuery,
-    useUpdateSucursalMutation,
-} from '@/store/slices/empresa/empresaApi';
 
 const DetelleSucursal = () => {
     const { id, id_empresa } = useParams<{ id: string; id_empresa: string }>();

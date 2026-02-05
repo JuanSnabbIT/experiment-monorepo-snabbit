@@ -99,13 +99,14 @@ const ListaEmpresas = () => {
     return (
         <PageWrapper isProtectedRoute={true} title='Empresas' name='Empresas'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}>
-                        <CrearEmpresa />
-                    </AnimacionDeInputModoMovil>
+                        setGlobalFilter={setGlobalFilter}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearEmpresa />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

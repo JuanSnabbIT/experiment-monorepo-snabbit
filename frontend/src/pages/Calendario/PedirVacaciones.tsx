@@ -1,6 +1,16 @@
+import Textarea from '@/components/form/Textarea';
+import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import themeConfig from '@/config/theme.config';
+import { IUsuarioEmpresa } from '@/interface/empresas.interface';
+import ApiService from '@/services/ApiService';
 import {
     listaDiasCalendarioThunk,
     listaSolicitudesVacacionesUsuarioThunk,
@@ -8,11 +18,7 @@ import {
     useAppSelector,
 } from '@/store';
 import { listaUsuariosEmpresaThunk } from '@/store/slices/empresa/empresaSlice';
-import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
-import { DateRange, Range, RangeKeyDict } from 'react-date-range';
-import es from 'date-fns/locale/es';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
     flexRender,
@@ -23,21 +29,15 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
-import { IUsuarioEmpresa } from '@/interface/empresas.interface';
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
-import Icon from '@/components/icon/Icon';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import * as Yup from 'yup';
-import Textarea from '@/components/form/Textarea';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
+import es from 'date-fns/locale/es';
 import dayjs from 'dayjs';
-import calcularDiasHabilesConCalendario from './utils/calcularDiasHabilesConCalendario';
+import { useFormik } from 'formik';
+import { useEffect, useState } from 'react';
+import { DateRange, Range, RangeKeyDict } from 'react-date-range';
+import { toast } from 'react-toastify';
 import colors from 'tailwindcss/colors';
-import themeConfig from '@/config/theme.config';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import * as Yup from 'yup';
+import calcularDiasHabilesConCalendario from './utils/calcularDiasHabilesConCalendario';
 
 const columHelper = createColumnHelper<IUsuarioEmpresa>();
 

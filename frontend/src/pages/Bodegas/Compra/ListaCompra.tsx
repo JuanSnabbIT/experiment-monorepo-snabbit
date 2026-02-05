@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ICompra } from '@/interface/bodega.interface';
 import { listaComprasThunk, useAppDispatch, useAppSelector } from '@/store';
@@ -23,7 +24,6 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CrearCompra from './modals/CrearCompra';
-import Tooltip from '@/components/ui/Tooltip';
 import EliminarCompra from './modals/EliminarCompra';
 
 const columnHelper = createColumnHelper<ICompra>();
@@ -97,13 +97,15 @@ function ListaCompra() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista de Compras' name='Lista de Compras'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}>
-                        <CrearCompra />
-                    </AnimacionDeInputModoMovil>
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearCompra />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

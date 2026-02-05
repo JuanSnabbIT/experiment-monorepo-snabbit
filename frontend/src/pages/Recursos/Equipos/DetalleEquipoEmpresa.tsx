@@ -1,9 +1,9 @@
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
 import Button, { IButtonProps } from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
+import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
     detalleEquipoEmpresaThunk,
@@ -11,13 +11,12 @@ import {
 } from '@/store/slices/recursos/recursosSlice';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
 import AlmacenamientosEnDetalleEquipo from './components/AlmacenamientosEnDetalleEquipo';
-import SoftwaresEnDetalleEquipo from './components/SoftwaresEnDetalleEquipo';
-import MonitoresEnDetalleEquipo from './components/MonitoresEnDetalleEquipo';
 import DatosEquipoEnDetalleEquipo from './components/DatosEquipoEnDetalleEquipo';
-import UsuariosEquipoEnDetalleEquipo from './components/UsuariosEquipoEnDetalleEquipo';
 import FotosDelEquipoEnDetalleEquipo from './components/FotosDelEquipoEnDetalleEquipo';
+import MonitoresEnDetalleEquipo from './components/MonitoresEnDetalleEquipo';
+import SoftwaresEnDetalleEquipo from './components/SoftwaresEnDetalleEquipo';
+import UsuariosEquipoEnDetalleEquipo from './components/UsuariosEquipoEnDetalleEquipo';
 
 function DetalleEquipoEmpresa() {
     const dispatch = useAppDispatch();

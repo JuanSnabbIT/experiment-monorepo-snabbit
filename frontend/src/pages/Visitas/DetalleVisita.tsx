@@ -1,28 +1,27 @@
-import { useEffect, useState } from 'react';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Tooltip from '@/components/ui/Tooltip';
+import ApiService from '@/services/ApiService';
 import {
     detalleVisitaSoporteThunk,
     listaGuiasSalidasDisponiblesThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
-import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
-import Container from '@/components/layouts/Container/Container';
-import { useParams } from 'react-router-dom';
-import Button from '@/components/ui/Button';
 import { useFormik } from 'formik';
-import ApiService from '@/services/ApiService';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Validation from '@/components/form/Validation';
-import Tooltip from '@/components/ui/Tooltip';
-import Textarea from '@/components/form/Textarea';
-import dayjs from 'dayjs';
 import * as Yup from 'yup';
-import ListaAsistenciaUsuario from './components/ListaAsistenciaUsuario';
 import EntregaEquipo from './components/EntregaEquipo';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import ListaAsistenciaUsuario from './components/ListaAsistenciaUsuario';
 
 const DetalleVisita = () => {
     const dispatch = useAppDispatch();

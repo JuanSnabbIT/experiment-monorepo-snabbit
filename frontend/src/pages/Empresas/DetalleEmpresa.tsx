@@ -1,6 +1,7 @@
 import Input from '@/components/form/Input';
 import Validation from '@/components/form/Validation';
 import Icon from '@/components/icon/Icon';
+import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
@@ -9,7 +10,9 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ISucursalEmpresa } from '@/interface/empresas.interface';
+import { IInvitacionEmpresa } from '@/interface/invitacion.interface';
 import ApiService from '@/services/ApiService';
 import { listaInvitacionesThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -31,15 +34,12 @@ import {
 import { useFormik } from 'formik';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import CrearSucursal from './modals/CrearSucursal';
-import { IInvitacionEmpresa } from '@/interface/invitacion.interface';
 import EliminarInvitacionRechazada from '../InvitacionEmpresa/modals/EliminarInvitacionRechazada';
-import SignatureCanvas from 'react-signature-canvas';
-import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
 import CrearInvitacionEmpresaDesdeDetalleEmpresa from './modals/CrearInvitacionEmpresaDesdeDetalleEmpresa';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import CrearSucursal from './modals/CrearSucursal';
 
 const columnHelper = createColumnHelper<ISucursalEmpresa>();
 const columnHelperInvitaciones = createColumnHelper<IInvitacionEmpresa>();

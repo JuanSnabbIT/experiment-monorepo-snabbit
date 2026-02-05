@@ -3,7 +3,6 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -199,14 +198,15 @@ function ListaMisOrdenesCompra() {
             name='Mis Ordenes de Compra'
             title='Mis Ordenes de Compra'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={200}>
-                        <CrearOrdenCompra />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearOrdenCompra />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

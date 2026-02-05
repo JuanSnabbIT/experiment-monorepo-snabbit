@@ -1,11 +1,17 @@
+import FieldWrap from '@/components/form/FieldWrap';
+import Input from '@/components/form/Input';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ITomaInventario } from '@/interface/bodega.interface';
+import ApiService from '@/services/ApiService';
 import {
     listaBodegasPorEmpresaThunk,
     listaTomaInventarioFiltroThunk,
@@ -25,18 +31,12 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
 import 'dayjs/locale/es';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
-import Button from '@/components/ui/Button';
-import CrearTomaInventario from './modals/CrearTomaInventario';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import Input from '@/components/form/Input';
-import { MultiValue } from 'react-select';
-import FieldWrap from '@/components/form/FieldWrap';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ApiService from '@/services/ApiService';
+import { MultiValue } from 'react-select';
 import { toast } from 'react-toastify';
+import CrearTomaInventario from './modals/CrearTomaInventario';
 
 const columnHelper = createColumnHelper<ITomaInventario>();
 
@@ -189,17 +189,19 @@ function ListaTomaDeInventario() {
             name='Tomas de Inventarios'
             title='Tomas de Inventarios'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}>
-                        <CrearTomaInventario
-                            bodegasSeleccionada={bodegasSeleccionada}
-                            fechaInicio={fechaInicio}
-                            fechaTermino={fechaTermino}
-                        />
-                    </AnimacionDeInputModoMovil>
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearTomaInventario
+                        bodegasSeleccionada={bodegasSeleccionada}
+                        fechaInicio={fechaInicio}
+                        fechaTermino={fechaTermino}
+                    />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

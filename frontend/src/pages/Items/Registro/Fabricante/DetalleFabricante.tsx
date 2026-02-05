@@ -1,20 +1,20 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import Input from '@/components/form/Input';
+import Validation from '@/components/form/Validation';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { detalleFabricanteThunk, listaFabricanteThunk } from '@/store/slices/item/itemSlice';
-import Input from '@/components/form/Input';
-import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
-import Button from '@/components/ui/Button';
 import { useFormik } from 'formik';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import * as Yup from 'yup'; // Importar Yup correctamente
-import Validation from '@/components/form/Validation';
 
 const validationSchema = Yup.object({
     nombre: Yup.string().required('Este campo no puede estar vacio'),

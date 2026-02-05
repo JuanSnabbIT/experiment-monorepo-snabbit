@@ -102,13 +102,14 @@ const ListaFabricantes = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Fabricantes' title='Lista Fabricantes'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}>
-                        <CrearFabricante />
-                    </AnimacionDeInputModoMovil>
+                        setGlobalFilter={setGlobalFilter}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearFabricante />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

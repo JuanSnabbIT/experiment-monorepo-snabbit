@@ -226,14 +226,15 @@ const ListaOT = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Ordenes de Trabajo' title='Ordenes de Trabajo'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={100}>
-                        <CrearOrdenOT />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={100}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearOrdenOT />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

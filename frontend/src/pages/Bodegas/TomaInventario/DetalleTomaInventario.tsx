@@ -2,16 +2,16 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Tooltip from '@/components/ui/Tooltip';
 import { detalleTomaInventarioThunk, useAppDispatch, useAppSelector } from '@/store';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import TablaItemsEnTomaDeInventario from './components/TablaItemsEnTomaDeInventario';
-import Button from '@/components/ui/Button';
 import TablaEstadosEnTomaDeInventario from './components/TablaEstadosEnTomaDeInventario';
-import Tooltip from '@/components/ui/Tooltip';
+import TablaItemsEnTomaDeInventario from './components/TablaItemsEnTomaDeInventario';
 
 function DetalleTomaInventario() {
     const dispatch = useAppDispatch();

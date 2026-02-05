@@ -1,4 +1,3 @@
-import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
@@ -9,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IGuiaSalida } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
 import {
@@ -388,7 +388,13 @@ function ListaGuiaSalidaBodega() {
             name='Lista Guias de Salida Bodega'
             title='Lista Guias de Salida Bodega'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={180}
+                    />
+                </SubheaderLeft>
                 <SubheaderRight className='w-full md:w-auto'>
                         <div className='flex w-full items-center gap-2'>
                             <div className='min-w-[150px]'>
@@ -434,16 +440,6 @@ function ListaGuiaSalidaBodega() {
                                             : null
                                     }
                                     placeholder='Estado'
-                                />
-                            </div>
-                            <div className='min-w-[180px]'>
-                                <Input
-                                    name='globalFilter'
-                                    placeholder='Buscar...'
-                                    value={globalFilter}
-                                    onChange={(e) => {
-                                        setGlobalFilter(e.target.value);
-                                    }}
                                 />
                             </div>
                             <CrearGuiaSalidaBodega />

@@ -1,15 +1,15 @@
+import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Container from '@/components/layouts/Container/Container';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
+import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 
 const DetalleCliente = () => {
     const navigate = useNavigate();

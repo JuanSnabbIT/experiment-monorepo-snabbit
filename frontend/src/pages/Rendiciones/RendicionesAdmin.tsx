@@ -3,6 +3,7 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -125,18 +126,14 @@ const RendicionesAdmin = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Rendiciones Admin' title='Rendiciones Admin'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
-                    <div className='flex items-center justify-between'>
-                        <AnimacionDeInputModoMovil
-                            globalFilter={globalFilter}
-                            setGlobalFilter={setGlobalFilter}
-                            anchoInput={200}>
-                            {/* OCULTADO PORQUE SE CREAN AUTOMATICAMENTE */}
-                            {/* <CrearRendicion tipo="1" /> */}
-                        </AnimacionDeInputModoMovil>
-                    </div>
-                </SubheaderRight>
+                <SubheaderLeft>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container className='h-full w-full'>
                 <Card className='h-full border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'>

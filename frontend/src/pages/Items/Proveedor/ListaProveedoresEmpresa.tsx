@@ -133,14 +133,15 @@ function ListaProveedoresEmpresa() {
             name='Lista Proveedores Empresa'
             title='Lista Proveedores Empresa'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={160}>
-                        <CrearProveedorEmpresa />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={160}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearProveedorEmpresa />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

@@ -1,9 +1,9 @@
+import Chart from '@/components/Chart';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import Chart from '@/components/Chart';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { listaSolicitudesVacacionesThunk, useAppDispatch, useAppSelector } from '@/store';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';

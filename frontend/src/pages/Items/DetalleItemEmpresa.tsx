@@ -1,5 +1,7 @@
 import Input from '@/components/form/Input';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -7,6 +9,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
+import { IMovimientoStock } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -19,18 +22,15 @@ import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import * as Yup from 'yup';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import TablaProveedoresEnItem from './components/TablaProveedoresEnItem';
-import TablaOCEnItem from './components/TablaOCEnItem';
-import GraficoMovimientosStockEnItem from './components/GraficoMovimientosStockEnItem';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
+import * as Yup from 'yup';
+import GraficoMovimientosStockEnItem from './components/GraficoMovimientosStockEnItem';
 import TablaMovimientosStockEnItem from './components/TablaMovimientosStockEnItem';
-import { IMovimientoStock } from '@/interface/bodega.interface';
+import TablaOCEnItem from './components/TablaOCEnItem';
+import TablaProveedoresEnItem from './components/TablaProveedoresEnItem';
 import CrearImagenEnDetalleItem from './modals/CrearImagenEnDetalleItem';
-import Icon from '@/components/icon/Icon';
 
 const validationSchema = Yup.object({
     nombre: Yup.string().required('El nombre es requerido'),

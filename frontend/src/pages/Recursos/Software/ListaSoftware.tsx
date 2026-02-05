@@ -63,14 +63,15 @@ function ListaSoftware() {
     return (
         <PageWrapper isProtectedRoute={true} name='Softwares' title='Softwares'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={180}>
-                        <CrearSoftware />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={180}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearSoftware />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

@@ -1,10 +1,15 @@
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
-import Table, { Th, THead, Tr, TBody, Td } from '@/components/ui/Table';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ISolicitudVacaciones } from '@/interface/calendario.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -16,18 +21,11 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
-import { useEffect, useState } from 'react';
-import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
 import dayjs from 'dayjs';
-import EliminarSolicitudVacaciones from './modals/EliminarSolicitudVacaciones';
-import Tooltip from '@/components/ui/Tooltip';
-import Button from '@/components/ui/Button';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AprobarSolicitudVacaciones from './modals/AprobarSolicitudVacaciones';
-import Input from '@/components/form/Input';
-import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import EliminarSolicitudVacaciones from './modals/EliminarSolicitudVacaciones';
 
 const columnHelper = createColumnHelper<ISolicitudVacaciones>();
 
@@ -103,14 +101,14 @@ function ListaSolicitudesVacaciones() {
             title='Solicitudes Vacaciones'
             name='Solicitudes Vacaciones'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
                         anchoInput={200}
                     />
-                </SubheaderRight>
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container>
                 <div className='grid grid-cols-12'>

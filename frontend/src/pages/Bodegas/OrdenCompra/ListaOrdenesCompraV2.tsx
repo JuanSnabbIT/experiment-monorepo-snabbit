@@ -1,4 +1,3 @@
-import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
@@ -10,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ESTADOS_OC } from '@/constants/bodegas.constant';
 import { IOrdenCompra } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
@@ -247,7 +247,13 @@ function ListaOrdenesCompraV2() {
     return (
         <PageWrapper isProtectedRoute={true} name='Ordenes de Compra' title='Ordenes de Compra'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
                 <SubheaderRight className='w-full md:w-auto'>
                     <div className='flex w-full flex-col gap-4 md:flex-row'>
                         <div className='min-w-[200px]'>
@@ -277,16 +283,6 @@ function ListaOrdenesCompraV2() {
                                         (option) => option.value,
                                     );
                                     setFiltroEstado(ids);
-                                }}
-                            />
-                        </div>
-                        <div>
-                            <Input
-                                name='globalFilter'
-                                placeholder='Buscar...'
-                                value={globalFilter}
-                                onChange={(e) => {
-                                    setGlobalFilter(e.target.value);
                                 }}
                             />
                         </div>

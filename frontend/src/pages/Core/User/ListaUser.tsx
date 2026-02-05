@@ -2,7 +2,6 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -133,14 +132,14 @@ function ListaUser() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista de Usuarios' name='Lista de Usuarios'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
                         anchoInput={160}
                     />
-                </SubheaderRight>
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container className='h-full w-full'>
                 <Card className='w-full'>

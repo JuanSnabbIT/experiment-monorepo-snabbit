@@ -20,11 +20,11 @@ import { IItemCotizacion } from '@/interface/cotizaciones.interface';
 import ApiService from '@/services/ApiService';
 import { listaContentTypeThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
+    useDeleteSolicitanteCotizacionMutation,
     useGetDetalleCotizacionPorNumeroQuery,
     useGetItemsEnCotizacionQuery,
     useGetSeguimientoCotizacionQuery,
     useGetSolicitantesCotizacionQuery,
-    useDeleteSolicitanteCotizacionMutation,
 } from '@/store/slices/cotizaciones/cotizacionApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { formatCurrency, formatPrice } from '@/utils/currency';
@@ -52,7 +52,6 @@ import AprobarCotizacion from '../modals/AprobarCotizacion';
 import CrearItemCotizacion from '../modals/CrearItemCotizacion';
 import CrearOCDeCotizacion from '../modals/CrearOCDeCotizacion';
 import EditarItemEnCotizacion from '../modals/EditarItemEnCotizacion';
-import EnviarCotizacion from '../modals/EnviarCotizacion';
 import EnviarCotizacionParaAprobar from '../modals/EnviarCotizacionParaAprobar';
 import RechazarCotizacion from '../modals/RechazarCotizacion';
 import SeguimientoCotizacion from './SeguimientoCotizacion';

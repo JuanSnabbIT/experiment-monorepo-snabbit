@@ -108,14 +108,15 @@ const ListaVisitas = () => {
             name='Asistencias Técnicas'
             title='Asistencias Técnicas'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
-                        anchoInput={200}>
-                        <CrearVisitaSoporte />
-                    </AnimacionDeInputModoMovil>
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <CrearVisitaSoporte />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

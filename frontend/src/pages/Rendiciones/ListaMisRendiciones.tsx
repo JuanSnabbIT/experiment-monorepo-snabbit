@@ -104,18 +104,14 @@ const ListaMisRendiciones = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Mis Rendiciones' title='Mis Rendiciones'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
-                    <div className='flex items-center justify-between'>
-                        <AnimacionDeInputModoMovil
-                            globalFilter={globalFilter}
-                            setGlobalFilter={setGlobalFilter}
-                            anchoInput={200}>
-                            {/* OCULTADO PORQUE SE CREAN AUTOMATICAMENTE */}
-                            {/* <CrearRendicion tipo="0" /> */}
-                        </AnimacionDeInputModoMovil>
-                    </div>
-                </SubheaderRight>
+                <SubheaderLeft>
+                    <AnimacionDeInputModoMovil
+                        globalFilter={globalFilter}
+                        setGlobalFilter={setGlobalFilter}
+                        anchoInput={200}
+                    />
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container className='h-full w-full'>
                 <Card>

@@ -1,9 +1,9 @@
-import { FC, HTMLAttributes, ReactNode, useRef } from 'react';
 import classNames from 'classnames';
+import { FC, HTMLAttributes, ReactNode, useRef } from 'react';
 import useDomRect from '../../../hooks/useDomRect';
 
 interface ISubheaderLeftProps extends HTMLAttributes<HTMLDivElement> {
-    children: ReactNode;
+    children?: ReactNode;
 }
 export const SubheaderLeft: FC<ISubheaderLeftProps> = (props) => {
     const { children, className, ...rest } = props;
@@ -20,7 +20,7 @@ export const SubheaderLeft: FC<ISubheaderLeftProps> = (props) => {
 SubheaderLeft.displayName = 'SubheaderLeft';
 
 interface ISubheaderRightProps extends HTMLAttributes<HTMLDivElement> {
-    children: ReactNode;
+    children?: ReactNode;
 }
 export const SubheaderRight: FC<ISubheaderRightProps> = (props) => {
     const { children, className, ...rest } = props;

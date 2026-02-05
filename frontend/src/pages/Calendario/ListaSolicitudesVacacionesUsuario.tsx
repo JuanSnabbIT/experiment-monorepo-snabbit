@@ -1,9 +1,12 @@
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ISolicitudVacaciones } from '@/interface/calendario.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { listaMisSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
@@ -20,13 +23,8 @@ import {
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import FirmarSolicitudVacaciones from './modals/FirmarSolicitudVacaciones';
 import { useNavigate } from 'react-router-dom';
-import Input from '@/components/form/Input';
-import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
-import Tooltip from '@/components/ui/Tooltip';
+import FirmarSolicitudVacaciones from './modals/FirmarSolicitudVacaciones';
 
 const columnHelper = createColumnHelper<ISolicitudVacaciones>();
 
@@ -102,14 +100,14 @@ function ListaSolicitudesVacacionesUsuario() {
     return (
         <PageWrapper isProtectedRoute={true} title='Mis Solicitudes' name='Mis Solicitudes'>
             <Subheader>
-                <SubheaderLeft />
-                <SubheaderRight>
+                <SubheaderLeft>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}
                         setGlobalFilter={setGlobalFilter}
                         anchoInput={180}
                     />
-                </SubheaderRight>
+                </SubheaderLeft>
+                <SubheaderRight />
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='w-full'>

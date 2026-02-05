@@ -39,8 +39,8 @@ import {
 import { useFormik } from 'formik';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 import * as Yup from 'yup';
 import AprobarGuiaSalida from './modals/AprobarGuiaSalida';
 import AsignarNumeroDeSerie from './modals/AsignarNumeroDeSerie';
