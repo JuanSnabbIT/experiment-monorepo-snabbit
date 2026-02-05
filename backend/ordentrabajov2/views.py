@@ -266,6 +266,7 @@ def guardar_firma_subtrabajo_en_ot(
 class BaseWriteViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
+from core.models import PersonalizacionUsuario
 from .cierre_validaciones import validar_requisitos_cierre_ot
 
 class OrdenDeTrabajoViewSet(BaseWriteViewSet):
@@ -273,17 +274,33 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
     serializer_class = OrdenDeTrabajoSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        """
+        Filtra órdenes de trabajo por la empresa del usuario autenticado.
+        Multi-tenancy obligatorio para evitar fuga de datos entre empresas.
+        """
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return OrdenDeTrabajo.objects.none()
+        
+        empresa = personalizacion.sucursal_principal.empresa
+        qs = OrdenDeTrabajo.objects.filter(empresa=empresa).order_by("-fecha_creacion")
+        
+        # Filtros adicionales por query params
         tipo_servicio = self.request.query_params.get("tipo_servicio")
         estado = self.request.query_params.get("estado")
-        empresa = self.request.query_params.get("empresa")
+        empresa_param = self.request.query_params.get("empresa")
         cliente = self.request.query_params.get("cliente")
+        
         if tipo_servicio:
             qs = qs.filter(tipo_servicio=tipo_servicio)
         if estado:
             qs = qs.filter(estado=estado)
-        if empresa:
-            qs = qs.filter(empresa_id=empresa)
+        if empresa_param:
+            # Solo permitir filtrar si es la misma empresa del usuario
+            if int(empresa_param) == empresa.id:
+                qs = qs.filter(empresa_id=empresa_param)
         if cliente:
             qs = qs.filter(cliente_id=cliente)
         return qs
