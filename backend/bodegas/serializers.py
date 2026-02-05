@@ -12,7 +12,7 @@ from .models import (
     VoucherDevolucion, MovimientoEnVoucher
 )
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Q, Sum
 import os
 
 class BodegaSerializer(serializers.ModelSerializer):
@@ -418,6 +418,9 @@ class CompraSerializer(serializers.ModelSerializer):
 class ItemEnCompraSerializer(serializers.ModelSerializer):
     nombre_item = serializers.SerializerMethodField()
     item_stock = serializers.SerializerMethodField()
+    cantidad_devuelta = serializers.SerializerMethodField()
+    cantidad_usada = serializers.SerializerMethodField()
+    estado_uso_label = serializers.SerializerMethodField()
 
     class Meta:
         model = ItemEnCompra
@@ -437,6 +440,34 @@ class ItemEnCompraSerializer(serializers.ModelSerializer):
             return None
 
         return ItemOrdenCompraEnStockSerializer(stock_item).data
+
+    def get_cantidad_devuelta(self, obj):
+        content_type = ContentType.objects.get_for_model(obj)
+        total = (
+            MovimientoStock.objects.filter(
+                tipo_movimiento="DEVOLUCION",
+                content_type=content_type,
+                object_id=obj.id,
+            ).aggregate(total=Sum("cantidad"))
+        )["total"]
+        return int(total or 0)
+
+    def get_cantidad_usada(self, obj):
+        cantidad = obj.cantidad or 0
+        devuelta = self.get_cantidad_devuelta(obj)
+        return max(cantidad - devuelta, 0)
+
+    def get_estado_uso_label(self, obj):
+        cantidad = obj.cantidad or 0
+        devuelta = self.get_cantidad_devuelta(obj)
+
+        if cantidad <= 0:
+            return "Sin cantidad"
+        if devuelta <= 0:
+            return "Usado total"
+        if devuelta >= cantidad:
+            return "Devuelto"
+        return "Parcial"
 
 class ItemsGuiaSalidaEnMovimientoSerializer(serializers.ModelSerializer):
     class Meta:

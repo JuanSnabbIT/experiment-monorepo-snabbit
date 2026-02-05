@@ -195,6 +195,9 @@ export interface IItemEnCompra {
     precio: number;
     nombre_item: string;
     item_stock: IItemOrdenCompraEnStock | null;
+    cantidad_devuelta: number;
+    cantidad_usada: number;
+    estado_uso_label: string;
 }
 
 export interface IItemGuiaSalidaMovimiento {

@@ -15,6 +15,7 @@ import {
     aprobarRendicionThunk,
     pagarRendicionThunk,
     detalleRendicionThunk,
+    listaItemsRendicionThunk,
 } from '@/store';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
@@ -50,6 +51,9 @@ function CambiarEstadoRendicion() {
                 
                 await dispatch(
                     detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
+                );
+                await dispatch(
+                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
                 );
 
                 Swal.fire({
@@ -109,6 +113,9 @@ function CambiarEstadoRendicion() {
                 await dispatch(
                     detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
                 );
+                await dispatch(
+                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
+                );
 
                 Swal.fire({
                     title: '¡Rendición Rechazada!',
@@ -151,6 +158,9 @@ function CambiarEstadoRendicion() {
                 await dispatch(
                     detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
                 );
+                await dispatch(
+                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
+                );
 
                 Swal.fire({
                     title: '¡Aprobada!',
@@ -192,6 +202,9 @@ function CambiarEstadoRendicion() {
 
                 await dispatch(
                     detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
+                );
+                await dispatch(
+                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
                 );
 
                 Swal.fire({

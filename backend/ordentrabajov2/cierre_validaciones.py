@@ -13,8 +13,8 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
     Valida que una OT cumpla los requisitos para pasar a estado 'cerrada'.
     
     Requisitos:
-    1. Existe una prefactura (CierreAdministrativoOT) con estado 'aprobado' que incluya esta OT
-    2. Existe una rendición asociada a la OT con estado '2' (Aprobada)
+    1. Existe una prefactura (CierreAdministrativoOT) con estado 'aprobado' o 'facturado' que incluya esta OT
+    2. Existe una rendición asociada a la OT con estado 'aprobada' (2) o 'pagada' (4)
     
     Args:
         orden: Instancia de OrdenDeTrabajo
@@ -39,7 +39,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
 
 def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     """
-    Valida que exista una prefactura con estado 'aprobado' para esta OT.
+    Valida que exista una prefactura con estado 'facturado' o 'pagado' para esta OT.
     
     Returns:
         Mensaje de error si no existe, None si es válido.
@@ -47,11 +47,11 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     try:
         qs = CierreAdministrativoOT.objects.filter(
             cliente=orden.cliente,
-            estado_cierre="aprobado",
+            estado_cierre__in=["facturado", "pagado"],
         )
 
         if not qs.exists():
-            return "No existe una prefactura aprobada para este cliente."
+            return "No existe una prefactura aprobada o facturada para este cliente."
 
         # Normalizador flexible de entradas en `ots_incluidas`
         def _extract_ids(items):
@@ -78,14 +78,18 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
             return ids
 
         # Buscar en cualquier prefactura aprobada si alguna contiene la OT
+        prefacturas_estados = []
         for prefactura in qs:
             resultado = (prefactura.resultado or {})
             ots_incluidas = resultado.get("ots_incluidas", [])
             ids = _extract_ids(ots_incluidas)
+            prefacturas_estados.append(f"Prefactura #{prefactura.id} ({prefactura.estado_cierre}): OTs {list(ids)}")
             if orden.id in ids:
                 return None  # Válido
 
-        return "La OT no está incluida en la prefactura aprobada."
+        # Si llegamos aquí, ninguna prefactura contenía la OT
+        debug_info = " | ".join(prefacturas_estados) if prefacturas_estados else "Sin prefacturas"
+        return f"La OT #{orden.id} no está incluida en ninguna prefactura aprobada/facturada. Prefacturas revisadas: {debug_info}"
 
     except Exception as e:
         return f"Error al validar prefactura: {str(e)}"
@@ -93,7 +97,7 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
 
 def _validar_rendicion_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     """
-    Valida que exista una rendición asociada a la OT y esté en estado 'aprobada' (2).
+    Valida que exista una rendición asociada a la OT y esté en estado 'aprobada' (2) o 'pagada' (4).
     
     Returns:
         Mensaje de error si no existe o no está aprobada, None si es válido.
@@ -101,12 +105,12 @@ def _validar_rendicion_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     try:
         # Verificar que exista rendición asociada
         if not hasattr(orden, "rendicion_asociada") or not orden.rendicion_asociada:
-            return "No existe una rendición asociada a esta OT. Por favor, genérela completando la OT."
+            return f"No existe una rendición asociada a la OT #{orden.id}. Por favor, genérela completando la OT."
         
         rendicion = orden.rendicion_asociada
         
         # Estados: 0=Borrador, 1=En Espera, 2=Aprobada, 3=Rechazada, 4=Pagada
-        if rendicion.estado != "2":
+        if rendicion.estado not in ["2", "4"]:
             estado_nombre = {
                 "0": "Borrador",
                 "1": "En Espera de Aprobación",
@@ -115,9 +119,9 @@ def _validar_rendicion_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
                 "4": "Pagada"
             }.get(rendicion.estado, f"Desconocido ({rendicion.estado})")
             
-            return f"La rendición debe estar aprobada. Estado actual: {estado_nombre}."
+            return f"La rendición #{rendicion.id} de la OT #{orden.id} debe estar aprobada o pagada. Estado actual: {estado_nombre}."
         
         return None  # Válido
         
     except Exception as e:
-        return f"Error al validar rendición: {str(e)}"
+        return f"Error al validar rendición de OT #{orden.id}: {str(e)}"

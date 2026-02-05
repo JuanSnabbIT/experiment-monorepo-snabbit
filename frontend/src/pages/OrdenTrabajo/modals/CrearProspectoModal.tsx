@@ -196,7 +196,7 @@ function CrearProspectoModal({
                 <div className='flex flex-col gap-4'>
                     {/* Sección Empresa */}
                     <div className='border-b pb-3'>
-                        <h3 className='mb-3 text-lg font-semibold text-gray-800'>
+                        <h3 className='mb-3 text-lg font-semibold text-gray-800 dark:text-gray-100'>
                             Datos de la Empresa
                         </h3>
 
@@ -256,10 +256,10 @@ function CrearProspectoModal({
 
                     {/* Sección Contacto */}
                     <div>
-                        <h3 className='mb-2 text-lg font-semibold text-gray-800'>
+                        <h3 className='mb-2 text-lg font-semibold text-gray-800 dark:text-gray-100'>
                             Datos del Contacto Principal
                         </h3>
-                        <p className='mb-3 text-sm text-gray-600'>
+                        <p className='mb-3 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                             Este contacto será el solicitante de la orden de trabajo
                         </p>
 
@@ -316,7 +316,7 @@ function CrearProspectoModal({
                                         value={formik.values.email_contacto}
                                     />
                                 </Validation>
-                                <p className='mt-1 text-xs text-gray-500'>
+                                <p className='mt-1 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                     Se enviará un correo de invitación a esta dirección
                                 </p>
                             </div>

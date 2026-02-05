@@ -135,7 +135,7 @@ const ModalVincularGuia = ({
             </ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-4'>
-                    <p className='text-sm text-gray-500'>
+                    <p className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                         Seleccione una guía de salida disponible para vincularla a{' '}
                         {targetType === 'direct_ot' ? 'esta Orden de Trabajo' : 'este trabajo'}.
                     </p>
@@ -167,60 +167,60 @@ const ModalVincularGuia = ({
                         <div className='mt-4'>
                             <div className='mb-2 flex items-center justify-between'>
                                 <Badge className='text-base'>Items en la Guía</Badge>
-                                <span className='text-xs text-gray-500'>
+                                <span className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                     {itemsGuia.length} item{itemsGuia.length !== 1 ? 's' : ''}
                                 </span>
                             </div>
-                            <div className='max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                            <div className='max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800'>
                                 {cargandoItems ? (
-                                    <div className='flex items-center justify-center py-6 text-sm text-gray-500'>
+                                    <div className='flex items-center justify-center py-6 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                         Cargando items...
                                     </div>
                                 ) : itemsGuia.length > 0 ? (
                                     <div className='overflow-x-auto'>
-                                        <table className='min-w-full divide-y divide-gray-200'>
-                                            <thead className='bg-gray-100'>
+                                        <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                            <thead className='bg-gray-100 dark:bg-zinc-800'>
                                                 <tr>
-                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                         Item
                                                     </th>
-                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                         Cantidad original
                                                     </th>
-                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                         Cantidad rebajada
                                                     </th>
-                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                         Cantidad devuelta
                                                     </th>
-                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                    <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                         Serializado
                                                     </th>
                                                 </tr>
                                             </thead>
-                                            <tbody className='divide-y divide-gray-200 bg-white'>
+                                            <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                                 {itemsGuia.map((item, idx) => (
                                                     <tr
                                                         key={item.id || idx}
                                                         className={
                                                             idx % 2 === 0
-                                                                ? 'bg-white'
-                                                                : 'bg-gray-50'
+                                                                ? 'bg-white dark:bg-zinc-900'
+                                                                : 'bg-gray-50 dark:bg-zinc-800'
                                                         }>
-                                                        <td className='px-4 py-3 text-sm text-gray-900'>
+                                                        <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                             {item.datos_stock?.datos_item?.nombre ||
                                                                 'Sin nombre'}
                                                         </td>
-                                                        <td className='px-4 py-3 text-sm text-gray-900'>
+                                                        <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                             {item.cantidad_original}
                                                         </td>
-                                                        <td className='px-4 py-3 text-sm text-gray-900'>
+                                                        <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                             {item.cantidad_rebajada}
                                                         </td>
-                                                        <td className='px-4 py-3 text-sm text-gray-900'>
+                                                        <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                             {item.cantidad_devuelta}
                                                         </td>
-                                                        <td className='px-4 py-3 text-sm text-gray-900'>
+                                                        <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                             {item.individualizado ? 'Sí' : 'No'}
                                                         </td>
                                                     </tr>
@@ -229,7 +229,7 @@ const ModalVincularGuia = ({
                                         </table>
                                     </div>
                                 ) : (
-                                    <div className='py-6 text-center text-sm text-gray-500'>
+                                    <div className='py-6 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                         No hay items en esta guía
                                     </div>
                                 )}

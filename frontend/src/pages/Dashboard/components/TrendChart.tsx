@@ -4,6 +4,7 @@ import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import classNames from 'classnames';
 import { FC } from 'react';
+import useDarkMode from '@/hooks/useDarkMode';
 
 interface ITrendDataPoint {
     fecha: string;
@@ -31,6 +32,7 @@ const TrendChart: FC<ITrendChartProps> = ({
     yAxisLabel,
     className,
 }) => {
+    const { isDarkTheme } = useDarkMode();
     const categories = data.map((d) => {
         const date = new Date(d.fecha);
         return date.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
@@ -46,7 +48,7 @@ const TrendChart: FC<ITrendChartProps> = ({
                     <Badge className='text-lg'>{title}</Badge>
                 </CardHeaderChild>
                 <CardHeaderChild>
-                    <span className='text-xs text-zinc-500'>
+                    <span className='text-xs text-zinc-500 dark:text-zinc-400'>
                         Total: {total} | Promedio: {avg}/día
                     </span>
                 </CardHeaderChild>
@@ -100,7 +102,7 @@ const TrendChart: FC<ITrendChartProps> = ({
                                 min: 0,
                             },
                             tooltip: {
-                                theme: 'dark',
+                                theme: isDarkTheme ? 'dark' : 'light',
                                 x: {
                                     format: 'dd MMM',
                                 },

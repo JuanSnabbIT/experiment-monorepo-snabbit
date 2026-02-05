@@ -322,7 +322,7 @@ function CompletarOT() {
                                             Al cambiar a Completada no se puede deshacer
                                         </div>
                                         {cargandoInsumos && (
-                                            <div className='text-sm text-gray-500'>
+                                            <div className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 Cargando insumos...
                                             </div>
                                         )}
@@ -354,7 +354,7 @@ function CompletarOT() {
                                         {!todosItemsCompradosUsados && (
                                             <div className='mt-4 flex flex-col gap-4'>
                                                 {comprasItems.length > 0 && (
-                                                    <div className='rounded-lg border border-gray-200 bg-gray-50 p-3'>
+                                                    <div className='rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 p-3'>
                                                         <div className='mb-3'>
                                                             <Badge>Items de Compras</Badge>
                                                         </div>
@@ -399,7 +399,7 @@ function CompletarOT() {
                                                                     </div>
                                                                 )}
                                                         </div>
-                                                        <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 md:grid-cols-12'>
+                                                        <div className='grid grid-cols-1 gap-2 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300 md:grid-cols-12'>
                                                             <div className='md:col-span-6'>
                                                                 Item
                                                             </div>
@@ -417,12 +417,12 @@ function CompletarOT() {
                                                             {comprasItems.map((item) => (
                                                                 <div
                                                                     key={`compra-${item.itemId}`}
-                                                                    className='grid grid-cols-1 gap-2 rounded border border-gray-200 bg-white p-2 md:grid-cols-12'>
+                                                                    className='grid grid-cols-1 gap-2 rounded border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-2 md:grid-cols-12'>
                                                                     <div className='md:col-span-6'>
                                                                         <div className='font-medium'>
                                                                             {item.nombre}
                                                                         </div>
-                                                                        <div className='text-xs text-gray-500'>
+                                                                        <div className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                                             Compra #{item.compraId}
                                                                         </div>
                                                                     </div>

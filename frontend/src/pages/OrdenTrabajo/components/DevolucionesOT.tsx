@@ -125,8 +125,8 @@ const DevolucionesOT = ({ ordenId }: DevolucionesOTProps) => {
             <Card>
                 <CardBody className='flex items-center justify-center py-8'>
                     <div className='text-center'>
-                        <div className='inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-blue-500'></div>
-                        <p className='mt-2 text-gray-600'>Cargando devoluciones...</p>
+                        <div className='inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 dark:border-zinc-700 border-t-blue-500'></div>
+                        <p className='mt-2 text-gray-600 dark:text-gray-400 dark:text-gray-300'>Cargando devoluciones...</p>
                     </div>
                 </CardBody>
             </Card>

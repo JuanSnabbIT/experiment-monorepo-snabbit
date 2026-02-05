@@ -97,8 +97,8 @@ def draw_tabla_items(
     for it in items:
         nombre_item = it.get("nombre", "")
         desc_texto = it.get("descripcion", "")
-        nombre_item = str(nombre_item).replace("<", "").replace(">", "")
-        desc_texto = str(desc_texto).replace("<", "").replace(">", "")
+        nombre_item = str(nombre_item or "").replace("<", "").replace(">", "")
+        desc_texto = str(desc_texto or "").replace("<", "").replace(">", "")
         combined = f"<b>{nombre_item}</b><br/><font size='8'>{desc_texto}</font>"
         desc_para = Paragraph(combined, CELL_STYLE)
 

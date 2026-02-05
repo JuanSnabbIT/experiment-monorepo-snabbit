@@ -71,7 +71,7 @@ function CompletarCompraDT({}) {
                         <div className=''>
                             <Badge>Firma</Badge>
                             <div
-                                className='dark:bg-white'
+                                className='signature-surface'
                                 style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
                                 <SignatureCanvas
                                     ref={(ref) => {
@@ -80,8 +80,7 @@ function CompletarCompraDT({}) {
                                     penColor='black'
                                     canvasProps={{
                                         height: 200,
-                                        className: 'sigCanvas',
-                                        style: { width: '100%', border: '1px solid #000' },
+                                        className: 'signature-canvas',
                                     }}
                                 />
                             </div>

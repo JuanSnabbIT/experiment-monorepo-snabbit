@@ -115,6 +115,7 @@ const ListaOT = () => {
                 const estadoLower = estado?.toLowerCase() || '';
 
                 if (estadoLower.includes('completada')) color = 'emerald';
+                else if (estadoLower.includes('cerrada') || estadoLower.includes('validada')) color = 'emerald';
                 else if (estadoLower.includes('pendiente')) color = 'amber';
                 else if (estadoLower.includes('reprogr') || estadoLower.includes('cancelada'))
                     color = 'red';

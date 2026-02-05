@@ -144,14 +144,14 @@ function FirmarAsignacionUsuario({
                     </div>
 
                     <div className='space-y-2'>
-                        <label className='block text-sm font-medium text-gray-700'>
+                        <label className='block text-sm font-medium text-gray-700 dark:text-gray-300'>
                             Firma de conformidad:
                         </label>
-                        <div className='flex justify-center overflow-auto rounded-lg border-2 border-gray-300 bg-white dark:border-zinc-600 dark:bg-zinc-800'>
+                        <div className='flex justify-center overflow-auto rounded-lg border-2 border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 dark:border-zinc-600 dark:bg-zinc-800'>
                             <SignatureCanvas
                                 ref={sigCanvas}
                                 canvasProps={{
-                                    className: 'bg-white',
+                                    className: 'bg-white dark:bg-zinc-900',
                                     height: 280,
                                     width: 400,
                                 }}

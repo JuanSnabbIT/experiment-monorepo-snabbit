@@ -15,6 +15,8 @@ ESTADO_CR = (
     ("-", "Borrador"),
     ("P", "Pendiente de rendición"),
     ("1", "Completada"),
+    ("R", "Rendida"),
+    ("C", "Cancelada"),
 )
 
 ESTADOS_REBAJE = (

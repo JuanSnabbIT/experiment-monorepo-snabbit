@@ -84,7 +84,7 @@ const StyledButton: FC<IStyledButtonProps> = ({ text, icon, status }) => {
                 {
                     'bg-white shadow-lg dark:bg-zinc-800 dark:text-white':
                         darkModeStatus === status,
-                    'hover:text-zinc-950': darkModeStatus !== status,
+                    'hover:text-zinc-950 dark:hover:text-zinc-200': darkModeStatus !== status,
                 },
                 themeConfig.transition,
             )}
@@ -104,7 +104,7 @@ const StyledButton: FC<IStyledButtonProps> = ({ text, icon, status }) => {
 const DarkModeSwitcherPart = () => {
     const { t } = useTranslation();
     return (
-        <div className='flex w-full overflow-hidden rounded-full bg-zinc-100 p-2 text-sm dark:bg-zinc-950'>
+        <div className='flex w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-950 p-2 text-sm'>
             <StyledButton icon='HeroMoon' status={DARK_MODE.DARK} text={t('theme.dark')} />
             <StyledButton icon='HeroSun' status={DARK_MODE.LIGHT} text={t('theme.light')} />
             <StyledButton

@@ -209,13 +209,13 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
             </ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-6'>
-                    <div className='text-sm text-gray-600'>
+                    <div className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                         Indique cuánto de cada item se usó en la OT. Los sobrantes se ingresarán
                         automáticamente a la bodega seleccionada.
                     </div>
 
                     {/* Selector global de bodega */}
-                    <div className='flex items-end gap-2 rounded-lg bg-gray-50 p-3'>
+                    <div className='flex items-end gap-2 rounded-lg bg-gray-50 dark:bg-zinc-800 p-3'>
                         <div className='flex-1'>
                             <Badge>Bodega para Sobrantes (aplicar a todos)</Badge>
                             <SelectReact
@@ -250,7 +250,7 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
                     <div className='overflow-x-auto'>
                         <div className='min-w-full'>
                             {/* Header */}
-                            <div className='grid grid-cols-6 gap-2 rounded-t-lg bg-gray-100 p-2 font-semibold'>
+                            <div className='grid grid-cols-6 gap-2 rounded-t-lg bg-gray-100 dark:bg-zinc-800 p-2 font-semibold'>
                                 <div className='col-span-2'>Item</div>
                                 <div className='text-center'>Cantidad Total</div>
                                 <div className='text-center'>Usado</div>
@@ -279,7 +279,7 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
                                         return (
                                             <div
                                                 key={item.id}
-                                                className='grid grid-cols-6 gap-2 border-b p-2 hover:bg-gray-50'>
+                                                className='grid grid-cols-6 gap-2 border-b p-2 hover:bg-gray-50 dark:hover:bg-zinc-800'>
                                                 <div className='col-span-2 flex items-center text-sm'>
                                                     {item.nombre_item}
                                                 </div>
@@ -366,7 +366,7 @@ function RegistrarItemsComprasOT({ isOpen, setIsOpen, onSuccess }: Props) {
                     </div>
 
                     {itemsTracking.length === 0 && (
-                        <div className='py-8 text-center text-gray-500'>
+                        <div className='py-8 text-center text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                             No hay items en las compras vinculadas
                         </div>
                     )}

@@ -169,7 +169,7 @@ function CrearOCDeCotizacion({
                             </div>
                         )}
                         {proveedores.length === 0 ? (
-                            <div className='text-gray-600'>
+                            <div className='text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                 No hay proveedores con ítems en esta cotización.
                             </div>
                         ) : (
@@ -180,27 +180,27 @@ function CrearOCDeCotizacion({
                                 return (
                                     <div
                                         key={index}
-                                        className='flex flex-row items-center justify-between gap-3 rounded border p-3 hover:bg-gray-50'>
+                                        className='flex flex-row items-center justify-between gap-3 rounded border p-3 hover:bg-gray-50 dark:hover:bg-zinc-800'>
                                         <div className='flex flex-col gap-1'>
                                             <div className='flex items-center gap-2'>
                                                 <Badge color='sky'>{prov.nombre}</Badge>
                                                 <Badge
                                                     variant='outline'
-                                                    className='border-gray-300 text-gray-500'>
+                                                    className='border-gray-300 dark:border-zinc-700 text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                     {prov.moneda}
                                                 </Badge>
                                                 {oc && <Badge color='violet'>{oc.codigo}</Badge>}
                                             </div>
                                             {oc ? (
-                                                <div className='text-sm text-gray-600'>
+                                                <div className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                                     Estado: {oc.estado_label}
                                                 </div>
                                             ) : (
-                                                <div className='text-sm text-gray-600'>
+                                                <div className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
                                                     Sin orden de compra
                                                 </div>
                                             )}
-                                            <div className='mt-2 text-xs text-gray-500'>
+                                            <div className='mt-2 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
                                                 <strong>Items aprobados:</strong>
                                                 <ul className='mt-1 list-disc pl-4'>
                                                     {items

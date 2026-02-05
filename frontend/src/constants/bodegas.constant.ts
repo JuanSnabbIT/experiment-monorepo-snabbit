@@ -14,6 +14,8 @@ export const ESTADOS_COMPRA = [
     { value: '-', label: 'Borrador' },
     { value: 'P', label: 'Pendiente de rendición' },
     { value: '1', label: 'Completada' },
+    { value: 'R', label: 'Rendida' },
+    { value: 'C', label: 'Cancelada' },
 ];
 
 export const TIPO_COMPRA = [

@@ -400,7 +400,7 @@ function ComprasEnOT() {
                                 <TBody>
                                     {groupedRows.map((group) => (
                                         <Fragment key={`compra-${group.compraId}`}>
-                                            <Tr className='border-l-4 border-emerald-500 bg-gradient-to-r from-emerald-50 to-teal-50'>
+                                            <Tr className='border-l-4 border-emerald-500 bg-gradient-to-r from-emerald-50 to-teal-50 dark:border-emerald-400 dark:from-emerald-950/40 dark:to-teal-950/30'>
                                                 <Td colSpan={columnCount} className='px-4 py-3'>
                                                     <div className='flex flex-wrap items-center justify-between gap-4'>
                                                         <div className='flex flex-wrap items-center gap-4'>
@@ -410,14 +410,14 @@ function ComprasEnOT() {
                                                                     className='text-emerald-600'
                                                                     size='text-lg'
                                                                 />
-                                                                <span className='text-base font-bold text-slate-800'>
+                                                                <span className='text-base font-bold text-slate-800 dark:text-zinc-100'>
                                                                     Compra{' '}
                                                                     {group.compraCodigo ||
                                                                         `#${group.compraId}`}
                                                                 </span>
                                                             </div>
 
-                                                            <div className='h-6 w-px bg-slate-300' />
+                                                            <div className='h-6 w-px bg-slate-300 dark:bg-zinc-700' />
 
                                                             <div className='flex flex-wrap items-center gap-3'>
                                                                 <Badge
@@ -427,7 +427,7 @@ function ComprasEnOT() {
                                                                     {group.compraEstadoLabel ||
                                                                         'Sin estado'}
                                                                 </Badge>
-                                                                <div className='flex items-center gap-1.5 text-sm text-slate-600'>
+                                                                <div className='flex items-center gap-1.5 text-sm text-slate-600 dark:text-zinc-300'>
                                                                     <Icon
                                                                         icon='HeroUser'
                                                                         size='text-sm'
@@ -438,7 +438,7 @@ function ComprasEnOT() {
                                                                     </span>
                                                                 </div>
                                                                 {group.compraFecha && (
-                                                                    <div className='flex items-center gap-1.5 text-sm text-slate-600'>
+                                                                    <div className='flex items-center gap-1.5 text-sm text-slate-600 dark:text-zinc-300'>
                                                                         <Icon
                                                                             icon='HeroCalendarDays'
                                                                             size='text-sm'
@@ -456,27 +456,27 @@ function ComprasEnOT() {
                                                                 )}
                                                             </div>
 
-                                                            <div className='h-6 w-px bg-slate-300' />
+                                                            <div className='h-6 w-px bg-slate-300 dark:bg-zinc-700' />
 
                                                             <div className='flex flex-wrap items-center gap-4 text-xs'>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Items
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-slate-700'>
+                                                                    <span className='text-sm font-bold text-slate-700 dark:text-zinc-200'>
                                                                         {group.totalItems}
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Cantidad
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-slate-700'>
+                                                                    <span className='text-sm font-bold text-slate-700 dark:text-zinc-200'>
                                                                         {group.totalCantidad}
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Subtotal
                                                                     </span>
                                                                     <span className='text-sm font-bold text-emerald-700'>
@@ -487,10 +487,10 @@ function ComprasEnOT() {
                                                                     </span>
                                                                 </div>
                                                                 <div className='flex flex-col'>
-                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                    <span className='text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400'>
                                                                         Total
                                                                     </span>
-                                                                    <span className='text-sm font-bold text-slate-700'>
+                                                                    <span className='text-sm font-bold text-slate-700 dark:text-zinc-200'>
                                                                         $
                                                                         {group.compraTotal.toLocaleString(
                                                                             'es-CL',
@@ -546,7 +546,7 @@ function ComprasEnOT() {
                             </div>
                         </div>
                     ) : (
-                        <div className='py-6 text-center text-gray-500'>
+                        <div className='py-6 text-center text-gray-500 dark:text-gray-400'>
                             <p>No hay compras vinculadas a esta Orden de Trabajo</p>
                             {detalleOrdenTrabajo && (
                                 <div className='mt-2'>
@@ -608,7 +608,7 @@ function ComprasEnOT() {
                                                 .locale('es')
                                                 .format('DD/MM/YYYY')
                                         ) : (
-                                            <span className='italic text-gray-400'>Sin fecha</span>
+                                            <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
                                         )}
                                     </div>
                                 </div>
@@ -636,59 +636,59 @@ function ComprasEnOT() {
                             <div className='col-span-2 mt-4'>
                                 <div className='mb-3 flex items-center justify-between'>
                                     <Badge className='text-base'>Items de la Compra</Badge>
-                                    <span className='text-xs text-gray-500'>
+                                    <span className='text-xs text-gray-500 dark:text-gray-400'>
                                         {itemsCompra.length} item
                                         {itemsCompra.length !== 1 ? 's' : ''}
                                     </span>
                                 </div>
-                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-gray-50'>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800'>
                                     {cargandoItems ? (
                                         <div className='flex items-center justify-center py-8'>
-                                            <div className='text-sm text-gray-500'>
+                                            <div className='text-sm text-gray-500 dark:text-gray-400'>
                                                 Cargando items...
                                             </div>
                                         </div>
                                     ) : itemsCompra.length > 0 ? (
                                         <div className='overflow-x-auto'>
-                                            <table className='min-w-full divide-y divide-gray-200'>
-                                                <thead className='bg-gray-100'>
+                                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
+                                                <thead className='bg-gray-100 dark:bg-zinc-800'>
                                                     <tr>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Nombre
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Cantidad
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Precio Unitario
                                                         </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700'>
+                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
                                                             Subtotal
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className='divide-y divide-gray-200 bg-white'>
+                                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                                     {itemsCompra.map((item, idx) => (
                                                         <tr
                                                             key={item.id}
                                                             className={
                                                                 idx % 2 === 0
-                                                                    ? 'bg-white'
-                                                                    : 'bg-gray-50'
+                                                                    ? 'bg-white dark:bg-zinc-900'
+                                                                    : 'bg-gray-50 dark:bg-zinc-800'
                                                             }>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 {item.nombre_item}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 {item.cantidad}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
                                                                 $
                                                                 {item.precio.toLocaleString(
                                                                     'es-CL',
                                                                 )}
                                                             </td>
-                                                            <td className='px-4 py-3 text-sm font-semibold text-gray-900'>
+                                                            <td className='px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100'>
                                                                 $
                                                                 {(
                                                                     item.cantidad * item.precio
@@ -702,10 +702,10 @@ function ComprasEnOT() {
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
                                             <span className='mb-2 text-4xl'>📦</span>
-                                            <p className='text-sm font-medium text-gray-600'>
+                                            <p className='text-sm font-medium text-gray-600 dark:text-gray-400'>
                                                 No hay items registrados
                                             </p>
-                                            <p className='text-xs text-gray-500'>
+                                            <p className='text-xs text-gray-500 dark:text-gray-400'>
                                                 Esta compra no tiene items asociados
                                             </p>
                                         </div>

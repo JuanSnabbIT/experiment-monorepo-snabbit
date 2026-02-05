@@ -4,6 +4,7 @@ import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import classNames from 'classnames';
 import { FC } from 'react';
+import useDarkMode from '@/hooks/useDarkMode';
 
 interface IDistributionChartProps {
     title: string;
@@ -39,6 +40,7 @@ const DistributionChart: FC<IDistributionChartProps> = ({
     showLegend = true,
     className,
 }) => {
+    const { isDarkTheme } = useDarkMode();
     const entries = Object.entries(data).filter(([, value]) => value > 0);
     const chartLabels = entries.map(([key]) => labels[key] || key);
     const chartSeries = entries.map(([, value]) => value);
@@ -52,7 +54,9 @@ const DistributionChart: FC<IDistributionChartProps> = ({
                 </CardHeaderChild>
                 {total > 0 && (
                     <CardHeaderChild>
-                        <span className='text-sm text-zinc-500'>Total: {total}</span>
+                        <span className='text-sm text-zinc-500 dark:text-zinc-400'>
+                            Total: {total}
+                        </span>
                     </CardHeaderChild>
                 )}
             </CardHeader>
@@ -73,7 +77,7 @@ const DistributionChart: FC<IDistributionChartProps> = ({
                                 show: showLegend,
                                 position: 'bottom',
                                 labels: {
-                                    colors: '#71717a',
+                                    colors: isDarkTheme ? '#d4d4d8' : '#71717a',
                                 },
                             },
                             plotOptions: {
@@ -96,7 +100,7 @@ const DistributionChart: FC<IDistributionChartProps> = ({
                                 formatter: (val: number) => `${val.toFixed(0)}%`,
                             },
                             tooltip: {
-                                theme: 'dark',
+                                theme: isDarkTheme ? 'dark' : 'light',
                                 y: {
                                     formatter: (val: number) => `${val} registros`,
                                 },
