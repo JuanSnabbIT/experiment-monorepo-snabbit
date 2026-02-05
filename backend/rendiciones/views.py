@@ -474,6 +474,112 @@ class RendicionViewSet(viewsets.ModelViewSet):
             "tendencia_30_dias": tendencia_resultado,
         })
 
+    @action(detail=True, methods=["post"], url_path="rechazar")
+    def rechazar(self, request, pk=None):
+        """
+        Rechaza una rendición (estado 1 -> 3).
+        
+        Requiere:
+        - motivo_rechazo (string, mínimo 10 caracteres)
+        
+        Validaciones:
+        - La rendición debe estar en estado 1 (pendiente de aprobación)
+        - El motivo debe tener al menos 10 caracteres
+        """
+        rendicion = self.get_object()
+        
+        # Validar estado actual
+        if rendicion.estado != "1":
+            return Response(
+                {"detail": f"La rendición debe estar en estado 'pendiente de aprobación' (1). Estado actual: {rendicion.estado}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener y validar motivo
+        motivo = request.data.get("motivo_rechazo", "").strip()
+        if not motivo:
+            return Response(
+                {"detail": "El campo 'motivo_rechazo' es obligatorio"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(motivo) < 10:
+            return Response(
+                {"detail": "El motivo debe tener al menos 10 caracteres"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Actualizar rendición
+        from django.utils import timezone
+        rendicion.estado = "3"  # Rechazada
+        rendicion.motivo_rechazo = motivo
+        rendicion.fecha_rechazo = timezone.now()
+        rendicion.rechazada_por = request.user
+        rendicion.save()
+        
+        # TODO: Enviar notificación al usuario que creó la rendición
+        # notify_user(rendicion.usuario.usuario, f"Tu rendición ha sido rechazada: {motivo}")
+        
+        serializer = self.get_serializer(rendicion)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="aprobar")
+    def aprobar(self, request, pk=None):
+        """
+        Aprueba una rendición (estado 1 -> 2).
+        
+        Validaciones:
+        - La rendición debe estar en estado 1 (pendiente de aprobación)
+        """
+        rendicion = self.get_object()
+        
+        # Validar estado actual
+        if rendicion.estado != "1":
+            return Response(
+                {"detail": f"La rendición debe estar en estado 'pendiente de aprobación' (1). Estado actual: {rendicion.estado}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Actualizar rendición
+        from django.utils import timezone
+        rendicion.estado = "2"  # Aprobada
+        rendicion.revisado_por = request.user
+        rendicion.fecha_revision = timezone.now()
+        rendicion.save()
+        
+        # TODO: Enviar notificación al usuario que creó la rendición
+        # notify_user(rendicion.usuario.usuario, "Tu rendición ha sido aprobada")
+        
+        serializer = self.get_serializer(rendicion)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="pagar")
+    def pagar(self, request, pk=None):
+        """
+        Marca una rendición como pagada (estado 2 -> 4).
+        
+        Validaciones:
+        - La rendición debe estar en estado 2 (aprobada)
+        """
+        rendicion = self.get_object()
+        
+        # Validar estado actual
+        if rendicion.estado != "2":
+            return Response(
+                {"detail": f"La rendición debe estar en estado 'aprobada' (2). Estado actual: {rendicion.estado}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Actualizar rendición
+        rendicion.estado = "4"  # Pagada
+        rendicion.save()
+        
+        # TODO: Enviar notificación al usuario que creó la rendición
+        # TODO: Registrar el pago en el sistema de contabilidad si aplica
+        # notify_user(rendicion.usuario.usuario, "Tu rendición ha sido pagada")
+        
+        serializer = self.get_serializer(rendicion)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class ItemRendicionViewSet(viewsets.ModelViewSet):
     queryset = ItemRendicion.objects.all()

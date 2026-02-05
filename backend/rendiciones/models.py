@@ -44,6 +44,46 @@ class Rendicion(ModeloBase):
         help_text="OT que generó automáticamente esta rendición al completarse",
     )
 
+    # Campos de rechazo
+    motivo_rechazo = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo de Rechazo",
+        help_text="Motivo por el cual se rechazó la rendición",
+    )
+    fecha_rechazo = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de Rechazo",
+        help_text="Fecha y hora en que se rechazó la rendición",
+    )
+    rechazada_por = models.ForeignKey(
+        "cuentas.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rendiciones_rechazadas",
+        verbose_name="Rechazada Por",
+        help_text="Usuario que rechazó la rendición",
+    )
+
+    # Campos de aprobación/revisión
+    revisado_por = models.ForeignKey(
+        "cuentas.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rendiciones_revisadas",
+        verbose_name="Revisado Por",
+        help_text="Usuario que aprobó la rendición",
+    )
+    fecha_revision = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de Revisión",
+        help_text="Fecha y hora en que se aprobó la rendición",
+    )
+
     def __str__(self):
         return f"Rendición del {self.fecha_rendicion}"
 

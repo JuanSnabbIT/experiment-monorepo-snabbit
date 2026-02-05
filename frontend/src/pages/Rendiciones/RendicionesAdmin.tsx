@@ -77,6 +77,14 @@ const RendicionesAdmin = () => {
             ),
             header: 'Fecha Rendición',
         }),
+        columnHelper.accessor('total', {
+            cell: (info) => (
+                <div className='font-mono font-medium text-zinc-700 dark:text-zinc-300'>
+                    ${Number(info.getValue() ?? 0).toLocaleString()}
+                </div>
+            ),
+            header: 'Total',
+        }),
         columnHelper.display({
             id: 'acciones',
             cell: (info) => (
