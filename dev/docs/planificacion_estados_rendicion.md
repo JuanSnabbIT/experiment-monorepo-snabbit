@@ -307,23 +307,32 @@ python manage.py migrate
 
 ## 9. Roadmap de Implementación
 
-### Fase 1: Backend (Prioritario)
-- [ ] Agregar campos al modelo `Rendicion` (motivo_rechazo, fecha_pago, etc.)
-- [ ] Crear migración
-- [ ] Implementar endpoint `rechazar`
-- [ ] Implementar endpoint `pagar`
-- [ ] Actualizar serializer para incluir nuevos campos
-- [ ] Tests unitarios
+### Fase 1: Backend (✅ COMPLETADA)
+- [x] Agregar campos al modelo `Rendicion` (motivo_rechazo, fecha_rechazo, rechazada_por, revisado_por, fecha_revision)
+- [x] Crear migración (0007_rendicion_fecha_rechazo...)
+- [x] Implementar endpoint `rechazar` con validación de motivo (mín 10 caracteres)
+- [x] Implementar endpoint `aprobar` con tracking de revisión
+- [x] Implementar endpoint `pagar` simple cambio de estado
+- [x] Actualizar serializer para incluir revisado_por_data y rechazada_por_data
+- [ ] Tests unitarios de endpoints
 
-### Fase 2: Frontend
-- [ ] Actualizar interfaz `IRendicion` con nuevos campos
-- [ ] Crear modal de rechazo con motivo
-- [ ] Crear modal de pago con detalles
-- [ ] Mostrar información de rechazo/pago en vista detalle
-- [ ] Actualizar lógica de botones según estado
+**Endpoints Implementados:**
+- `POST /api/rendiciones/{id}/rechazar/` - Requiere: motivo_rechazo (str, ≥10 caracteres)
+- `POST /api/rendiciones/{id}/aprobar/` - Sin parámetros adicionales
+- `POST /api/rendiciones/{id}/pagar/` - Sin parámetros adicionales
+
+### Fase 2: Frontend (EN PROGRESO)
+- [x] Actualizar interfaz `IRendicion` con nuevos campos (motivo_rechazo, fecha_rechazo, rechazada_por, revisado_por, fecha_revision)
+- [x] Crear thunks en Redux (rechazarRendicionThunk, aprobarRendicionThunk, pagarRendicionThunk)
+- [ ] Crear modal de rechazo con validación de motivo
+- [ ] Crear modal de confirmación de aprobación
+- [ ] Crear modal de confirmación de pago
+- [ ] Mostrar información de rechazo/aprobación/pago en vista detalle
+- [ ] Actualizar botones según estado actual
+- [ ] Bloquear edición en estados != "0"
 
 ### Fase 3: Mejoras UX
-- [ ] Sistema de notificaciones
+- [ ] Sistema de notificaciones (por implementar en backend)
 - [ ] Historial de cambios de estado
 - [ ] Dashboard de rendiciones por estado
 - [ ] Filtros avanzados en lista de rendiciones
