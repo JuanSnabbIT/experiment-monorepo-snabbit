@@ -72,6 +72,7 @@ interface PrefacturaDetalle {
     fecha_modificacion?: string;
     creado_por?: number | null;
     actualizado_por?: number | null;
+    documento_factura?: string | File | null;
 }
 
 const columnHelper = createColumnHelper<PrefacturaItem>();
@@ -113,6 +114,7 @@ const DetalleFactura = () => {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [enrichedItems, setEnrichedItems] = useState<PrefacturaItem[]>([]);
     const [enriching, setEnriching] = useState<boolean>(false);
+    const [uploadingDocument, setUploadingDocument] = useState<boolean>(false);
 
     useEffect(() => {
         if (!id) return;
@@ -162,6 +164,65 @@ const DetalleFactura = () => {
         } catch (error: any) {
             const message =
                 error?.response?.data?.detail || error?.message || 'Error al eliminar prefactura';
+            toast.error(message);
+        }
+    };
+
+    const handleAsociarDocumento = async () => {
+        if (!factura) return;
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png';
+        input.onchange = async (e: any) => {
+            const archivo = e.target.files?.[0];
+            if (!archivo) return;
+
+            setUploadingDocument(true);
+            const formData = new FormData();
+            formData.append('documento', archivo);
+
+            try {
+                await ApiService.fetchData({
+                    url: `/api/cierres-administrativos/${factura.id}/asociar-documento/`,
+                    method: 'post',
+                    data: formData,
+                });
+                toast.success('Documento asociado exitosamente');
+                fetchFactura();
+            } catch (error: any) {
+                const message =
+                    error?.response?.data?.detail || 'Error al asociar documento';
+                toast.error(message);
+            } finally {
+                setUploadingDocument(false);
+            }
+        };
+        input.click();
+    };
+
+    const handleFacturar = async () => {
+        if (!factura) return;
+
+        const ok = await confirmAlert({
+            title: 'Confirmar facturación',
+            text: `¿Confirmas la facturación de la prefactura #${factura.id}? Esto marcará la prefactura como facturada y la dará por terminada.`,
+            confirmText: 'Facturar',
+            cancelText: 'Cancelar',
+            icon: 'info',
+            confirmColor: '#0ea5e9',
+        });
+        if (!ok) return;
+
+        try {
+            await ApiService.fetchData({
+                url: `/api/cierres-administrativos/${factura.id}/facturar/`,
+                method: 'post',
+            });
+            toast.success(`Prefactura #${factura.id} facturada exitosamente`);
+            fetchFactura();
+        } catch (error: any) {
+            const message = error?.response?.data?.detail || 'Error al facturar';
             toast.error(message);
         }
     };
@@ -549,53 +610,48 @@ const DetalleFactura = () => {
                         </Tooltip>
                     )}
 
-                    {factura && factura.estado_cierre !== 'anulado' && (
-                        <Button
-                            variant='solid'
-                            color='amber'
-                            onClick={async () => {
-                                if (!factura) return;
-                                const ok = await confirmAlert({
-                                    title: 'Anular prefactura',
-                                    text: `¿Confirmas dejar en estado anulada la prefactura #${factura.id}? Las OTs podrán volver a seleccionarse.`,
-                                    confirmText: 'Anular',
-                                    cancelText: 'Cancelar',
-                                    icon: 'warning',
-                                    confirmColor: '#dc2626',
-                                });
-                                if (!ok) return;
-                                try {
-                                    await ApiService.fetchData({
-                                        url: `/api/cierres-administrativos/${factura.id}/anular/`,
-                                        method: 'post',
-                                    });
-                                    toast.success(`Prefactura #${factura.id} anulada`);
-                                    navigate('/facturacion/facturas');
-                                } catch (error: any) {
-                                    console.error('Error anulando prefactura:', error);
-                                    toast.error(
-                                        error?.response?.data?.detail ||
-                                            'Ocurrió un error al anular',
-                                    );
-                                }
-                            }}>
-                            Anular
-                        </Button>
-                    )}
-
-                    {factura &&
-                        factura.estado_cierre &&
-                        factura.estado_cierre !== 'anulado' &&
-                        factura.estado_cierre !== 'pagado' && (
+                    {factura && factura.estado_cierre === 'borrador' && (
+                        <>
                             <Button
                                 variant='solid'
-                                color='sky'
+                                color='amber'
                                 onClick={async () => {
                                     if (!factura) return;
                                     const ok = await confirmAlert({
-                                        title: 'Avanzar estado',
-                                        text: `¿Deseas avanzar la prefactura #${factura.id} a su siguiente estado?`,
-                                        confirmText: 'Avanzar',
+                                        title: 'Anular prefactura',
+                                        text: `¿Confirmas cambiar la prefactura #${factura.id} al estado anulada? Las OTs podrán volver a seleccionarse.`,
+                                        confirmText: 'Anular',
+                                        cancelText: 'Cancelar',
+                                        icon: 'warning',
+                                        confirmColor: '#dc2626',
+                                    });
+                                    if (!ok) return;
+                                    try {
+                                        await ApiService.fetchData({
+                                            url: `/api/cierres-administrativos/${factura.id}/anular/`,
+                                            method: 'post',
+                                        });
+                                        toast.success(`Prefactura #${factura.id} anulada`);
+                                        navigate('/facturacion/facturas');
+                                    } catch (error: any) {
+                                        console.error('Error anulando prefactura:', error);
+                                        toast.error(
+                                            error?.response?.data?.detail ||
+                                                'Ocurrió un error al anular',
+                                        );
+                                    }
+                                }}>
+                                Anular
+                            </Button>
+                            <Button
+                                variant='solid'
+                                color='emerald'
+                                onClick={async () => {
+                                    if (!factura) return;
+                                    const ok = await confirmAlert({
+                                        title: 'Aprobar prefactura',
+                                        text: `¿Confirmas pasar la prefactura #${factura.id} al estado aprobado?`,
+                                        confirmText: 'Aprobar',
                                         cancelText: 'Cancelar',
                                         icon: 'info',
                                     });
@@ -615,9 +671,66 @@ const DetalleFactura = () => {
                                         );
                                     }
                                 }}>
-                                Avanzar estado
+                                Aprobar
                             </Button>
-                        )}
+                        </>
+                    )}
+
+                    {factura && factura.estado_cierre === 'aprobado' && (
+                        <>
+                            <Button
+                                variant='solid'
+                                color='violet'
+                                icon='HeroDocumentArrowUp'
+                                isLoading={uploadingDocument}
+                                onClick={handleAsociarDocumento}>
+                                {factura.documento_factura
+                                    ? 'Cambiar Documento'
+                                    : 'Asociar Factura'}
+                            </Button>
+
+                            {factura.documento_factura && (
+                                <Button
+                                    variant='solid'
+                                    color='sky'
+                                    onClick={handleFacturar}>
+                                    Facturar
+                                </Button>
+                            )}
+
+                            <Button
+                                variant='solid'
+                                color='amber'
+                                onClick={async () => {
+                                    if (!factura) return;
+                                    const ok = await confirmAlert({
+                                        title: 'Anular prefactura',
+                                        text: `¿Confirmas cambiar la prefactura #${factura.id} al estado anulada? Las OTs podrán volver a seleccionarse.`,
+                                        confirmText: 'Anular',
+                                        cancelText: 'Cancelar',
+                                        icon: 'warning',
+                                        confirmColor: '#dc2626',
+                                    });
+                                    if (!ok) return;
+                                    try {
+                                        await ApiService.fetchData({
+                                            url: `/api/cierres-administrativos/${factura.id}/anular/`,
+                                            method: 'post',
+                                        });
+                                        toast.success(`Prefactura #${factura.id} anulada`);
+                                        navigate('/facturacion/facturas');
+                                    } catch (error: any) {
+                                        console.error('Error anulando prefactura:', error);
+                                        toast.error(
+                                            error?.response?.data?.detail ||
+                                                'Ocurrió un error al anular',
+                                        );
+                                    }
+                                }}>
+                                Anular
+                            </Button>
+                        </>
+                    )}
                 </SubheaderRight>
             </Subheader>
 
@@ -718,6 +831,54 @@ const DetalleFactura = () => {
                                 </div>
                             </CardBody>
                         </Card>
+
+                        {factura.estado_cierre === 'aprobado' && (
+                            <Card className='mb-4 border-l-4 border-l-violet-500'>
+                                <CardHeader>
+                                    <CardHeaderChild>
+                                        <CardTitle className='flex items-center gap-2'>
+                                            <Icon icon='HeroDocumentText' className='size-5' />
+                                            Documento de Factura
+                                        </CardTitle>
+                                    </CardHeaderChild>
+                                </CardHeader>
+                                <CardBody>
+                                    {factura.documento_factura ? (
+                                        <div className='flex items-center gap-4 rounded-lg bg-emerald-50 p-4 dark:bg-emerald-900/20'>
+                                            <Icon
+                                                icon='HeroCheckCircle'
+                                                className='size-8 text-emerald-600 dark:text-emerald-400'
+                                            />
+                                            <div className='flex-1'>
+                                                <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                                                    Documento asociado
+                                                </div>
+                                                <div className='text-xs text-gray-600 dark:text-gray-400'>
+                                                    {typeof factura.documento_factura === 'string'
+                                                        ? factura.documento_factura
+                                                        : 'Documento vinculado'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className='flex items-center gap-4 rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20'>
+                                            <Icon
+                                                icon='HeroExclamationTriangle'
+                                                className='size-8 text-amber-600 dark:text-amber-400'
+                                            />
+                                            <div>
+                                                <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                                                    Sin documento asociado
+                                                </div>
+                                                <div className='text-xs text-gray-600 dark:text-gray-400'>
+                                                    Debes asociar un documento para poder facturar
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardBody>
+                            </Card>
+                        )}
 
                         <Card>
                             <CardHeader>

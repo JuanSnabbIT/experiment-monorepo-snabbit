@@ -2359,6 +2359,101 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         prefactura.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=["post"], url_path="asociar-documento")
+    def asociar_documento(self, request, pk=None):
+        """Asociar o reemplazar un documento de factura a la prefactura."""
+        prefactura = self.get_object()
+
+        if "documento" not in request.FILES:
+            return Response(
+                {"detail": "Debe enviar un archivo llamado 'documento'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        archivo = request.FILES["documento"]
+
+        extensiones_permitidas = [
+            "pdf",
+            "doc",
+            "docx",
+            "xls",
+            "xlsx",
+            "txt",
+            "jpg",
+            "jpeg",
+            "png",
+        ]
+        ext = archivo.name.split(".")[-1].lower() if "." in archivo.name else ""
+        if ext not in extensiones_permitidas:
+            return Response(
+                {
+                    "detail": (
+                        f"Extensión '{ext}' no permitida. Extensiones permitidas: "
+                        f"{', '.join(extensiones_permitidas)}"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        max_size = 10 * 1024 * 1024
+        if archivo.size > max_size:
+            return Response(
+                {"detail": "El archivo excede el tamaño máximo de 10MB"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if prefactura.documento_factura:
+            prefactura.documento_factura.delete()
+
+        usuario_empresa = obtener_usuario_empresa(request.user)
+        prefactura.documento_factura = archivo
+        prefactura.actualizado_por = usuario_empresa
+        prefactura.save(
+            update_fields=["documento_factura", "actualizado_por", "fecha_modificacion"]
+        )
+
+        serializer = self.get_serializer(prefactura)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="facturar")
+    def facturar(self, request, pk=None):
+        """
+        Cambiar prefactura a estado 'facturado' cuando tiene documento asociado.
+        Valida que la prefactura esté en estado 'aprobado' y tenga un documento.
+        """
+        prefactura = self.get_object()
+
+        if prefactura.estado_cierre != "aprobado":
+            return Response(
+                {
+                    "detail": (
+                        "Prefactura debe estar en estado 'aprobado' para facturar. "
+                        f"Estado actual: {prefactura.get_estado_cierre_display()}"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not prefactura.documento_factura:
+            return Response(
+                {
+                    "detail": (
+                        "Debe asociar un documento de factura antes de confirmar la facturación"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        usuario_empresa = obtener_usuario_empresa(request.user)
+        prefactura.estado_cierre = "facturado"
+        prefactura.actualizado_por = usuario_empresa
+        prefactura.save(
+            update_fields=["estado_cierre", "actualizado_por", "fecha_modificacion"]
+        )
+
+        serializer = self.get_serializer(prefactura)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=["post"], url_path="comparativa")
     def comparativa_ots_contrato(self, request):
         """
