@@ -246,11 +246,7 @@ function DetalleItemEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Item' title='Detalle Item'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>
-                        {detalleItemEmpresa ? detalleItemEmpresa.nombre : 'Detalle Item'}
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     {isEditing ? (
                         <>

@@ -1,23 +1,14 @@
+import Icon from '@/components/icon/Icon';
+import LoaderDots from '@/components/LoaderDots.common';
+import Badge from '@/components/ui/Badge';
+import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/components/ui/Card';
 import { fetchMetricasContratosThunk, useAppDispatch, useAppSelector } from '@/store';
 import { FC, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AlertCard from '../components/AlertCard';
-import DistributionChart from '../components/DistributionChart';
-import MetricCard from '../components/MetricCard';
 
 interface IWidgetContratosProps {
     className?: string;
 }
-
-// Mapeo de estados
-const estadoLabels: Record<string, string> = {
-    borrador: 'Borrador',
-    enviado: 'Enviado',
-    firmado: 'Firmado',
-    activo: 'Activo',
-    vencido: 'Vencido',
-    cancelado: 'Cancelado',
-};
 
 const WidgetContratos: FC<IWidgetContratosProps> = ({ className }) => {
     const dispatch = useAppDispatch();
@@ -30,106 +21,58 @@ const WidgetContratos: FC<IWidgetContratosProps> = ({ className }) => {
         dispatch(fetchMetricasContratosThunk(undefined));
     }, [dispatch, filtroFechas]);
 
-    const formatDate = (dateStr: string | null): string => {
-        if (!dateStr) return 'Sin fecha';
-        return new Date(dateStr).toLocaleDateString('es-CL', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        });
-    };
-
-    // Contratos por vencer
-    const contratosPorVencer = (data?.contratos_por_vencer ?? []).map((contrato) => ({
-        id: String(contrato.id),
-        title: contrato.nombre,
-        subtitle: `${contrato.cliente} - Vence ${formatDate(contrato.fecha_fin)}${contrato.dias_restantes !== null ? ` (${contrato.dias_restantes} días)` : ''}`,
-        onClick: () => navigate(`/contratos/${contrato.id}`),
-    }));
-
-    // Licencias por vencer
-    const licenciasPorVencer = (data?.licencias_por_vencer ?? []).map((lic) => ({
-        id: `lic-${lic.id}`,
-        title: lic.nombre,
-        subtitle: `${lic.contrato} - Expira ${formatDate(lic.fecha_vencimiento)}`,
-        onClick: () => navigate('/recursos'),
-    }));
+    // Alertas: contratos por vencer + licencias por vencer + firmas pendientes
+    const alertCount =
+        (data?.contratos_por_vencer?.length ?? 0) +
+        (data?.resumen.licencias_por_vencer ?? 0) +
+        (data?.resumen.firmas_pendientes ?? 0);
 
     return (
-        <div className={className}>
-            <h3 className='mb-4 flex items-center gap-2 text-lg font-semibold'>
-                <span className='h-3 w-3 rounded-full bg-sky-500'></span>
-                Contratos
-            </h3>
-
-            {/* Métricas principales */}
-            <div className='mb-4 grid grid-cols-2 gap-3 md:grid-cols-4'>
-                <MetricCard
-                    title='Total Contratos'
-                    value={data?.resumen.total_contratos ?? 0}
-                    icon='HeroDocumentCheck'
-                    color='sky'
-                    loading={loading}
-                    onClick={() => navigate('/contratos')}
-                />
-                <MetricCard
-                    title='Activos'
-                    value={data?.resumen.contratos_activos ?? 0}
-                    icon='HeroCheckBadge'
-                    color='emerald'
-                    loading={loading}
-                />
-                <MetricCard
-                    title='Lic. por Vencer'
-                    value={data?.resumen.licencias_por_vencer ?? 0}
-                    icon='HeroClock'
-                    color='amber'
-                    loading={loading}
-                />
-                <MetricCard
-                    title='Firmas Pendientes'
-                    value={data?.resumen.firmas_pendientes ?? 0}
-                    icon='HeroPencilSquare'
-                    color='purple'
-                    loading={loading}
-                />
-            </div>
-
-            {/* Alertas y gráficos */}
-            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                {/* Contratos por vencer */}
-                {contratosPorVencer.length > 0 && (
-                    <AlertCard
-                        title='Contratos por Vencer'
-                        items={contratosPorVencer}
-                        icon='HeroCalendarDays'
-                        severity='warning'
-                        loading={loading}
-                        emptyMessage='Sin contratos próximos a vencer'
-                    />
+        <Card className={className}>
+            <CardHeader>
+                <CardHeaderChild>
+                    <Icon icon='HeroDocumentCheck' size='text-2xl' className='text-sky-500' />
+                    <CardTitle>Contratos</CardTitle>
+                </CardHeaderChild>
+                <CardHeaderChild>
+                    {alertCount > 0 && (
+                        <Badge color='amber' variant='solid' className='text-xs'>
+                            {alertCount} alertas
+                        </Badge>
+                    )}
+                </CardHeaderChild>
+            </CardHeader>
+            <CardBody
+                className='cursor-pointer pt-0 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                onClick={() => navigate('/contratos')}>
+                {loading ? (
+                    <div className='flex justify-center py-4'>
+                        <LoaderDots />
+                    </div>
+                ) : (
+                    <div className='flex items-center justify-between'>
+                        <div>
+                            <p className='text-2xl font-bold'>
+                                {data?.resumen.contratos_activos ?? 0}
+                            </p>
+                            <p className='text-xs text-zinc-500'>activos</p>
+                        </div>
+                        <div className='text-right'>
+                            <p className='text-lg font-semibold text-amber-600'>
+                                {data?.resumen.licencias_por_vencer ?? 0}
+                            </p>
+                            <p className='text-xs text-zinc-500'>lic. por vencer</p>
+                        </div>
+                        <div className='text-right'>
+                            <p className='text-lg font-semibold text-purple-600'>
+                                {data?.resumen.firmas_pendientes ?? 0}
+                            </p>
+                            <p className='text-xs text-zinc-500'>firmas pend.</p>
+                        </div>
+                    </div>
                 )}
-
-                {/* Licencias por vencer */}
-                {licenciasPorVencer.length > 0 && (
-                    <AlertCard
-                        title='Licencias por Vencer'
-                        items={licenciasPorVencer}
-                        icon='HeroKey'
-                        severity='info'
-                        loading={loading}
-                        emptyMessage='Sin licencias próximas a vencer'
-                    />
-                )}
-
-                {/* Distribución por estado */}
-                <DistributionChart
-                    title='Por Estado'
-                    data={data?.por_estado ?? {}}
-                    labels={estadoLabels}
-                    loading={loading}
-                />
-            </div>
-        </div>
+            </CardBody>
+        </Card>
     );
 };
 

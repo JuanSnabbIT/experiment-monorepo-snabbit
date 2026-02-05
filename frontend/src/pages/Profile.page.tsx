@@ -1,30 +1,30 @@
-import { useEffect, useState } from 'react';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Validation from '@/components/form/Validation';
+import ApiService from '@/services/ApiService';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { obtenerPersonalizacionThunk, userMeThunk } from '@/store/slices/auth/authSlice';
 import { useFormik } from 'formik';
-import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
+import * as Yup from 'yup';
+import Avatar from '../components/Avatar';
+import FieldWrap from '../components/form/FieldWrap';
+import Input from '../components/form/Input';
+import Label from '../components/form/Label';
+import Radio, { RadioGroup } from '../components/form/Radio';
+import Icon from '../components/icon/Icon';
 import Container from '../components/layouts/Container/Container';
+import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
 import Subheader, {
     SubheaderLeft,
     SubheaderRight,
 } from '../components/layouts/Subheader/Subheader';
-import Card, { CardBody } from '../components/ui/Card';
-import Button, { IButtonProps } from '../components/ui/Button';
-import { TIcons } from '../types/icons.type';
-import Label from '../components/form/Label';
-import Input from '../components/form/Input';
-import Avatar from '../components/Avatar';
-import FieldWrap from '../components/form/FieldWrap';
-import Icon from '../components/icon/Icon';
 import Badge from '../components/ui/Badge';
-import Radio, { RadioGroup } from '../components/form/Radio';
+import Button, { IButtonProps } from '../components/ui/Button';
+import Card, { CardBody } from '../components/ui/Card';
 import useDarkMode from '../hooks/useDarkMode';
 import { TDarkMode } from '../types/darkMode.type';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { obtenerPersonalizacionThunk, userMeThunk } from '@/store/slices/auth/authSlice';
-import * as Yup from 'yup';
-import Validation from '@/components/form/Validation';
-import ApiService from '@/services/ApiService';
-import { toast } from 'react-toastify';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import { TIcons } from '../types/icons.type';
 
 type TTab = {
     text: 'Editar Perfil' | 'Contacto' | 'Apariencia';
@@ -69,7 +69,7 @@ const ProfilePage = () => {
     const [isSaving, setIsSaving] = useState<boolean>(false);
 
     useEffect(() => {
-        dispatch(userMeThunk({ access }));
+        dispatch(userMeThunk());
     }, []);
 
     const formik = useFormik({
@@ -150,7 +150,7 @@ const ProfilePage = () => {
                         data: JSON.stringify({ tema: new_tema }),
                     });
                     if (responseTema.data) {
-                        dispatch(obtenerPersonalizacionThunk({ access }));
+                        dispatch(obtenerPersonalizacionThunk());
                     }
                 }
                 const new_values = {
@@ -172,7 +172,7 @@ const ProfilePage = () => {
                 });
                 if (response.data) {
                     toast.success('Se actualizo el perfil', { autoClose: 1000 });
-                    dispatch(userMeThunk({ access }));
+                    dispatch(userMeThunk());
                 }
             } catch (error: any) {
                 toast.error(error.response.data || 'Error al actualizar el perfil', {
@@ -238,7 +238,7 @@ const ProfilePage = () => {
                 });
                 if (response.data) {
                     toast.success('Se actualizo el contacto', { autoClose: 1000 });
-                    dispatch(userMeThunk({ access }));
+                    dispatch(userMeThunk());
                 }
             } catch (error: any) {
                 toast.error(error.response.data || 'Error al editar el contacto del perfil', {
@@ -445,9 +445,7 @@ const ProfilePage = () => {
                                                                                 { autoClose: 1000 },
                                                                             );
                                                                             dispatch(
-                                                                                userMeThunk({
-                                                                                    access,
-                                                                                }),
+                                                                                userMeThunk(),
                                                                             );
                                                                         }
                                                                     } catch (error: any) {

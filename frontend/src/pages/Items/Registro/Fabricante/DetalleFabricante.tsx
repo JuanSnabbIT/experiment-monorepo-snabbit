@@ -101,9 +101,7 @@ const DetalleFabricante = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle fabricante' title='Detalle fabricante'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle de {detalleFabricante?.nombre}</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <Button
                         variant='solid'

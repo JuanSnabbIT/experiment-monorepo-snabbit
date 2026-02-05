@@ -247,9 +247,7 @@ function ListaOrdenesCompraV2() {
     return (
         <PageWrapper isProtectedRoute={true} name='Ordenes de Compra' title='Ordenes de Compra'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Ordenes de Compra</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight className='w-full md:w-auto'>
                     <div className='flex w-full flex-col gap-4 md:flex-row'>
                         <div className='min-w-[200px]'>

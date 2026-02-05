@@ -1,16 +1,16 @@
-import { FC, ReactNode, useEffect, useRef } from 'react';
-import classNames from 'classnames';
-import { Navigate } from 'react-router-dom';
-import { authPages } from '../../../config/pages.config';
-import useDocumentTitle from '../../../hooks/useDocumentTitle';
+import useDarkMode from '@/hooks/useDarkMode';
+import useFontSize from '@/hooks/useFontSize';
 import { obtenerPersonalizacionThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
     listaComunasThunk,
     listaProvinciasThunk,
     listaRegionesThunk,
 } from '@/store/slices/core/coreSlice';
-import useFontSize from '@/hooks/useFontSize';
-import useDarkMode from '@/hooks/useDarkMode';
+import classNames from 'classnames';
+import { FC, ReactNode, useEffect, useRef } from 'react';
+import { Navigate } from 'react-router-dom';
+import { authPages } from '../../../config/pages.config';
+import useDocumentTitle from '../../../hooks/useDocumentTitle';
 
 interface IPageWrapperProps {
     children: ReactNode;
@@ -37,7 +37,7 @@ const PageWrapper: FC<IPageWrapperProps> = (props) => {
     useEffect(() => {
         if (isProtectedRoute && isAuthenticated && !yaSeEjecuto.current) {
             // Ejecutamos la función solo si se cumple la condición y no se ha ejecutado antes.
-            dispatch(obtenerPersonalizacionThunk({ access }));
+            dispatch(obtenerPersonalizacionThunk());
             yaSeEjecuto.current = true;
         }
     }, []); // Se ejecuta cada vez que 'condicion' cambie
@@ -54,7 +54,7 @@ const PageWrapper: FC<IPageWrapperProps> = (props) => {
                 dispatch(listaComunasThunk());
             }
             if (personalizacionUsuario === undefined && userMe) {
-                dispatch(obtenerPersonalizacionThunk({ access }));
+                dispatch(obtenerPersonalizacionThunk());
             }
         }
     }, [isAuthenticated, access, isProtectedRoute, userMe]);
@@ -78,7 +78,10 @@ const PageWrapper: FC<IPageWrapperProps> = (props) => {
         }
     }, [personalizacionUsuario]);
 
+    console.log('[PageWrapper] Evaluando ruta - isProtectedRoute:', isProtectedRoute, 'isAuthenticated:', isAuthenticated, 'name:', name);
+
     if (isProtectedRoute && isProtectedRoute === true && !isAuthenticated) {
+        console.log('[PageWrapper] REDIRIGIENDO A LOGIN - ruta protegida sin autenticación');
         return <Navigate to={authPages.loginPage.to} />;
     }
 

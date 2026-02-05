@@ -152,9 +152,7 @@ function DetalleCompra() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Compra' title='Detalle Compra'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle Compra</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     {detalleCompra &&
                         detalleCompra.estado === '-' &&

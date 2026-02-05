@@ -425,9 +425,7 @@ const DetalleRendicion = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Rendición' title='Detalle Rendición'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle Rendición</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <div className='flex gap-2'>
                         {detalleRendicion?.orden_trabajo && (

@@ -66,9 +66,7 @@ function DashboardVacaciones() {
             title='Dashboard Vacaciones'
             name='Dashboard Vacaciones'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Dashboard Vacaciones</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container>
                 <div className='grid gap-4 md:grid-cols-2'>

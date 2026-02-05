@@ -3,7 +3,6 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -99,9 +98,7 @@ const ListaCategorias = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Categorias' title='Lista Categorias'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Categorias</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

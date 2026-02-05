@@ -114,12 +114,7 @@ const DetalleVisita = () => {
             name='Detalle Asistencia Técnica'
             title='Detalle Asistencia Técnica'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>
-                        Asistencia Técnica N°{detalleVisitasSoporte?.id} del{' '}
-                        {dayjs(detalleVisitasSoporte?.fecha_creacion).format('DD/MM/YYYY')}
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>

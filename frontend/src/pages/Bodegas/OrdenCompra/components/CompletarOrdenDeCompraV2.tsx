@@ -203,9 +203,7 @@ function CompletarOrdenDeCompra() {
     return (
         <PageWrapper isProtectedRoute={true} title='Completar Orden' name='Completar Orden'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Completar Orden</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <ConfirmarRecibirOrden
                         itemsARecibir={itemsARecibir}

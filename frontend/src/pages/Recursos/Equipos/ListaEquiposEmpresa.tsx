@@ -149,9 +149,7 @@ function ListaEquiposEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista Equipos' name='Lista Equipos'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Equipos</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     {listaMisClientes.length > 5 ? (
                         <SelectReact

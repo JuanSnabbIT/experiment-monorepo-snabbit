@@ -161,9 +161,7 @@ function SelectSucursalEmpresa() {
                                                     });
                                                     if (response.data) {
                                                         dispatch(
-                                                            obtenerPersonalizacionThunk({
-                                                                access,
-                                                            }),
+                                                            obtenerPersonalizacionThunk(),
                                                         );
                                                         setIsOpen(false);
                                                     }
@@ -196,7 +194,7 @@ function SelectSucursalEmpresa() {
                                 role='presentation'>
                                 <div
                                     className={classNames(
-                                        'flex h-12 w-12 items-center justify-center bg-emerald-500/20 text-emerald-500',
+                                        'flex h-12 w-12 shrink-0 items-center justify-center bg-emerald-500/20 text-emerald-500',
                                         [`${roundedCustom(-2)}`],
                                     )}>
                                     {getNombreEmpresa() && getFirstLetter(getNombreEmpresa(), 1)}

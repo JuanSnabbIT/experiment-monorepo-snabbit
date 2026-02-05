@@ -226,9 +226,7 @@ const ListaOT = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Ordenes de Trabajo' title='Ordenes de Trabajo'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Ordenes de Trabajo</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

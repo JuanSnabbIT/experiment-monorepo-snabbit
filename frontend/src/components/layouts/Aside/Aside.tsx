@@ -1,7 +1,7 @@
-import React, { FC, HTMLAttributes, ReactNode } from 'react';
 import classNames from 'classnames';
-import useAsideStatus from '../../../hooks/useAsideStatus';
+import { FC, HTMLAttributes, ReactNode } from 'react';
 import themeConfig from '../../../config/theme.config';
+import useAsideStatus from '../../../hooks/useAsideStatus';
 
 interface IAsideHeadProps extends HTMLAttributes<HTMLElement> {
     children: ReactNode;
@@ -34,7 +34,8 @@ export const AsideBody: FC<IAsideBodyProps> = (props) => {
         <div
             data-component-name='Aside/AsideBody'
             className={classNames(
-                'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6',
+                'h-full overflow-x-scroll px-6',
+                'no-scrollbar',
                 className,
             )}
             {...rest}>

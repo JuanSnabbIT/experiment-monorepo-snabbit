@@ -133,9 +133,7 @@ function ListaUser() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista de Usuarios' name='Lista de Usuarios'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Lista de Usuarios</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

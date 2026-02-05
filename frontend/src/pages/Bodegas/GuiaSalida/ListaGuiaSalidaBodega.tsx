@@ -388,9 +388,7 @@ function ListaGuiaSalidaBodega() {
             name='Lista Guias de Salida Bodega'
             title='Lista Guias de Salida Bodega'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Guias de Salida de Bodega</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight className='w-full md:w-auto'>
                         <div className='flex w-full items-center gap-2'>
                             <div className='min-w-[150px]'>

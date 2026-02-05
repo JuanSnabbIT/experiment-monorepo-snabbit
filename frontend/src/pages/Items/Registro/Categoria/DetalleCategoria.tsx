@@ -96,9 +96,7 @@ const DetalleCategoria = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Categoria' title='Detalle Categoria'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle de {detalleCategoria?.nombre}</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <Button variant='solid' onClick={() => setIsEditing(!isEditing)}>
                         {isEditing ? 'Cancelar' : 'Modificar'}

@@ -199,9 +199,7 @@ function ListaMisOrdenesCompra() {
             name='Mis Ordenes de Compra'
             title='Mis Ordenes de Compra'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Mis Ordenes de Compra</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

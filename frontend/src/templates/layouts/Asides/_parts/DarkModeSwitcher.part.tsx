@@ -34,7 +34,7 @@ const StyledButton: FC<IStyledButtonProps> = ({ text, icon, status }) => {
                 data: JSON.stringify({ tema: tema }),
             });
             if (response.data) {
-                dispatch(obtenerPersonalizacionThunk({ access }));
+                dispatch(obtenerPersonalizacionThunk());
                 setIsChanging(false);
             }
         } catch (error: any) {

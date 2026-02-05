@@ -1,43 +1,34 @@
 import React from 'react';
-import Icon from '../../../components/icon/Icon';
-import Badge from '../../../components/ui/Badge';
-import { NavButton, NavItem, NavSeparator } from '../../../components/layouts/Navigation/Nav';
+import { NavItem, NavSeparator } from '../../../components/layouts/Navigation/Nav';
 import { authPages } from '../../../config/pages.config';
 import User from '../../../components/layouts/User/User';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { LOGOUT } from '@/store/slices/auth/authSlice';
 
 const UserTemplate = () => {
-    // const { isLoading, userData, onLogout } = useAuth();
     const dispatch = useAppDispatch();
     const {
         userMe: userData,
-        isAuthenticated,
         loading: isLoading,
     } = useAppSelector((state) => state.auth);
+
+    // Obtener nombre completo del usuario
+    const getFullName = () => {
+        const firstName = userData?.first_name || '';
+        const lastName = userData?.last_name || '';
+        return `${firstName} ${lastName}`.trim() || 'Usuario';
+    };
 
     return (
         <User
             isLoading={isLoading}
-            name={userData?.first_name || ''}
-            nameSuffix={<Icon icon='HeroCheckBadge' color='blue' />}
-            position={'POSITION ?'}
-            src={userData?.image ? userData.image : ''}
-            suffix={
-                <Badge color='amber' variant='solid' className='text-xs font-bold'>
-                    PRO
-                </Badge>
-            }>
+            name={getFullName()}
+            position={userData?.email || ''}
+            src={userData?.image ? userData.image : ''}>
             <NavSeparator />
             <NavItem {...authPages.profilePage} />
-            {/* <NavItem {...appPages.mailAppPages.subPages.inboxPages}>
-				<Badge variant='solid' className='leading-none'>
-					3
-				</Badge>
-				<NavButton icon='HeroPlusCircle' title='New Mail' onClick={() => {}} />
-			</NavItem> */}
             <NavItem
-                text='Logout'
+                text='Cerrar sesión'
                 icon='HeroArrowRightOnRectangle'
                 onClick={() => {
                     dispatch(LOGOUT());

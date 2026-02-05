@@ -103,9 +103,7 @@ function ListaSolicitudesVacaciones() {
             title='Solicitudes Vacaciones'
             name='Solicitudes Vacaciones'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Solicitudes de vacaciones</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

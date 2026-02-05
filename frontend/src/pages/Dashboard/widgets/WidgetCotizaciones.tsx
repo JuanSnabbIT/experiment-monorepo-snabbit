@@ -1,10 +1,9 @@
+import Badge from '@/components/ui/Badge';
 import { fetchMetricasCotizacionesThunk, useAppDispatch, useAppSelector } from '@/store';
 import { FC, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AlertCard from '../components/AlertCard';
 import DistributionChart from '../components/DistributionChart';
 import MetricCard from '../components/MetricCard';
-import TrendChart from '../components/TrendChart';
 
 interface IWidgetCotizacionesProps {
     className?: string;
@@ -19,13 +18,6 @@ const estadoLabels: Record<string, string> = {
     expirada: 'Expirada',
 };
 
-// Mapeo de monedas
-const monedaLabels: Record<string, string> = {
-    USD: 'USD',
-    CLP: 'CLP',
-    UF: 'UF',
-};
-
 const WidgetCotizaciones: FC<IWidgetCotizacionesProps> = ({ className }) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
@@ -37,132 +29,58 @@ const WidgetCotizaciones: FC<IWidgetCotizacionesProps> = ({ className }) => {
         dispatch(fetchMetricasCotizacionesThunk(undefined));
     }, [dispatch, filtroFechas]);
 
-    const formatMoney = (value: number, currency = 'CLP'): string => {
-        return new Intl.NumberFormat('es-CL', {
-            style: 'currency',
-            currency: currency,
-            maximumFractionDigits: 0,
-        }).format(value);
-    };
-
-    // Items de alerta
-    const alertItems: Array<{
-        id: string;
-        title: string;
-        subtitle: string;
-        onClick?: () => void;
-    }> = [];
-
-    if (data && data.resumen.proximas_expirar > 0) {
-        alertItems.push({
-            id: 'proximas',
-            title: `${data.resumen.proximas_expirar} próximas a expirar`,
-            subtitle: 'En los próximos 7 días',
-            onClick: () => navigate('/cotizaciones?estado=enviada'),
-        });
-    }
-
-    if (data && data.resumen.expiradas_sin_respuesta > 0) {
-        alertItems.push({
-            id: 'expiradas',
-            title: `${data.resumen.expiradas_sin_respuesta} expiradas sin respuesta`,
-            subtitle: 'Requieren seguimiento',
-            onClick: () => navigate('/cotizaciones?estado=enviada'),
-        });
-    }
-
-    if (data && data.resumen.con_error_tipo_cambio > 0) {
-        alertItems.push({
-            id: 'error_tc',
-            title: `${data.resumen.con_error_tipo_cambio} con error de tipo de cambio`,
-            subtitle: 'Revisar valores',
-        });
-    }
+    // Calcular alertas
+    const proximasExpirar = data?.resumen.proximas_expirar ?? 0;
+    const expiradasSinRespuesta = data?.resumen.expiradas_sin_respuesta ?? 0;
+    const tieneAlertas = proximasExpirar > 0 || expiradasSinRespuesta > 0;
 
     return (
         <div className={className}>
-            <h3 className='mb-4 flex items-center gap-2 text-lg font-semibold'>
-                <span className='h-3 w-3 rounded-full bg-emerald-500'></span>
-                Cotizaciones
-            </h3>
-
-            {/* Métricas principales */}
-            <div className='mb-4 grid grid-cols-2 gap-3 md:grid-cols-4'>
-                <MetricCard
-                    title='Total Período'
-                    value={data?.resumen.total_periodo ?? 0}
-                    icon='HeroDocumentText'
-                    color='emerald'
-                    loading={loading}
-                    onClick={() => navigate('/cotizaciones')}
-                />
-                <MetricCard
-                    title='Aceptadas'
-                    value={data?.por_estado?.aceptada ?? 0}
-                    icon='HeroCheckCircle'
-                    color='blue'
-                    loading={loading}
-                />
-                <MetricCard
-                    title='Tasa Conversión'
-                    value={data ? `${data.resumen.tasa_conversion.toFixed(1)}%` : '0%'}
-                    icon='HeroArrowTrendingUp'
-                    color='purple'
-                    loading={loading}
-                    subtitle='Aceptadas vs Enviadas'
-                />
-                <MetricCard
-                    title='Costo Items'
-                    value={data ? formatMoney(data.resumen.costo_total_items) : '$0'}
-                    icon='HeroBanknotes'
-                    color='amber'
-                    loading={loading}
-                    subtitle='En el período'
-                />
-            </div>
-
-            {/* Alertas y gráficos */}
-            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                {/* Alertas */}
-                {alertItems.length > 0 && (
-                    <AlertCard
-                        title='Atención Requerida'
-                        items={alertItems}
-                        icon='HeroClock'
-                        severity='warning'
-                        loading={loading}
-                    />
+            <div className='mb-4 flex items-center justify-between'>
+                <h3 className='flex items-center gap-2 text-lg font-semibold'>
+                    <span className='h-3 w-3 rounded-full bg-emerald-500'></span>
+                    Cotizaciones
+                </h3>
+                {tieneAlertas && (
+                    <Badge color='amber' variant='solid' className='text-xs'>
+                        {proximasExpirar > 0 && `${proximasExpirar} por expirar`}
+                        {proximasExpirar > 0 && expiradasSinRespuesta > 0 && ' • '}
+                        {expiradasSinRespuesta > 0 && `${expiradasSinRespuesta} expiradas`}
+                    </Badge>
                 )}
-
-                {/* Distribución por estado */}
-                <DistributionChart
-                    title='Por Estado'
-                    data={data?.por_estado ?? {}}
-                    labels={estadoLabels}
-                    loading={loading}
-                />
-
-                {/* Distribución por moneda */}
-                <DistributionChart
-                    title='Por Moneda'
-                    data={data?.por_moneda ?? {}}
-                    labels={monedaLabels}
-                    loading={loading}
-                    colors={['#10b981', '#3b82f6', '#8b5cf6']}
-                />
             </div>
 
-            {/* Tendencia */}
-            {data?.tendencia_30_dias && data.tendencia_30_dias.length > 0 && (
-                <div className='mt-4'>
-                    <TrendChart
-                        title='Tendencia (últimos 30 días)'
-                        data={data.tendencia_30_dias}
+            {/* Layout simplificado: 2 métricas + 1 gráfico */}
+            <div className='grid gap-4 lg:grid-cols-3'>
+                {/* Métricas compactas */}
+                <div className='flex flex-col gap-3 lg:col-span-1'>
+                    <MetricCard
+                        title='Aceptadas'
+                        value={data?.por_estado?.aceptada ?? 0}
+                        icon='HeroCheckCircle'
+                        color='emerald'
                         loading={loading}
-                        yAxisLabel='Cotizaciones'
+                        onClick={() => navigate('/cotizaciones?estado=aceptada')}
+                    />
+                    <MetricCard
+                        title='Tasa Conversión'
+                        value={data ? `${data.resumen.tasa_conversion.toFixed(1)}%` : '0%'}
+                        icon='HeroArrowTrendingUp'
+                        color='purple'
+                        loading={loading}
                     />
                 </div>
-            )}
+
+                {/* Distribución por estado */}
+                <div className='lg:col-span-2'>
+                    <DistributionChart
+                        title='Por Estado'
+                        data={data?.por_estado ?? {}}
+                        labels={estadoLabels}
+                        loading={loading}
+                    />
+                </div>
+            </div>
         </div>
     );
 };

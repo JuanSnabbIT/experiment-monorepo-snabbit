@@ -64,14 +64,7 @@ function DetalleEquipoEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Equipo' title='Detalle Equipo'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>
-                        {/* ${detalleEquipoEmpresa && detalleEquipoEmpresa.nombre_equipo && detalleEquipoEmpresa.nombre_equipo.length > 0 ? detalleEquipoEmpresa.nombre_equipo : ""} */}
-                        {listaUsuariosDelEquipo.length > 0
-                            ? `${detalleEquipoEmpresa?.marca != 'OTRA' ? detalleEquipoEmpresa?.marca_label : ''} ${detalleEquipoEmpresa && detalleEquipoEmpresa.modelo.length > 0 ? detalleEquipoEmpresa?.modelo : ''} de ${listaUsuariosDelEquipo[0].nombre_usuario}`
-                            : `Equipo ${detalleEquipoEmpresa?.numero_serie}`}
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container className='h-full w-full'>
                 {detalleEquipoEmpresa && (

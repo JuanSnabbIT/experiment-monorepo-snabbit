@@ -481,9 +481,7 @@ function CrearItemsGuiaSalidaBodega() {
             name='Crear Items para Guia Salida Bodega'
             title='Crear Items para Guia Salida Bodega'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Agregar Items a Guia de Salida de Bodega</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>

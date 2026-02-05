@@ -1,9 +1,17 @@
 import Icon from '@/components/icon/Icon';
+import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IEmpresa } from '@/interface/empresas.interface';
+import { useAppSelector } from '@/store';
+import { useGetEmpresasQuery } from '@/store/slices/empresa/empresaApi';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
     flexRender,
@@ -15,19 +23,10 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
-import { useAppSelector } from '@/store';
-import { IEmpresa } from '@/interface/empresas.interface';
-import CrearEmpresa from './modals/CrearEmpresa';
-import EliminarEmpresa from './modals/EliminarEmpresa';
-import CrearSucursal from './modals/CrearSucursal';
-import Tooltip from '@/components/ui/Tooltip';
 import { useNavigate } from 'react-router-dom';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import Badge from '@/components/ui/Badge';
-import Card, { CardBody } from '@/components/ui/Card';
-import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
-import { useGetEmpresasQuery } from '@/store/slices/empresa/empresaApi';
+import CrearEmpresa from './modals/CrearEmpresa';
+import CrearSucursal from './modals/CrearSucursal';
+import EliminarEmpresa from './modals/EliminarEmpresa';
 
 const columnHelper = createColumnHelper<IEmpresa>();
 
@@ -100,9 +99,7 @@ const ListaEmpresas = () => {
     return (
         <PageWrapper isProtectedRoute={true} title='Empresas' name='Empresas'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Empresas</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

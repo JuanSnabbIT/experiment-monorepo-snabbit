@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { useFormik } from 'formik';
-import classNames from 'classnames';
-import { Link, useNavigate } from 'react-router-dom';
-import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
-import Button from '../components/ui/Button';
-import Input from '../components/form/Input';
-import LogoTemplate from '../templates/layouts/Logo/Logo.template';
-import FieldWrap from '../components/form/FieldWrap';
-import Icon from '../components/icon/Icon';
-import Validation from '../components/form/Validation';
+import ApiService from '@/services/ApiService';
 import { LOGIN, obtenerGruposThunk, useAppDispatch, userMeThunk } from '@/store';
+import classNames from 'classnames';
+import { useFormik } from 'formik';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { useKeyPressEvent } from 'react-use';
 import * as Yup from 'yup';
-import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
+import FieldWrap from '../components/form/FieldWrap';
+import Input from '../components/form/Input';
+import Validation from '../components/form/Validation';
+import Icon from '../components/icon/Icon';
+import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
+import Button from '../components/ui/Button';
+import LogoTemplate from '../templates/layouts/Logo/Logo.template';
 
 interface LoginResponse {
     access: string;
@@ -51,11 +51,12 @@ const LoginPage = () => {
                     isLoginRequest: true,
                 });
                 if (response.status === 200) {
-                    dispatch(userMeThunk({ access: response.data.access }));
-                    dispatch(obtenerGruposThunk({ access: response.data.access }));
+                    // Primero guardar tokens, luego obtener datos de usuario
                     dispatch(
                         LOGIN({ access: response.data.access, refresh: response.data.refresh }),
                     );
+                    dispatch(userMeThunk());
+                    dispatch(obtenerGruposThunk());
                     navigate('/');
                 }
             } catch (error: any) {

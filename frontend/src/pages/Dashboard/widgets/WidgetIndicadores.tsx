@@ -14,10 +14,13 @@ const WidgetIndicadores: FC<IWidgetIndicadoresProps> = ({ className }) => {
     const { indicadores, metricsLoading, metricsError } = useAppSelector(
         (state) => state.dashboard,
     );
+    const { isAuthenticated } = useAppSelector((state) => state.auth);
 
     useEffect(() => {
-        dispatch(fetchIndicadoresBackendThunk(undefined));
-    }, [dispatch]);
+        if (isAuthenticated) {
+            dispatch(fetchIndicadoresBackendThunk(undefined));
+        }
+    }, [dispatch, isAuthenticated]);
 
     const formatCurrency = (value: number | undefined): string => {
         if (value === undefined) return '-';

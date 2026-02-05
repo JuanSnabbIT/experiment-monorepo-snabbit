@@ -41,7 +41,7 @@ const SettingsPartial = () => {
                                         data: JSON.stringify({ font_size: fontSize - 1 }),
                                     });
                                     if (response.data) {
-                                        dispatch(obtenerPersonalizacionThunk({ access }));
+                                        dispatch(obtenerPersonalizacionThunk());
                                     }
                                 } catch (error: any) {
                                     toast.error(error.response.data.detail);
@@ -62,7 +62,7 @@ const SettingsPartial = () => {
                                         data: JSON.stringify({ font_size: fontSize + 1 }),
                                     });
                                     if (response.data) {
-                                        dispatch(obtenerPersonalizacionThunk({ access }));
+                                        dispatch(obtenerPersonalizacionThunk());
                                     }
                                 } catch (error: any) {
                                     toast.error(error.response.data.detail);
@@ -89,7 +89,7 @@ const SettingsPartial = () => {
                                         data: JSON.stringify({ tema: '2' }),
                                     });
                                     if (response.data) {
-                                        dispatch(obtenerPersonalizacionThunk({ access }));
+                                        dispatch(obtenerPersonalizacionThunk());
                                         setIsChanging(false);
                                     }
                                 } catch (error: any) {
@@ -113,7 +113,7 @@ const SettingsPartial = () => {
                                         data: JSON.stringify({ tema: '1' }),
                                     });
                                     if (response.data) {
-                                        dispatch(obtenerPersonalizacionThunk({ access }));
+                                        dispatch(obtenerPersonalizacionThunk());
                                         setIsChanging(false);
                                     }
                                 } catch (error: any) {
@@ -137,7 +137,7 @@ const SettingsPartial = () => {
                                         data: JSON.stringify({ tema: '3' }),
                                     });
                                     if (response.data) {
-                                        dispatch(obtenerPersonalizacionThunk({ access }));
+                                        dispatch(obtenerPersonalizacionThunk());
                                         setIsChanging(false);
                                     }
                                 } catch (error: any) {

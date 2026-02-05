@@ -32,9 +32,7 @@ function DetalleTomaInventario() {
             name='Detalle Toma de Inventario'
             title='Detalle Toma de Inventario'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle Toma de Inventario</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <Tooltip text='Inventariar'>
                         <Button

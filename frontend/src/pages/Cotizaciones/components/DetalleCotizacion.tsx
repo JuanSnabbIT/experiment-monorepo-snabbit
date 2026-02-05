@@ -569,13 +569,7 @@ const DetalleCotizacion = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Cotizacion' title='Detalle Cotizacion'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>
-                        {loadingDetalle
-                            ? 'Cargando...'
-                            : `Cotización Nº${detalleCotizacion?.numero_cotizacion}`}
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     {detalleCotizacion && (
                         <AuthorityCheckNav

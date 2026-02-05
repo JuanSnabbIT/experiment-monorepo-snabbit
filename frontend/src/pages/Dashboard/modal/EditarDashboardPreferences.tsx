@@ -125,7 +125,7 @@ function EditarDashboardPreferences() {
                 });
                 if (response.data) {
                     toast.success('Preferencias guardadas', { autoClose: 1000 });
-                    dispatch(obtenerPersonalizacionThunk({ access }));
+                    dispatch(obtenerPersonalizacionThunk());
                     setIsOpen(false);
                 }
             } catch (error: any) {
@@ -136,7 +136,7 @@ function EditarDashboardPreferences() {
 
     useEffect(() => {
         if (isOpen) {
-            dispatch(obtenerPersonalizacionThunk({ access }));
+            dispatch(obtenerPersonalizacionThunk());
         }
     }, [isOpen]);
 

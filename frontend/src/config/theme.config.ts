@@ -1,10 +1,10 @@
 import DARK_MODE from '../constants/darkMode.constant';
-import { TDarkMode } from '../types/darkMode.type';
-import { TRounded } from '../types/rounded.type';
-import { TColors } from '../types/colors.type';
-import { TColorIntensity } from '../types/colorIntensities.type';
 import { TBorderWidth } from '../types/borderWidth.type';
+import { TColorIntensity } from '../types/colorIntensities.type';
+import { TColors } from '../types/colors.type';
+import { TDarkMode } from '../types/darkMode.type';
 import { TLang } from '../types/lang.type';
+import { TRounded } from '../types/rounded.type';
 
 type TThemeConfigs = {
     projectTitle: string;
@@ -40,7 +40,7 @@ type TThemeConfigs = {
 const themeConfig: TThemeConfigs = {
     projectTitle: 'Gestion Snabbit',
     projectName: 'Gestion Snabbit',
-    language: 'en',
+    language: 'es',
     theme: DARK_MODE.SYSTEM,
     themeColor: 'blue',
     themeColorShade: '500',

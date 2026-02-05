@@ -2,7 +2,6 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { IBodega } from '@/interface/bodega.interface';
@@ -83,9 +82,7 @@ function ListaBodegas() {
     return (
         <PageWrapper isProtectedRoute={true} name='Lista Bodega' title='Lista Bodega'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Bodegas</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

@@ -315,9 +315,7 @@ function DetalleProveedorEmpresa() {
             name='Detalle Proveedor Empresa'
             title='Detalle Proveedor Empresa'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle Proveedor Empresa</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     {isEditing ? (
                         <>

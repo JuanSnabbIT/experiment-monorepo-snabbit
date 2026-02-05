@@ -97,9 +97,7 @@ function ListaCompra() {
     return (
         <PageWrapper isProtectedRoute={true} title='Lista de Compras' name='Lista de Compras'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Compras</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

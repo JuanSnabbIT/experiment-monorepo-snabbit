@@ -18,12 +18,15 @@ import CrearClienteEnMenu from '@/pages/Clientes/modals/CrearClienteEnMenu';
 
 const DefaultAsideTemplate = () => {
     const dispatch = useAppDispatch();
-    const { listaGrupos } = useAppSelector((state) => state.auth);
+    const { listaGrupos, isAuthenticated } = useAppSelector((state) => state.auth);
     const { listaMisClientes } = useAppSelector((state) => state.empresa);
     const { listaBodegas } = useAppSelector((state) => state.bodega);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
 
+    console.log('[DefaultAside] Render - isAuthenticated:', isAuthenticated, 'hasPersonalizacion:', !!personalizacionUsuario);
+
     useEffect(() => {
+        console.log('[DefaultAside] useEffect - personalizacionUsuario:', personalizacionUsuario?.sucursal_principal);
         if (personalizacionUsuario && personalizacionUsuario.sucursal_principal) {
             dispatch(
                 detalleEmpresaThunk({ id_empresa: personalizacionUsuario.sucursal_principal }),
@@ -34,6 +37,12 @@ const DefaultAsideTemplate = () => {
             dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
         }
     }, [dispatch, personalizacionUsuario?.sucursal_principal]);
+
+    // NO renderizar el menú si el usuario no está autenticado
+    if (!isAuthenticated) {
+        console.log('[DefaultAside] No autenticado, no renderizando aside');
+        return null;
+    }
 
     return (
         <Aside>

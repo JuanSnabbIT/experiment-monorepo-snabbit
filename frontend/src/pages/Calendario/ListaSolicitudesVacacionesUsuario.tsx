@@ -102,9 +102,7 @@ function ListaSolicitudesVacacionesUsuario() {
     return (
         <PageWrapper isProtectedRoute={true} title='Mis Solicitudes' name='Mis Solicitudes'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Mis Solicitudes</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

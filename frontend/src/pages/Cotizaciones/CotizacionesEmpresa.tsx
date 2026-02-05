@@ -271,11 +271,7 @@ const CotizacionesEmpresa = () => {
             name='Cotizaciones Clientes'
             title='Cotizaciones Clientes'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl text-zinc-800 dark:text-zinc-100'>
-                        Cotizaciones Clientes
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight className='w-full md:w-auto'>
                     <div className='flex w-full flex-col gap-4 md:flex-row'>
                         <div className='min-w-[200px]'>

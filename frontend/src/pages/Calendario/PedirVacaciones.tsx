@@ -231,9 +231,7 @@ function PedirVacaciones() {
             title='Crear Solicitud Vacaciones'
             name='Crear Solicitud Vacaciones'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Pedir Vacaciones</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <Button
                         onClick={() => {

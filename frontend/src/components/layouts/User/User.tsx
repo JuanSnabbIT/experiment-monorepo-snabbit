@@ -1,9 +1,9 @@
-import React, { FC, HTMLAttributes, ReactNode, useId, useState } from 'react';
 import classNames from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
-import useRoundedSize from '../../../hooks/useRoundedSize';
-import useAsideStatus from '../../../hooks/useAsideStatus';
+import { FC, HTMLAttributes, ReactNode, useId, useState } from 'react';
 import themeConfig from '../../../config/theme.config';
+import useAsideStatus from '../../../hooks/useAsideStatus';
+import useRoundedSize from '../../../hooks/useRoundedSize';
 import getFirstLetter from '../../../utils/getFirstLetter';
 
 interface IUserProps extends HTMLAttributes<HTMLDivElement> {
@@ -61,27 +61,29 @@ const User: FC<IUserProps> = (props) => {
                         <img
                             src={src}
                             alt='Avatar'
-                            className={classNames('h-12 w-12 object-cover', [
+                            className={classNames('h-12 w-12 shrink-0 object-cover', [
                                 `${roundedCustom(-2)}`,
                             ])}
                         />
                     ) : (
                         <div
                             className={classNames(
-                                'flex aspect-square h-12 w-12 items-center justify-center bg-blue-500/20 text-blue-500',
+                                'flex h-12 w-12 shrink-0 items-center justify-center bg-blue-500/20 text-blue-500',
                                 [`${roundedCustom(-2)}`],
                             )}>
-                            {name && getFirstLetter(name)}
+                            {name && getFirstLetter(name, 1)}
                         </div>
                     )}
-                    <div className='flex basis-full flex-wrap items-center truncate'>
-                        <div className='flex basis-full items-center gap-2 truncate'>
-                            {namePrefix && <span>{namePrefix}</span>}
-                            <span className='truncate font-semibold'>{name}</span>
-                            {nameSuffix && <span>{nameSuffix}</span>}
+                    {asideStatus && (
+                        <div className='flex basis-full flex-wrap items-center truncate'>
+                            <div className='flex basis-full items-center gap-2 truncate'>
+                                {namePrefix && <span>{namePrefix}</span>}
+                                <span className='truncate font-semibold'>{name}</span>
+                                {nameSuffix && <span>{nameSuffix}</span>}
+                            </div>
+                            <div className='basis-full truncate text-xs'>{position}</div>
                         </div>
-                        <div className='basis-full truncate text-xs'>{position}</div>
-                    </div>
+                    )}
                     {suffix && <div className='flex items-center'>{suffix}</div>}
                 </div>
                 <AnimatePresence>
@@ -102,13 +104,6 @@ const User: FC<IUserProps> = (props) => {
                     )}
                 </AnimatePresence>
             </div>
-            <span
-                className={classNames('absolute end-0 top-0 -me-1 -mt-1 flex h-3 w-3', {
-                    'ltr:translate-x-[0.625rem] rtl:translate-x-[-0.625rem]': !asideStatus,
-                })}>
-                <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75' />
-                <span className='relative inline-flex h-3 w-3 rounded-full bg-blue-500' />
-            </span>
         </div>
     );
 };

@@ -195,9 +195,7 @@ function DetalleBodega() {
     return (
         <PageWrapper isProtectedRoute={true} title='Detalle Bodega' name='Detalle Bodega'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Detalle de la Bodega</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight className='w-full md:w-auto'>
                     <CrearGuiaSalidaEnDetalleBodega
                         isOpen={isOpenSalida}

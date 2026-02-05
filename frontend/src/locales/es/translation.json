@@ -1,16 +1,16 @@
 {
-    "DemoPages": "Demo pages",
+    "DemoPages": "Páginas demo",
     "item": {
         "itemA": "Item A",
         "itemB": "Item B"
     },
     "theme": {
-        "dark": "Dark",
-        "light": "Light",
-        "system": "System"
+        "dark": "Oscuro",
+        "light": "Claro",
+        "system": "Sistema"
     },
-    "Day": "Day",
-    "Week": "Week",
-    "Month": "Month",
-    "List": "List"
+    "Day": "Día",
+    "Week": "Semana",
+    "Month": "Mes",
+    "List": "Lista"
 }

@@ -161,9 +161,7 @@ const DetelleSucursal = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Sucursal' title='Detalle Sucursal'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'> Detalle Sucursal</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <Tooltip text={isEditing ? 'Cancelar Edición' : 'Modificar Sucursal'}>
                         <Button

@@ -189,9 +189,7 @@ function ListaTomaDeInventario() {
             name='Tomas de Inventarios'
             title='Tomas de Inventarios'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Tomas de Inventarios</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <AnimacionDeInputModoMovil
                         globalFilter={globalFilter}

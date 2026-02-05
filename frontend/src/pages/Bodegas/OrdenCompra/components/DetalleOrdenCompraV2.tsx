@@ -411,9 +411,7 @@ function DetalleOrdenCompraV2() {
             name='Detalle Orden Compra'
             title='Detalle Orden Compra'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>Orden {detalleOrdenCompra?.codigo}</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
                 <SubheaderRight>
                     <div className='flex flex-wrap gap-2'>
                         {/* Botones que NO aparecen en modo recepción */}

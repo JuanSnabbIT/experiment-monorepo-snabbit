@@ -20,9 +20,7 @@ const DetalleCliente = () => {
     return (
         <PageWrapper isProtectedRoute={true} title='Detalle Cliente' name='Detalle Cliente'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>{detalleCliente?.info_cliente.nombre}</Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>

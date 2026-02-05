@@ -2,7 +2,6 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import Badge from '@/components/ui/Badge';
 import {
     fetchIndicadoresBackendThunk,
     setFiltroFechas,
@@ -52,7 +51,7 @@ const getDateRangeForPeriod = (period: PeriodType): { fechaInicio: string; fecha
 
 function Home() {
     const dispatch = useAppDispatch();
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { personalizacionUsuario, isAuthenticated } = useAppSelector((state) => state.auth);
     const { metricas, indicadores, metricsLoading } = useAppSelector(
         (state) => state.dashboard,
     );
@@ -74,10 +73,12 @@ function Home() {
         };
     }, [personalizacionUsuario]);
 
-    // Cargar indicadores al montar
+    // Cargar indicadores al montar - solo si está autenticado
     useEffect(() => {
-        dispatch(fetchIndicadoresBackendThunk(undefined));
-    }, [dispatch]);
+        if (isAuthenticated) {
+            dispatch(fetchIndicadoresBackendThunk(undefined));
+        }
+    }, [dispatch, isAuthenticated]);
 
     // Handler para cambio de período
     const handlePeriodChange = (period: PeriodType) => {
@@ -109,24 +110,20 @@ function Home() {
         <PageWrapper isProtectedRoute={true} title='Dashboard' name='Dashboard'>
             <Subheader>
                 <SubheaderLeft>
-                    <Badge className='text-xl' variant='outline' color='blue'>
-                        <Icon icon='HeroChartBarSquare' className='mr-2' />
-                        Dashboard
-                    </Badge>
-                </SubheaderLeft>
-                <SubheaderRight className='flex items-center gap-4'>
                     <PeriodButtons
                         value={activePeriod}
                         onChange={handlePeriodChange}
                         showCustom={true}
                     />
                     {activePeriod === 'custom' && <DateRangeFilter />}
+                </SubheaderLeft>
+                <SubheaderRight>
                     <EditarDashboardPreferences />
                 </SubheaderRight>
             </Subheader>
 
             <Container className='h-full w-full space-y-6 pb-8'>
-                {/* Fila superior: 4 Balance Cards con métricas clave */}
+                {/* Fila superior: Balance Cards con métricas clave */}
                 <div className='grid grid-cols-12 gap-4'>
                     {/* OT Activas */}
                     <div className='col-span-12 sm:col-span-6 lg:col-span-3'>
@@ -159,11 +156,13 @@ function Home() {
                                       }
                                     : undefined
                             }
-                            onClick={() => { window.location.href = '/ordenes-trabajo'; }}
+                            onClick={() => {
+                                window.location.href = '/ordenes-trabajo';
+                            }}
                         />
                     </div>
 
-                    {/* Cotizaciones Pendientes */}
+                    {/* Cotizaciones Período */}
                     <div className='col-span-12 sm:col-span-6 lg:col-span-3'>
                         <BalanceCard
                             title='Cotizaciones Período'
@@ -187,7 +186,9 @@ function Home() {
                                       }
                                     : undefined
                             }
-                            onClick={() => { window.location.href = '/cotizaciones'; }}
+                            onClick={() => {
+                                window.location.href = '/cotizaciones';
+                            }}
                         />
                     </div>
 
@@ -195,7 +196,9 @@ function Home() {
                     <div className='col-span-12 sm:col-span-6 lg:col-span-3'>
                         <BalanceCard
                             title='Pend. Aprobación'
-                            value={formatCompact(metricas.rendiciones?.resumen.pendientes_aprobacion)}
+                            value={formatCompact(
+                                metricas.rendiciones?.resumen.pendientes_aprobacion,
+                            )}
                             icon='HeroReceiptPercent'
                             color='amber'
                             loading={metricsLoading.rendiciones}
@@ -207,7 +210,9 @@ function Home() {
                                       )
                                     : undefined
                             }
-                            onClick={() => { window.location.href = '/rendiciones'; }}
+                            onClick={() => {
+                                window.location.href = '/rendiciones';
+                            }}
                         />
                     </div>
 
@@ -236,54 +241,36 @@ function Home() {
                     )}
                 </div>
 
-                {/* Sección: Órdenes de Trabajo + Timeline */}
+                {/* Layout principal: 8:4 - Widgets principales + Sidebar */}
                 <div className='grid grid-cols-12 gap-6'>
-                    {widgetConfig.ot && (
-                        <section className='col-span-12 lg:col-span-8 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                            <WidgetOT />
-                        </section>
-                    )}
-                    {widgetConfig.actividad && (
-                        <div
-                            className={`col-span-12 ${widgetConfig.ot ? 'lg:col-span-4' : 'lg:col-span-6'}`}>
-                            <TimelineActividad limite={8} />
-                        </div>
-                    )}
-                </div>
+                    {/* Columna principal (8 cols) */}
+                    <div className='col-span-12 space-y-6 lg:col-span-8'>
+                        {/* Widget OT */}
+                        {widgetConfig.ot && (
+                            <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
+                                <WidgetOT />
+                            </section>
+                        )}
 
-                {/* Sección: Cotizaciones */}
-                {widgetConfig.cotizaciones && (
-                    <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                        <WidgetCotizaciones />
-                    </section>
-                )}
+                        {/* Widget Cotizaciones */}
+                        {widgetConfig.cotizaciones && (
+                            <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
+                                <WidgetCotizaciones />
+                            </section>
+                        )}
+                    </div>
 
-                {/* Grid 2 columnas: Rendiciones + Bodegas */}
-                <div className='grid gap-6 lg:grid-cols-2'>
-                    {widgetConfig.rendiciones && (
-                        <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                            <WidgetRendiciones />
-                        </section>
-                    )}
-                    {widgetConfig.bodegas && (
-                        <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                            <WidgetBodegas />
-                        </section>
-                    )}
-                </div>
+                    {/* Sidebar (4 cols) - Mini cards + Timeline */}
+                    <div className='col-span-12 space-y-4 lg:col-span-4'>
+                        {/* Mini-cards secundarias */}
+                        {widgetConfig.rendiciones && <WidgetRendiciones />}
+                        {widgetConfig.bodegas && <WidgetBodegas />}
+                        {widgetConfig.contratos && <WidgetContratos />}
+                        {widgetConfig.vacaciones && <WidgetVacaciones />}
 
-                {/* Grid 2 columnas: Contratos + Vacaciones */}
-                <div className='grid gap-6 lg:grid-cols-2'>
-                    {widgetConfig.contratos && (
-                        <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                            <WidgetContratos />
-                        </section>
-                    )}
-                    {widgetConfig.vacaciones && (
-                        <section className='rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900'>
-                            <WidgetVacaciones />
-                        </section>
-                    )}
+                        {/* Timeline de actividad */}
+                        {widgetConfig.actividad && <TimelineActividad limite={6} />}
+                    </div>
                 </div>
             </Container>
         </PageWrapper>

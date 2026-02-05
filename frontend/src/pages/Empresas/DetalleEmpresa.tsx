@@ -329,12 +329,7 @@ function DetalleEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Empresa' title='Detalle Empresa'>
             <Subheader>
-                <SubheaderLeft>
-                    <Badge className='text-xl'>
-                        {detalleEmpresa?.nombre}
-                        {detalleEmpresa?.rut_empresa && `, Rut: ${detalleEmpresa.rut_empresa}`}
-                    </Badge>
-                </SubheaderLeft>
+                <SubheaderLeft />
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='grid grid-cols-1 gap-4'>
