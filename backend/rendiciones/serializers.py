@@ -39,7 +39,6 @@ class RendicionSerializer(serializers.ModelSerializer):
     datos_usuario = UsuarioEmpresaSerializer(source="usuario", read_only=True)
     estado_label = serializers.SerializerMethodField()
     revisado_por_data = UsuarioEmpresaSerializer(source="revisado_por.usuarioempresa_set.first", read_only=True)
-    rechazada_por_data = UsuarioEmpresaSerializer(source="rechazada_por.usuarioempresa_set.first", read_only=True)
 
     # Campos legacy (mantener compatibilidad)
     total = serializers.SerializerMethodField()

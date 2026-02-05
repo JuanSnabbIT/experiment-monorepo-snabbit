@@ -31,13 +31,9 @@ export interface IRendicion {
     // BLOQUE 6 - FASE 6: Relación con OT
     orden_trabajo: number | null;
 
-    // FASE 1 BACKEND - Campos de rechazo y aprobación
+    // FASE 2: Campos de revisión/aprobación/rechazo
+    // Nota: El estado (2=aprobada, 3=rechazada, 4=pagada) determina el tipo de revisión
     motivo_rechazo: string | null;
-    fecha_rechazo: string | null;
-    rechazada_por: number | null;
-    rechazada_por_data?: IUsuarioEmpresa | null;
-
-    // Campos de aprobación/revisión
     revisado_por: number | null;
     revisado_por_data?: IUsuarioEmpresa | null;
     fecha_revision: string | null;

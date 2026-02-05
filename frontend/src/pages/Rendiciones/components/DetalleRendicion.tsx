@@ -656,68 +656,43 @@ const DetalleRendicion = () => {
                         </CardBody>
                     </Card>
 
-                    {/* FASE 1: Card de Estado (Rechazo/Aprobación) */}
-                    {(detalleRendicion?.estado === '3' || detalleRendicion?.estado === '2' || detalleRendicion?.estado === '4') && (
+                    {/* FASE 2: Card de Revisión (Aprobación/Rechazo) */}
+                    {(detalleRendicion?.estado === '2' || detalleRendicion?.estado === '3' || detalleRendicion?.estado === '4') && (
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
                                     <Badge className='text-xl'>
-                                        {detalleRendicion?.estado === '3'
-                                            ? 'Información de Rechazo'
-                                            : 'Información de Revisión'}
+                                        {detalleRendicion?.estado === '3' ? 'Información de Rechazo' : 'Información de Revisión'}
                                     </Badge>
                                 </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
                                 <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                                    {detalleRendicion?.estado === '3' && (
-                                        <>
-                                            <div className='w-full'>
-                                                <Badge>Rechazada Por</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleRendicion?.rechazada_por_data?.nombre_usuario ||
-                                                        'No disponible'}
-                                                </div>
-                                            </div>
-                                            <div className='w-full'>
-                                                <Badge>Fecha de Rechazo</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleRendicion?.fecha_rechazo
-                                                        ? dayjs(
-                                                              detalleRendicion.fecha_rechazo,
-                                                          ).format('DD/MM/YYYY HH:mm')
-                                                        : ''}
-                                                </div>
-                                            </div>
-                                            <div className='w-full md:col-span-2'>
-                                                <Badge>Motivo de Rechazo</Badge>
-                                                <div className='ml-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800'>
-                                                    {detalleRendicion?.motivo_rechazo}
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
+                                    {/* Revisado por - aplica para aprobación (2, 4) y rechazo (3) */}
+                                    <div className='w-full'>
+                                        <Badge>{detalleRendicion?.estado === '3' ? 'Rechazada Por' : 'Aprobada Por'}</Badge>
+                                        <div className='ml-4'>
+                                            {detalleRendicion?.revisado_por_data?.nombre_usuario || 'No disponible'}
+                                        </div>
+                                    </div>
 
-                                    {(detalleRendicion?.estado === '2' || detalleRendicion?.estado === '4') && (
-                                        <>
-                                            <div className='w-full'>
-                                                <Badge>Aprobada Por</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleRendicion?.revisado_por_data?.nombre_usuario ||
-                                                        'No disponible'}
-                                                </div>
+                                    <div className='w-full'>
+                                        <Badge>{detalleRendicion?.estado === '3' ? 'Fecha de Rechazo' : 'Fecha de Aprobación'}</Badge>
+                                        <div className='ml-4'>
+                                            {detalleRendicion?.fecha_revision
+                                                ? dayjs(detalleRendicion.fecha_revision).format('DD/MM/YYYY HH:mm')
+                                                : ''}
+                                        </div>
+                                    </div>
+
+                                    {/* Motivo de rechazo - solo si estado = 3 */}
+                                    {detalleRendicion?.estado === '3' && (
+                                        <div className='w-full md:col-span-2'>
+                                            <Badge>Motivo de Rechazo</Badge>
+                                            <div className='ml-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800'>
+                                                {detalleRendicion?.motivo_rechazo}
                                             </div>
-                                            <div className='w-full'>
-                                                <Badge>Fecha de Aprobación</Badge>
-                                                <div className='ml-4'>
-                                                    {detalleRendicion?.fecha_revision
-                                                        ? dayjs(
-                                                              detalleRendicion.fecha_revision,
-                                                          ).format('DD/MM/YYYY HH:mm')
-                                                        : ''}
-                                                </div>
-                                            </div>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </CardBody>

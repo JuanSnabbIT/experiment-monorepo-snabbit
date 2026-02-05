@@ -512,8 +512,8 @@ class RendicionViewSet(viewsets.ModelViewSet):
         from django.utils import timezone
         rendicion.estado = "3"  # Rechazada
         rendicion.motivo_rechazo = motivo
-        rendicion.fecha_rechazo = timezone.now()
-        rendicion.rechazada_por = request.user
+        rendicion.revisado_por = request.user
+        rendicion.fecha_revision = timezone.now()
         rendicion.save()
         
         # TODO: Enviar notificación al usuario que creó la rendición
@@ -570,7 +570,10 @@ class RendicionViewSet(viewsets.ModelViewSet):
             )
         
         # Actualizar rendición
+        from django.utils import timezone
         rendicion.estado = "4"  # Pagada
+        rendicion.revisado_por = request.user  # Registrar quién pagó
+        rendicion.fecha_revision = timezone.now()  # Registrar cuándo se pagó
         rendicion.save()
         
         # TODO: Enviar notificación al usuario que creó la rendición

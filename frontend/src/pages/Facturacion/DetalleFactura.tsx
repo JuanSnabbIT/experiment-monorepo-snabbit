@@ -5,6 +5,7 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import ItemDetailModal from '@/pages/Facturacion/ItemDetailModal';
@@ -115,6 +116,9 @@ const DetalleFactura = () => {
     const [enrichedItems, setEnrichedItems] = useState<PrefacturaItem[]>([]);
     const [enriching, setEnriching] = useState<boolean>(false);
     const [uploadingDocument, setUploadingDocument] = useState<boolean>(false);
+    const [isOtsModalOpen, setIsOtsModalOpen] = useState<boolean>(false);
+    const [otsLoading, setOtsLoading] = useState<boolean>(false);
+    const [otsInfo, setOtsInfo] = useState<Record<number, any>>({});
 
     useEffect(() => {
         if (!id) return;
@@ -268,6 +272,40 @@ const DetalleFactura = () => {
 
     const items = enrichedItems;
     const resumen = factura?.resultado?.resumen;
+    const otsIncluidas = factura?.resultado?.ots_incluidas ?? [];
+
+    useEffect(() => {
+        if (!isOtsModalOpen || otsIncluidas.length === 0) return;
+
+        const missingIds = otsIncluidas.filter((id) => !otsInfo[id]);
+        if (missingIds.length === 0) return;
+
+        setOtsLoading(true);
+        Promise.all(
+            missingIds.map(async (otId) => {
+                try {
+                    const response = await ApiService.fetchData({
+                        url: `/api/ordenes-de-trabajo/${otId}/`,
+                        method: 'get',
+                    });
+                    return { otId, data: response.data };
+                } catch (error) {
+                    console.error('Error cargando OT', otId, error);
+                    return { otId, data: null };
+                }
+            }),
+        )
+            .then((results) => {
+                setOtsInfo((prev) => {
+                    const next = { ...prev };
+                    results.forEach((result) => {
+                        next[result.otId] = result.data;
+                    });
+                    return next;
+                });
+            })
+            .finally(() => setOtsLoading(false));
+    }, [isOtsModalOpen, otsIncluidas, otsInfo]);
 
     const columns = [
         columnHelper.accessor('ot_id', {
@@ -820,14 +858,17 @@ const DetalleFactura = () => {
                                             {resumen?.total_items ?? items.length}
                                         </div>
                                     </div>
-                                    <div className='rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20'>
+                                    <button
+                                        type='button'
+                                        onClick={() => setIsOtsModalOpen(true)}
+                                        className='rounded-lg bg-purple-50 p-4 text-left transition hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40'>
                                         <div className='text-sm font-semibold uppercase text-purple-600 dark:text-purple-400'>
                                             OTs incluidas
                                         </div>
                                         <div className='mt-1 text-2xl font-bold text-purple-900 dark:text-purple-100'>
-                                            {factura.resultado?.ots_incluidas?.length ?? 0}
+                                            {otsIncluidas.length}
                                         </div>
-                                    </div>
+                                    </button>
                                 </div>
                             </CardBody>
                         </Card>
@@ -959,6 +1000,61 @@ const DetalleFactura = () => {
                 onClose={() => setIsModalOpen(false)}
                 item={selectedItem}
             />
+            <Modal isOpen={isOtsModalOpen} setIsOpen={setIsOtsModalOpen}>
+                <ModalHeader>
+                    <CardTitle>OTs incluidas</CardTitle>
+                </ModalHeader>
+                <ModalBody>
+                    {otsIncluidas.length === 0 ? (
+                        <div className='py-6 text-sm text-gray-600'>
+                            No hay OTs incluidas en esta prefactura.
+                        </div>
+                    ) : otsLoading ? (
+                        <div className='py-6 text-sm text-gray-600'>Cargando OTs...</div>
+                    ) : (
+                        <div className='space-y-3'>
+                            {otsIncluidas.map((otId) => (
+                                <div
+                                    key={otId}
+                                    className='flex items-center justify-between rounded border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3'>
+                                    <div className='space-y-1'>
+                                        <div className='font-semibold text-gray-800'>OT #{otId}</div>
+                                        <div className='text-xs text-gray-600'>
+                                            {otsInfo[otId]?.cliente_nombre || 'Cliente no disponible'}
+                                        </div>
+                                        <div className='flex flex-wrap items-center gap-2 text-xs'>
+                                            <Badge color='blue' variant='outline'>
+                                                {otsInfo[otId]?.estado_label || 'Estado desconocido'}
+                                            </Badge>
+                                            <Badge color='amber' variant='outline'>
+                                                {otsInfo[otId]?.tipo_servicio_label || 'Tipo no disponible'}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant='solid'
+                                        color='violet'
+                                        size='sm'
+                                        icon='HeroEye'
+                                        onClick={() =>
+                                            navigate(`/orden-trabajo/detalle-orden-trabajo/${otId}`)
+                                        }>
+                                        Ver OT
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild />
+                    <ModalFooterChild>
+                        <Button color='red' onClick={() => setIsOtsModalOpen(false)}>
+                            Cerrar
+                        </Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
         </PageWrapper>
     );
 };
