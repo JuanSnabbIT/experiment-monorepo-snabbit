@@ -71,7 +71,6 @@ const DetalleFabricante = () => {
                 toast.success('Datos guardados correctamente.');
                 return data;
             } catch (error) {
-                console.error('Error:', error);
                 toast.error('Hubo un error al guardar los datos. Por favor, inténtelo de nuevo.');
             }
         },
@@ -101,7 +100,7 @@ const DetalleFabricante = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle fabricante' title='Detalle fabricante'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Button
                         variant='solid'

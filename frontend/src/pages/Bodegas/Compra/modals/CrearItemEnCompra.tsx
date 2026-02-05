@@ -182,7 +182,6 @@ function CrearItemEnCompra({ compra }: { compra: ICompra }) {
                 stream.getTracks().forEach((track) => track.stop());
                 setHasCameraPermission(true);
             } catch (error) {
-                console.error('Error al obtener permisos de la cámara:', error);
                 setHasCameraPermission(false);
             } finally {
                 setPermissionChecked(true);
@@ -675,8 +674,7 @@ function CrearItemEnCompra({ compra }: { compra: ICompra }) {
                                                     );
                                                 }
                                             }}
-                                            onError={(error) => {
-                                                console.error('Error en el escáner:', error);
+                                            onError={() => {
                                                 toast.error('Error al acceder a la cámara.');
                                             }}
                                             formats={[

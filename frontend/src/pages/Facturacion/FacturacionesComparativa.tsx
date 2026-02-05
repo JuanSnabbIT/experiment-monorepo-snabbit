@@ -242,7 +242,6 @@ const FacturacionesComparativa = () => {
             const message =
                 error?.response?.data?.detail || error?.message || 'Error al crear prefactura';
             toast.error(message);
-            console.error('Error creando prefactura:', error);
         } finally {
             setCreatingPrefactura(false);
         }
@@ -327,10 +326,8 @@ const FacturacionesComparativa = () => {
                     // Guardar la respuesta completa para mantener consistencia con otros useEffect
                     setPactadoData(response.data);
                     setEjecutadoData(response.data);
-                    console.log('Datos comparativa completa cargados:', response.data);
                 })
-                .catch((error) => {
-                    console.error('Error al obtener comparativa:', error);
+                .catch((_error) => {
                     setComparativaData(null);
                 })
                 .finally(() => {
@@ -363,11 +360,9 @@ const FacturacionesComparativa = () => {
                     fecha: response.data.fecha,
                 });
             })
-            .catch((error) => {
+            .catch((_error) => {
                 if (!active) return;
-                const mensaje =
-                    error?.response?.data?.detail ||
-                    'No se pudo cargar el tipo de cambio.';
+                const mensaje = 'No se pudo cargar el tipo de cambio.';
                 setErrorTipoCambio(mensaje);
                 setTipoCambioSeleccionado(null);
             })
@@ -397,7 +392,6 @@ const FacturacionesComparativa = () => {
                 .then((response) => {
                     // La respuesta debería tener estructura { ejecutado: {...}, pactado: null, diferencia: null }
                     setEjecutadoData(response.data);
-                    console.log('Datos ejecutado cargados:', response.data);
 
                     // Inicializar config de items (por defecto: facturar=true, sin comentario)
                     if (response.data?.ejecutado?.items) {
@@ -414,8 +408,7 @@ const FacturacionesComparativa = () => {
                         setItemsConfig(newConfig);
                     }
                 })
-                .catch((error) => {
-                    console.error('Error al obtener datos ejecutados:', error);
+                .catch((_error) => {
                     setEjecutadoData(null);
                 })
                 .finally(() => {
@@ -442,10 +435,8 @@ const FacturacionesComparativa = () => {
                 .then((response) => {
                     // La respuesta debería tener estructura { pactado: {...}, ejecutado: null, diferencia: null }
                     setPactadoData(response.data);
-                    console.log('Datos pactado cargados:', response.data);
                 })
-                .catch((error) => {
-                    console.error('Error al obtener datos pactados:', error);
+                .catch((_error) => {
                     setPactadoData(null);
                 })
                 .finally(() => {
@@ -550,7 +541,6 @@ const FacturacionesComparativa = () => {
     // Loguear datos del contrato para debugging
     useEffect(() => {
         if (contratoSeleccionado) {
-            console.log('Contrato seleccionado:', contratoSeleccionado);
         }
     }, [contratoSeleccionado]);
 
@@ -573,7 +563,6 @@ const FacturacionesComparativa = () => {
                 });
                 if (mounted) setExcludedOtIds(Array.from(new Set(otIds)));
             } catch (err) {
-                console.warn('No se pudieron cargar facturas para excluir OTs', err);
             }
         };
         fetchFacturas();
@@ -800,7 +789,6 @@ const FacturacionesComparativa = () => {
                     });
                 }
             } catch (error) {
-                console.warn('Error cargando cotizaciones relacionadas', error);
             } finally {
                 if (mounted) {
                     setLoadingCotizaciones(false);

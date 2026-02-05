@@ -203,7 +203,7 @@ function CompletarOrdenDeCompra() {
     return (
         <PageWrapper isProtectedRoute={true} title='Completar Orden' name='Completar Orden'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <ConfirmarRecibirOrden
                         itemsARecibir={itemsARecibir}

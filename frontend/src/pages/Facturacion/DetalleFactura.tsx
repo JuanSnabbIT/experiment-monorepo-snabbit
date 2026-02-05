@@ -302,7 +302,6 @@ const DetalleFactura = () => {
 
                 return enriched;
             } catch (error) {
-                console.error(`Error enriqueciendo item ${item.tipo} #${item.id}:`, error);
                 return { ...item, nombre: `${item.tipo} #${item.id}` };
             }
         });
@@ -332,7 +331,6 @@ const DetalleFactura = () => {
                     });
                     return { otId, data: response.data };
                 } catch (error) {
-                    console.error('Error cargando OT', otId, error);
                     return { otId, data: null };
                 }
             }),
@@ -714,7 +712,6 @@ const DetalleFactura = () => {
                                         toast.success(`Prefactura #${factura.id} anulada`);
                                         navigate('/facturacion/facturas');
                                     } catch (error: any) {
-                                        console.error('Error anulando prefactura:', error);
                                         toast.error(
                                             error?.response?.data?.detail ||
                                                 'Ocurrió un error al anular',
@@ -744,7 +741,6 @@ const DetalleFactura = () => {
                                         toast.success(`Prefactura #${factura.id} aprobada`);
                                         fetchFactura();
                                     } catch (error: any) {
-                                        console.error('Error avanzando prefactura:', error);
                                         toast.error(
                                             error?.response?.data?.detail ||
                                                 'No se pudo avanzar el estado',
@@ -800,7 +796,6 @@ const DetalleFactura = () => {
                                         toast.success(`Prefactura #${factura.id} anulada`);
                                         navigate('/facturacion/facturas');
                                     } catch (error: any) {
-                                        console.error('Error anulando prefactura:', error);
                                         toast.error(
                                             error?.response?.data?.detail ||
                                                 'Ocurrió un error al anular',

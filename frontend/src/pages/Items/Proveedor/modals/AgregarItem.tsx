@@ -79,7 +79,6 @@ const AgregarItem = ({ id_empresa, id_proveedor }: AgregarItemProps) => {
                 setIsOpen(false);
             }
         } catch (error) {
-            console.error('Error al asociar los items:', error);
             toast.error('Error al asociar los items');
         }
     };

@@ -65,7 +65,6 @@ const ConfirmarEliminar = forwardRef<HTMLButtonElement, ConfirmarEliminarProps>(
                     { autoClose: 1000 },
                 );
             } catch (error: any) {
-                console.error(`Error eliminando ${safeNombre}:`, error);
                 const errorMsg = error.response?.data?.detail || error.message || String(error);
                 toast.error(
                     safeNombre

@@ -1,8 +1,7 @@
-import Icon from '@/components/icon/Icon';
+﻿import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
@@ -10,13 +9,9 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IRendicion } from '@/interface/rendicion.interface';
-import {
-    listaMisRendicionesThunk,
-    listaRendicionesThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+import { useDeleteRendicionMutation, useGetMisRendicionesQuery } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -28,21 +23,19 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 const columnHelper = createColumnHelper<IRendicion>();
 
 const ListaMisRendiciones = () => {
-    const dispatch = useAppDispatch();
-    const { listaMisRendiciones } = useAppSelector((state) => state.rendicion);
+    const { data: listaMisRendiciones = [] } = useGetMisRendicionesQuery();
+    const [deleteRendicion] = useDeleteRendicionMutation();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const navigate = useNavigate();
-
-    useEffect(() => {
-        dispatch(listaMisRendicionesThunk());
-    }, [dispatch]);
 
     const getEstadoColor = (estado: string): 'emerald' | 'red' | 'amber' | 'zinc' => {
         const estadoLower = estado?.toLowerCase() || '';
@@ -108,10 +101,27 @@ const ListaMisRendiciones = () => {
                     {(info.row.original.estado === '0' ||
                         info.row.original.estado === '1' ||
                         info.row.original.estado === '3') && (
-                        <ConfirmarEliminar
-                            mensaje={`Estás a punto de eliminar la Rendición del ${info.row.original.fecha_rendicion} ¿deseas continuar?`}
-                            peticionUrl={`/api/rendiciones/${info.row.original.id}/`}
-                            onDispatch={() => dispatch(listaRendicionesThunk())}
+                        <Button
+                            variant='solid'
+                            color='red'
+                            icon='HeroTrash'
+                            onClick={async () => {
+                                const isConfirmed = await confirmAlert({
+                                    title: '¿Eliminar rendición?',
+                                    text: `Estas a punto de eliminar la Rendición del ${info.row.original.fecha_rendicion}`,
+                                    icon: 'warning',
+                                    confirmText: 'Eliminar',
+                                });
+                                if (!isConfirmed) return;
+                                try {
+                                    await deleteRendicion({ id: info.row.original.id }).unwrap();
+                                    toast.success('Rendición eliminada', { autoClose: 1000 });
+                                } catch (error: unknown) {
+                                    toast.error(
+                                        getErrorMessage(error) || 'Error al eliminar la rendición',
+                                    );
+                                }
+                            }}
                         />
                     )}
                 </div>
@@ -229,3 +239,4 @@ const ListaMisRendiciones = () => {
 };
 
 export default ListaMisRendiciones;
+

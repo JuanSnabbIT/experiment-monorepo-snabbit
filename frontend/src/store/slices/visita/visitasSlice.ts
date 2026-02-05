@@ -247,10 +247,8 @@ export const listaTodosAsistenciaUsuariosThunk = createAsyncThunk<
             url: `/api/visitas-soporte/asistencias-por-detalle-trabajo/`,
             method: 'GET',
         });
-        console.log('Respuesta del backend:', response.data);
         return response.data;
     } catch (error) {
-        console.error('Error en la petición GET:', error);
         return rejectWithValue('Error al obtener las asistencias de usuarios');
     }
 });

@@ -208,7 +208,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         };
                     }
                 } catch (error: unknown) {
-                    console.warn('Gasto operativo no disponible en', url, error);
                 }
             }
 
@@ -250,7 +249,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                 );
                             }
                         } catch (error: unknown) {
-                            console.warn('No se pudieron cargar usuarios vinculados', error);
                             if (mounted) setVinculados([]);
                         }
                     }
@@ -267,7 +265,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                             setSeguimientos(seguimientosFiltrados);
                         }
                     } catch (error: unknown) {
-                        console.warn('No se pudieron cargar seguimientos', error);
                     } finally {
                         if (mounted) setLoadingSeguimientos(false);
                     }
@@ -292,7 +289,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                             }
                         } catch (error: unknown) {
                             // Couldn't resolve via items-guia; leave guiaId null and let the later logic handle it
-                            console.warn('No se pudo resolver guia via items-guia:', error);
                         }
                     }
 
@@ -308,14 +304,12 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                 method: 'get',
                             });
                             if (!mounted) return;
-                            console.log('🔍 Guía response completa:', resp.data);
                             setData(resp.data);
                             // Extraer items de la respuesta si existen
                             if (resp.data?.items && Array.isArray(resp.data.items)) {
                                 setItemsGuia(resp.data.items);
                             }
                         } catch (error: unknown) {
-                            console.error('Error fetching guia by id', error);
                             if (!mounted) return;
                             setError(getErrorMessage(error) || 'No se pudo cargar la Guía');
                         }
@@ -348,7 +342,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         if (!mounted) return;
                         setData(compraResp.data);
                     } catch (error: unknown) {
-                        console.error('Error fetching compra', error);
                         setError('No se pudo cargar el detalle de la compra');
                     }
                 } else if (tipo === 'gasto_operativo') {
@@ -359,7 +352,6 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     setData(null);
                 }
             } catch (error: unknown) {
-                console.error('Error fetching item detail', error);
                 if (!mounted) return;
                 setError(getErrorMessage(error) || 'Error al obtener detalle');
             } finally {

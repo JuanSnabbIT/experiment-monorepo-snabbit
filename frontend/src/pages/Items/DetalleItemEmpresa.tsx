@@ -153,7 +153,6 @@ function DetalleItemEmpresa() {
                     );
                 }
             } catch (error) {
-                console.error('Error:', error);
                 toast.error('Hubo un error al guardar los datos. Por favor, inténtelo de nuevo.');
             }
         },
@@ -246,7 +245,7 @@ function DetalleItemEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Item' title='Detalle Item'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     {isEditing ? (
                         <>

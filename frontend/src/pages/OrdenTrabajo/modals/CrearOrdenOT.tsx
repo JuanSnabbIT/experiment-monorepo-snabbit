@@ -118,7 +118,6 @@ function CrearOrdenOT() {
                     cleanValues.responsable_empresa = values.responsable_empresa;
                 if (values.notas_internas) cleanValues.notas_internas = values.notas_internas;
 
-                console.log('Payload a enviar:', cleanValues);
 
                 // Mapear campos del frontend al backend
                 const backendPayload = {
@@ -130,7 +129,6 @@ function CrearOrdenOT() {
                 delete backendPayload.solicitante_empresa;
                 delete backendPayload.responsable_empresa;
 
-                console.log('Payload mapeado para backend:', backendPayload);
 
                 const response = await ApiService.fetchData({
                     url: '/api/ordenes-de-trabajo/',
@@ -139,7 +137,6 @@ function CrearOrdenOT() {
                     data: backendPayload,
                 });
 
-                console.log('Respuesta del servidor:', response);
                 if (response.data) {
                     toast.success('Orden de Trabajo Creada', { autoClose: 1000 });
                     const nuevaOtId = (response.data as { id: number }).id;
@@ -148,12 +145,9 @@ function CrearOrdenOT() {
                     // Redirigir al detalle de la OT recién creada
                     navigate(`/orden-trabajo/detalle-orden-trabajo/${nuevaOtId}`);
                 } else {
-                    console.error('Response sin data:', response);
                     toast.error('Error al crear la Orden de Trabajo');
                 }
             } catch (error: any) {
-                console.error('Error completo:', error);
-                console.error('Error response:', error.response);
                 const errorMsg =
                     error.response?.data?.detail || error.message || 'Error desconocido';
                 toast.error(`Error: ${errorMsg}`);

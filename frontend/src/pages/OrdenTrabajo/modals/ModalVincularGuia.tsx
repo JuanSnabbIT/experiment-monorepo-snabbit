@@ -55,7 +55,6 @@ const ModalVincularGuia = ({
             }));
             setGuiasDisponibles(options);
         } catch (e: unknown) {
-            console.error('Error al cargar guías disponibles:', e);
             toast.error(getErrorMessage(e) || 'No se pudieron cargar las guías disponibles');
         } finally {
             setCargandoGuias(false);
@@ -71,7 +70,6 @@ const ModalVincularGuia = ({
             });
             setItemsGuia(resp.data || []);
         } catch (e: unknown) {
-            console.error('Error al cargar items de la guía:', e);
             toast.error(getErrorMessage(e) || 'No se pudieron cargar los items de la guía');
         } finally {
             setCargandoItems(false);
@@ -121,7 +119,6 @@ const ModalVincularGuia = ({
             onSuccess();
             setIsOpen(false);
         } catch (e: unknown) {
-            console.error('Error al vincular guía:', e);
             toast.error(getErrorMessage(e) || 'Error al vincular guía');
         } finally {
             setCargandoVinculo(false);

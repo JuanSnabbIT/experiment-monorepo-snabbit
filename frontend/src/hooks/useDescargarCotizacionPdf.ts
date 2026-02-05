@@ -36,7 +36,6 @@ const useDescargarCotizacionPdf = () => {
 
             toast.success(`PDF de cotización #${cotizacion.numero_cotizacion} descargado`);
         } catch (error: unknown) {
-            console.error('Error descargando PDF:', error);
             toast.error(getErrorMessage(error) || 'No se pudo obtener el PDF', {
                 toastId: 'cotizacion-pdf-error',
             });

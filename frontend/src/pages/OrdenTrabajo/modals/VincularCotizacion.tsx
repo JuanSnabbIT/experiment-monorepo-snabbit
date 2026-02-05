@@ -103,7 +103,6 @@ const VincularCotizacion = ({
                         setCotizacionesOt(response.data ?? []);
                     })
                     .catch((error: unknown) => {
-                        console.error(error);
                         toast.error(
                             getErrorMessage(error) || 'Error al cargar cotizaciones elegibles',
                         );
@@ -140,7 +139,6 @@ const VincularCotizacion = ({
                 setItemsResumen(mapped);
             })
             .catch((error: unknown) => {
-                console.error(error);
                 toast.error(getErrorMessage(error) || 'Error al cargar resumen de items');
             })
             .finally(() => setLoadingItemsResumen(false));
@@ -171,7 +169,6 @@ const VincularCotizacion = ({
                 setIsOpen(false);
             }
         } catch (error: unknown) {
-            console.error(error);
             toast.error(getErrorMessage(error) || 'Error al vincular la cotización');
         } finally {
             setIsLoading(false);

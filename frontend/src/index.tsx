@@ -22,13 +22,10 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import store, { persistor } from './store';
 
-console.log('[index.tsx] Iniciando aplicación...');
-console.log('[index.tsx] Estado inicial del store:', store.getState().auth);
 
 // Suscribirse a cambios del store para debug
 store.subscribe(() => {
     const state = store.getState().auth;
-    console.log('[Store] Auth state changed - isAuthenticated:', state.isAuthenticated, '_sessionVerified:', state._sessionVerified);
 });
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
@@ -39,7 +36,6 @@ root.render(
                 loading={<AppLoader message='Iniciando...' />} 
                 persistor={persistor}
                 onBeforeLift={() => {
-                    console.log('[PersistGate] onBeforeLift - Estado después de rehidratar:', store.getState().auth);
                 }}
             >
                 <AppInitializer loadingComponent={<AppLoader message='Verificando sesión...' />}>

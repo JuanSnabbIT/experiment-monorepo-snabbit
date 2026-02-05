@@ -78,10 +78,8 @@ const PageWrapper: FC<IPageWrapperProps> = (props) => {
         }
     }, [personalizacionUsuario]);
 
-    console.log('[PageWrapper] Evaluando ruta - isProtectedRoute:', isProtectedRoute, 'isAuthenticated:', isAuthenticated, 'name:', name);
 
     if (isProtectedRoute && isProtectedRoute === true && !isAuthenticated) {
-        console.log('[PageWrapper] REDIRIGIENDO A LOGIN - ruta protegida sin autenticación');
         return <Navigate to={authPages.loginPage.to} />;
     }
 

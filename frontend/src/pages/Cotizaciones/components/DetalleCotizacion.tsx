@@ -568,7 +568,7 @@ const DetalleCotizacion = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Cotizacion' title='Detalle Cotizacion'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     {detalleCotizacion && (
                         <AuthorityCheckNav

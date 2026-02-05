@@ -178,7 +178,6 @@ function CrearProspectoModal({
                 setIsOpen(false);
                 toast.success(`Prospecto "${prospecto.nombre}" creado.`, { autoClose: 2500 });
             } catch (error: any) {
-                console.error('Error al crear prospecto:', error);
                 const errorMsg = error.response?.data?.detail || 'Error al crear el prospecto';
                 toast.error(errorMsg, { autoClose: 4000 });
             } finally {

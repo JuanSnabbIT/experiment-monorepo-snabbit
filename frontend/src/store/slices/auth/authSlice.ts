@@ -169,16 +169,8 @@ const authSlice = createSlice({
             .addMatcher(
                 (action) => action.type === REHYDRATE,
                 (state, action: { payload?: { auth?: AuthState } }) => {
-                    console.log('[AUTH] REHYDRATE disparado', {
-                        hasPayload: !!action.payload,
-                        hasAuthInPayload: !!action.payload?.auth,
-                        accessToken: action.payload?.auth?.access ? 'PRESENTE' : 'AUSENTE',
-                        refreshToken: action.payload?.auth?.refresh ? 'PRESENTE' : 'AUSENTE',
-                        isAuthenticated: action.payload?.auth?.isAuthenticated,
-                    });
                     if (action.payload?.auth) {
                         // Restaurar todo excepto _sessionVerified
-                        console.log('[AUTH] REHYDRATE: Restaurando estado con _sessionVerified=false');
                         return {
                             ...action.payload.auth,
                             _sessionVerified: false, // Siempre resetear esto

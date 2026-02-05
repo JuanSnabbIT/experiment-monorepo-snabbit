@@ -1,4 +1,4 @@
-import Input from '@/components/form/Input';
+﻿import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
@@ -58,7 +58,7 @@ const columnHelper = createColumnHelper<Prefactura>();
 
 const estadoOptions: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
-    { value: 'en_revision', label: 'En revisión' },
+    { value: 'en_revision', label: 'En revisiÃ³n' },
     { value: 'aprobado', label: 'Aprobado' },
     { value: 'facturado', label: 'Facturado' },
     { value: 'pagado', label: 'Pagado' },
@@ -111,7 +111,7 @@ const ListaFacturas = () => {
 
         const ok = await confirmAlert({
             title: 'Eliminar prefactura',
-            text: `¿Confirmas eliminar la prefactura #${prefactura.id}?`,
+            text: `Â¿Confirmas eliminar la prefactura #${prefactura.id}?`,
             confirmText: 'Eliminar',
             cancelText: 'Cancelar',
             icon: 'warning',
@@ -137,7 +137,7 @@ const ListaFacturas = () => {
             cell: (info) => (
                 <div className='font-bold text-gray-600 dark:text-gray-400'>#{info.getValue()}</div>
             ),
-            header: 'N°',
+            header: 'NÂ°',
         }),
         columnHelper.accessor('cliente_nombre', {
             cell: (info) => (
@@ -152,7 +152,7 @@ const ListaFacturas = () => {
             cell: (info) => {
                 const ots = info.getValue();
                 if (!ots || ots.length === 0) {
-                    return <div className='text-sm text-gray-500'>—</div>;
+                    return <div className='text-sm text-gray-500'>â€”</div>;
                 }
                 return (
                     <div className='flex flex-wrap gap-1'>
@@ -181,7 +181,7 @@ const ListaFacturas = () => {
                         break;
                     case 'en_revision':
                         color = 'amber';
-                        label = 'En revisión';
+                        label = 'En revisiÃ³n';
                         variant = 'outline';
                         break;
                     case 'aprobado':
@@ -245,7 +245,7 @@ const ListaFacturas = () => {
                 const date = info.getValue();
                 return (
                     <div className='text-gray-500'>
-                        {date ? dayjs(date).format('DD/MM/YYYY') : '—'}
+                        {date ? dayjs(date).format('DD/MM/YYYY') : 'â€”'}
                     </div>
                 );
             },
@@ -315,9 +315,7 @@ const ListaFacturas = () => {
     return (
         <PageWrapper>
             <Subheader>
-                <SubheaderLeft>
-                    <h2 className='text-2xl font-bold'>Prefacturación</h2>
-                </SubheaderLeft>
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Button
                         variant='solid'
@@ -438,3 +436,4 @@ const ListaFacturas = () => {
 };
 
 export default ListaFacturas;
+

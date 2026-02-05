@@ -66,7 +66,7 @@ function DashboardVacaciones() {
             title='Dashboard Vacaciones'
             name='Dashboard Vacaciones'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
             </Subheader>
             <Container>
                 <div className='grid gap-4 md:grid-cols-2'>

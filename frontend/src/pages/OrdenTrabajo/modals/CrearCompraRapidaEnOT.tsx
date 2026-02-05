@@ -199,7 +199,6 @@ function CrearCompraRapidaEnOT() {
                                             fabricanteId = fabricanteResponse.data.id;
                                         }
                                     } catch (error) {
-                                        console.error('Error creando fabricante:', error);
                                     }
                                 }
 
@@ -217,7 +216,6 @@ function CrearCompraRapidaEnOT() {
                                             categoriaId = categoriaResponse.data.id;
                                         }
                                     } catch (error) {
-                                        console.error('Error creando categoría:', error);
                                     }
                                 }
 
@@ -360,7 +358,6 @@ function CrearCompraRapidaEnOT() {
                 stream.getTracks().forEach((track) => track.stop());
                 setHasCameraPermission(true);
             } catch (error) {
-                console.error('Error al obtener permisos de la camara:', error);
                 setHasCameraPermission(false);
             } finally {
                 setPermissionChecked(true);

@@ -63,7 +63,7 @@ function DetalleEquipoEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Equipo' title='Detalle Equipo'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
             </Subheader>
             <Container className='h-full w-full'>
                 {detalleEquipoEmpresa && (

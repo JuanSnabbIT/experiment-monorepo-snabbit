@@ -1,4 +1,4 @@
-import Input from '@/components/form/Input';
+﻿import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
@@ -10,30 +10,38 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
 import {
-    detalleRendicionThunk,
-    listaCategoriasGastoThunk,
-    listaComprasDisponiblesThunk,
-    listaContentTypeThunk,
-    listaItemsRendicionThunk,
+    useCreateRendicionItemMutation,
+    useGetCategoriasGastoQuery,
+    useGetComprasDisponiblesQuery,
+    useGetRendicionQuery,
     useAppDispatch,
     useAppSelector,
+    listaContentTypeThunk,
 } from '@/store';
 import { useGetGastosOperativosDisponiblesQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function CrearItemRendicion() {
     const dispatch = useAppDispatch();
-    const { listaCategoriasGasto, detalleRendicion, listaComprasDisponibles } = useAppSelector(
-        (state) => state.rendicion,
-    );
+    const { id } = useParams();
+    const rendicionId = id ?? '';
+    const { data: detalleRendicion } = useGetRendicionQuery(rendicionId, { skip: !id });
     const { listaContentType } = useAppSelector((state) => state.core);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const { data: listaDetalleGastoRendicionOTDisponibles = [] } =
         useGetGastosOperativosDisponiblesQuery(undefined, { skip: !isOpen });
+    const { data: listaCategoriasGasto = [] } = useGetCategoriasGastoQuery(undefined, {
+        skip: !isOpen,
+    });
+    const { data: listaComprasDisponibles = [] } = useGetComprasDisponiblesQuery(undefined, {
+        skip: !isOpen,
+    });
+    const [createRendicionItem] = useCreateRendicionItemMutation();
     const [creandoItem, setCreandoItem] = useState<boolean>(false);
     const [optionsItem, setOptionsItem] = useState<
         { label: string; options: { value: string; label: string; ct: string }[] }[]
@@ -43,23 +51,22 @@ function CrearItemRendicion() {
         if (isOpen && listaContentType.length === 0) {
             dispatch(listaContentTypeThunk());
         }
-    }, [isOpen, listaContentType]);
+    }, [isOpen, listaContentType, dispatch]);
 
     useEffect(() => {
-        if (isOpen) {
-            dispatch(listaCategoriasGastoThunk());
-            dispatch(listaComprasDisponiblesThunk());
-        } else {
+        if (!isOpen) {
             formik.resetForm();
             setCreandoItem(false);
         }
     }, [isOpen]);
 
     useEffect(() => {
-        let options: { label: string; options: { value: string; label: string; ct: string }[] }[] =
-            [];
+        const options: {
+            label: string;
+            options: { value: string; label: string; ct: string }[];
+        }[] = [];
         if (listaComprasDisponibles.length > 0) {
-            let ct = listaContentType.find((ct) => ct.model === 'compra');
+            const ct = listaContentType.find((ct) => ct.model === 'compra');
             options.push({
                 label: 'Compras',
                 options: listaComprasDisponibles.map((com) => ({
@@ -70,7 +77,7 @@ function CrearItemRendicion() {
             });
         }
         if (listaDetalleGastoRendicionOTDisponibles.length > 0) {
-            let ct = listaContentType.find((ct) => ct.model === 'detallegastorendicionot');
+            const ct = listaContentType.find((ct) => ct.model === 'detallegastorendicionot');
             options.push({
                 label: 'Gastos OT',
                 options: listaDetalleGastoRendicionOTDisponibles.map((det) => ({
@@ -96,7 +103,11 @@ function CrearItemRendicion() {
         },
         onSubmit: async (values) => {
             try {
-                let data = {};
+                if (!detalleRendicion?.id) {
+                    toast.error('No se encontró la rendición');
+                    return;
+                }
+                let data: Record<string, unknown> = {};
                 if (creandoItem) {
                     data = {
                         detalle: values.detalle,
@@ -108,20 +119,14 @@ function CrearItemRendicion() {
                 } else {
                     data = { detalle_id: values.detalle_id, content_type: values.content_type };
                 }
-                const response = await ApiService.fetchData({
-                    url: `/api/rendiciones/${detalleRendicion?.id}/items-rendicion/crear-item/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    toast.success('Item creado', { autoClose: 1000 });
-                    dispatch(detalleRendicionThunk({ id_rendicion: detalleRendicion?.id }));
-                    dispatch(listaItemsRendicionThunk({ id_rendicion: detalleRendicion?.id }));
-                    setIsOpen(false);
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
+                await createRendicionItem({
+                    rendicionId: detalleRendicion.id,
+                    data,
+                }).unwrap();
+                toast.success('Item creado', { autoClose: 1000 });
+                setIsOpen(false);
+            } catch (error: unknown) {
+                const mensajesError = getErrorMessage(error);
                 toast.error(mensajesError || 'Error al crear el item de la rendición', {
                     toastId: 'Error al crear el item de la rendición',
                 });
@@ -326,3 +331,4 @@ function CrearItemRendicion() {
 }
 
 export default CrearItemRendicion;
+

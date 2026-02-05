@@ -54,7 +54,7 @@ function DevolucionParcialGuiaSalidaBodega() {
             name='Devolucion Parcial Rebaja Bodega'
             title='Devolucion Parcial Rebaja Bodega'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex'>

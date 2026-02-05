@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -2360,7 +2361,12 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         prefactura.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=["post"], url_path="asociar-documento")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="asociar-documento",
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
     def asociar_documento(self, request, pk=None):
         """Asociar o reemplazar un documento de factura a la prefactura."""
         prefactura = self.get_object()

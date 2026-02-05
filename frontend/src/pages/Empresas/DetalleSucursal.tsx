@@ -160,7 +160,7 @@ const DetelleSucursal = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Sucursal' title='Detalle Sucursal'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Tooltip text={isEditing ? 'Cancelar Edición' : 'Modificar Sucursal'}>
                         <Button

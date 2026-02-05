@@ -72,7 +72,6 @@ const TimelineActividad: FC<ITimelineActividadProps> = ({ limite = 10, className
                 setError(null);
             } catch (err) {
                 setError('Error al cargar actividad');
-                console.error('Error fetching actividades:', err);
             } finally {
                 setLoading(false);
             }

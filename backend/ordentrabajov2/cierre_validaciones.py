@@ -13,7 +13,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
     Valida que una OT cumpla los requisitos para pasar a estado 'cerrada'.
     
     Requisitos:
-    1. Existe una prefactura (CierreAdministrativoOT) con estado 'aprobado' o 'facturado' que incluya esta OT
+    1. Existe una prefactura (CierreAdministrativoOT) con estado 'facturado' o 'pagado' que incluya esta OT
     2. Existe una rendición asociada a la OT con estado 'aprobada' (2) o 'pagada' (4)
     
     Args:
@@ -24,7 +24,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
     """
     errores = []
     
-    # Validar 1: Prefactura aprobada que incluya esta OT
+    # Validar 1: Prefactura facturada/pagada que incluya esta OT
     prefactura_aprobada = _validar_prefactura_aprobada(orden)
     if prefactura_aprobada:
         errores.append(prefactura_aprobada)
@@ -51,7 +51,7 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
         )
 
         if not qs.exists():
-            return "No existe una prefactura aprobada o facturada para este cliente."
+            return "No existe una prefactura facturada o pagada para este cliente."
 
         # Normalizador flexible de entradas en `ots_incluidas`
         def _extract_ids(items):
@@ -77,7 +77,7 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
                             ids.add(int(val))
             return ids
 
-        # Buscar en cualquier prefactura aprobada si alguna contiene la OT
+        # Buscar en cualquier prefactura facturada/pagada si alguna contiene la OT
         prefacturas_estados = []
         for prefactura in qs:
             resultado = (prefactura.resultado or {})
@@ -89,7 +89,7 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
 
         # Si llegamos aquí, ninguna prefactura contenía la OT
         debug_info = " | ".join(prefacturas_estados) if prefacturas_estados else "Sin prefacturas"
-        return f"La OT #{orden.id} no está incluida en ninguna prefactura aprobada/facturada. Prefacturas revisadas: {debug_info}"
+        return f"La OT #{orden.id} no está incluida en ninguna prefactura facturada/pagada. Prefacturas revisadas: {debug_info}"
 
     except Exception as e:
         return f"Error al validar prefactura: {str(e)}"

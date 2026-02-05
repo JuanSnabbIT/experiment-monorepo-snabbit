@@ -76,7 +76,6 @@ function ModalEnviarProveedor({
                     setIsOpen(false);
                 }
             } catch (error: any) {
-                console.error('Error al enviar orden a proveedor', error?.response?.data || error);
                 if (error?.code === 'ECONNABORTED') {
                     toast.info(
                         'El proceso de envío ha sido delegado al servidor. Recibirá una notificación al finalizar.',

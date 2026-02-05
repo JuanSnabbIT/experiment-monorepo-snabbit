@@ -1,4 +1,4 @@
-ï»¿import Container from '@/components/layouts/Container/Container';
+import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
@@ -64,17 +64,16 @@ function AgregarItemsACompraDT({}) {
     useEffect(() => {
         async function checkCameraPermission() {
             try {
-                // Intentamos solicitar acceso a la cÃ¡mara
+                // Intentamos solicitar acceso a la cámara
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                // Si se concede, detenemos las pistas (para evitar que la cÃ¡mara quede encendida)
+                // Si se concede, detenemos las pistas (para evitar que la cámara quede encendida)
                 stream.getTracks().forEach((track) => track.stop());
                 setHasCameraPermission(true);
             } catch (error) {
-                // Si ocurre algÃºn error (por ejemplo, si se niega el acceso), actualizamos el estado
-                console.error('Error al obtener permisos de la cÃ¡mara:', error);
+                // Si ocurre algún error (por ejemplo, si se niega el acceso), actualizamos el estado
                 setHasCameraPermission(false);
-                toast.error('No se pudo acceder a la cÃ¡mara', {
-                    toastId: 'No se pudo acceder a la cÃ¡mara',
+                toast.error('No se pudo acceder a la cámara', {
+                    toastId: 'No se pudo acceder a la cámara',
                 });
             } finally {
                 setPermissionChecked(true);
@@ -130,7 +129,7 @@ function AgregarItemsACompraDT({}) {
                             navigate(-1);
                         }}></Button>
                     <Badge className='text-xl'>
-                        Agregar Item a la Compra NÂ°{detalleDelDetalleTrabajo?.trabajo_id}
+                        Agregar Item a la Compra N°{detalleDelDetalleTrabajo?.trabajo_id}
                     </Badge>
                 </SubheaderLeft>
             </Subheader>
@@ -208,7 +207,7 @@ function AgregarItemsACompraDT({}) {
                                                                         }
                                                                     } else {
                                                                         toast.error(
-                                                                            'Formato de cÃ³digo de barras no soportado',
+                                                                            'Formato de código de barras no soportado',
                                                                         );
                                                                         setPaused(false);
                                                                     }
@@ -217,18 +216,18 @@ function AgregarItemsACompraDT({}) {
                                                             } else {
                                                                 setPaused(false);
                                                                 toast.error(
-                                                                    'No se detectaron cÃ³digos de barras',
+                                                                    'No se detectaron códigos de barras',
                                                                 );
                                                             }
                                                         }
                                                     }}
                                                     onError={(error) => {
                                                         console.error(
-                                                            'Error en el escÃ¡ner:',
+                                                            'Error en el escáner:',
                                                             error,
                                                         );
                                                         toast.error(
-                                                            'Error al acceder a la cÃ¡mara.',
+                                                            'Error al acceder a la cámara.',
                                                         );
                                                     }}
                                                     constraints={{

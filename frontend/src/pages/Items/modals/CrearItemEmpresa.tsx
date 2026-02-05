@@ -152,7 +152,6 @@ function CrearItemEmpresa() {
                 setHasCameraPermission(true);
             } catch (error) {
                 // Si ocurre algún error (por ejemplo, si se niega el acceso), actualizamos el estado
-                console.error('Error al obtener permisos de la cámara:', error);
                 setHasCameraPermission(false);
                 toast.error('No se pudo acceder a la cámara');
             } finally {
@@ -438,8 +437,7 @@ function CrearItemEmpresa() {
                                                 toast.error('No se detectaron códigos de barras');
                                             }
                                         }}
-                                        onError={(error) => {
-                                            console.error('Error en el escáner:', error);
+                                        onError={() => {
                                             toast.error('Error al acceder a la cámara.');
                                         }}
                                         constraints={{ facingMode: 'environment' }}

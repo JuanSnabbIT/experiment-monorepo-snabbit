@@ -152,7 +152,7 @@ function DetalleCompra() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Compra' title='Detalle Compra'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     {detalleCompra &&
                         detalleCompra.estado === '-' &&

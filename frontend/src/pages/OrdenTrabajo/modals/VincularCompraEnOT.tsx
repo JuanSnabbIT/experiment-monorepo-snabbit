@@ -1,4 +1,4 @@
-﻿import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -136,7 +136,7 @@ function VincularCompraEnOT() {
 
                         <div className='rounded border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-900/20'>
                             <p className='text-sm text-blue-700 dark:text-blue-200'>
-                                <strong>Nota:</strong> La compra quedarÇ­ asociada a la Orden de
+                                <strong>Nota:</strong> La compra quedarǭ asociada a la Orden de
                                 Trabajo seleccionada.
                             </p>
                         </div>

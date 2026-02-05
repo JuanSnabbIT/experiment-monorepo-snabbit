@@ -1,4 +1,4 @@
-# AGENTS.md – Guía Operativa para Agentes de IA
+# AGENTS.md
 
 Este archivo define **reglas transversales de comportamiento y colaboración** para todos los agentes de IA que interactúan con este repositorio (Copilot, Codex, Claude u otros).
 

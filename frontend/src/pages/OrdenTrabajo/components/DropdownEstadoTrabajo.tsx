@@ -118,7 +118,6 @@ const DropdownEstadoTrabajo = ({
 
             return seguimientosDelTrabajo.length > 0;
         } catch (error) {
-            console.error('Error al validar seguimientos:', error);
             // En caso de error, permitir el cambio para no bloquear el flujo
             return true;
         }
@@ -140,7 +139,7 @@ const DropdownEstadoTrabajo = ({
         if (estado === 'completado' || estado === 'medianamente_completado') {
             // Validar que tengamos todos los datos necesarios
             if (!ordenId || (!servicioId && !soporteId) || !clienteId) {
-                console.error('Faltan datos para abrir modal:', {
+                console.error('Faltan datos para abrir el modal de firma', {
                     ordenId,
                     servicioId,
                     soporteId,
@@ -181,7 +180,6 @@ const DropdownEstadoTrabajo = ({
                     setIsOpenFirmaModal(true);
                 }
             } catch (error) {
-                console.error('Error al cargar comentarios técnicos:', error);
                 toast.error('Error al cargar comentarios técnicos');
             }
             return;

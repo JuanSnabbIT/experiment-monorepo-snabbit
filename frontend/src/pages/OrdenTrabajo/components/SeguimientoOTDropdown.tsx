@@ -23,7 +23,6 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
         data: listaSeguimientosOT = [],
         isLoading,
         isFetching,
-        refetch,
     } = useGetSeguimientosOTQuery(
         { ordenId: ordenId ?? 0 },
         { skip: !ordenId },
@@ -52,7 +51,6 @@ const SeguimientoOTDropdown = ({ ordenId }: { ordenId: number | undefined }) => 
             }).unwrap();
             toast.success('Comentario anadido', { autoClose: 1000 });
             setNewComment('');
-            refetch();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'Error comentando');
         }

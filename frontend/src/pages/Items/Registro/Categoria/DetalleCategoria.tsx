@@ -68,7 +68,6 @@ const DetalleCategoria = () => {
                 toast.success('Datos guardados correctamente.');
                 return data;
             } catch (error) {
-                console.error('Error:', error);
                 toast.error('Hubo un error al guardar los datos. Por favor, inténtelo de nuevo.');
             }
         },
@@ -95,7 +94,7 @@ const DetalleCategoria = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Categoria' title='Detalle Categoria'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Button variant='solid' onClick={() => setIsEditing(!isEditing)}>
                         {isEditing ? 'Cancelar' : 'Modificar'}

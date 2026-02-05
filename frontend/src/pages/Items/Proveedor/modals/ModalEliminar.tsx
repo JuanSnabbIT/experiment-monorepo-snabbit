@@ -48,7 +48,6 @@ const ModalEliminar = ({
             });
             setIsModalOpen(false);
         } catch (error) {
-            console.error(`Error eliminando ${nombre} :`, error);
             toast.error(`Error eliminando ${nombre} : ${error}`);
         }
     };

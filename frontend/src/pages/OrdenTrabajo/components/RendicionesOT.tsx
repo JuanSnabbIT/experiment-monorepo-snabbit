@@ -1,4 +1,4 @@
-﻿import Icon from '@/components/icon/Icon';
+import Icon from '@/components/icon/Icon';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -71,7 +71,7 @@ function RendicionesOT() {
             cell: (info) => (
                 <div>
                     <ConfirmarEliminar
-                        mensaje='¿Esta seguro(a) de querer eliminar el gasto?'
+                        mensaje='�Esta seguro(a) de querer eliminar el gasto?'
                         nombre='Gasto'
                         onDispatch={() => {
                         }}

@@ -1,4 +1,4 @@
-import Input from '@/components/form/Input';
+﻿import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
@@ -10,32 +10,23 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import {
-    listaCategoriasGastoThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+import { useGetCategoriasGastoQuery } from '@/store';
 import { useCrearGastoOperativoOTMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import { getErrorMessage } from '@/utils/errorHandlers';
 
 function CrearRendicionesOT() {
-    const dispatch = useAppDispatch();
     const { id } = useParams<{ id: string }>();
     const ordenId = id ? Number(id) : undefined;
-    const { listaCategoriasGasto } = useAppSelector((state) => state.rendicion);
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const { data: listaCategoriasGasto = [] } = useGetCategoriasGastoQuery(undefined, {
+        skip: !isOpen,
+    });
     const [crearGastoOperativo] = useCrearGastoOperativoOTMutation();
-
-    useEffect(() => {
-        if (isOpen) {
-            dispatch(listaCategoriasGastoThunk());
-        }
-    }, [isOpen]);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -80,9 +71,12 @@ function CrearRendicionesOT() {
                 formik.resetForm();
                 setIsOpen(false);
             } catch (error: unknown) {
-                toast.error(getErrorMessage(error) || 'Error al crear el detalle gasto de la rendicion', {
-                    toastId: 'Error al crear el detalle gasto de la rendicion',
-                });
+                toast.error(
+                    getErrorMessage(error) || 'Error al crear el detalle gasto de la rendicion',
+                    {
+                        toastId: 'Error al crear el detalle gasto de la rendicion',
+                    },
+                );
             }
         },
     });
@@ -225,3 +219,4 @@ function CrearRendicionesOT() {
 }
 
 export default CrearRendicionesOT;
+

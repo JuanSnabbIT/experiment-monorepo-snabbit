@@ -64,7 +64,6 @@ function FotosAdjuntosOT() {
                 );
                 setImagenes(imgs);
             } catch (e) {
-                console.error('Error midiendo imágenes:', e);
             }
         })();
     }, [listaAdjuntos]);

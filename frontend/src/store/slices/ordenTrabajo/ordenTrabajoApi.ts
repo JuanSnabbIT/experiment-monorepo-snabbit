@@ -437,8 +437,9 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
             }),
-            invalidatesTags: (_result, _error, { detalleId }) => [
+            invalidatesTags: (_result, _error, { detalleId, ordenId }) => [
                 { type: 'OrdenTrabajoSeguimientos', id: detalleId },
+                { type: 'OrdenTrabajoSeguimientosOT', id: ordenId },
             ],
         }),
         crearCompraDetalleTrabajo: builder.mutation<
@@ -618,8 +619,9 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
             }),
-            invalidatesTags: (_result, _error, { servicioId }) => [
+            invalidatesTags: (_result, _error, { servicioId, ordenId }) => [
                 { type: 'OrdenTrabajoSeguimientos', id: servicioId },
+                { type: 'OrdenTrabajoSeguimientosOT', id: ordenId },
             ],
         }),
         getSeguimientosServicio: builder.query<
@@ -751,8 +753,9 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
             }),
-            invalidatesTags: (_result, _error, { soporteId }) => [
+            invalidatesTags: (_result, _error, { soporteId, ordenId }) => [
                 { type: 'OrdenTrabajoSeguimientos', id: soporteId },
+                { type: 'OrdenTrabajoSeguimientosOT', id: ordenId },
             ],
         }),
         getSeguimientosSoporte: builder.query<

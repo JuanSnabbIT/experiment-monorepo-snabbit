@@ -32,7 +32,7 @@ function DetalleTomaInventario() {
             name='Detalle Toma de Inventario'
             title='Detalle Toma de Inventario'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Tooltip text='Inventariar'>
                         <Button

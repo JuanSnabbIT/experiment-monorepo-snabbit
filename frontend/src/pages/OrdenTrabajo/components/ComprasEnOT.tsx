@@ -1,4 +1,4 @@
-ï»¿import Icon from '@/components/icon/Icon';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -551,7 +551,7 @@ function ComprasEnOT() {
                             {detalleOrdenTrabajo && (
                                 <div className='mt-2'>
                                     <p className='text-sm'>
-                                        Usa el botÃ³n de arriba para vincular una compra existente
+                                        Usa el botón de arriba para vincular una compra existente
                                     </p>
                                 </div>
                             )}
@@ -585,7 +585,7 @@ function ComprasEnOT() {
                         <>
                             <div className='grid grid-cols-2 gap-4'>
                                 <div>
-                                    <Badge>CÃ³digo</Badge>
+                                    <Badge>Código</Badge>
                                     <div className='ml-4'>{selectedCompra.codigo}</div>
                                 </div>
                                 <div>
@@ -627,7 +627,7 @@ function ComprasEnOT() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>DescripciÃ³n</Badge>
+                                    <Badge>Descripción</Badge>
                                     <div className='ml-4'>
                                         {selectedCompra.observaciones || '-'}
                                     </div>
@@ -701,7 +701,7 @@ function ComprasEnOT() {
                                         </div>
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
-                                            <span className='mb-2 text-4xl'>ðŸ“¦</span>
+                                            <span className='mb-2 text-4xl'>??</span>
                                             <p className='text-sm font-medium text-gray-600 dark:text-gray-400'>
                                                 No hay items registrados
                                             </p>

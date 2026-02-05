@@ -844,7 +844,7 @@ function Insumos() {
                                         </div>
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
-                                            <span className='mb-2 text-4xl'>📦</span>
+                                            <span className='mb-2 text-4xl'>??</span>
                                             <p className='text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-zinc-400'>
                                                 No hay items registrados
                                             </p>
@@ -1120,3 +1120,4 @@ function Insumos() {
 }
 
 export default Insumos;
+

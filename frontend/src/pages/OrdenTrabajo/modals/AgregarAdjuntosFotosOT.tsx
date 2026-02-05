@@ -39,7 +39,6 @@ function AgregarAdjuntosFotosOT() {
                 setHasCameraPermission(true);
             } catch (error) {
                 // Si ocurre algún error (por ejemplo, si se niega el acceso), actualizamos el estado
-                console.error('Error al obtener permisos de la cámara:', error);
                 setHasCameraPermission(false);
                 toast.error('No se pudo acceder a la cámara');
             } finally {

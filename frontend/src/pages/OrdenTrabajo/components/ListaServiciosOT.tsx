@@ -54,7 +54,7 @@ import FirmarEntregarGuiaTrabajo from '../modals/FirmarEntregarGuiaTrabajo';
 import VincularCotizacion from '../modals/VincularCotizacion';
 import DropdownEstadoTrabajo from './DropdownEstadoTrabajo';
 
-// ⚠️ DEPRECATED NOTICE (2026-01):
+// ?? DEPRECATED NOTICE (2026-01):
 // La funcionalidad de vincular guías directamente a servicios está deprecada.
 // Las guías deben vincularse a la OT, no a servicios/soportes individuales.
 // Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
@@ -140,7 +140,7 @@ function ListaServiciosOT() {
     const [firmaTecnicoNombre, setFirmaTecnicoNombre] = useState<string>('Técnico');
     const [firmaComentariosTecnicos, setFirmaComentariosTecnicos] = useState<any[]>([]);
 
-    // ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+    // ?? FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
     // Para reactivar carga de guías para servicios, descomenta:
     /*
 	const cargarGuiasDisponibles = async () => {
@@ -161,7 +161,7 @@ function ListaServiciosOT() {
 	};
 	*/
 
-    // ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+    // ?? FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
     // Para reactivar vinculación de guías a servicios, descomenta:
     /*
 	const vincularGuia = async () => {
@@ -182,7 +182,7 @@ function ListaServiciosOT() {
 	};
 	*/
 
-    // ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+    // ?? FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
     // Para reactivar desvinculación de guías de servicios, descomenta:
     /*
 	const desvincularGuia = async (servicioId: number) => {
@@ -442,7 +442,7 @@ function ListaServiciosOT() {
                             : undefined;
 
                 // CASO 1: Estados finales (Completado, Medianamente Completado, No Realizado)
-                // → Botón gris deshabilitado, SIN Tooltip, SIN onClick
+                // ? Botón gris deshabilitado, SIN Tooltip, SIN onClick
                 if (isFinalState) {
                     return (
                         <Button
@@ -460,7 +460,7 @@ function ListaServiciosOT() {
                 }
 
                 // CASO 2: En proceso
-                // → Renderizar DropdownEstadoTrabajo para cambiar a estados finales
+                // ? Renderizar DropdownEstadoTrabajo para cambiar a estados finales
                 if (isEnProceso) {
                     return (
                         <DropdownEstadoTrabajo
@@ -517,7 +517,7 @@ function ListaServiciosOT() {
                 }
 
                 // CASO 3: Pendiente
-                // → Tooltip + Button que llama a iniciarServicio() con confirmación
+                // ? Tooltip + Button que llama a iniciarServicio() con confirmación
                 return (
                     <Tooltip text={tooltipText}>
                         <div className={!canStart ? 'inline-block' : ''}>
@@ -670,7 +670,7 @@ function ListaServiciosOT() {
                             </>
                         )}
                         {!info.row.original
-                            .guia_salida ? // ⚠️ DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
+                            .guia_salida ? // ?? DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
                         // Para reactivar: descomentar y verificar que modal esté actualizado
                         /*
 							<Tooltip text='Vincular Guía de Salida'>
@@ -688,7 +688,7 @@ function ListaServiciosOT() {
 							</Tooltip>
 							*/
                         null : (
-                            // ⚠️ DESHABILITADO: Botón de desvinculación antigua comentado
+                            // ?? DESHABILITADO: Botón de desvinculación antigua comentado
                             // Para reactivar: descomentar onClick
                             <Tooltip text='Desvincular Guía de Salida [DESHABILITADO]'>
                                 <Button
@@ -1137,7 +1137,7 @@ function ListaServiciosOT() {
                     </ModalFooterChild>
                 </ModalFooter>
             </Modal>
-            {/* ⚠️ MODAL ANTIGUO DESHABILITADO (2026-01)
+            {/* ?? MODAL ANTIGUO DESHABILITADO (2026-01)
             Para reactivar modal de vinculación de guías a servicios, descomenta y reinstancia la lógica de cargar guías disponibles y vincular.
 			<Modal isOpen={isOpenGuia} setIsOpen={setIsOpenGuia}>
 				<ModalHeader>
@@ -1348,7 +1348,6 @@ function ListaServiciosOT() {
                                                 data: { estado: 'en_proceso' },
                                             }).unwrap();
                                         } catch (error) {
-                                            console.error('Error auto-starting OT', error);
                                         }
                                     }
                                 }
@@ -1473,3 +1472,4 @@ function ListaServiciosOT() {
 }
 
 export default ListaServiciosOT;
+

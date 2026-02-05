@@ -5,7 +5,6 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
-import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -22,13 +21,15 @@ import { ICompra, IItemEnCompra } from '@/interface/bodega.interface';
 import { IItemRendicion } from '@/interface/rendicion.interface';
 import ApiService from '@/services/ApiService';
 import {
-    detalleRendicionThunk,
-    listaItemsRendicionThunk,
-    useAppDispatch,
-    useAppSelector,
+    useDeleteRendicionItemMutation,
+    useGetRendicionItemsQuery,
+    useGetRendicionQuery,
+    useLazyGetCompraItemsQuery,
+    useUpdateRendicionMutation,
 } from '@/store';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -53,13 +54,19 @@ const columnHelper = createColumnHelper<IItemRendicion>();
 const formatCurrency = (value?: number | null) => `$${(value ?? 0).toLocaleString('es-CL')}`;
 
 const DetalleRendicion = () => {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams();
-    const { detalleRendicion, listaItemsRendicion } = useAppSelector((state) => state.rendicion);
+    const rendicionId = id ?? '';
+    const { data: detalleRendicion } = useGetRendicionQuery(rendicionId, { skip: !id });
+    const { data: listaItemsRendicion = [] } = useGetRendicionItemsQuery(rendicionId, {
+        skip: !id,
+    });
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [editando, setEditando] = useState<boolean>(false);
+    const [updateRendicion] = useUpdateRendicionMutation();
+    const [deleteRendicionItem] = useDeleteRendicionItemMutation();
+    const [getCompraItems] = useLazyGetCompraItemsQuery();
 
     // Modal State
     const [isOpenDetail, setIsOpenDetail] = useState(false);
@@ -73,13 +80,10 @@ const DetalleRendicion = () => {
     const fetchItemsCompra = async (compraId: number) => {
         setCargandoItems(true);
         try {
-            const resp = await ApiService.fetchData<IItemEnCompra[]>({
-                url: `/api/compras/${compraId}/items/`,
-                method: 'get',
-            });
-            setItemsCompra(resp.data || []);
+            const resp = await getCompraItems(compraId).unwrap();
+            setItemsCompra(resp || []);
             // Also update cache when we fetch for modal
-            setItemsCache((prev) => ({ ...prev, [compraId]: resp.data || [] }));
+            setItemsCache((prev) => ({ ...prev, [compraId]: resp || [] }));
         } catch (error: unknown) {
             toast.error(getErrorMessage(error) || 'No se pudieron cargar los items de la compra');
         } finally {
@@ -106,13 +110,6 @@ const DetalleRendicion = () => {
         }
     }, [listaItemsRendicion, selectedCompra?.id]);
 
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleRendicionThunk({ id_rendicion: id }));
-            dispatch(listaItemsRendicionThunk({ id_rendicion: id }));
-        }
-    }, [id]);
-
     // Fetch items for all purchases in the list
     useEffect(() => {
         const fetchAllMissingItems = async () => {
@@ -124,20 +121,16 @@ const DetalleRendicion = () => {
                     // It's a purchase. Check if we have items in cache
                     if (!itemsCache[det.id]) {
                         try {
-                            const resp = await ApiService.fetchData<IItemEnCompra[]>({
-                                url: `/api/compras/${det.id}/items/`,
-                                method: 'get',
-                            });
-                            setItemsCache((prev) => ({ ...prev, [det.id]: resp.data || [] }));
+                            const resp = await getCompraItems(det.id).unwrap();
+                            setItemsCache((prev) => ({ ...prev, [det.id]: resp || [] }));
                         } catch (error) {
-                            console.error(`Failed to fetch items for compra ${det.id}`, error);
                         }
                     }
                 }
             }
         };
         fetchAllMissingItems();
-    }, [listaItemsRendicion]); // We intentionally do not include itemsCache to avoid loops, only when list changes
+    }, [listaItemsRendicion, getCompraItems]); // We intentionally do not include itemsCache to avoid loops, only when list changes
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -147,25 +140,24 @@ const DetalleRendicion = () => {
         },
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/rendiciones/${detalleRendicion?.id}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
+                if (!detalleRendicion?.id) {
+                    toast.error('No se encontró la rendición');
+                    return;
+                }
+                await updateRendicion({
+                    id: detalleRendicion.id,
+                    data: {
                         fecha_rendicion: values.fecha_rendicion,
                         observaciones: values.observaciones,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Rendición editada', { autoClose: 1000 });
-                    dispatch(detalleRendicionThunk({ id_rendicion: id }));
-                    formik.resetForm();
-                    setEditando(false);
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al crear la empresa', {
-                    toastId: 'Error al crear la empresa',
+                    },
+                }).unwrap();
+                toast.success('Rendición editada', { autoClose: 1000 });
+                formik.resetForm();
+                setEditando(false);
+            } catch (error: unknown) {
+                const mensajesError = getErrorMessage(error);
+                toast.error(mensajesError || 'Error al editar la rendición', {
+                    toastId: 'Error al editar la rendición',
                 });
             }
         },
@@ -394,20 +386,31 @@ const DetalleRendicion = () => {
                 return (
                     <div className='flex justify-end gap-2'>
                         {!original.is_subitem && !original.is_parent && (
-                            <ConfirmarEliminar
-                                mensaje={`Estas seguro que deseas eliminar el item ¿desea continuar?`}
-                                peticionUrl={`/api/rendiciones/${detalleRendicion?.id}/items-rendicion/${info.row.original.id}/`}
-                                onDispatch={() => {
-                                    dispatch(
-                                        detalleRendicionThunk({
-                                            id_rendicion: detalleRendicion?.id,
-                                        }),
-                                    );
-                                    dispatch(
-                                        listaItemsRendicionThunk({
-                                            id_rendicion: detalleRendicion?.id,
-                                        }),
-                                    );
+                            <Button
+                                variant='solid'
+                                color='red'
+                                icon='HeroTrash'
+                                onClick={async () => {
+                                    if (!detalleRendicion?.id) return;
+                                    const isConfirmed = await confirmAlert({
+                                        title: '¿Eliminar item?',
+                                        text: 'Esta acción no se puede deshacer',
+                                        icon: 'warning',
+                                        confirmText: 'Eliminar',
+                                    });
+                                    if (!isConfirmed) return;
+                                    try {
+                                        await deleteRendicionItem({
+                                            rendicionId: detalleRendicion.id,
+                                            itemId: info.row.original.id,
+                                        }).unwrap();
+                                        toast.success('Item eliminado', { autoClose: 1000 });
+                                    } catch (error: unknown) {
+                                        toast.error(
+                                            getErrorMessage(error) ||
+                                                'Error al eliminar el item',
+                                        );
+                                    }
                                 }}
                             />
                         )}
@@ -444,7 +447,7 @@ const DetalleRendicion = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Rendición' title='Detalle Rendición'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <div className='flex gap-2'>
                         {detalleRendicion?.orden_trabajo && (

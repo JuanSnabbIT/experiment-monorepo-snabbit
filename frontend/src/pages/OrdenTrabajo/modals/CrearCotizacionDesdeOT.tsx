@@ -78,7 +78,6 @@ function CrearCotizacionDesdeOT({
                             }),
                         });
                     } catch (linkError) {
-                        console.warn('No se pudo vincular cotización al trabajo:', linkError);
                     }
 
                     toast.success('Cotización creada y vinculada al trabajo', { autoClose: 2000 });

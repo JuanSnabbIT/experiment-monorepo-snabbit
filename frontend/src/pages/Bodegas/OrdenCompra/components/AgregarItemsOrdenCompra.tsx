@@ -158,7 +158,7 @@ function AgregarItemsOrdenCompra() {
     return (
         <PageWrapper isProtectedRoute={true} title='Agregar Items' name='Agregar Items'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <TerminarBorradorOC id_orden={id} />
                     <OffCanvasAgregarItemsOrdenCompra

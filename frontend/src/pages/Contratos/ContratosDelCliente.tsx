@@ -182,7 +182,6 @@ function ContratosDelCliente() {
                     setFacturacionExistente(null);
                 }
             } catch (error: unknown) {
-                console.warn('Error cargando facturacion del contrato', getErrorMessage(error));
                 setFacturacionExistente(null);
             }
         };

@@ -111,7 +111,7 @@ const DetalleOT = () => {
     };
 
     // ? No necesitamos useEffect para refetch manual
-    // RTK Query invalidar� autom�ticamente cuando los datos cambien
+    // RTK Query invalidará automáticamente cuando los datos cambien
 
     useEffect(() => {
         if (detalleOrdenTrabajo) {
@@ -147,7 +147,7 @@ const DetalleOT = () => {
                 // Alinear empresa activa con la empresa de la OT si difiere
                 (async () => {
                     try {
-                        // Asegurar que las empresas y sus sucursales est�n cargadas
+                        // Asegurar que las empresas y sus sucursales estén cargadas
                         if (!selectEmpresas || selectEmpresas.length === 0) {
                             await dispatch(selectEmpresasThunk());
                         }
@@ -171,7 +171,7 @@ const DetalleOT = () => {
                             await dispatch(obtenerPersonalizacionThunk());
                         }
 
-                        // Cargar vouchers de devoluci�n para mostrar botones "Ver devoluciones"
+                        // Cargar vouchers de devolución para mostrar botones "Ver devoluciones"
                         await dispatch(
                             listaVouchersThunk({ orden_trabajo: detalleOrdenTrabajo.id, page: 1 }),
                         );
@@ -292,7 +292,6 @@ const DetalleOT = () => {
             document.body.appendChild(link);
             link.click();
         } catch (error: any) {
-            console.error(error);
             toast.error('Error al generar el PDF');
         }
     };
@@ -327,7 +326,7 @@ const DetalleOT = () => {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle OT' title='Detalle OT'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     {detalleOrdenTrabajo && (
                         <div className='flex gap-2'>
@@ -487,7 +486,7 @@ const DetalleOT = () => {
                                             </Validation>
                                         </div>
                                         <div className='w-full'>
-                                            <Badge>Fecha de Finalizaci�n</Badge>
+                                            <Badge>Fecha de Finalización</Badge>
                                             <Validation
                                                 isValid={formik.isValid}
                                                 isTouched={formik.touched.fecha_finalizacion_ot}
@@ -686,7 +685,7 @@ const DetalleOT = () => {
                                             </div>
                                         </div>
                                         <div className='w-full'>
-                                            <Badge>Fecha de Finalizaci�n</Badge>
+                                            <Badge>Fecha de Finalización</Badge>
                                             <div
                                                 className={`ml-4 ${!detalleOrdenTrabajo?.fecha_finalizacion_ot ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.fecha_finalizacion_ot
@@ -741,7 +740,7 @@ const DetalleOT = () => {
                             <CardHeader>
                                 <CardHeaderChild>
                                     <Badge className='text-xl'>
-                                        Nueva Instrucci�n en OT del{' '}
+                                        Nueva Instrucción en OT del{' '}
                                         {dayjs(
                                             detalleOrdenTrabajo?.ultimo_historial?.fecha_cambio,
                                         ).format('DD/MM/YYYY')}{' '}
@@ -754,14 +753,14 @@ const DetalleOT = () => {
                                     {isEditing ? (
                                         <>
                                             <div className='w-full'>
-                                                <Badge>Instrucci�n Inicial</Badge>
+                                                <Badge>Instrucción Inicial</Badge>
                                                 <div className='ml-4'>
                                                     {formik.values.estado_anterior ||
-                                                        'Sin Nueva Instrucci�n'}
+                                                        'Sin Nueva Instrucción'}
                                                 </div>
                                             </div>
                                             <div className='w-full'>
-                                                <Badge>Nueva Instrucci�n</Badge>
+                                                <Badge>Nueva Instrucción</Badge>
                                                 <Validation
                                                     isValid={formik.isValid}
                                                     isTouched={formik.touched.estado_actual}
@@ -794,22 +793,22 @@ const DetalleOT = () => {
                                     ) : (
                                         <>
                                             <div className='w-full'>
-                                                <Badge>Instrucci�n Inicial</Badge>
+                                                <Badge>Instrucción Inicial</Badge>
                                                 <div className='ml-4'>
                                                     {renderDetalleListado(
                                                         detalleOrdenTrabajo?.ultimo_historial
                                                             ?.estado_anterior,
-                                                        'Sin Instrucci�n Inicial',
+                                                        'Sin Instrucción Inicial',
                                                     )}
                                                 </div>
                                             </div>
                                             <div className='w-full'>
-                                                <Badge>Nueva Instrucci�n</Badge>
+                                                <Badge>Nueva Instrucción</Badge>
                                                 <div className='ml-4'>
                                                     {renderDetalleListado(
                                                         detalleOrdenTrabajo?.ultimo_historial
                                                             ?.estado_actual,
-                                                        'Sin Nueva Instrucci�n',
+                                                        'Sin Nueva Instrucción',
                                                     )}
                                                 </div>
                                             </div>

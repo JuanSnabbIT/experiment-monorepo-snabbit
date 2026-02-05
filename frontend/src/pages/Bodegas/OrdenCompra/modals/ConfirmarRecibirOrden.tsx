@@ -127,7 +127,6 @@ function ConfirmarRecibirOrden({
                 });
                 guiaPendienteData = response.data;
             } catch (error) {
-                console.error('Error fetching guia pendiente', error);
             }
         }
 

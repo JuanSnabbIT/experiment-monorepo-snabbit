@@ -315,7 +315,7 @@ function DetalleProveedorEmpresa() {
             name='Detalle Proveedor Empresa'
             title='Detalle Proveedor Empresa'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     {isEditing ? (
                         <>

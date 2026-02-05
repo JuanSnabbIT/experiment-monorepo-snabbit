@@ -1,33 +1,26 @@
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
-} from '@/components/ui/Modal';
+﻿import Button from '@/components/ui/Button';
 import Tooltip from '@/components/ui/Tooltip';
-import { useUpdateRendicionMutation } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import {
-    useAppDispatch,
-    useAppSelector,
-    rechazarRendicionThunk,
-    aprobarRendicionThunk,
-    pagarRendicionThunk,
-    detalleRendicionThunk,
-    listaItemsRendicionThunk,
+    useAprobarRendicionMutation,
+    useGetRendicionQuery,
+    usePagarRendicionMutation,
+    useRechazarRendicionMutation,
+    useUpdateRendicionMutation,
 } from '@/store';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { useParams } from 'react-router-dom';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import Swal from 'sweetalert2';
 
 function CambiarEstadoRendicion() {
-    const dispatch = useAppDispatch();
-    const { detalleRendicion } = useAppSelector((state) => state.rendicion);
-    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const { id } = useParams();
+    const rendicionId = id ?? '';
+    const { data: detalleRendicion } = useGetRendicionQuery(rendicionId, { skip: !id });
     const [isBusy, setIsBusy] = useState<boolean>(false);
     const [updateRendicion] = useUpdateRendicionMutation();
+    const [aprobarRendicion] = useAprobarRendicionMutation();
+    const [rechazarRendicion] = useRechazarRendicionMutation();
+    const [pagarRendicion] = usePagarRendicionMutation();
 
     const handleEnviarAAprobacion = async () => {
         const { isConfirmed } = await Swal.fire({
@@ -48,13 +41,6 @@ function CambiarEstadoRendicion() {
                     id: detalleRendicion.id,
                     data: { estado: '1' },
                 }).unwrap();
-                
-                await dispatch(
-                    detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
-                await dispatch(
-                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
 
                 Swal.fire({
                     title: '¡Éxito!',
@@ -103,19 +89,10 @@ function CambiarEstadoRendicion() {
         if (motivo && !isDismissed && detalleRendicion) {
             setIsBusy(true);
             try {
-                await dispatch(
-                    rechazarRendicionThunk({
-                        id_rendicion: detalleRendicion.id,
-                        motivo_rechazo: motivo,
-                    })
-                ).unwrap();
-
-                await dispatch(
-                    detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
-                await dispatch(
-                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
+                await rechazarRendicion({
+                    id: detalleRendicion.id,
+                    motivo_rechazo: motivo,
+                }).unwrap();
 
                 Swal.fire({
                     title: '¡Rendición Rechazada!',
@@ -151,16 +128,7 @@ function CambiarEstadoRendicion() {
         if (isConfirmed && detalleRendicion) {
             setIsBusy(true);
             try {
-                await dispatch(
-                    aprobarRendicionThunk({ id_rendicion: detalleRendicion.id })
-                ).unwrap();
-
-                await dispatch(
-                    detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
-                await dispatch(
-                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
+                await aprobarRendicion({ id: detalleRendicion.id }).unwrap();
 
                 Swal.fire({
                     title: '¡Aprobada!',
@@ -196,16 +164,7 @@ function CambiarEstadoRendicion() {
         if (isConfirmed && detalleRendicion) {
             setIsBusy(true);
             try {
-                await dispatch(
-                    pagarRendicionThunk({ id_rendicion: detalleRendicion.id })
-                ).unwrap();
-
-                await dispatch(
-                    detalleRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
-                await dispatch(
-                    listaItemsRendicionThunk({ id_rendicion: detalleRendicion.id })
-                );
+                await pagarRendicion({ id: detalleRendicion.id }).unwrap();
 
                 Swal.fire({
                     title: '¡Pagada!',
@@ -230,7 +189,6 @@ function CambiarEstadoRendicion() {
         if (detalleRendicion?.estado === '0') {
             await handleEnviarAAprobacion();
         } else if (detalleRendicion?.estado === '1') {
-            // Show modal to choose between approve or reject
             const { value: action } = await Swal.fire({
                 title: 'Cambiar Estado de Rendición',
                 icon: 'info',
@@ -304,3 +262,4 @@ function CambiarEstadoRendicion() {
 }
 
 export default CambiarEstadoRendicion;
+

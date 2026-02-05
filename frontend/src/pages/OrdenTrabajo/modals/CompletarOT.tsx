@@ -112,7 +112,6 @@ function CompletarOT() {
                 setComprasItems(itemsCompra);
                 setTieneCompras(itemsCompra.length > 0);
             } catch (error) {
-                console.error('Error al cargar insumos:', error);
                 setComprasItems([]);
                 setTieneCompras(false);
             } finally {

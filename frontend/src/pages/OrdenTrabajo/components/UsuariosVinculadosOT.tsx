@@ -1,4 +1,4 @@
-ï»¿import Icon from '@/components/icon/Icon';
+import Icon from '@/components/icon/Icon';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -73,7 +73,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
         if (!detalleOrdenTrabajo || soporteIdNumber === null) return;
         const ok = await confirmAlert({
             title: 'Confirmar eliminacion',
-            text: `Â¿Eliminar asignacion de ${usuario.nombre_usuario}?`,
+            text: `¿Eliminar asignacion de ${usuario.nombre_usuario}?`,
             confirmText: 'Eliminar',
             cancelText: 'Cancelar',
             icon: 'warning',
@@ -86,13 +86,13 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
                 soporteId: soporteIdNumber,
                 usuarioId: usuario.id,
             }).unwrap();
-            toast.success('AsignaciÃ³n eliminada', { autoClose: 1000 });
+            toast.success('Asignación eliminada', { autoClose: 1000 });
             refreshSoporteLista();
         } catch (error: any) {
             const msg = Object.values(error?.response?.data || {})
                 .flat()
                 .join(' ');
-            toast.error(msg || 'Error al eliminar asignaciÃ³n');
+            toast.error(msg || 'Error al eliminar asignación');
         }
     };
 
@@ -115,7 +115,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
                             <THead>
                                 <Tr>
                                     <Th className='text-left'>Usuario</Th>
-                                    <Th className='text-left'>NÂ° Serie Equipo</Th>
+                                    <Th className='text-left'>N° Serie Equipo</Th>
                                     <Th className='text-left'>Tipo Equipo</Th>
                                     <Th className='text-left'>Trabajo Realizado</Th>
                                     <Th className='text-left'>Estado</Th>
@@ -188,7 +188,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
         columnHelper.display({
             id: 'es_usuario_empresa',
             cell: (info) => <div>{info.row.original.usuario_empresa ? 'Si' : 'No'}</div>,
-            header: 'Â¿Es Usuario Empresa?',
+            header: '¿Es Usuario Empresa?',
         }),
         columnHelper.display({
             id: 'acciones',
@@ -197,7 +197,7 @@ function UsuariosVinculadosOT({ soporteId, onRefreshSoporte }: UsuariosVinculado
                     {(detalleOrdenTrabajo?.estado === 'pendiente' ||
                         detalleOrdenTrabajo?.estado === 'en_proceso') && (
                         <ConfirmarEliminar
-                            mensaje='Â¿Esta seguro de desvincular a este usuario de la OT?'
+                            mensaje='¿Esta seguro de desvincular a este usuario de la OT?'
                             onDispatch={() => {
                             }}
                             peticionUrl={`/api/ordenes-trabajo/${detalleOrdenTrabajo.id}/usuarios-vinculados/${info.row.original.id}/`}

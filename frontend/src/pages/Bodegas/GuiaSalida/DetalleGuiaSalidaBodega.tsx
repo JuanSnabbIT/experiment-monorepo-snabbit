@@ -591,7 +591,7 @@ function DetalleGuiaSalidaBodega() {
             name='Detalle de Guia de Salida de Items de Bodega'
             title='Detalle de Guia de Salida de Items de Bodega'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <div className='flex flex-wrap gap-2'>
                         {/* Botón "Volver al Listado" eliminado */}

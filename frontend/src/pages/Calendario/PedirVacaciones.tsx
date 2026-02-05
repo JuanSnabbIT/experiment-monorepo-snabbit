@@ -231,7 +231,7 @@ function PedirVacaciones() {
             title='Crear Solicitud Vacaciones'
             name='Crear Solicitud Vacaciones'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Button
                         onClick={() => {

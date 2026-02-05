@@ -52,9 +52,9 @@ import * as Yup from 'yup';
 import CrearSoporteTecnicoEnOT from '../modals/CrearSoporteTecnicoEnOT';
 import FirmarCompletarTrabajo from '../modals/FirmarCompletarTrabajo';
 
-// âš ï¸ DEPRECATED NOTICE (2026-01):
-// La funcionalidad de vincular guÃ­as directamente a soportes estÃ¡ deprecada.
-// Las guÃ­as deben vincularse a la OT, no a servicios/soportes individuales.
+// ⚠️ DEPRECATED NOTICE (2026-01):
+// La funcionalidad de vincular Guías directamente a soportes está deprecada.
+// Las Guías deben vincularse a la OT, no a servicios/soportes individuales.
 // Ver: backend/ordentrabajov2/DEPRECATION_NOTICE.md
 import ListaUsuarioEquipoOT from '../modals/ListaUsuarioEquipoOT';
 import ModalVincularGuia from '../modals/ModalVincularGuia';
@@ -452,7 +452,7 @@ function ListaSoportesTecnicosOT() {
                     );
                 }
 
-                // Ãšnicamente pendiente llega aquÃ­
+                // Únicamente pendiente llega aquí
                 return (
                     <Tooltip text={tooltipText}>
                         <div className={!canStart ? 'inline-block' : ''}>
@@ -615,10 +615,10 @@ function ListaSoportesTecnicosOT() {
                         )}
                         {isPendiente && (
                             <>
-                                {!tieneGuia ? // âš ï¸ DESHABILITADO: BotÃ³n de vinculaciÃ³n antigua comentado (2026-01)
+                                {!tieneGuia ? // ⚠️ DESHABILITADO: Botón de vinculación antigua comentado (2026-01)
                                 // Para reactivar: descomentar
                                 /*
-									<Tooltip text='Vincular GuÃ­a de Salida'>
+									<Tooltip text='Vincular Guía de Salida'>
 										<Button
 											variant='solid'
 											color='emerald'
@@ -631,9 +631,9 @@ function ListaSoportesTecnicosOT() {
 									</Tooltip>
 									*/
                                 null : (
-                                    // âš ï¸ DESHABILITADO: BotÃ³n de desvinculaciÃ³n antigua comentado
+                                    // ⚠️ DESHABILITADO: Botón de desvinculación antigua comentado
                                     // Para reactivar: descomentar onClick
-                                    <Tooltip text='Desvincular GuÃ­a de Salida [DESHABILITADO]'>
+                                    <Tooltip text='Desvincular Guía de Salida [DESHABILITADO]'>
                                         <Button
                                             variant='solid'
                                             color='red'
@@ -666,8 +666,8 @@ function ListaSoportesTecnicosOT() {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
-    // âš ï¸ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
-    // Para reactivar desvinculaciÃ³n de guÃ­as de soportes, descomenta:
+    // ⚠️ FUNCIONALIDAD ANTIGUA DESHABILITADA (2026-01)
+    // Para reactivar desvinculación de Guías de soportes, descomenta:
     /*
 	const desvincularGuia = async (soporteId: number) => {
 		if (!detalleOrdenTrabajo) return;
@@ -697,7 +697,6 @@ function ListaSoportesTecnicosOT() {
 			await dispatch(listaInsumosThunk({ id_orden_trabajo: detalleOrdenTrabajo.id }));
 		} catch (e) {
 			refrescoOk = false;
-			console.warn('No se pudo refrescar soportes/insumos tras desvincular guía', e);
 		}
 
 		if (refrescoOk) {
@@ -1298,7 +1297,6 @@ function ListaSoportesTecnicosOT() {
                                                 data: { estado: 'en_proceso' },
                                             }).unwrap();
                                         } catch (error) {
-                                            console.error('Error auto-starting OT', error);
                                         }
                                     }
                                 }
@@ -1415,3 +1413,5 @@ function ListaSoportesTecnicosOT() {
 }
 
 export default ListaSoportesTecnicosOT;
+
+

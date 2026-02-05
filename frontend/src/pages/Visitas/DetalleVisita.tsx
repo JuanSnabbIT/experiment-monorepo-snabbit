@@ -113,7 +113,7 @@ const DetalleVisita = () => {
             name='Detalle Asistencia Técnica'
             title='Detalle Asistencia Técnica'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>

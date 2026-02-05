@@ -81,11 +81,9 @@ const BaseService = axios.create({
 // Interceptor de Solicitud
 BaseService.interceptors.request.use(
     (config: CustomAxiosRequestConfig) => {
-        console.log('[HTTP] Request:', config.method?.toUpperCase(), config.url);
         if (!config.isLoginRequest) {
             const token = store.getState().auth.access;
             const isExpired = isTokenExpired(token);
-            console.log('[HTTP] Token:', token ? 'PRESENTE' : 'AUSENTE', '| Expirado:', isExpired);
             if (token) {
                 config.headers = config.headers || {};
                 config.headers['Authorization'] = 'Bearer ' + token;
@@ -99,12 +97,10 @@ BaseService.interceptors.request.use(
 // Interceptor de Respuesta
 BaseService.interceptors.response.use(
     (response) => {
-        console.log('[HTTP] Response OK:', response.config.url, response.status);
         return response;
     },
     async (error: AxiosError) => {
         const originalRequest = error.config as CustomAxiosRequestConfig;
-        console.log('[HTTP] Response ERROR:', originalRequest?.url, error.response?.status);
 
         // Solo manejar errores 401 que no sean de login y no hayan sido reintentados
         if (
@@ -116,19 +112,15 @@ BaseService.interceptors.response.use(
             const accessToken = store.getState().auth.access;
             const refreshToken = store.getState().auth.refresh;
             
-            console.log('[HTTP] 401 detectado, accessToken:', accessToken ? 'PRESENTE' : 'AUSENTE', 'refreshToken:', refreshToken ? 'PRESENTE' : 'AUSENTE');
             
             // Si no hay tokens, el usuario simplemente no está autenticado
             // No mostrar toast ni redirigir (el router se encargará)
             if (!accessToken && !refreshToken) {
-                console.log('[HTTP] No hay tokens, ignorando 401 (usuario no autenticado)');
                 return Promise.reject(error);
             }
             
-            console.log('[HTTP] 401 detectado, isRefreshing:', isRefreshing);
             // Si ya hay un refresh en progreso, encolar este request
             if (isRefreshing) {
-                console.log('[HTTP] Ya hay refresh en progreso, encolando request');
                 return new Promise<string>((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
                 })
@@ -145,11 +137,9 @@ BaseService.interceptors.response.use(
             isRefreshing = true;
 
             const refreshExpired = isTokenExpired(refreshToken, 0);
-            console.log('[HTTP] Refresh token:', refreshToken ? 'PRESENTE' : 'AUSENTE', '| Expirado:', refreshExpired);
 
             // Verificar si el refresh token también está expirado
             if (refreshToken && !refreshExpired) {
-                console.log('[HTTP] Intentando refresh...');
                 try {
                     const refreshResponse = await axios.post(
                         `${process.env.VITE_API_URL}/auth/jwt/refresh/`,
@@ -159,7 +149,6 @@ BaseService.interceptors.response.use(
                     );
 
                     const newToken = refreshResponse.data.access;
-                    console.log('[HTTP] Refresh exitoso, nuevo token obtenido');
                     store.dispatch(GUARDAR_TOKEN(newToken));
 
                     // Procesar la cola de requests pendientes con el nuevo token
@@ -170,7 +159,6 @@ BaseService.interceptors.response.use(
                     // Reintentar la solicitud original con el nuevo token
                     return BaseService(originalRequest);
                 } catch (refreshError) {
-                    console.log('[HTTP] Refresh FALLIDO:', refreshError);
                     // Procesar la cola con error
                     processQueue(refreshError, null);
 
@@ -186,7 +174,6 @@ BaseService.interceptors.response.use(
                 }
             } else {
                 // Refresh token expirado - la sesión expiró
-                console.log('[HTTP] Refresh token expirado, ejecutando logout');
                 isRefreshing = false;
                 processQueue(error, null);
                 toast.error('Sesión Expirada', { toastId: 'session-expired' });

@@ -329,7 +329,7 @@ function DetalleEmpresa() {
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Empresa' title='Detalle Empresa'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='grid grid-cols-1 gap-4'>

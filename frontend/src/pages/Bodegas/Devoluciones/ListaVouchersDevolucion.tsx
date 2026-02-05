@@ -225,7 +225,7 @@ const ListaVouchersDevolucion = () => {
     return (
         <PageWrapper isProtectedRoute name='Devoluciones' title='Devoluciones (Vouchers)'>
             <Subheader>
-                <SubheaderLeft />
+                <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <div className='flex items-center gap-4'>
                         {ordenTrabajoId && (
