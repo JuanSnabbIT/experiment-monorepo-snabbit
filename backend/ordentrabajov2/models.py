@@ -303,6 +303,10 @@ def adjuntos_ot(instance, filename):
     return "ot/{0}/adjuntos/{1}".format(instance.orden.pk, filename)
 
 
+def documentos_factura(instance, filename):
+    return "cierres/{0}/documentos/{1}".format(instance.pk, filename)
+
+
 class AdjuntoDeOrden(ModeloBaseHistorico):
     orden = models.ForeignKey(
         OrdenDeTrabajo, on_delete=models.CASCADE, verbose_name="Orden de trabajo"
@@ -426,6 +430,13 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
         blank=True,
         verbose_name="Fecha definida en prefactura",
         help_text="Fecha que se acordó en la prefactura antes de aprobarla",
+    )
+    documento_factura = models.FileField(
+        upload_to=documentos_factura,
+        null=True,
+        blank=True,
+        verbose_name="Documento de factura asociado",
+        help_text="PDF o documento de la factura oficial vinculada a esta prefactura",
     )
 
     class Meta:

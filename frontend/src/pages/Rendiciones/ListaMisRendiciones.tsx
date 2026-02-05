@@ -67,7 +67,7 @@ const ListaMisRendiciones = () => {
                             variant='solid'
                             color='violet'
                             onClick={() => {
-                                navigate(`/rendicion/detalle-rendicion/${info.row.original.id}/`);
+                                navigate(`/rendicion/detalle-rendicion/${info.row.original.id}`);
                             }}
                             icon='HeroEye'></Button>
                     </Tooltip>

@@ -44,6 +44,30 @@ class Rendicion(ModeloBase):
         help_text="OT que generó automáticamente esta rendición al completarse",
     )
 
+    # Campos de revisión/aprobación/rechazo
+    # Nota: El estado determina si es aprobación (2), rechazo (3) o pago (4)
+    motivo_rechazo = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Motivo de Rechazo",
+        help_text="Motivo por el cual se rechazó la rendición (solo si estado=3)",
+    )
+    revisado_por = models.ForeignKey(
+        "cuentas.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rendiciones_revisadas",
+        verbose_name="Revisado Por",
+        help_text="Usuario que aprobó/rechazó la rendición. El estado indica la acción (2=aprobada, 3=rechazada)",
+    )
+    fecha_revision = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de Revisión",
+        help_text="Fecha y hora en que se aprobó/rechazó la rendición",
+    )
+
     def __str__(self):
         return f"Rendición del {self.fecha_rendicion}"
 

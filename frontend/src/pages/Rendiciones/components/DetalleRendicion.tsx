@@ -260,9 +260,20 @@ const DetalleRendicion = () => {
         columnHelper.display({
             id: 'categoria',
             cell: (info) => {
-                const det = info.row.original.detalle_data;
-                const detObj = typeof det === 'object' && det !== null ? det : null;
-                if (detObj && 'codigo' in detObj) return <div>Compra</div>;
+                const original = info.row.original as any;
+                const detObj = original.detalle_data;
+                
+                if (original.is_subitem) {
+                    // Para sub-items (items de compra), mostrar la categoría del item
+                    return <div>{detObj?.nombre_categoria || '-'}</div>;
+                }
+                
+                if (detObj && 'codigo' in detObj) {
+                    // Para compras padre
+                    return <div>Compra</div>;
+                }
+                
+                // Para gastos regulares
                 return <div>{detObj?.nombre_categoria || '-'}</div>;
             },
             header: 'Categoria',
@@ -442,6 +453,47 @@ const DetalleRendicion = () => {
                                 />
                             </Tooltip>
                         )}
+                        {detalleRendicion &&
+                            detalleRendicion.estado != '0' &&
+                            detalleRendicion.estado != '3' && (
+                                <Tooltip text='Descargar PDF'>
+                                    <Button
+                                        variant='solid'
+                                        color='red'
+                                        icon='HeroDocumentArrowDown'
+                                        onClick={async () => {
+                                            try {
+                                                const response =
+                                                    await ApiService.fetchData<BlobPart>({
+                                                        url: `/api/rendiciones/${detalleRendicion.id}/descargar-pdf`,
+                                                        method: 'get',
+                                                        headers: {
+                                                            'Content-Type': 'application/pdf',
+                                                        },
+                                                    });
+                                                const url = window.URL.createObjectURL(
+                                                    new Blob([response.data]),
+                                                );
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `rendicion_${id}.pdf`;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                a.remove();
+                                                window.URL.revokeObjectURL(url);
+                                            } catch (error: any) {
+                                                toast.error(
+                                                    error.response.data ||
+                                                        'Error al descargar el pdf',
+                                                    {
+                                                        toastId: 'Error al descargar el pdf',
+                                                    },
+                                                );
+                                            }
+                                        }}
+                                    />
+                                </Tooltip>
+                            )}
                         <CambiarEstadoRendicion />
                     </div>
                 </SubheaderRight>
@@ -454,7 +506,7 @@ const DetalleRendicion = () => {
                                 <Badge className='text-xl'>Datos</Badge>
                             </CardHeaderChild>
                             <CardHeaderChild>
-                                {detalleRendicion && detalleRendicion.estado === '0' && (
+                                {detalleRendicion && detalleRendicion.estado === '0' ? (
                                     <div className='flex items-center justify-end'>
                                         {editando ? (
                                             <div className='flex gap-2'>
@@ -490,50 +542,11 @@ const DetalleRendicion = () => {
                                             </Tooltip>
                                         )}
                                     </div>
+                                ) : (
+                                    <Badge color='zinc'>
+                                        No se puede editar en estado {detalleRendicion?.estado_label}
+                                    </Badge>
                                 )}
-                                {detalleRendicion &&
-                                    detalleRendicion.estado != '0' &&
-                                    detalleRendicion.estado != '3' && (
-                                        <Tooltip text='Descargar PDF'>
-                                            <Button
-                                                variant='solid'
-                                                color='red'
-                                                icon='DuoDownloadedFile'
-                                                onClick={async () => {
-                                                    try {
-                                                        const response =
-                                                            await ApiService.fetchData<BlobPart>({
-                                                                url: `/api/rendiciones/${detalleRendicion.id}/descargar-pdf`,
-                                                                method: 'get',
-                                                                headers: {
-                                                                    'Content-Type':
-                                                                        'application/pdf',
-                                                                },
-                                                            });
-                                                        const url = window.URL.createObjectURL(
-                                                            new Blob([response.data]),
-                                                        );
-                                                        const a = document.createElement('a');
-                                                        a.href = url;
-                                                        a.download = `rendicion_${id}.pdf`;
-                                                        document.body.appendChild(a);
-                                                        a.click();
-                                                        a.remove();
-                                                        window.URL.revokeObjectURL(url);
-                                                    } catch (error: any) {
-                                                        toast.error(
-                                                            error.response.data ||
-                                                                'Error al descargar el pdf',
-                                                            {
-                                                                toastId:
-                                                                    'Error al descargar el pdf',
-                                                            },
-                                                        );
-                                                    }
-                                                }}
-                                            />
-                                        </Tooltip>
-                                    )}
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
@@ -640,6 +653,50 @@ const DetalleRendicion = () => {
                             </div>
                         </CardBody>
                     </Card>
+
+                    {/* FASE 2: Card de Revisión (Aprobación/Rechazo) */}
+                    {(detalleRendicion?.estado === '2' || detalleRendicion?.estado === '3' || detalleRendicion?.estado === '4') && (
+                        <Card>
+                            <CardHeader>
+                                <CardHeaderChild>
+                                    <Badge className='text-xl'>
+                                        {detalleRendicion?.estado === '3' ? 'Información de Rechazo' : 'Información de Revisión'}
+                                    </Badge>
+                                </CardHeaderChild>
+                            </CardHeader>
+                            <CardBody>
+                                <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                                    {/* Revisado por - aplica para aprobación (2, 4) y rechazo (3) */}
+                                    <div className='w-full'>
+                                        <Badge>{detalleRendicion?.estado === '3' ? 'Rechazada Por' : 'Aprobada Por'}</Badge>
+                                        <div className='ml-4'>
+                                            {detalleRendicion?.revisado_por_data?.nombre_usuario || 'No disponible'}
+                                        </div>
+                                    </div>
+
+                                    <div className='w-full'>
+                                        <Badge>{detalleRendicion?.estado === '3' ? 'Fecha de Rechazo' : 'Fecha de Aprobación'}</Badge>
+                                        <div className='ml-4'>
+                                            {detalleRendicion?.fecha_revision
+                                                ? dayjs(detalleRendicion.fecha_revision).format('DD/MM/YYYY HH:mm')
+                                                : ''}
+                                        </div>
+                                    </div>
+
+                                    {/* Motivo de rechazo - solo si estado = 3 */}
+                                    {detalleRendicion?.estado === '3' && (
+                                        <div className='w-full md:col-span-2'>
+                                            <Badge>Motivo de Rechazo</Badge>
+                                            <div className='ml-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800'>
+                                                {detalleRendicion?.motivo_rechazo}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardBody>
+                        </Card>
+                    )}
+
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
