@@ -146,6 +146,56 @@ export const listaCategoriasGastoThunk = createAsyncThunk<
     }
 });
 
+// FASE 1 - Endpoints de cambio de estado
+export const rechazarRendicionThunk = createAsyncThunk<
+    IRendicion,
+    { id_rendicion: number | string; motivo_rechazo: string },
+    { rejectValue: string }
+>('rendicion/rechazarRendicionThunk', async ({ id_rendicion, motivo_rechazo }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion>({
+            url: `/api/rendiciones/${id_rendicion}/rechazar/`,
+            method: 'post',
+            data: { motivo_rechazo },
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response?.data || 'Error al rechazar la rendición');
+    }
+});
+
+export const aprobarRendicionThunk = createAsyncThunk<
+    IRendicion,
+    { id_rendicion: number | string },
+    { rejectValue: string }
+>('rendicion/aprobarRendicionThunk', async ({ id_rendicion }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion>({
+            url: `/api/rendiciones/${id_rendicion}/aprobar/`,
+            method: 'post',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response?.data || 'Error al aprobar la rendición');
+    }
+});
+
+export const pagarRendicionThunk = createAsyncThunk<
+    IRendicion,
+    { id_rendicion: number | string },
+    { rejectValue: string }
+>('rendicion/pagarRendicionThunk', async ({ id_rendicion }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRendicion>({
+            url: `/api/rendiciones/${id_rendicion}/pagar/`,
+            method: 'post',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response?.data || 'Error al marcar rendición como pagada');
+    }
+});
+
 // export const listaDetalleGastoThunk = createAsyncThunk<IDetalleGasto[], {id_rendicion: number | string | undefined}, {rejectValue: string}>(
 //     'rendicion/listaDetalleGastoThunk',
 //     async ({id_rendicion}, {rejectWithValue}) => {
@@ -281,6 +331,43 @@ export const rendicionSlice = createSlice({
                 state.listaComprasDisponibles = action.payload;
             })
             .addCase(listaComprasDisponiblesThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            // FASE 1 - Cambio de estados
+            .addCase(rechazarRendicionThunk.pending, (state) => {
+                state.loading = true;
+                state.error = undefined;
+            })
+            .addCase(rechazarRendicionThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.detalleRendicion = action.payload;
+            })
+            .addCase(rechazarRendicionThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            .addCase(aprobarRendicionThunk.pending, (state) => {
+                state.loading = true;
+                state.error = undefined;
+            })
+            .addCase(aprobarRendicionThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.detalleRendicion = action.payload;
+            })
+            .addCase(aprobarRendicionThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            .addCase(pagarRendicionThunk.pending, (state) => {
+                state.loading = true;
+                state.error = undefined;
+            })
+            .addCase(pagarRendicionThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.detalleRendicion = action.payload;
+            })
+            .addCase(pagarRendicionThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             });
