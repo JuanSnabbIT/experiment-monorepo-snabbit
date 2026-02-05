@@ -1,4 +1,6 @@
-import React, {
+import * as PopperJS from '@popperjs/core';
+import classNames from 'classnames';
+import {
     cloneElement,
     FC,
     HTMLAttributes,
@@ -8,14 +10,11 @@ import React, {
     useRef,
     useState,
 } from 'react';
-import classNames from 'classnames';
 import { Manager, Popper, Reference } from 'react-popper';
-import * as PopperJS from '@popperjs/core';
+import themeConfig from '../../config/theme.config';
+import { TRounded } from '../../types/rounded.type';
 import Icon from '../icon/Icon';
 import Portal from '../layouts/Portal/Portal';
-import { TBorderWidth } from '../../types/borderWidth.type';
-import { TRounded } from '../../types/rounded.type';
-import themeConfig from '../../config/theme.config';
 
 const getComponentName = (child: ReactNode): string => {
     /* eslint-disable */
@@ -29,7 +28,6 @@ interface ITooltipProps extends HTMLAttributes<HTMLDivElement> {
     className?: string;
     text: string;
     placement?: PopperJS.Placement;
-    borderWidth?: TBorderWidth;
     rounded?: TRounded;
 }
 const Tooltip: FC<ITooltipProps> = (props) => {
@@ -38,7 +36,6 @@ const Tooltip: FC<ITooltipProps> = (props) => {
         className,
         text,
         placement = 'top',
-        borderWidth = 'border',
         rounded = themeConfig.rounded,
         ...rest
     } = props;
@@ -109,12 +106,17 @@ const Tooltip: FC<ITooltipProps> = (props) => {
                                 data-component-name='Tooltip/Popper'
                                 // @ts-ignore
                                 ref={(node) => setPopperRef(node, ref)}
-                                style={style}
+                                style={{
+                                    ...style,
+                                    zIndex: 99999,
+                                }}
                                 className={classNames(
-                                    'z-[9999] m-2 px-2 py-1',
+                                    'm-2 px-3 py-2',
                                     'max-w-xs',
-                                    'border-zinc-500/10 shadow-lg backdrop-blur-sm',
-                                    [`${borderWidth}`],
+                                    'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900',
+                                    'border border-zinc-700 dark:border-zinc-300',
+                                    'shadow-xl',
+                                    'text-sm font-medium',
                                     [`${rounded}`],
                                     className,
                                 )}

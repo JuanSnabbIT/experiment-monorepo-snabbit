@@ -120,14 +120,14 @@ const TimelineActividad: FC<ITimelineActividadProps> = ({ limite = 10, className
     };
 
     return (
-        <Card className={classNames('h-full', className)}>
+        <Card className={classNames('flex flex-col', className)}>
             <CardHeader>
                 <CardHeaderChild>
                     <Icon icon='HeroClock' className='mr-2 text-xl text-blue-500' />
                     <Badge className='text-lg'>Actividad Reciente</Badge>
                 </CardHeaderChild>
             </CardHeader>
-            <CardBody className='max-h-96 overflow-y-auto'>
+            <CardBody className='max-h-80 min-h-[200px] overflow-y-auto'>
                 {loading ? (
                     <div className='flex justify-center py-8'>
                         <LoaderDots />

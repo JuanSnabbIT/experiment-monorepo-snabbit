@@ -122,7 +122,7 @@ function Home() {
                 </SubheaderRight>
             </Subheader>
 
-            <Container className='h-full w-full space-y-6 pb-8'>
+            <Container className='w-full space-y-6 pb-8'>
                 {/* Fila superior: Balance Cards con métricas clave */}
                 <div className='grid grid-cols-12 gap-4'>
                     {/* OT Activas */}
@@ -261,7 +261,7 @@ function Home() {
                     </div>
 
                     {/* Sidebar (4 cols) - Mini cards + Timeline */}
-                    <div className='col-span-12 space-y-4 lg:col-span-4'>
+                    <div className='col-span-12 flex flex-col gap-4 lg:col-span-4'>
                         {/* Mini-cards secundarias */}
                         {widgetConfig.rendiciones && <WidgetRendiciones />}
                         {widgetConfig.bodegas && <WidgetBodegas />}
