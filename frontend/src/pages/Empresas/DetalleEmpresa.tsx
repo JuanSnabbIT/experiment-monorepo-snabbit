@@ -1,3 +1,4 @@
+import ImageUploadEditor from '@/components/form/ImageUploadEditor';
 import Input from '@/components/form/Input';
 import Validation from '@/components/form/Validation';
 import Icon from '@/components/icon/Icon';
@@ -32,9 +33,9 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useFormik } from 'formik';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import SignatureCanvas from 'react-signature-canvas';
+
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import EliminarInvitacionRechazada from '../InvitacionEmpresa/modals/EliminarInvitacionRechazada';
@@ -47,8 +48,6 @@ const columnHelperInvitaciones = createColumnHelper<IInvitacionEmpresa>();
 function DetalleEmpresa() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const sigCanvas = useRef<SignatureCanvas | null>(null);
-    const logoRef = useRef<HTMLInputElement | null>(null);
     const { id } = useParams();
     const { listaInvitaciones } = useAppSelector((state) => state.invitacion);
     const { listaGrupos } = useAppSelector((state) => state.auth);
@@ -68,12 +67,8 @@ function DetalleEmpresa() {
     const [isEditing, setIsEditing] = useState<boolean>(false);
     const [activeComponent, setActiveComponent] = useState<string>('Sucursales');
     const [editandoLogo, setEditandoLogo] = useState<boolean>(false);
-
-    const clear = () => {
-        if (sigCanvas.current) {
-            sigCanvas.current.clear();
-        }
-    };
+    const [tempLogo, setTempLogo] = useState<string>('');
+    const [tempFirma, setTempFirma] = useState<string>('');
 
     useEffect(() => {
         if (id) {
@@ -611,6 +606,8 @@ function DetalleEmpresa() {
                                             color='red'
                                             onClick={() => {
                                                 setEditandoLogo(false);
+                                                setTempLogo('');
+                                                setTempFirma('');
                                             }}>
                                             Cancelar
                                         </Button>
@@ -618,41 +615,16 @@ function DetalleEmpresa() {
                                             variant='solid'
                                             onClick={async () => {
                                                 try {
-                                                    let data = {};
-                                                    if (
-                                                        logoRef &&
-                                                        logoRef.current &&
-                                                        logoRef.current.files
-                                                    ) {
-                                                        const file = logoRef.current.files[0];
-                                                        if (file) {
-                                                            const base64String = await new Promise(
-                                                                (resolve, reject) => {
-                                                                    const reader = new FileReader();
-                                                                    reader.onloadend = () =>
-                                                                        resolve(reader.result);
-                                                                    reader.onerror = (error) =>
-                                                                        reject(error);
-                                                                    reader.readAsDataURL(file);
-                                                                },
-                                                            );
-                                                            data = {
-                                                                ...data,
-                                                                logo: base64String || '',
-                                                            };
-                                                        }
+                                                    const data: Record<string, string> = {};
+                                                    if (tempLogo) {
+                                                        data.logo = tempLogo;
                                                     }
-                                                    if (
-                                                        sigCanvas.current &&
-                                                        !sigCanvas.current.isEmpty()
-                                                    ) {
-                                                        data = {
-                                                            ...data,
-                                                            firma_empresa:
-                                                                sigCanvas.current.toDataURL(
-                                                                    'image/png',
-                                                                ),
-                                                        };
+                                                    if (tempFirma) {
+                                                        data.firma_empresa = tempFirma;
+                                                    }
+                                                    if (Object.keys(data).length === 0) {
+                                                        toast.info('No hay cambios para guardar');
+                                                        return;
                                                     }
                                                     const response = await ApiService.fetchData({
                                                         url: `/api/empresas/${detalleEmpresa?.id}/`,
@@ -668,10 +640,13 @@ function DetalleEmpresa() {
                                                         });
                                                         refetchDetalleEmpresa();
                                                         setEditandoLogo(false);
+                                                        setTempLogo('');
+                                                        setTempFirma('');
                                                     }
-                                                } catch (error: any) {
+                                                } catch (error: unknown) {
+                                                    const err = error as { response?: { data?: string } };
                                                     toast.error(
-                                                        error.response.data ||
+                                                        err?.response?.data ||
                                                             'Error al guardar el logo y firma',
                                                         {
                                                             toastId:
@@ -696,180 +671,128 @@ function DetalleEmpresa() {
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
-                            <div className='grid grid-cols-1 gap-4'>
+                            <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
                                 {editandoLogo ? (
                                     <>
-                                        <div className='col-span-full'>
-                                            <Badge>Logo</Badge>
-                                            {detalleEmpresa && detalleEmpresa.logo && (
-                                                <img src={detalleEmpresa.logo} alt='' />
-                                            )}
-                                            <div className='mt-4 flex gap-4'>
-                                                <Input
-                                                    name='logo'
-                                                    className='md:w-2/5'
-                                                    type='file'
-                                                    accept='image/*'
-                                                    ref={logoRef}
-                                                    // onChange={(e) => {
-                                                    //     if (e.target.files) {
-                                                    //         const file = e.target.files[0];
-                                                    //         if (!file) return;
-
-                                                    //         const reader = new FileReader();
-                                                    //         reader.onloadend = async () => {
-                                                    //             const base64String = reader.result;
-                                                    //             try {
-                                                    //                 const response = await ApiService.fetchData({
-                                                    //                     url: `/api/empresas/${detalleEmpresa?.id}/`,
-                                                    //                     method: 'patch',
-                                                    //                     headers: { 'Content-Type': 'application/json' },
-                                                    //                     data: JSON.stringify({ logo: base64String })
-                                                    //                 });
-                                                    //                 if (response.data) {
-                                                    //                     toast.success("Logo cambiado", { autoClose: 1000 });
-                                                    //                     dispatch(detalleEmpresaThunk({ id_empresa: detalleEmpresa?.id }));
-                                                    //                 }
-                                                    //             } catch (error: any) {
-                                                    //                 toast.error(error.response.data || "Error al subir el logo", { toastId: "Error al subir el logo" });
-                                                    //             }
-                                                    //         };
-                                                    //         reader.readAsDataURL(file);
-                                                    //     }
-                                                    // }}
-                                                />
-                                                <Tooltip text='Eliminar Logo'>
-                                                    <Button
-                                                        variant='solid'
-                                                        color='red'
-                                                        icon='HeroTrash'
-                                                        onClick={async () => {
-                                                            try {
-                                                                const response =
-                                                                    await ApiService.fetchData({
-                                                                        url: `/api/empresas/${detalleEmpresa?.id}/`,
-                                                                        method: 'patch',
-                                                                        headers: {
-                                                                            'Content-Type':
-                                                                                'application/json',
-                                                                        },
-                                                                        data: JSON.stringify({
-                                                                            logo: '',
-                                                                        }),
-                                                                    });
-                                                                if (response.data) {
-                                                                    toast.success(
-                                                                        'Logo eliminado',
-                                                                        { autoClose: 1000 },
-                                                                    );
-                                                                    refetchDetalleEmpresa();
-                                                                }
-                                                            } catch (error: any) {
-                                                                toast.error(
-                                                                    error.response.data ||
-                                                                        'Error al eliminar el logo',
-                                                                    {
-                                                                        toastId:
-                                                                            'Error al eliminar el logo',
-                                                                    },
-                                                                );
-                                                            }
-                                                        }}></Button>
-                                                </Tooltip>
-                                            </div>
+                                        <div className='col-span-1'>
+                                            <ImageUploadEditor
+                                                label='Logo'
+                                                currentImage={detalleEmpresa?.logo || ''}
+                                                defaultMaxWidth={400}
+                                                defaultMaxHeight={200}
+                                                outputFormat='image/png'
+                                                onImageChange={(base64) => setTempLogo(base64)}
+                                                onImageDelete={async () => {
+                                                    try {
+                                                        const response =
+                                                            await ApiService.fetchData({
+                                                                url: `/api/empresas/${detalleEmpresa?.id}/`,
+                                                                method: 'patch',
+                                                                headers: {
+                                                                    'Content-Type':
+                                                                        'application/json',
+                                                                },
+                                                                data: JSON.stringify({
+                                                                    logo: '',
+                                                                }),
+                                                            });
+                                                        if (response.data) {
+                                                            toast.success('Logo eliminado', {
+                                                                autoClose: 1000,
+                                                            });
+                                                            refetchDetalleEmpresa();
+                                                        }
+                                                    } catch (error: unknown) {
+                                                        const err = error as { response?: { data?: string } };
+                                                        toast.error(
+                                                            err?.response?.data ||
+                                                                'Error al eliminar el logo',
+                                                            {
+                                                                toastId:
+                                                                    'Error al eliminar el logo',
+                                                            },
+                                                        );
+                                                    }
+                                                }}
+                                            />
                                         </div>
-                                        <div className='col-span-full'>
-                                            <Badge>Firma de la Empresa</Badge>
-                                            <div
-                                                className='signature-surface'
-                                                style={{
-                                                    width: '100%',
-                                                    maxWidth: '600px',
-                                                    margin: '0 auto',
-                                                }}>
-                                                <SignatureCanvas
-                                                    ref={(ref) => {
-                                                        sigCanvas.current = ref;
-                                                    }}
-                                                    penColor='black'
-                                                    canvasProps={{
-                                                        height: 200,
-                                                        className: 'signature-canvas',
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className='mt-4 flex items-center gap-4'>
-                                                <Button variant='solid' onClick={clear}>
-                                                    Limpiar
-                                                </Button>
-                                                <Tooltip text='Eliminar Firma'>
-                                                    <Button
-                                                        variant='solid'
-                                                        color='red'
-                                                        icon='HeroTrash'
-                                                        onClick={async () => {
-                                                            try {
-                                                                const response =
-                                                                    await ApiService.fetchData({
-                                                                        url: `/api/empresas/${detalleEmpresa?.id}/`,
-                                                                        method: 'patch',
-                                                                        headers: {
-                                                                            'Content-Type':
-                                                                                'application/json',
-                                                                        },
-                                                                        data: JSON.stringify({
-                                                                            firma_empresa: '',
-                                                                        }),
-                                                                    });
-                                                                if (response.data) {
-                                                                    toast.success(
-                                                                        'Firma eliminada',
-                                                                        { autoClose: 1000 },
-                                                                    );
-                                                                    refetchDetalleEmpresa();
-                                                                }
-                                                            } catch (error: any) {
-                                                                toast.error(
-                                                                    error.response.data ||
-                                                                        'Error al eliminar la firma',
-                                                                    {
-                                                                        toastId:
-                                                                            'Error al eliminar la firma',
-                                                                    },
-                                                                );
-                                                            }
-                                                        }}></Button>
-                                                </Tooltip>
-                                            </div>
+                                        <div className='col-span-1'>
+                                            <ImageUploadEditor
+                                                label='Firma de la Empresa'
+                                                currentImage={
+                                                    detalleEmpresa?.firma_empresa || ''
+                                                }
+                                                defaultMaxWidth={600}
+                                                defaultMaxHeight={200}
+                                                outputFormat='image/png'
+                                                onImageChange={(base64) => setTempFirma(base64)}
+                                                onImageDelete={async () => {
+                                                    try {
+                                                        const response =
+                                                            await ApiService.fetchData({
+                                                                url: `/api/empresas/${detalleEmpresa?.id}/`,
+                                                                method: 'patch',
+                                                                headers: {
+                                                                    'Content-Type':
+                                                                        'application/json',
+                                                                },
+                                                                data: JSON.stringify({
+                                                                    firma_empresa: '',
+                                                                }),
+                                                            });
+                                                        if (response.data) {
+                                                            toast.success('Firma eliminada', {
+                                                                autoClose: 1000,
+                                                            });
+                                                            refetchDetalleEmpresa();
+                                                        }
+                                                    } catch (error: unknown) {
+                                                        const err = error as { response?: { data?: string } };
+                                                        toast.error(
+                                                            err?.response?.data ||
+                                                                'Error al eliminar la firma',
+                                                            {
+                                                                toastId:
+                                                                    'Error al eliminar la firma',
+                                                            },
+                                                        );
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className='col-span-full'>
+                                        <div className='col-span-1'>
                                             <Badge>Logo</Badge>
                                             {detalleEmpresa && detalleEmpresa.logo ? (
-                                                <img src={detalleEmpresa.logo} alt='' />
-                                            ) : (
-                                                <div className='ml-4'>Sin Logo</div>
-                                            )}
-                                        </div>
-                                        <div className='col-span-full'>
-                                            <Badge>Firma de la Empresa</Badge>
-                                            {detalleEmpresa && detalleEmpresa.firma_empresa ? (
-                                                <div
-                                                    className='signature-surface'
-                                                    style={{
-                                                        width: '100%',
-                                                        maxWidth: '600px',
-                                                        margin: '0 auto',
-                                                    }}>
+                                                <div className='mt-2'>
                                                     <img
-                                                        src={detalleEmpresa.firma_empresa}
-                                                        alt=''
+                                                        src={detalleEmpresa.logo}
+                                                        alt='Logo empresa'
+                                                        className='max-h-40 rounded border border-zinc-200 dark:border-zinc-600'
                                                     />
                                                 </div>
                                             ) : (
-                                                <div className='ml-4'>Sin Firma</div>
+                                                <div className='ml-4 mt-2 text-zinc-500'>
+                                                    Sin Logo
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className='col-span-1'>
+                                            <Badge>Firma de la Empresa</Badge>
+                                            {detalleEmpresa && detalleEmpresa.firma_empresa ? (
+                                                <div className='mt-2'>
+                                                    <img
+                                                        src={detalleEmpresa.firma_empresa}
+                                                        alt='Firma empresa'
+                                                        className='max-h-40 rounded border border-zinc-200 dark:border-zinc-600'
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className='ml-4 mt-2 text-zinc-500'>
+                                                    Sin Firma
+                                                </div>
                                             )}
                                         </div>
                                     </>

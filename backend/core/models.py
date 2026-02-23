@@ -84,7 +84,8 @@ class PreguntaEnRetroalimentacion(ModeloBase):
             Q(app_label='visitas', model='visitasoporte') |
             Q(app_label='bodegas', model='compra') |
             Q(app_label='visitas', model='asistenciausuario') |
-            Q(app_label='visitas', model='entregadeequipo')
+            Q(app_label='visitas', model='entregadeequipo') |
+            Q(app_label='ordentrabajov2', model='soportetecnico')
         )
     )
     activo = models.BooleanField(default=True)

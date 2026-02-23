@@ -1,10 +1,15 @@
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import { IRetroalimentacionOT } from '@/interface/ordenTrabajo.interface';
 import {
     useGetDetalleOrdenTrabajoQuery,
     useGetRetroalimentacionesOTQuery,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
-import { useState } from 'react';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
     flexRender,
@@ -15,12 +20,8 @@ import {
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
-import { IRetroalimentacionOT } from '@/interface/ordenTrabajo.interface';
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
-import Icon from '@/components/icon/Icon';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
-import Tooltip from '@/components/ui/Tooltip';
-import Button from '@/components/ui/Button';
+import dayjs from 'dayjs';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const columnHelper = createColumnHelper<IRetroalimentacionOT>();
@@ -39,109 +40,6 @@ function RetroalimentacionesOT() {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
-    // const columns = [
-    //     columnHelper.accessor("id", {
-    //         cell: (info) => info.getValue(),
-    //         header: "N°",
-    //         size: 20
-    //     }),
-    //     columnHelper.accessor("usuario", {
-    //         cell: (info) => {
-    //             const [isOpen, setIsOpen] = useState<boolean>(false)
-    //             const [isOpening, setIsOpening] = useState<boolean>(false)
-    //             return (
-    //                 <div className="flex flex-row gap-2">
-    //                     <div>
-    //                         <div>{info.row.original.usuario ? info.row.original.nombre_usuario : info.row.original.nombre}</div>
-    //                         <Collapse isOpen={isOpen} className="transition-opacity">
-    //                             <div>
-    //                                 <Badge className="text-sm">Correo:</Badge>
-    //                                 <span className="text-sm">{info.row.original.usuario ? info.row.original.correo_usuario : info.row.original.correo}</span>
-    //                             </div>
-    //                         </Collapse>
-    //                     </div>
-    //                     <div>
-    //                         <Button size="xs" isDisable={isOpening} variant='solid' icon={isOpen ? "HeroEyeSlash" : "HeroEye"} color='sky' onClick={() => {
-    //                             if (isOpening) return;
-    //                             setIsOpening(true);
-    //                             if (isOpen) {
-    //                                 setIsOpen(false);
-    //                             } else {
-    //                                 setIsOpen(true);
-    //                             }
-    //                             setTimeout(() => setIsOpening(false), 300);
-    //                         }} />
-    //                     </div>
-    //                 </div>
-    //             )
-    //         },
-    //         header: "Nombre/Correo"
-    //     }),
-    //     columnHelper.accessor("cantidad_estrellas", {
-    //         cell: (info) => {
-    //             const [isOpen, setIsOpen] = useState<boolean>(false)
-    //             const [isOpening, setIsOpening] = useState<boolean>(false)
-    //             return (
-    //                 <div>
-    //                     {info.row.original.cantidad_estrellas ? (
-    //                         <div className="flex flex-row gap-2">
-    //                             {info.row.original.cantidad_estrellas.toLocaleString()}: <Rating maxStars={5} rating={info.row.original.cantidad_estrellas} />
-    //                             {info.row.original.observacion_retroalimentacion && (
-    //                                 <div>
-    //                                     <Button size="xs" isDisable={isOpening} variant='solid' icon={isOpen ? "HeroEyeSlash" : "HeroEye"} color='sky' onClick={() => {
-    //                                         if (isOpening) return;
-    //                                         setIsOpening(true);
-    //                                         setIsOpen(!isOpen)
-    //                                         setTimeout(() => setIsOpening(false), 300);
-    //                                     }} />
-    //                                 </div>
-    //                             )}
-    //                         </div>
-    //                     ) : ("Sin retroalimentación")}
-    //                     <Collapse isOpen={isOpen} className="transition-opacity">
-    //                         <div>
-    //                             <Badge className="text-sm">Observaciones:</Badge>
-    //                             <span className="text-sm">{info.row.original.observacion_retroalimentacion}</span>
-    //                         </div>
-    //                     </Collapse>
-    //                 </div>
-    //             )
-    //         },
-    //         header: "Estrellas"
-    //     }),
-    //     columnHelper.accessor("cantidad_visitas", {
-    //         cell: (info) => info.getValue(),
-    //         header: "Visitas"
-    //     }),
-    //     columnHelper.display({
-    //         id: "acciones",
-    //         cell: (info) => (
-    //             <div>
-    //                 {info.row.original.vigente ? (
-    //                     <Tooltip text="Reenviar">
-    //                         <Button variant="solid" color="amber" icon="HeroArrowUturnRight" onClick={async () => {
-    //                             try {
-    //                                 const response = await ApiService.fetchData({url: `/api/ordenes-trabajo/${info.row.original.orden}/retroalimentaciones/${info.row.original.id}/`, method: 'get', headers: {'Content-Type': 'application/json'}, data: JSON.stringify({usuario: info.row.original.usuario})})
-    //                                 if (response.data) {
-    //                                     toast.success("Retroalimentación reenviada", {autoClose: 1000})
-    //                                 }
-    //                             } catch (error: any) {
-    //                                 const mensajesError = Object.values(error.response.data).flat().join(" ");
-    //                                 toast.error(mensajesError || "Error al reenviar la retroalimentación", {toastId: "Error al reenviar la retroalimentación"})
-    //                             }
-    //                         }}></Button>
-    //                     </Tooltip>
-    //                 ) : (
-    //                     <Tooltip text="Vencida">
-    //                         <Button variant="solid" color="amber" icon="HeroArrowUturnRight" isDisable></Button>
-    //                     </Tooltip>
-    //                 )}
-    //             </div>
-    //         ),
-    //         header: ""
-    //     })
-    // ]
-
     const columns = [
         columnHelper.display({
             id: 'usuario',
@@ -150,32 +48,49 @@ function RetroalimentacionesOT() {
                     {info.row.original.usuario_empresa ? (
                         <>
                             <div>{info.row.original.datos_usuario?.nombre}</div>
-                            <div className='text-sm'>
-                                Correo: {info.row.original.datos_usuario?.correo}
+                            <div className='text-sm text-gray-500'>
+                                {info.row.original.datos_usuario?.correo}
                             </div>
                         </>
                     ) : (
                         <>
                             <div>{info.row.original.usuario_externo}</div>
-                            <div className='text-sm'>
-                                Correo: {info.row.original.correo_usuario_externo}
+                            <div className='text-sm text-gray-500'>
+                                {info.row.original.correo_usuario_externo}
                             </div>
                         </>
                     )}
                 </div>
             ),
-            header: 'Usuario',
+            header: 'Destinatario',
         }),
         columnHelper.display({
-            id: 'es_usuario_empresa',
-            cell: (info) => <div>{info.row.original.usuario_empresa ? 'Si' : 'No'}</div>,
-            header: '¿Es Usuario Empresa?',
+            id: 'estado',
+            cell: (info) => (
+                <div>
+                    {info.row.original.fecha_retroalimentacion ? (
+                        <Badge color='emerald' variant='solid'>
+                            Respondida {dayjs(info.row.original.fecha_retroalimentacion).format('DD/MM/YYYY')}
+                        </Badge>
+                    ) : (
+                        <Badge color='amber' variant='solid'>
+                            Pendiente
+                        </Badge>
+                    )}
+                </div>
+            ),
+            header: 'Estado',
+        }),
+        columnHelper.accessor('cantidad_visitas', {
+            cell: (info) => info.getValue(),
+            header: 'Visitas',
+            size: 80,
         }),
         columnHelper.display({
             id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Tooltip text='Detalle'>
+                    <Tooltip text='Ver detalle'>
                         <Button
                             variant='solid'
                             color='violet'
@@ -213,7 +128,7 @@ function RetroalimentacionesOT() {
                 <CardHeaderChild>
                     <Badge className='text-xl'>Retroalimentaciones</Badge>
                 </CardHeaderChild>
-                <CardHeaderChild>{/* <CrearRetroalimentacionOT /> */}</CardHeaderChild>
+                <CardHeaderChild></CardHeaderChild>
             </CardHeader>
             <CardBody className='z-0'>
                 <div className='overflow-auto'>

@@ -1,0 +1,17 @@
+CORREO_APPWEB="gestion@snabbit.cl"
+PASSWORDCORREO="(ydE7p3JT3"
+HOSTCORREO="correo.ransclimatizacionspa.cl"
+FRONTEND_URL="https://gestion.snabbit.cl"
+SECRET_KEY="django-ipermegasegurito-e@@hmqrb&g999!5gsfdw%h8v5qxts!&go$=rh#up+@7$us2e%@e)4"
+DEBUG_ENABLE=False
+POSTGRES_USER="erp_userproduc"
+POSTGRES_PASSWORD="lsh$$@3%sXX1!$5$5$5"
+POSTGRES_HOST="164.77.141.243"
+POSTGRES_PORT=5432
+POSTGRES_DB_COMUNAS="comunaschile"
+POSTGRES_DB_ERP_DEV="erp_dev"
+POSTGRES_DB_ERP_PRODUC="erp_produc"
+REDIS_HOST="redis"
+REDIS_PORT=6379
+APIV1URLHTTPS="https://apiv1.snabbit.cl"
+APIV1URLHTTP_LOCALHOST="http://localhost:8000"

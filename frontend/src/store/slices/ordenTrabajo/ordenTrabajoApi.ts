@@ -1,17 +1,24 @@
 ﻿
 import type {
+    IBodega,
+    ICompra,
+    IGuiaSalida,
+    IItemEnCompra,
+    IItemGuiaSalida,
+} from '@/interface/bodega.interface';
+import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
+import type {
     IAdjuntoDeOrden,
     ICheckCompletibilidad,
     IDetalleGastoRendicionOT,
     IDetalleOrdenDeTrabajo,
-    IDetalleOrdenDeTrabajoCompra,
     IDetalleRetroalimentacionOT,
     IHistorialCambiosOrden,
     IHistorialSimple,
     IInsumo,
+    IItemSerializado,
     IListaDetallesSeguimientosOT,
     IListaTrabajosFiltrado,
-    IItemSerializado,
     IOrdenDeTrabajo,
     IRetroalimentacionOT,
     IRetroalimentacionSinPermisosOT,
@@ -20,16 +27,8 @@ import type {
     IServicioEnOT,
     ISoporteTecnico,
     IUsuarioAsignadoSoporte,
-    IUsuarioVinculado,
+    IUsuarioVinculado
 } from '@/interface/ordenTrabajo.interface';
-import type {
-    IBodega,
-    ICompra,
-    IItemEnCompra,
-    IGuiaSalida,
-    IItemGuiaSalida,
-} from '@/interface/bodega.interface';
-import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import type { IVisitaEnOT, IVisitaSoporte } from '@/interface/visitas.interface';
 import RtkQueryService from '@/services/RtkQueryService';
 
@@ -267,12 +266,13 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             { items: { id: number; cantidad_estrellas: number; observaciones?: string }[] }
         >({
             query: (data) => ({
-                url: `/api/retroalimentacion_aplicada/bulk_update/`,
+                url: `/api/retroalimentacion_aplicada/bulk-update/`,
                 method: 'patch',
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
                 isLoginRequest: true,
             }),
+            invalidatesTags: ['OrdenTrabajoRetroalimentaciones'],
         }),
 
         // ===== Usuarios vinculados / tecnicos =====

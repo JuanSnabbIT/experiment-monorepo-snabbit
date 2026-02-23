@@ -542,7 +542,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
                         recibido_por=orden.tecnico_responsable_ot,
                         entregado_a=orden.tecnico_responsable_ot,
                         motivo=motivo,
-                        estado="P",
+                        estado="ER",  # Espera firma del técnico (permite iniciar soportes)
                     )
                     guias_creadas.append(guia.id)
 

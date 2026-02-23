@@ -114,7 +114,7 @@ def validar_guias_ot_firmadas(orden: OrdenDeTrabajo) -> tuple[bool, str]:
     Valida que TODAS las guías de la OT estén en estados apropiados para trabajar.
     Retorna: (válido: bool, mensaje_error: str)
     
-    Estados aceptados: FR (Firmada), ET (En Tránsito), E (Entregada), T (Otro)
+    Estados aceptados: ER (Espera Firma), FR (Firmada), ET (En Tránsito), E (Entregada), T (Terminada)
     """
     guias = orden.guias_salida.all()
     
@@ -123,14 +123,20 @@ def validar_guias_ot_firmadas(orden: OrdenDeTrabajo) -> tuple[bool, str]:
         return (True, "")
     
     # Verificar que TODAS las guías están en estados aceptados
-    guias_invalidas = guias.exclude(estado__in=("FR", "ET", "E", "T"))
+    # Incluimos "ER" para permitir guías en espera de firma
+    guias_invalidas = guias.exclude(estado__in=("ER", "FR", "ET", "E", "T"))
     
     if guias_invalidas.exists():
-        ids_invalidas = list(guias_invalidas.values_list("id", flat=True))
+        estados_invalidos = list(
+            guias_invalidas.values_list("id", "estado")
+        )
+        ids_y_estados = [f"#{gid} ({estado})" for gid, estado in estados_invalidos]
+        
         return (
             False,
-            f"Todas las guías de la OT deben estar firmadas o en tránsito. "
-            f"Guías pendientes: {ids_invalidas}",
+            f"Para iniciar el soporte, las guías deben estar al menos aprobadas (en espera de firma del técnico). "
+            f"Guías que requieren aprobación: {', '.join(ids_y_estados)}. "
+            f"Ve al módulo de Guías de Salida para aprobarlas.",
         )
     
     return (True, "")
@@ -358,6 +364,9 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                 actualizar_estado_guia_en_inicio_trabajo(guia)
         if estado_anterior != orden.estado and orden.estado == "completada":
             self._sincronizar_relaciones_completada(orden)
+            # Disparar retroalimentación al cliente
+            from retroalimentacion.tasks import task_gestionar_retroalimentacion_para_orden
+            task_gestionar_retroalimentacion_para_orden.delay(orden.id)
         return Response(self.get_serializer(orden).data)
 
     @action(detail=True, methods=["get"], url_path="check-completabilidad")
@@ -723,6 +732,9 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         instance.refresh_from_db()
         if estado_anterior != instance.estado and instance.estado == "completada":
             self._sincronizar_relaciones_completada(instance)
+            # Disparar retroalimentación al cliente
+            from retroalimentacion.tasks import task_gestionar_retroalimentacion_para_orden
+            task_gestionar_retroalimentacion_para_orden.delay(instance.id)
         cambios = self._build_cambios_detalle(instance, original)
         if cambios:
             usuario_empresa = getattr(request.user, "usuarioempresa", None)

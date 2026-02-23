@@ -18,7 +18,14 @@ class PreguntaAplicadaSerializer(serializers.ModelSerializer):
         read_only_fields = ["pregunta", "pregunta_texto"]
 
 class RetroalimentacionPublicaSerializer(serializers.ModelSerializer):
-    retroalimentacion_aplicada = PreguntaAplicadaSerializer(many=True)
+    retroalimentacion_aplicada = PreguntaAplicadaSerializer(many=True, read_only=True)
+    empresa_nombre = serializers.SerializerMethodField()
+    numero_ot = serializers.IntegerField(source="orden_trabajo.id", read_only=True)
+    descripcion_ot = serializers.CharField(source="orden_trabajo.descripcion", read_only=True)
+    tecnico_responsable_nombre = serializers.SerializerMethodField()
+    fecha_inicio_ot = serializers.DateField(source="orden_trabajo.fecha_inicio_ot", read_only=True)
+    fecha_finalizacion_ot = serializers.DateField(source="orden_trabajo.fecha_finalizacion_ot", read_only=True)
+    ya_respondida = serializers.SerializerMethodField()
 
     class Meta:
         model = Retroalimentacion
@@ -30,7 +37,15 @@ class RetroalimentacionPublicaSerializer(serializers.ModelSerializer):
             "correo_usuario_externo",
             "observacion_retroalimentacion",
             "fecha_retroalimentacion",
-            "retroalimentacion_aplicada"
+            "retroalimentacion_aplicada",
+            # Campos enriquecidos del contexto de la OT
+            "empresa_nombre",
+            "numero_ot",
+            "descripcion_ot",
+            "tecnico_responsable_nombre",
+            "fecha_inicio_ot",
+            "fecha_finalizacion_ot",
+            "ya_respondida",
         ]
         read_only_fields = [
             "uuid",
@@ -38,33 +53,28 @@ class RetroalimentacionPublicaSerializer(serializers.ModelSerializer):
             "usuario_empresa",
             "usuario_externo",
             "correo_usuario_externo",
-            "fecha_retroalimentacion"
+            "fecha_retroalimentacion",
+            "empresa_nombre",
+            "numero_ot",
+            "descripcion_ot",
+            "tecnico_responsable_nombre",
+            "fecha_inicio_ot",
+            "fecha_finalizacion_ot",
+            "ya_respondida",
         ]
 
-    # def update(self, instance, validated_data):
-    #     if instance.fecha_retroalimentacion:
-    #         raise serializers.ValidationError("Esta retroalimentación ya fue respondida.")
+    def get_empresa_nombre(self, obj):
+        empresa = getattr(obj.orden_trabajo, 'empresa', None)
+        return getattr(empresa, 'nombre', None)
 
-    #     aplicada_data = self.initial_data.get("retroalimentacion_aplicada", [])
+    def get_tecnico_responsable_nombre(self, obj):
+        tecnico = getattr(obj.orden_trabajo, 'tecnico_responsable_ot', None)
+        if tecnico and hasattr(tecnico, 'usuario'):
+            return tecnico.usuario.get_nombre_completo() if hasattr(tecnico.usuario, 'get_nombre_completo') else str(tecnico)
+        return None
 
-    #     for item in aplicada_data:
-    #         aplicacion_id = item.get("id")
-    #         if not aplicacion_id:
-    #             continue
-
-    #         try:
-    #             aplicacion = RetroalimentacionAplicada.objects.get(id=aplicacion_id, retroalimentacion=instance)
-    #             aplicacion.cantidad_estrellas = item.get("cantidad_estrellas", aplicacion.cantidad_estrellas)
-    #             aplicacion.observaciones = item.get("observaciones", aplicacion.observaciones)
-    #             aplicacion.save()
-    #         except RetroalimentacionAplicada.DoesNotExist:
-    #             continue
-
-    #     instance.fecha_retroalimentacion = timezone.now()
-    #     instance.observacion_retroalimentacion = validated_data.get("observacion_retroalimentacion", instance.observacion_retroalimentacion)
-    #     instance.save()
-
-    #     return instance
+    def get_ya_respondida(self, obj):
+        return obj.fecha_retroalimentacion is not None
 
 class RetroalimentacionAplicadaSerializer(serializers.ModelSerializer):
     class Meta:

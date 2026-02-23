@@ -55,8 +55,6 @@ def generar_pdf_cotizacion(
         firma_empresa_b64=firma_empresa_b64,
         ubicacion=ubicacion,
         tipo_moneda=tipo_moneda,
-        estado=estado,
-        aprobador_info=aprobador_info,
     )
 
 def generar_pdf_cotizacion_desde_model(cotizacion_id, ubicacion="Santiago"):

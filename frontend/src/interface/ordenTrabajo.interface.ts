@@ -246,11 +246,19 @@ export interface IRetroalimentacionSinPermisosOT {
     uuid: string;
     orden_trabajo: number;
     usuario_empresa: null | string;
-    usuario_externo: string;
-    correo_usuario_externo: string;
+    usuario_externo: string | null;
+    correo_usuario_externo: string | null;
     observacion_retroalimentacion: null | string;
     fecha_retroalimentacion: null | string;
     retroalimentacion_aplicada: IRetroalimentacionAplicada[];
+    // Campos enriquecidos del contexto de la OT
+    empresa_nombre: string | null;
+    numero_ot: number;
+    descripcion_ot: string | null;
+    tecnico_responsable_nombre: string | null;
+    fecha_inicio_ot: string | null;
+    fecha_finalizacion_ot: string | null;
+    ya_respondida: boolean;
 }
 
 export interface IRetroalimentacionAplicada {

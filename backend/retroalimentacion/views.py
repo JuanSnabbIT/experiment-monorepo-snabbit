@@ -9,7 +9,11 @@ from django.utils import timezone
 
 
 class RetroalimentacionPorTokenView(generics.RetrieveUpdateAPIView):
-    queryset = Retroalimentacion.objects.all()
+    queryset = Retroalimentacion.objects.select_related(
+        'orden_trabajo__empresa',
+        'orden_trabajo__tecnico_responsable_ot__usuario',
+        'usuario_empresa__usuario',
+    ).prefetch_related('retroalimentacion_aplicada__pregunta')
     serializer_class = RetroalimentacionPublicaSerializer
     lookup_field = "uuid"
     permission_classes = [AllowAny]
@@ -40,6 +44,15 @@ class RetroalimentacionPorTokenView(generics.RetrieveUpdateAPIView):
         )
 
         return obj
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.fecha_retroalimentacion:
+            return Response(
+                {"detail": "Esta encuesta ya fue respondida. Gracias por su retroalimentación."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
 
 class RetroalimentacionAplicadaViewSet(viewsets.GenericViewSet):
     """
