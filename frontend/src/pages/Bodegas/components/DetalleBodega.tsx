@@ -52,6 +52,8 @@ function DetalleBodega() {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [isOpenSalida, setIsOpenSalida] = useState<boolean>(false);
+    const [isOpenSeries, setIsOpenSeries] = useState<boolean>(false);
+    const [stockItemSeries, setStockItemSeries] = useState<IStockItemEnBodega | undefined>();
 
     useEffect(() => {
         if (id) {
@@ -155,6 +157,16 @@ function DetalleBodega() {
                                 navigate(
                                     `/registros/detalle-item-empresa/${info.row.original.item}`,
                                 );
+                            }}></Button>
+                    </Tooltip>
+                    <Tooltip text='Gestionar N° de Serie'>
+                        <Button
+                            variant='solid'
+                            color='blue'
+                            icon='HeroHashtag'
+                            onClick={() => {
+                                setStockItemSeries(info.row.original);
+                                setIsOpenSeries(true);
                             }}></Button>
                     </Tooltip>
                     <CrearMovimientoStockAjusteEnBodega item_stock={info.row.original} />

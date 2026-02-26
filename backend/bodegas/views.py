@@ -1367,6 +1367,100 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
         serializer = ItemOrdenCompraEnStockSerializer(ordenes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["post"], url_path="agregar-serie")
+    def agregar_serie(self, request, pk=None, bodega_pk=None):
+        """
+        Agrega un número de serie a un stock item que está en bodega.
+        Espera: { "serie": "<valor>" }
+        Busca el primer ItemOrdenCompraEnStock asociado y añade la serie a su JSON.
+        Si no existe ningún registro, retorna 404.
+        """
+        serie = request.data.get("serie", "").strip()
+        if not serie:
+            return Response(
+                {"detail": "El campo 'serie' es requerido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        stock_item = self.get_object()
+
+        # Verificar que la serie no exista ya en ningún ItemOrdenCompraEnStock de este stock
+        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        if not qs_oc.exists():
+            return Response(
+                {"detail": "No existen registros de compra asociados a este stock item."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Verificar duplicados en todos los registros de este stock
+        for oc in qs_oc:
+            lista_series = (oc.numeros_serie or {}).get("numeros_serie", [])
+            for entry in lista_series:
+                if entry.get("serie") == serie:
+                    return Response(
+                        {"detail": f"La serie '{serie}' ya existe en este stock item."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        # Agregar la serie al primer registro disponible
+        oc_target = qs_oc.first()
+        numeros_serie = oc_target.numeros_serie or {}
+        lista_series = numeros_serie.get("numeros_serie", [])
+        lista_series.append({
+            "serie": serie,
+            "modelo": "",
+            "object_id": 0,
+        })
+        numeros_serie["numeros_serie"] = lista_series
+        oc_target.numeros_serie = numeros_serie
+        oc_target.save()
+
+        # Retornar el stock item actualizado
+        stock_item.refresh_from_db()
+        serializer = self.get_serializer(stock_item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="eliminar-serie")
+    def eliminar_serie(self, request, pk=None, bodega_pk=None):
+        """
+        Elimina un número de serie disponible de un stock item.
+        Espera: { "serie": "<valor>" }
+        Solo permite eliminar series no asignadas (modelo="" y object_id=0).
+        """
+        serie = request.data.get("serie", "").strip()
+        if not serie:
+            return Response(
+                {"detail": "El campo 'serie' es requerido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        stock_item = self.get_object()
+        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+
+        for oc in qs_oc:
+            numeros_serie = oc.numeros_serie or {}
+            lista_series = numeros_serie.get("numeros_serie", [])
+            for i, entry in enumerate(lista_series):
+                if entry.get("serie") == serie:
+                    if entry.get("object_id", 0) != 0 or entry.get("modelo", "") != "":
+                        return Response(
+                            {"detail": "No se puede eliminar una serie que está asignada."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    lista_series.pop(i)
+                    numeros_serie["numeros_serie"] = lista_series
+                    oc.numeros_serie = numeros_serie
+                    oc.save()
+
+                    stock_item.refresh_from_db()
+                    serializer = self.get_serializer(stock_item)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(
+            {"detail": "Serie no encontrada."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
 
 class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
     queryset = ItemOrdenCompraEnStock.objects.all()
@@ -2195,6 +2289,20 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Auto-detectar si el stock_item tiene números de serie registrados.
+        # Si tiene series, forzar individualizado=True y cantidad_rebajada=1.
+        tiene_series = any(
+            oc.numeros_serie.get("numeros_serie", [])
+            for oc in ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        )
+        if tiene_series:
+            individualizado = True
+            if cantidad_rebajada != 1:
+                return Response(
+                    {"detail": "Los ítems con números de serie deben agregarse como individualizados con cantidad 1."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if cantidad_rebajada > stock_item.cantidad:
             return Response(
                 {"detail": "No puedes rebajar más cantidad de la disponible en stock."},
@@ -2208,7 +2316,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 stock_item=stock_item,
                 cantidad_original=stock_item.cantidad,
                 cantidad_rebajada=cantidad_rebajada,
-                individualizado=individualizado,  # Nuevo campo agregado
+                individualizado=individualizado,
             )
             # Actualizar cantidad no disponible (reservada)
             stock_item.cantidad_no_disponible = (
@@ -2612,6 +2720,16 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             lista_series = numeros_serie.get("numeros_serie", [])
             for entry in lista_series:
                 if entry.get("serie") == serie:
+                    # Rechazar si la serie ya está asignada a otro item_guia
+                    if (
+                        entry.get("object_id", 0) != 0
+                        and entry.get("modelo", "") != ""
+                        and entry.get("object_id") != item_guia.id
+                    ):
+                        return Response(
+                            {"detail": "La serie ya está asignada a otro ítem de guía."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     entry["modelo"] = "itemsguiasalida"
                     entry["object_id"] = item_guia.id
                     serie_actualizada = True

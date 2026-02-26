@@ -205,12 +205,17 @@ class StockItemEnBodegaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_numeros_series(self, obj):
+        """Retorna solo las series disponibles (no asignadas a otro documento)."""
         if obj.itemordencompraenstock_set.all().exists():
             lista = []
             for item in obj.itemordencompraenstock_set.all():
                 if item.numeros_serie.get("numeros_serie"):
                     for item_stock in item.numeros_serie.get("numeros_serie"):
-                        lista.append(item_stock.get("serie"))
+                        if (
+                            item_stock.get("object_id", 0) == 0
+                            and item_stock.get("modelo", "") == ""
+                        ):
+                            lista.append(item_stock.get("serie"))
             return lista
         else:
             return []

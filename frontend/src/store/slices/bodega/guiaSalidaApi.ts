@@ -47,6 +47,37 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 url: `/api/bodegas/${id_bodega}/stock-items-en-bodega/${id_stock}/ordenes-compra`,
                 method: 'get',
             }),
+            providesTags: (_result, _error, { id_stock }) => [
+                { type: 'OrdenCompraItemsStock' as const, id: id_stock },
+            ],
+        }),
+        agregarSerieStock: builder.mutation<
+            IStockItemEnBodega,
+            { id_bodega: number | string; id_stock: number | string; serie: string }
+        >({
+            query: ({ id_bodega, id_stock, serie }) => ({
+                url: `/api/bodegas/${id_bodega}/stock-items-en-bodega/${id_stock}/agregar-serie/`,
+                method: 'post',
+                data: { serie },
+            }),
+            invalidatesTags: (_result, _error, { id_bodega, id_stock }) => [
+                { type: 'StockItems' as const, id: id_bodega },
+                { type: 'OrdenCompraItemsStock' as const, id: id_stock },
+            ],
+        }),
+        eliminarSerieStock: builder.mutation<
+            IStockItemEnBodega,
+            { id_bodega: number | string; id_stock: number | string; serie: string }
+        >({
+            query: ({ id_bodega, id_stock, serie }) => ({
+                url: `/api/bodegas/${id_bodega}/stock-items-en-bodega/${id_stock}/eliminar-serie/`,
+                method: 'post',
+                data: { serie },
+            }),
+            invalidatesTags: (_result, _error, { id_bodega, id_stock }) => [
+                { type: 'StockItems' as const, id: id_bodega },
+                { type: 'OrdenCompraItemsStock' as const, id: id_stock },
+            ],
         }),
         createGuiaSalida: builder.mutation<
             IGuiaSalida,
@@ -181,6 +212,8 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: (_result, _error, { id_guia }) => [
                 { type: 'GuiaSalidaItems', id: id_guia },
+                { type: 'OrdenCompraItemsStock' as const },
+                { type: 'StockItems' as const, id: 'LIST' },
             ],
         }),
         aprobarGuia: builder.mutation<
@@ -329,4 +362,6 @@ export const {
     useConfirmarRecepcionMutation,
     useVolverPendienteMutation,
     useDevolverABodegaMutation,
+    useAgregarSerieStockMutation,
+    useEliminarSerieStockMutation,
 } = guiaSalidaApi;
