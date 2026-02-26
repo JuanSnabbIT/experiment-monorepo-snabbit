@@ -1,3 +1,261 @@
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
+from django.contrib.auth import get_user_model
+from django.db import transaction
 
-# Create your tests here.
+from bodegas.models import (
+    Bodega,
+    GuiaSalida,
+    ItemOrdenCompraEnStock,
+    ItemsGuiaSalida,
+    MovimientoStock,
+    StockItemEnBodega,
+)
+from empresas.models import Empresa, SucursalEmpresa, RelacionEmpresa, UsuarioEmpresa
+from items.models import ItemEmpresa, Categoria
+from core.models import PersonalizacionUsuario
+
+User = get_user_model()
+
+
+class EliminarGuiaSalidaTestBase(TransactionTestCase):
+    """Base para tests de eliminacion de GuiaSalida con stock y series."""
+
+    def setUp(self):
+        # --- Empresa prestador ---
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Test", rut_empresa="11111111-1", direccion_principal="Dir Test"
+        )
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Sucursal Central", empresa=self.empresa)
+
+        # --- Empresa cliente ---
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente Test", rut_empresa="22222222-2", direccion_principal="Dir Cliente"
+        )
+        RelacionEmpresa.objects.create(prestador_servicios=self.empresa, cliente=self.empresa_cliente)
+
+        # --- Usuario ---
+        self.user = User.objects.create_user(email="test@test.com", password="test1234")
+        self.usuario_empresa = UsuarioEmpresa.objects.create(
+            usuario=self.user, sucursal=self.sucursal
+        )
+        pers = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
+        if pers:
+            pers.sucursal_principal = self.sucursal
+            pers.save()
+        else:
+            PersonalizacionUsuario.objects.create(
+                usuario=self.user, sucursal_principal=self.sucursal
+            )
+
+        # --- Categoria e Item ---
+        self.categoria = Categoria.objects.create(nombre="Cat Test")
+        self.item_empresa = ItemEmpresa.objects.create(
+            nombre="Item Test", categoria=self.categoria, empresa=self.empresa
+        )
+
+        # --- Bodega y Stock ---
+        self.bodega = Bodega.objects.create(nombre="Bodega Central", sucursal=self.sucursal)
+        self.stock = StockItemEnBodega.objects.create(
+            bodega=self.bodega, item=self.item_empresa, cantidad=100, cantidad_no_disponible=0
+        )
+
+    def _crear_guia(self, estado="P"):
+        return GuiaSalida.objects.create(
+            bodega=self.bodega,
+            cliente=self.empresa_cliente,
+            creado_por=self.usuario_empresa,
+            estado=estado,
+        )
+
+    def _agregar_item_no_serializado(self, guia, cantidad=5):
+        """Simula lo que hace agregar_item: crea ItemsGuiaSalida + reserva stock."""
+        from bodegas.movimientos import registrar_salida
+
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=guia,
+            stock_item=self.stock,
+            cantidad_original=self.stock.cantidad,
+            cantidad_rebajada=cantidad,
+            individualizado=False,
+        )
+        self.stock.cantidad_no_disponible += cantidad
+        self.stock.save(update_fields=["cantidad_no_disponible"])
+        registrar_salida(
+            stock_item=self.stock,
+            cantidad=cantidad,
+            usuario=self.usuario_empresa,
+            origen=item_guia,
+            descripcion="Test: item agregado a guia",
+        )
+        self.stock.refresh_from_db()
+        return item_guia
+
+    def _agregar_item_serializado(self, guia, serie="SN-001"):
+        """Simula agregar item individualizado con serie."""
+        from bodegas.movimientos import registrar_salida
+        from django.contrib.contenttypes.models import ContentType
+
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=guia,
+            stock_item=self.stock,
+            cantidad_original=self.stock.cantidad,
+            cantidad_rebajada=1,
+            individualizado=True,
+            numero_serie={"serie": serie, "modelo": "itemsguiasalida", "object_id": 0},
+        )
+        # Actualizar object_id tras creacion
+        item_guia.numero_serie["object_id"] = item_guia.id
+        item_guia.save()
+
+        # Crear ItemOrdenCompraEnStock con la serie
+        ct = ContentType.objects.get_for_model(item_guia)
+        self.oc_stock = ItemOrdenCompraEnStock.objects.create(
+            content_type=ct,
+            item_oc_id=item_guia.id,
+            stock_item=self.stock,
+            cantidad=1,
+            numeros_serie={
+                "numeros_serie": [
+                    {"serie": serie, "modelo": "itemsguiasalida", "object_id": item_guia.id}
+                ]
+            },
+        )
+
+        self.stock.cantidad_no_disponible += 1
+        self.stock.save(update_fields=["cantidad_no_disponible"])
+        registrar_salida(
+            stock_item=self.stock,
+            cantidad=1,
+            usuario=self.usuario_empresa,
+            origen=item_guia,
+            descripcion="Test: item serializado agregado a guia",
+        )
+        self.stock.refresh_from_db()
+        return item_guia
+
+
+class EliminarGuiaPendienteNoSerializadoTest(EliminarGuiaSalidaTestBase):
+    """Caso 1: Guia Pendiente con items no serializados."""
+
+    def test_eliminar_guia_pendiente_revierte_stock(self):
+        guia = self._crear_guia(estado="P")
+        guia_pk = guia.pk
+        cantidad_antes = self.stock.cantidad
+        self._agregar_item_no_serializado(guia, cantidad=5)
+        self.stock.refresh_from_db()
+
+        # Despues de agregar: cantidad baja 5, no_disponible sube 5
+        self.assertEqual(self.stock.cantidad, cantidad_antes - 5)
+        self.assertEqual(self.stock.cantidad_no_disponible, 5)
+
+        movimientos_antes = MovimientoStock.objects.count()
+
+        # Eliminar guia
+        guia.delete()
+
+        self.stock.refresh_from_db()
+        # Stock debe volver al valor original
+        self.assertEqual(self.stock.cantidad, cantidad_antes)
+        self.assertEqual(self.stock.cantidad_no_disponible, 0)
+        # Debe haber un nuevo movimiento de devolucion
+        self.assertGreater(MovimientoStock.objects.count(), movimientos_antes)
+        # La guia no debe existir
+        self.assertFalse(GuiaSalida.objects.filter(pk=guia_pk).exists())
+        self.assertFalse(ItemsGuiaSalida.objects.filter(guia_id=guia_pk).exists())
+
+
+class EliminarGuiaPendienteSerializadoTest(EliminarGuiaSalidaTestBase):
+    """Caso 2: Guia Pendiente con items serializados."""
+
+    def test_eliminar_guia_pendiente_libera_series(self):
+        guia = self._crear_guia(estado="P")
+        cantidad_antes = self.stock.cantidad
+        item_guia = self._agregar_item_serializado(guia, serie="SN-TEST-001")
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.cantidad, cantidad_antes - 1)
+        self.assertEqual(self.stock.cantidad_no_disponible, 1)
+
+        # Verificar serie ocupada antes de eliminar
+        self.oc_stock.refresh_from_db()
+        series = self.oc_stock.numeros_serie["numeros_serie"]
+        self.assertEqual(series[0]["modelo"], "itemsguiasalida")
+        self.assertNotEqual(series[0]["object_id"], 0)
+
+        # Eliminar guia
+        guia.delete()
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.cantidad, cantidad_antes)
+        self.assertEqual(self.stock.cantidad_no_disponible, 0)
+
+        # Serie debe estar libre
+        self.oc_stock.refresh_from_db()
+        series = self.oc_stock.numeros_serie["numeros_serie"]
+        self.assertEqual(series[0]["modelo"], "")
+        self.assertEqual(series[0]["object_id"], 0)
+
+
+class EliminarGuiaERVolverPendienteTest(EliminarGuiaSalidaTestBase):
+    """Caso 3: Guia ER -> volver a pendiente -> eliminar."""
+
+    def test_guia_er_volver_pendiente_y_eliminar(self):
+        guia = self._crear_guia(estado="P")
+        cantidad_antes = self.stock.cantidad
+        self._agregar_item_no_serializado(guia, cantidad=3)
+
+        # Simular que la guia paso a ER (comprobar_guia)
+        guia.estado = "ER"
+        guia.save()
+
+        # Simular volver_pendiente
+        guia.estado = "P"
+        guia.save()
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.cantidad, cantidad_antes - 3)
+        self.assertEqual(self.stock.cantidad_no_disponible, 3)
+
+        # Eliminar
+        guia.delete()
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.cantidad, cantidad_antes)
+        self.assertEqual(self.stock.cantidad_no_disponible, 0)
+        self.assertFalse(GuiaSalida.objects.filter(pk=guia.pk).exists())
+
+
+class EliminarGuiaEstadoNoPermitidoTest(EliminarGuiaSalidaTestBase):
+    """Caso 4: Intento de eliminar guia en estado no permitido (via API)."""
+
+    def test_destroy_api_rechaza_estado_er(self):
+        self.client.force_login(self.user)
+        guia = self._crear_guia(estado="ER")
+        self._agregar_item_no_serializado(guia, cantidad=2)
+        cantidad_antes_delete = self.stock.cantidad
+
+        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("No se puede eliminar", response.json()["detail"])
+
+        # Stock no debe haber cambiado
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.cantidad, cantidad_antes_delete)
+        # Guia sigue existiendo
+        self.assertTrue(GuiaSalida.objects.filter(pk=guia.pk).exists())
+
+    def test_destroy_api_rechaza_estado_et(self):
+        self.client.force_login(self.user)
+        guia = self._crear_guia(estado="ET")
+
+        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(GuiaSalida.objects.filter(pk=guia.pk).exists())
+
+    def test_destroy_api_permite_estado_pendiente(self):
+        self.client.force_login(self.user)
+        guia = self._crear_guia(estado="P")
+
+        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(GuiaSalida.objects.filter(pk=guia.pk).exists())

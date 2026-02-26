@@ -121,12 +121,26 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 return [...baseTags, ...ordenTags];
             },
         }),
-        deleteGuiaSalida: builder.mutation<void, number | string>({
+        deleteGuiaSalida: builder.mutation<
+            { detail: string; bodega_id?: number },
+            number | string
+        >({
             query: (id) => ({
                 url: `/api/guia-salida/${id}/`,
                 method: 'delete',
             }),
-            invalidatesTags: [{ type: 'GuiaSalida', id: 'LIST' }],
+            invalidatesTags: (result) => {
+                const tags: any[] = [
+                    { type: 'GuiaSalida', id: 'LIST' },
+                    { type: 'OrdenCompraItemsStock' as const },
+                ];
+                if (result?.bodega_id) {
+                    tags.push({ type: 'StockItems', id: result.bodega_id });
+                } else {
+                    tags.push({ type: 'StockItems', id: 'LIST' });
+                }
+                return tags;
+            },
         }),
         agregarItemGuia: builder.mutation<
             IItemGuiaSalida & { bodega_id?: number },
@@ -202,18 +216,31 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
             },
         }),
         actualizarSerieItem: builder.mutation<
-            IItemGuiaSalida,
-            { id_guia: number | string; item_id: number | string; serie: string }
+            { detail: string; data: { serie: string; modelo: string; object_id: number } },
+            {
+                id_guia: number | string;
+                item_id: number | string;
+                serie: string;
+                id_bodega?: number | string;
+                id_stock?: number | string;
+            }
         >({
             query: ({ id_guia, item_id, serie }) => ({
                 url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/actualizar-serie/`,
                 method: 'patch',
                 data: { serie },
             }),
-            invalidatesTags: (_result, _error, { id_guia }) => [
-                { type: 'GuiaSalidaItems', id: id_guia },
-                { type: 'OrdenCompraItemsStock' as const },
-                { type: 'StockItems' as const, id: 'LIST' },
+            invalidatesTags: (_result, _error, { id_guia, id_bodega, id_stock }) => [
+                // String(id_guia) asegura coincidencia con el cache que usa string desde useParams
+                { type: 'GuiaSalidaItems', id: String(id_guia) },
+                // Invalidación específica del stock para refrescar lista de series disponibles
+                id_stock
+                    ? { type: 'OrdenCompraItemsStock' as const, id: id_stock }
+                    : { type: 'OrdenCompraItemsStock' as const },
+                // Invalidación específica de la bodega para refrescar el stock
+                id_bodega
+                    ? { type: 'StockItems' as const, id: id_bodega }
+                    : { type: 'StockItems' as const, id: 'LIST' },
             ],
         }),
         aprobarGuia: builder.mutation<

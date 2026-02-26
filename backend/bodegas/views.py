@@ -1554,6 +1554,43 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = GuiaSalida.objects.all()
     serializer_class = GuiaSalidaSerializer
 
+    # --- Estados permitidos para eliminación ---
+    ESTADOS_PERMITIDOS_ELIMINAR = ("P",)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        """
+        Elimina una GuiaSalida con validación de estado y reversión atómica de stock.
+
+        Solo se permite eliminar guías en estado 'P' (Pendiente).
+        La eliminación en cascada de ItemsGuiaSalida activa el signal pre_delete
+        que se encarga de:
+        - Revertir stock (cantidad + cantidad_no_disponible)
+        - Liberar series en ItemOrdenCompraEnStock
+        - Registrar movimientos de devolución
+        """
+        instance = self.get_object()
+
+        if instance.estado not in self.ESTADOS_PERMITIDOS_ELIMINAR:
+            estado_label = instance.get_estado_display()
+            return Response(
+                {
+                    "detail": (
+                        f"No se puede eliminar una guía en estado '{estado_label}'. "
+                        f"Solo se permite eliminar guías en estado Pendiente."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        bodega_id = instance.bodega_id
+        instance.delete()
+
+        return Response(
+            {"detail": "Guía eliminada correctamente. Stock y series revertidos.", "bodega_id": bodega_id},
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=["get"], url_path="descargar-pdf")
     def descargar_pdf(self, request, pk=None):
         guia = self.get_object()
@@ -2403,6 +2440,18 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def volver_pendiente(self, request, pk=None):
         guia = self.get_object()
+
+        # Validar que solo se puede revertir desde "ER" (En espera de firma de técnico)
+        if guia.estado != "ER":
+            return Response(
+                {
+                    "detail": (
+                        "Solo se puede devolver a Pendiente una guía en estado "
+                        "'En espera de firma de técnico'."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # 1. Resetear estado de la guía a "P"
         guia.estado = "P"

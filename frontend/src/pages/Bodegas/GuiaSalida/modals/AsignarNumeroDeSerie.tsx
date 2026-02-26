@@ -63,6 +63,8 @@ function AsignarNumeroDeSerie({
                     id_guia: itemRebajaSelected.guia,
                     item_id: itemRebajaSelected.id,
                     serie: values.numero_serie,
+                    id_bodega: itemRebajaSelected.datos_stock.bodega,
+                    id_stock: itemRebajaSelected.datos_stock.id,
                 }).unwrap();
                 toast.success('Numero de serie asignado', { autoClose: 1000 });
                 setIsOpen(false);

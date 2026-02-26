@@ -36,6 +36,7 @@ celerybeat.pid
 *.swo
 *~
 .vscode/
+.github/
 .codex/
 AGENTS.md
 

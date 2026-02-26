@@ -80,9 +80,13 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
     """
     Si se elimina un ItemsGuiaSalida (individual o por cascada al borrar la Guía),
     se revierte la reserva de stock cuando la guía no ha salido definitivamente.
+
+    Responsabilidades:
+    1. Revertir cantidad en StockItemEnBodega (cantidad + cantidad_no_disponible).
+    2. Registrar movimiento de devolución para trazabilidad.
+    3. Liberar número de serie en ItemOrdenCompraEnStock (modelo → "", object_id → 0).
     """
     from bodegas.movimientos import registrar_devolucion
-    from empresas.models import UsuarioEmpresa
 
     guia = instance.guia
     # Solo revertimos reservas si la guía no está en tránsito/entregada/terminada
@@ -91,24 +95,45 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
 
     stock_item = instance.stock_item
     cantidad = instance.cantidad_rebajada or 0
-    if cantidad <= 0:
-        return
 
-    # BUG FIX: Usar registrar_devolucion en lugar de modificar directamente
-    # para mantener trazabilidad en MovimientoStock
-    usuario = guia.creado_por  # Usuario que creó la guía
+    # --- 1) Revertir stock ---
+    if cantidad > 0:
+        usuario = guia.creado_por  # Usuario que creó la guía
 
-    # Solo actualizar cantidad_no_disponible aquí
-    stock_item.cantidad_no_disponible = max(
-        0, stock_item.cantidad_no_disponible - cantidad
-    )
-    stock_item.save(update_fields=["cantidad_no_disponible"])
+        stock_item.cantidad_no_disponible = max(
+            0, stock_item.cantidad_no_disponible - cantidad
+        )
+        stock_item.save(update_fields=["cantidad_no_disponible"])
 
-    # registrar_devolucion actualiza stock_item.cantidad automáticamente
-    registrar_devolucion(
-        stock_item=stock_item,
-        cantidad=cantidad,
-        usuario=usuario,
-        origen=instance,
-        descripcion="Items eliminados de una guia de salida (signal)",
-    )
+        # registrar_devolucion actualiza stock_item.cantidad automáticamente
+        registrar_devolucion(
+            stock_item=stock_item,
+            cantidad=cantidad,
+            usuario=usuario,
+            origen=instance,
+            descripcion="Items eliminados de una guia de salida (signal)",
+        )
+
+    # --- 2) Liberar serie en ItemOrdenCompraEnStock ---
+    numero_serie = instance.numero_serie
+    if numero_serie and numero_serie.get("serie"):
+        serie = numero_serie["serie"]
+        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        for oc in qs_oc:
+            numeros_serie = oc.numeros_serie or {}
+            lista_series = numeros_serie.get("numeros_serie", [])
+            modified = False
+            for entry in lista_series:
+                if (
+                    entry.get("serie") == serie
+                    and entry.get("modelo") == "itemsguiasalida"
+                    and entry.get("object_id") == instance.id
+                ):
+                    entry["modelo"] = ""
+                    entry["object_id"] = 0
+                    modified = True
+            if modified:
+                numeros_serie["numeros_serie"] = lista_series
+                oc.numeros_serie = numeros_serie
+                oc.save()
+                break

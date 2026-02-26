@@ -35,7 +35,9 @@ import {
 } from '@tanstack/react-table';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Swal from 'sweetalert2';
 import * as Yup from 'yup';
 
 const columnHelper = createColumnHelper<IUsuarioEmpresa>();
@@ -50,6 +52,7 @@ function CrearGuiaSalidaEnDetalleBodega({
     id_bodega: number | undefined;
 }) {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { listaUsuariosTodaLaEmpresa, detalleUsuarioEmpresa, listaMisClientes } = useAppSelector(
         (state) => state.empresa,
@@ -131,23 +134,42 @@ function CrearGuiaSalidaEnDetalleBodega({
         onSubmit: async (values) => {
             if (userSelect) {
                 try {
-                    const response = await ApiService.fetchData({
+                    const response = await ApiService.fetchData<{ id: number }>({
                         url: `/api/guia-salida/`,
                         method: 'post',
                         headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify({
+                        data: {
                             ...values,
                             bodega: id_bodega,
                             sucursal: personalizacionUsuario?.sucursal_principal,
                             recibido_por: userSelect.id,
                             creado_por: detalleUsuarioEmpresa?.id,
-                        }),
+                        },
                     });
                     if (response.data) {
-                        toast.success('Guia de salida de bodega creada', { autoClose: 1000 });
+                        const guiaId = response.data.id;
                         dispatch(detalleBodegaThunk({ id_bodega }));
                         formik.resetForm();
                         setIsOpen(false);
+                        const isDark =
+                            typeof document !== 'undefined' &&
+                            document.documentElement.classList.contains('dark');
+                        const result = await Swal.fire({
+                            title: '¡Guía creada!',
+                            text: 'Guía de salida creada correctamente.',
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonText: 'Ir al Detalle de Guía',
+                            cancelButtonText: 'Quedarme aquí',
+                            reverseButtons: true,
+                            background: isDark ? '#18181b' : undefined,
+                            color: isDark ? '#e4e4e7' : undefined,
+                            confirmButtonColor: isDark ? '#6366f1' : '#22c55e',
+                            cancelButtonColor: isDark ? '#52525b' : undefined,
+                        });
+                        if (result.isConfirmed) {
+                            navigate(`/bodega/detalle-guia-salida-bodega/${guiaId}`);
+                        }
                     }
                 } catch (error: any) {
                     toast.error(error.response.data);

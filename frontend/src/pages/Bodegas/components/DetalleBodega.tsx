@@ -39,6 +39,7 @@ import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import CrearGuiaSalidaEnDetalleBodega from '../modals/CrearGuiaSalidaEnDetalleBodega';
 import CrearMovimientoStockAjusteEnBodega from '../modals/CrearMovimientoStockAjusteEnBodega';
+import GestionarSeriesEnStock from '../modals/GestionarSeriesEnStock';
 
 const columnHelper = createColumnHelper<IStockItemEnBodega>();
 
@@ -413,6 +414,11 @@ function DetalleBodega() {
                     </Card>
                 </div>
             </Container>
+            <GestionarSeriesEnStock
+                isOpen={isOpenSeries}
+                setIsOpen={setIsOpenSeries}
+                stockItem={stockItemSeries}
+            />
         </PageWrapper>
     );
 }
