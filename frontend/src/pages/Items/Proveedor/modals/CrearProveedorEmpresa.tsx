@@ -65,7 +65,21 @@ function CrearProveedorEmpresa() {
             pagina_web: Yup.string()
                 .max(250, 'La página web no debe exceder los 250 caracteres')
                 .nullable()
-                .notRequired(),
+                .notRequired()
+                .test(
+                    'url-valida',
+                    'Ingrese una URL válida (ej: empresa.com o https://empresa.com)',
+                    (value) => {
+                        if (!value) return true;
+                        const trimmed = value.trim();
+                        if (!trimmed) return true;
+                        const conProtocolo = /^https?:\/\//i.test(trimmed)
+                            ? trimmed
+                            : `https://${trimmed}`;
+                        const patronUrl = /^https?:\/\/([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[^\s]*)?$/i;
+                        return patronUrl.test(conProtocolo);
+                    },
+                ),
             telefono: Yup.string()
                 .max(16, 'El teléfono no debe exceder los 16 caracteres')
                 .nullable()

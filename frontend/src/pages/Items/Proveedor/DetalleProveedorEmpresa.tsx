@@ -42,16 +42,33 @@ import AgregarItem from './modals/AgregarItem';
 const columnHelper = createColumnHelper<IItemEmpresa>();
 const columnHelperOC = createColumnHelper<IOrdenCompra>();
 
+const validarUrl = (value: string | undefined) => {
+    if (!value) return true;
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    const conProtocolo = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const patronUrl = /^https?:\/\/([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[^\s]*)?$/i;
+    return patronUrl.test(conProtocolo);
+};
+
 const validationSchema = Yup.object({
     nombre: Yup.string().required('El nombre es requerido'),
     rut: Yup.string(),
     direccion: Yup.string(),
     telefono: Yup.string(),
-    pagina_web: Yup.string().url('URL inválida'),
+    pagina_web: Yup.string().test(
+        'url-valida',
+        'Ingrese una URL válida (ej: empresa.com o https://empresa.com)',
+        validarUrl,
+    ),
     region: Yup.number(),
     provincia: Yup.number(),
     comuna: Yup.number(),
-    catalogo_web: Yup.string().url('URL inválida'),
+    catalogo_web: Yup.string().test(
+        'url-valida',
+        'Ingrese una URL válida (ej: empresa.com o https://empresa.com)',
+        validarUrl,
+    ),
     recargo_dolar: Yup.number()
         .required('Requerido')
         .nonNullable('Requerido')

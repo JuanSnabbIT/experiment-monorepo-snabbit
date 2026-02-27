@@ -1,5 +1,35 @@
+import re
+
 from .models import *
 from rest_framework import serializers
+
+
+def normalizar_url(valor):
+    """Normaliza una URL: agrega https:// si no tiene protocolo y valida formato básico."""
+    if not valor:
+        return valor
+
+    valor = valor.strip()
+    if not valor:
+        return ''
+
+    # Si no tiene protocolo, agregar https://
+    if not re.match(r'^https?://', valor, re.IGNORECASE):
+        valor = f'https://{valor}'
+
+    # Validar formato básico de URL
+    patron_url = re.compile(
+        r'^https?://'
+        r'([a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+'
+        r'[a-zA-Z]{2,}'
+        r'(/[^\s]*)?$',
+        re.IGNORECASE,
+    )
+    if not patron_url.match(valor):
+        return None  # Señal de URL inválida
+
+    return valor
+
 
 class CategoriaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,6 +45,16 @@ class ProveedorEmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProveedorEmpresa
         fields = '__all__'
+
+    def validate_pagina_web(self, value):
+        if not value:
+            return value
+        resultado = normalizar_url(value)
+        if resultado is None:
+            raise serializers.ValidationError(
+                'Ingrese una URL válida (ej: empresa.com o https://empresa.com).'
+            )
+        return resultado
 
 class BulkImagenItemInputSerializer(serializers.Serializer):
     """
