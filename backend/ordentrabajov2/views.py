@@ -1627,42 +1627,6 @@ class UsuarioAsignadoSoporteViewSet(BaseWriteViewSet):
         else:
             serializer.save()
 
-
-class UsuariosVinculadosOrdenAPIView(APIView):
-    """
-    Endpoint de compatibilidad: devuelve los usuarios asignados a una OT (agregando asignaciones de soportes).
-    Ruta: /ordenes-de-trabajo/<orden_pk>/usuarios-vinculados/
-    """
-
-    def get(self, request, orden_pk=None):
-        if orden_pk is None:
-            return Response([], status=status.HTTP_200_OK)
-        usuarios = UsuarioAsignadoSoporte.objects.filter(
-            soporte_tecnico__orden_id=orden_pk
-        ).order_by("-fecha_creacion")
-        serializer = UsuarioAsignadoSoporteSerializer(usuarios, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class RetroalimentacionesOrdenAPIView(APIView):
-    """
-    Endpoint de compatibilidad: devuelve retroalimentaciones asociadas a una OT.
-    Ruta: /ordenes-de-trabajo/<orden_pk>/retroalimentaciones/
-    """
-
-    def get(self, request, orden_pk=None):
-        if orden_pk is None:
-            return Response([], status=status.HTTP_200_OK)
-        try:
-            from retroalimentacion.serializers import RetroalimentacionSerializer
-            from retroalimentacion.models import Retroalimentacion
-
-            retro = Retroalimentacion.objects.filter(orden_trabajo_id=orden_pk).order_by("-fecha_creacion")
-            serializer = RetroalimentacionSerializer(retro, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception:
-            return Response([], status=status.HTTP_200_OK)
-
     @action(detail=True, methods=["post"], url_path="firmar-asignacion")
     def firmar_asignacion(self, request, pk=None, **kwargs):
         usuario_asignado = self.get_object()
@@ -1754,8 +1718,8 @@ class RetroalimentacionesOrdenAPIView(APIView):
                                 "estado": "aplicada",
                                 "entries": [entry_actual, entry_otro],
                             },
-                                status=status.HTTP_200_OK,
-                            )
+                            status=status.HTTP_200_OK,
+                        )
                     if not otro_asignado:
                         return Response(
                             {"detail": "El equipo ya tiene un usuario asignado."},
@@ -1798,6 +1762,42 @@ class RetroalimentacionesOrdenAPIView(APIView):
             )
 
         return Response(entry, status=status.HTTP_200_OK)
+
+
+class UsuariosVinculadosOrdenAPIView(APIView):
+    """
+    Endpoint de compatibilidad: devuelve los usuarios asignados a una OT (agregando asignaciones de soportes).
+    Ruta: /ordenes-de-trabajo/<orden_pk>/usuarios-vinculados/
+    """
+
+    def get(self, request, orden_pk=None):
+        if orden_pk is None:
+            return Response([], status=status.HTTP_200_OK)
+        usuarios = UsuarioAsignadoSoporte.objects.filter(
+            soporte_tecnico__orden_id=orden_pk
+        ).order_by("-fecha_creacion")
+        serializer = UsuarioAsignadoSoporteSerializer(usuarios, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RetroalimentacionesOrdenAPIView(APIView):
+    """
+    Endpoint de compatibilidad: devuelve retroalimentaciones asociadas a una OT.
+    Ruta: /ordenes-de-trabajo/<orden_pk>/retroalimentaciones/
+    """
+
+    def get(self, request, orden_pk=None):
+        if orden_pk is None:
+            return Response([], status=status.HTTP_200_OK)
+        try:
+            from retroalimentacion.serializers import RetroalimentacionSerializer
+            from retroalimentacion.models import Retroalimentacion
+
+            retro = Retroalimentacion.objects.filter(orden_trabajo_id=orden_pk).order_by("-fecha_creacion")
+            serializer = RetroalimentacionSerializer(retro, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception:
+            return Response([], status=status.HTTP_200_OK)
 
 
 class ServicioEnOTViewSet(BaseWriteViewSet):

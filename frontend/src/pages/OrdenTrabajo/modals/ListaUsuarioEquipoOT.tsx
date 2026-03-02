@@ -1,3 +1,4 @@
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -8,12 +9,8 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import { IItemSerializado, IUsuarioAsignadoSoporte } from '@/interface/ordenTrabajo.interface';
-import FirmarAsignacionUsuario from './FirmarAsignacionUsuario';
+import { IUsuarioAsignadoSoporte } from '@/interface/ordenTrabajo.interface';
 import ApiService from '@/services/ApiService';
-import { confirmAlert } from '@/utils/sweetAlert';
-import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     listaEquiposPorClienteThunk,
     listaUsuariosDelEquipoPorClienteThunk,
@@ -28,8 +25,11 @@ import {
     useGetUsuariosAsignadosPendientesQuery,
     useGetUsuariosAsignadosSoporteQuery,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
+import FirmarAsignacionUsuario from './FirmarAsignacionUsuario';
 
 interface ListaUsuarioEquipoOTProps {
     ordenId: number;
@@ -1006,7 +1006,7 @@ function ListaUsuarioEquipoOT({
             return <span className='text-xs text-gray-400'>Bloqueado</span>;
         }
         if (usuario.resuelto) {
-            return <span className='text-xs text-gray-400'>Realizada</span>;
+            return <span className='text-xs text-gray-400'>Firmada</span>;
         }
         const firmaPendiente = Boolean(
             (usuario.cache_asignacion as Record<string, unknown> | null | undefined)
@@ -1163,6 +1163,16 @@ function ListaUsuarioEquipoOT({
                     isOpen={isOpenFirmaUsuario}
                     setIsOpen={setIsOpenFirmaUsuario}
                     onSuccess={() => {
+                        if (usuarioFirmaSeleccionado) {
+                            setCambiosEquipos((prev) => {
+                                const next = { ...prev };
+                                delete next[usuarioFirmaSeleccionado.id];
+                                return next;
+                            });
+                            setLimpiarCacheIds((prev) =>
+                                prev.filter((id) => id !== usuarioFirmaSeleccionado.id),
+                            );
+                        }
                         refetchUsuariosAsignados();
                         dispatch(listaUsuariosDelEquipoPorClienteThunk({ cliente_id: clienteId }));
                         setUsuarioFirmaSeleccionado(null);
