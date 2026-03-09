@@ -556,8 +556,8 @@ const FacturacionesComparativa = () => {
                 const results = Array.isArray(resp.data) ? resp.data : (resp.data?.results ?? []);
                 const otIds: number[] = [];
                 results.forEach((f: any) => {
-                    // Ignorar prefacturas anuladas: solo excluir OTs de prefacturas activas
-                    if (f?.estado_cierre === 'anulado') return;
+                    // Solo excluir OTs de prefacturas activas (por_facturar o facturado)
+                    if (f?.estado_cierre === 'borrador') return;
                     const ots = f?.resultado?.ots_incluidas || [];
                     if (Array.isArray(ots)) otIds.push(...ots);
                 });

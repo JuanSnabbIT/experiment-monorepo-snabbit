@@ -69,6 +69,7 @@ export const detalleFirmaContratoThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetDetalleContratoLicenciaQuery de contratoApi.ts */
 export const detalleContratoLicenciaThunk = createAsyncThunk<
     IContratoLicencia,
     { id_licencia: string | number | undefined },
@@ -85,6 +86,7 @@ export const detalleContratoLicenciaThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetUsuariosDisponiblesLicenciaQuery de contratoApi.ts */
 export const listaUsuariosDisponiblesLicenciaThunk = createAsyncThunk<
     IUsuarioEmpresa[],
     { id_licencia: string | number | undefined; id_empresa: string | number | undefined },
@@ -106,6 +108,7 @@ export const listaUsuariosDisponiblesLicenciaThunk = createAsyncThunk<
     },
 );
 
+/** @deprecated Usar useGetUsuariosVinculadosLicenciaQuery de contratoApi.ts */
 export const listaUsuariosVinculadosLicenciaThunk = createAsyncThunk<
     IUsuarioVinculadoLicencia[],
     { id_licencia: number | string | undefined },
@@ -122,6 +125,7 @@ export const listaUsuariosVinculadosLicenciaThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetContratoLicenciasVinculosQuery de contratoApi.ts */
 export const listaContratoLicenciaDeEmpresaYClienteThunk = createAsyncThunk<
     IContratoLicencia[],
     { id_cliente: number | string | undefined; id_empresa: number | string | undefined },
@@ -141,6 +145,7 @@ export const listaContratoLicenciaDeEmpresaYClienteThunk = createAsyncThunk<
     },
 );
 
+/** @deprecated Usar useGetContratosPorEmpresaClienteQuery de contratoApi.ts */
 export const listaContratosDeEmpresaYClienteThunk = createAsyncThunk<
     IContratoEmpresaCliente[],
     { id_empresa: number | string | undefined; id_cliente: number | string | undefined },
@@ -160,6 +165,7 @@ export const listaContratosDeEmpresaYClienteThunk = createAsyncThunk<
     },
 );
 
+/** @deprecated Usar useGetDetalleContratoQuery de contratoApi.ts */
 export const detalleContratoEmpresaClienteThunk = createAsyncThunk<
     IContratoEmpresaCliente,
     { id_contrato: number | string | undefined | null },
@@ -194,6 +200,7 @@ export const listaFirmasConfidencialidadThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetCondicionesEspecialesQuery de contratoApi.ts */
 export const listaCondicionesEspecialesThunk = createAsyncThunk<
     ICondicionEspecial[],
     undefined,
@@ -212,6 +219,7 @@ export const listaCondicionesEspecialesThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetVisitasCatalogoQuery de contratoApi.ts */
 export const listaVisitasThunk = createAsyncThunk<IVisita[], undefined, { rejectValue: string }>(
     'contrato/listaVisitasThunk',
     async (_, { rejectWithValue }) => {
@@ -227,8 +235,8 @@ export const listaVisitasThunk = createAsyncThunk<IVisita[], undefined, { reject
     },
 );
 
-export const listaLicenciasThunk = createAsyncThunk<
-    ILicencia[],
+/** @deprecated Usar useGetLicenciasCatalogoQuery de contratoApi.ts */
+export const listaLicenciasThunk = createAsyncThunk<    ILicencia[],
     undefined,
     { rejectValue: string }
 >('contrato/listaLicenciasThunk', async (_, { rejectWithValue }) => {
@@ -243,6 +251,7 @@ export const listaLicenciasThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetServiciosQuery de contratoApi.ts */
 export const listaServiciosThunk = createAsyncThunk<
     IServicio[],
     undefined,
@@ -259,6 +268,7 @@ export const listaServiciosThunk = createAsyncThunk<
     }
 });
 
+/** @deprecated Usar useGetPlanesServicioQuery de contratoApi.ts */
 export const listaPlanServiciosThunk = createAsyncThunk<
     IPlanServicio[],
     undefined,

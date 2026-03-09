@@ -5,12 +5,12 @@ import {
     useGetRendicionDetalleQuery,
     useUpdateOrdenTrabajoMutation,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
-import { useEffect, useMemo, useState } from 'react';
 import { confirmAlert } from '@/utils/sweetAlert';
+import { useEffect, useMemo, useState } from 'react';
 // import SeguimientoEnCerrarOT from "./components/SeguimientoEnCerrarOT"
-import { toast } from 'react-toastify';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 function CerrarOT() {
     const { id } = useParams<{ id: string }>();
@@ -51,8 +51,7 @@ function CerrarOT() {
 
     const isPrefacturaFacturada = useMemo(() => {
         const normalized = prefacturaEstado?.toLowerCase()?.trim() ?? '';
-        // Solo aceptar 'facturado' o 'pagado', NO 'aprobado'
-        return normalized === 'facturado' || normalized === 'pagado';
+        return normalized === 'facturado';
     }, [prefacturaEstado]);
 
     const missingRendicionReason = useMemo(() => {

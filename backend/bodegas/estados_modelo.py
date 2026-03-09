@@ -62,3 +62,10 @@ ESTADO_TOMA_INVENTARIO = (
     ("terminado", "Terminado"),
     ("cerrado", "Cerrado"),
 )
+
+ESTADO_SERIE = (
+    ("disponible", "Disponible"),
+    ("reservada", "Reservada en Guía"),
+    ("despachada", "Despachada"),
+    ("devuelta", "Devuelta"),
+)

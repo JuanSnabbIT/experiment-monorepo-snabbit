@@ -1,23 +1,24 @@
 import store from './storeSetup';
 
-export * from './storeSetup';
-export * from './rootReducer';
 export * from './hook';
+export * from './rootReducer';
 export * from './slices/auth/authSlice';
-export * from './slices/bodega/bodegaSlice';
 export * from './slices/bodega/bodegaApi';
+export * from './slices/bodega/bodegaSlice';
 export * from './slices/calendario/calendarioSlice';
+export * from './slices/contratos/contratoApi';
+export * from './slices/contratos/contratoSlice';
 export * from './slices/core/coreSlice';
+export * from './slices/cotizaciones/cotizacionSlice';
 export * from './slices/dashboard/dashboardSlice';
 export * from './slices/empresa/empresaSlice';
 export * from './slices/invitacion/invitacionSlice';
 export * from './slices/item/itemSlice';
-export * from './slices/recursos/recursosSlice';
-export * from './slices/rendiciones/rendicionSlice';
-export * from './slices/rendiciones/rendicionApi';
-export * from './slices/cotizaciones/cotizacionSlice';
 export * from './slices/ordenTrabajo/ordenTrabajoSlice';
+export * from './slices/recursos/recursosSlice';
+export * from './slices/rendiciones/rendicionApi';
+export * from './slices/rendiciones/rendicionSlice';
 export * from './slices/visita/visitasSlice';
-export * from './slices/contratos/contratoSlice';
+export * from './storeSetup';
 
 export default store;

@@ -22,11 +22,11 @@ import {
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import { parseLocaleNumber } from '@/utils/currency';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import { parseLocaleNumber } from '@/utils/currency';
 
 import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 
@@ -308,6 +308,8 @@ function CrearItemCotizacion({
             setShowCategoria(false);
             setIsCreatingCategoria(false);
             setIsCreatingFabricante(false);
+            setCreandoItem(false);
+            setIsService(false);
         }
     }, [isOpen]);
 

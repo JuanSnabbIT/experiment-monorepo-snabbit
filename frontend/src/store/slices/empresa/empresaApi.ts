@@ -216,6 +216,17 @@ export const empresaApi = RtkQueryService.injectEndpoints({
                 { type: 'Clientes' as const, id: id_empresa ?? 'MIS_USERS' },
             ],
         }),
+
+        // ─── Detalle de usuario de cliente ───
+        getDetalleUsuarioCliente: builder.query<IUsuarioEmpresa, number | string>({
+            query: (usuarioEmpresaId) => ({
+                url: `/api/usuarios-empresa/detalle-usuario-cliente/${usuarioEmpresaId}/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [
+                { type: 'ClienteUsuarios' as const, id },
+            ],
+        }),
     }),
 });
 
@@ -240,4 +251,5 @@ export const {
     useGetUsuariosTodoElClienteQuery,
     useGetUsuariosEmpresaYClienteQuery,
     useGetUsuariosDeMisClientesQuery,
+    useGetDetalleUsuarioClienteQuery,
 } = empresaApi;

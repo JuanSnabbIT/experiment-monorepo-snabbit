@@ -47,3 +47,24 @@ TIPOS_USUARIO_CONTRATO = [
     ('finanzas', 'Finanzas'),
     ('general', 'UsuarioGeneral'),
 ]
+
+ESTADOS_FACTURA_CONTRATO = [
+    ('borrador', 'Borrador'),
+    ('por_facturar', 'Por facturar'),
+    ('facturado', 'Facturado'),
+]
+
+ESTADOS_CONTRATO_LICENCIA = [
+    ('activa', 'Activa'),
+    ('vencida', 'Vencida'),
+    ('suspendida', 'Suspendida'),
+    ('cancelada', 'Cancelada'),
+]
+
+# Transiciones válidas para ContratoLicencia.estado
+TRANSICIONES_ESTADO_LICENCIA = {
+    'activa': ['suspendida', 'cancelada'],
+    'suspendida': ['activa', 'cancelada'],
+    'vencida': ['cancelada'],
+    'cancelada': [],
+}

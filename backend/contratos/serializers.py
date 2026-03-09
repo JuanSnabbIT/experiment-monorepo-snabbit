@@ -16,6 +16,7 @@ from contratos.models import (
     Visita,
     Licencia,
     CondicionEspecial,
+    FacturaContrato,
 )
 from core.models import AcuerdoConfidencialidadBase
 from empresas.models import UsuarioEmpresa
@@ -109,6 +110,8 @@ class ContratoVisitaSerializer(serializers.ModelSerializer):
 
 class UsuarioVinculadoLicenciaSerializer(serializers.ModelSerializer):
     datos_usuario = serializers.SerializerMethodField()
+    es_externo = serializers.SerializerMethodField()
+    nombre_display = serializers.SerializerMethodField()
 
     class Meta:
         model = UsuarioVinculadoLicencia
@@ -120,8 +123,19 @@ class UsuarioVinculadoLicenciaSerializer(serializers.ModelSerializer):
             "correo": obj.usuario.usuario.email
         } if obj.usuario else None
 
+    def get_es_externo(self, obj):
+        """True si el vínculo es un usuario externo (sin cuenta en el sistema)."""
+        return obj.usuario is None
+
+    def get_nombre_display(self, obj):
+        """Nombre para mostrar: del usuario del sistema o nombre libre."""
+        if obj.usuario:
+            return obj.usuario.usuario.get_nombre_completo()
+        return obj.nombre or ''
+
 # class ContratoLicenciaVinculoUsuarioSerializer(serializers.ModelSerializer):
 class ContratoLicenciaSerializer(serializers.ModelSerializer):
+    contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     tipo_modalidad_label = serializers.SerializerMethodField()
     nombre_licencia = serializers.SerializerMethodField()
     proveedor_licencia = serializers.SerializerMethodField()
@@ -132,6 +146,9 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     nombre_contrato = serializers.SerializerMethodField()
     se_puede_reducir = serializers.SerializerMethodField()
     dias_restantes_licencia = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+    color_estado = serializers.SerializerMethodField()
+    empresa_cliente = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoLicencia
@@ -183,6 +200,23 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     def get_dias_restantes_licencia(self, obj):
         return obj.dias_restantes_licencia
 
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
+
+    def get_color_estado(self, obj):
+        """Color para Badge en el frontend."""
+        colores = {
+            'activa': 'emerald',
+            'vencida': 'red',
+            'suspendida': 'amber',
+            'cancelada': 'zinc',
+        }
+        return colores.get(obj.estado, 'zinc')
+
+    def get_empresa_cliente(self, obj):
+        """ID de la empresa cliente del contrato padre."""
+        return obj.contrato.empresa_cliente_id
+
 # Serializador para ContratoLicencia
 # class ContratoLicenciaSerializer(serializers.ModelSerializer):
 #     #licencia = LicenciaSerializer(read_only=True)
@@ -225,6 +259,65 @@ class ContratoCondicionEspecialSerializer(serializers.ModelSerializer):
     def get_descripcion_condicion(self, obj):
         return obj.condicion.descripcion
         
+
+# ── Serializers ligeros para endpoints "por usuario" ──
+
+class LicenciaVinculadaPorUsuarioSerializer(serializers.ModelSerializer):
+    """Serializer ligero: vínculos licencia ↔ usuario con datos resumidos."""
+    nombre_licencia = serializers.CharField(source='licencia.licencia.nombre', read_only=True)
+    proveedor_licencia = serializers.CharField(source='licencia.licencia.proveedor', read_only=True)
+    estado_licencia = serializers.CharField(source='licencia.estado', read_only=True)
+    estado_licencia_label = serializers.CharField(source='licencia.get_estado_display', read_only=True)
+    color_estado = serializers.SerializerMethodField()
+    fecha_fin_licencia = serializers.DateField(source='licencia.fecha_fin', read_only=True)
+    nombre_contrato = serializers.CharField(source='licencia.contrato.nombre', read_only=True)
+    contrato_id = serializers.IntegerField(source='licencia.contrato.id', read_only=True)
+    licencia_contrato_id = serializers.IntegerField(source='licencia.id', read_only=True)
+
+    class Meta:
+        model = UsuarioVinculadoLicencia
+        fields = [
+            'id', 'fecha_asignacion',
+            'nombre_licencia', 'proveedor_licencia',
+            'estado_licencia', 'estado_licencia_label', 'color_estado',
+            'fecha_fin_licencia', 'nombre_contrato',
+            'contrato_id', 'licencia_contrato_id',
+        ]
+
+    def get_color_estado(self, obj):
+        colores = {
+            'activa': 'emerald',
+            'vencida': 'red',
+            'suspendida': 'amber',
+            'cancelada': 'zinc',
+        }
+        return colores.get(obj.licencia.estado, 'zinc')
+
+
+class ContratoVinculadoPorUsuarioSerializer(serializers.ModelSerializer):
+    """Serializer ligero: vínculos contrato ↔ usuario con datos resumidos."""
+    nombre_contrato = serializers.CharField(source='contrato.nombre', read_only=True)
+    tipo_contrato = serializers.CharField(source='contrato.tipo', read_only=True)
+    tipo_contrato_label = serializers.CharField(source='contrato.get_tipo_display', read_only=True)
+    estado_contrato = serializers.CharField(source='contrato.estado', read_only=True)
+    estado_contrato_label = serializers.CharField(source='contrato.get_estado_display', read_only=True)
+    fecha_inicio_contrato = serializers.DateField(source='contrato.fecha_inicio', read_only=True)
+    fecha_fin_contrato = serializers.DateField(source='contrato.fecha_fin', read_only=True)
+    contrato_id = serializers.IntegerField(source='contrato.id', read_only=True)
+    tipo_usuario_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UsuarioVinculadoContrato
+        fields = [
+            'id', 'fecha_vinculacion', 'tipo_usuario', 'tipo_usuario_label',
+            'nombre_contrato', 'tipo_contrato', 'tipo_contrato_label',
+            'estado_contrato', 'estado_contrato_label',
+            'fecha_inicio_contrato', 'fecha_fin_contrato', 'contrato_id',
+        ]
+
+    def get_tipo_usuario_label(self, obj):
+        return obj.get_tipo_usuario_display()
+
 
 # Serializador para AcuerdoConfidencialidadContrato
 class AcuerdoConfidencialidadContratoSerializer(serializers.ModelSerializer):
@@ -324,3 +417,37 @@ class EnvioContratoFirmaUsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = EnvioContratoFirmaUsuario
         fields = '__all__'
+
+
+class FacturaContratoSerializer(serializers.ModelSerializer):
+    estado_label = serializers.SerializerMethodField()
+    moneda_label = serializers.SerializerMethodField()
+    nombre_contrato = serializers.CharField(source="contrato.nombre", read_only=True)
+    nombre_cliente = serializers.CharField(
+        source="empresa_cliente.nombre", read_only=True
+    )
+    nombre_prestadora = serializers.CharField(
+        source="empresa_prestadora.nombre", read_only=True
+    )
+    creado_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FacturaContrato
+        fields = "__all__"
+        read_only_fields = [
+            "fecha_creacion",
+            "fecha_modificacion",
+            "creado_por",
+            "actualizado_por",
+        ]
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
+
+    def get_moneda_label(self, obj):
+        return obj.get_moneda_display()
+
+    def get_creado_por_nombre(self, obj):
+        if obj.creado_por:
+            return str(obj.creado_por)
+        return None

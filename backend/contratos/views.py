@@ -16,6 +16,7 @@ from contratos.models import (
     Visita,
     Licencia,
     CondicionEspecial,
+    FacturaContrato,
 )
 from empresas.models import UsuarioEmpresa
 from empresas.serializers import UsuarioEmpresaSerializer
@@ -36,10 +37,16 @@ from .serializers import (
     VisitaSerializer,
     LicenciaSerializer,
     CondicionEspecialSerializer,
+    FacturaContratoSerializer,
+    LicenciaVinculadaPorUsuarioSerializer,
+    ContratoVinculadoPorUsuarioSerializer,
 )
+from cuentas.functions import obtener_usuario_empresa
+from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse, JsonResponse, Http404, HttpResponseBadRequest
 from .funciones import generar_contrato_en_memoria
@@ -92,6 +99,135 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         )
         serializer = self.get_serializer(contratos, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="cambiar-estado")
+    def cambiar_estado(self, request, pk=None):
+        """
+        Cambia el estado de un contrato validando transiciones permitidas.
+        Espera: { "estado": "activo" }
+        
+        Transiciones válidas:
+        - borrador  → activo
+        - activo    → suspendido, finalizado
+        - suspendido → activo
+        - finalizado → (sin transiciones, estado terminal)
+        """
+        contrato = self.get_object()
+        nuevo_estado = request.data.get("estado")
+
+        if not nuevo_estado:
+            return Response(
+                {"detail": 'Debe indicar el campo "estado".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        transiciones_validas = {
+            "borrador": ["activo"],
+            "activo": ["suspendido", "finalizado"],
+            "suspendido": ["activo"],
+        }
+
+        estados_permitidos = transiciones_validas.get(contrato.estado, [])
+        if nuevo_estado not in estados_permitidos:
+            return Response(
+                {"detail": f"No se puede cambiar de '{contrato.get_estado_display()}' a '{nuevo_estado}'. "
+                           f"Transiciones permitidas: {', '.join(estados_permitidos) if estados_permitidos else 'ninguna (estado terminal)'}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        contrato.estado = nuevo_estado
+        contrato.save()
+        return Response(self.get_serializer(contrato).data)
+
+    @action(detail=True, methods=["post"], url_path="renovar")
+    def renovar(self, request, pk=None):
+        """
+        Crea una copia (renovación) del contrato actual con estado 'borrador'.
+        Duplica servicios, visitas, licencias, condiciones especiales y usuarios vinculados.
+        Espera opcionalmente: { "fecha_inicio": "YYYY-MM-DD", "fecha_fin": "YYYY-MM-DD", "nombre": "..." }
+        """
+        contrato_original = self.get_object()
+
+        if contrato_original.estado not in ("finalizado", "activo", "suspendido"):
+            return Response(
+                {"detail": "Solo se pueden renovar contratos activos, suspendidos o finalizados."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            nuevo_nombre = request.data.get("nombre", f"{contrato_original.nombre} (Renovación)")
+            nueva_fecha_inicio = request.data.get("fecha_inicio")
+            nueva_fecha_fin = request.data.get("fecha_fin")
+
+            nuevo_contrato = ContratoEmpresaCliente.objects.create(
+                empresa_prestadora=contrato_original.empresa_prestadora,
+                empresa_cliente=contrato_original.empresa_cliente,
+                fecha_inicio=nueva_fecha_inicio or contrato_original.fecha_fin or contrato_original.fecha_inicio,
+                fecha_fin=nueva_fecha_fin,
+                estado="borrador",
+                observaciones=f"Renovación del contrato #{contrato_original.id} — {contrato_original.nombre}",
+                nombre=nuevo_nombre,
+                tipo=contrato_original.tipo,
+            )
+
+            # Duplicar servicios genéricos
+            for cs in ContratoServicio.objects.filter(contrato=contrato_original):
+                ContratoServicio.objects.create(
+                    contrato=nuevo_contrato,
+                    content_type=cs.content_type,
+                    object_id=cs.object_id,
+                    cantidad=cs.cantidad,
+                    precio_unitario=cs.precio_unitario,
+                )
+
+            # Duplicar visitas
+            for cv in ContratoVisita.objects.filter(contrato=contrato_original):
+                ContratoVisita.objects.create(
+                    contrato=nuevo_contrato,
+                    visita=cv.visita,
+                    frecuencia=cv.frecuencia,
+                    cantidad=cv.cantidad,
+                )
+
+            # Duplicar licencias (sin fechas, para revisión)
+            for cl in ContratoLicencia.objects.filter(contrato=contrato_original):
+                ContratoLicencia.objects.create(
+                    contrato=nuevo_contrato,
+                    licencia=cl.licencia,
+                    tipo_modalidad=cl.tipo_modalidad,
+                    otro_tipo=cl.otro_tipo,
+                    cantidad=cl.cantidad,
+                    precio_unitario=cl.precio_unitario,
+                    tipo_moneda=cl.tipo_moneda,
+                    partner=cl.partner,
+                )
+
+            # Duplicar condiciones especiales
+            for cce in ContratoCondicionEspecial.objects.filter(contrato=contrato_original):
+                ContratoCondicionEspecial.objects.create(
+                    contrato=nuevo_contrato,
+                    condicion=cce.condicion,
+                )
+
+            # Duplicar usuarios vinculados
+            for uv in UsuarioVinculadoContrato.objects.filter(contrato=contrato_original):
+                UsuarioVinculadoContrato.objects.create(
+                    usuario=uv.usuario,
+                    contrato=nuevo_contrato,
+                    tipo_usuario=uv.tipo_usuario,
+                )
+
+            # Duplicar acuerdos de confidencialidad
+            for ac in AcuerdoConfidencialidadContrato.objects.filter(contrato=contrato_original):
+                AcuerdoConfidencialidadContrato.objects.create(
+                    contrato=nuevo_contrato,
+                    acuerdo_base=ac.acuerdo_base,
+                )
+
+        return Response(
+            self.get_serializer(nuevo_contrato).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=['put'], url_path='actualizar')
     def actualizar(self, request, pk=None):
@@ -181,7 +317,12 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     cl.fecha_inicio = item.get("fecha_inicio", cl.fecha_inicio)
                     cl.fecha_fin = item.get("fecha_fin", cl.fecha_fin)
                     cl.tipo_moneda = item.get("tipo_moneda", cl.tipo_moneda)
-                    cl.save()
+                    try:
+                        cl.save()
+                    except DjangoValidationError as e:
+                        raise serializers.ValidationError(
+                            e.message_dict if hasattr(e, 'message_dict') else {'detail': e.messages}
+                        )
                 else:
                     # CREAR NUEVA
                     licencia_id = item.get("licencia_id")
@@ -191,17 +332,22 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         licencia_obj = Licencia.objects.get(pk=licencia_id)
                     except Licencia.DoesNotExist:
                         continue
-                    ContratoLicencia.objects.create(
-                        contrato=contrato,
-                        licencia=licencia_obj,
-                        tipo_modalidad=item.get("tipo_modalidad", "otros"),
-                        otro_tipo=item.get("otro_tipo", ""),
-                        cantidad=item.get("cantidad", 1),
-                        precio_unitario=item.get("precio_unitario", 0),
-                        fecha_inicio=item.get("fecha_inicio", None),
-                        fecha_fin=item.get("fecha_fin", None),
-                        tipo_moneda=item.get("tipo_moneda", "USD")
-                    )
+                    try:
+                        ContratoLicencia.objects.create(
+                            contrato=contrato,
+                            licencia=licencia_obj,
+                            tipo_modalidad=item.get("tipo_modalidad", "otros"),
+                            otro_tipo=item.get("otro_tipo", ""),
+                            cantidad=item.get("cantidad", 1),
+                            precio_unitario=item.get("precio_unitario", 0),
+                            fecha_inicio=item.get("fecha_inicio", None),
+                            fecha_fin=item.get("fecha_fin", None),
+                            tipo_moneda=item.get("tipo_moneda", "USD")
+                        )
+                    except DjangoValidationError as e:
+                        raise serializers.ValidationError(
+                            e.message_dict if hasattr(e, 'message_dict') else {'detail': e.messages}
+                        )
 
             # ============ CONTRATO CONDICIONES ESPECIALES ============
             condiciones_data = request.data.get("condiciones_especiales", [])
@@ -362,46 +508,66 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
-        # Diccionario de datos del cliente (ejemplo)
+        contrato = self.get_object()
+
+        # Datos reales del cliente desde el contrato
+        empresa_cliente = contrato.empresa_cliente
+        empresa_prestadora = contrato.empresa_prestadora
+
+        # Representantes legales de la empresa cliente
+        representantes_cliente = getattr(empresa_cliente, 'representantes_legales', None)
+        rep_legal_nombre = ""
+        rep_legal_rut = ""
+        if representantes_cliente and representantes_cliente.exists():
+            rep = representantes_cliente.first()
+            rep_legal_nombre = rep.usuario.get_nombre_completo() if hasattr(rep, 'usuario') else ""
+            rep_legal_rut = ""
+
         datos_cliente = {
-            'razon_social': 'RSM Chile Auditores',
-            'rut': '76.073.255-9',
-            'domicilio': 'APOQUINDO 3650 703',
-            'giro': 'Actividades de contabilidad, teneduría de libros',
-            'representante_legal': 'Fernando Landa',
-            'rut_representante_legal': '11.111.111-1',
-            'fono': '(56-2) 25072788',
-            'email': 'fernando.landa@rsmchile.com'
+            'razon_social': empresa_cliente.nombre or '',
+            'rut': getattr(empresa_cliente, 'rut_empresa', '') or '',
+            'domicilio': getattr(empresa_cliente, 'direccion_principal', '') or '',
+            'giro': '',
+            'representante_legal': rep_legal_nombre,
+            'rut_representante_legal': rep_legal_rut,
+            'fono': getattr(empresa_cliente, 'telefono', '') or '',
+            'email': getattr(empresa_cliente, 'email', '') or '',
         }
 
-        # Diccionario de datos generales del contrato (ejemplo)
+        # Representantes legales de la empresa prestadora
+        representantes_prestadora = getattr(empresa_prestadora, 'representantes_legales', None)
+        rep_prest_nombre = ""
+        if representantes_prestadora and representantes_prestadora.exists():
+            rep_p = representantes_prestadora.first()
+            rep_prest_nombre = rep_p.usuario.get_nombre_completo() if hasattr(rep_p, 'usuario') else ""
+
+        # Servicios contratados como lista de tareas
+        servicios = ContratoServicio.objects.filter(contrato=contrato)
+        lista_servicios = [cs.servicio_generico.nombre if cs.servicio_generico else f"Servicio #{cs.object_id}" for cs in servicios]
+
+        # Valor mensual: suma de servicios
+        valor_total = sum(float(cs.precio_unitario) * cs.cantidad for cs in servicios)
+
         datos_contrato = {
-            'fecha': '01 de junio del 2017',
-            'proveedor_razon_social': 'Consultora Aguilera Rojas y Asociados Ltda. (Grupo AyG)',
-            'proveedor_rut': '76.365.641-1',
-            'proveedor_direccion': 'Gaspar de Soto #539, San Miguel',
-            'proveedor_representante': 'Luis Alberto Rojas Molina (Rut 15.890.661-9)',
-            'descripcion_plan': 'Implementación de proyecto tecnológico en base a IRS 1075, con lista de tareas expresada a un año.',
-            'valor_mensual': '850.000',
-            'descripcion_asesoria': """La asesoría externa se realizará en base al proyecto presentado... 
-                (aquí incluyes el detalle textual que necesites)""",
-            'forma_pago': "PAGOS A MES VENCIDO, PLAZO MÁXIMO LOS 10 PRIMEROS DÍAS CORRIDOS DE CADA MES",
-            'condiciones_generales': """(Aquí van las cláusulas y condiciones generales que tengas, 
-            puedes copiar y pegar desde tu documento original, adaptándolo)""",
-            'lista_tareas': [
-                "Implementación de NAS y gestión de respaldos",
-                "Instalación de antivirus corporativo",
-                "Cambio de servidor de correos a Office 365",
-                "Blindaje de red corporativa",
-                "Redundancia de sistemas",
-                "Procedimientos y planes de recuperación",
-                # etc...
-            ]
+            'fecha': contrato.fecha_inicio.strftime('%d de %B del %Y') if contrato.fecha_inicio else '',
+            'proveedor_razon_social': empresa_prestadora.nombre or '',
+            'proveedor_rut': getattr(empresa_prestadora, 'rut_empresa', '') or '',
+            'proveedor_direccion': getattr(empresa_prestadora, 'direccion_principal', '') or '',
+            'proveedor_representante': rep_prest_nombre,
+            'descripcion_plan': contrato.observaciones or 'Sin descripción adicional.',
+            'valor_mensual': f"{valor_total:,.0f}",
+            'descripcion_asesoria': contrato.observaciones or '',
+            'forma_pago': '',
+            'condiciones_generales': '\n'.join(
+                [f"{cce.condicion.titulo}: {cce.condicion.descripcion}"
+                 for cce in ContratoCondicionEspecial.objects.filter(contrato=contrato).select_related("condicion")]
+            ) or 'Sin condiciones especiales.',
+            'lista_tareas': lista_servicios if lista_servicios else ['Sin servicios asociados.'],
         }
 
-        pdf_buffer = generar_contrato_en_memoria("nombre_prueba", datos_cliente, datos_contrato)
+        pdf_buffer = generar_contrato_en_memoria(contrato.nombre, datos_cliente, datos_contrato)
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
-        # response['Content-Disposition'] = f'inline; filename="prueeaa.pdf"'
+        response['Content-Disposition'] = f'inline; filename="contrato_{contrato.id}_{contrato.nombre}.pdf"'
         return response
 
     @action(detail=False, methods=["get"], url_path="metricas-dashboard")
@@ -535,6 +701,32 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             "top_clientes": clientes_resultado,
         })
 
+    @action(detail=False, methods=['get'], url_path=r'por-usuario-empresa/(?P<usuario_empresa_pk>\d+)')
+    def por_usuario_empresa(self, request, usuario_empresa_pk=None):
+        """
+        GET /api/contratos/por-usuario-empresa/{usuario_empresa_pk}/
+        Retorna todos los contratos vinculados a un UsuarioEmpresa específico.
+        """
+        from core.models import PersonalizacionUsuario
+
+        user = request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return Response([], status=status.HTTP_200_OK)
+
+        empresa = personalizacion.sucursal_principal.empresa
+        vinculos = UsuarioVinculadoContrato.objects.filter(
+            usuario_id=usuario_empresa_pk,
+        ).filter(
+            models.Q(contrato__empresa_prestadora=empresa) |
+            models.Q(contrato__empresa_cliente=empresa)
+        ).select_related(
+            'contrato'
+        ).order_by('-fecha_vinculacion')
+
+        serializer = ContratoVinculadoPorUsuarioSerializer(vinculos, many=True)
+        return Response(serializer.data)
+
 
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioVinculadoContratoSerializer
@@ -580,17 +772,74 @@ class ContratoVisitaViewSet(viewsets.ModelViewSet):
 
 class ContratoLicenciaViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoLicenciaSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
         if contrato_pk:
             return ContratoLicencia.objects.filter(contrato_id=contrato_pk)
-        return ContratoLicencia.objects.all()
+
+        # Multi-tenancy: filtrar por empresa del usuario autenticado
+        from core.models import PersonalizacionUsuario
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if personalizacion and personalizacion.sucursal_principal:
+            empresa = personalizacion.sucursal_principal.empresa
+            return ContratoLicencia.objects.filter(
+                models.Q(contrato__empresa_prestadora=empresa) |
+                models.Q(contrato__empresa_cliente=empresa)
+            )
+        return ContratoLicencia.objects.none()
 
     def perform_create(self, serializer):
         contrato_pk = self.kwargs.get('contrato_pk')
         contrato = ContratoEmpresaCliente.objects.get(pk=contrato_pk)
         serializer.save(contrato=contrato)
+
+    @action(detail=True, methods=['post'], url_path='cambiar-estado')
+    def cambiar_estado(self, request, pk=None, **kwargs):
+        """Transiciona el estado de una ContratoLicencia según reglas de negocio."""
+        from .estados_modelo import TRANSICIONES_ESTADO_LICENCIA
+
+        obj = self.get_object()
+        nuevo_estado = request.data.get('estado')
+
+        if not nuevo_estado:
+            return Response(
+                {"detail": 'Debe indicar "estado".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        estados_permitidos = TRANSICIONES_ESTADO_LICENCIA.get(obj.estado, [])
+        if nuevo_estado not in estados_permitidos:
+            return Response(
+                {"detail": f"No se puede cambiar de '{obj.get_estado_display()}' a '{nuevo_estado}'. "
+                            f"Transiciones permitidas: {', '.join(estados_permitidos) or 'ninguna'}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        obj.estado = nuevo_estado
+        obj.save()
+        return Response(self.get_serializer(obj).data)
+
+    @action(detail=True, methods=['get'], url_path='historial')
+    def historial(self, request, pk=None, **kwargs):
+        """Retorna el historial de cambios de una ContratoLicencia."""
+        obj = self.get_object()
+        registros = obj.historia.all().order_by('-history_date')[:50]
+        data = [
+            {
+                "id": r.history_id,
+                "fecha": r.history_date,
+                "tipo": r.get_history_type_display(),
+                "usuario": str(r.history_user) if r.history_user else None,
+                "cambios": r.history_change_reason or '',
+                "estado": r.estado if hasattr(r, 'estado') else None,
+                "cantidad": r.cantidad if hasattr(r, 'cantidad') else None,
+            }
+            for r in registros
+        ]
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path=r'lista-vinculos/(?P<empresa_prestadora_pk>\d+)/(?P<empresa_cliente_pk>\d+)')
     def lista_vinculos(self, request, empresa_prestadora_pk=None, empresa_cliente_pk=None):
@@ -609,6 +858,32 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
 
         # 3) Serializamos y devolvemos
         serializer = self.get_serializer(licencias, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path=r'por-usuario-empresa/(?P<usuario_empresa_pk>\d+)')
+    def por_usuario_empresa(self, request, usuario_empresa_pk=None, **kwargs):
+        """
+        GET /api/contrato-licencias/por-usuario-empresa/{usuario_empresa_pk}/
+        Retorna todas las licencias vinculadas a un UsuarioEmpresa específico.
+        """
+        from core.models import PersonalizacionUsuario
+
+        user = request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return Response([], status=status.HTTP_200_OK)
+
+        empresa = personalizacion.sucursal_principal.empresa
+        vinculos = UsuarioVinculadoLicencia.objects.filter(
+            usuario_id=usuario_empresa_pk,
+        ).filter(
+            models.Q(licencia__contrato__empresa_prestadora=empresa) |
+            models.Q(licencia__contrato__empresa_cliente=empresa)
+        ).select_related(
+            'licencia', 'licencia__licencia', 'licencia__contrato'
+        ).order_by('-fecha_asignacion')
+
+        serializer = LicenciaVinculadaPorUsuarioSerializer(vinculos, many=True)
         return Response(serializer.data)
 
 class ContratoCondicionEspecialViewSet(viewsets.ModelViewSet):
@@ -659,6 +934,7 @@ class VisitaViewSet(viewsets.ModelViewSet):
 class LicenciaViewSet(viewsets.ModelViewSet):
     queryset = Licencia.objects.all()
     serializer_class = LicenciaSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class CondicionEspecialViewSet(viewsets.ModelViewSet):
     queryset = CondicionEspecial.objects.all()
@@ -667,12 +943,51 @@ class CondicionEspecialViewSet(viewsets.ModelViewSet):
 class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
     queryset = UsuarioVinculadoLicencia.objects.all()
     serializer_class = UsuarioVinculadoLicenciaSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         contrato_licencia_pk = self.kwargs.get('licencia_pk')
         if contrato_licencia_pk:
             return UsuarioVinculadoLicencia.objects.filter(licencia_id=contrato_licencia_pk)
-        return UsuarioVinculadoLicencia.objects.all()
+
+        # Multi-tenancy: filtrar por empresa del usuario autenticado
+        from core.models import PersonalizacionUsuario
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if personalizacion and personalizacion.sucursal_principal:
+            empresa = personalizacion.sucursal_principal.empresa
+            return UsuarioVinculadoLicencia.objects.filter(
+                models.Q(licencia__contrato__empresa_prestadora=empresa) |
+                models.Q(licencia__contrato__empresa_cliente=empresa)
+            )
+        return UsuarioVinculadoLicencia.objects.none()
+
+    def create(self, request, *args, **kwargs):
+        """Bloquea la asignación si se alcanza el límite de licencias."""
+        contrato_licencia_pk = self.kwargs.get('licencia_pk') or request.data.get('licencia')
+        if contrato_licencia_pk:
+            try:
+                contrato_licencia = ContratoLicencia.objects.get(pk=contrato_licencia_pk)
+                asignados = UsuarioVinculadoLicencia.objects.filter(licencia_id=contrato_licencia_pk).count()
+                if asignados >= contrato_licencia.cantidad:
+                    return Response(
+                        {"detail": f"Se alcanzó el límite de {contrato_licencia.cantidad} licencias. No se pueden asignar más usuarios."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ContratoLicencia.DoesNotExist:
+                pass
+        return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Valida la ventana de reducción antes de permitir desvincular un usuario."""
+        obj = self.get_object()
+        licencia = obj.licencia
+        if licencia.partner and not licencia.puede_reducir:
+            return Response(
+                {"detail": "No se puede desvincular este usuario fuera de la ventana de reducción de licencias."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'], url_path=r'empresa/(?P<empresa_pk>\d+)/usuarios-no-vinculados')
     def usuarios_no_vinculados(self, request, licencia_pk=None, empresa_pk=None):
@@ -828,3 +1143,152 @@ def firmar_envio(request, uuid):
         'fecha_firma': envio.fecha_firma.isoformat(),
         'firmado': envio.firmado,
     }, status=200)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  Facturación de Contratos — Prefacturación mensual
+# ═══════════════════════════════════════════════════════════════
+
+class FacturaContratoViewSet(viewsets.ModelViewSet):
+    """ViewSet para CRUD y acciones de estado sobre FacturaContrato.
+
+    Flujo de estados: borrador → por_facturar → facturado
+    La transición a 'facturado' se produce al asociar un documento de factura.
+
+    Filtros via query params:
+      - ?contrato=<id>   filtra por contrato
+      - ?cliente=<id>    filtra por empresa cliente
+      - ?estado=<estado> filtra por estado
+      - ?historico=1     muestra solo registros en estado 'facturado'
+    """
+
+    queryset = FacturaContrato.objects.all()
+    serializer_class = FacturaContratoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    # ── Multi-tenancy ──────────────────────────────────────────
+    def get_queryset(self):
+        from core.models import PersonalizacionUsuario
+
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return FacturaContrato.objects.none()
+
+        empresa = personalizacion.sucursal_principal.empresa
+        qs = FacturaContrato.objects.filter(empresa_prestadora=empresa)
+
+        # Filtros opcionales
+        contrato = self.request.query_params.get("contrato")
+        if contrato:
+            qs = qs.filter(contrato_id=contrato)
+
+        cliente = self.request.query_params.get("cliente")
+        if cliente:
+            qs = qs.filter(empresa_cliente_id=cliente)
+
+        estado = self.request.query_params.get("estado")
+        if estado:
+            qs = qs.filter(estado=estado)
+
+        historico = self.request.query_params.get("historico")
+        if historico == "1":
+            qs = qs.filter(estado="facturado")
+
+        return qs.select_related(
+            "contrato", "empresa_prestadora", "empresa_cliente", "creado_por"
+        )
+
+    # ── Asignar creado_por / actualizado_por ───────────────────
+    def perform_create(self, serializer):
+        usuario_empresa = obtener_usuario_empresa(self.request.user)
+        serializer.save(creado_por=usuario_empresa, actualizado_por=usuario_empresa)
+
+    def perform_update(self, serializer):
+        usuario_empresa = obtener_usuario_empresa(self.request.user)
+        serializer.save(actualizado_por=usuario_empresa)
+
+    # ── Solo editable en borrador ──────────────────────────────
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.estado != "borrador":
+            return Response(
+                {"detail": "Solo se pueden editar facturas en estado borrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.estado != "borrador":
+            return Response(
+                {"detail": "Solo se pueden editar facturas en estado borrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    # ── Transición: borrador → por_facturar ────────────────────
+    @action(detail=True, methods=["post"], url_path="finalizar")
+    def finalizar(self, request, pk=None):
+        """Marca la prefactura como lista para facturar."""
+        factura = self.get_object()
+        if factura.estado != "borrador":
+            return Response(
+                {"detail": "Solo facturas en borrador pueden pasar a 'Por facturar'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        factura.estado = "por_facturar"
+        factura.fecha_emision = timezone.now().date()
+        factura.actualizado_por = obtener_usuario_empresa(request.user)
+        factura.save()
+        return Response(self.get_serializer(factura).data)
+
+    # ── Asociar documento → transición automática a facturado ──
+    @action(detail=True, methods=["post"], url_path="asociar-documento")
+    def asociar_documento(self, request, pk=None):
+        """Sube el documento de factura emitido externamente.
+
+        Si la prefactura está en estado 'por_facturar', cambia automáticamente
+        a 'facturado'. También acepta re-subir documento desde estado 'facturado'.
+        """
+        factura = self.get_object()
+        if factura.estado == "borrador":
+            return Response(
+                {"detail": "Debe finalizar la prefactura antes de adjuntar el documento."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        archivo = request.FILES.get("documento")
+        if not archivo:
+            return Response(
+                {"detail": "Debe adjuntar un archivo 'documento'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        factura.documento_factura = archivo
+        if factura.estado == "por_facturar":
+            factura.estado = "facturado"
+        factura.actualizado_por = obtener_usuario_empresa(request.user)
+        factura.save()
+        return Response(self.get_serializer(factura).data)
+
+    # ── Eliminar solo si está en borrador ───────────────────────
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.estado != "borrador":
+            return Response(
+                {"detail": "Solo se pueden eliminar prefacturas en estado borrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    # ── Resumen / métricas ──────────────────────────────────────
+    @action(detail=False, methods=["get"], url_path="resumen")
+    def resumen(self, request):
+        """Devuelve conteos por estado para el dashboard."""
+        qs = self.get_queryset()
+        from django.db.models import Count, Sum
+
+        resumen = qs.values("estado").annotate(
+            cantidad=Count("id"),
+            total=Sum("monto_total"),
+        )
+        return Response(list(resumen))

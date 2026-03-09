@@ -65,7 +65,7 @@ def eliminar_item_en_stock(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=ItemEnCompra)
-def create_items_in_stock(sender, created, instance, **kwargs):
+def create_items_in_stock_for_compra(sender, created, instance, **kwargs):
     if created:
         content_type = ContentType.objects.get_for_model(instance)
         ItemOrdenCompraEnStock.objects.get_or_create(
@@ -98,12 +98,16 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
 
     # --- 1) Revertir stock ---
     if cantidad > 0:
+        from django.db.models import F
+        from django.db.models.functions import Greatest
+
         usuario = guia.creado_por  # Usuario que creó la guía
 
-        stock_item.cantidad_no_disponible = max(
-            0, stock_item.cantidad_no_disponible - cantidad
+        # Liberar cantidad_no_disponible con F() atómico
+        from bodegas.models import StockItemEnBodega
+        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+            cantidad_no_disponible=Greatest(F("cantidad_no_disponible") - cantidad, 0)
         )
-        stock_item.save(update_fields=["cantidad_no_disponible"])
 
         # registrar_devolucion actualiza stock_item.cantidad automáticamente
         registrar_devolucion(
@@ -114,26 +118,8 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
             descripcion="Items eliminados de una guia de salida (signal)",
         )
 
-    # --- 2) Liberar serie en ItemOrdenCompraEnStock ---
+    # --- 2) Liberar serie en ItemOrdenCompraEnStock via series.py ---
     numero_serie = instance.numero_serie
     if numero_serie and numero_serie.get("serie"):
-        serie = numero_serie["serie"]
-        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
-        for oc in qs_oc:
-            numeros_serie = oc.numeros_serie or {}
-            lista_series = numeros_serie.get("numeros_serie", [])
-            modified = False
-            for entry in lista_series:
-                if (
-                    entry.get("serie") == serie
-                    and entry.get("modelo") == "itemsguiasalida"
-                    and entry.get("object_id") == instance.id
-                ):
-                    entry["modelo"] = ""
-                    entry["object_id"] = 0
-                    modified = True
-            if modified:
-                numeros_serie["numeros_serie"] = lista_series
-                oc.numeros_serie = numeros_serie
-                oc.save()
-                break
+        from bodegas.series import liberar_serie
+        liberar_serie(stock_item, numero_serie["serie"], instance.id)

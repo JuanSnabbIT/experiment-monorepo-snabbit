@@ -23,6 +23,7 @@ import {
     useGetDetalleGuiaSalidaQuery,
     useGetItemsGuiaSalidaQuery,
     useGetStockItemsEnBodegaQuery,
+    useToggleIndividualizadoItemGuiaMutation,
     useUpdateGuiaSalidaMutation,
 } from '@/store/slices/bodega/guiaSalidaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
@@ -70,6 +71,7 @@ function DetalleGuiaSalidaBodega() {
     const [agregarItem] = useAgregarItemGuiaMutation();
     const [editarItem] = useEditarItemGuiaMutation();
     const [eliminarItem] = useEliminarItemGuiaMutation();
+    const [toggleIndividualizado] = useToggleIndividualizadoItemGuiaMutation();
     const [deleteGuia] = useDeleteGuiaSalidaMutation();
     const [comprobarGuiaMutation] = useComprobarGuiaMutation();
     const [devolverABodegaMutation] = useDevolverABodegaMutation();
@@ -481,25 +483,68 @@ function DetalleGuiaSalidaBodega() {
         columnHelperItem.accessor('individualizado', {
             cell: (info) => {
                 return (
-                    <div>
+                    <div className='flex flex-col gap-1'>
                         {info.row.original.individualizado ? (
                             <div className='flex flex-col gap-2'>
                                 {info.row.original.numero_serie.serie
                                     ? info.row.original.numero_serie.serie
                                     : 'Sin Numero'}
-                                <div>
-                                    <Button
-                                        variant='solid'
-                                        onClick={() => {
-                                            setItemRebajaSelected(info.row.original);
-                                            setIsOpenNumero(true);
-                                        }}>
-                                        Editar
-                                    </Button>
-                                </div>
+                                {isPendiente && (
+                                    <div className='flex gap-1'>
+                                        <Button
+                                            variant='solid'
+                                            size='sm'
+                                            onClick={() => {
+                                                setItemRebajaSelected(info.row.original);
+                                                setIsOpenNumero(true);
+                                            }}>
+                                            Editar serie
+                                        </Button>
+                                        <Button
+                                            variant='outline'
+                                            color='zinc'
+                                            size='sm'
+                                            onClick={async () => {
+                                                if (!id) return;
+                                                try {
+                                                    await toggleIndividualizado({
+                                                        id_guia: id,
+                                                        item_id: info.row.original.id,
+                                                    }).unwrap();
+                                                    toast.success('Item marcado como no serializado', { autoClose: 1000 });
+                                                } catch (error: any) {
+                                                    toast.error(error.data?.detail || 'Error al cambiar tipo');
+                                                }
+                                            }}>
+                                            Quitar serie
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            'No'
+                            <div className='flex flex-col gap-1'>
+                                <span>No</span>
+                                {isPendiente && (
+                                    <Button
+                                        variant='outline'
+                                        color='blue'
+                                        size='sm'
+                                        onClick={async () => {
+                                            if (!id) return;
+                                            try {
+                                                await toggleIndividualizado({
+                                                    id_guia: id,
+                                                    item_id: info.row.original.id,
+                                                }).unwrap();
+                                                toast.success('Item marcado como serializado — asigna el número de serie', { autoClose: 2000 });
+                                            } catch (error: any) {
+                                                toast.error(error.data?.detail || 'Error al cambiar tipo');
+                                            }
+                                        }}>
+                                        Marcar serializado
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
                 );

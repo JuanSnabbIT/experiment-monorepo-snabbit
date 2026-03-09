@@ -393,7 +393,7 @@ class CierreAdministrativoOT(ModeloBaseHistorico):
         choices=ESTADOS_CIERRE_OT,
         default="borrador",
         verbose_name="Estado del cierre",
-        help_text="Flujo: borrador → en_revision → aprobado → facturado → pagado",
+        help_text="Flujo: borrador → por_facturar → facturado",
     )
     # AUDITORÍA
     creado_por = models.ForeignKey(

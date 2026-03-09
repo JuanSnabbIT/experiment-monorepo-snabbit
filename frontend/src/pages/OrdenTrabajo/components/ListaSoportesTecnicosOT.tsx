@@ -1404,6 +1404,10 @@ function ListaSoportesTecnicosOT() {
                         setSoporteTecnicoUsuarios(null);
                     }}
                     onSaved={() => {
+                        refetchSoportesTecnicos();
+                        refetchDetalleOrdenTrabajo();
+                        refetchCompletibilidadOT();
+                        refetchInsumosOrdenTrabajo();
                     }}
                 />
             )}

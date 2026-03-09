@@ -92,6 +92,14 @@ admin.site.register(ItemEnTomaInventario)
 admin.site.register(ImagenDeItemEnTomaInventario)
 
 
+@admin.register(SerieItem)
+class SerieItemAdmin(admin.ModelAdmin):
+    list_display = ("serie", "stock_item", "estado", "empresa", "item_guia_salida", "fecha_creacion")
+    list_filter = ("estado", "empresa")
+    search_fields = ("serie", "stock_item__item__nombre")
+    raw_id_fields = ("stock_item", "item_guia_salida", "item_orden_compra_en_stock")
+
+
 class MovimientoEnVoucherInline(admin.TabularInline):
     model = MovimientoEnVoucher
     extra = 0

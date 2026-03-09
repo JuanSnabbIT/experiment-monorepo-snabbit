@@ -17,6 +17,11 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
     observaciones = models.TextField(blank=True, null=True)
     nombre = models.CharField(max_length=100)
     tipo = models.CharField(max_length=20, choices=TIPO_CONTRATO, default='servicios')
+    dia_facturacion = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        help_text="Día del mes (1-28) en que se genera automáticamente la prefactura.",
+    )
 
     # Relaciones ManyToMany con modelos intermedios
     servicios_genericos = models.ManyToManyField(
@@ -192,6 +197,7 @@ class ContratoLicencia(ModeloBaseHistorico):
     fecha_inicio = models.DateField(blank=True, null=True, verbose_name="Fecha de Inicio")
     fecha_fin = models.DateField(blank=True, null=True, verbose_name="Fecha de Fin")
     partner = models.BooleanField(default=True, verbose_name="Partner")
+    estado = models.CharField(max_length=20, choices=ESTADOS_CONTRATO_LICENCIA, default='activa', verbose_name="Estado")
     usuarios = models.ManyToManyField("empresas.UsuarioEmpresa", through="contratos.UsuarioVinculadoLicencia")
     
     class Meta:
@@ -270,6 +276,17 @@ class ContratoLicencia(ModeloBaseHistorico):
             return "Hoy finaliza la ventana de reducción de licencias."
         return ""
 
+    def _actualizar_estado_automatico(self):
+        """Actualiza el estado según fecha_fin. Los estados manuales (suspendida, cancelada) no se modifican."""
+        if self.estado in ('suspendida', 'cancelada'):
+            return
+        fecha_cierre = self.fecha_fin or (self.contrato.fecha_fin if self.contrato_id else None)
+        if fecha_cierre and fecha_cierre < date.today():
+            self.estado = 'vencida'
+        elif self.estado == 'vencida':
+            # Si se extiende la fecha y ya no está vencida, volver a activa
+            self.estado = 'activa'
+
     def clean(self):
         super().clean()
 
@@ -290,6 +307,7 @@ class ContratoLicencia(ModeloBaseHistorico):
                 )
 
     def save(self, *args, **kwargs):
+        self._actualizar_estado_automatico()
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -353,3 +371,100 @@ class AcuerdoConfidencialidadContrato(ModeloBaseHistorico):
 
     def __str__(self):
         return f"Firma de {self.acuerdo_base.titulo} para Contrato #{self.contrato.id}"
+
+
+class FacturaContrato(ModeloBaseHistorico):
+    """Prefactura mensual generada a partir de un contrato activo.
+
+    Representa el documento de prefacturación que se genera automáticamente
+    (vía Celery) o manualmente para un período de facturación específico.
+    La factura real se emite en un sistema externo; aquí solo se registra
+    el estado de prefacturación y el documento asociado.
+    """
+
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="facturas",
+    )
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="facturas_emitidas",
+    )
+    empresa_cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="facturas_recibidas",
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS_FACTURA_CONTRATO,
+        default="borrador",
+    )
+    periodo_inicio = models.DateField(
+        help_text="Inicio del período de facturación.",
+    )
+    periodo_fin = models.DateField(
+        help_text="Fin del período de facturación.",
+    )
+    fecha_emision = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Fecha en que se marcó como 'Por facturar'.",
+    )
+    monto_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text="Monto total calculado de la prefactura.",
+    )
+    moneda = models.CharField(
+        max_length=5,
+        choices=TIPO_MONEDA_LICENCIA,
+        default="2",
+        help_text="Moneda de la factura.",
+    )
+    resultado = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Desglose detallado: servicios, licencias, recargos, etc.",
+    )
+    comentario = models.TextField(blank=True, default="")
+    documento_factura = models.FileField(
+        upload_to="facturas_contratos/",
+        blank=True,
+        null=True,
+        help_text="Documento de factura emitido externamente.",
+    )
+    creado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="facturas_contrato_creadas",
+    )
+    actualizado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="facturas_contrato_actualizadas",
+    )
+
+    class Meta:
+        verbose_name = "Factura de Contrato"
+        verbose_name_plural = "Facturas de Contratos"
+        ordering = ["-periodo_inicio"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["contrato", "periodo_inicio", "periodo_fin"],
+                name="unique_factura_periodo_contrato",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Factura #{self.pk} — {self.contrato.nombre} "
+            f"({self.periodo_inicio} → {self.periodo_fin}) [{self.get_estado_display()}]"
+        )

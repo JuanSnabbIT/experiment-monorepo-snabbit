@@ -101,6 +101,9 @@ export interface IContratoLicencia {
     nombre_contrato: string;
     se_puede_reducir: boolean;
     dias_restantes_licencia: number;
+    estado: string;
+    estado_label: string;
+    color_estado: 'emerald' | 'red' | 'amber' | 'zinc';
     fecha_creacion: string;
     fecha_modificacion: string;
     tipo_modalidad: string;
@@ -114,6 +117,7 @@ export interface IContratoLicencia {
     contrato: number;
     licencia: number;
     usuarios: number[];
+    empresa_cliente: number;
 }
 
 export interface IContratoVisita {
@@ -205,6 +209,8 @@ export interface IUsuarioVinculadoLicencia {
         nombre: string;
         correo: string;
     } | null;
+    es_externo: boolean;
+    nombre_display: string;
 }
 
 export interface IDetalleEnvio {
@@ -217,4 +223,67 @@ export interface IDetalleEnvio {
         fecha_creacion: string;
         fecha_modificacion: string;
     }[];
+}
+
+export interface IFacturaContrato {
+    id: number;
+    contrato: number;
+    empresa_prestadora: number;
+    empresa_cliente: number;
+    estado: string;
+    estado_label: string;
+    periodo_inicio: string;
+    periodo_fin: string;
+    fecha_emision: string | null;
+    monto_total: string;
+    moneda: string;
+    moneda_label: string;
+    resultado: Record<string, unknown> | null;
+    comentario: string;
+    documento_factura: string | null;
+    creado_por: number | null;
+    actualizado_por: number | null;
+    creado_por_nombre: string | null;
+    nombre_contrato: string;
+    nombre_cliente: string;
+    nombre_prestadora: string;
+    fecha_creacion: string;
+    fecha_modificacion: string;
+}
+
+export interface IFacturaContratoResumen {
+    estado: string;
+    cantidad: number;
+    total: number | null;
+}
+
+// ── Interfaces para endpoints "por usuario" ──
+
+export interface ILicenciaVinculadaPorUsuario {
+    id: number;
+    fecha_asignacion: string;
+    nombre_licencia: string;
+    proveedor_licencia: string | null;
+    estado_licencia: string;
+    estado_licencia_label: string;
+    color_estado: 'emerald' | 'red' | 'amber' | 'zinc';
+    fecha_fin_licencia: string | null;
+    nombre_contrato: string;
+    contrato_id: number;
+    licencia_contrato_id: number;
+}
+
+export interface IContratoVinculadoPorUsuario {
+    id: number;
+    fecha_vinculacion: string;
+    tipo_usuario: string;
+    tipo_usuario_label: string;
+    nombre_contrato: string;
+    tipo_contrato: string;
+    tipo_contrato_label: string;
+    estado_contrato: string;
+    estado_contrato_label: string;
+    fecha_inicio_contrato: string;
+    fecha_fin_contrato: string | null;
+    contrato_id: number;
 }

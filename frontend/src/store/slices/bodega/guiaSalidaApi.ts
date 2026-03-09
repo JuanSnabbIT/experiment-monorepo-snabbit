@@ -366,6 +366,20 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
                 return [...baseTags, ...ordenTags];
             },
         }),
+        toggleIndividualizadoItemGuia: builder.mutation<
+            IItemGuiaSalida & { bodega_id?: number },
+            { id_guia: number | string; item_id: number | string }
+        >({
+            query: ({ id_guia, item_id }) => ({
+                url: `/api/guia-salida/${id_guia}/items-guia/${item_id}/toggle-individualizado/`,
+                method: 'patch',
+                data: {},
+            }),
+            invalidatesTags: (_result, _error, { id_guia }) => [
+                { type: 'GuiaSalidaItems', id: id_guia },
+                { type: 'GuiaSalida', id: id_guia },
+            ],
+        }),
 
     }),
     overrideExisting: true,
@@ -391,4 +405,5 @@ export const {
     useDevolverABodegaMutation,
     useAgregarSerieStockMutation,
     useEliminarSerieStockMutation,
+    useToggleIndividualizadoItemGuiaMutation,
 } = guiaSalidaApi;

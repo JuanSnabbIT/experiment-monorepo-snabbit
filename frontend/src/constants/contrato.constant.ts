@@ -1,3 +1,4 @@
+
 export const ESTADOS_CONTRATO = [
     { value: 'borrador', label: 'Borrador' },
     { value: 'activo', label: 'Activo' },
@@ -44,6 +45,22 @@ export const CATEGORIAS_SERVICIO = [
 ];
 
 export const TIPO_MONEDA_LICENCIA = [
-    { value: 'USD', label: 'Dolares Americanos' },
-    { value: 'CLP', label: 'Pesos Chilenos' },
+    { value: 'USD', label: 'USD' },
+    { value: 'CLP', label: 'CLP' },
+    { value: 'UF', label: 'UF' },
 ];
+
+export const ESTADOS_LICENCIA = [
+    { value: 'activa',     label: 'Activa',     color: 'emerald' as const },
+    { value: 'vencida',    label: 'Vencida',    color: 'red'     as const },
+    { value: 'suspendida', label: 'Suspendida', color: 'amber'   as const },
+    { value: 'cancelada',  label: 'Cancelada',  color: 'zinc'    as const },
+];
+
+/** Espejo del backend contratos/estados_modelo.py → TRANSICIONES_ESTADO_LICENCIA */
+export const TRANSICIONES_ESTADO_LICENCIA: Record<string, string[]> = {
+    activa:     ['suspendida', 'cancelada'],
+    suspendida: ['activa', 'cancelada'],
+    vencida:    ['cancelada'],
+    cancelada:  [],
+};

@@ -323,6 +323,52 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["get"], url_path=r"detalle-usuario-cliente/(?P<usuario_empresa_pk>\d+)")
+    def detalle_usuario_cliente(self, request, usuario_empresa_pk=None):
+        """
+        GET /api/usuarios-empresa/detalle-usuario-cliente/{usuario_empresa_pk}/
+        Retorna el detalle de un UsuarioEmpresa que pertenece a una empresa cliente.
+        Filtra por multi-tenancy: la empresa del usuario debe ser cliente de la empresa autenticada.
+        """
+        try:
+            usuario_empresa = UsuarioEmpresa.objects.select_related(
+                'usuario', 'sucursal', 'sucursal__empresa'
+            ).get(pk=usuario_empresa_pk)
+        except UsuarioEmpresa.DoesNotExist:
+            return Response(
+                {"error": "No se encontró el usuario."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Validar multi-tenancy: la empresa del usuario debe ser cliente del usuario autenticado
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=request.user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return Response(
+                {"error": "Sin permisos."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        empresa_autenticada = personalizacion.sucursal_principal.empresa
+        empresa_usuario = usuario_empresa.sucursal.empresa
+
+        # Verificar que la empresa del usuario sea cliente de la empresa autenticada
+        es_cliente = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa_autenticada,
+            cliente=empresa_usuario,
+        ).exists()
+
+        # O que sea de la misma empresa
+        es_misma_empresa = empresa_autenticada == empresa_usuario
+
+        if not es_cliente and not es_misma_empresa:
+            return Response(
+                {"error": "No tiene permisos para ver este usuario."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = self.get_serializer(usuario_empresa)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class RelacionEmpresaViewSet(viewsets.ModelViewSet):
     queryset = RelacionEmpresa.objects.all()

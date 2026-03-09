@@ -1350,7 +1350,17 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
     serializer_class = StockItemEnBodegaSerializer
 
     def get_queryset(self):
-        return StockItemEnBodega.objects.filter(bodega_id=self.kwargs["bodega_pk"])
+        # Fase 1f: Validar que la bodega pertenece a la empresa del usuario
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=self.request.user
+        ).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return StockItemEnBodega.objects.none()
+        empresa = personalizacion.sucursal_principal.empresa
+        return StockItemEnBodega.objects.filter(
+            bodega_id=self.kwargs["bodega_pk"],
+            bodega__sucursal__empresa=empresa,
+        )
 
     @action(detail=True, methods=["get"], url_path="ordenes-compra")
     def ordenes_compra(self, request, pk=None, bodega_pk=None):
@@ -1368,6 +1378,7 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="agregar-serie")
+    @transaction.atomic
     def agregar_serie(self, request, pk=None, bodega_pk=None):
         """
         Agrega un número de serie a un stock item que está en bodega.
@@ -1384,36 +1395,26 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
 
         stock_item = self.get_object()
 
-        # Verificar que la serie no exista ya en ningún ItemOrdenCompraEnStock de este stock
-        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        # Lock: Bloquear registros de OC en stock para evitar race condition
+        qs_oc = ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
         if not qs_oc.exists():
             return Response(
                 {"detail": "No existen registros de compra asociados a este stock item."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Verificar duplicados en todos los registros de este stock
-        for oc in qs_oc:
-            lista_series = (oc.numeros_serie or {}).get("numeros_serie", [])
-            for entry in lista_series:
-                if entry.get("serie") == serie:
-                    return Response(
-                        {"detail": f"La serie '{serie}' ya existe en este stock item."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+        # Verificar duplicados usando series.py
+        from bodegas.series import serie_existe_en_stock, agregar_serie_a_stock
+
+        if serie_existe_en_stock(stock_item, serie):
+            return Response(
+                {"detail": f"La serie '{serie}' ya existe en este stock item."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Agregar la serie al primer registro disponible
         oc_target = qs_oc.first()
-        numeros_serie = oc_target.numeros_serie or {}
-        lista_series = numeros_serie.get("numeros_serie", [])
-        lista_series.append({
-            "serie": serie,
-            "modelo": "",
-            "object_id": 0,
-        })
-        numeros_serie["numeros_serie"] = lista_series
-        oc_target.numeros_serie = numeros_serie
-        oc_target.save()
+        agregar_serie_a_stock(oc_target, serie)
 
         # Retornar el stock item actualizado
         stock_item.refresh_from_db()
@@ -1421,6 +1422,7 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="eliminar-serie")
+    @transaction.atomic
     def eliminar_serie(self, request, pk=None, bodega_pk=None):
         """
         Elimina un número de serie disponible de un stock item.
@@ -1435,36 +1437,55 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
             )
 
         stock_item = self.get_object()
-        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        # Lock: Bloquear registros para evitar race condition
+        ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
 
-        for oc in qs_oc:
-            numeros_serie = oc.numeros_serie or {}
-            lista_series = numeros_serie.get("numeros_serie", [])
-            for i, entry in enumerate(lista_series):
-                if entry.get("serie") == serie:
-                    if entry.get("object_id", 0) != 0 or entry.get("modelo", "") != "":
-                        return Response(
-                            {"detail": "No se puede eliminar una serie que está asignada."},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                    lista_series.pop(i)
-                    numeros_serie["numeros_serie"] = lista_series
-                    oc.numeros_serie = numeros_serie
-                    oc.save()
+        from bodegas.series import eliminar_serie_de_stock
 
-                    stock_item.refresh_from_db()
-                    serializer = self.get_serializer(stock_item)
-                    return Response(serializer.data, status=status.HTTP_200_OK)
+        eliminada, motivo = eliminar_serie_de_stock(stock_item, serie)
+        if not eliminada:
+            if motivo == "Serie no encontrada.":
+                return Response(
+                    {"detail": motivo},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                {"detail": motivo},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        return Response(
-            {"detail": "Serie no encontrada."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        stock_item.refresh_from_db()
+        serializer = self.get_serializer(stock_item)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
     queryset = ItemOrdenCompraEnStock.objects.all()
     serializer_class = ItemOrdenCompraEnStockSerializer
+
+    def get_queryset(self):
+        # Filtrar por empresa del usuario para multi-tenancy.
+        # Se usa Q para cubrir dos rutas:
+        # 1. Registros vinculados a ItemEnOrdenCompra (stock_item puede ser NULL al inicio)
+        # 2. Registros con stock_item ya asignado (cubre otros content_types, ej. itemencompra)
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=self.request.user
+        ).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return ItemOrdenCompraEnStock.objects.none()
+        empresa = personalizacion.sucursal_principal.empresa
+        content_type_oc = ContentType.objects.get(
+            app_label="bodegas", model="itemenordencompra"
+        )
+        return ItemOrdenCompraEnStock.objects.filter(
+            Q(
+                content_type=content_type_oc,
+                item_oc_id__in=ItemEnOrdenCompra.objects.filter(
+                    orden_compra__oc_empresa=empresa
+                ).values_list("id", flat=True),
+            )
+            | Q(stock_item__bodega__sucursal__empresa=empresa)
+        ).distinct()
 
     @action(detail=False, methods=["get"], url_path="por-orden")
     def por_orden(self, request, orden_compra_pk=None):
@@ -1865,15 +1886,14 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                # 2) Rebajar cantidad_no_disponible (ya NO se registra salida aquí, se hizo al agregar items)
+                # 2) Rebajar cantidad_no_disponible con F() atómico
                 for item_guia in ItemsGuiaSalida.objects.filter(guia=guia_salida):
-                    stock_item = item_guia.stock_item
-
-                    stock_item.cantidad_no_disponible = max(
-                        0,
-                        stock_item.cantidad_no_disponible - item_guia.cantidad_rebajada,
+                    from django.db.models.functions import Greatest
+                    StockItemEnBodega.objects.filter(pk=item_guia.stock_item_id).update(
+                        cantidad_no_disponible=Greatest(
+                            F("cantidad_no_disponible") - item_guia.cantidad_rebajada, 0
+                        )
                     )
-                    stock_item.save()
                     item_guia.save()
 
                     # NO registrar_salida aquí: ya se registró al agregar el item a la guía
@@ -2124,22 +2144,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 if serie:
                     Equipo.objects.filter(numero_serie=serie).delete()
 
-                    # 4) Liberar solo 'modelo' y 'object_id' en ItemOrdenCompraEnStock, sin quitar la serie
-                    oc_qs = ItemOrdenCompraEnStock.objects.select_for_update().filter(
-                        numeros_serie__icontains=serie
-                    )
-                    for oc in oc_qs:
-                        series_list = oc.numeros_serie.get("numeros_serie", [])
-                        for s in series_list:
-                            if (
-                                s.get("serie") == serie
-                                and s.get("modelo") == item._meta.model_name
-                                and s.get("object_id") == item.pk
-                            ):
-                                s["modelo"] = ""
-                                s["object_id"] = 0
-                        oc.numeros_serie["numeros_serie"] = series_list
-                        oc.save()
+                    # 4) Liberar serie en ItemOrdenCompraEnStock via series.py
+                    from bodegas.series import liberar_serie
+                    liberar_serie(stock, serie, item.pk)
 
             # 5) Recalcular y guardar estado de la guía basada en ItemsGuiaSalida
             all_items = ItemsGuiaSalida.objects.filter(guia=guia)
@@ -2252,21 +2259,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     serie = item.numero_serie.get("serie")
                     if serie:
                         Equipo.objects.filter(numero_serie=serie).delete()
-                        oc_qs = ItemOrdenCompraEnStock.objects.select_for_update().filter(
-                            numeros_serie__icontains=serie
-                        )
-                        for oc in oc_qs:
-                            series_list = oc.numeros_serie.get("numeros_serie", [])
-                            for s in series_list:
-                                if (
-                                    s.get("serie") == serie
-                                    and s.get("modelo") == item._meta.model_name
-                                    and s.get("object_id") == item.pk
-                                ):
-                                    s["modelo"] = ""
-                                    s["object_id"] = 0
-                            oc.numeros_serie["numeros_serie"] = series_list
-                            oc.save()
+                        # Liberar serie en ItemOrdenCompraEnStock via series.py
+                        from bodegas.series import liberar_serie as _liberar_serie
+                        _liberar_serie(stock, serie, item.pk)
 
             items = ItemsGuiaSalida.objects.filter(guia=guia_salida)
             total_reb = sum(i.cantidad_rebajada for i in items)
@@ -2285,6 +2280,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="agregar-item")
+    @transaction.atomic
     def agregar_item(self, request, pk=None):
         """
         Agregar un ítem a la guía de salida especificada.
@@ -2319,7 +2315,8 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            stock_item = StockItemEnBodega.objects.get(pk=stock_item_id)
+            # Lock: select_for_update para evitar race condition en stock
+            stock_item = StockItemEnBodega.objects.select_for_update().get(pk=stock_item_id)
         except StockItemEnBodega.DoesNotExist:
             return Response(
                 {"detail": "El stock_item_id proporcionado no existe."},
@@ -2347,42 +2344,35 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             )
 
         # Crear el ítem en la guía de salida incluyendo el campo individualizado
-        try:
-            item_guia = ItemsGuiaSalida.objects.create(
-                guia=guia_salida,
-                stock_item=stock_item,
-                cantidad_original=stock_item.cantidad,
-                cantidad_rebajada=cantidad_rebajada,
-                individualizado=individualizado,
-            )
-            # Actualizar cantidad no disponible (reservada)
-            stock_item.cantidad_no_disponible = (
-                stock_item.cantidad_no_disponible + cantidad_rebajada
-            )
-            stock_item.save(update_fields=["cantidad_no_disponible"])
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=guia_salida,
+            stock_item=stock_item,
+            cantidad_original=stock_item.cantidad,
+            cantidad_rebajada=cantidad_rebajada,
+            individualizado=individualizado,
+        )
+        # Actualizar cantidad no disponible (reservada) con F() atómico
+        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+            cantidad_no_disponible=F("cantidad_no_disponible") + cantidad_rebajada
+        )
 
-            # BUG FIX: registrar_salida actualiza stock_item.cantidad automáticamente
-            registrar_salida(
-                stock_item=stock_item,
-                cantidad=cantidad_rebajada,
-                origen=item_guia,
-                usuario=usuario_empresa,
-                descripcion="Items añadidos a la guia",
-            )
+        # registrar_salida actualiza stock_item.cantidad automáticamente con F()
+        registrar_salida(
+            stock_item=stock_item,
+            cantidad=cantidad_rebajada,
+            origen=item_guia,
+            usuario=usuario_empresa,
+            descripcion="Items añadidos a la guia",
+        )
 
-            # Refrescar stock_item para asegurar que cantidad y cantidad_no_disponible están sincronizados
-            stock_item.refresh_from_db()
+        # Refrescar stock_item para asegurar que cantidad y cantidad_no_disponible están sincronizados
+        stock_item.refresh_from_db()
 
-            serializer = ItemsGuiaSalidaSerializer(item_guia)
-            data = serializer.data
-            # Agregar bodega_id para que el frontend pueda invalidar el cache correcto
-            data['bodega_id'] = guia_salida.bodega_id
-            return Response(data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response(
-                {"detail": f"Error al crear el ítem: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        serializer = ItemsGuiaSalidaSerializer(item_guia)
+        data = serializer.data
+        # Agregar bodega_id para que el frontend pueda invalidar el cache correcto
+        data['bodega_id'] = guia_salida.bodega_id
+        return Response(data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=False, methods=["get"], url_path=r"(?P<empresa_id>[^/.]+)/disponibles"
@@ -2534,20 +2524,18 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["delete"], url_path="eliminar-item")
+    @transaction.atomic
     def eliminar_item(self, request, pk=None, guia_salida_bodega_pk=None):
         """
-        Action para eliminar un item de la guía de salida, actualizar el stock en bodega
-        y, si el item posee un número de serie, actualizar el JSON en ItemOrdenCompraEnStock
-        estableciendo el default (modelo: "", object_id: 0).
+        Elimina un item de la guía de salida.
 
-        Pasos:
-          1. Obtiene el item de la guía.
-          2. Actualiza el StockItemEnBodega:
-             - Suma a 'cantidad' la cantidad rebajada.
-             - Resta a 'cantidad_no_disponible' la misma cantidad.
-          3. Si el item posee un número de serie, se busca en ItemOrdenCompraEnStock el registro
-             que lo contiene y se resetean 'modelo' y 'object_id' a sus valores default.
-          4. Elimina el item de la guía.
+        La eliminación en cascada activa el signal pre_delete de ItemsGuiaSalida
+        que se encarga de:
+        - Revertir stock (cantidad + cantidad_no_disponible) vía registrar_devolucion
+        - Liberar serie en ItemOrdenCompraEnStock
+        - Registrar movimiento de devolución
+
+        NO se debe liberar serie manualmente aquí para evitar doble liberación.
         """
         try:
             item_guia = self.get_object()
@@ -2557,47 +2545,12 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        usuario_empresa = obtener_usuario_empresa(request.user)
-
-        # Guardar referencia al stock_item antes de eliminar
+        # Guardar referencias antes de eliminar
         stock_item = item_guia.stock_item
-
-        # NOTA: No llamamos registrar_devolucion aquí porque el signal pre_delete
-        # de ItemsGuiaSalida ya maneja la devolución del stock automáticamente
-
-        # Si el item posee un número de serie en su campo JSON, se resetea en ItemOrdenCompraEnStock
-        numero_serie = (
-            item_guia.numero_serie
-        )  # Estructura simple: { "serie": string, "modelo": string, "object_id": number }
-        if numero_serie and numero_serie.get("serie"):
-            serie = numero_serie.get("serie")
-            # Se buscan los registros de ItemOrdenCompraEnStock asociados al stock
-            qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
-            serie_actualizada = False
-            for oc in qs_oc:
-                # Se espera que el campo tenga la estructura: {"numeros_serie": [ { "serie": ..., "modelo": ..., "object_id": ... }, ... ]}
-                numeros_serie = oc.numeros_serie or {}
-                lista_series = numeros_serie.get("numeros_serie", [])
-                for entry in lista_series:
-                    if (
-                        entry.get("serie") == serie
-                        and entry.get("modelo") == "itemsguiasalida"
-                        and entry.get("object_id") == item_guia.id
-                    ):
-                        # Se restablece al default
-                        entry["modelo"] = ""
-                        entry["object_id"] = 0
-                        serie_actualizada = True
-                if serie_actualizada:
-                    numeros_serie["numeros_serie"] = lista_series
-                    oc.numeros_serie = numeros_serie
-                    oc.save()
-                    break
-
-        # Guardar bodega_id antes de eliminar
         bodega_id = item_guia.guia.bodega_id
-        
-        # Se elimina el item de la guía
+
+        # Se elimina el item — el signal pre_delete maneja TODO:
+        # stock, serie y movimiento de devolución
         item_guia.delete()
 
         # Refrescar stock_item para sincronización después del signal
@@ -2612,6 +2565,7 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=["patch"], url_path="editar-item")
+    @transaction.atomic
     def editar_item(self, request, pk=None, guia_salida_bodega_pk=None):
         """
         Action para editar un ítem de la guía de salida y actualizar el stock en bodega.
@@ -2670,10 +2624,10 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # Incrementar cantidad no disponible (reservada)
-            stock_item.cantidad_no_disponible += delta
-            stock_item.save(update_fields=["cantidad_no_disponible"])
-            # BUG FIX: registrar_salida actualiza stock_item.cantidad automáticamente
+            # Incrementar cantidad no disponible (reservada) con F() atómico
+            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+                cantidad_no_disponible=F("cantidad_no_disponible") + delta
+            )
             registrar_salida(
                 stock_item=stock_item,
                 cantidad=delta,
@@ -2683,13 +2637,11 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             )
         # Si se reduce la cantidad, se devuelven ítems al stock
         elif delta < 0:
-            # Liberar cantidad no disponible (reservada)
-            stock_item.cantidad_no_disponible = max(
-                0, stock_item.cantidad_no_disponible - abs(delta)
+            # Liberar cantidad no disponible (reservada) con F() atómico
+            from django.db.models.functions import Greatest
+            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+                cantidad_no_disponible=Greatest(F("cantidad_no_disponible") - abs(delta), 0)
             )
-            stock_item.save(update_fields=["cantidad_no_disponible"])
-            # BUG FIX: registrar_devolucion actualiza stock_item.cantidad automáticamente
-            # Usar DEVOLUCION en lugar de ENTRADA para mayor claridad
             registrar_devolucion(
                 stock_item=stock_item,
                 cantidad=abs(delta),
@@ -2714,6 +2666,7 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["patch"], url_path="actualizar-serie")
+    @transaction.atomic
     def actualizar_serie(self, request, pk=None, guia_salida_bodega_pk=None):
         """
         Action para actualizar el número de serie en el JSON de ItemOrdenCompraEnStock y
@@ -2744,54 +2697,22 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         item_guia = self.get_object()
         stock_item = item_guia.stock_item
 
-        # Consultamos los registros de ItemOrdenCompraEnStock asociados a este stock.
-        qs_oc = ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
+        # Lock: Bloquear registros de OC para evitar race condition
+        ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
 
-        # Primero: Reseteamos a default cualquier entrada que tenga object_id igual a item_guia.id.
-        for oc in qs_oc:
-            numeros_serie = oc.numeros_serie or {}
-            lista_series = numeros_serie.get("numeros_serie", [])
-            modified = False
-            for entry in lista_series:
-                if entry.get("object_id") == item_guia.id:
-                    entry["modelo"] = ""
-                    entry["object_id"] = 0
-                    modified = True
-            if modified:
-                numeros_serie["numeros_serie"] = lista_series
-                oc.numeros_serie = numeros_serie
-                oc.save()
+        from bodegas.series import liberar_series_por_item_guia, reservar_serie
 
-        # Segundo: Buscamos la entrada que corresponde a la serie enviada.
-        serie_actualizada = False
-        for oc in qs_oc:
-            numeros_serie = oc.numeros_serie or {}
-            lista_series = numeros_serie.get("numeros_serie", [])
-            for entry in lista_series:
-                if entry.get("serie") == serie:
-                    # Rechazar si la serie ya está asignada a otro item_guia
-                    if (
-                        entry.get("object_id", 0) != 0
-                        and entry.get("modelo", "") != ""
-                        and entry.get("object_id") != item_guia.id
-                    ):
-                        return Response(
-                            {"detail": "La serie ya está asignada a otro ítem de guía."},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                    entry["modelo"] = "itemsguiasalida"
-                    entry["object_id"] = item_guia.id
-                    serie_actualizada = True
-            if serie_actualizada:
-                numeros_serie["numeros_serie"] = lista_series
-                oc.numeros_serie = numeros_serie
-                oc.save()
-                break
+        # Primero: Liberar cualquier serie previamente asignada a este item_guia
+        liberar_series_por_item_guia(stock_item, item_guia.id)
 
-        if not serie_actualizada:
+        # Segundo: Reservar la nueva serie
+        reservada, motivo = reservar_serie(stock_item, serie, item_guia.id)
+        if not reservada:
             return Response(
-                {"detail": "Serie no encontrada en ItemOrdenCompraEnStock."},
-                status=status.HTTP_404_NOT_FOUND,
+                {"detail": motivo},
+                status=status.HTTP_400_BAD_REQUEST
+                if "asignada" in motivo
+                else status.HTTP_404_NOT_FOUND,
             )
 
         # Actualizamos el JSON del ItemsGuiaSalida con la estructura simple.
@@ -2813,6 +2734,31 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=True, methods=["patch"], url_path="toggle-individualizado")
+    @transaction.atomic
+    def toggle_individualizado(self, request, pk=None, guia_salida_bodega_pk=None):
+        """
+        Activa o desactiva el flag 'individualizado' de un ItemsGuiaSalida.
+
+        - false → true: solo marca el item como serializable.
+          La serie se asigna luego con 'actualizar-serie'.
+        - true → false: libera cualquier serie reservada y limpia numero_serie.
+        """
+        item_guia = self.get_object()
+        nuevo_valor = not item_guia.individualizado
+
+        if not nuevo_valor:
+            # Desactivando: liberar serie y limpiar campo
+            from bodegas.series import liberar_series_por_item_guia
+            liberar_series_por_item_guia(item_guia.stock_item, item_guia.id)
+            item_guia.numero_serie = {}
+
+        item_guia.individualizado = nuevo_valor
+        item_guia.save()
+
+        serializer = self.get_serializer(item_guia)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class CompraViewSet(viewsets.ModelViewSet):

@@ -95,6 +95,8 @@ const DefaultAsideTemplate = () => {
                                     )}
                                 </NavCollapse>
                             </AuthorityCheckNav>
+
+
                         </NavCollapse>
                     </AuthorityCheckNav>
 
@@ -394,6 +396,15 @@ const DefaultAsideTemplate = () => {
                                     to={Pages.facturacion.subPages.listaFacturas.to}
                                     icon={Pages.facturacion.subPages.listaFacturas.icon}
                                     id={Pages.facturacion.subPages.listaFacturas.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.facturacion.subPages.facturasContrato.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.facturacion.subPages.facturasContrato.text}
+                                    to={Pages.facturacion.subPages.facturasContrato.to}
+                                    icon={Pages.facturacion.subPages.facturasContrato.icon}
+                                    id={Pages.facturacion.subPages.facturasContrato.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>

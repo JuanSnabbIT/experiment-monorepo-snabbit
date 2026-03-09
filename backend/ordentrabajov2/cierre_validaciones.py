@@ -13,7 +13,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
     Valida que una OT cumpla los requisitos para pasar a estado 'cerrada'.
     
     Requisitos:
-    1. Existe una prefactura (CierreAdministrativoOT) con estado 'facturado' o 'pagado' que incluya esta OT
+    1. Existe una prefactura (CierreAdministrativoOT) con estado 'facturado' que incluya esta OT
     2. Existe una rendición asociada a la OT con estado 'aprobada' (2) o 'pagada' (4)
     
     Args:
@@ -24,7 +24,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
     """
     errores = []
     
-    # Validar 1: Prefactura facturada/pagada que incluya esta OT
+    # Validar 1: Prefactura facturada que incluya esta OT
     prefactura_aprobada = _validar_prefactura_aprobada(orden)
     if prefactura_aprobada:
         errores.append(prefactura_aprobada)
@@ -39,7 +39,7 @@ def validar_requisitos_cierre_ot(orden: OrdenDeTrabajo) -> List[str]:
 
 def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     """
-    Valida que exista una prefactura con estado 'facturado' o 'pagado' para esta OT.
+    Valida que exista una prefactura con estado 'facturado' para esta OT.
     
     Returns:
         Mensaje de error si no existe, None si es válido.
@@ -47,7 +47,7 @@ def _validar_prefactura_aprobada(orden: OrdenDeTrabajo) -> Optional[str]:
     try:
         qs = CierreAdministrativoOT.objects.filter(
             cliente=orden.cliente,
-            estado_cierre__in=["facturado", "pagado"],
+            estado_cierre="facturado",
         )
 
         if not qs.exists():

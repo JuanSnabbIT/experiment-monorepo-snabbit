@@ -42,7 +42,7 @@ const WidgetOT: FC<IWidgetOTProps> = ({ className }) => {
     const otsVencidas = data?.resumen.ots_vencidas ?? 0;
     const cierresPendientes = data
         ? (data.cierres_administrativos?.borrador || 0) +
-          (data.cierres_administrativos?.en_revision || 0)
+          (data.cierres_administrativos?.por_facturar || 0)
         : 0;
     const tieneAlertas = otsVencidas > 0 || cierresPendientes > 0;
 

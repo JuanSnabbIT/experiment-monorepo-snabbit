@@ -1,7 +1,7 @@
 import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
     ModalBody,
@@ -10,42 +10,59 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
+import { useAppSelector } from '@/store';
 import {
-    detalleContratoLicenciaThunk,
-    LIMPIAR_USUARIOS_VINCULADOS_LICENCIA,
-    listaContratoLicenciaDeEmpresaYClienteThunk,
-    listaUsuariosDisponiblesLicenciaThunk,
-    listaUsuariosVinculadosLicenciaThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
+    useCreateUsuarioVinculadoLicenciaMutation,
+    useGetContratoLicenciasVinculosQuery,
+    useGetDetalleContratoLicenciaQuery,
+    useGetUsuariosDisponiblesLicenciaQuery,
+} from '@/store/slices/contratos/contratoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
-import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
-function CrearUsuarioVinculadoLicencia() {
-    const dispatch = useAppDispatch();
+interface ICrearUsuarioVinculadoLicenciaProps {
+    /** Cuando se provee, la licencia queda fija y no se muestra el selector */
+    licenciaIdFijo?: string;
+    /** ID de la empresa cliente — requerido cuando no hay detalleCliente en Redux (ej. desde DetalleLicencia) */
+    clienteId?: string;
+}
+
+function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdProp }: ICrearUsuarioVinculadoLicenciaProps = {}) {
     const { detalleCliente } = useAppSelector((state) => state.empresa);
-    const {
-        listaUsuariosDisponiblesLicencia,
-        listaContratoLicenciaDeEmpresaYCliente,
-        detalleContratoLicencia,
-    } = useAppSelector((state) => state.contrato);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [isUser, setIsUser] = useState<boolean>(false);
+    const [selectedLicenciaId, setSelectedLicenciaId] = useState<string>(licenciaIdFijo ?? '');
 
-    useEffect(() => {
-        if (detalleCliente && isOpen) {
-            dispatch(
-                listaContratoLicenciaDeEmpresaYClienteThunk({
-                    id_cliente: detalleCliente.cliente,
-                    id_empresa: detalleCliente.prestador_servicios,
-                }),
-            );
-        }
-    }, [detalleCliente, isOpen]);
+    // RTK Query mutations
+    const [createUsuario] = useCreateUsuarioVinculadoLicenciaMutation();
+
+    // RTK Query: lista de licencias del cliente
+    const { data: listaContratoLicencias = [] } = useGetContratoLicenciasVinculosQuery(
+        {
+            empresaId: personalizacionUsuario?.empresa ?? '',
+            clienteId: detalleCliente?.cliente ?? '',
+        },
+        { skip: !personalizacionUsuario?.empresa || !detalleCliente?.cliente || !isOpen },
+    );
+
+    // RTK Query: detalle de licencia seleccionada
+    const { data: detalleContratoLicencia } = useGetDetalleContratoLicenciaQuery(
+        selectedLicenciaId,
+        { skip: !selectedLicenciaId },
+    );
+
+    // ID de empresa cliente: prop explícita tiene prioridad sobre Redux
+    const empresaClienteId = clienteIdProp ?? detalleCliente?.cliente ?? '';
+
+    // RTK Query: usuarios disponibles
+    const { data: listaUsuariosDisponibles = [] } = useGetUsuariosDisponiblesLicenciaQuery(
+        { licenciaId: selectedLicenciaId, empresaId: empresaClienteId },
+        { skip: !selectedLicenciaId || !empresaClienteId },
+    );
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -57,17 +74,12 @@ function CrearUsuarioVinculadoLicencia() {
         },
         validationSchema: Yup.object().shape({
             licencia: Yup.string().required('Requerido').nonNullable('Requerido'),
-            // Si isUser es true, 'usuario' es requerido; si no, no lo es
             usuario: isUser
                 ? Yup.string().required('Requerido').nonNullable('Requerido')
                 : Yup.string().notRequired().nullable(),
-
-            // Si isUser es false, 'nombre' es requerido; si no, no lo es
             nombre: !isUser
                 ? Yup.string().required('Requerido').nonNullable('Requerido')
                 : Yup.string().notRequired().nullable(),
-
-            // Igual para correo_generico: requerido solo cuando isUser es false
             correo_generico: !isUser
                 ? Yup.string()
                       .required('Requerido')
@@ -77,64 +89,45 @@ function CrearUsuarioVinculadoLicencia() {
         }),
         onSubmit: async (values) => {
             try {
-                let data = { licencia: values.licencia };
+                const data: Record<string, unknown> = { licencia: values.licencia };
                 if (isUser) {
-                    Object.assign(data, { usuario: values.usuario });
+                    data.usuario = values.usuario;
                 } else {
-                    Object.assign(data, {
-                        nombre: values.nombre,
-                        correo_generico: values.correo_generico,
-                    });
+                    data.nombre = values.nombre;
+                    data.correo_generico = values.correo_generico;
                 }
-                const response = await ApiService.fetchData({
-                    url: `/api/contrato-licencias/${values.licencia}/usuarios-vinculados/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    toast.success('Vinculo creado', { autoClose: 1000 });
-                    dispatch(
-                        listaContratoLicenciaDeEmpresaYClienteThunk({
-                            id_cliente: detalleCliente?.cliente,
-                            id_empresa: detalleCliente?.prestador_servicios,
-                        }),
-                    );
-                    dispatch(
-                        detalleContratoLicenciaThunk({ id_licencia: detalleContratoLicencia?.id }),
-                    );
-                    dispatch(
-                        listaUsuariosVinculadosLicenciaThunk({
-                            id_licencia: detalleContratoLicencia?.id,
-                        }),
-                    );
-                    setIsOpen(false);
-                }
-            } catch (error: any) {
-                const mensajesError = Object.values(error.response.data).flat().join(' ');
-                toast.error(mensajesError || 'Error al vincular al usuario con la licencia', {
-                    toastId: 'Error al vincular al usuario con la licencia',
-                });
+                await createUsuario({
+                    licenciaId: values.licencia,
+                    data,
+                }).unwrap();
+                toast.success('Vínculo creado', { autoClose: 1000 });
+                setIsOpen(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error));
             }
         },
     });
 
+    // Cuando hay licenciaIdFijo, inicializar al abrir el modal
     useEffect(() => {
-        if (formik.values.licencia && detalleCliente) {
-            dispatch(
-                listaUsuariosDisponiblesLicenciaThunk({
-                    id_empresa: detalleCliente.cliente,
-                    id_licencia: formik.values.licencia,
-                }),
-            );
-            dispatch(detalleContratoLicenciaThunk({ id_licencia: formik.values.licencia }));
+        if (isOpen && licenciaIdFijo) {
+            formik.setFieldValue('licencia', licenciaIdFijo);
+            setSelectedLicenciaId(licenciaIdFijo);
         }
-    }, [formik.values.licencia, detalleCliente]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, licenciaIdFijo]);
+
+    // Sincronizar selección de licencia con el formik value
+    useEffect(() => {
+        setSelectedLicenciaId(formik.values.licencia);
+    }, [formik.values.licencia]);
 
     useEffect(() => {
         if (!isOpen) {
             formik.resetForm();
+            setSelectedLicenciaId(licenciaIdFijo ?? '');
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     return (
@@ -149,47 +142,48 @@ function CrearUsuarioVinculadoLicencia() {
                 />
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className='text-xl'>Vincular Usuario a una Licencia</Badge>
-                </ModalHeader>
+                <ModalHeader>Vincular Usuario a una Licencia</ModalHeader>
                 <ModalBody>
                     <div className='flex flex-col gap-4'>
-                        <div>
-                            <Badge>Licencia</Badge>
-                            <Validation
-                                isValid={formik.isValid}
-                                isTouched={formik.touched.licencia}
-                                invalidFeedback={formik.errors.licencia}>
-                                <SelectReact
-                                    name='licencia'
-                                    onBlur={formik.handleBlur}
-                                    options={listaContratoLicenciaDeEmpresaYCliente.map((con) => ({
-                                        value: con.id.toString(),
-                                        label: `${con.nombre_contrato}: ${con.nombre_licencia}`,
-                                    }))}
-                                    onChange={(e) => {
-                                        formik.setFieldValue(
-                                            'licencia',
-                                            (e as TSelectOption).value,
-                                        );
-                                    }}
-                                    value={
-                                        formik.values.licencia
-                                            ? {
-                                                  value: formik.values.licencia,
-                                                  label: `${listaContratoLicenciaDeEmpresaYCliente.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_contrato}: ${listaContratoLicenciaDeEmpresaYCliente.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_licencia}`,
-                                              }
-                                            : { value: '', label: '' }
-                                    }
-                                />
-                            </Validation>
-                        </div>
+                        {/* Selector de licencia: solo cuando no hay licencia fija */}
+                        {!licenciaIdFijo && (
+                            <div>
+                                <Label htmlFor='licencia'>Licencia</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.licencia}
+                                    invalidFeedback={formik.errors.licencia}>
+                                    <SelectReact
+                                        name='licencia'
+                                        onBlur={formik.handleBlur}
+                                        options={listaContratoLicencias.map((con) => ({
+                                            value: con.id.toString(),
+                                            label: `${con.nombre_contrato}: ${con.nombre_licencia}`,
+                                        }))}
+                                        onChange={(e) => {
+                                            formik.setFieldValue(
+                                                'licencia',
+                                                (e as TSelectOption).value,
+                                            );
+                                        }}
+                                        value={
+                                            formik.values.licencia
+                                                ? {
+                                                      value: formik.values.licencia,
+                                                      label: `${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_contrato}: ${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_licencia}`,
+                                                  }
+                                                : { value: '', label: '' }
+                                        }
+                                    />
+                                </Validation>
+                            </div>
+                        )}
                         {formik.values.licencia != '' && detalleContratoLicencia && (
                             <div>
-                                <Badge>Cantidad / Disponibles</Badge>
+                                <Label htmlFor='licencia'>Disponibles / Cantidad</Label>
                                 <div className='ml-4'>
-                                    {detalleContratoLicencia.cantidad} /{' '}
-                                    {detalleContratoLicencia.licencias_disponibles}
+                                    {detalleContratoLicencia.licencias_disponibles} /{' '}
+                                    {detalleContratoLicencia.cantidad}
                                 </div>
                             </div>
                         )}
@@ -198,7 +192,7 @@ function CrearUsuarioVinculadoLicencia() {
                             detalleContratoLicencia.licencias_disponibles > 0 && (
                                 <>
                                     <div>
-                                        <Badge>Usuario / Nombre</Badge>
+                                        <Label htmlFor='usuario'>Usuario / Nombre</Label>
                                         <Validation
                                             isValid={formik.isValid}
                                             isTouched={
@@ -220,7 +214,7 @@ function CrearUsuarioVinculadoLicencia() {
                                                 noOptionsMessage={(e) =>
                                                     `No Existe ${e.inputValue}`
                                                 }
-                                                options={listaUsuariosDisponiblesLicencia.map(
+                                                options={listaUsuariosDisponibles.map(
                                                     (user) => ({
                                                         value: user.id.toString(),
                                                         label: user.nombre_usuario,
@@ -231,7 +225,7 @@ function CrearUsuarioVinculadoLicencia() {
                                                         ? {
                                                               value: formik.values.usuario,
                                                               label:
-                                                                  listaUsuariosDisponiblesLicencia.find(
+                                                                  listaUsuariosDisponibles.find(
                                                                       (user) =>
                                                                           user.id.toString() ===
                                                                           formik.values.usuario,
@@ -274,7 +268,7 @@ function CrearUsuarioVinculadoLicencia() {
                                     </div>
                                     {!isUser && formik.values.nombre && (
                                         <div>
-                                            <Badge>Correo</Badge>
+                                            <Label htmlFor='correo_generico'>Correo</Label>
                                             <Validation
                                                 isValid={formik.isValid}
                                                 isTouched={formik.touched.correo_generico}

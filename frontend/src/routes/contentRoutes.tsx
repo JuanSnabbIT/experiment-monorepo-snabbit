@@ -87,6 +87,7 @@ const ListaMisRendiciones = lazy(() => import('@/pages/Rendiciones/ListaMisRendi
 const FacturacionesComparativa = lazy(() => import('@/pages/Facturacion/FacturacionesComparativa'));
 const ListaFacturas = lazy(() => import('@/pages/Facturacion/ListaFacturas'));
 const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
+const ListaFacturasContrato = lazy(() => import('@/pages/Facturacion/ListaFacturasContrato'));
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
 // const ListaCotizaciones = lazy(() => import('@/pages/Cotizaciones/ListaCotizaciones'))
 const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/DetalleCotizacion'));
@@ -99,6 +100,10 @@ const DetalleVisita = lazy(() => import('@/pages/Visitas/DetalleVisita'));
 const ListaSoftware = lazy(() => import('@/pages/Recursos/Software/ListaSoftware'));
 // const DetalleContratoDelCliente = lazy(() => import('@/pages/Contratos/DetalleContratoDelCliente'))
 const ContratosDelCliente = lazy(() => import('@/pages/Contratos/ContratosDelCliente'));
+const ListaContratos = lazy(() => import('@/pages/Contratos/ListaContratos'));
+const DetalleContrato = lazy(() => import('@/pages/Contratos/DetalleContrato'));
+const DetalleLicencia = lazy(() => import('@/pages/Contratos/DetalleLicencia'));
+const DetalleUsuarioCliente = lazy(() => import('@/pages/Clientes/DetalleUsuarioCliente'));
 const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'));
 const ListaCompras = lazy(() => import('@/pages/Bodegas/Compra/ListaCompra'));
 const DetalleCompra = lazy(() => import('@/pages/Bodegas/Compra/DetalleCompra'));
@@ -411,6 +416,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         element: <DetalleFactura />,
         authority: Pages.facturacion.subPages.detalleFactura.authority,
     },
+    {
+        path: Pages.facturacion.subPages.facturasContrato.to,
+        element: <ListaFacturasContrato />,
+        authority: Pages.facturacion.subPages.facturasContrato.authority,
+    },
     // { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
 
     // Cotizaciones
@@ -473,9 +483,29 @@ const contentRoutes: IRoutePersonalizadas[] = [
     // Contratos
     // {path: Pages.detalleContratoDelCliente.to, element: <DetalleContratoDelCliente />, authority: Pages.detalleContratoDelCliente.authority},
     {
+        path: Pages.empresa.subPages.listaContratos.to,
+        element: <ListaContratos />,
+        authority: Pages.empresa.subPages.listaContratos.authority,
+    },
+    {
         path: Pages.empresa.subPages.contratosDelCliente.to,
         element: <ContratosDelCliente />,
         authority: Pages.empresa.subPages.contratosDelCliente.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleContrato.to,
+        element: <DetalleContrato />,
+        authority: Pages.empresa.subPages.detalleContrato.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleLicencia.to,
+        element: <DetalleLicencia />,
+        authority: Pages.empresa.subPages.detalleLicencia.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleUsuarioCliente.to,
+        element: <DetalleUsuarioCliente />,
+        authority: Pages.empresa.subPages.detalleUsuarioCliente.authority,
     },
     {
         path: authPages.firmarContratoYAcuerdo.to,

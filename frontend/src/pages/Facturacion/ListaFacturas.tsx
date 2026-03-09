@@ -11,6 +11,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -22,11 +23,10 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MultiValue } from 'react-select';
 import { toast } from 'react-toastify';
-import { confirmAlert } from '@/utils/sweetAlert';
 
 interface PrefacturaResumen {
     total_items?: number;
@@ -58,11 +58,8 @@ const columnHelper = createColumnHelper<Prefactura>();
 
 const estadoOptions: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
-    { value: 'en_revision', label: 'En revisiÃ³n' },
-    { value: 'aprobado', label: 'Aprobado' },
+    { value: 'por_facturar', label: 'Por facturar' },
     { value: 'facturado', label: 'Facturado' },
-    { value: 'pagado', label: 'Pagado' },
-    { value: 'anulado', label: 'Anulado' },
 ];
 
 const ListaFacturas = () => {
@@ -107,7 +104,7 @@ const ListaFacturas = () => {
     }, [filtroEstado, fetchFacturas]);
 
     const handleEliminarPrefactura = async (prefactura: Prefactura) => {
-        if (prefactura.estado_cierre !== 'anulado') return;
+        if (prefactura.estado_cierre !== 'borrador') return;
 
         const ok = await confirmAlert({
             title: 'Eliminar prefactura',
@@ -175,34 +172,19 @@ const ListaFacturas = () => {
 
                 switch (estado) {
                     case 'borrador':
-                        color = 'gray';
+                        color = 'amber';
                         label = 'Borrador';
                         variant = 'outline';
                         break;
-                    case 'en_revision':
-                        color = 'amber';
-                        label = 'En revisiÃ³n';
-                        variant = 'outline';
-                        break;
-                    case 'aprobado':
-                        color = 'emerald';
-                        label = 'Aprobado';
+                    case 'por_facturar':
+                        color = 'blue';
+                        label = 'Por facturar';
                         variant = 'solid';
                         break;
                     case 'facturado':
-                        color = 'blue';
+                        color = 'emerald';
                         label = 'Facturado';
                         variant = 'solid';
-                        break;
-                    case 'pagado':
-                        color = 'red';
-                        label = 'Pagado';
-                        variant = 'solid';
-                        break;
-                    case 'anulado':
-                        color = 'red';
-                        label = 'Anulado';
-                        variant = 'outline';
                         break;
                     default:
                         variant = 'outline';
@@ -268,8 +250,8 @@ const ListaFacturas = () => {
                                 }}
                             />
                         </Tooltip>
-                        {factura.estado_cierre === 'anulado' && (
-                            <Tooltip text='Eliminar prefactura anulada'>
+                        {factura.estado_cierre === 'borrador' && (
+                            <Tooltip text='Eliminar prefactura en borrador'>
                                 <Button
                                     variant='outline'
                                     color='red'

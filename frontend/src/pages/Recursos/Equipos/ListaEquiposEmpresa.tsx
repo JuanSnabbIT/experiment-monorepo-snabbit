@@ -36,7 +36,7 @@ const columnHelper = createColumnHelper<IEquipo>();
 function ListaEquiposEmpresa() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { listaEquiposEmpresa } = useAppSelector((state) => state.recursos);
+    const { listaEquiposEmpresa, listaEquiposPorCliente } = useAppSelector((state) => state.recursos);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { listaMisClientes } = useAppSelector((state) => state.empresa);
     const [clienteSeleccionado, setClienteSeleccionado] = useState<{
@@ -44,6 +44,8 @@ function ListaEquiposEmpresa() {
         label: string;
     } | null>(null);
     const [activeComponent, setActiveComponent] = useState<string>('');
+    const hayFiltroCliente = !!clienteSeleccionado || !!activeComponent;
+    const equiposDisplay = hayFiltroCliente ? listaEquiposPorCliente : listaEquiposEmpresa;
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
 
@@ -116,7 +118,7 @@ function ListaEquiposEmpresa() {
     ];
 
     const table = useReactTable({
-        data: listaEquiposEmpresa,
+        data: equiposDisplay,
         columns: columns,
         state: {
             sorting: sorting,
@@ -269,7 +271,7 @@ function ListaEquiposEmpresa() {
                                 <TBody>
                                     {
                                         // clienteSeleccionado ? (
-                                        listaEquiposEmpresa.length > 0 ? (
+                                        equiposDisplay.length > 0 ? (
                                             table.getRowModel().rows.map((row) => (
                                                 <Tr key={row.id}>
                                                     {row.getVisibleCells().map((cell) => (

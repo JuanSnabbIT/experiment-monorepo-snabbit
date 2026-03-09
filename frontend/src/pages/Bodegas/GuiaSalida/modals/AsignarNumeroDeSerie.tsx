@@ -13,9 +13,11 @@ import {
     useActualizarSerieItemMutation,
     useGetOrdenesCompraDeStockQuery,
 } from '@/store/slices/bodega/guiaSalidaApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useMemo } from 'react';
 import { toast } from 'react-toastify';
+import * as Yup from 'yup';
 
 function AsignarNumeroDeSerie({
     isOpen,
@@ -56,6 +58,9 @@ function AsignarNumeroDeSerie({
         initialValues: {
             numero_serie: '',
         },
+        validationSchema: Yup.object({
+            numero_serie: Yup.string().required('Debe seleccionar un número de serie'),
+        }),
         onSubmit: async (values) => {
             if (!itemRebajaSelected) return;
             try {
@@ -69,8 +74,8 @@ function AsignarNumeroDeSerie({
                 toast.success('Numero de serie asignado', { autoClose: 1000 });
                 setIsOpen(false);
                 setItemRebajaSelected(undefined);
-            } catch (error: any) {
-                toast.error(error.data || 'Error al actualizar la serie', {
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error), {
                     toastId: 'Error al actualizar la serie',
                 });
             }

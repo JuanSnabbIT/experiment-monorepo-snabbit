@@ -81,9 +81,11 @@ export interface IDetalleOrdenDeTrabajo {
 export interface IItemSerializado {
     item_guia_id: number;
     guia_id: number;
-    serie: string;
+    serie: string | null;
     item_id: number;
     item_nombre: string;
+    cantidad_original: number;
+    individualizado: boolean;
 }
 
 export interface ISeguimientoOrden {

@@ -121,6 +121,17 @@ class EliminarGuiaSalidaTestBase(TransactionTestCase):
             },
         )
 
+        # Crear SerieItem correspondiente (modelo relacional)
+        from bodegas.models import SerieItem
+        SerieItem.objects.create(
+            serie=serie,
+            stock_item=self.stock,
+            item_orden_compra_en_stock=self.oc_stock,
+            item_guia_salida=item_guia,
+            empresa=self.empresa,
+            estado="reservada",
+        )
+
         self.stock.cantidad_no_disponible += 1
         self.stock.save(update_fields=["cantidad_no_disponible"])
         registrar_salida(
@@ -259,3 +270,291 @@ class EliminarGuiaEstadoNoPermitidoTest(EliminarGuiaSalidaTestBase):
         response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(GuiaSalida.objects.filter(pk=guia.pk).exists())
+
+
+# ---------------------------------------------------------------------------
+# Tests para series.py (funciones centralizadas)
+# ---------------------------------------------------------------------------
+
+class SeriesFuncionesTest(TransactionTestCase):
+    """Tests para las funciones centralizadas en bodegas/series.py."""
+
+    def setUp(self):
+        from django.contrib.contenttypes.models import ContentType
+
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Serie Test", rut_empresa="33333333-3", direccion_principal="Dir"
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal Test", empresa=self.empresa
+        )
+        self.user = User.objects.create_user(email="serie@test.com", password="test1234")
+        self.usuario_empresa = UsuarioEmpresa.objects.create(
+            usuario=self.user, sucursal=self.sucursal
+        )
+        PersonalizacionUsuario.objects.get_or_create(
+            usuario=self.user,
+            defaults={"sucursal_principal": self.sucursal},
+        )
+        self.categoria = Categoria.objects.create(nombre="Cat Serie")
+        self.item = ItemEmpresa.objects.create(
+            nombre="Item Serie", categoria=self.categoria, empresa=self.empresa
+        )
+        self.bodega = Bodega.objects.create(nombre="Bodega Serie", sucursal=self.sucursal)
+        self.stock = StockItemEnBodega.objects.create(
+            bodega=self.bodega, item=self.item, cantidad=50, cantidad_no_disponible=0
+        )
+        # Crear ItemOrdenCompraEnStock base
+        ct = ContentType.objects.get_for_model(StockItemEnBodega)
+        self.oc_stock = ItemOrdenCompraEnStock.objects.create(
+            content_type=ct,
+            item_oc_id=self.stock.pk,
+            stock_item=self.stock,
+            cantidad=10,
+            numeros_serie={"numeros_serie": []},
+        )
+
+    def test_agregar_serie_a_stock(self):
+        from bodegas.series import agregar_serie_a_stock, serie_existe_en_stock
+        from bodegas.models import SerieItem
+
+        agregar_serie_a_stock(self.oc_stock, "SN-001")
+
+        # Verifica modelo relacional
+        self.assertTrue(SerieItem.objects.filter(serie="SN-001", empresa=self.empresa).exists())
+        serie_obj = SerieItem.objects.get(serie="SN-001")
+        self.assertEqual(serie_obj.estado, "disponible")
+        self.assertEqual(serie_obj.stock_item, self.stock)
+
+        # Verifica JSON legacy
+        self.oc_stock.refresh_from_db()
+        series = self.oc_stock.numeros_serie["numeros_serie"]
+        self.assertEqual(len(series), 1)
+        self.assertEqual(series[0]["serie"], "SN-001")
+
+        # Verifica consulta
+        self.assertTrue(serie_existe_en_stock(self.stock, "SN-001"))
+        self.assertFalse(serie_existe_en_stock(self.stock, "SN-999"))
+
+    def test_eliminar_serie_disponible(self):
+        from bodegas.series import agregar_serie_a_stock, eliminar_serie_de_stock
+        from bodegas.models import SerieItem
+
+        agregar_serie_a_stock(self.oc_stock, "SN-DEL")
+        ok, msg = eliminar_serie_de_stock(self.stock, "SN-DEL")
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+        self.assertFalse(SerieItem.objects.filter(serie="SN-DEL").exists())
+
+        # JSON también debe estar vacío
+        self.oc_stock.refresh_from_db()
+        self.assertEqual(len(self.oc_stock.numeros_serie["numeros_serie"]), 0)
+
+    def test_eliminar_serie_asignada_falla(self):
+        from bodegas.series import agregar_serie_a_stock, eliminar_serie_de_stock
+        from bodegas.models import SerieItem
+
+        agregar_serie_a_stock(self.oc_stock, "SN-BUSY")
+        serie_obj = SerieItem.objects.get(serie="SN-BUSY")
+        serie_obj.estado = "reservada"
+        serie_obj.save()
+
+        ok, msg = eliminar_serie_de_stock(self.stock, "SN-BUSY")
+        self.assertFalse(ok)
+        self.assertIn("asignada", msg)
+        self.assertTrue(SerieItem.objects.filter(serie="SN-BUSY").exists())
+
+    def test_eliminar_serie_inexistente(self):
+        from bodegas.series import eliminar_serie_de_stock
+
+        ok, msg = eliminar_serie_de_stock(self.stock, "NO-EXISTE")
+        self.assertFalse(ok)
+        self.assertIn("no encontrada", msg)
+
+    def test_reservar_y_liberar_serie(self):
+        from bodegas.series import agregar_serie_a_stock, reservar_serie, liberar_serie
+        from bodegas.models import SerieItem
+
+        agregar_serie_a_stock(self.oc_stock, "SN-RES")
+
+        # Crear un ItemsGuiaSalida para reservar
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente Res", rut_empresa="44444444-4", direccion_principal="Dir"
+        )
+        guia = GuiaSalida.objects.create(
+            bodega=self.bodega, cliente=self.empresa_cliente,
+            creado_por=self.usuario_empresa, estado="P"
+        )
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=guia, stock_item=self.stock,
+            cantidad_original=50, cantidad_rebajada=1, individualizado=True,
+        )
+
+        # Reservar
+        ok, msg = reservar_serie(self.stock, "SN-RES", item_guia.id)
+        self.assertTrue(ok)
+
+        serie_obj = SerieItem.objects.get(serie="SN-RES")
+        self.assertEqual(serie_obj.estado, "reservada")
+        self.assertEqual(serie_obj.item_guia_salida, item_guia)
+
+        # JSON legacy debe reflejar reserva
+        self.oc_stock.refresh_from_db()
+        entry = self.oc_stock.numeros_serie["numeros_serie"][0]
+        self.assertEqual(entry["modelo"], "itemsguiasalida")
+        self.assertEqual(entry["object_id"], item_guia.id)
+
+        # Liberar
+        ok = liberar_serie(self.stock, "SN-RES", item_guia.id)
+        self.assertTrue(ok)
+
+        serie_obj.refresh_from_db()
+        self.assertEqual(serie_obj.estado, "disponible")
+        self.assertIsNone(serie_obj.item_guia_salida)
+
+        # JSON legacy debe reflejar liberación
+        self.oc_stock.refresh_from_db()
+        entry = self.oc_stock.numeros_serie["numeros_serie"][0]
+        self.assertEqual(entry["modelo"], "")
+        self.assertEqual(entry["object_id"], 0)
+
+    def test_liberar_series_por_item_guia(self):
+        from bodegas.series import agregar_serie_a_stock, reservar_serie, liberar_series_por_item_guia
+        from bodegas.models import SerieItem
+
+        # Agregar dos series
+        agregar_serie_a_stock(self.oc_stock, "SN-A")
+        agregar_serie_a_stock(self.oc_stock, "SN-B")
+
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente LIB", rut_empresa="55555555-5", direccion_principal="Dir"
+        )
+        guia = GuiaSalida.objects.create(
+            bodega=self.bodega, cliente=self.empresa_cliente,
+            creado_por=self.usuario_empresa, estado="P"
+        )
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=guia, stock_item=self.stock,
+            cantidad_original=50, cantidad_rebajada=1, individualizado=True,
+        )
+
+        # Reservar SN-A para item_guia
+        reservar_serie(self.stock, "SN-A", item_guia.id)
+
+        # Liberar por item_guia_id
+        ok = liberar_series_por_item_guia(self.stock, item_guia.id)
+        self.assertTrue(ok)
+
+        serie_a = SerieItem.objects.get(serie="SN-A")
+        self.assertEqual(serie_a.estado, "disponible")
+        self.assertIsNone(serie_a.item_guia_salida)
+
+        # SN-B no debe haber cambiado (sigue disponible)
+        serie_b = SerieItem.objects.get(serie="SN-B")
+        self.assertEqual(serie_b.estado, "disponible")
+
+    def test_obtener_series_disponibles(self):
+        from bodegas.series import agregar_serie_a_stock, obtener_series_disponibles
+        from bodegas.models import SerieItem
+
+        agregar_serie_a_stock(self.oc_stock, "SN-DISP-1")
+        agregar_serie_a_stock(self.oc_stock, "SN-DISP-2")
+
+        # Marcar una como reservada
+        s = SerieItem.objects.get(serie="SN-DISP-1")
+        s.estado = "reservada"
+        s.save()
+
+        disponibles = obtener_series_disponibles(self.stock)
+        self.assertEqual(disponibles, ["SN-DISP-2"])
+
+    def test_reservar_serie_ya_asignada_a_otro_falla(self):
+        from bodegas.series import agregar_serie_a_stock, reservar_serie
+
+        agregar_serie_a_stock(self.oc_stock, "SN-CONFLICT")
+
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente CF", rut_empresa="66666666-6", direccion_principal="Dir"
+        )
+        guia = GuiaSalida.objects.create(
+            bodega=self.bodega, cliente=self.empresa_cliente,
+            creado_por=self.usuario_empresa, estado="P"
+        )
+        ig1 = ItemsGuiaSalida.objects.create(
+            guia=guia, stock_item=self.stock,
+            cantidad_original=50, cantidad_rebajada=1, individualizado=True,
+        )
+        ig2 = ItemsGuiaSalida.objects.create(
+            guia=guia, stock_item=self.stock,
+            cantidad_original=50, cantidad_rebajada=1, individualizado=True,
+        )
+
+        # Reservar para ig1
+        ok, _ = reservar_serie(self.stock, "SN-CONFLICT", ig1.id)
+        self.assertTrue(ok)
+
+        # Intentar reservar para ig2 — debe fallar
+        ok, msg = reservar_serie(self.stock, "SN-CONFLICT", ig2.id)
+        self.assertFalse(ok)
+        self.assertIn("asignada", msg)
+
+
+# ---------------------------------------------------------------------------
+# Tests para CheckConstraint individualizado
+# ---------------------------------------------------------------------------
+
+class CheckConstraintIndividualizadoTest(TransactionTestCase):
+    """Verifica que el CheckConstraint impida individualizado=True con cantidad != 1."""
+
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa CK", rut_empresa="77777777-7", direccion_principal="Dir"
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal CK", empresa=self.empresa
+        )
+        self.user = User.objects.create_user(email="ck@test.com", password="test1234")
+        self.usuario = UsuarioEmpresa.objects.create(
+            usuario=self.user, sucursal=self.sucursal
+        )
+        self.categoria = Categoria.objects.create(nombre="Cat CK")
+        self.item = ItemEmpresa.objects.create(
+            nombre="Item CK", categoria=self.categoria, empresa=self.empresa
+        )
+        self.bodega = Bodega.objects.create(nombre="Bodega CK", sucursal=self.sucursal)
+        self.stock = StockItemEnBodega.objects.create(
+            bodega=self.bodega, item=self.item, cantidad=100
+        )
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente CK", rut_empresa="88888888-8", direccion_principal="Dir"
+        )
+        self.guia = GuiaSalida.objects.create(
+            bodega=self.bodega, cliente=self.empresa_cliente,
+            creado_por=self.usuario, estado="P"
+        )
+
+    def test_individualizado_cantidad_1_ok(self):
+        """individualizado=True con cantidad_rebajada=1 debe funcionar."""
+        item = ItemsGuiaSalida.objects.create(
+            guia=self.guia, stock_item=self.stock,
+            cantidad_rebajada=1, individualizado=True,
+        )
+        self.assertIsNotNone(item.pk)
+
+    def test_no_individualizado_cantidad_mayor_ok(self):
+        """individualizado=False con cualquier cantidad debe funcionar."""
+        item = ItemsGuiaSalida.objects.create(
+            guia=self.guia, stock_item=self.stock,
+            cantidad_rebajada=5, individualizado=False,
+        )
+        self.assertIsNotNone(item.pk)
+
+    def test_individualizado_cantidad_mayor_falla(self):
+        """individualizado=True con cantidad_rebajada > 1 debe fallar."""
+        from django.db import IntegrityError
+
+        with self.assertRaises(IntegrityError):
+            ItemsGuiaSalida.objects.create(
+                guia=self.guia, stock_item=self.stock,
+                cantidad_rebajada=3, individualizado=True,
+            )

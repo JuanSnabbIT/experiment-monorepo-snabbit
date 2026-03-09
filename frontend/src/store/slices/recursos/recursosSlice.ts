@@ -271,7 +271,7 @@ export const recursosSlice = createSlice({
             })
             .addCase(listaEquiposPorClienteThunk.fulfilled, (state, action) => {
                 state.loading = false;
-                state.listaEquiposEmpresa = action.payload;
+                state.listaEquiposPorCliente = action.payload;
             })
             .addCase(listaEquiposPorClienteThunk.rejected, (state, action) => {
                 state.loading = false;

@@ -15,6 +15,7 @@ from contratos.views import (
     VisitaViewSet,
     LicenciaViewSet,
     CondicionEspecialViewSet,
+    FacturaContratoViewSet,
     obtener_acuerdos_por_envio,
     firmar_envio
 )
@@ -44,6 +45,7 @@ router.register(r'visitas', VisitaViewSet, basename='visita')
 router.register(r'licencias', LicenciaViewSet, basename='licencia')
 router.register(r'condiciones-especiales', CondicionEspecialViewSet, basename='condicion-especial')
 router.register(r'contrato-licencias', ContratoLicenciaViewSet, basename='contrato-licencias')
+router.register(r'facturas-contrato', FacturaContratoViewSet, basename='factura-contrato')
 
 licencia_router = routers.NestedDefaultRouter(router, r'contrato-licencias', lookup='licencia')
 licencia_router.register(r'usuarios-vinculados', UsuarioVinculadoLicenciaViewSet, basename='contrato-licencia-usuarios')

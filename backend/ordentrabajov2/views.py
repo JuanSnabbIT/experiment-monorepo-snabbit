@@ -616,12 +616,39 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
     @action(detail=True, methods=["get"], url_path="items-serializados")
     def items_serializados(self, request, pk=None):
+        """
+        Devuelve todos los items de guías de salida vinculadas a la OT.
+        Busca guías vinculadas directamente, por soporte y por servicio.
+        """
         orden = self.get_object()
+
+        # Recopilar IDs de todas las guías vinculadas a la OT
+        guia_ids = set()
+
+        # 1. Guías vinculadas directamente a la OT
+        guia_ids.update(
+            GuiaSalida.objects.filter(orden_trabajo=orden).values_list("id", flat=True)
+        )
+
+        # 2. Guías vinculadas a través de soportes técnicos
+        guia_ids.update(
+            SoporteTecnico.objects.filter(
+                orden=orden, guia_salida__isnull=False
+            ).values_list("guia_salida_id", flat=True)
+        )
+
+        # 3. Guías vinculadas a través de servicios
+        guia_ids.update(
+            ServicioEnOT.objects.filter(
+                orden=orden, guia_salida__isnull=False
+            ).values_list("guia_salida_id", flat=True)
+        )
+
+        if not guia_ids:
+            return Response([], status=status.HTTP_200_OK)
+
         items = (
-            ItemsGuiaSalida.objects.filter(
-                guia__orden_trabajo=orden,
-                individualizado=True,
-            )
+            ItemsGuiaSalida.objects.filter(guia_id__in=guia_ids)
             .select_related("stock_item__item", "guia")
             .order_by("guia_id", "id")
         )
@@ -630,8 +657,6 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         for item in items:
             numero_serie = item.numero_serie or {}
             serie = numero_serie.get("serie")
-            if not serie:
-                continue
             data.append(
                 {
                     "item_guia_id": item.id,
@@ -639,6 +664,8 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                     "serie": serie,
                     "item_id": item.stock_item.item_id,
                     "item_nombre": item.stock_item.item.nombre,
+                    "cantidad_original": item.cantidad_original,
+                    "individualizado": item.individualizado,
                 }
             )
         return Response(data, status=status.HTTP_200_OK)
@@ -2267,17 +2294,32 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
             actualizar_tipo_cambio_cotizacion.delay(cotizacion.id)
 
     def get_queryset(self):
-        qs = CierreAdministrativoOT.objects.select_related(
+        from core.models import PersonalizacionUsuario
+
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return CierreAdministrativoOT.objects.none()
+
+        empresa = personalizacion.sucursal_principal.empresa
+        qs = CierreAdministrativoOT.objects.filter(
+            creado_por__sucursal__empresa=empresa
+        ).select_related(
             "cliente", "creado_por", "actualizado_por"
         ).order_by("-fecha_creacion")
-        # Filtrar por cliente si viene en query param
+
         cliente_id = self.request.query_params.get("cliente")
         if cliente_id:
             qs = qs.filter(cliente_id=cliente_id)
-        # Filtrar por estado si viene en query param
+
         estado = self.request.query_params.get("estado")
         if estado:
             qs = qs.filter(estado_cierre=estado)
+
+        historico = self.request.query_params.get("historico")
+        if historico == "1":
+            qs = qs.filter(estado_cierre="facturado")
+
         return qs
 
     def perform_create(self, serializer):
@@ -2311,7 +2353,7 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
-        """Cambiar prefactura de borrador a aprobado (confirmar para facturación)."""
+        """Cambiar prefactura de borrador a por_facturar (confirmar para facturación)."""
         prefactura = self.get_object()
 
         # Validar estado
@@ -2343,7 +2385,7 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
         # Cambiar estado
         usuario_empresa = obtener_usuario_empresa(request.user)
-        prefactura.estado_cierre = "aprobado"
+        prefactura.estado_cierre = "por_facturar"
         prefactura.actualizado_por = usuario_empresa
         prefactura.save()
 
@@ -2352,40 +2394,14 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(prefactura)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], url_path="anular")
-    def anular(self, request, pk=None):
-        """Marcar la prefactura como anulada (no eliminar) para permitir volver a facturar las OTs."""
-        prefactura = self.get_object()
-
-        if prefactura.estado_cierre == "anulado":
-            return Response({"detail": "Prefactura ya está anulada."}, status=status.HTTP_400_BAD_REQUEST)
-
-        usuario_empresa = obtener_usuario_empresa(request.user)
-        prefactura.estado_cierre = "anulado"
-        prefactura.actualizado_por = usuario_empresa
-        prefactura.save(update_fields=["estado_cierre", "actualizado_por", "fecha_modificacion"]) if hasattr(prefactura, 'fecha_modificacion') else prefactura.save()
-
-        ots_incluidas = self._prefactura_ots_incluidas(prefactura)
-        if ots_incluidas:
-            OrdenDeTrabajo.objects.filter(id__in=ots_incluidas).update(estado="completada")
-
-        serializer = self.get_serializer(prefactura)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
     def destroy(self, request, *args, **kwargs):
         prefactura = self.get_object()
 
-        if prefactura.estado_cierre != "anulado":
+        if prefactura.estado_cierre != "borrador":
             return Response(
-                {
-                    "detail": "Solo se pueden eliminar prefacturas ya anuladas."
-                },
+                {"detail": "Solo se pueden eliminar prefacturas en estado borrador."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        ots_incluidas = self._prefactura_ots_incluidas(prefactura)
-        if ots_incluidas:
-            OrdenDeTrabajo.objects.filter(id__in=ots_incluidas).update(estado="completada")
 
         prefactura.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -2397,8 +2413,18 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         parser_classes=[MultiPartParser, FormParser, JSONParser],
     )
     def asociar_documento(self, request, pk=None):
-        """Asociar o reemplazar un documento de factura a la prefactura."""
+        """Sube el documento de factura emitido externamente.
+
+        Si la prefactura está en estado 'por_facturar', cambia automáticamente
+        a 'facturado'. También acepta re-subir documento desde estado 'facturado'.
+        """
         prefactura = self.get_object()
+
+        if prefactura.estado_cierre == "borrador":
+            return Response(
+                {"detail": "Debe finalizar la prefactura antes de adjuntar el documento."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if "documento" not in request.FILES:
             return Response(
@@ -2409,15 +2435,8 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         archivo = request.FILES["documento"]
 
         extensiones_permitidas = [
-            "pdf",
-            "doc",
-            "docx",
-            "xls",
-            "xlsx",
-            "txt",
-            "jpg",
-            "jpeg",
-            "png",
+            "pdf", "doc", "docx", "xls", "xlsx",
+            "txt", "jpg", "jpeg", "png",
         ]
         ext = archivo.name.split(".")[-1].lower() if "." in archivo.name else ""
         if ext not in extensiones_permitidas:
@@ -2443,49 +2462,10 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
         usuario_empresa = obtener_usuario_empresa(request.user)
         prefactura.documento_factura = archivo
+        if prefactura.estado_cierre == "por_facturar":
+            prefactura.estado_cierre = "facturado"
         prefactura.actualizado_por = usuario_empresa
-        prefactura.save(
-            update_fields=["documento_factura", "actualizado_por", "fecha_modificacion"]
-        )
-
-        serializer = self.get_serializer(prefactura)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=["post"], url_path="facturar")
-    def facturar(self, request, pk=None):
-        """
-        Cambiar prefactura a estado 'facturado' cuando tiene documento asociado.
-        Valida que la prefactura esté en estado 'aprobado' y tenga un documento.
-        """
-        prefactura = self.get_object()
-
-        if prefactura.estado_cierre != "aprobado":
-            return Response(
-                {
-                    "detail": (
-                        "Prefactura debe estar en estado 'aprobado' para facturar. "
-                        f"Estado actual: {prefactura.get_estado_cierre_display()}"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not prefactura.documento_factura:
-            return Response(
-                {
-                    "detail": (
-                        "Debe asociar un documento de factura antes de confirmar la facturación"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        usuario_empresa = obtener_usuario_empresa(request.user)
-        prefactura.estado_cierre = "facturado"
-        prefactura.actualizado_por = usuario_empresa
-        prefactura.save(
-            update_fields=["estado_cierre", "actualizado_por", "fecha_modificacion"]
-        )
+        prefactura.save()
 
         serializer = self.get_serializer(prefactura)
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -52,9 +52,6 @@ CATEGORIAS_COMPRA_OT = [
 # Estados del cierre administrativo y facturación de una OT
 ESTADOS_CIERRE_OT = [
     ("borrador", "Borrador"),
-    ("en_revision", "En Revisión"),
-    ("aprobado", "Aprobado"),
+    ("por_facturar", "Por Facturar"),
     ("facturado", "Facturado"),
-    ("pagado", "Pagado"),
-    ("anulado", "Anulado"),
 ]

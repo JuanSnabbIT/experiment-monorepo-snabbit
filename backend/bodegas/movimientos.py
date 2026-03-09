@@ -156,7 +156,7 @@ def registrar_ajuste_inventario(
     registrar_movimiento_stock(
         stock_item=stock_item,
         cantidad_delta=cantidad,
-        tipo_movimiento="AJUsTE_INVENTARIO",
+        tipo_movimiento="AJUSTE_INVENTARIO",
         usuario=usuario,
         origen_instancia=origen,
         descripcion=descripcion,

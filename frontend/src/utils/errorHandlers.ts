@@ -43,6 +43,17 @@ export function getErrorMessage(error: unknown): string {
         return error.message;
     }
 
+    // RTK Query errors (cuando se usa .unwrap()): { status, data: { detail?, ... }, error? }
+    if (typeof error === 'object' && error !== null && 'data' in error) {
+        const rtkError = error as { data?: ApiErrorResponse; error?: string; status?: number };
+        if (rtkError.data) {
+            if (typeof rtkError.data.detail === 'string') return rtkError.data.detail;
+            if (typeof rtkError.data.message === 'string') return rtkError.data.message;
+            if (typeof rtkError.data.error === 'string') return rtkError.data.error;
+        }
+        if (typeof rtkError.error === 'string') return rtkError.error;
+    }
+
     // Errores estándar de JavaScript
     if (error instanceof Error) {
         return error.message;

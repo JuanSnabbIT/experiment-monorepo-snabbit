@@ -17,7 +17,8 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
     CaracteristicaServicio,
-    AcuerdoConfidencialidadContrato
+    AcuerdoConfidencialidadContrato,
+    FacturaContrato,
 )
 
 
@@ -220,3 +221,12 @@ class ContentTypeAdmin(admin.ModelAdmin):
     search_fields = ('model',)
 
 admin.site.register(EnvioContratoFirmaUsuario)
+
+
+@admin.register(FacturaContrato)
+class FacturaContratoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'contrato', 'empresa_cliente', 'estado', 'periodo_inicio', 'periodo_fin', 'monto_total')
+    list_filter = ('estado', 'moneda', 'periodo_inicio')
+    search_fields = ('contrato__nombre', 'empresa_cliente__nombre')
+    readonly_fields = ('fecha_creacion', 'fecha_modificacion')
+    raw_id_fields = ('contrato', 'empresa_prestadora', 'empresa_cliente', 'creado_por', 'actualizado_por')

@@ -334,10 +334,20 @@ function ListaUsuarioEquipoOT({
     );
 
     const opcionesSeriales = useMemo(() => {
-        return itemsSerializados.map((item) => ({
-            value: `gs:${item.item_guia_id}`,
-            label: `${item.item_nombre} - No. ${item.serie} (Guia #${item.guia_id})`,
-        }));
+        return itemsSerializados.map((item) => {
+            const serie = item.serie ? `No. ${item.serie}` : null;
+            const cantidad = !item.individualizado && item.cantidad_original > 0
+                ? `x${item.cantidad_original}`
+                : null;
+            const detalle = [serie, cantidad].filter(Boolean).join(' ');
+            const label = detalle
+                ? `${item.item_nombre} - ${detalle} (Guía #${item.guia_id})`
+                : `${item.item_nombre} (Guía #${item.guia_id})`;
+            return {
+                value: `gs:${item.item_guia_id}`,
+                label,
+            };
+        });
     }, [itemsSerializados]);
 
     const seleccionActualPorId = useMemo(() => {
@@ -900,7 +910,7 @@ function ListaUsuarioEquipoOT({
         }
 
         gruposBase.push({
-            label: 'Items serializados',
+            label: 'Insumos de guía',
             options: opcionesSeriales,
         });
 
@@ -1177,6 +1187,7 @@ function ListaUsuarioEquipoOT({
                         dispatch(listaUsuariosDelEquipoPorClienteThunk({ cliente_id: clienteId }));
                         setUsuarioFirmaSeleccionado(null);
                         setMovimientosFirma([]);
+                        onSaved?.();
                     }}
                 />
             )}

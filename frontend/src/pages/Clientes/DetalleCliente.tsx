@@ -6,13 +6,12 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
 import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 
 const DetalleCliente = () => {
-    const navigate = useNavigate();
     const { id } = useParams();
     const { data: detalleCliente } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
     const [activeComponent, setActiveComponent] = useState<string>('Usuarios');
@@ -29,18 +28,7 @@ const DetalleCliente = () => {
                             <CardHeaderChild>
                                 <Badge className='text-xl'>Datos</Badge>
                             </CardHeaderChild>
-                            <CardHeaderChild>
-                                <Button
-                                    variant='solid'
-                                    color='violet'
-                                    onClick={() => {
-                                            navigate(
-                                                `/empresa/contratos-cliente/${detalleCliente?.id}`,
-                                            );
-                                    }}>
-                                    Ir a los contratos
-                                </Button>
-                            </CardHeaderChild>
+
                         </CardHeader>
                         <CardBody className='flex flex-col gap-4'>
                             <div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>

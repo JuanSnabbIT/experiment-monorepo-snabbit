@@ -298,6 +298,68 @@ class ItemOrdenCompraEnStock(ModeloBase):
         verbose_name_plural = "Items de Orden de Compra en Stock"
 
 
+class SerieItem(ModeloBase):
+    """
+    Modelo relacional para números de serie.
+    Reemplaza el JSONField 'numeros_serie' en ItemOrdenCompraEnStock.
+
+    Ciclo de vida:
+        disponible → reservada (al asignar a guía) → despachada (al confirmar entrega)
+        reservada → disponible (al liberar/desasignar)
+        despachada → devuelta (al recibir devolución)
+    """
+    serie = models.CharField(max_length=250)
+    stock_item = models.ForeignKey(
+        StockItemEnBodega,
+        on_delete=models.CASCADE,
+        related_name="series",
+    )
+    item_orden_compra_en_stock = models.ForeignKey(
+        ItemOrdenCompraEnStock,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="series",
+        help_text="Referencia al registro de compra/stock de donde proviene la serie",
+    )
+    item_guia_salida = models.ForeignKey(
+        "bodegas.ItemsGuiaSalida",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="series",
+        help_text="Guía de salida donde está reservada/despachada esta serie",
+    )
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="series_items",
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=(
+            ("disponible", "Disponible"),
+            ("reservada", "Reservada en Guía"),
+            ("despachada", "Despachada"),
+            ("devuelta", "Devuelta"),
+        ),
+        default="disponible",
+    )
+
+    class Meta:
+        verbose_name = "Serie de Item"
+        verbose_name_plural = "Series de Items"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["serie", "empresa"],
+                name="uniq_serie_por_empresa",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.serie} ({self.get_estado_display()})"
+
+
 class GuiaSalida(ModeloBaseHistorico):
     bodega = models.ForeignKey("bodegas.Bodega", on_delete=models.CASCADE)
     cliente = models.ForeignKey(
@@ -350,43 +412,6 @@ class GuiaSalida(ModeloBaseHistorico):
         verbose_name_plural = "Guias de Salidas"
         ordering = ["-fecha_creacion"]
 
-    def revertir_item(self, item_rebaje_id, cantidad_a_devolver):
-        """
-        Método para revertir (devolver) una cierta cantidad de un ítem rebajado.
-        Esto debería:
-        1. Verificar que la cantidad a devolver no supere la cantidad rebajada.
-        2. Actualizar el `StockItemEnBodega` sumándole la cantidad devuelta.
-        3. Actualizar el registro `ItemsRebajeBodega` indicando las cantidades devueltas.
-        4. Opcionalmente, cambiar el estado de la rebaja si se devolvieron todos los items.
-        """
-        item_rebaje = self.items.get(pk=item_rebaje_id)
-        if (
-            cantidad_a_devolver
-            > item_rebaje.cantidad_rebajada - item_rebaje.cantidad_devuelta
-        ):
-            raise ValueError(
-                "No se puede devolver más ítems de los que fueron rebajados."
-            )
-
-        # Actualizar stock de la bodega
-        stock_item = item_rebaje.stock_item
-        stock_item.cantidad += cantidad_a_devolver
-        stock_item.save()
-
-        # Actualizar cantidad devuelta
-        item_rebaje.cantidad_devuelta += cantidad_a_devolver
-        item_rebaje.save()
-
-        # Verificar si todos los ítems han sido devueltos
-        total_rebajado = sum(ir.cantidad_rebajada for ir in self.items.all())
-        total_devuelto = sum(ir.cantidad_devuelta for ir in self.items.all())
-        if total_devuelto == total_rebajado:
-            self.estado = "R"
-            self.save()
-        elif total_devuelto > 0 and total_devuelto < total_rebajado:
-            self.estado = "PR"
-            self.save()
-
 
 class ItemsGuiaSalida(ModeloBaseHistorico):
     guia = models.ForeignKey(GuiaSalida, on_delete=models.CASCADE)
@@ -413,7 +438,11 @@ class ItemsGuiaSalida(ModeloBaseHistorico):
             models.UniqueConstraint(
                 fields=["guia", "source_item"],
                 name="uniq_guia_source_item",
-            )
+            ),
+            models.CheckConstraint(
+                check=~models.Q(individualizado=True) | models.Q(cantidad_rebajada=1),
+                name="individualizado_implica_cantidad_1",
+            ),
         ]
 
     def __str__(self):
