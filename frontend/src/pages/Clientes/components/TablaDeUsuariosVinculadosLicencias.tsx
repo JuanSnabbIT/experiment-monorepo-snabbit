@@ -177,7 +177,7 @@ function TablaDeUsuariosVinculadosLicencias({
                                                         size='sm'
                                                         onClick={() =>
                                                             navigate(
-                                                                `/empresa/detalle-cliente/${detalleCliente?.id}/contrato/${lic.contrato}/licencia/${lic.id}`,
+                                                                `/empresa/detalle-cliente/${detalleCliente?.id}/contrato/${lic.contrato}/licencia/${lic.id}?tab=asignaciones`,
                                                             )
                                                         }
                                                     />

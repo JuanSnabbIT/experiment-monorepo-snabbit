@@ -1,20 +1,43 @@
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
 import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 
+const CLIENT_TABS = {
+    usuarios: 'Usuarios',
+    contratos: 'Contratos',
+    asignaciones: 'Asignaciones de licencias',
+} as const;
+
+type TClientTab = keyof typeof CLIENT_TABS;
+
 const DetalleCliente = () => {
     const { id } = useParams();
     const { data: detalleCliente } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
-    const [activeComponent, setActiveComponent] = useState<string>('Usuarios');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const activeTab = useMemo<TClientTab>(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'usuarios' || tab === 'contratos' || tab === 'asignaciones') {
+            return tab;
+        }
+        return 'usuarios';
+    }, [searchParams]);
+
+    const setActiveTab = (tab: TClientTab) => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('tab', tab);
+        setSearchParams(nextParams, { replace: true });
+    };
 
     return (
         <PageWrapper isProtectedRoute={true} title='Detalle Cliente' name='Detalle Cliente'>
@@ -23,6 +46,10 @@ const DetalleCliente = () => {
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>
+                    <Breadcrumb
+                        path='Clientes'
+                        currentPage={detalleCliente?.info_cliente.nombre || 'Detalle cliente'}
+                    />
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
@@ -67,9 +94,18 @@ const DetalleCliente = () => {
                     </Card>
                     <Card>
                         <CardBody>
+                            <div className='mb-3'>
+                                <div className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
+                                    Navegacion del cliente
+                                </div>
+                                <div className='text-xs text-zinc-500'>
+                                    La seccion activa queda guardada en la URL para volver al mismo
+                                    punto o compartir el enlace.
+                                </div>
+                            </div>
                             <div className='flex flex-row gap-4 overflow-auto'>
                                 <Button
-                                    {...(activeComponent === 'Usuarios'
+                                    {...(activeTab === 'usuarios'
                                         ? {
                                               size: 'sm',
                                               rounded: 'rounded-full',
@@ -86,12 +122,12 @@ const DetalleCliente = () => {
                                               className: 'border',
                                           })}
                                     onClick={() => {
-                                        setActiveComponent('Usuarios');
+                                        setActiveTab('usuarios');
                                     }}>
-                                    Usuarios
+                                    {CLIENT_TABS.usuarios}
                                 </Button>
                                 <Button
-                                    {...(activeComponent === 'Contratos'
+                                    {...(activeTab === 'contratos'
                                         ? {
                                               size: 'sm',
                                               rounded: 'rounded-full',
@@ -108,12 +144,12 @@ const DetalleCliente = () => {
                                               className: 'border',
                                           })}
                                     onClick={() => {
-                                        setActiveComponent('Contratos');
+                                        setActiveTab('contratos');
                                     }}>
-                                    Contratos
+                                    {CLIENT_TABS.contratos}
                                 </Button>
                                 <Button
-                                    {...(activeComponent === 'Licencias'
+                                    {...(activeTab === 'asignaciones'
                                         ? {
                                               size: 'sm',
                                               rounded: 'rounded-full',
@@ -130,23 +166,23 @@ const DetalleCliente = () => {
                                               className: 'border',
                                           })}
                                     onClick={() => {
-                                        setActiveComponent('Licencias');
+                                        setActiveTab('asignaciones');
                                     }}>
-                                    Licencias
+                                    {CLIENT_TABS.asignaciones}
                                 </Button>
                             </div>
                         </CardBody>
                     </Card>
 
-                    {activeComponent === 'Usuarios' && (
+                    {activeTab === 'usuarios' && (
                         <TablaUsuariosDelCliente detalleCliente={detalleCliente} />
                     )}
 
-                    {activeComponent === 'Contratos' && (
+                    {activeTab === 'contratos' && (
                         <TablaDeContratosDelCliente detalleCliente={detalleCliente} />
                     )}
 
-                    {activeComponent === 'Licencias' && (
+                    {activeTab === 'asignaciones' && (
                         <TablaDeUsuariosVinculadosLicencias detalleCliente={detalleCliente} />
                     )}
                 </div>

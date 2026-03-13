@@ -160,6 +160,15 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.registros.subPages.listaUsuarios.icon}
                                     id={Pages.registros.subPages.listaUsuarios.id}></NavItem>
                             </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.registros.subPages.listaPlanesYServicios.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.registros.subPages.listaPlanesYServicios.text}
+                                    to={Pages.registros.subPages.listaPlanesYServicios.to}
+                                    icon={Pages.registros.subPages.listaPlanesYServicios.icon}
+                                    id={Pages.registros.subPages.listaPlanesYServicios.id}></NavItem>
+                            </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
 

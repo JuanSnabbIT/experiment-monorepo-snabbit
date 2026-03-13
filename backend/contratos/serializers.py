@@ -13,6 +13,8 @@ from contratos.models import (
     PlanServicio,
     CaracteristicaServicio,
     UsuarioVinculadoLicencia,
+    PersonaLicenciataria,
+    CorreoPersonaLicenciataria,
     Visita,
     Licencia,
     CondicionEspecial,
@@ -32,6 +34,10 @@ class CaracteristicaServicioSerializer(serializers.ModelSerializer):
 # Serializador para Servicio
 class ServicioSerializer(serializers.ModelSerializer):
     caracteristicas = CaracteristicaServicioSerializer(many=True, read_only=True)
+    caracteristicas_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=CaracteristicaServicio.objects.all(),
+        write_only=True, required=False, source='caracteristicas',
+    )
     categoria_label = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,6 +50,10 @@ class ServicioSerializer(serializers.ModelSerializer):
 # Serializador para PlanServicio
 class PlanServicioSerializer(serializers.ModelSerializer):
     servicios = ServicioSerializer(many=True, read_only=True)
+    servicios_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Servicio.objects.all(),
+        write_only=True, required=False, source='servicios',
+    )
 
     class Meta:
         model = PlanServicio
@@ -54,6 +64,38 @@ class VisitaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Visita
         fields = '__all__'
+
+
+class CorreoPersonaLicenciatariaSerializer(serializers.ModelSerializer):
+    persona_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CorreoPersonaLicenciataria
+        fields = '__all__'
+        read_only_fields = ['correo_normalizado', 'empresa']
+
+    def get_persona_detalle(self, obj):
+        persona = obj.persona
+        return {
+            "id": persona.id,
+            "nombre": persona.nombre,
+            "es_interno": persona.es_interno,
+            "usuario_empresa": persona.usuario_empresa_id,
+        }
+
+
+class PersonaLicenciatariaSerializer(serializers.ModelSerializer):
+    correos = CorreoPersonaLicenciatariaSerializer(many=True, read_only=True)
+    nombre_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PersonaLicenciataria
+        fields = '__all__'
+
+    def get_nombre_display(self, obj):
+        if obj.usuario_empresa_id:
+            return obj.usuario_empresa.usuario.get_nombre_completo()
+        return obj.nombre
 
 # Serializador para Licencia
 class LicenciaSerializer(serializers.ModelSerializer):
@@ -112,6 +154,10 @@ class UsuarioVinculadoLicenciaSerializer(serializers.ModelSerializer):
     datos_usuario = serializers.SerializerMethodField()
     es_externo = serializers.SerializerMethodField()
     nombre_display = serializers.SerializerMethodField()
+    correo_display = serializers.SerializerMethodField()
+    persona = serializers.SerializerMethodField()
+    correo_persona_detalle = CorreoPersonaLicenciatariaSerializer(source='correo_persona', read_only=True)
+    correo = serializers.EmailField(write_only=True, required=False)
 
     class Meta:
         model = UsuarioVinculadoLicencia
@@ -124,14 +170,107 @@ class UsuarioVinculadoLicenciaSerializer(serializers.ModelSerializer):
         } if obj.usuario else None
 
     def get_es_externo(self, obj):
-        """True si el vínculo es un usuario externo (sin cuenta en el sistema)."""
-        return obj.usuario is None
+        return obj.es_externo
 
     def get_nombre_display(self, obj):
-        """Nombre para mostrar: del usuario del sistema o nombre libre."""
-        if obj.usuario:
-            return obj.usuario.usuario.get_nombre_completo()
-        return obj.nombre or ''
+        return obj.nombre_asignado or ''
+
+    def get_correo_display(self, obj):
+        return obj.correo_asignado or ''
+
+    def get_persona(self, obj):
+        persona = obj.persona_licenciataria
+        if not persona:
+            return None
+        return {
+            "id": persona.id,
+            "nombre": persona.nombre,
+            "es_interno": persona.es_interno,
+            "usuario_empresa": persona.usuario_empresa_id,
+        }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        licencia = attrs.get("licencia") or getattr(self.instance, "licencia", None)
+        correo_persona = attrs.get("correo_persona") or getattr(self.instance, "correo_persona", None)
+        usuario = attrs.get("usuario") or getattr(self.instance, "usuario", None)
+        persona = self.initial_data.get("persona")
+        correo = self.initial_data.get("correo")
+
+        if persona and correo_persona:
+            raise serializers.ValidationError("No se puede enviar persona y correo_persona al mismo tiempo.")
+
+        if correo_persona:
+            if licencia and correo_persona.empresa_id != licencia.contrato.empresa_cliente_id:
+                raise serializers.ValidationError(
+                    {"correo_persona": "El correo debe pertenecer a la empresa cliente del contrato."}
+                )
+            return attrs
+
+        if persona:
+            try:
+                persona_obj = PersonaLicenciataria.objects.get(pk=persona)
+            except PersonaLicenciataria.DoesNotExist as exc:
+                raise serializers.ValidationError({"persona": "Persona licenciataria no encontrada."}) from exc
+            attrs["correo_persona"] = self._resolver_correo_de_persona(licencia, persona_obj, correo)
+            return attrs
+
+        if usuario:
+            attrs["correo_persona"] = self._resolver_correo_de_usuario(licencia, usuario, correo)
+            return attrs
+
+        correo_generico = attrs.get("correo_generico") or getattr(self.instance, "correo_generico", None)
+        nombre = attrs.get("nombre") or getattr(self.instance, "nombre", None)
+        if correo_generico:
+            if licencia is None:
+                raise serializers.ValidationError({"licencia": "Licencia requerida para vincular correo externo."})
+            _, correo_obj = PersonaLicenciataria.obtener_o_crear_externa(
+                empresa=licencia.contrato.empresa_cliente,
+                nombre=nombre or correo_generico,
+                correo=correo_generico,
+            )
+            attrs["correo_persona"] = correo_obj
+            return attrs
+
+        raise serializers.ValidationError(
+            "Debe enviar correo_persona, usuario, o nombre + correo_generico."
+        )
+
+    def _resolver_correo_de_persona(self, licencia, persona, correo):
+        if licencia and persona.empresa_id != licencia.contrato.empresa_cliente_id:
+            raise serializers.ValidationError(
+                {"persona": "La persona debe pertenecer a la empresa cliente del contrato."}
+            )
+        if correo:
+            return CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+                persona=persona,
+                correo=correo,
+                es_principal=False,
+                es_corporativo=persona.es_interno,
+            )
+        correo_obj = persona.correos.filter(activo=True).order_by("-es_principal", "id").first()
+        if correo_obj:
+            return correo_obj
+        raise serializers.ValidationError(
+            {"correo": "La persona no tiene correos registrados. Debe indicar uno."}
+        )
+
+    def _resolver_correo_de_usuario(self, licencia, usuario, correo):
+        empresa = licencia.contrato.empresa_cliente if licencia else usuario.sucursal.empresa
+        persona, correo_principal = PersonaLicenciataria.sincronizar_desde_usuario_empresa(
+            usuario,
+            empresa=empresa,
+        )
+        if correo:
+            correo_normalizado = correo.strip().lower()
+            return CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+                persona=persona,
+                correo=correo_normalizado,
+                es_principal=correo_normalizado == usuario.usuario.email.lower(),
+                es_corporativo=True,
+                verificado=correo_normalizado == usuario.usuario.email.lower(),
+            )
+        return correo_principal
 
 # class ContratoLicenciaVinculoUsuarioSerializer(serializers.ModelSerializer):
 class ContratoLicenciaSerializer(serializers.ModelSerializer):

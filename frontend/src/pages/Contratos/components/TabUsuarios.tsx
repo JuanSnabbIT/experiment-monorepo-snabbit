@@ -22,6 +22,11 @@ import { toast } from 'react-toastify';
 import { buildUpdatePayload } from './contrato.helpers';
 import { IContratoEdicion, ITabUsuariosProps } from './contrato.types';
 
+const getEstadoFirmaVisual = (existeEnvio: number | null) =>
+    existeEnvio
+        ? ({ label: 'Firma enviada', color: 'amber' } as const)
+        : ({ label: 'Sin envio', color: 'zinc' } as const);
+
 const TabUsuarios = ({
     detalleContratoEmpresaCliente,
     puedeEditar,
@@ -137,7 +142,7 @@ const TabUsuarios = ({
                                 icon='HeroPlus'
                                 className='text-blue-500'
                                 onClick={handleEditar}>
-                                Agregar
+                                Gestionar usuarios
                             </Button>
                         </Tooltip>
                     )}
@@ -164,6 +169,10 @@ const TabUsuarios = ({
                 </CardHeaderChild>
             </CardHeader>
             <CardBody className='p-4'>
+                <div className='mb-4 text-xs text-zinc-500'>
+                    Vincula usuarios del cliente al contrato y controla el envio de firma desde
+                    esta seccion.
+                </div>
                 {editandoSeccion ? (
                     // ── Modo edición ──
                     <div className='grid grid-cols-12 gap-4'>
@@ -299,7 +308,7 @@ const TabUsuarios = ({
                                             ]);
                                             setNuevoUsuario('');
                                         }}>
-                                        Agregar
+                                        Agregar usuario
                                     </Button>
                                 </div>
                             </>
@@ -317,10 +326,11 @@ const TabUsuarios = ({
                                 <div className='grid grid-cols-12 gap-2'>
                                     <div className='col-span-4 text-xs font-bold'>Usuario</div>
                                     <div className='col-span-3 text-xs font-bold'>Tipo</div>
-                                    <div className='col-span-3 text-xs font-bold'>
+                                    <div className='col-span-2 text-xs font-bold'>
                                         F. Vinculación
                                     </div>
-                                    <div className='col-span-2 text-xs font-bold'></div>
+                                    <div className='col-span-2 text-xs font-bold'>Estado</div>
+                                    <div className='col-span-1 text-xs font-bold'></div>
                                     {sinEnvio.map((v, i) => (
                                         <Fragment key={v.id}>
                                             <div
@@ -339,7 +349,7 @@ const TabUsuarios = ({
                                             </div>
                                             <div
                                                 className={classNames(
-                                                    'col-span-3',
+                                                    'col-span-2',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
                                                 {dayjs(v.fecha_vinculacion).format('DD/MM/YYYY')}
@@ -347,6 +357,17 @@ const TabUsuarios = ({
                                             <div
                                                 className={classNames(
                                                     'col-span-2',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                <Badge
+                                                    variant='outline'
+                                                    color={getEstadoFirmaVisual(v.existe_envio).color}>
+                                                    {getEstadoFirmaVisual(v.existe_envio).label}
+                                                </Badge>
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-1',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
                                                 <Tooltip text='Enviar firma'>
@@ -370,15 +391,20 @@ const TabUsuarios = ({
                         {pendientes.length > 0 && (
                             <div>
                                 <h6 className='mb-2 text-sm font-semibold text-amber-500'>
-                                    Pendientes de firma
+                                    Firma enviada
                                 </h6>
+                                <p className='mb-2 text-xs text-zinc-500'>
+                                    El sistema confirma que existe un envio. La firma final no se
+                                    expone en esta vista.
+                                </p>
                                 <div className='grid grid-cols-12 gap-2'>
                                     <div className='col-span-4 text-xs font-bold'>Usuario</div>
                                     <div className='col-span-3 text-xs font-bold'>Tipo</div>
-                                    <div className='col-span-3 text-xs font-bold'>
+                                    <div className='col-span-2 text-xs font-bold'>
                                         F. Vinculación
                                     </div>
-                                    <div className='col-span-2 text-xs font-bold'></div>
+                                    <div className='col-span-2 text-xs font-bold'>Estado</div>
+                                    <div className='col-span-1 text-xs font-bold'></div>
                                     {pendientes.map((v, i) => (
                                         <Fragment key={v.id}>
                                             <div
@@ -397,7 +423,7 @@ const TabUsuarios = ({
                                             </div>
                                             <div
                                                 className={classNames(
-                                                    'col-span-3',
+                                                    'col-span-2',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
                                                 {dayjs(v.fecha_vinculacion).format('DD/MM/YYYY')}
@@ -405,6 +431,17 @@ const TabUsuarios = ({
                                             <div
                                                 className={classNames(
                                                     'col-span-2',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                <Badge
+                                                    variant='outline'
+                                                    color={getEstadoFirmaVisual(v.existe_envio).color}>
+                                                    {getEstadoFirmaVisual(v.existe_envio).label}
+                                                </Badge>
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-1',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
                                                 <Tooltip text='Reenviar firma'>
@@ -446,7 +483,7 @@ const TabUsuarios = ({
                                 )}
                                 {pendientes.length > 0 && (
                                     <Badge variant='outline' color='amber'>
-                                        {pendientes.length} pendientes
+                                        {pendientes.length} con envio
                                     </Badge>
                                 )}
                             </div>

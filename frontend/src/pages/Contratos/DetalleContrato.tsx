@@ -1,5 +1,6 @@
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -27,7 +28,7 @@ import {
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CicloVidaContrato from './components/CicloVidaContrato';
 import { colorEstadoContrato } from './components/contrato.helpers';
@@ -46,6 +47,7 @@ const DetalleContrato = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { clienteId, contratoId } = useParams<{ clienteId: string; contratoId: string }>();
+    const [searchParams] = useSearchParams();
 
     // ── RTK Query ──
     const {
@@ -76,6 +78,7 @@ const DetalleContrato = () => {
     // ── Estado local ──
     const [modalEliminar, setModalEliminar] = useState(false);
     const [modalEditarDatos, setModalEditarDatos] = useState(false);
+    const clientTab = searchParams.get('tab') || 'contratos';
 
     // ── Cargar catálogos legacy al montar ──
     useEffect(() => {
@@ -174,7 +177,9 @@ const DetalleContrato = () => {
                 <SubheaderLeft>
                     <Button
                         icon='HeroArrowSmallLeft'
-                        onClick={() => navigate(`/empresa/detalle-cliente/${clienteId}`)}
+                        onClick={() =>
+                            navigate(`/empresa/detalle-cliente/${clienteId}?tab=${clientTab}`)
+                        }
                     />
                     <h4 className='font-bold'>
                         {contrato.nombre}{' '}
@@ -184,59 +189,92 @@ const DetalleContrato = () => {
                         {contrato.estado_label}
                     </Badge>
                 </SubheaderLeft>
-                <SubheaderRight>
-                    {puedeActivar && (
-                        <Button
-                            variant='solid'
-                            icon='HeroCheck'
-                            onClick={() => handleCambiarEstado('activo')}>
-                            Activar
-                        </Button>
-                    )}
-                    {puedeSuspender && (
-                        <Tooltip text='Suspender contrato'>
-                            <Button
-                                color='amber'
-                                icon='HeroPause'
-                                onClick={() => handleCambiarEstado('suspendido')}>
-                                Suspender
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {puedeFinalizar && (
-                        <Tooltip text='Finalizar contrato'>
-                            <Button
-                                icon='HeroXMark'
-                                onClick={() => handleCambiarEstado('finalizado')}>
-                                Finalizar
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {puedeRenovar && (
-                        <Button icon='HeroArrowPath' onClick={handleRenovar}>
-                            Renovar
-                        </Button>
-                    )}
-                    {puedeEditar && (
-                        <Tooltip text='Eliminar contrato'>
-                            <Button
-                                color='red'
-                                icon='HeroTrash'
-                                onClick={() => setModalEliminar(true)}
-                            />
-                        </Tooltip>
-                    )}
-                </SubheaderRight>
+                <SubheaderRight>{null}</SubheaderRight>
             </Subheader>
 
             {/* ── Ciclo de vida ── */}
             <Container className='pb-0'>
+                <Breadcrumb
+                    path={`Clientes / ${contrato.datos_cliente.nombre}`}
+                    currentPage={`Contrato #${contrato.id}`}
+                />
+            </Container>
+            <Container className='pb-0 pt-2'>
                 <CicloVidaContrato estado={contrato.estado} />
             </Container>
 
             {/* ── Resumen operativo ── */}
             <Container className='pb-0 pt-2'>
                 <ResumenContrato contrato={contrato} />
+            </Container>
+            <Container className='pb-0 pt-2'>
+                <Card>
+                    <CardBody className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                        <div>
+                            <div className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                                Operacion del contrato
+                            </div>
+                            <div className='text-xs text-zinc-500'>
+                                Centraliza aqui los cambios de estado y las acciones principales.
+                            </div>
+                        </div>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            {puedeActivar && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroCheck'
+                                    onClick={() => handleCambiarEstado('activo')}>
+                                    Activar
+                                </Button>
+                            )}
+                            {puedeSuspender && (
+                                <Tooltip text='Suspender contrato'>
+                                    <Button
+                                        color='amber'
+                                        icon='HeroPause'
+                                        onClick={() => handleCambiarEstado('suspendido')}>
+                                        Suspender
+                                    </Button>
+                                </Tooltip>
+                            )}
+                            {puedeFinalizar && (
+                                <Tooltip text='Finalizar contrato'>
+                                    <Button
+                                        icon='HeroXMark'
+                                        onClick={() => handleCambiarEstado('finalizado')}>
+                                        Finalizar
+                                    </Button>
+                                </Tooltip>
+                            )}
+                            {puedeRenovar && (
+                                <Button icon='HeroArrowPath' onClick={handleRenovar}>
+                                    Renovar
+                                </Button>
+                            )}
+                            {puedeEditar && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPencil'
+                                    onClick={() => setModalEditarDatos(true)}>
+                                    Editar datos
+                                </Button>
+                            )}
+                            {puedeEditar && (
+                                <Tooltip text='Eliminar contrato'>
+                                    <Button
+                                        color='red'
+                                        icon='HeroTrash'
+                                        onClick={() => setModalEliminar(true)}
+                                    />
+                                </Tooltip>
+                            )}
+                            <DetalleConfidencialidadContrato
+                                contratoId={contrato.id}
+                                empresaClienteId={contrato.empresa_cliente}
+                            />
+                        </div>
+                    </CardBody>
+                </Card>
             </Container>
 
             {/* ── Contenido ── */}
@@ -279,12 +317,6 @@ const DetalleContrato = () => {
                                         {contrato.fecha_fin
                                             ? dayjs(contrato.fecha_fin).format('DD/MM/YYYY')
                                             : 'Sin Fecha de Finalización'}
-                                        <Badge
-                                            className='ml-2'
-                                            variant='solid'
-                                            color={colorEstadoContrato(contrato.estado)}>
-                                            {contrato.estado_label}
-                                        </Badge>
                                     </div>
 
                                     {/* Tipo */}
@@ -295,25 +327,12 @@ const DetalleContrato = () => {
                                 </div>
 
                                 {/* Botones de acción */}
-                                <div className='col-span-2 flex flex-wrap items-center justify-center gap-4'>
-                                    {puedeEditar && (
-                                        <>
-                                            <Button
-                                                className='hidden md:flex'
-                                                variant='solid'
-                                                icon='HeroPencil'
-                                                onClick={() => setModalEditarDatos(true)}>
-                                                Editar Datos
-                                            </Button>
-                                            <Button
-                                                className='md:hidden'
-                                                variant='solid'
-                                                icon='HeroPencil'
-                                                onClick={() => setModalEditarDatos(true)}
-                                            />
-                                        </>
-                                    )}
-                                    <DetalleConfidencialidadContrato contratoId={contrato.id} empresaClienteId={contrato.empresa_cliente} />
+                                <div className='col-span-2 flex items-start justify-end'>
+                                    <Badge
+                                        variant='outline'
+                                        color={colorEstadoContrato(contrato.estado)}>
+                                        {contrato.estado_label}
+                                    </Badge>
                                 </div>
                             </div>
                         </CardBody>

@@ -14,6 +14,8 @@ from contratos.models import (
     ContratoCondicionEspecial,
     UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
+    PersonaLicenciataria,
+    CorreoPersonaLicenciataria,
     AcuerdoConfidencialidadContrato,
     EnvioContratoFirmaUsuario,
     Servicio,
@@ -743,6 +745,75 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_crear_vinculo_por_correo_persona(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+        persona, _ = PersonaLicenciataria.sincronizar_desde_usuario_empresa(
+            self.usuario_empresa,
+            empresa=self.contrato.empresa_cliente,
+        )
+        correo = CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+            persona=persona,
+            correo="test+alt@prestadora.com",
+            es_principal=False,
+            es_corporativo=True,
+        )
+
+        response = self.client.post(
+            f"/api/contrato-licencias/{contrato_licencia.id}/usuarios-vinculados/",
+            {"licencia": contrato_licencia.id, "correo_persona": correo.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["correo_display"], "test+alt@prestadora.com")
+
+    def test_correos_disponibles_retorna_correos_canonicos(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.get(
+            f"/api/contrato-licencias/{contrato_licencia.id}/usuarios-vinculados/empresa/{self.empresa_prestadora.id}/correos-disponibles/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(any(item["correo"] == "test@prestadora.com" for item in response.data))
+
+    def test_crear_vinculo_externo_por_correo(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.post(
+            f"/api/contrato-licencias/{contrato_licencia.id}/usuarios-vinculados/",
+            {
+                "licencia": contrato_licencia.id,
+                "nombre": "Externo Cliente",
+                "correo_generico": "externo@cliente.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["correo_display"], "externo@cliente.com")
 
 
 class MetricasDashboardTest(ContratoAPITestBase):

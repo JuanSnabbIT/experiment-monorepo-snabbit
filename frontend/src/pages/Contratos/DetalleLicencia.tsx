@@ -1,3 +1,4 @@
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -13,7 +14,7 @@ import {
 } from '@/store/slices/contratos/contratoApi';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ItemsTablaDeUsuariosVinculadosLicencias from '../Clientes/components/ItemsTablaDeUsuariosVinculadosLicencias';
 import CrearUsuarioVinculadoLicencia from '../Clientes/modals/CrearUsuarioVinculadoLicencia';
 import MarqueeEstadoLicencia from './components/MarqueeEstadoLicencia';
@@ -22,12 +23,17 @@ import ModalEditarCuposLicencia from './modals/ModalEditarCuposLicencia';
 
 const DetalleLicencia = () => {
     const navigate = useNavigate();
-    const { licenciaId } = useParams<{
+    const { clienteId, contratoId, licenciaId } = useParams<{
+        clienteId: string;
+        contratoId: string;
         licenciaId: string;
     }>();
+    const [searchParams] = useSearchParams();
 
     const [modalEstadoOpen, setModalEstadoOpen] = useState(false);
     const [modalEditarOpen, setModalEditarOpen] = useState(false);
+    const [mostrarHistorial, setMostrarHistorial] = useState(false);
+    const clientTab = searchParams.get('tab') || 'contratos';
 
     const {
         data: licencia,
@@ -80,8 +86,16 @@ const DetalleLicencia = () => {
                     <SubheaderLeft>
                         <Button
                             icon='HeroArrowLeft'
-                            onClick={() => navigate(-1)}>
-                            Volver
+                            onClick={() => {
+                                if (clienteId && contratoId) {
+                                    navigate(
+                                        `/empresa/detalle-cliente/${clienteId}/contrato/${contratoId}?tab=${clientTab}`,
+                                    );
+                                    return;
+                                }
+                                navigate(-1);
+                            }}>
+                            Volver al contrato
                         </Button>
                         <h1 className='text-xl font-bold'>{licencia.nombre_licencia}</h1>
                         <Badge color={licencia.color_estado}>{licencia.estado_label}</Badge>
@@ -101,9 +115,14 @@ const DetalleLicencia = () => {
                 </Subheader>
 
                 <Container>
+                    <Breadcrumb
+                        path={`Clientes / ${licencia.nombre_contrato}`}
+                        currentPage={licencia.nombre_licencia}
+                    />
                     <div className='mb-4'>
                         <MarqueeEstadoLicencia licencia={licencia} />
                     </div>
+                    
                     <div className='grid grid-cols-1 gap-4 lg:grid-cols-3'>
                         {/* ── Información principal ── */}
                         <Card className='lg:col-span-1'>
@@ -228,8 +247,23 @@ const DetalleLicencia = () => {
                                             Historial de cambios
                                         </span>
                                     </CardHeaderChild>
+                                    <CardHeaderChild>
+                                        <Button
+                                            variant='outline'
+                                            size='sm'
+                                            icon={
+                                                mostrarHistorial
+                                                    ? 'HeroChevronUp'
+                                                    : 'HeroChevronDown'
+                                            }
+                                            onClick={() => setMostrarHistorial((prev) => !prev)}>
+                                            {mostrarHistorial
+                                                ? 'Ocultar historial'
+                                                : 'Ver historial'}
+                                        </Button>
+                                    </CardHeaderChild>
                                 </CardHeader>
-                                <CardBody className='p-0'>
+                                {mostrarHistorial && <CardBody className='p-0'>
                                     {loadingHistorial ? (
                                         <p className='p-4 text-sm text-zinc-500'>Cargando...</p>
                                     ) : errorHistorial ? (
@@ -272,7 +306,7 @@ const DetalleLicencia = () => {
                                             </TBody>
                                         </Table>
                                     )}
-                                </CardBody>
+                                </CardBody>}
                             </Card>
                         </div>
                     </div>

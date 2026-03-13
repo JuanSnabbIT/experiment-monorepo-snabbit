@@ -4,6 +4,7 @@ from .estados_modelo import *
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from datetime import date
 from dateutil.relativedelta import relativedelta
 import uuid
@@ -156,6 +157,201 @@ class Licencia(ModeloBase):
 
     def __str__(self):
         return f"{self.nombre} - {self.proveedor}"
+
+
+class PersonaLicenciataria(ModeloBaseHistorico):
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="personas_licenciatarias",
+    )
+    usuario_empresa = models.OneToOneField(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        related_name="persona_licenciataria",
+        blank=True,
+        null=True,
+    )
+    nombre = models.CharField(max_length=255)
+    es_interno = models.BooleanField(default=False)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Persona Licenciataria"
+        verbose_name_plural = "Personas Licenciatarias"
+        ordering = ["nombre", "id"]
+
+    @classmethod
+    def sincronizar_desde_usuario_empresa(cls, usuario_empresa, empresa=None):
+        empresa_obj = empresa or usuario_empresa.sucursal.empresa
+        defaults = {
+            "empresa": empresa_obj,
+            "nombre": usuario_empresa.usuario.get_nombre_completo(),
+            "es_interno": True,
+            "activo": True,
+        }
+        persona, created = cls.objects.get_or_create(
+            usuario_empresa=usuario_empresa,
+            defaults=defaults,
+        )
+        cambios = []
+        if persona.empresa_id != empresa_obj.id:
+            persona.empresa = empresa_obj
+            cambios.append("empresa")
+        nombre_actual = usuario_empresa.usuario.get_nombre_completo()
+        if persona.nombre != nombre_actual:
+            persona.nombre = nombre_actual
+            cambios.append("nombre")
+        if not persona.es_interno:
+            persona.es_interno = True
+            cambios.append("es_interno")
+        if not persona.activo:
+            persona.activo = True
+            cambios.append("activo")
+        if cambios:
+            persona.save(update_fields=cambios + ["fecha_modificacion"])
+
+        correo = CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+            persona=persona,
+            correo=usuario_empresa.usuario.email,
+            es_principal=True,
+            es_corporativo=True,
+            verificado=True,
+        )
+        return persona, correo
+
+    @classmethod
+    def obtener_o_crear_externa(cls, empresa, nombre, correo):
+        correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(correo)
+        correo_existente = CorreoPersonaLicenciataria.objects.filter(
+            empresa=empresa,
+            correo_normalizado=correo_normalizado,
+        ).select_related("persona").first()
+        if correo_existente:
+            persona = correo_existente.persona
+            if nombre and persona.nombre != nombre:
+                persona.nombre = nombre
+                persona.save(update_fields=["nombre", "fecha_modificacion"])
+            return persona, correo_existente
+
+        persona = cls.objects.create(
+            empresa=empresa,
+            nombre=nombre or correo_normalizado,
+            es_interno=False,
+            activo=True,
+        )
+        correo_obj = CorreoPersonaLicenciataria.objects.create(
+            persona=persona,
+            empresa=empresa,
+            correo=correo_normalizado,
+            es_principal=True,
+            es_corporativo=False,
+        )
+        return persona, correo_obj
+
+    def __str__(self):
+        return self.nombre
+
+
+class CorreoPersonaLicenciataria(ModeloBaseHistorico):
+    persona = models.ForeignKey(
+        "contratos.PersonaLicenciataria",
+        on_delete=models.CASCADE,
+        related_name="correos",
+    )
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="correos_licenciatarios",
+    )
+    correo = models.EmailField(max_length=250)
+    correo_normalizado = models.EmailField(max_length=250, db_index=True)
+    es_principal = models.BooleanField(default=False)
+    es_corporativo = models.BooleanField(default=True)
+    verificado = models.BooleanField(default=False)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Correo de Persona Licenciataria"
+        verbose_name_plural = "Correos de Personas Licenciatarias"
+        ordering = ["-es_principal", "correo", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "correo_normalizado"],
+                name="unique_correo_persona_licenciataria_empresa",
+            )
+        ]
+
+    @staticmethod
+    def normalizar_correo(correo):
+        correo_normalizado = (correo or "").strip().lower()
+        validate_email(correo_normalizado)
+        return correo_normalizado
+
+    @classmethod
+    def obtener_o_crear_para_persona(
+        cls,
+        persona,
+        correo,
+        es_principal=False,
+        es_corporativo=False,
+        verificado=False,
+    ):
+        correo_normalizado = cls.normalizar_correo(correo)
+        correo_obj, created = cls.objects.get_or_create(
+            empresa=persona.empresa,
+            correo_normalizado=correo_normalizado,
+            defaults={
+                "persona": persona,
+                "correo": correo_normalizado,
+                "es_principal": es_principal,
+                "es_corporativo": es_corporativo,
+                "verificado": verificado,
+                "activo": True,
+            },
+        )
+        cambios = []
+        if correo_obj.persona_id != persona.id:
+            correo_obj.persona = persona
+            cambios.append("persona")
+        if correo_obj.correo != correo_normalizado:
+            correo_obj.correo = correo_normalizado
+            cambios.append("correo")
+        if es_principal and not correo_obj.es_principal:
+            correo_obj.es_principal = True
+            cambios.append("es_principal")
+        if es_corporativo and not correo_obj.es_corporativo:
+            correo_obj.es_corporativo = True
+            cambios.append("es_corporativo")
+        if verificado and not correo_obj.verificado:
+            correo_obj.verificado = True
+            cambios.append("verificado")
+        if not correo_obj.activo:
+            correo_obj.activo = True
+            cambios.append("activo")
+        if cambios:
+            correo_obj.save(update_fields=cambios + ["fecha_modificacion"])
+        elif created and es_principal:
+            correo_obj._asegurar_principal_unico()
+        return correo_obj
+
+    def clean(self):
+        super().clean()
+        self.correo_normalizado = self.normalizar_correo(self.correo)
+        if self.persona_id and self.empresa_id != self.persona.empresa_id:
+            self.empresa = self.persona.empresa
+
+    def _asegurar_principal_unico(self):
+        if self.es_principal and self.persona_id:
+            self.persona.correos.exclude(pk=self.pk).filter(es_principal=True).update(es_principal=False)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        self._asegurar_principal_unico()
+
+    def __str__(self):
+        return self.correo
 
 class CondicionEspecial(ModeloBaseHistorico):
     titulo = models.CharField(max_length=255, verbose_name="Título de la Condición")
@@ -377,6 +573,13 @@ class ContratoLicencia(ModeloBaseHistorico):
 class UsuarioVinculadoLicencia(ModeloBaseHistorico):
     usuario = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE, blank=True, null=True)
     licencia = models.ForeignKey("contratos.ContratoLicencia", on_delete=models.CASCADE, related_name="vinculos_licencia")
+    correo_persona = models.ForeignKey(
+        "contratos.CorreoPersonaLicenciataria",
+        on_delete=models.SET_NULL,
+        related_name="asignaciones_licencia",
+        blank=True,
+        null=True,
+    )
     fecha_asignacion = models.DateField(auto_now_add=True)
     nombre = models.CharField(max_length=50, blank=True, null=True)
     correo_generico = models.EmailField(blank=True, null=True)
@@ -384,9 +587,113 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
     class Meta:
         verbose_name = "Usuario Vinculado a la Licencia"
         verbose_name_plural = "Usuarios Vinculados a Licencias"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["licencia", "correo_persona"],
+                condition=models.Q(correo_persona__isnull=False),
+                name="unique_vinculo_licencia_correo_persona",
+            )
+        ]
+
+    @property
+    def persona_licenciataria(self):
+        return self.correo_persona.persona if self.correo_persona else None
+
+    @property
+    def correo_asignado(self):
+        if self.correo_persona:
+            return self.correo_persona.correo
+        if self.usuario_id:
+            return self.usuario.usuario.email
+        return self.correo_generico
+
+    @property
+    def nombre_asignado(self):
+        persona = self.persona_licenciataria
+        if persona:
+            return persona.nombre
+        if self.usuario_id:
+            return self.usuario.usuario.get_nombre_completo()
+        return self.nombre
+
+    @property
+    def es_externo(self):
+        persona = self.persona_licenciataria
+        if persona:
+            return not persona.es_interno
+        return self.usuario_id is None
+
+    def _resolver_correo_persona(self):
+        if self.correo_persona_id:
+            return
+
+        if self.usuario_id:
+            _, correo_obj = PersonaLicenciataria.sincronizar_desde_usuario_empresa(
+                self.usuario,
+                empresa=self.licencia.contrato.empresa_cliente if self.licencia_id else None,
+            )
+            self.correo_persona = correo_obj
+            return
+
+        if self.correo_generico:
+            nombre = self.nombre or self.correo_generico
+            empresa = self.licencia.contrato.empresa_cliente if self.licencia_id else None
+            if empresa is None:
+                raise ValidationError("No se pudo determinar la empresa cliente para el correo asignado.")
+            _, correo_obj = PersonaLicenciataria.obtener_o_crear_externa(
+                empresa=empresa,
+                nombre=nombre,
+                correo=self.correo_generico,
+            )
+            self.correo_persona = correo_obj
+            return
+
+    def _sincronizar_campos_legacy(self):
+        if not self.correo_persona_id:
+            return
+
+        persona = self.correo_persona.persona
+        if persona.usuario_empresa_id:
+            self.usuario = persona.usuario_empresa
+            self.nombre = None
+            self.correo_generico = None
+            return
+
+        self.usuario = None
+        self.nombre = persona.nombre
+        self.correo_generico = self.correo_persona.correo
+
+    def clean(self):
+        super().clean()
+        if not self.licencia_id:
+            return
+
+        self._resolver_correo_persona()
+
+        if not self.correo_persona_id and not self.usuario_id and not self.correo_generico:
+            raise ValidationError("Debe indicar un correo o una persona licenciataria para el vínculo.")
+
+        if self.correo_persona_id:
+            if self.correo_persona.empresa_id != self.licencia.contrato.empresa_cliente_id:
+                raise ValidationError(
+                    "El correo asignado debe pertenecer a la empresa cliente del contrato de licencia."
+                )
+
+            existe = UsuarioVinculadoLicencia.objects.exclude(pk=self.pk).filter(
+                licencia=self.licencia,
+                correo_persona=self.correo_persona,
+            )
+            if existe.exists():
+                raise ValidationError("Este correo ya está vinculado a la licencia.")
+
+        self._sincronizar_campos_legacy()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.usuario} en {self.licencia}"
+        return f"{self.nombre_asignado or self.correo_asignado} en {self.licencia}"
 
 class ContratoCondicionEspecial(ModeloBaseHistorico):
     contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_condiciones_especiales")

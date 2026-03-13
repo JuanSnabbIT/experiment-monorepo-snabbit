@@ -137,7 +137,7 @@ const TabLicencias = ({
     const handleVerDetalle = (licenciaId: number) => {
         if (clienteId && contratoId) {
             navigate(
-                `/empresa/detalle-cliente/${clienteId}/contrato/${contratoId}/licencia/${licenciaId}`,
+                `/empresa/detalle-cliente/${clienteId}/contrato/${contratoId}/licencia/${licenciaId}?tab=contratos`,
             );
         }
     };
@@ -167,7 +167,7 @@ const TabLicencias = ({
                                     icon='HeroPlus'
                                     className='text-blue-500'
                                     onClick={handleEditar}>
-                                    Agregar
+                                    Gestionar licencias
                                 </Button>
                             </Tooltip>
                         )}
@@ -177,7 +177,7 @@ const TabLicencias = ({
                                     variant='solid'
                                     icon='HeroPlus'
                                     onClick={() => setModalLicencia({ isOpen: true })}>
-                                    Nueva Licencia
+                                    Agregar licencia
                                 </Button>
                                 <Button
                                     icon='HeroXMark'
@@ -200,6 +200,10 @@ const TabLicencias = ({
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody className='p-0'>
+                    <div className='border-b border-zinc-100 px-4 py-3 text-xs text-zinc-500 dark:border-zinc-700'>
+                        Administra las licencias del contrato y entra al detalle para revisar
+                        cupos, estado e historial.
+                    </div>
                     {!editandoSeccion ? (
                         // Modo lectura: lista compacta nombre + Ver detalle
                         detalleContratoEmpresaCliente.contrato_licencias.length === 0 ? (

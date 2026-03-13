@@ -99,6 +99,9 @@ const RtkQueryService = createApi({
         'FacturaContrato',
         'FacturasContratoResumen',
         'EquiposUsuario',
+        'Servicios',
+        'PlanesServicio',
+        'CaracteristicasServicio',
     ] as const,
     endpoints: () => ({}),
 });

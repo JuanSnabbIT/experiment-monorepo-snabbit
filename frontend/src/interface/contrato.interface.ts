@@ -202,6 +202,28 @@ export interface ILicencia {
     proveedor: string | null;
 }
 
+export interface IPersonaLicenciatariaResumen {
+    id: number;
+    nombre: string;
+    es_interno: boolean;
+    usuario_empresa: number | null;
+}
+
+export interface ICorreoPersonaLicenciataria {
+    id: number;
+    fecha_creacion: string;
+    fecha_modificacion: string;
+    persona: number;
+    empresa: number;
+    correo: string;
+    correo_normalizado: string;
+    es_principal: boolean;
+    es_corporativo: boolean;
+    verificado: boolean;
+    activo: boolean;
+    persona_detalle: IPersonaLicenciatariaResumen;
+}
+
 export interface IUsuarioVinculadoLicencia {
     id: number;
     fecha_creacion: string;
@@ -209,14 +231,18 @@ export interface IUsuarioVinculadoLicencia {
     fecha_asignacion: string;
     nombre: null | string;
     correo_generico: null | string;
-    usuario: number;
+    usuario: number | null;
     licencia: number;
+    correo_persona: number | null;
     datos_usuario: {
         nombre: string;
         correo: string;
     } | null;
     es_externo: boolean;
     nombre_display: string;
+    correo_display: string;
+    persona: IPersonaLicenciatariaResumen | null;
+    correo_persona_detalle: ICorreoPersonaLicenciataria | null;
 }
 
 export interface IDetalleEnvio {

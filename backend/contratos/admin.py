@@ -17,6 +17,8 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
     CaracteristicaServicio,
+    PersonaLicenciataria,
+    CorreoPersonaLicenciataria,
     AcuerdoConfidencialidadContrato,
     FacturaContrato,
 )
@@ -113,9 +115,9 @@ class ContratoEmpresaClienteAdmin(admin.ModelAdmin):
 class UsuarioVinculadoLicenciaInline(admin.TabularInline):
     model = UsuarioVinculadoLicencia
     extra = 1
-    fields = ['usuario', 'nombre', 'correo_generico', 'fecha_asignacion']
+    fields = ['usuario', 'correo_persona', 'nombre', 'correo_generico', 'fecha_asignacion']
     readonly_fields = ['fecha_asignacion']
-    raw_id_fields = ['usuario']
+    raw_id_fields = ['usuario', 'correo_persona']
 
 @admin.register(ContratoLicencia)
 class ContratoLicenciaAdmin(admin.ModelAdmin):
@@ -197,9 +199,25 @@ class UsuarioVinculadoContratoAdmin(admin.ModelAdmin):
 
 @admin.register(UsuarioVinculadoLicencia)
 class UsuarioVinculadoLicenciaAdmin(admin.ModelAdmin):
-    list_display = ('licencia', 'usuario', 'fecha_asignacion')
+    list_display = ('licencia', 'correo_persona', 'usuario', 'fecha_asignacion')
     list_filter = ('fecha_asignacion',)
-    search_fields = ('usuario__username',)
+    search_fields = ('usuario__usuario__email', 'correo_persona__correo', 'nombre')
+
+
+@admin.register(PersonaLicenciataria)
+class PersonaLicenciatariaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'empresa', 'usuario_empresa', 'es_interno', 'activo')
+    list_filter = ('empresa', 'es_interno', 'activo')
+    search_fields = ('nombre', 'usuario_empresa__usuario__email')
+    raw_id_fields = ('empresa', 'usuario_empresa')
+
+
+@admin.register(CorreoPersonaLicenciataria)
+class CorreoPersonaLicenciatariaAdmin(admin.ModelAdmin):
+    list_display = ('correo', 'persona', 'empresa', 'es_principal', 'activo')
+    list_filter = ('empresa', 'es_principal', 'es_corporativo', 'activo')
+    search_fields = ('correo', 'persona__nombre')
+    raw_id_fields = ('persona', 'empresa')
 
 
 @admin.register(ContratoCondicionEspecial)

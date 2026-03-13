@@ -1,4 +1,5 @@
 import {
+    ICaracteristicaServicio,
     ICondicionEspecial,
     IContratoCondicionEspecial,
     IContratoEmpresaCliente,
@@ -6,6 +7,7 @@ import {
     IContratoServicio,
     IContratoVinculadoPorUsuario,
     IContratoVisita,
+    ICorreoPersonaLicenciataria,
     IFacturaContrato,
     IFacturaContratoResumen,
     ILicencia,
@@ -16,7 +18,6 @@ import {
     IVinculoContrato,
     IVisita
 } from '@/interface/contrato.interface';
-import { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import { IUsuarioEquipo } from '@/interface/recursos.interface';
 import RtkQueryService from '@/services/RtkQueryService';
 
@@ -196,12 +197,12 @@ const contratoApi = RtkQueryService.injectEndpoints({
         // ─── Catálogos ───
         getServicios: builder.query<IServicio[], void>({
             query: () => ({ url: '/api/servicios/', method: 'get' }),
-            providesTags: ['ContratoServicios'],
+            providesTags: ['Servicios', 'ContratoServicios'],
         }),
 
         getPlanesServicio: builder.query<IPlanServicio[], void>({
             query: () => ({ url: '/api/planes-servicio/', method: 'get' }),
-            providesTags: ['ContratoServicios'],
+            providesTags: ['PlanesServicio', 'ContratoServicios'],
         }),
 
         getVisitasCatalogo: builder.query<IVisita[], void>({
@@ -264,11 +265,11 @@ const contratoApi = RtkQueryService.injectEndpoints({
         }),
 
         getUsuariosDisponiblesLicencia: builder.query<
-            IUsuarioEmpresa[],
+            ICorreoPersonaLicenciataria[],
             { licenciaId: number | string; empresaId: number | string }
         >({
             query: ({ licenciaId, empresaId }) => ({
-                url: `/api/contrato-licencias/${licenciaId}/usuarios-vinculados/empresa/${empresaId}/usuarios-no-vinculados/`,
+                url: `/api/contrato-licencias/${licenciaId}/usuarios-vinculados/empresa/${empresaId}/correos-disponibles/`,
                 method: 'get',
             }),
             providesTags: ['ContratoUsuarios'],
@@ -588,6 +589,63 @@ const contratoApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: ['FacturasContrato', 'FacturasContratoResumen'],
         }),
+
+        // ═══════════════════════════════════════════════════════
+        //  Catálogos: Servicios, Planes, Características (CRUD)
+        // ═══════════════════════════════════════════════════════
+
+        getCaracteristicasServicio: builder.query<ICaracteristicaServicio[], void>({
+            query: () => ({ url: '/api/caracteristicas-servicio/', method: 'get' }),
+            providesTags: ['CaracteristicasServicio'],
+        }),
+
+        // ─── Servicios CRUD ───
+        createServicio: builder.mutation<IServicio, { nombre: string; descripcion?: string; categoria: string; caracteristicas_ids?: number[] }>({
+            query: (data) => ({ url: '/api/servicios/', method: 'post', data }),
+            invalidatesTags: ['Servicios', 'ContratoServicios'],
+        }),
+
+        updateServicio: builder.mutation<IServicio, { id: number | string; data: Partial<IServicio & { caracteristicas_ids?: number[] }> }>({
+            query: ({ id, data }) => ({ url: `/api/servicios/${id}/`, method: 'patch', data }),
+            invalidatesTags: ['Servicios', 'ContratoServicios', 'PlanesServicio'],
+        }),
+
+        deleteServicio: builder.mutation<void, number | string>({
+            query: (id) => ({ url: `/api/servicios/${id}/`, method: 'delete' }),
+            invalidatesTags: ['Servicios', 'ContratoServicios', 'PlanesServicio'],
+        }),
+
+        // ─── Planes de Servicio CRUD ───
+        createPlanServicio: builder.mutation<IPlanServicio, { nombre: string; descripcion?: string; servicios_ids?: number[] }>({
+            query: (data) => ({ url: '/api/planes-servicio/', method: 'post', data }),
+            invalidatesTags: ['PlanesServicio', 'ContratoServicios'],
+        }),
+
+        updatePlanServicio: builder.mutation<IPlanServicio, { id: number | string; data: Partial<IPlanServicio & { servicios_ids?: number[] }> }>({
+            query: ({ id, data }) => ({ url: `/api/planes-servicio/${id}/`, method: 'patch', data }),
+            invalidatesTags: ['PlanesServicio', 'ContratoServicios'],
+        }),
+
+        deletePlanServicio: builder.mutation<void, number | string>({
+            query: (id) => ({ url: `/api/planes-servicio/${id}/`, method: 'delete' }),
+            invalidatesTags: ['PlanesServicio', 'ContratoServicios'],
+        }),
+
+        // ─── Características de Servicio CRUD ───
+        createCaracteristicaServicio: builder.mutation<ICaracteristicaServicio, { nombre: string; descripcion?: string }>({
+            query: (data) => ({ url: '/api/caracteristicas-servicio/', method: 'post', data }),
+            invalidatesTags: ['CaracteristicasServicio', 'Servicios', 'ContratoServicios'],
+        }),
+
+        updateCaracteristicaServicio: builder.mutation<ICaracteristicaServicio, { id: number | string; data: Partial<ICaracteristicaServicio> }>({
+            query: ({ id, data }) => ({ url: `/api/caracteristicas-servicio/${id}/`, method: 'patch', data }),
+            invalidatesTags: ['CaracteristicasServicio', 'Servicios', 'ContratoServicios'],
+        }),
+
+        deleteCaracteristicaServicio: builder.mutation<void, number | string>({
+            query: (id) => ({ url: `/api/caracteristicas-servicio/${id}/`, method: 'delete' }),
+            invalidatesTags: ['CaracteristicasServicio', 'Servicios', 'ContratoServicios'],
+        }),
     }),
 });
 
@@ -642,6 +700,17 @@ export const {
     useFinalizarFacturaContratoMutation,
     useAsociarDocumentoFacturaMutation,
     useDeleteFacturaContratoMutation,
+    // Catálogos CRUD
+    useGetCaracteristicasServicioQuery,
+    useCreateServicioMutation,
+    useUpdateServicioMutation,
+    useDeleteServicioMutation,
+    useCreatePlanServicioMutation,
+    useUpdatePlanServicioMutation,
+    useDeletePlanServicioMutation,
+    useCreateCaracteristicaServicioMutation,
+    useUpdateCaracteristicaServicioMutation,
+    useDeleteCaracteristicaServicioMutation,
 } = contratoApi;
 
 export default contratoApi;

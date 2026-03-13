@@ -17,30 +17,32 @@ import {
     useGetDetalleContratoLicenciaQuery,
     useGetUsuariosDisponiblesLicenciaQuery,
 } from '@/store/slices/contratos/contratoApi';
+import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
 interface ICrearUsuarioVinculadoLicenciaProps {
-    /** Cuando se provee, la licencia queda fija y no se muestra el selector */
     licenciaIdFijo?: string;
-    /** ID de la empresa cliente — requerido cuando no hay detalleCliente en Redux (ej. desde DetalleLicencia) */
     clienteId?: string;
 }
 
-function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdProp }: ICrearUsuarioVinculadoLicenciaProps = {}) {
+type TModoVinculo = 'existente' | 'interno' | 'externo';
+
+function CrearUsuarioVinculadoLicencia({
+    licenciaIdFijo,
+    clienteId: clienteIdProp,
+}: ICrearUsuarioVinculadoLicenciaProps = {}) {
     const { detalleCliente } = useAppSelector((state) => state.empresa);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const [isUser, setIsUser] = useState<boolean>(false);
+    const [modo, setModo] = useState<TModoVinculo>('existente');
     const [selectedLicenciaId, setSelectedLicenciaId] = useState<string>(licenciaIdFijo ?? '');
 
-    // RTK Query mutations
     const [createUsuario] = useCreateUsuarioVinculadoLicenciaMutation();
 
-    // RTK Query: lista de licencias del cliente
     const { data: listaContratoLicencias = [] } = useGetContratoLicenciasVinculosQuery(
         {
             empresaId: personalizacionUsuario?.empresa ?? '',
@@ -49,53 +51,67 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
         { skip: !personalizacionUsuario?.empresa || !detalleCliente?.cliente || !isOpen },
     );
 
-    // RTK Query: detalle de licencia seleccionada
-    const { data: detalleContratoLicencia } = useGetDetalleContratoLicenciaQuery(
-        selectedLicenciaId,
-        { skip: !selectedLicenciaId },
-    );
+    const { data: detalleContratoLicencia } = useGetDetalleContratoLicenciaQuery(selectedLicenciaId, {
+        skip: !selectedLicenciaId,
+    });
 
-    // ID de empresa cliente: prop explícita tiene prioridad sobre Redux
     const empresaClienteId = clienteIdProp ?? detalleCliente?.cliente ?? '';
 
-    // RTK Query: usuarios disponibles
-    const { data: listaUsuariosDisponibles = [] } = useGetUsuariosDisponiblesLicenciaQuery(
+    const { data: correosDisponibles = [] } = useGetUsuariosDisponiblesLicenciaQuery(
         { licenciaId: selectedLicenciaId, empresaId: empresaClienteId },
-        { skip: !selectedLicenciaId || !empresaClienteId },
+        { skip: !selectedLicenciaId || !empresaClienteId || !isOpen },
     );
+
+    const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(empresaClienteId, {
+        skip: !empresaClienteId || !isOpen,
+    });
 
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
+            licencia: '',
+            correo_persona: '',
+            usuario: '',
+            correo: '',
             nombre: '',
             correo_generico: '',
-            usuario: '',
-            licencia: '',
         },
         validationSchema: Yup.object().shape({
             licencia: Yup.string().required('Requerido').nonNullable('Requerido'),
-            usuario: isUser
-                ? Yup.string().required('Requerido').nonNullable('Requerido')
-                : Yup.string().notRequired().nullable(),
-            nombre: !isUser
-                ? Yup.string().required('Requerido').nonNullable('Requerido')
-                : Yup.string().notRequired().nullable(),
-            correo_generico: !isUser
-                ? Yup.string()
-                      .required('Requerido')
-                      .email('Debe ser un correo válido')
-                      .nonNullable('Requerido')
-                : Yup.string().notRequired().nullable(),
+            correo_persona:
+                modo === 'existente'
+                    ? Yup.string().required('Requerido').nonNullable('Requerido')
+                    : Yup.string().nullable(),
+            usuario:
+                modo === 'interno'
+                    ? Yup.string().required('Requerido').nonNullable('Requerido')
+                    : Yup.string().nullable(),
+            correo:
+                modo === 'interno'
+                    ? Yup.string().required('Requerido').email('Debe ser un correo válido')
+                    : Yup.string().nullable(),
+            nombre:
+                modo === 'externo'
+                    ? Yup.string().required('Requerido').nonNullable('Requerido')
+                    : Yup.string().nullable(),
+            correo_generico:
+                modo === 'externo'
+                    ? Yup.string().required('Requerido').email('Debe ser un correo válido')
+                    : Yup.string().nullable(),
         }),
         onSubmit: async (values) => {
             try {
                 const data: Record<string, unknown> = { licencia: values.licencia };
-                if (isUser) {
+                if (modo === 'existente') {
+                    data.correo_persona = values.correo_persona;
+                } else if (modo === 'interno') {
                     data.usuario = values.usuario;
+                    data.correo = values.correo;
                 } else {
                     data.nombre = values.nombre;
                     data.correo_generico = values.correo_generico;
                 }
+
                 await createUsuario({
                     licenciaId: values.licencia,
                     data,
@@ -108,27 +124,66 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
         },
     });
 
-    // Cuando hay licenciaIdFijo, inicializar al abrir el modal
+    const opcionesCorreosDisponibles = useMemo(
+        () =>
+            correosDisponibles.map((correo) => ({
+                value: correo.id.toString(),
+                label: `${correo.persona_detalle.nombre} <${correo.correo}>`,
+            })),
+        [correosDisponibles],
+    );
+
+    const opcionesUsuariosInternos = useMemo(
+        () =>
+            usuariosCliente.map((usuario) => ({
+                value: usuario.id.toString(),
+                label: `${usuario.nombre_usuario} <${usuario.email_usuario}>`,
+            })),
+        [usuariosCliente],
+    );
+
+    const opcionesCorreoUsuarioInterno = useMemo(() => {
+        if (!formik.values.usuario) return [];
+        return correosDisponibles
+            .filter(
+                (correo) =>
+                    correo.persona_detalle.usuario_empresa?.toString() === formik.values.usuario,
+            )
+            .map((correo) => ({
+                value: correo.correo,
+                label: correo.correo,
+            }));
+    }, [correosDisponibles, formik.values.usuario]);
+
+    const formikRef = useRef(formik);
+    formikRef.current = formik;
+
     useEffect(() => {
         if (isOpen && licenciaIdFijo) {
-            formik.setFieldValue('licencia', licenciaIdFijo);
+            formikRef.current.setFieldValue('licencia', licenciaIdFijo);
             setSelectedLicenciaId(licenciaIdFijo);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, licenciaIdFijo]);
 
-    // Sincronizar selección de licencia con el formik value
     useEffect(() => {
         setSelectedLicenciaId(formik.values.licencia);
     }, [formik.values.licencia]);
 
     useEffect(() => {
         if (!isOpen) {
-            formik.resetForm();
+            formikRef.current.resetForm();
+            setModo('existente');
             setSelectedLicenciaId(licenciaIdFijo ?? '');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen]);
+    }, [isOpen, licenciaIdFijo]);
+
+    useEffect(() => {
+        formikRef.current.setFieldValue('correo_persona', '');
+        formikRef.current.setFieldValue('usuario', '');
+        formikRef.current.setFieldValue('correo', '');
+        formikRef.current.setFieldValue('nombre', '');
+        formikRef.current.setFieldValue('correo_generico', '');
+    }, [modo]);
 
     return (
         <>
@@ -142,10 +197,9 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
                 />
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>Vincular Usuario a una Licencia</ModalHeader>
+                <ModalHeader>Vincular correo a una licencia</ModalHeader>
                 <ModalBody>
                     <div className='flex flex-col gap-4'>
-                        {/* Selector de licencia: solo cuando no hay licencia fija */}
                         {!licenciaIdFijo && (
                             <div>
                                 <Label htmlFor='licencia'>Licencia</Label>
@@ -161,16 +215,14 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
                                             label: `${con.nombre_contrato}: ${con.nombre_licencia}`,
                                         }))}
                                         onChange={(e) => {
-                                            formik.setFieldValue(
-                                                'licencia',
-                                                (e as TSelectOption).value,
-                                            );
+                                            formik.setFieldValue('licencia', (e as TSelectOption).value);
                                         }}
                                         value={
                                             formik.values.licencia
                                                 ? {
                                                       value: formik.values.licencia,
-                                                      label: `${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_contrato}: ${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_licencia}`,
+                                                      label:
+                                                          `${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_contrato}: ${listaContratoLicencias.find((lic) => lic.id.toString() === formik.values.licencia)?.nombre_licencia}`,
                                                   }
                                                 : { value: '', label: '' }
                                         }
@@ -178,7 +230,8 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
                                 </Validation>
                             </div>
                         )}
-                        {formik.values.licencia != '' && detalleContratoLicencia && (
+
+                        {formik.values.licencia !== '' && detalleContratoLicencia && (
                             <div>
                                 <Label htmlFor='licencia'>Disponibles / Cantidad</Label>
                                 <div className='ml-4'>
@@ -187,104 +240,154 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
                                 </div>
                             </div>
                         )}
-                        {formik.values.licencia != '' &&
+
+                        {formik.values.licencia !== '' &&
                             detalleContratoLicencia &&
                             detalleContratoLicencia.licencias_disponibles > 0 && (
                                 <>
-                                    <div>
-                                        <Label htmlFor='usuario'>Usuario / Nombre</Label>
-                                        <Validation
-                                            isValid={formik.isValid}
-                                            isTouched={
-                                                isUser
-                                                    ? formik.touched.usuario
-                                                    : formik.touched.nombre
-                                            }
-                                            invalidFeedback={
-                                                isUser
-                                                    ? formik.errors.usuario
-                                                    : formik.errors.nombre
-                                            }>
-                                            <SelectReact
-                                                name={isUser ? 'usuario' : 'nombre'}
-                                                isClearable
-                                                isCreatable
-                                                onBlur={formik.handleBlur}
-                                                formatCreateLabel={(e) => `Nombre: ${e}`}
-                                                noOptionsMessage={(e) =>
-                                                    `No Existe ${e.inputValue}`
-                                                }
-                                                options={listaUsuariosDisponibles.map(
-                                                    (user) => ({
-                                                        value: user.id.toString(),
-                                                        label: user.nombre_usuario,
-                                                    }),
-                                                )}
-                                                value={
-                                                    isUser
-                                                        ? {
-                                                              value: formik.values.usuario,
-                                                              label:
-                                                                  listaUsuariosDisponibles.find(
-                                                                      (user) =>
-                                                                          user.id.toString() ===
-                                                                          formik.values.usuario,
-                                                                  )?.nombre_usuario || '',
-                                                          }
-                                                        : {
-                                                              value: formik.values.nombre,
-                                                              label: formik.values.nombre,
-                                                          }
-                                                }
-                                                onCreateOption={(e) => {
-                                                    if (e) {
-                                                        setIsUser(false);
-                                                        formik.setFieldValue('nombre', e);
-                                                        formik.setFieldValue('usuario', '');
-                                                    } else {
-                                                        setIsUser(true);
-                                                        formik.setFieldValue('nombre', '');
-                                                        formik.setFieldValue('correo', '');
-                                                    }
-                                                }}
-                                                onChange={(e) => {
-                                                    if (e) {
-                                                        setIsUser(true);
-                                                        formik.setFieldValue(
-                                                            'usuario',
-                                                            (e as TSelectOption).value,
-                                                        );
-                                                        formik.setFieldValue('nombre', '');
-                                                        formik.setFieldValue('correo', '');
-                                                    } else {
-                                                        setIsUser(false);
-                                                        formik.setFieldValue('usuario', '');
-                                                        formik.setFieldValue('nombre', '');
-                                                        formik.setFieldValue('correo', '');
-                                                    }
-                                                }}
-                                            />
-                                        </Validation>
+                                    <div className='grid grid-cols-1 gap-2 md:grid-cols-3'>
+                                        <Button
+                                            variant={modo === 'existente' ? 'solid' : 'outline'}
+                                            onClick={() => setModo('existente')}>
+                                            Correo existente
+                                        </Button>
+                                        <Button
+                                            variant={modo === 'interno' ? 'solid' : 'outline'}
+                                            onClick={() => setModo('interno')}>
+                                            Usuario interno
+                                        </Button>
+                                        <Button
+                                            variant={modo === 'externo' ? 'solid' : 'outline'}
+                                            onClick={() => setModo('externo')}>
+                                            Persona externa
+                                        </Button>
                                     </div>
-                                    {!isUser && formik.values.nombre && (
+
+                                    {modo === 'existente' && (
                                         <div>
-                                            <Label htmlFor='correo_generico'>Correo</Label>
+                                            <Label htmlFor='correo_persona'>Correo existente</Label>
                                             <Validation
                                                 isValid={formik.isValid}
-                                                isTouched={formik.touched.correo_generico}
-                                                invalidFeedback={formik.errors.correo_generico}>
-                                                <Input
-                                                    name='correo_generico'
-                                                    onChange={formik.handleChange}
+                                                isTouched={formik.touched.correo_persona}
+                                                invalidFeedback={formik.errors.correo_persona}>
+                                                <SelectReact
+                                                    name='correo_persona'
                                                     onBlur={formik.handleBlur}
-                                                    value={formik.values.correo_generico}
+                                                    options={opcionesCorreosDisponibles}
+                                                    onChange={(e) => {
+                                                        formik.setFieldValue(
+                                                            'correo_persona',
+                                                            (e as TSelectOption | null)?.value ?? '',
+                                                        );
+                                                    }}
+                                                    value={
+                                                        opcionesCorreosDisponibles.find(
+                                                            (opt) => opt.value === formik.values.correo_persona,
+                                                        ) ?? { value: '', label: '' }
+                                                    }
                                                 />
                                             </Validation>
                                         </div>
                                     )}
+
+                                    {modo === 'interno' && (
+                                        <>
+                                            <div>
+                                                <Label htmlFor='usuario'>Usuario interno</Label>
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.usuario}
+                                                    invalidFeedback={formik.errors.usuario}>
+                                                    <SelectReact
+                                                        name='usuario'
+                                                        onBlur={formik.handleBlur}
+                                                        options={opcionesUsuariosInternos}
+                                                        onChange={(e) => {
+                                                            formik.setFieldValue(
+                                                                'usuario',
+                                                                (e as TSelectOption | null)?.value ?? '',
+                                                            );
+                                                            formik.setFieldValue('correo', '');
+                                                        }}
+                                                        value={
+                                                            opcionesUsuariosInternos.find(
+                                                                (opt) => opt.value === formik.values.usuario,
+                                                            ) ?? { value: '', label: '' }
+                                                        }
+                                                    />
+                                                </Validation>
+                                            </div>
+
+                                            <div>
+                                                <Label htmlFor='correo'>Correo a vincular</Label>
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.correo}
+                                                    invalidFeedback={formik.errors.correo}>
+                                                    <SelectReact
+                                                        name='correo'
+                                                        isCreatable
+                                                        onBlur={formik.handleBlur}
+                                                        options={opcionesCorreoUsuarioInterno}
+                                                        onCreateOption={(value) => {
+                                                            formik.setFieldValue('correo', value.trim().toLowerCase());
+                                                        }}
+                                                        onChange={(e) => {
+                                                            formik.setFieldValue(
+                                                                'correo',
+                                                                (e as TSelectOption | null)?.value ?? '',
+                                                            );
+                                                        }}
+                                                        value={
+                                                            formik.values.correo
+                                                                ? {
+                                                                      value: formik.values.correo,
+                                                                      label: formik.values.correo,
+                                                                  }
+                                                                : { value: '', label: '' }
+                                                        }
+                                                    />
+                                                </Validation>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {modo === 'externo' && (
+                                        <>
+                                            <div>
+                                                <Label htmlFor='nombre'>Nombre</Label>
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.nombre}
+                                                    invalidFeedback={formik.errors.nombre}>
+                                                    <Input
+                                                        name='nombre'
+                                                        onChange={formik.handleChange}
+                                                        onBlur={formik.handleBlur}
+                                                        value={formik.values.nombre}
+                                                    />
+                                                </Validation>
+                                            </div>
+                                            <div>
+                                                <Label htmlFor='correo_generico'>Correo</Label>
+                                                <Validation
+                                                    isValid={formik.isValid}
+                                                    isTouched={formik.touched.correo_generico}
+                                                    invalidFeedback={formik.errors.correo_generico}>
+                                                    <Input
+                                                        name='correo_generico'
+                                                        onChange={formik.handleChange}
+                                                        onBlur={formik.handleBlur}
+                                                        value={formik.values.correo_generico}
+                                                    />
+                                                </Validation>
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             )}
-                        {formik.values.licencia != '' &&
+
+                        {formik.values.licencia !== '' &&
                             detalleContratoLicencia &&
                             detalleContratoLicencia.licencias_disponibles === 0 && (
                                 <div>No hay licencias disponibles</div>
@@ -292,7 +395,7 @@ function CrearUsuarioVinculadoLicencia({ licenciaIdFijo, clienteId: clienteIdPro
                     </div>
                 </ModalBody>
                 <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild />
                     <ModalFooterChild>
                         <Button
                             color='red'

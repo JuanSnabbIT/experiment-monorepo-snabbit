@@ -1,5 +1,36 @@
 import { IContratoEmpresaCliente, ILicencia, IVisita } from '@/interface/contrato.interface';
 
+// ─── Tipos para SelectorPlanServicios ───
+
+/** Representa un servicio seleccionado (addon o personalizado) con cantidad y precio */
+export interface IServicioSeleccionado {
+    servicio_id: number;
+    cantidad: number;
+    precio_unitario: number;
+}
+
+/** Estado completo de la selección de plan/servicios */
+export interface ISeleccionPlanServicios {
+    /** 'plan' = se eligió un PlanServicio del catálogo, 'personalizado' = armado a medida */
+    modo: 'plan' | 'personalizado';
+    /** ID del PlanServicio seleccionado (null si modo='personalizado') */
+    plan_id: number | null;
+    /** Cantidad del plan */
+    plan_cantidad: number;
+    /** Precio unitario del plan */
+    plan_precio_unitario: number;
+    /** Servicios agregados como addon (modo plan) o seleccionados (modo personalizado) */
+    servicios: IServicioSeleccionado[];
+}
+
+/** Props del componente SelectorPlanServicios */
+export interface ISelectorPlanServiciosProps {
+    /** Valor actual de la selección */
+    value: ISeleccionPlanServicios;
+    /** Callback cuando la selección cambia */
+    onChange: (value: ISeleccionPlanServicios) => void;
+}
+
 /**
  * Tipo del formulario Formik utilizado en la edición de contratos.
  * Centralizado aquí para que los sub-componentes de tabs puedan tiparlo sin depender del padre.

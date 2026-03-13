@@ -11,6 +11,8 @@ from contratos.models import (
     NotificacionVentanaLicencia,
     UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
+    PersonaLicenciataria,
+    CorreoPersonaLicenciataria,
     Servicio,
     Visita,
     Licencia,
@@ -237,6 +239,71 @@ class ContratoLicenciaModelTest(TestCase):
         )
 
         self.assertEqual(contrato_licencia.dias_hasta_fin_edicion, 7)
+
+    def test_vinculo_interno_crea_persona_y_correo_canonico(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=2,
+            fecha_inicio=date.today(),
+        )
+
+        vinculo = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia,
+            usuario=self.usuario_empresa,
+        )
+
+        self.assertIsNotNone(vinculo.correo_persona)
+        self.assertEqual(vinculo.correo_persona.correo, "licencias@test.com")
+        self.assertEqual(vinculo.persona_licenciataria.usuario_empresa_id, self.usuario_empresa.id)
+
+    def test_vinculo_externo_crea_persona_y_correo_canonico(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=2,
+            fecha_inicio=date.today(),
+        )
+
+        vinculo = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia,
+            nombre="Contacto Externo",
+            correo_generico="externo@cliente.com",
+        )
+
+        self.assertIsNone(vinculo.usuario)
+        self.assertIsNotNone(vinculo.correo_persona)
+        self.assertEqual(vinculo.correo_persona.correo, "externo@cliente.com")
+        self.assertEqual(vinculo.persona_licenciataria.nombre, "Contacto Externo")
+
+    def test_mismo_usuario_puede_vincular_distinto_correo(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=3,
+            fecha_inicio=date.today(),
+        )
+        persona, _ = PersonaLicenciataria.sincronizar_desde_usuario_empresa(
+            self.usuario_empresa,
+            empresa=self.contrato.empresa_cliente,
+        )
+        correo_alterno = CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+            persona=persona,
+            correo="licencias+alt@test.com",
+            es_principal=False,
+            es_corporativo=True,
+        )
+
+        vinculo = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia,
+            correo_persona=correo_alterno,
+        )
+
+        self.assertEqual(vinculo.usuario_id, self.usuario_empresa.id)
+        self.assertEqual(vinculo.correo_asignado, "licencias+alt@test.com")
 
 
 class NotificacionVentanaLicenciaTaskTest(TestCase):

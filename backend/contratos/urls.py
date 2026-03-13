@@ -12,6 +12,8 @@ from contratos.views import (
     PlanServicioViewSet,
     CaracteristicaServicioViewSet,
     UsuarioVinculadoLicenciaViewSet,
+    PersonaLicenciatariaViewSet,
+    CorreoPersonaLicenciatariaViewSet,
     VisitaViewSet,
     LicenciaViewSet,
     CondicionEspecialViewSet,
@@ -45,15 +47,19 @@ router.register(r'visitas', VisitaViewSet, basename='visita')
 router.register(r'licencias', LicenciaViewSet, basename='licencia')
 router.register(r'condiciones-especiales', CondicionEspecialViewSet, basename='condicion-especial')
 router.register(r'contrato-licencias', ContratoLicenciaViewSet, basename='contrato-licencias')
+router.register(r'personas-licenciatarias', PersonaLicenciatariaViewSet, basename='persona-licenciataria')
 router.register(r'facturas-contrato', FacturaContratoViewSet, basename='factura-contrato')
 
 licencia_router = routers.NestedDefaultRouter(router, r'contrato-licencias', lookup='licencia')
 licencia_router.register(r'usuarios-vinculados', UsuarioVinculadoLicenciaViewSet, basename='contrato-licencia-usuarios')
+persona_router = routers.NestedDefaultRouter(router, r'personas-licenciatarias', lookup='persona')
+persona_router.register(r'correos', CorreoPersonaLicenciatariaViewSet, basename='persona-licenciataria-correos')
 
 urlpatterns = (
     router.urls +
     contrato_router.urls +
     licencia_router.urls +
+    persona_router.urls +
     usuarios_vinculados_router.urls +
     [
         path(

@@ -189,7 +189,7 @@ function TablaDeContratosDelCliente({ detalleCliente }: ITablaDeContratosDelClie
                                 size='sm'
                                 onClick={() =>
                                     navigate(
-                                        `/empresa/detalle-cliente/${detalleCliente?.id}/contrato/${info.row.original.id}`,
+                                        `/empresa/detalle-cliente/${detalleCliente?.id}/contrato/${info.row.original.id}?tab=contratos`,
                                     )
                                 }
                             />

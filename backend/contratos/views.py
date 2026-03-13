@@ -13,13 +13,14 @@ from contratos.models import (
     PlanServicio,
     CaracteristicaServicio,
     UsuarioVinculadoLicencia,
+    PersonaLicenciataria,
+    CorreoPersonaLicenciataria,
     Visita,
     Licencia,
     CondicionEspecial,
     FacturaContrato,
 )
 from empresas.models import UsuarioEmpresa
-from empresas.serializers import UsuarioEmpresaSerializer
 from .serializers import (
     ContratoEmpresaClienteSerializer,
     EnvioContratoFirmaUsuarioSerializer,
@@ -34,6 +35,8 @@ from .serializers import (
     PlanServicioSerializer,
     CaracteristicaServicioSerializer,
     UsuarioVinculadoLicenciaSerializer,
+    PersonaLicenciatariaSerializer,
+    CorreoPersonaLicenciatariaSerializer,
     VisitaSerializer,
     LicenciaSerializer,
     CondicionEspecialSerializer,
@@ -46,6 +49,7 @@ from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.utils import OperationalError, ProgrammingError
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse, JsonResponse, Http404, HttpResponseBadRequest
@@ -59,6 +63,15 @@ import json
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+
+def _empresa_del_usuario(user):
+    from core.models import PersonalizacionUsuario
+
+    personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+    if personalizacion and personalizacion.sucursal_principal:
+        return personalizacion.sucursal_principal.empresa
+    return None
 
 
 # ViewSet para Contrato (modelo padre)
@@ -798,6 +811,10 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _usuario_vinculado_display(registro):
+        if getattr(registro, "correo_persona", None):
+            persona = registro.correo_persona.persona
+            nombre = persona.nombre if persona else None
+            return nombre or registro.correo_persona.correo
         if getattr(registro, "usuario", None):
             user = registro.usuario.usuario
             return user.get_nombre_completo() or user.email or str(registro.usuario)
@@ -991,6 +1008,48 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
         serializer = LicenciaVinculadaPorUsuarioSerializer(vinculos, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='por-correo')
+    def por_correo(self, request, **kwargs):
+        correo = (request.query_params.get("correo") or "").strip().lower()
+        if not correo:
+            return Response({"detail": 'Debe indicar el query param "correo".'}, status=status.HTTP_400_BAD_REQUEST)
+
+        empresa = _empresa_del_usuario(request.user)
+        if not empresa:
+            return Response([], status=status.HTTP_200_OK)
+
+        vinculos = UsuarioVinculadoLicencia.objects.filter(
+            correo_persona__empresa=empresa,
+            correo_persona__correo_normalizado=correo,
+        ).filter(
+            models.Q(licencia__contrato__empresa_prestadora=empresa) |
+            models.Q(licencia__contrato__empresa_cliente=empresa)
+        ).select_related(
+            'licencia', 'licencia__licencia', 'licencia__contrato', 'correo_persona'
+        ).order_by('-fecha_asignacion')
+
+        serializer = LicenciaVinculadaPorUsuarioSerializer(vinculos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path=r'por-persona/(?P<persona_pk>\d+)')
+    def por_persona(self, request, persona_pk=None, **kwargs):
+        empresa = _empresa_del_usuario(request.user)
+        if not empresa:
+            return Response([], status=status.HTTP_200_OK)
+
+        vinculos = UsuarioVinculadoLicencia.objects.filter(
+            correo_persona__persona_id=persona_pk,
+            correo_persona__empresa=empresa,
+        ).filter(
+            models.Q(licencia__contrato__empresa_prestadora=empresa) |
+            models.Q(licencia__contrato__empresa_cliente=empresa)
+        ).select_related(
+            'licencia', 'licencia__licencia', 'licencia__contrato', 'correo_persona__persona'
+        ).order_by('-fecha_asignacion')
+
+        serializer = LicenciaVinculadaPorUsuarioSerializer(vinculos, many=True)
+        return Response(serializer.data)
+
 class ContratoCondicionEspecialViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoCondicionEspecialSerializer
 
@@ -1023,14 +1082,41 @@ class AcuerdoConfidencialidadContratoViewSet(viewsets.ModelViewSet):
 class ServicioViewSet(viewsets.ModelViewSet):
     queryset = Servicio.objects.all()
     serializer_class = ServicioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if ContratoServicio.objects.filter(
+            content_type=ContentType.objects.get_for_model(Servicio),
+            object_id=instance.pk,
+        ).exists():
+            return Response(
+                {"detail": "No se puede eliminar: este servicio está asociado a contratos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 class PlanServicioViewSet(viewsets.ModelViewSet):
     queryset = PlanServicio.objects.all()
     serializer_class = PlanServicioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if ContratoServicio.objects.filter(
+            content_type=ContentType.objects.get_for_model(PlanServicio),
+            object_id=instance.pk,
+        ).exists():
+            return Response(
+                {"detail": "No se puede eliminar: este plan está asociado a contratos."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 class CaracteristicaServicioViewSet(viewsets.ModelViewSet):
     queryset = CaracteristicaServicio.objects.all()
     serializer_class = CaracteristicaServicioSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all()
@@ -1045,6 +1131,60 @@ class CondicionEspecialViewSet(viewsets.ModelViewSet):
     queryset = CondicionEspecial.objects.all()
     serializer_class = CondicionEspecialSerializer
 
+class PersonaLicenciatariaViewSet(viewsets.ModelViewSet):
+    serializer_class = PersonaLicenciatariaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return PersonaLicenciataria.objects.none()
+
+        qs = PersonaLicenciataria.objects.filter(empresa=empresa).select_related(
+            "usuario_empresa", "usuario_empresa__usuario"
+        ).prefetch_related("correos")
+
+        empresa_param = self.request.query_params.get("empresa")
+        if empresa_param:
+            qs = qs.filter(empresa_id=empresa_param)
+
+        q = (self.request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                models.Q(nombre__icontains=q) |
+                models.Q(correos__correo__icontains=q) |
+                models.Q(usuario_empresa__usuario__email__icontains=q) |
+                models.Q(usuario_empresa__usuario__first_name__icontains=q) |
+                models.Q(usuario_empresa__usuario__last_name__icontains=q)
+            ).distinct()
+
+        return qs
+
+    def perform_create(self, serializer):
+        empresa = _empresa_del_usuario(self.request.user)
+        serializer.save(empresa=empresa)
+
+
+class CorreoPersonaLicenciatariaViewSet(viewsets.ModelViewSet):
+    serializer_class = CorreoPersonaLicenciatariaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return CorreoPersonaLicenciataria.objects.none()
+
+        persona_pk = self.kwargs.get("persona_pk")
+        qs = CorreoPersonaLicenciataria.objects.filter(empresa=empresa).select_related("persona")
+        if persona_pk:
+            qs = qs.filter(persona_id=persona_pk)
+        return qs
+
+    def perform_create(self, serializer):
+        persona_pk = self.kwargs.get("persona_pk")
+        persona = PersonaLicenciataria.objects.get(pk=persona_pk)
+        serializer.save(persona=persona, empresa=persona.empresa)
+
 class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
     queryset = UsuarioVinculadoLicencia.objects.all()
     serializer_class = UsuarioVinculadoLicenciaSerializer
@@ -1053,7 +1193,9 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         contrato_licencia_pk = self.kwargs.get('licencia_pk')
         if contrato_licencia_pk:
-            return UsuarioVinculadoLicencia.objects.filter(licencia_id=contrato_licencia_pk)
+            return UsuarioVinculadoLicencia.objects.filter(licencia_id=contrato_licencia_pk).select_related(
+                "usuario", "usuario__usuario", "correo_persona", "correo_persona__persona"
+            )
 
         # Multi-tenancy: filtrar por empresa del usuario autenticado
         from core.models import PersonalizacionUsuario
@@ -1064,7 +1206,7 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
             return UsuarioVinculadoLicencia.objects.filter(
                 models.Q(licencia__contrato__empresa_prestadora=empresa) |
                 models.Q(licencia__contrato__empresa_cliente=empresa)
-            )
+            ).select_related("usuario", "usuario__usuario", "correo_persona", "correo_persona__persona")
         return UsuarioVinculadoLicencia.objects.none()
 
     def create(self, request, *args, **kwargs):
@@ -1094,21 +1236,68 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
-    @action(detail=False, methods=['get'], url_path=r'empresa/(?P<empresa_pk>\d+)/usuarios-no-vinculados')
-    def usuarios_no_vinculados(self, request, licencia_pk=None, empresa_pk=None):
+    @action(detail=False, methods=['get'], url_path=r'empresa/(?P<empresa_pk>\d+)/correos-disponibles')
+    def correos_disponibles(self, request, licencia_pk=None, empresa_pk=None):
         """
         Devuelve todos los UsuarioEmpresa que NO están vinculados
         a la licencia `licencia_pk` y pertenecen a la empresa `empresa_pk`.
         """
-        # 1) IDs de usuarios ya asignados a esta licencia
-        asignados = UsuarioVinculadoLicencia.objects.filter(licencia_id=licencia_pk).values_list('usuario_id', flat=True)
+        try:
+            usuarios_empresa = UsuarioEmpresa.objects.filter(sucursal__empresa_id=empresa_pk).select_related("usuario")
+            for usuario_empresa in usuarios_empresa:
+                PersonaLicenciataria.sincronizar_desde_usuario_empresa(
+                    usuario_empresa,
+                    empresa=usuario_empresa.sucursal.empresa,
+                )
 
-        # 2) Filtrar por empresa y excluir los asignados
-        disponibles = UsuarioEmpresa.objects.exclude(pk__in=asignados).filter(sucursal__empresa_id=empresa_pk)
+            asignados = UsuarioVinculadoLicencia.objects.filter(
+                licencia_id=licencia_pk,
+                correo_persona__isnull=False,
+            ).values_list('correo_persona_id', flat=True)
 
-        # 3) Serializar y devolver
-        serializer = UsuarioEmpresaSerializer(disponibles, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            disponibles = CorreoPersonaLicenciataria.objects.filter(
+                empresa_id=empresa_pk,
+                activo=True,
+            ).exclude(pk__in=asignados).select_related(
+                "persona", "persona__usuario_empresa", "persona__usuario_empresa__usuario"
+            ).order_by("-es_principal", "correo")
+
+            serializer = CorreoPersonaLicenciatariaSerializer(disponibles, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except (OperationalError, ProgrammingError):
+            asignados = UsuarioVinculadoLicencia.objects.filter(
+                licencia_id=licencia_pk,
+            ).values_list('usuario_id', flat=True)
+
+            disponibles = UsuarioEmpresa.objects.exclude(pk__in=asignados).filter(
+                sucursal__empresa_id=empresa_pk
+            ).select_related("usuario")
+
+            data = [
+                {
+                    "id": usuario.id,
+                    "persona": usuario.id,
+                    "empresa": int(empresa_pk),
+                    "correo": usuario.usuario.email,
+                    "correo_normalizado": usuario.usuario.email.lower(),
+                    "es_principal": True,
+                    "es_corporativo": True,
+                    "verificado": True,
+                    "activo": True,
+                    "persona_detalle": {
+                        "id": usuario.id,
+                        "nombre": usuario.usuario.get_nombre_completo(),
+                        "es_interno": True,
+                        "usuario_empresa": usuario.id,
+                    },
+                }
+                for usuario in disponibles
+            ]
+            return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path=r'empresa/(?P<empresa_pk>\d+)/usuarios-no-vinculados')
+    def usuarios_no_vinculados(self, request, licencia_pk=None, empresa_pk=None):
+        return self.correos_disponibles(request, licencia_pk=licencia_pk, empresa_pk=empresa_pk)
 
 class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
     queryset = EnvioContratoFirmaUsuario.objects.all()

@@ -38,22 +38,15 @@ function ItemsTablaDeUsuariosVinculadosLicencias({ user }: { user: IUsuarioVincu
         <>
             <Tr>
                 <Td>
-                    {user.datos_usuario ? (
-                        <>
-                            <div className='font-bold'>{user.datos_usuario.nombre}</div>
-                            <div className='text-sm'>Correo: {user.datos_usuario.correo}</div>
-                        </>
-                    ) : (
-                        <>
-                            <div className='flex items-center gap-2'>
-                                <span className='font-bold'>{user.nombre}</span>
-                                <Badge variant='outline' color='amber' className='text-xs'>
-                                    Externo
-                                </Badge>
-                            </div>
-                            <div className='text-sm'>Correo: {user.correo_generico}</div>
-                        </>
-                    )}
+                    <div className='flex items-center gap-2'>
+                        <span className='font-bold'>{user.nombre_display}</span>
+                        {user.es_externo && (
+                            <Badge variant='outline' color='amber' className='text-xs'>
+                                Externo
+                            </Badge>
+                        )}
+                    </div>
+                    <div className='text-sm'>Correo: {user.correo_display}</div>
                 </Td>
                 <Td>
                     {dayjs(user.fecha_asignacion).locale('es').format('DD/MM/YYYY')}

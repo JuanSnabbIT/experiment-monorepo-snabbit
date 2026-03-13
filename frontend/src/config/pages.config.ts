@@ -472,6 +472,13 @@ export const Pages = {
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin'],
             },
+            listaPlanesYServicios: {
+                id: 'listaPlanesYServicios',
+                to: '/registros/planes-y-servicios',
+                text: 'Planes y Servicios',
+                icon: 'HeroBriefcase',
+                authority: ['staff', 'superadmin'],
+            },
         },
     },
 

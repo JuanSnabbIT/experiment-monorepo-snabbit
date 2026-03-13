@@ -15,12 +15,16 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import { useAppSelector } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
     useCreateContratoLicenciaMutation,
     useCreateContratoMutation,
+    useEditarServiciosGenericosMutation,
     useGetLicenciasCatalogoQuery,
+    useGetPlanesServicioQuery,
+    useGetServiciosQuery,
 } from '@/store/slices/contratos/contratoApi';
+import { listaContentTypeThunk } from '@/store/slices/core/coreSlice';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -29,17 +33,19 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import { IContratoEdicion } from '../components/contrato.types';
+import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrato.types';
+import SelectorPlanServicios from '../components/SelectorPlanServicios';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
 
 // ── Tipos ──
 
-type TWizardStep = 1 | 2 | 3;
+type TWizardStep = 1 | 2 | 3 | 4;
 
 const STEP_LABELS: Record<TWizardStep, string> = {
     1: 'Datos del contrato',
-    2: 'Licencias',
-    3: 'Revisión',
+    2: 'Plan y Servicios',
+    3: 'Licencias',
+    4: 'Revisión',
 };
 
 interface ICrearContratoDelClienteProps {
@@ -56,11 +62,20 @@ interface ICrearContratoDelClienteProps {
 
 // ── Stepper visual ──
 
-const WizardStepper = ({ step, esLicencia }: { step: TWizardStep; esLicencia: boolean }) => {
+const WizardStepper = ({
+    step,
+    esServicios,
+    esLicencia,
+}: {
+    step: TWizardStep;
+    esServicios: boolean;
+    esLicencia: boolean;
+}) => {
     const pasos: { key: TWizardStep; label: string; visible: boolean }[] = [
         { key: 1, label: STEP_LABELS[1], visible: true },
-        { key: 2, label: STEP_LABELS[2], visible: esLicencia },
-        { key: 3, label: STEP_LABELS[3], visible: true },
+        { key: 2, label: STEP_LABELS[2], visible: esServicios },
+        { key: 3, label: STEP_LABELS[3], visible: esLicencia },
+        { key: 4, label: STEP_LABELS[4], visible: true },
     ];
 
     const pasosVisibles = pasos.filter((p) => p.visible);
@@ -69,8 +84,7 @@ const WizardStepper = ({ step, esLicencia }: { step: TWizardStep; esLicencia: bo
         <div className='mb-4 flex items-center justify-center gap-1'>
             {pasosVisibles.map((paso, i) => {
                 const esActual = paso.key === step;
-                const esCompletado =
-                    paso.key < step || (paso.key === 2 && !esLicencia && step >= 3);
+                const esCompletado = paso.key < step;
 
                 return (
                     <div key={paso.key} className='flex items-center gap-1'>
@@ -114,7 +128,9 @@ function CrearContratoDelCliente({
     licenciasIniciales,
 }: ICrearContratoDelClienteProps = {}) {
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
     const { detalleCliente: detalleClienteStore } = useAppSelector((state) => state.empresa);
+    const { listaContentType } = useAppSelector((state) => state.core);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
 
     const isControlledExternally = externalIsOpen !== undefined;
@@ -124,9 +140,30 @@ function CrearContratoDelCliente({
     const [step, setStep] = useState<TWizardStep>(1);
     const [modalAddLicencia, setModalAddLicencia] = useState(false);
 
+    // Estado para la selección de plan/servicios (Paso 2)
+    const SELECCION_INICIAL: ISeleccionPlanServicios = {
+        modo: 'plan',
+        plan_id: null,
+        plan_cantidad: 1,
+        plan_precio_unitario: 0,
+        servicios: [],
+    };
+    const [seleccionPlan, setSeleccionPlan] = useState<ISeleccionPlanServicios>(SELECCION_INICIAL);
+
     const { data: listaLicencias = [] } = useGetLicenciasCatalogoQuery();
+    const { data: planes = [] } = useGetPlanesServicioQuery();
+    const { data: serviciosCatalogo = [] } = useGetServiciosQuery();
     const [createContrato] = useCreateContratoMutation();
     const [createContratoLicencia] = useCreateContratoLicenciaMutation();
+    const [editarServiciosGenericos] = useEditarServiciosGenericosMutation();
+
+    // Cargar content types necesarios para crear ContratoServicio
+    useEffect(() => {
+        if (listaContentType.length === 0) {
+            dispatch(listaContentTypeThunk());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Formik auxiliar para licencias (Paso 2)
     const licFormik = useFormik<IContratoEdicion>({
@@ -194,6 +231,55 @@ function CrearContratoDelCliente({
                     empresa_cliente: detalleCliente?.info_cliente.id,
                 } as Record<string, unknown>).unwrap();
 
+                // ── Guardar servicios/plan si se seleccionaron ──
+                const tieneServicios =
+                    seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0;
+                if (tieneServicios) {
+                    try {
+                        const ctPlan = listaContentType.find(
+                            (ct) => ct.model === 'planservicio',
+                        );
+                        const ctSer = listaContentType.find((ct) => ct.model === 'servicio');
+                        const payload: Record<string, unknown>[] = [];
+
+                        if (
+                            seleccionPlan.modo === 'plan' &&
+                            seleccionPlan.plan_id &&
+                            ctPlan
+                        ) {
+                            payload.push({
+                                content_type: ctPlan.id,
+                                object_id: seleccionPlan.plan_id,
+                                cantidad: seleccionPlan.plan_cantidad,
+                                precio_unitario: seleccionPlan.plan_precio_unitario,
+                            });
+                        }
+
+                        if (ctSer) {
+                            seleccionPlan.servicios.forEach((s) => {
+                                payload.push({
+                                    content_type: ctSer.id,
+                                    object_id: s.servicio_id,
+                                    cantidad: s.cantidad,
+                                    precio_unitario: s.precio_unitario,
+                                });
+                            });
+                        }
+
+                        if (payload.length > 0) {
+                            await editarServiciosGenericos({
+                                id: contratoCreado.id,
+                                servicios_genericos: payload,
+                            }).unwrap();
+                        }
+                    } catch {
+                        toast.warning(
+                            'Contrato creado, pero hubo errores al guardar los servicios',
+                        );
+                    }
+                }
+
+                // ── Guardar licencias ──
                 const totalLicencias = licFormik.values.licencias.length;
 
                 if (values.tipo === 'licencia' && totalLicencias > 0) {
@@ -239,6 +325,11 @@ function CrearContratoDelCliente({
     });
 
     const esLicencia = formik.values.tipo === 'licencia' || tipoFijo === 'licencia';
+    const esServicios =
+        formik.values.tipo === 'servicios' ||
+        formik.values.tipo === 'licencia' ||
+        tipoFijo === 'servicios' ||
+        tipoFijo === 'licencia';
 
     const handleClose = () => {
         if (isControlledExternally) {
@@ -247,6 +338,7 @@ function CrearContratoDelCliente({
             setInternalIsOpen(false);
         }
         setStep(1);
+        setSeleccionPlan(SELECCION_INICIAL);
         formik.resetForm();
         licFormik.resetForm();
     };
@@ -261,15 +353,19 @@ function CrearContratoDelCliente({
                 ),
             );
             if (Object.keys(errors).length > 0) return;
-            setStep(esLicencia ? 2 : 3);
+            setStep(esServicios ? 2 : esLicencia ? 3 : 4);
         } else if (step === 2) {
-            setStep(3);
+            setStep(esLicencia ? 3 : 4);
+        } else if (step === 3) {
+            setStep(4);
         }
     };
 
     const handleAtras = () => {
-        if (step === 3) {
-            setStep(esLicencia ? 2 : 1);
+        if (step === 4) {
+            setStep(esLicencia ? 3 : esServicios ? 2 : 1);
+        } else if (step === 3) {
+            setStep(esServicios ? 2 : 1);
         } else if (step === 2) {
             setStep(1);
         }
@@ -307,7 +403,7 @@ function CrearContratoDelCliente({
                     <Badge className='text-xl'>Crear Contrato</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <WizardStepper step={step} esLicencia={esLicencia} />
+                    <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} />
 
                     {/* ── Paso 1: Datos del contrato ── */}
                     {step === 1 && (
@@ -409,8 +505,16 @@ function CrearContratoDelCliente({
                         </div>
                     )}
 
-                    {/* ── Paso 2: Licencias (solo tipo licencia) ── */}
+                    {/* ── Paso 2: Plan y Servicios ── */}
                     {step === 2 && (
+                        <SelectorPlanServicios
+                            value={seleccionPlan}
+                            onChange={setSeleccionPlan}
+                        />
+                    )}
+
+                    {/* ── Paso 3: Licencias (solo tipo licencia) ── */}
+                    {step === 3 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
                                 Agrega las licencias que incluirá este contrato. Puedes omitir
@@ -474,8 +578,8 @@ function CrearContratoDelCliente({
                         </div>
                     )}
 
-                    {/* ── Paso 3: Revisión ── */}
-                    {step === 3 && (
+                    {/* ── Paso 4: Revisión ── */}
+                    {step === 4 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
                                 Revisa los datos antes de crear el contrato.
@@ -511,6 +615,73 @@ function CrearContratoDelCliente({
                                 )}
                             </div>
 
+                            {/* Resumen de servicios/plan */}
+                            {esServicios &&
+                                (seleccionPlan.plan_id !== null ||
+                                    seleccionPlan.servicios.length > 0) && (
+                                    <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                        <span className='text-xs font-semibold text-zinc-500'>
+                                            Servicios
+                                        </span>
+                                        <div className='mt-2 flex flex-col gap-1'>
+                                            {seleccionPlan.modo === 'plan' &&
+                                                seleccionPlan.plan_id && (
+                                                    <div className='flex items-center justify-between text-sm'>
+                                                        <span className='font-medium'>
+                                                            Plan:{' '}
+                                                            {planes.find(
+                                                                (p) =>
+                                                                    p.id ===
+                                                                    seleccionPlan.plan_id,
+                                                            )?.nombre ??
+                                                                `#${seleccionPlan.plan_id}`}
+                                                        </span>
+                                                        <span className='text-zinc-500'>
+                                                            x{seleccionPlan.plan_cantidad}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            {seleccionPlan.servicios.length > 0 && (
+                                                <>
+                                                    <span className='mt-1 text-xs text-zinc-400'>
+                                                        {seleccionPlan.modo === 'plan'
+                                                            ? 'Addons:'
+                                                            : 'Servicios individuales:'}
+                                                    </span>
+                                                    {seleccionPlan.servicios.map((s) => {
+                                                        const serv = serviciosCatalogo.find(
+                                                            (sc) => sc.id === s.servicio_id,
+                                                        );
+                                                        return (
+                                                            <div
+                                                                key={s.servicio_id}
+                                                                className='flex items-center justify-between text-sm'>
+                                                                <span>
+                                                                    {serv?.nombre ??
+                                                                        `Servicio #${s.servicio_id}`}
+                                                                </span>
+                                                                <span className='text-zinc-500'>
+                                                                    x{s.cantidad}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                            {esServicios &&
+                                seleccionPlan.plan_id === null &&
+                                seleccionPlan.servicios.length === 0 && (
+                                    <p className='text-sm text-zinc-400'>
+                                        No se seleccionaron servicios. Podrás agregarlos
+                                        después.
+                                    </p>
+                                )}
+
+                            {/* Resumen de licencias */}
                             {esLicencia && licFormik.values.licencias.length > 0 && (
                                 <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
                                     <span className='text-xs font-semibold text-zinc-500'>
@@ -544,7 +715,18 @@ function CrearContratoDelCliente({
                 <ModalFooter>
                     <ModalFooterChild>
                         <span className='text-xs text-zinc-400'>
-                            Paso {step} de {esLicencia ? 3 : 2}
+                            Paso{' '}
+                            {
+                                [
+                                    { key: 1, visible: true },
+                                    { key: 2, visible: esServicios },
+                                    { key: 3, visible: esLicencia },
+                                    { key: 4, visible: true },
+                                ]
+                                    .filter((p) => p.visible)
+                                    .findIndex((p) => p.key === step) + 1
+                            }{' '}
+                            de {2 + (esServicios ? 1 : 0) + (esLicencia ? 1 : 0)}
                         </span>
                     </ModalFooterChild>
                     <ModalFooterChild>
@@ -552,19 +734,17 @@ function CrearContratoDelCliente({
                             Cancelar
                         </Button>
                         {step > 1 && <Button onClick={handleAtras}>Atrás</Button>}
-                        {step < 3 && !(step === 1 && !esLicencia) && (
+                        {step < 4 && (
                             <Button variant='solid' onClick={handleSiguiente}>
                                 Siguiente
                             </Button>
                         )}
-                        {(step === 3 || (step === 1 && !esLicencia)) && (
+                        {step === 4 && (
                             <Button
                                 variant='solid'
                                 isLoading={formik.isSubmitting}
-                                onClick={
-                                    step === 1 ? handleSiguiente : () => formik.handleSubmit()
-                                }>
-                                {step === 3 ? 'Crear contrato' : 'Siguiente'}
+                                onClick={() => formik.handleSubmit()}>
+                                Crear contrato
                             </Button>
                         )}
                     </ModalFooterChild>
