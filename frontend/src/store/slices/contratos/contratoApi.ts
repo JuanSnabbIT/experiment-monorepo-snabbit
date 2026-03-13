@@ -23,13 +23,15 @@ import RtkQueryService from '@/services/RtkQueryService';
 // ── Tipos auxiliares ──
 
 export interface IHistorialLicencia {
-    id: number;
+    id: number | string;
     fecha: string;
     tipo: string;
     usuario: string | null;
     cambios: string;
     estado: string | null;
     cantidad: number | null;
+    origen: 'licencia' | 'vinculo_usuario';
+    detalle: string;
 }
 
 // ── Tipos de respuesta para el dashboard ──
@@ -52,6 +54,7 @@ export interface IContratoMetricasDashboard {
         id: number;
         nombre: string;
         cliente: string;
+        empresa_cliente: number;
         fecha_fin: string | null;
         dias_restantes: number | null;
     }[];
@@ -101,6 +104,21 @@ const contratoApi = RtkQueryService.injectEndpoints({
         >({
             query: (data) => ({ url: '/api/contratos/', method: 'post', data }),
             invalidatesTags: ['Contratos'],
+        }),
+
+        patchContrato: builder.mutation<
+            IContratoEmpresaCliente,
+            { id: number | string; data: Partial<IContratoEmpresaCliente> }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/contratos/${id}/`,
+                method: 'PATCH',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+            ],
         }),
 
         updateContrato: builder.mutation<
@@ -220,6 +238,22 @@ const contratoApi = RtkQueryService.injectEndpoints({
             ],
         }),
 
+        updateCantidadContratoLicencia: builder.mutation<
+            IContratoLicencia,
+            { id: number | string; cantidad: number }
+        >({
+            query: ({ id, cantidad }) => ({
+                url: `/api/contrato-licencias/${id}/`,
+                method: 'patch',
+                data: { cantidad },
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'ContratoLicencias', id: Number(id) },
+                'ContratoLicencias',
+                'ContratoUsuarios',
+            ],
+        }),
+
         // ─── Usuarios vinculados a licencia ───
         getUsuariosVinculadosLicencia: builder.query<IUsuarioVinculadoLicencia[], number | string>({
             query: (licenciaId) => ({
@@ -325,6 +359,44 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 method: 'get',
             }),
             providesTags: (_result, _error, id) => [{ type: 'ContratoLicencias', id }],
+        }),
+
+        // ─── Firma de contrato ───
+        enviarFirmaContrato: builder.mutation<
+            unknown,
+            { contratoId: number; usuarioVinculadoId: number }
+        >({
+            query: ({ contratoId, usuarioVinculadoId }) => ({
+                url: `/api/contratos/${contratoId}/usuarios-vinculados/${usuarioVinculadoId}/envio-firma/`,
+                method: 'post',
+                data: { usuario: usuarioVinculadoId },
+            }),
+            invalidatesTags: (result, _error, { contratoId }) =>
+                result
+                    ? [
+                          { type: 'Contrato', id: contratoId },
+                          'ContratoFirmas',
+                          'ContratoUsuarios',
+                      ]
+                    : [],
+        }),
+
+        reenviarFirmaContrato: builder.mutation<
+            unknown,
+            { contratoId: number; usuarioVinculadoId: number; envioId: number }
+        >({
+            query: ({ contratoId, usuarioVinculadoId, envioId }) => ({
+                url: `/api/contratos/${contratoId}/usuarios-vinculados/${usuarioVinculadoId}/envio-firma/${envioId}/reenviar/`,
+                method: 'post',
+            }),
+            invalidatesTags: (result, _error, { contratoId }) =>
+                result
+                    ? [
+                          { type: 'Contrato', id: contratoId },
+                          'ContratoFirmas',
+                          'ContratoUsuarios',
+                      ]
+                    : [],
         }),
 
         // ─── Confidencialidad ───
@@ -524,6 +596,7 @@ export const {
     useGetContratosPorEmpresaClienteQuery,
     useGetDetalleContratoQuery,
     useCreateContratoMutation,
+    usePatchContratoMutation,
     useUpdateContratoMutation,
     useCambiarEstadoContratoMutation,
     useRenovarContratoMutation,
@@ -536,6 +609,7 @@ export const {
     useGetCondicionesEspecialesQuery,
     useGetContratoLicenciasVinculosQuery,
     useGetDetalleContratoLicenciaQuery,
+    useUpdateCantidadContratoLicenciaMutation,
     useGetUsuariosVinculadosLicenciaQuery,
     useGetUsuariosDisponiblesLicenciaQuery,
     useCreateUsuarioVinculadoLicenciaMutation,
@@ -546,6 +620,8 @@ export const {
     useCreateContratoLicenciaMutation,
     useGetHistorialContratoLicenciaQuery,
     useGetFirmasConfidencialidadQuery,
+    useEnviarFirmaContratoMutation,
+    useReenviarFirmaContratoMutation,
     // Relaciones anidadas del contrato
     useGetUsuariosVinculadosContratoQuery,
     useGetContratoServiciosQuery,

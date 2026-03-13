@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from django.db import models
 from contratos.models import (
     ContratoEmpresaCliente,
@@ -367,22 +367,26 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         cce = ContratoCondicionEspecial.objects.get(id=item["id"], contrato=contrato)
                     except ContratoCondicionEspecial.DoesNotExist:
                         continue
-                    # Si quisieras actualizar algo más, aquí iría. 
-                    # Por ejemplo, si existiera un campo extra en la tabla intermedia.
                     cce.save()
                 else:
-                    # Crear nueva relación
+                    texto = item.get("texto")
                     condicion_id = item.get("condicion_id")
-                    if not condicion_id:
-                        continue
-                    try:
-                        condicion_obj = CondicionEspecial.objects.get(pk=condicion_id)
-                    except CondicionEspecial.DoesNotExist:
-                        continue
-                    ContratoCondicionEspecial.objects.create(
-                        contrato=contrato,
-                        condicion=condicion_obj
-                    )
+                    if texto:
+                        # Condición de texto libre
+                        ContratoCondicionEspecial.objects.create(
+                            contrato=contrato,
+                            texto=texto
+                        )
+                    elif condicion_id:
+                        # Condición desde catálogo
+                        try:
+                            condicion_obj = CondicionEspecial.objects.get(pk=condicion_id)
+                        except CondicionEspecial.DoesNotExist:
+                            continue
+                        ContratoCondicionEspecial.objects.create(
+                            contrato=contrato,
+                            condicion=condicion_obj
+                        )
 
             # ============ USUARIOS VINCULADOS ============
             usuarios_data = request.data.get("usuarios_vinculados", [])
@@ -620,13 +624,14 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 fecha_fin__isnull=False,
                 fecha_fin__lte=fecha_30_dias,
                 fecha_fin__gte=hoy
-            ).values("id", "nombre", "empresa_cliente__nombre", "fecha_fin")[:10]
+            ).values("id", "nombre", "empresa_cliente__nombre", "empresa_cliente", "fecha_fin")[:10]
         )
         contratos_por_vencer_resultado = [
             {
                 "id": c["id"],
                 "nombre": c["nombre"],
                 "cliente": c["empresa_cliente__nombre"],
+                "empresa_cliente": c["empresa_cliente"],
                 "fecha_fin": c["fecha_fin"].isoformat() if c["fecha_fin"] else None,
                 "dias_restantes": (c["fecha_fin"] - hoy).days if c["fecha_fin"] else None,
             }
@@ -774,6 +779,63 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoLicenciaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @staticmethod
+    def _history_label(history_type):
+        return {
+            "+": "Creacion",
+            "~": "Actualizacion",
+            "-": "Eliminacion",
+        }.get(history_type, "Cambio")
+
+    @staticmethod
+    def _safe_user_display(history_user):
+        if not history_user:
+            return None
+        if hasattr(history_user, "get_nombre_completo"):
+            nombre = history_user.get_nombre_completo()
+            return nombre or str(history_user)
+        return str(history_user)
+
+    @staticmethod
+    def _usuario_vinculado_display(registro):
+        if getattr(registro, "usuario", None):
+            user = registro.usuario.usuario
+            return user.get_nombre_completo() or user.email or str(registro.usuario)
+        return registro.nombre or registro.correo_generico or "Usuario externo"
+
+    def _build_license_history_event(self, registro):
+        return {
+            "id": f"licencia-{registro.history_id}",
+            "fecha": registro.history_date,
+            "tipo": self._history_label(registro.history_type),
+            "usuario": self._safe_user_display(registro.history_user),
+            "cambios": registro.history_change_reason or "",
+            "estado": registro.estado if hasattr(registro, "estado") else None,
+            "cantidad": registro.cantidad if hasattr(registro, "cantidad") else None,
+            "origen": "licencia",
+            "detalle": "Cambio en la configuracion de la licencia",
+        }
+
+    def _build_link_history_event(self, registro):
+        usuario_vinculado = self._usuario_vinculado_display(registro)
+        accion = {
+            "+": "Usuario vinculado",
+            "~": "Vinculo actualizado",
+            "-": "Usuario desvinculado",
+        }.get(registro.history_type, "Cambio en vinculo")
+
+        return {
+            "id": f"vinculo-{registro.history_id}",
+            "fecha": registro.history_date,
+            "tipo": accion,
+            "usuario": self._safe_user_display(registro.history_user),
+            "cambios": registro.history_change_reason or f"{accion}: {usuario_vinculado}",
+            "estado": None,
+            "cantidad": None,
+            "origen": "vinculo_usuario",
+            "detalle": usuario_vinculado,
+        }
+
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
         if contrato_pk:
@@ -795,6 +857,38 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
         contrato_pk = self.kwargs.get('contrato_pk')
         contrato = ContratoEmpresaCliente.objects.get(pk=contrato_pk)
         serializer.save(contrato=contrato)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Permite editar individualmente solo la cantidad de cupos de la licencia."""
+        instancia = self.get_object()
+        campos_permitidos = {"cantidad"}
+        campos_recibidos = set(request.data.keys())
+
+        if "cantidad" not in request.data:
+            return Response(
+                {"detail": 'Debe indicar el campo "cantidad".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        campos_invalidos = campos_recibidos - campos_permitidos
+        if campos_invalidos:
+            return Response(
+                {
+                    "detail": (
+                        "Desde este flujo solo se puede editar la cantidad de cupos."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(
+            instancia,
+            data={"cantidad": request.data.get("cantidad")},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='cambiar-estado')
     def cambiar_estado(self, request, pk=None, **kwargs):
@@ -818,27 +912,38 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if nuevo_estado == 'cancelada' and not obj.puede_cancelar:
+            return Response(
+                {
+                    "detail": (
+                        "Solo puedes cancelar la licencia dentro de los 7 días "
+                        "posteriores al inicio del ciclo vigente."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         obj.estado = nuevo_estado
         obj.save()
         return Response(self.get_serializer(obj).data)
 
     @action(detail=True, methods=['get'], url_path='historial')
     def historial(self, request, pk=None, **kwargs):
-        """Retorna el historial de cambios de una ContratoLicencia."""
+        """Retorna un timeline unificado de la licencia y sus vinculos de usuarios."""
         obj = self.get_object()
-        registros = obj.historia.all().order_by('-history_date')[:50]
-        data = [
-            {
-                "id": r.history_id,
-                "fecha": r.history_date,
-                "tipo": r.get_history_type_display(),
-                "usuario": str(r.history_user) if r.history_user else None,
-                "cambios": r.history_change_reason or '',
-                "estado": r.estado if hasattr(r, 'estado') else None,
-                "cantidad": r.cantidad if hasattr(r, 'cantidad') else None,
-            }
-            for r in registros
+        licencia_eventos = [
+            self._build_license_history_event(registro)
+            for registro in obj.historia.all().order_by("-history_date")[:50]
         ]
+        vinculo_eventos = [
+            self._build_link_history_event(registro)
+            for registro in UsuarioVinculadoLicencia.historia.filter(licencia_id=obj.pk).order_by("-history_date")[:50]
+        ]
+        data = sorted(
+            licencia_eventos + vinculo_eventos,
+            key=lambda evento: evento["fecha"],
+            reverse=True,
+        )[:50]
         return Response(data)
 
     @action(detail=False, methods=['get'], url_path=r'lista-vinculos/(?P<empresa_prestadora_pk>\d+)/(?P<empresa_cliente_pk>\d+)')
@@ -982,9 +1087,9 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
         """Valida la ventana de reducción antes de permitir desvincular un usuario."""
         obj = self.get_object()
         licencia = obj.licencia
-        if licencia.partner and not licencia.puede_reducir:
+        if not licencia.puede_desvincular_usuarios:
             return Response(
-                {"detail": "No se puede desvincular este usuario fuera de la ventana de reducción de licencias."},
+                {"detail": "No se puede desvincular este usuario fuera de los 7 días posteriores al inicio del ciclo vigente."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().destroy(request, *args, **kwargs)

@@ -4,11 +4,11 @@ import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, {
-  CardBody,
-  CardFooter,
-  CardFooterChild,
-  CardHeader,
-  CardHeaderChild,
+    CardBody,
+    CardFooter,
+    CardFooterChild,
+    CardHeader,
+    CardHeaderChild,
 } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
 import TabCondiciones from '@/pages/Contratos/components/TabCondiciones';
@@ -20,13 +20,12 @@ import { IContratoEdicion } from '@/pages/Contratos/components/contrato.types';
 import DetalleConfidencialidadContrato from '@/pages/Contratos/modals/DetalleConfidencialidadContrato';
 import ApiService from '@/services/ApiService';
 import {
-  listaCondicionesEspecialesThunk,
-  listaContentTypeThunk,
-  listaLicenciasThunk,
-  listaUsuariosTodoElClienteThunk,
-  listaVisitasThunk,
-  useAppDispatch,
-  useAppSelector,
+    listaContentTypeThunk,
+    listaLicenciasThunk,
+    listaUsuariosTodoElClienteThunk,
+    listaVisitasThunk,
+    useAppDispatch,
+    useAppSelector,
 } from '@/store';
 import { useGetDetalleContratoQuery } from '@/store/slices/contratos/contratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -66,10 +65,7 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
 
     // ── Redux selectors ──
     const { listaContentType } = useAppSelector((state) => state.core);
-    const { listaCondicionesEspeciales, listaVisitas, listaLicencias } = useAppSelector(
-        (state) => state.contrato,
-    );
-    const { listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa);
+    const { listaVisitas, listaLicencias } = useAppSelector((state) => state.contrato);
 
     // ── RTK Query para detalle ──
     const {
@@ -218,7 +214,6 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                     tipo_usuario: user.tipo_usuario,
                 })),
             });
-            dispatch(listaCondicionesEspecialesThunk());
             dispatch(listaVisitasThunk());
             dispatch(listaLicenciasThunk());
             if (contrato.empresa_cliente) {
@@ -339,7 +334,10 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                                             </Button>
                                         </Tooltip>
                                     )}
-                                    <DetalleConfidencialidadContrato />
+                                    <DetalleConfidencialidadContrato
+                                        contratoId={contrato.id}
+                                        empresaClienteId={contrato.empresa_cliente}
+                                    />
                                 </>
                             )}
                         </div>
@@ -471,35 +469,28 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
             <div className='grid grid-cols-12 gap-4'>
                 <div className='col-span-full flex flex-col gap-4 lg:col-span-8'>
                     <TabServicios
-                        formik={formik}
-                        editando={editando}
                         detalleContratoEmpresaCliente={contrato}
+                        puedeEditar={editando}
                         listaContentType={listaContentType}
                     />
                     <TabCondiciones
-                        formik={formik}
-                        editando={editando}
                         detalleContratoEmpresaCliente={contrato}
-                        listaCondicionesEspeciales={listaCondicionesEspeciales}
+                        puedeEditar={editando}
                     />
                     <TabUsuarios
-                        formik={formik}
-                        editando={editando}
                         detalleContratoEmpresaCliente={contrato}
-                        listaUsuariosTodoElCliente={listaUsuariosTodoElCliente}
+                        puedeEditar={editando}
                     />
                 </div>
                 <div className='col-span-full flex flex-col gap-4 lg:col-span-4'>
                     <TabVisitas
-                        formik={formik}
-                        editando={editando}
                         detalleContratoEmpresaCliente={contrato}
+                        puedeEditar={editando}
                         listaVisitas={listaVisitas}
                     />
                     <TabLicencias
-                        formik={formik}
-                        editando={editando}
                         detalleContratoEmpresaCliente={contrato}
+                        puedeEditar={editando}
                         listaLicencias={listaLicencias}
                     />
                 </div>

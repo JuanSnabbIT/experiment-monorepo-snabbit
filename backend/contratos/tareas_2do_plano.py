@@ -1,6 +1,12 @@
 from celery import shared_task
 from datetime import date, timedelta
-from contratos.models import ContratoEmpresaCliente, UsuarioVinculadoContrato, FacturaContrato
+from contratos.models import (
+    ContratoEmpresaCliente,
+    ContratoLicencia,
+    FacturaContrato,
+    NotificacionVentanaLicencia,
+    UsuarioVinculadoContrato,
+)
 from core.tasks import send_email_task
 from dateutil.relativedelta import relativedelta
 import os
@@ -121,3 +127,88 @@ def generar_facturas_mensuales():
         facturas_creadas += 1
 
     return f"Se generaron {facturas_creadas} prefacturas automáticas."
+
+
+@shared_task
+def notificar_ventana_edicion_licencias():
+    """
+    Notifica al inicio de cada ventana de 7 días para gestión de cupos de licencias.
+    Envía una sola notificación por licencia y ciclo.
+    """
+    hoy = date.today()
+    frontend_url = os.getenv("FRONTEND_URL", "https://app.gestionsnabb-it.cl")
+    notificaciones_enviadas = 0
+
+    licencias = (
+        ContratoLicencia.objects.filter(estado="activa")
+        .select_related("contrato", "contrato__empresa_cliente", "licencia")
+    )
+
+    for licencia in licencias:
+        ciclo_inicio = licencia.inicio_periodo_actual
+        if not ciclo_inicio or ciclo_inicio != hoy:
+            continue
+
+        if NotificacionVentanaLicencia.objects.filter(
+            licencia=licencia,
+            ciclo_inicio=ciclo_inicio,
+        ).exists():
+            continue
+
+        vinculos = (
+            UsuarioVinculadoContrato.objects.filter(contrato=licencia.contrato)
+            .select_related("usuario__usuario")
+        )
+        emails = sorted(
+            {
+                vinculo.usuario.usuario.email
+                for vinculo in vinculos
+                if vinculo.usuario
+                and vinculo.usuario.usuario
+                and vinculo.usuario.usuario.email
+            }
+        )
+        if not emails:
+            continue
+
+        fecha_limite = licencia.fin_periodo_actual or ciclo_inicio
+        empresa_cliente = licencia.contrato.empresa_cliente
+        detail_url = (
+            f"{frontend_url}/empresa/detalle-cliente/{empresa_cliente.id}"
+            f"/contrato/{licencia.contrato.id}/licencia/{licencia.id}"
+        )
+
+        subject = "Ventana activa para ajustar cupos de licencia"
+        html_body = (
+            f"<p>La licencia <b>{licencia.licencia.nombre}</b> del contrato "
+            f"<b>{licencia.contrato.nombre}</b> inició hoy su ventana de gestión de cupos.</p>"
+            f"<p>Hasta el <b>{fecha_limite.strftime('%d/%m/%Y')}</b> podrás:</p>"
+            "<ul>"
+            "<li>Disminuir cupos</li>"
+            "<li>Solicitar la baja o cancelación de la licencia</li>"
+            "<li>Aumentar cupos</li>"
+            "</ul>"
+            "<p>Una vez finalizada esta ventana, solo será posible aumentar cupos.</p>"
+            f"<p>Empresa cliente: <b>{empresa_cliente.nombre}</b>.</p>"
+        )
+
+        send_email_task.delay(
+            subject,
+            emails,
+            html_body,
+            "Gestión de cupos disponible",
+            detail_url,
+            "Revisar licencia",
+        )
+
+        NotificacionVentanaLicencia.objects.create(
+            licencia=licencia,
+            ciclo_inicio=ciclo_inicio,
+            destinatarios=", ".join(emails),
+        )
+        notificaciones_enviadas += 1
+
+    return (
+        "Se enviaron "
+        f"{notificaciones_enviadas} notificaciones de apertura de ventana de licencias."
+    )

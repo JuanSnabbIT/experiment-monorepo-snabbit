@@ -128,13 +128,6 @@ export const Pages = {
                 icon: 'HeroDocumentDuplicate',
                 authority: ['staff', 'superadmin'],
             },
-            contratosDelCliente: {
-                id: 'contratosDelCliente',
-                to: '/empresa/contratos-cliente/:id',
-                text: 'Contratos Del Cliente',
-                icon: 'HeroDocumentDuplicate',
-                authority: ['staff', 'superadmin'],
-            },
             detalleContrato: {
                 id: 'detalleContrato',
                 to: '/empresa/detalle-cliente/:clienteId/contrato/:contratoId',

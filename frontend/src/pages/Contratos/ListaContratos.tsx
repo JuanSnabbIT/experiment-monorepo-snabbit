@@ -14,19 +14,19 @@ import { ESTADOS_CONTRATO, TIPO_CONTRATO } from '@/constants/contrato.constant';
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import { useAppSelector } from '@/store';
 import {
-  useGetContratosQuery,
-  useGetMetricasDashboardQuery,
+    useGetContratosQuery,
+    useGetMetricasDashboardQuery,
 } from '@/store/slices/contratos/contratoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
@@ -345,10 +345,9 @@ const ListaContratos = () => {
                                             className='cursor-pointer'
                                             onClick={() =>
                                                 navigate(
-                                                    Pages.empresa.subPages.contratosDelCliente.to.replace(
-                                                        ':id',
-                                                        `${c.id}`,
-                                                    ),
+                                                    Pages.empresa.subPages.detalleContrato.to
+                                                        .replace(':clienteId', `${c.empresa_cliente}`)
+                                                        .replace(':contratoId', `${c.id}`),
                                                 )
                                             }>
                                             <Badge color='red' variant='outline'>

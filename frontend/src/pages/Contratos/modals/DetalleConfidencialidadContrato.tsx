@@ -9,20 +9,25 @@ import CrearConfidencialidadContrato from './CrearConfidencialidadContrato';
 import EditarConfidencialidadContrato from './EditarConfidencialidadContrato';
 import EliminarConfidencialidadContrato from './EliminarConfidencialidadContrato';
 
-function DetalleConfidencialidadContrato() {
+interface IDetalleConfidencialidadContratoProps {
+    contratoId: number;
+    empresaClienteId: number;
+}
+
+function DetalleConfidencialidadContrato({ contratoId, empresaClienteId }: IDetalleConfidencialidadContratoProps) {
     const dispatch = useAppDispatch();
-    const { detalleContratoEmpresaCliente, listaFirmasConfidencialidad } = useAppSelector(
+    const { listaFirmasConfidencialidad } = useAppSelector(
         (state) => state.contrato,
     );
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     useEffect(() => {
-        if (detalleContratoEmpresaCliente && isOpen) {
+        if (contratoId && isOpen) {
             dispatch(
-                listaFirmasConfidencialidadThunk({ id_contrato: detalleContratoEmpresaCliente.id }),
+                listaFirmasConfidencialidadThunk({ id_contrato: contratoId }),
             );
         }
-    }, [detalleContratoEmpresaCliente, isOpen]);
+    }, [contratoId, isOpen]);
 
     return (
         <>
@@ -59,7 +64,7 @@ function DetalleConfidencialidadContrato() {
                     <Badge className='text-xl'>
                         Firmas de Confidencialidad{' '}
                         <div className='ml-2'>
-                            <CrearConfidencialidadContrato />
+                            <CrearConfidencialidadContrato contratoId={contratoId} empresaClienteId={empresaClienteId} />
                         </div>
                     </Badge>
                 </ModalHeader>
@@ -71,8 +76,8 @@ function DetalleConfidencialidadContrato() {
                                     className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'
                                     key={index}>
                                     <div className='col-span-full flex justify-end gap-2'>
-                                        <EditarConfidencialidadContrato firma={firma} />
-                                        <EliminarConfidencialidadContrato firma={firma} />
+                                        <EditarConfidencialidadContrato firma={firma} contratoId={contratoId} empresaClienteId={empresaClienteId} />
+                                        <EliminarConfidencialidadContrato firma={firma} contratoId={contratoId} />
                                     </div>
                                     <div className='col-span-full'>
                                         <Badge>Titulo</Badge>

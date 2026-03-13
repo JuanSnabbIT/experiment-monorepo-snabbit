@@ -9,13 +9,17 @@ import Modal, {
 import Tooltip from '@/components/ui/Tooltip';
 import { IFirmaConfidencialidad } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
-import { listaFirmasConfidencialidadThunk, useAppDispatch, useAppSelector } from '@/store';
+import { listaFirmasConfidencialidadThunk, useAppDispatch } from '@/store';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
-function EliminarConfidencialidadContrato({ firma }: { firma: IFirmaConfidencialidad }) {
+interface IEliminarConfidencialidadContratoProps {
+    firma: IFirmaConfidencialidad;
+    contratoId: number;
+}
+
+function EliminarConfidencialidadContrato({ firma, contratoId }: IEliminarConfidencialidadContratoProps) {
     const dispatch = useAppDispatch();
-    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato);
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     return (
@@ -54,13 +58,13 @@ function EliminarConfidencialidadContrato({ firma }: { firma: IFirmaConfidencial
                             onClick={async () => {
                                 try {
                                     const response = await ApiService.fetchData({
-                                        url: `/api/contratos/${detalleContratoEmpresaCliente?.id}/firmas/${firma.id}/`,
+                                        url: `/api/contratos/${contratoId}/firmas/${firma.id}/`,
                                         method: 'delete',
                                     });
                                     if (response.status === 204) {
                                         dispatch(
                                             listaFirmasConfidencialidadThunk({
-                                                id_contrato: detalleContratoEmpresaCliente?.id,
+                                                id_contrato: contratoId,
                                             }),
                                         );
                                         setIsOpen(false);

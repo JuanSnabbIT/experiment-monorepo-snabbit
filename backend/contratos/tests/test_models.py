@@ -1,17 +1,23 @@
 from django.test import TestCase
 from datetime import date, timedelta
+from django.core.exceptions import ValidationError
+from unittest.mock import patch
+from cuentas.models import User
 from contratos.models import (
     ContratoEmpresaCliente,
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
+    NotificacionVentanaLicencia,
+    UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
     Servicio,
     Visita,
     Licencia,
     CondicionEspecial,
 )
-from empresas.models import Empresa, SucursalEmpresa
+from contratos.tareas_2do_plano import notificar_ventana_edicion_licencias
+from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
 
 class ContratoEmpresaClienteModelTest(TestCase):
@@ -130,3 +136,165 @@ class CatalogoModelTest(TestCase):
             descripcion="Tiempo de respuesta: 4 horas",
         )
         self.assertEqual(str(condicion), "SLA Premium")
+
+
+class ContratoLicenciaModelTest(TestCase):
+    def setUp(self):
+        self.empresa_prestadora = Empresa.objects.create(nombre="Prestadora Licencia")
+        self.empresa_cliente = Empresa.objects.create(nombre="Cliente Licencia")
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal Cliente",
+            empresa=self.empresa_cliente,
+        )
+        self.user = User.objects.create_user(
+            email="licencias@test.com",
+            password="testpass123",
+            first_name="Licencia",
+            last_name="Test",
+        )
+        self.usuario_empresa = UsuarioEmpresa.objects.create(
+            usuario=self.user,
+            sucursal=self.sucursal,
+        )
+        self.contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today() - timedelta(days=40),
+            fecha_fin=date.today() + timedelta(days=400),
+            nombre="Contrato Licencias",
+            tipo="licencia",
+            estado="activo",
+        )
+        self.licencia_catalogo = Licencia.objects.create(
+            nombre="Microsoft 365",
+            proveedor="Microsoft",
+        )
+
+    def test_modalidad_anual_pago_mensual_reabre_solo_por_bloque_anual(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="p1y-m",
+            cantidad=3,
+            fecha_inicio=date.today() - timedelta(days=40),
+        )
+
+        self.assertEqual(
+            contrato_licencia.inicio_periodo_actual,
+            date.today() - timedelta(days=40),
+        )
+        self.assertFalse(contrato_licencia.en_ventana_edicion)
+
+    def test_reducir_cupos_fuera_de_ventana_falla(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="p1y-m",
+            cantidad=3,
+            fecha_inicio=date.today() - timedelta(days=40),
+        )
+
+        contrato_licencia.cantidad = 2
+        with self.assertRaises(ValidationError):
+            contrato_licencia.full_clean()
+
+    def test_aumentar_cupos_fuera_de_ventana_se_permite(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="p1y-m",
+            cantidad=3,
+            fecha_inicio=date.today() - timedelta(days=40),
+        )
+
+        contrato_licencia.cantidad = 5
+        contrato_licencia.full_clean()
+
+    def test_no_reducir_bajo_usuarios_vinculados(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=2,
+            fecha_inicio=date.today(),
+        )
+        UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia,
+            usuario=self.usuario_empresa,
+        )
+
+        contrato_licencia.cantidad = 0
+        with self.assertRaises(ValidationError):
+            contrato_licencia.full_clean()
+
+    def test_dias_hasta_fin_edicion_en_ventana(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=2,
+            fecha_inicio=date.today(),
+        )
+
+        self.assertEqual(contrato_licencia.dias_hasta_fin_edicion, 7)
+
+
+class NotificacionVentanaLicenciaTaskTest(TestCase):
+    def setUp(self):
+        self.empresa_prestadora = Empresa.objects.create(nombre="Prestadora Ventana")
+        self.empresa_cliente = Empresa.objects.create(nombre="Cliente Ventana")
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal Ventana",
+            empresa=self.empresa_cliente,
+        )
+        self.user = User.objects.create_user(
+            email="firmante@test.com",
+            password="testpass123",
+            first_name="Firmante",
+            last_name="Contrato",
+        )
+        self.usuario_empresa = UsuarioEmpresa.objects.create(
+            usuario=self.user,
+            sucursal=self.sucursal,
+        )
+        self.contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Notificacion",
+            tipo="licencia",
+            estado="activo",
+        )
+        UsuarioVinculadoContrato.objects.create(
+            contrato=self.contrato,
+            usuario=self.usuario_empresa,
+            tipo_usuario="gerencia",
+        )
+        self.licencia_catalogo = Licencia.objects.create(
+            nombre="Licencia Correo",
+            proveedor="Microsoft",
+        )
+        self.contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="p1y-m",
+            cantidad=5,
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+    @patch("contratos.tareas_2do_plano.send_email_task.delay")
+    def test_tarea_envia_correo_una_vez_por_ciclo(self, mocked_delay):
+        notificar_ventana_edicion_licencias()
+
+        mocked_delay.assert_called_once()
+        self.assertTrue(
+            NotificacionVentanaLicencia.objects.filter(
+                licencia=self.contrato_licencia,
+                ciclo_inicio=date.today(),
+            ).exists()
+        )
+
+        notificar_ventana_edicion_licencias()
+        mocked_delay.assert_called_once()

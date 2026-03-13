@@ -35,4 +35,8 @@ app.conf.beat_schedule = {
         'task': 'cotizaciones.tasks.refrescar_tipo_cambio_proyecciones',
         'schedule': crontab(hour=6, minute=0),  # Diariamente a las 6 AM
     },
+    'notificar_ventana_edicion_licencias_diario': {
+        'task': 'contratos.tareas_2do_plano.notificar_ventana_edicion_licencias',
+        'schedule': crontab(hour=8, minute=15),
+    },
 }

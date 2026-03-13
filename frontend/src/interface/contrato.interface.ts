@@ -84,7 +84,8 @@ export interface IContratoCondicionEspecial {
     contrato: number;
     fecha_creacion: string;
     fecha_modificacion: string;
-    condicion: number;
+    condicion: number | null;
+    texto: string | null;
     titulo_condicion: string;
     descripcion_condicion: string;
 }
@@ -98,8 +99,13 @@ export interface IContratoLicencia {
     licencias_disponibles: number;
     fecha_inicio_edicion: string | null;
     fecha_fin_edicion: string | null;
+    dias_hasta_fin_edicion: number | null;
     nombre_contrato: string;
     se_puede_reducir: boolean;
+    se_puede_cancelar: boolean;
+    se_puede_desvincular: boolean;
+    se_puede_aumentar: boolean;
+    mensaje_ventana_edicion: string;
     dias_restantes_licencia: number;
     estado: string;
     estado_label: string;

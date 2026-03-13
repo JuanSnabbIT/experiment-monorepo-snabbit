@@ -89,6 +89,29 @@ class UsuarioVinculadoContrato(ModeloBase):
     def __str__(self):
         return f"{self.usuario} en {self.contrato}"
 
+
+class NotificacionVentanaLicencia(ModeloBase):
+    licencia = models.ForeignKey(
+        "contratos.ContratoLicencia",
+        on_delete=models.CASCADE,
+        related_name="notificaciones_ventana",
+    )
+    ciclo_inicio = models.DateField(verbose_name="Inicio del ciclo notificado")
+    destinatarios = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Notificación de Ventana de Licencia"
+        verbose_name_plural = "Notificaciones de Ventana de Licencia"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["licencia", "ciclo_inicio"],
+                name="unique_notificacion_ventana_licencia_ciclo",
+            )
+        ]
+
+    def __str__(self):
+        return f"Ventana {self.licencia_id} - {self.ciclo_inicio}"
+
 class CaracteristicaServicio(ModeloBase):
     nombre = models.CharField(max_length=255, verbose_name="Nombre de la Característica")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción de la Característica")
@@ -204,27 +227,25 @@ class ContratoLicencia(ModeloBaseHistorico):
         verbose_name = "Licencia del Contrato"
         verbose_name_plural = "Licencias del Contrato"
 
+    def _fecha_base_periodo(self):
+        return self.fecha_inicio or self.contrato.fecha_inicio
+
     def _inicio_periodo(self):
         """
         Calcula el inicio del período vigente según modalidad:
-        - 'p1y-a' y 'p1y-m': bloques anuales desde fecha_inicio.
-        - 'p1m-m'           : bloques de 30 días desde fecha_inicio.
+        - modalidades anuales: bloques anuales desde fecha_inicio.
+        - otras modalidades: el período inicia en la activación.
         """
-        fecha_base = self.fecha_inicio or self.contrato.fecha_inicio
+        fecha_base = self._fecha_base_periodo()
         if not fecha_base:
             return None
 
-        if self.tipo_modalidad in ('p1y-a', 'p1y-m'):
+        if self.tipo_modalidad in ('anual', 'p1y-a', 'p1y-m'):
             rd = relativedelta(date.today(), fecha_base)
             bloques = rd.years
             return fecha_base + relativedelta(years=bloques)
 
-        if self.tipo_modalidad == 'p1m-m':
-            total_dias = (date.today() - fecha_base).days
-            bloques = total_dias // 30
-            return fecha_base + relativedelta(days=bloques * 30)
-
-        return None
+        return fecha_base
 
     @property
     def dias_desde_inicio_periodo(self):
@@ -234,11 +255,33 @@ class ContratoLicencia(ModeloBaseHistorico):
     @property
     def puede_reducir(self):
         dias = self.dias_desde_inicio_periodo
-        return dias is not None and dias <= 7
+        return dias is not None and 0 <= dias <= 7
+
+    @property
+    def en_ventana_edicion(self):
+        return self.puede_reducir
+
+    @property
+    def puede_aumentar_cupos(self):
+        return self.estado not in ('vencida', 'cancelada')
+
+    @property
+    def puede_reducir_cupos(self):
+        return self.estado not in ('vencida', 'cancelada') and self.en_ventana_edicion
+
+    @property
+    def puede_cancelar(self):
+        return self.estado in ('activa', 'suspendida', 'vencida') and self.en_ventana_edicion
+
+    @property
+    def puede_desvincular_usuarios(self):
+        if not self.partner:
+            return True
+        return self.puede_reducir_cupos
 
     @property
     def dias_licenciamiento(self):
-        fecha_base = self.fecha_inicio or self.contrato.fecha_inicio
+        fecha_base = self._fecha_base_periodo()
         if not fecha_base:
             return None
         return (date.today() - fecha_base).days
@@ -271,10 +314,22 @@ class ContratoLicencia(ModeloBaseHistorico):
     def mensaje_inicio_periodo(self):
         dias = self.dias_desde_inicio_periodo
         if dias == 0:
-            return "Hoy comienza la ventana de reducción de licencias."
+            return "Hoy comienza la ventana de edición de la licencia."
         if dias == 7:
-            return "Hoy finaliza la ventana de reducción de licencias."
+            return "Hoy finaliza la ventana de edición de la licencia."
         return ""
+
+    @property
+    def mensaje_ventana_edicion(self):
+        if self.en_ventana_edicion:
+            return "Dentro de esta ventana puedes aumentar cupos, reducir cupos, desvincular usuarios o cancelar la licencia."
+        if self.puede_aumentar_cupos:
+            return "Fuera de la ventana solo se permite aumentar cupos. No se puede reducir, desvincular usuarios ni cancelar la licencia."
+        return "La licencia no admite cambios de cupos ni cancelación en su estado actual."
+
+    @property
+    def dias_hasta_fin_edicion(self):
+        return self.dias_hasta_fin_periodo
 
     def _actualizar_estado_automatico(self):
         """Actualiza el estado según fecha_fin. Los estados manuales (suspendida, cancelada) no se modifican."""
@@ -289,21 +344,26 @@ class ContratoLicencia(ModeloBaseHistorico):
 
     def clean(self):
         super().clean()
+        if not self.contrato_id:
+            return
 
-        if (self.contrato.tipo == 'licencia'
-            and self.tipo_modalidad in ('p1y-a', 'p1y-m', 'p1m-m')
-            and self.pk):
-
+        if self.pk:
             original = ContratoLicencia.objects.get(pk=self.pk).cantidad
             nueva = self.cantidad
-            if nueva < original and not self.puede_reducir:
-                descripcion = (
-                    '7 días desde el inicio de cada año'
-                    if self.tipo_modalidad in ('p1y-a', 'p1y-m')
-                    else 'los primeros 7 días de cada bloque mensual'
-                )
+
+            if nueva > original and not self.puede_aumentar_cupos:
                 raise ValidationError(
-                    f"No puedes reducir licencias fuera de {descripcion}."
+                    "No puedes aumentar cupos cuando la licencia está vencida o cancelada."
+                )
+
+            if nueva < original and not self.puede_reducir_cupos:
+                raise ValidationError(
+                    "No puedes reducir cupos fuera de los 7 días posteriores al inicio del ciclo vigente."
+                )
+
+            if nueva < self.vinculos_licencia.count():
+                raise ValidationError(
+                    "No puedes reducir cupos por debajo de los usuarios actualmente vinculados."
                 )
 
     def save(self, *args, **kwargs):
@@ -330,14 +390,17 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
 
 class ContratoCondicionEspecial(ModeloBaseHistorico):
     contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_condiciones_especiales")
-    condicion = models.ForeignKey("contratos.CondicionEspecial", on_delete=models.CASCADE, related_name="condicion_contratos")
+    condicion = models.ForeignKey("contratos.CondicionEspecial", on_delete=models.CASCADE, related_name="condicion_contratos", blank=True, null=True)
+    texto = models.TextField(blank=True, null=True, verbose_name="Texto de condición personalizada")
 
     class Meta:
         verbose_name = "Condición Especial del Contrato"
         verbose_name_plural = "Condiciones Especiales del Contrato"
 
     def __str__(self):
-        return f"{self.condicion.titulo} en {self.contrato}"
+        if self.condicion:
+            return f"{self.condicion.titulo} en {self.contrato}"
+        return f"Condición personalizada en {self.contrato}"
 
 class PlanServicio(ModeloBase):
     nombre = models.CharField(max_length=255, verbose_name="Nombre del Plan")

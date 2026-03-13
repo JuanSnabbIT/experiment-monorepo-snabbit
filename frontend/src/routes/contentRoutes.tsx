@@ -99,7 +99,6 @@ const DetalleVisita = lazy(() => import('@/pages/Visitas/DetalleVisita'));
 // const ListaEquiposDeMisClientes = lazy(() => import('@/pages/Recursos/Equipos/ListaEquiposDeMisClientes'))
 const ListaSoftware = lazy(() => import('@/pages/Recursos/Software/ListaSoftware'));
 // const DetalleContratoDelCliente = lazy(() => import('@/pages/Contratos/DetalleContratoDelCliente'))
-const ContratosDelCliente = lazy(() => import('@/pages/Contratos/ContratosDelCliente'));
 const ListaContratos = lazy(() => import('@/pages/Contratos/ListaContratos'));
 const DetalleContrato = lazy(() => import('@/pages/Contratos/DetalleContrato'));
 const DetalleLicencia = lazy(() => import('@/pages/Contratos/DetalleLicencia'));
@@ -486,11 +485,6 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.empresa.subPages.listaContratos.to,
         element: <ListaContratos />,
         authority: Pages.empresa.subPages.listaContratos.authority,
-    },
-    {
-        path: Pages.empresa.subPages.contratosDelCliente.to,
-        element: <ContratosDelCliente />,
-        authority: Pages.empresa.subPages.contratosDelCliente.authority,
     },
     {
         path: Pages.empresa.subPages.detalleContrato.to,

@@ -9,26 +9,22 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
+import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
-import { detalleContratoEmpresaClienteThunk, useAppDispatch, useAppSelector } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
-function CrearEnvioContratoFirmaUsuario() {
-    const dispatch = useAppDispatch();
-    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato);
+interface ICrearEnvioContratoFirmaUsuarioProps {
+    contrato: IContratoEmpresaCliente;
+}
+
+function CrearEnvioContratoFirmaUsuario({ contrato }: ICrearEnvioContratoFirmaUsuarioProps) {
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
     useEffect(() => {
-        if (isOpen) {
-            dispatch(
-                detalleContratoEmpresaClienteThunk({
-                    id_contrato: detalleContratoEmpresaCliente?.id,
-                }),
-            );
-        } else {
+        if (!isOpen) {
             formik.resetForm();
         }
     }, [isOpen]);
@@ -44,7 +40,7 @@ function CrearEnvioContratoFirmaUsuario() {
         onSubmit: async (values) => {
             try {
                 const response = await ApiService.fetchData({
-                    url: `/api/contratos/${detalleContratoEmpresaCliente?.id}/usuarios-vinculados/${values.usuario}/envio-firma/`,
+                    url: `/api/contratos/${contrato.id}/usuarios-vinculados/${values.usuario}/envio-firma/`,
                     method: 'post',
                     headers: { 'Content-Type': 'application/json' },
                     data: JSON.stringify({ usuario: values.usuario }),
@@ -88,7 +84,7 @@ function CrearEnvioContratoFirmaUsuario() {
                                     name='usuario'
                                     noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
                                     placeholder='Seleccione un Usuario'
-                                    options={detalleContratoEmpresaCliente?.vinculos_contrato
+                                    options={contrato.vinculos_contrato
                                         .filter((user) => !user.existe_envio)
                                         .map((user) => ({
                                             value: user.id.toString(),
@@ -105,7 +101,7 @@ function CrearEnvioContratoFirmaUsuario() {
                                     value={{
                                         value: formik.values.usuario,
                                         label:
-                                            detalleContratoEmpresaCliente?.vinculos_contrato.find(
+                                            contrato.vinculos_contrato.find(
                                                 (user) =>
                                                     user.id.toString() === formik.values.usuario,
                                             )?.datos_usuario.nombre || '',

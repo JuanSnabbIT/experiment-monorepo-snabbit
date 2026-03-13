@@ -9,15 +9,16 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
+import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
 import {
-    detalleContratoEmpresaClienteThunk,
     listaContentTypeThunk,
     listaPlanServiciosThunk,
     listaServiciosThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import contratoApi from '@/store/slices/contratos/contratoApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -32,10 +33,14 @@ interface IServicioGenericoEdicion {
     }[];
 }
 
-function AgregarServiciosyPlanesContrato() {
+interface IAgregarServiciosyPlanesContratoProps {
+    contrato: IContratoEmpresaCliente;
+}
+
+function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesContratoProps) {
     const dispatch = useAppDispatch();
     const { listaContentType } = useAppSelector((state) => state.core);
-    const { detalleContratoEmpresaCliente, listaServicios, listaPlanServicios } = useAppSelector(
+    const { listaServicios, listaPlanServicios } = useAppSelector(
         (state) => state.contrato,
     );
     const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -47,11 +52,11 @@ function AgregarServiciosyPlanesContrato() {
     >();
 
     useEffect(() => {
-        if (detalleContratoEmpresaCliente && isOpen) {
+        if (contrato && isOpen) {
             dispatch(listaServiciosThunk());
             dispatch(listaPlanServiciosThunk());
         }
-    }, [detalleContratoEmpresaCliente, isOpen]);
+    }, [contrato, isOpen]);
 
     useEffect(() => {
         if (listaContentType.length === 0) {
@@ -60,9 +65,9 @@ function AgregarServiciosyPlanesContrato() {
     }, []);
 
     useEffect(() => {
-        if (detalleContratoEmpresaCliente && isOpen) {
+        if (contrato && isOpen) {
             formik.setValues({
-                servicios_genericos: detalleContratoEmpresaCliente.contrato_servicios.map(
+                servicios_genericos: contrato.contrato_servicios.map(
                     (ser) => ({
                         nombre: ser.nombre,
                         cantidad: ser.cantidad,
@@ -73,7 +78,7 @@ function AgregarServiciosyPlanesContrato() {
                 ),
             });
         }
-    }, [detalleContratoEmpresaCliente, isOpen]);
+    }, [contrato, isOpen]);
 
     const formik = useFormik<IServicioGenericoEdicion>({
         enableReinitialize: true,
@@ -83,7 +88,7 @@ function AgregarServiciosyPlanesContrato() {
         onSubmit: async (values) => {
             try {
                 const response = await ApiService.fetchData({
-                    url: `/api/contratos/${detalleContratoEmpresaCliente?.id}/editar-servicios-genericos/`,
+                    url: `/api/contratos/${contrato.id}/editar-servicios-genericos/`,
                     method: 'put',
                     headers: { 'Content-Type': 'application/json' },
                     data: JSON.stringify({
@@ -96,11 +101,7 @@ function AgregarServiciosyPlanesContrato() {
                     }),
                 });
                 if (response.data) {
-                    dispatch(
-                        detalleContratoEmpresaClienteThunk({
-                            id_contrato: detalleContratoEmpresaCliente?.id,
-                        }),
-                    );
+                    dispatch(contratoApi.util.invalidateTags([{ type: 'Contrato', id: contrato.id }, 'ContratoServicios']));
                     setIsOpen(false);
                 }
             } catch (error: any) {

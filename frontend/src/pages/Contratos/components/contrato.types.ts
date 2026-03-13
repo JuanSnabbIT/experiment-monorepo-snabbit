@@ -1,6 +1,4 @@
-import { ICondicionEspecial, IContratoEmpresaCliente, ILicencia, IVisita } from '@/interface/contrato.interface';
-import { IUsuarioEmpresa } from '@/interface/empresas.interface';
-import { FormikProps } from 'formik';
+import { IContratoEmpresaCliente, ILicencia, IVisita } from '@/interface/contrato.interface';
 
 /**
  * Tipo del formulario Formik utilizado en la edición de contratos.
@@ -38,6 +36,7 @@ export interface IContratoEdicion {
     condiciones_especiales: {
         id?: number;
         condicion_id?: number;
+        texto?: string;
     }[];
     // USUARIOS VINCULADOS
     eliminar_usuarios: number[];
@@ -50,9 +49,8 @@ export interface IContratoEdicion {
 
 /** Props base para todos los sub-componentes de tabs del contrato */
 export interface ITabContratoBaseProps {
-    formik: FormikProps<IContratoEdicion>;
-    editando: boolean;
     detalleContratoEmpresaCliente: IContratoEmpresaCliente;
+    puedeEditar: boolean;
 }
 
 /** Servicios */
@@ -61,14 +59,10 @@ export interface ITabServiciosProps extends ITabContratoBaseProps {
 }
 
 /** Condiciones */
-export interface ITabCondicionesProps extends ITabContratoBaseProps {
-    listaCondicionesEspeciales: ICondicionEspecial[];
-}
+export interface ITabCondicionesProps extends ITabContratoBaseProps {}
 
 /** Usuarios */
-export interface ITabUsuariosProps extends ITabContratoBaseProps {
-    listaUsuariosTodoElCliente: IUsuarioEmpresa[];
-}
+export interface ITabUsuariosProps extends ITabContratoBaseProps {}
 
 /** Visitas */
 export interface ITabVisitasProps extends ITabContratoBaseProps {

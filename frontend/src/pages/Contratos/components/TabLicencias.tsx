@@ -2,13 +2,18 @@
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
+import { useUpdateContratoMutation } from '@/store/slices/contratos/contratoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { useFormik } from 'formik';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import ModalCambiarEstadoLicencia from '../modals/ModalCambiarEstadoLicencia';
 import ModalLicenciaContrato from '../modals/ModalLicenciaContrato';
-import { ITabLicenciasProps } from './contrato.types';
+import { buildUpdatePayload } from './contrato.helpers';
+import { IContratoEdicion, ITabLicenciasProps } from './contrato.types';
 
-//  Estado para modales 
+// Estado para modales
 interface IModalEstadoState {
     isOpen: boolean;
     licenciaId: number;
@@ -25,14 +30,37 @@ const MODAL_ESTADO_INITIAL: IModalEstadoState = {
     colorEstado: 'zinc',
 };
 
+const INITIAL_VALUES: IContratoEdicion = {
+    fecha_inicio: '',
+    fecha_fin: null,
+    observaciones: null,
+    nombre: '',
+    eliminar_visitas: [],
+    visitas: [],
+    eliminar_licencias: [],
+    licencias: [],
+    eliminar_condiciones: [],
+    condiciones_especiales: [],
+    eliminar_usuarios: [],
+    usuarios_vinculados: [],
+};
+
 const TabLicencias = ({
-    formik,
-    editando,
     detalleContratoEmpresaCliente,
+    puedeEditar,
     listaLicencias,
 }: ITabLicenciasProps) => {
     const navigate = useNavigate();
     const { clienteId, contratoId } = useParams<{ clienteId: string; contratoId: string }>();
+
+    const [editandoSeccion, setEditandoSeccion] = useState(false);
+    const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
+
+    // Formik local — ModalLicenciaContrato lee/escribe .licencias[]
+    const localFormik = useFormik<IContratoEdicion>({
+        initialValues: INITIAL_VALUES,
+        onSubmit: () => {},
+    });
 
     // Modal agregar / editar licencia
     const [modalLicencia, setModalLicencia] = useState<{
@@ -46,10 +74,49 @@ const TabLicencias = ({
 
     if (detalleContratoEmpresaCliente.tipo !== 'licencia') return null;
 
-    //  Helpers 
+    // Handlers de edición por sección
+    const handleEditar = () => {
+        localFormik.setValues({
+            ...INITIAL_VALUES,
+            licencias: detalleContratoEmpresaCliente.contrato_licencias.map((cl) => ({
+                id: cl.id,
+                licencia_id: cl.licencia,
+                tipo_modalidad: cl.tipo_modalidad,
+                otro_tipo: cl.otro_tipo,
+                cantidad: cl.cantidad,
+                precio_unitario: Number(cl.precio_unitario),
+                fecha_inicio: cl.fecha_inicio,
+                fecha_fin: cl.fecha_fin,
+                tipo_moneda: cl.tipo_moneda,
+            })),
+        });
+        setEditandoSeccion(true);
+    };
 
-    /** Nombre legible para un item del formik (puede ser existente o nuevo) */
-    const getNombreItem = (item: (typeof formik.values.licencias)[number]): string => {
+    const handleCancelar = () => {
+        setEditandoSeccion(false);
+        localFormik.resetForm();
+    };
+
+    const handleGuardar = async () => {
+        try {
+            const payload = buildUpdatePayload(detalleContratoEmpresaCliente, {
+                licencias: localFormik.values.licencias,
+                eliminar_licencias: localFormik.values.eliminar_licencias,
+            });
+            await updateContrato({
+                id: detalleContratoEmpresaCliente.id,
+                data: payload,
+            }).unwrap();
+            setEditandoSeccion(false);
+            toast.success('Licencias actualizadas', { autoClose: 1000 });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    // Helpers
+    const getNombreItem = (item: (typeof localFormik.values.licencias)[number]): string => {
         if ('id' in item && item.id) {
             return (
                 detalleContratoEmpresaCliente.contrato_licencias.find((c) => c.id === item.id)
@@ -62,8 +129,7 @@ const TabLicencias = ({
         return '';
     };
 
-    /** Obtener la ContratoLicencia completa para un item del formik */
-    const getContratoLicencia = (item: (typeof formik.values.licencias)[number]) =>
+    const getContratoLicencia = (item: (typeof localFormik.values.licencias)[number]) =>
         'id' in item && item.id
             ? detalleContratoEmpresaCliente.contrato_licencias.find((c) => c.id === item.id)
             : undefined;
@@ -76,25 +142,13 @@ const TabLicencias = ({
         }
     };
 
-    const openModalEstado = (
-        cl: (typeof detalleContratoEmpresaCliente.contrato_licencias)[number],
-    ) => {
-        setModalEstado({
-            isOpen: true,
-            licenciaId: cl.id,
-            estadoActual: cl.estado,
-            estadoActualLabel: cl.estado_label,
-            colorEstado: cl.color_estado,
-        });
-    };
-
     const handleEliminarItem = (index: number) => {
-        const item = formik.values.licencias[index];
-        const nuevas = formik.values.licencias.filter((_, i) => i !== index);
-        const nuevosEliminados = [...formik.values.eliminar_licencias];
+        const item = localFormik.values.licencias[index];
+        const nuevas = localFormik.values.licencias.filter((_, i) => i !== index);
+        const nuevosEliminados = [...localFormik.values.eliminar_licencias];
         if ('id' in item && item.id) nuevosEliminados.push(item.id);
-        formik.setFieldValue('licencias', nuevas);
-        formik.setFieldValue('eliminar_licencias', nuevosEliminados);
+        localFormik.setFieldValue('licencias', nuevas);
+        localFormik.setFieldValue('eliminar_licencias', nuevosEliminados);
     };
 
     return (
@@ -104,20 +158,50 @@ const TabLicencias = ({
                     <CardHeaderChild>
                         <div className='text-xl font-bold text-blue-500'>Licencias</div>
                     </CardHeaderChild>
-                    {editando && (
-                        <CardHeaderChild>
-                            <Button
-                                variant='solid'
-                                icon='HeroPlus'
-                                onClick={() => setModalLicencia({ isOpen: true })}>
-                                Nueva Licencia
-                            </Button>
-                        </CardHeaderChild>
-                    )}
+                    <CardHeaderChild>
+                        {puedeEditar && !editandoSeccion && (
+                            <Tooltip text='Editar Licencias'>
+                                <Button
+                                    variant='outline'
+                                    color='blue'
+                                    icon='HeroPlus'
+                                    className='text-blue-500'
+                                    onClick={handleEditar}>
+                                    Agregar
+                                </Button>
+                            </Tooltip>
+                        )}
+                        {editandoSeccion && (
+                            <>
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPlus'
+                                    onClick={() => setModalLicencia({ isOpen: true })}>
+                                    Nueva Licencia
+                                </Button>
+                                <Button
+                                    icon='HeroXMark'
+                                    color='red'
+                                    size='sm'
+                                    onClick={handleCancelar}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    icon='HeroCheck'
+                                    variant='solid'
+                                    color='emerald'
+                                    size='sm'
+                                    isLoading={guardando}
+                                    onClick={handleGuardar}>
+                                    Guardar
+                                </Button>
+                            </>
+                        )}
+                    </CardHeaderChild>
                 </CardHeader>
                 <CardBody className='p-0'>
-                    {!editando ? (
-                        //  Modo lectura: lista compacta nombre + Ver detalle 
+                    {!editandoSeccion ? (
+                        // Modo lectura: lista compacta nombre + Ver detalle
                         detalleContratoEmpresaCliente.contrato_licencias.length === 0 ? (
                             <div className='p-4 text-sm text-zinc-500'>Sin licencias</div>
                         ) : (
@@ -141,14 +225,14 @@ const TabLicencias = ({
                             </div>
                         )
                     ) : (
-                        //  Modo edicion: lista compacta con acciones editar/eliminar 
-                        formik.values.licencias.length === 0 ? (
+                        // Modo edición: lista compacta con acciones editar/eliminar
+                        localFormik.values.licencias.length === 0 ? (
                             <div className='p-4 text-sm text-zinc-500'>Sin licencias</div>
                         ) : (
                             <div className='divide-y divide-zinc-100 dark:divide-zinc-700'>
                                 {(
-                                    formik.values
-                                        .licencias as (typeof formik.values.licencias)[number][]
+                                    localFormik.values
+                                        .licencias as (typeof localFormik.values.licencias)[number][]
                                 ).map((item, index) => {
                                     const cl = getContratoLicencia(item);
                                     const nombre = getNombreItem(item);
@@ -216,7 +300,7 @@ const TabLicencias = ({
             <ModalLicenciaContrato
                 isOpen={modalLicencia.isOpen}
                 onClose={() => setModalLicencia({ isOpen: false })}
-                formik={formik}
+                formik={localFormik}
                 listaLicencias={listaLicencias}
                 editIndex={modalLicencia.editIndex}
                 editNombreLicencia={modalLicencia.editNombre}

@@ -44,3 +44,70 @@ export const colorTipoContrato = (tipo: string): TColors => {
             return 'zinc';
     }
 };
+
+/**
+ * Construye el payload completo para PUT /api/contratos/{id}/actualizar/.
+ * Las secciones sin override se rellenan con datos actuales del contrato.
+ */
+export function buildUpdatePayload(
+    contrato: IContratoEmpresaCliente,
+    overrides?: Partial<{
+        contrato: {
+            nombre: string;
+            fecha_inicio: string | null;
+            fecha_fin: string | null;
+            observaciones: string | null;
+        };
+        visitas: IContratoEdicion['visitas'];
+        eliminar_visitas: number[];
+        licencias: IContratoEdicion['licencias'];
+        eliminar_licencias: number[];
+        condiciones_especiales: IContratoEdicion['condiciones_especiales'];
+        eliminar_condiciones: number[];
+        usuarios_vinculados: IContratoEdicion['usuarios_vinculados'];
+        eliminar_usuarios: number[];
+    }>,
+): Record<string, unknown> {
+    return {
+        contrato: overrides?.contrato ?? {
+            nombre: contrato.nombre,
+            fecha_inicio: contrato.fecha_inicio,
+            fecha_fin: contrato.fecha_fin,
+            observaciones: contrato.observaciones,
+        },
+        visitas:
+            overrides?.visitas ??
+            contrato.contrato_visitas.map((v) => ({
+                id: v.id,
+                cantidad: v.cantidad,
+                frecuencia: v.frecuencia,
+            })),
+        eliminar_visitas: overrides?.eliminar_visitas ?? [],
+        licencias:
+            overrides?.licencias ??
+            contrato.contrato_licencias.map((l) => ({
+                id: l.id,
+                cantidad: l.cantidad,
+                tipo_modalidad: l.tipo_modalidad,
+                otro_tipo: l.otro_tipo,
+                precio_unitario: Number(l.precio_unitario),
+                fecha_inicio: l.fecha_inicio,
+                fecha_fin: l.fecha_fin,
+                tipo_moneda: l.tipo_moneda,
+            })),
+        eliminar_licencias: overrides?.eliminar_licencias ?? [],
+        condiciones_especiales:
+            overrides?.condiciones_especiales ??
+            contrato.contrato_condiciones_especiales.map((c) => ({
+                id: c.id,
+            })),
+        eliminar_condiciones: overrides?.eliminar_condiciones ?? [],
+        usuarios_vinculados:
+            overrides?.usuarios_vinculados ??
+            contrato.vinculos_contrato.map((u) => ({
+                id: u.id,
+                tipo_usuario: u.tipo_usuario,
+            })),
+        eliminar_usuarios: overrides?.eliminar_usuarios ?? [],
+    };
+}

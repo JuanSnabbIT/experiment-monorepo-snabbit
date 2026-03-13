@@ -12,6 +12,7 @@ from contratos.models import (
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
+    UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
     AcuerdoConfidencialidadContrato,
     EnvioContratoFirmaUsuario,
@@ -479,6 +480,269 @@ class RutasPublicasTest(APITestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+
+
+class ContratoLicenciaHistorialTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.tipo = "licencia"
+        self.contrato.save()
+        self.contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            estado="activa",
+        )
+
+    def test_historial_licencia_incluye_eventos_de_vinculacion(self):
+        vinculo = UsuarioVinculadoLicencia.objects.create(
+            licencia=self.contrato_licencia,
+            usuario=self.usuario_empresa,
+        )
+        vinculo.delete()
+
+        response = self.client.get(
+            f"/api/contrato-licencias/{self.contrato_licencia.id}/historial/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            any(item["origen"] == "licencia" for item in response.data)
+        )
+        self.assertTrue(
+            any(
+                item["origen"] == "vinculo_usuario"
+                and item["tipo"] == "Usuario vinculado"
+                for item in response.data
+            )
+        )
+        self.assertTrue(
+            any(
+                item["origen"] == "vinculo_usuario"
+                and item["tipo"] == "Usuario desvinculado"
+                for item in response.data
+            )
+        )
+
+
+class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.tipo = "licencia"
+        self.contrato.estado = "activo"
+        self.contrato.save()
+
+    def test_cancelar_licencia_fuera_de_ventana_falla(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+
+        response = self.client.post(
+            f"/api/contrato-licencias/{contrato_licencia.id}/cambiar-estado/",
+            {"estado": "cancelada"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cancelar_licencia_dentro_de_ventana_se_permite(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.post(
+            f"/api/contrato-licencias/{contrato_licencia.id}/cambiar-estado/",
+            {"estado": "cancelada"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.estado, "cancelada")
+
+    def test_desvincular_usuario_fuera_de_ventana_falla(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+        vinculo = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia,
+            usuario=self.usuario_empresa,
+        )
+
+        response = self.client.delete(
+            f"/api/contrato-licencias/{contrato_licencia.id}/usuarios-vinculados/{vinculo.id}/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_actualizar_contrato_permite_aumentar_cupos_fuera_de_ventana(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "id": contrato_licencia.id,
+                        "cantidad": 4,
+                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
+                        "precio_unitario": str(contrato_licencia.precio_unitario),
+                        "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
+                        "fecha_fin": contrato_licencia.fecha_fin,
+                        "tipo_moneda": contrato_licencia.tipo_moneda,
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.cantidad, 4)
+
+    def test_actualizar_contrato_bloquea_reducir_cupos_fuera_de_ventana(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "id": contrato_licencia.id,
+                        "cantidad": 2,
+                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
+                        "precio_unitario": str(contrato_licencia.precio_unitario),
+                        "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
+                        "fecha_fin": contrato_licencia.fecha_fin,
+                        "tipo_moneda": contrato_licencia.tipo_moneda,
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_licencia_permite_aumentar_cupos_fuera_de_ventana(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+
+        response = self.client.patch(
+            f"/api/contrato-licencias/{contrato_licencia.id}/",
+            {"cantidad": 5},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.cantidad, 5)
+
+    def test_patch_licencia_bloquea_reducir_cupos_fuera_de_ventana(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today() - timedelta(days=40),
+            estado="activa",
+        )
+
+        response = self.client.patch(
+            f"/api/contrato-licencias/{contrato_licencia.id}/",
+            {"cantidad": 2},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_licencia_dentro_de_ventana_permite_disminuir(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.patch(
+            f"/api/contrato-licencias/{contrato_licencia.id}/",
+            {"cantidad": 2},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.cantidad, 2)
+
+    def test_patch_licencia_rechaza_campos_distintos_a_cantidad(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=3,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.patch(
+            f"/api/contrato-licencias/{contrato_licencia.id}/",
+            {"cantidad": 4, "precio_unitario": "100"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class MetricasDashboardTest(ContratoAPITestBase):

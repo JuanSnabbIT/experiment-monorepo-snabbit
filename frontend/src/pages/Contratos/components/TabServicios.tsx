@@ -24,7 +24,7 @@ const TabServicios = ({ detalleContratoEmpresaCliente, listaContentType }: ITabS
                     </div>
                 </CardHeaderChild>
                 <CardHeaderChild>
-                    <AgregarServiciosyPlanesContrato />
+                    <AgregarServiciosyPlanesContrato contrato={detalleContratoEmpresaCliente} />
                 </CardHeaderChild>
             </CardHeader>
             <CardBody className='py-4'>

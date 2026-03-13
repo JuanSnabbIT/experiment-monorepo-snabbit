@@ -19,6 +19,7 @@ interface IModalCambiarEstadoLicenciaProps {
     estadoActual: string;
     estadoActualLabel: string;
     colorEstado: 'emerald' | 'red' | 'amber' | 'zinc';
+    sePuedeCancelar: boolean;
 }
 
 function ModalCambiarEstadoLicencia({
@@ -28,11 +29,14 @@ function ModalCambiarEstadoLicencia({
     estadoActual,
     estadoActualLabel,
     colorEstado,
+    sePuedeCancelar,
 }: IModalCambiarEstadoLicenciaProps) {
     const [nuevoEstado, setNuevoEstado] = useState<string>('');
     const [cambiarEstado, { isLoading }] = useCambiarEstadoContratoLicenciaMutation();
 
-    const transicionesValidas = TRANSICIONES_ESTADO_LICENCIA[estadoActual] ?? [];
+    const transicionesValidas = (TRANSICIONES_ESTADO_LICENCIA[estadoActual] ?? []).filter(
+        (estado) => estado !== 'cancelada' || sePuedeCancelar,
+    );
 
     const handleConfirm = async () => {
         if (!nuevoEstado) return;
@@ -87,6 +91,15 @@ function ModalCambiarEstadoLicencia({
                                     );
                                 })}
                             </div>
+                            {!sePuedeCancelar &&
+                                (TRANSICIONES_ESTADO_LICENCIA[estadoActual] ?? []).includes(
+                                    'cancelada',
+                                ) && (
+                                    <p className='mt-3 text-sm text-zinc-500 dark:text-zinc-400'>
+                                        La cancelación solo está disponible dentro de los 7 días
+                                        posteriores al inicio del ciclo vigente.
+                                    </p>
+                                )}
                         </div>
                     )}
                 </div>

@@ -1,7 +1,6 @@
 import Input from '@/components/form/Input';
 import Radio, { RadioGroup } from '@/components/form/Radio';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -12,7 +11,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import SignatureCanvas from 'react-signature-canvas';
+import ApiService from '@/services/ApiService';
 import {
     listaAcuerdosBaseThunk,
     listaFirmasConfidencialidadThunk,
@@ -22,9 +21,9 @@ import {
 } from '@/store';
 import { useFormik } from 'formik';
 import { useEffect, useRef, useState } from 'react';
-import * as Yup from 'yup';
+import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
+import * as Yup from 'yup';
 
 const validationSchema = Yup.object().shape({
     acuerdo_base: Yup.string().nonNullable('Requerido').required('Requerido'),
@@ -34,9 +33,13 @@ const validationSchema = Yup.object().shape({
     archivo_firma: Yup.string().nullable().notRequired(),
 });
 
-function CrearConfidencialidadContrato() {
+interface ICrearConfidencialidadContratoProps {
+    contratoId: number;
+    empresaClienteId: number;
+}
+
+function CrearConfidencialidadContrato({ contratoId, empresaClienteId }: ICrearConfidencialidadContratoProps) {
     const dispatch = useAppDispatch();
-    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato);
     const { listaUsuariosTodoElCliente } = useAppSelector((state) => state.empresa);
     const { listaAcuerdosBase } = useAppSelector((state) => state.core);
     const [esArchivo, setEsArchivo] = useState<number>(0);
@@ -50,15 +53,15 @@ function CrearConfidencialidadContrato() {
     };
 
     useEffect(() => {
-        if (isOpen && detalleContratoEmpresaCliente) {
+        if (isOpen && contratoId) {
             dispatch(
                 listaUsuariosTodoElClienteThunk({
-                    id_empresa: detalleContratoEmpresaCliente.empresa_cliente,
+                    id_empresa: empresaClienteId,
                 }),
             );
             dispatch(listaAcuerdosBaseThunk());
         }
-    }, [isOpen && detalleContratoEmpresaCliente]);
+    }, [isOpen, contratoId]);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -101,7 +104,7 @@ function CrearConfidencialidadContrato() {
 
             try {
                 const response = await ApiService.fetchData({
-                    url: `/api/contratos/${detalleContratoEmpresaCliente?.id}/firmas/`,
+                    url: `/api/contratos/${contratoId}/firmas/`,
                     method: 'post',
                     headers: { 'Content-Type': 'application/json' },
                     data: JSON.stringify(payload),
@@ -109,7 +112,7 @@ function CrearConfidencialidadContrato() {
                 if (response.data) {
                     dispatch(
                         listaFirmasConfidencialidadThunk({
-                            id_contrato: detalleContratoEmpresaCliente?.id,
+                            id_contrato: contratoId,
                         }),
                     );
                     setIsOpen(false);

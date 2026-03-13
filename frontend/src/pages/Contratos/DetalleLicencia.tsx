@@ -16,7 +16,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ItemsTablaDeUsuariosVinculadosLicencias from '../Clientes/components/ItemsTablaDeUsuariosVinculadosLicencias';
 import CrearUsuarioVinculadoLicencia from '../Clientes/modals/CrearUsuarioVinculadoLicencia';
+import MarqueeEstadoLicencia from './components/MarqueeEstadoLicencia';
 import ModalCambiarEstadoLicencia from './modals/ModalCambiarEstadoLicencia';
+import ModalEditarCuposLicencia from './modals/ModalEditarCuposLicencia';
 
 const DetalleLicencia = () => {
     const navigate = useNavigate();
@@ -25,6 +27,7 @@ const DetalleLicencia = () => {
     }>();
 
     const [modalEstadoOpen, setModalEstadoOpen] = useState(false);
+    const [modalEditarOpen, setModalEditarOpen] = useState(false);
 
     const {
         data: licencia,
@@ -84,6 +87,13 @@ const DetalleLicencia = () => {
                         <Badge color={licencia.color_estado}>{licencia.estado_label}</Badge>
                     </SubheaderLeft>
                     <SubheaderRight>
+                        <Button
+                            variant='outline'
+                            icon='HeroPencilSquare'
+                            isDisable={!licencia.se_puede_aumentar && !licencia.se_puede_reducir}
+                            onClick={() => setModalEditarOpen(true)}>
+                            Editar cupos
+                        </Button>
                         <Button icon='HeroArrowPath' onClick={() => setModalEstadoOpen(true)}>
                             Cambiar estado
                         </Button>
@@ -91,6 +101,9 @@ const DetalleLicencia = () => {
                 </Subheader>
 
                 <Container>
+                    <div className='mb-4'>
+                        <MarqueeEstadoLicencia licencia={licencia} />
+                    </div>
                     <div className='grid grid-cols-1 gap-4 lg:grid-cols-3'>
                         {/* ── Información principal ── */}
                         <Card className='lg:col-span-1'>
@@ -156,9 +169,6 @@ const DetalleLicencia = () => {
                                         <dt className='text-zinc-500'>Contrato</dt>
                                         <dd className='font-medium'>{licencia.nombre_contrato}</dd>
                                     </div>
-                                    {licencia.partner && (
-                                        <Badge color='blue'>Partner</Badge>
-                                    )}
                                 </dl>
                             </CardBody>
                         </Card>
@@ -236,8 +246,8 @@ const DetalleLicencia = () => {
                                                 <Tr>
                                                     <Th>Fecha</Th>
                                                     <Th>Tipo</Th>
-                                                    <Th>Usuario</Th>
-                                                    <Th>Cambios</Th>
+                                                    <Th>Origen</Th>
+                                                    <Th>Detalle</Th>
                                                     <Th>Estado</Th>
                                                 </Tr>
                                             </THead>
@@ -250,8 +260,12 @@ const DetalleLicencia = () => {
                                                             )}
                                                         </Td>
                                                         <Td>{h.tipo}</Td>
-                                                        <Td>{h.usuario ?? '—'}</Td>
-                                                        <Td>{h.cambios}</Td>
+                                                        <Td>
+                                                            {h.origen === 'vinculo_usuario'
+                                                                ? 'Vinculacion'
+                                                                : 'Licencia'}
+                                                        </Td>
+                                                        <Td>{h.detalle || h.cambios || '—'}</Td>
                                                         <Td>{h.estado ?? '—'}</Td>
                                                     </Tr>
                                                 ))}
@@ -267,6 +281,14 @@ const DetalleLicencia = () => {
 
             {/* Modal cambiar estado */}
             {licencia && (
+                <ModalEditarCuposLicencia
+                    isOpen={modalEditarOpen}
+                    onClose={() => setModalEditarOpen(false)}
+                    licencia={licencia}
+                />
+            )}
+
+            {licencia && (
                 <ModalCambiarEstadoLicencia
                     isOpen={modalEstadoOpen}
                     onClose={() => setModalEstadoOpen(false)}
@@ -274,6 +296,7 @@ const DetalleLicencia = () => {
                     estadoActual={licencia.estado}
                     estadoActualLabel={licencia.estado_label}
                     colorEstado={licencia.color_estado}
+                    sePuedeCancelar={licencia.se_puede_cancelar}
                 />
             )}
         </>

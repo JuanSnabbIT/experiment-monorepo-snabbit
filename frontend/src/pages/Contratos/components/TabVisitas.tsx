@@ -3,23 +3,69 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Tooltip from '@/components/ui/Tooltip';
 import { FRECUENCIA_VISITA } from '@/constants/contrato.constant';
+import { useUpdateContratoMutation } from '@/store/slices/contratos/contratoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import { ITabVisitasProps } from './contrato.types';
+import { buildUpdatePayload } from './contrato.helpers';
+import { IContratoEdicion, ITabVisitasProps } from './contrato.types';
 
 const TabVisitas = ({
-    formik,
-    editando,
     detalleContratoEmpresaCliente,
+    puedeEditar,
     listaVisitas,
 }: ITabVisitasProps) => {
+    const [editandoSeccion, setEditandoSeccion] = useState(false);
     const [nuevaVisita, setNuevaVisita] = useState<string>('');
+    const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
+
+    // Estado local para la sección
+    const [visitas, setVisitas] = useState<IContratoEdicion['visitas']>([]);
+    const [eliminarVisitas, setEliminarVisitas] = useState<number[]>([]);
 
     if (detalleContratoEmpresaCliente.tipo !== 'servicios') {
         return null;
     }
+
+    const handleEditar = () => {
+        setVisitas(
+            detalleContratoEmpresaCliente.contrato_visitas.map((v) => ({
+                id: v.id,
+                cantidad: v.cantidad,
+                frecuencia: v.frecuencia,
+            })),
+        );
+        setEliminarVisitas([]);
+        setNuevaVisita('');
+        setEditandoSeccion(true);
+    };
+
+    const handleCancelar = () => {
+        setEditandoSeccion(false);
+        setVisitas([]);
+        setEliminarVisitas([]);
+        setNuevaVisita('');
+    };
+
+    const handleGuardar = async () => {
+        try {
+            const payload = buildUpdatePayload(detalleContratoEmpresaCliente, {
+                visitas,
+                eliminar_visitas: eliminarVisitas,
+            });
+            await updateContrato({
+                id: detalleContratoEmpresaCliente.id,
+                data: payload,
+            }).unwrap();
+            setEditandoSeccion(false);
+            toast.success('Visitas actualizadas', { autoClose: 1000 });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
 
     return (
         <Card>
@@ -27,13 +73,47 @@ const TabVisitas = ({
                 <CardHeaderChild>
                     <div className='text-xl font-bold text-blue-500'>Visitas Programadas</div>
                 </CardHeaderChild>
+                <CardHeaderChild>
+                    {puedeEditar && !editandoSeccion && (
+                        <Tooltip text='Editar Visitas'>
+                            <Button
+                                variant='outline'
+                                color='blue'
+                                icon='HeroPlus'
+                                className='text-blue-500'
+                                onClick={handleEditar}>
+                                Agregar
+                            </Button>
+                        </Tooltip>
+                    )}
+                    {editandoSeccion && (
+                        <>
+                            <Button
+                                icon='HeroXMark'
+                                color='red'
+                                size='sm'
+                                onClick={handleCancelar}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                icon='HeroCheck'
+                                variant='solid'
+                                color='emerald'
+                                size='sm'
+                                isLoading={guardando}
+                                onClick={handleGuardar}>
+                                Guardar
+                            </Button>
+                        </>
+                    )}
+                </CardHeaderChild>
             </CardHeader>
             <CardBody className='p-4'>
                 <div className='flex flex-col'>
-                    {editando ? (
+                    {editandoSeccion ? (
                         <>
-                            {formik.values.visitas.length > 0 ? (
-                                formik.values.visitas.map((visita, index) => (
+                            {visitas.length > 0 ? (
+                                visitas.map((visita, index) => (
                                     <div
                                         className={classNames(
                                             'flex flex-col justify-between p-2',
@@ -55,23 +135,16 @@ const TabVisitas = ({
                                                 color='red'
                                                 icon='HeroTrash'
                                                 onClick={() => {
-                                                    const visitaEliminada =
-                                                        formik.values.visitas[index];
-                                                    const nuevasVisitas =
-                                                        formik.values.visitas.filter(
-                                                            (_, i) => i !== index,
-                                                        );
-                                                    const nuevosEliminados = [
-                                                        ...formik.values.eliminar_visitas,
-                                                    ];
-                                                    if (visitaEliminada.id) {
-                                                        nuevosEliminados.push(visitaEliminada.id);
-                                                    }
-                                                    formik.setFieldValue('visitas', nuevasVisitas);
-                                                    formik.setFieldValue(
-                                                        'eliminar_visitas',
-                                                        nuevosEliminados,
+                                                    const eliminada = visitas[index];
+                                                    setVisitas(
+                                                        visitas.filter((_, i) => i !== index),
                                                     );
+                                                    if (eliminada.id) {
+                                                        setEliminarVisitas((prev) => [
+                                                            ...prev,
+                                                            eliminada.id!,
+                                                        ]);
+                                                    }
                                                 }}
                                             />
                                         </div>
@@ -86,10 +159,13 @@ const TabVisitas = ({
                                                             fre.value === visita.frecuencia,
                                                     )}
                                                     onChange={(e) => {
-                                                        formik.setFieldValue(
-                                                            `visitas[${index}].frecuencia`,
-                                                            (e as TSelectOption).value,
-                                                        );
+                                                        const nuevas = [...visitas];
+                                                        nuevas[index] = {
+                                                            ...nuevas[index],
+                                                            frecuencia: (e as TSelectOption)
+                                                                .value,
+                                                        };
+                                                        setVisitas(nuevas);
                                                     }}
                                                     noOptionsMessage={(e) =>
                                                         `No Existe ${e.inputValue}`
@@ -99,10 +175,17 @@ const TabVisitas = ({
                                             <div>
                                                 <Badge>Cantidad</Badge>
                                                 <Input
-                                                    name={`visitas[${index}].cantidad`}
+                                                    name={`visitas_cantidad_${index}`}
                                                     type='number'
                                                     value={visita.cantidad}
-                                                    onChange={formik.handleChange}
+                                                    onChange={(e) => {
+                                                        const nuevas = [...visitas];
+                                                        nuevas[index] = {
+                                                            ...nuevas[index],
+                                                            cantidad: Number(e.target.value),
+                                                        };
+                                                        setVisitas(nuevas);
+                                                    }}
                                                 />
                                             </div>
                                         </div>
@@ -117,14 +200,14 @@ const TabVisitas = ({
                                         !detalleContratoEmpresaCliente.contrato_visitas.some(
                                             (num) =>
                                                 num.visita === vis.id &&
-                                                !formik.values.eliminar_visitas.some(
+                                                !eliminarVisitas.some(
                                                     (formVis) => formVis === num.id,
                                                 ),
                                         ),
                                 )
                                 .filter(
                                     (vis) =>
-                                        !formik.values.visitas.some(
+                                        !visitas.some(
                                             (formVis) => formVis.visita_id === vis.id,
                                         ),
                                 ).length > 0 && (
@@ -143,7 +226,7 @@ const TabVisitas = ({
                                                         !detalleContratoEmpresaCliente.contrato_visitas.some(
                                                             (num) =>
                                                                 num.visita === vis.id &&
-                                                                !formik.values.eliminar_visitas.some(
+                                                                !eliminarVisitas.some(
                                                                     (formVis) =>
                                                                         formVis === num.id,
                                                                 ),
@@ -151,7 +234,7 @@ const TabVisitas = ({
                                                 )
                                                 .filter(
                                                     (vis) =>
-                                                        !formik.values.visitas.some(
+                                                        !visitas.some(
                                                             (formVis) =>
                                                                 formVis.visita_id === vis.id,
                                                         ),
@@ -186,8 +269,8 @@ const TabVisitas = ({
                                                 );
                                                 return;
                                             }
-                                            formik.setFieldValue('visitas', [
-                                                ...formik.values.visitas,
+                                            setVisitas((prev) => [
+                                                ...prev,
                                                 {
                                                     visita_id: Number(nuevaVisita),
                                                     cantidad: 1,

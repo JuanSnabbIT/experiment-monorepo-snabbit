@@ -2,14 +2,13 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
-import { detalleContratoEmpresaClienteThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import dayjs from 'dayjs';
+import { useGetDetalleContratoQuery } from '@/store/slices/contratos/contratoApi';
 import 'dayjs/locale/es';
-import PDFContratoServicios from './PDFContratoServicios';
+import { useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import PDFContratoLicencias from './PDFContratoLicencias';
+import PDFContratoServicios from './PDFContratoServicios';
 import PDFContratoVenta from './PDFContratoVenta';
 
 // Componente Header que se repetirá en todas las páginas gracias al "fixed"
@@ -26,18 +25,11 @@ import PDFContratoVenta from './PDFContratoVenta';
 // );
 
 function PDFContrato() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams();
-    const { detalleContratoEmpresaCliente } = useAppSelector((state) => state.contrato);
+    const { data: detalleContratoEmpresaCliente } = useGetDetalleContratoQuery(id!, { skip: !id });
     const componentRef = useRef<HTMLDivElement>(null);
     const reactToPrintFn = useReactToPrint({ contentRef: componentRef });
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleContratoEmpresaClienteThunk({ id_contrato: id }));
-        }
-    }, [id]);
 
     return (
         <PageWrapper

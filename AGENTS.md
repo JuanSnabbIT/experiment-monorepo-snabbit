@@ -4,7 +4,8 @@ Este archivo define **reglas transversales de comportamiento y colaboración** p
 
 Este archivo **no describe arquitectura ni tecnologías**.
 Para contexto técnico y convenciones, consulta siempre:
-`.github/copilot-instructions.md`.
+- `.github/copilot-instructions.md`
+- `.codex/copilot-instructions.md` cuando el agente sea Codex
 
 ---
 
@@ -79,6 +80,7 @@ En resúmenes finales:
 - Sigue estrictamente las convenciones definidas en:
   - `.github/copilot-instructions.md`
   - `.github/instructions/`
+  - `.codex/copilot-instructions.md` y `.codex/instructions/` cuando existan como espejo operativo para Codex
 - No introduzcas patrones, dependencias o estilos nuevos sin justificación.
 - No "infieras" arquitectura: valida siempre contra el repositorio real.
 
@@ -158,6 +160,7 @@ Si TODAS las casillas NO están ✓ → RECHAZA la creación
 
 ### Paso 2 — Cargar contexto correcto
 - Lee primero `.github/copilot-instructions.md`.
+- Si el agente es Codex y existe `.codex/`, úsalo como espejo operativo explícito de `.github/`.
 - Luego, solo las guías específicas necesarias según el alcance.
 - No cargues instrucciones irrelevantes.
 

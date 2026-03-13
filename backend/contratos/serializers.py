@@ -143,8 +143,13 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     licencias_disponibles  = serializers.SerializerMethodField()
     fecha_inicio_edicion = serializers.SerializerMethodField()
     fecha_fin_edicion = serializers.SerializerMethodField()
+    dias_hasta_fin_edicion = serializers.SerializerMethodField()
     nombre_contrato = serializers.SerializerMethodField()
     se_puede_reducir = serializers.SerializerMethodField()
+    se_puede_cancelar = serializers.SerializerMethodField()
+    se_puede_desvincular = serializers.SerializerMethodField()
+    se_puede_aumentar = serializers.SerializerMethodField()
+    mensaje_ventana_edicion = serializers.SerializerMethodField()
     dias_restantes_licencia = serializers.SerializerMethodField()
     estado_label = serializers.SerializerMethodField()
     color_estado = serializers.SerializerMethodField()
@@ -194,8 +199,23 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     def get_nombre_contrato(self, obj):
         return obj.contrato.nombre
 
+    def get_dias_hasta_fin_edicion(self, obj):
+        return obj.dias_hasta_fin_edicion
+
     def get_se_puede_reducir(self, obj):
-        return obj.puede_reducir
+        return obj.puede_reducir_cupos
+
+    def get_se_puede_cancelar(self, obj):
+        return obj.puede_cancelar
+
+    def get_se_puede_desvincular(self, obj):
+        return obj.puede_desvincular_usuarios
+
+    def get_se_puede_aumentar(self, obj):
+        return obj.puede_aumentar_cupos
+
+    def get_mensaje_ventana_edicion(self, obj):
+        return obj.mensaje_ventana_edicion
 
     def get_dias_restantes_licencia(self, obj):
         return obj.dias_restantes_licencia
@@ -244,7 +264,6 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
 
 # Serializador para ContratoCondicionEspecial
 class ContratoCondicionEspecialSerializer(serializers.ModelSerializer):
-    #condicion = CondicionEspecialSerializer(read_only=True)
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     titulo_condicion = serializers.SerializerMethodField()
     descripcion_condicion = serializers.SerializerMethodField()
@@ -254,10 +273,14 @@ class ContratoCondicionEspecialSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_titulo_condicion(self, obj):
-        return obj.condicion.titulo
+        if obj.condicion:
+            return obj.condicion.titulo
+        return obj.texto or ''
 
     def get_descripcion_condicion(self, obj):
-        return obj.condicion.descripcion
+        if obj.condicion:
+            return obj.condicion.descripcion
+        return obj.texto or ''
         
 
 # ── Serializers ligeros para endpoints "por usuario" ──

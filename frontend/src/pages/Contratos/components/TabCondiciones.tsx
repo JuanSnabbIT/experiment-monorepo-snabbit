@@ -1,22 +1,67 @@
-﻿import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import Icon from '@/components/icon/Icon';
-import Badge from '@/components/ui/Badge';
+﻿import Textarea from '@/components/form/Textarea';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import Collapse from '@/components/utils/Collapse';
-import classNames from 'classnames';
+import Tooltip from '@/components/ui/Tooltip';
+import { useUpdateContratoMutation } from '@/store/slices/contratos/contratoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { buildUpdatePayload } from './contrato.helpers';
 import { ITabCondicionesProps } from './contrato.types';
 
 const TabCondiciones = ({
-    formik,
-    editando,
     detalleContratoEmpresaCliente,
-    listaCondicionesEspeciales,
+    puedeEditar,
 }: ITabCondicionesProps) => {
-    const [condicionCollapse, setCondicionCollapse] = useState<string>('');
-    const [nuevaCondicion, setNuevaCondicion] = useState<string>('');
+    const [agregando, setAgregando] = useState(false);
+    const [textoCondicion, setTextoCondicion] = useState('');
+    const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
+
+    const handleAgregar = async () => {
+        if (textoCondicion.trim() === '') {
+            toast.error('Ingrese el texto de la condición', {
+                toastId: 'condicion-texto-vacio',
+            });
+            return;
+        }
+        try {
+            const payload = buildUpdatePayload(detalleContratoEmpresaCliente, {
+                condiciones_especiales: [
+                    ...detalleContratoEmpresaCliente.contrato_condiciones_especiales.map((c) => ({
+                        id: c.id,
+                    })),
+                    { texto: textoCondicion.trim() },
+                ],
+            });
+            await updateContrato({
+                id: detalleContratoEmpresaCliente.id,
+                data: payload,
+            }).unwrap();
+            setTextoCondicion('');
+            setAgregando(false);
+            toast.success('Condición agregada', { autoClose: 1000 });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleEliminar = async (condicionId: number) => {
+        try {
+            const payload = buildUpdatePayload(detalleContratoEmpresaCliente, {
+                condiciones_especiales: detalleContratoEmpresaCliente.contrato_condiciones_especiales
+                    .filter((c) => c.id !== condicionId)
+                    .map((c) => ({ id: c.id })),
+                eliminar_condiciones: [condicionId],
+            });
+            await updateContrato({
+                id: detalleContratoEmpresaCliente.id,
+                data: payload,
+            }).unwrap();
+            toast.success('Condición eliminada', { autoClose: 1000 });
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
 
     return (
         <Card>
@@ -24,190 +69,88 @@ const TabCondiciones = ({
                 <CardHeaderChild>
                     <div className='text-xl font-bold text-blue-500'>Condiciones Especiales</div>
                 </CardHeaderChild>
+                <CardHeaderChild>
+                    {puedeEditar && (
+                        <Tooltip text='Agregar Condición'>
+                            <Button
+                                variant='outline'
+                                color='blue'
+                                icon='HeroPlus'
+                                className='text-blue-500'
+                                onClick={() => setAgregando(!agregando)}>
+                                Agregar
+                            </Button>
+                        </Tooltip>
+                    )}
+                </CardHeaderChild>
             </CardHeader>
             <CardBody className='p-4'>
                 <div className='flex flex-col'>
-                    {editando ? (
-                        <>
-                            {formik.values.condiciones_especiales.length > 0 ? (
-                                formik.values.condiciones_especiales.map((condicion, index) => (
-                                    <div
-                                        key={index}
-                                        className='mb-2 flex items-center justify-between border-b p-2'>
-                                        <span>
-                                            {'condicion_id' in condicion
-                                                ? listaCondicionesEspeciales.find(
-                                                      (con) => con.id === condicion.condicion_id,
-                                                  )?.titulo
-                                                : 'id' in condicion
-                                                  ? detalleContratoEmpresaCliente.contrato_condiciones_especiales.find(
-                                                        (con) => con.id === condicion.id,
-                                                    )?.titulo_condicion
-                                                  : 'No se encontró la condición'}
-                                        </span>
-                                        <Button
-                                            onClick={() => {
-                                                const condicionEliminada =
-                                                    formik.values.condiciones_especiales[index];
-                                                const nuevasCondiciones =
-                                                    formik.values.condiciones_especiales.filter(
-                                                        (_, i) => i !== index,
-                                                    );
-                                                const nuevosEliminados = [
-                                                    ...formik.values.eliminar_condiciones,
-                                                ];
-                                                if (condicionEliminada.id) {
-                                                    nuevosEliminados.push(condicionEliminada.id);
-                                                }
-                                                formik.setFieldValue(
-                                                    'condiciones_especiales',
-                                                    nuevasCondiciones,
-                                                );
-                                                formik.setFieldValue(
-                                                    'eliminar_condiciones',
-                                                    nuevosEliminados,
-                                                );
-                                            }}
-                                            color='red'
-                                            icon='HeroTrash'
-                                        />
-                                    </div>
-                                ))
-                            ) : (
-                                <div>Sin Condiciones</div>
-                            )}
-                            {listaCondicionesEspeciales
-                                .filter(
-                                    (con) =>
-                                        !detalleContratoEmpresaCliente.contrato_condiciones_especiales.some(
-                                            (num) =>
-                                                num.condicion === con.id &&
-                                                !formik.values.eliminar_condiciones.some(
-                                                    (formCon) => formCon === num.id,
-                                                ),
-                                        ),
-                                )
-                                .filter(
-                                    (con) =>
-                                        !formik.values.condiciones_especiales.some(
-                                            (formCon) => formCon.condicion_id === con.id,
-                                        ),
-                                ).length > 0 && (
-                                <div className='mt-4 flex items-center justify-between gap-2'>
-                                    <div className='w-full'>
-                                        <Badge>Agregar Condición</Badge>
-                                        <SelectReact
-                                            name='nueva_condicion'
-                                            placeholder='Agregar Condición'
-                                            className='w-full min-w-[200px]'
-                                            options={listaCondicionesEspeciales
-                                                .filter(
-                                                    (con) =>
-                                                        !detalleContratoEmpresaCliente.contrato_condiciones_especiales.some(
-                                                            (num) =>
-                                                                num.condicion === con.id &&
-                                                                !formik.values.eliminar_condiciones.some(
-                                                                    (formCon) =>
-                                                                        formCon === num.id,
-                                                                ),
-                                                        ),
-                                                )
-                                                .filter(
-                                                    (con) =>
-                                                        !formik.values.condiciones_especiales.some(
-                                                            (formCon) =>
-                                                                formCon.condicion_id === con.id,
-                                                        ),
-                                                )
-                                                .map((con) => ({
-                                                    value: con.id.toString(),
-                                                    label: con.titulo,
-                                                }))}
-                                            onChange={(e) => {
-                                                setNuevaCondicion((e as TSelectOption).value);
-                                            }}
-                                            value={{
-                                                value: nuevaCondicion,
-                                                label:
-                                                    listaCondicionesEspeciales.find(
-                                                        (con) =>
-                                                            con.id.toString() === nuevaCondicion,
-                                                    )?.titulo || '',
-                                            }}
-                                            noOptionsMessage={(e) => `No Existe ${e.inputValue}`}
-                                        />
-                                    </div>
-                                    <Button
-                                        onClick={() => {
-                                            if (nuevaCondicion.trim() === '') {
-                                                toast.error(
-                                                    'Seleccione una condición para agregarla',
-                                                    {
-                                                        toastId:
-                                                            'Seleccione una condición para agregarla',
-                                                    },
-                                                );
-                                                return;
-                                            }
-                                            formik.setFieldValue('condiciones_especiales', [
-                                                ...formik.values.condiciones_especiales,
-                                                { condicion_id: Number(nuevaCondicion) },
-                                            ]);
-                                            setNuevaCondicion('');
-                                        }}>
-                                        Agregar
-                                    </Button>
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            {detalleContratoEmpresaCliente.contrato_condiciones_especiales.length >
-                            0 ? (
-                                detalleContratoEmpresaCliente.contrato_condiciones_especiales.map(
-                                    (condicion, index, array) => (
-                                        <div
-                                            className={classNames(
-                                                'border border-black p-2',
-                                                index === 0 && 'rounded-t-xl',
-                                                index + 1 === array.length && 'rounded-b-xl',
-                                            )}
-                                            key={index}>
-                                            <div
-                                                className='flex w-full justify-between'
-                                                onClick={() => {
-                                                    setCondicionCollapse(
-                                                        condicion.id.toString() ===
-                                                            condicionCollapse
-                                                            ? ''
-                                                            : condicion.id.toString(),
-                                                    );
-                                                }}>
-                                                <div>{condicion.titulo_condicion}</div>
-                                                <Icon
-                                                    icon={
-                                                        condicion.id.toString() ===
-                                                        condicionCollapse
-                                                            ? 'HeroChevronUp'
-                                                            : 'HeroChevronDown'
-                                                    }
-                                                />
-                                            </div>
-                                            <Collapse
-                                                isOpen={
-                                                    condicion.id.toString() === condicionCollapse
-                                                }>
-                                                <div className='pt-2'>
+                    {agregando && (
+                        <div className='mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 p-3 dark:border-blue-800'>
+                            <Textarea
+                                name='texto_condicion'
+                                placeholder='Escriba la condición especial...'
+                                value={textoCondicion}
+                                onChange={(e) => setTextoCondicion(e.target.value)}
+                                rows={3}
+                            />
+                            <div className='flex justify-end gap-2'>
+                                <Button
+                                    icon='HeroXMark'
+                                    color='red'
+                                    size='sm'
+                                    onClick={() => {
+                                        setAgregando(false);
+                                        setTextoCondicion('');
+                                    }}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    icon='HeroCheck'
+                                    variant='solid'
+                                    color='emerald'
+                                    size='sm'
+                                    isLoading={guardando}
+                                    onClick={handleAgregar}>
+                                    Guardar
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    {detalleContratoEmpresaCliente.contrato_condiciones_especiales.length > 0 ? (
+                        detalleContratoEmpresaCliente.contrato_condiciones_especiales.map(
+                            (condicion, index) => (
+                                <div
+                                    className='flex items-start justify-between gap-2 border-b border-zinc-200 px-2 py-3 last:border-b-0 dark:border-zinc-700'
+                                    key={condicion.id ?? index}>
+                                    <div className='flex-1'>
+                                        <div className='font-semibold'>
+                                            {condicion.titulo_condicion}
+                                        </div>
+                                        {condicion.descripcion_condicion &&
+                                            condicion.descripcion_condicion !==
+                                                condicion.titulo_condicion && (
+                                                <div className='mt-1 text-sm text-zinc-500'>
                                                     {condicion.descripcion_condicion}
                                                 </div>
-                                            </Collapse>
-                                        </div>
-                                    ),
-                                )
-                            ) : (
-                                <div>Sin Condiciones</div>
-                            )}
-                        </>
+                                            )}
+                                    </div>
+                                    {puedeEditar && (
+                                        <Tooltip text='Eliminar condición'>
+                                            <Button
+                                                color='red'
+                                                icon='HeroTrash'
+                                                size='sm'
+                                                onClick={() => handleEliminar(condicion.id)}
+                                            />
+                                        </Tooltip>
+                                    )}
+                                </div>
+                            ),
+                        )
+                    ) : (
+                        <div className='text-sm text-zinc-500'>Sin Condiciones</div>
                     )}
                 </div>
             </CardBody>

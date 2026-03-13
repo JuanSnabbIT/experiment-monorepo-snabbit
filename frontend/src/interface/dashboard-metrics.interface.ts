@@ -149,6 +149,7 @@ export interface IMetricasContratosResponse {
         id: number;
         nombre: string;
         cliente: string;
+        empresa_cliente: number;
         fecha_fin: string | null;
         dias_restantes: number | null;
     }>;
