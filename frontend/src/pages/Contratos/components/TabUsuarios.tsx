@@ -189,7 +189,7 @@ const TabUsuarios = ({
                                             : 'id' in user
                                               ? detalleContratoEmpresaCliente.vinculos_contrato.find(
                                                     (userCli) => userCli.id === user.id,
-                                                )?.datos_usuario.email
+                                                )?.correo_display
                                               : 'No se encontró al usuario'}
                                         <Button
                                             color='red'
@@ -338,7 +338,7 @@ const TabUsuarios = ({
                                                     'col-span-4',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
-                                                {v.datos_usuario.email}
+                                                {v.correo_display}
                                             </div>
                                             <div
                                                 className={classNames(
@@ -412,7 +412,7 @@ const TabUsuarios = ({
                                                     'col-span-4',
                                                     i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
                                                 )}>
-                                                {v.datos_usuario.email}
+                                                {v.correo_display}
                                             </div>
                                             <div
                                                 className={classNames(

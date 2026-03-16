@@ -1,4 +1,6 @@
 import type { TColors } from '@/types/colors.type';
+import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
+import type { IContratoEdicion } from './contrato.types';
 
 /**
  * Devuelve el color del Badge según el estado del contrato.

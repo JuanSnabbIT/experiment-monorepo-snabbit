@@ -88,7 +88,7 @@ function CrearEnvioContratoFirmaUsuario({ contrato }: ICrearEnvioContratoFirmaUs
                                         .filter((user) => !user.existe_envio)
                                         .map((user) => ({
                                             value: user.id.toString(),
-                                            label: user.datos_usuario.nombre,
+                                            label: user.nombre_display,
                                         }))}
                                     onChange={(e) => {
                                         if (e) {
@@ -104,7 +104,7 @@ function CrearEnvioContratoFirmaUsuario({ contrato }: ICrearEnvioContratoFirmaUs
                                             contrato.vinculos_contrato.find(
                                                 (user) =>
                                                     user.id.toString() === formik.values.usuario,
-                                            )?.datos_usuario.nombre || '',
+                                            )?.nombre_display || '',
                                     }}
                                 />
                             </Validation>

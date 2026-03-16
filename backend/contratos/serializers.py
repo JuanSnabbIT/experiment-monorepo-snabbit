@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 from contratos.models import (
     ContratoEmpresaCliente,
+    EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
     ContratoServicio,
@@ -500,27 +501,86 @@ class AcuerdoConfidencialidadContratoSerializer(serializers.ModelSerializer):
 
 # Serializador para UsuarioVinculadoContrato
 class UsuarioVinculadoContratoSerializer(serializers.ModelSerializer):
-    usuario = serializers.PrimaryKeyRelatedField(queryset=UsuarioEmpresa.objects.all())
+    usuario = serializers.PrimaryKeyRelatedField(queryset=UsuarioEmpresa.objects.all(), required=False, allow_null=True)
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     datos_usuario = serializers.SerializerMethodField()
     tipo_usuario_label = serializers.SerializerMethodField()
     existe_envio = serializers.SerializerMethodField()
+    nombre_display = serializers.SerializerMethodField()
+    correo_display = serializers.SerializerMethodField()
+    es_externo = serializers.SerializerMethodField()
+    aprobacion_pendiente = serializers.SerializerMethodField()
+    firma_pendiente = serializers.SerializerMethodField()
 
     class Meta:
         model = UsuarioVinculadoContrato
         fields = '__all__'
 
     def get_datos_usuario(self, obj):
+        if not obj.usuario:
+            return None
         return {"nombre": obj.usuario.usuario.get_nombre_completo(), "email": obj.usuario.usuario.email}
 
     def get_tipo_usuario_label(self, obj):
         return obj.get_tipo_usuario_display()
 
     def get_existe_envio(self, obj):
-        if EnvioContratoFirmaUsuario.objects.filter(usuario=obj).exists():
-            return EnvioContratoFirmaUsuario.objects.filter(usuario=obj).first().pk
-        else:
+        envio = EnvioContratoFirmaUsuario.objects.filter(usuario=obj).order_by('-fecha_envio', '-id').first()
+        return envio.pk if envio else None
+
+    def get_nombre_display(self, obj):
+        return obj.nombre_display
+
+    def get_correo_display(self, obj):
+        return obj.correo_display
+
+    def get_es_externo(self, obj):
+        return obj.es_externo
+
+    def get_aprobacion_pendiente(self, obj):
+        envio = EnvioContratoAprobacion.objects.filter(destinatario=obj).order_by('-fecha_envio', '-id').first()
+        if not envio:
             return None
+        return {
+            "id": envio.id,
+            "uuid": str(envio.uuid),
+            "enviado": envio.enviado,
+            "respondido": envio.respondido,
+            "aprobado": envio.aprobado,
+            "fecha_envio": envio.fecha_envio,
+            "fecha_respuesta": envio.fecha_respuesta,
+            "comentario_respuesta": envio.comentario_respuesta,
+            "version_envio": envio.version_envio,
+        }
+
+    def get_firma_pendiente(self, obj):
+        envio = EnvioContratoFirmaUsuario.objects.filter(usuario=obj).order_by('-fecha_envio', '-id').first()
+        if not envio:
+            return None
+        return {
+            "id": envio.id,
+            "uuid": str(envio.uuid),
+            "enviado": envio.enviado,
+            "firmado": envio.firmado,
+            "fecha_envio": envio.fecha_envio,
+            "fecha_firma": envio.fecha_firma,
+        }
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        usuario = attrs.get("usuario", getattr(self.instance, "usuario", None))
+        nombre = attrs.get("nombre", getattr(self.instance, "nombre", None))
+        correo_generico = attrs.get("correo_generico", getattr(self.instance, "correo_generico", None))
+
+        if not usuario and not correo_generico:
+            raise serializers.ValidationError(
+                "Debe enviar un usuario existente o un contacto manual con nombre y correo."
+            )
+
+        if not usuario and not nombre:
+            raise serializers.ValidationError({"nombre": "Debe indicar el nombre del contacto manual."})
+
+        return attrs
 
 # Serializador para ContratoEmpresaCliente
 class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
@@ -537,10 +597,30 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     datos_empresa = serializers.SerializerMethodField()
     datos_cliente = serializers.SerializerMethodField()
     tipo_label = serializers.SerializerMethodField()
+    destinatario_principal = serializers.SerializerMethodField()
+    ultimo_envio_aprobacion = serializers.SerializerMethodField()
+    ultimo_envio_firma = serializers.SerializerMethodField()
+    ultimo_comentario_cliente = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoEmpresaCliente
         fields = '__all__'
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance:
+            campos_bloqueados = {"estado", "empresa_prestadora", "empresa_cliente", "tipo"}
+            presentes = campos_bloqueados.intersection(attrs.keys())
+            if presentes:
+                raise serializers.ValidationError(
+                    {
+                        "detail": (
+                            "Los campos estado, tipo y empresas no se pueden editar desde este flujo. "
+                            "Usa las acciones especificas del contrato."
+                        )
+                    }
+                )
+        return attrs
 
     def get_estado_label(self, obj):
         return obj.get_estado_display()
@@ -575,9 +655,61 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     def get_tipo_label(self, obj):
         return obj.get_tipo_display()
 
+    def get_destinatario_principal(self, obj):
+        destinatario = obj.destinatario_principal
+        if not destinatario:
+            return None
+        return UsuarioVinculadoContratoSerializer(destinatario, read_only=True).data
+
+    def get_ultimo_envio_aprobacion(self, obj):
+        envio = obj.envios_aprobacion.order_by('-fecha_envio', '-id').first()
+        if not envio:
+            return None
+        return {
+            "id": envio.id,
+            "uuid": str(envio.uuid),
+            "enviado": envio.enviado,
+            "respondido": envio.respondido,
+            "aprobado": envio.aprobado,
+            "fecha_envio": envio.fecha_envio,
+            "fecha_respuesta": envio.fecha_respuesta,
+            "comentario_respuesta": envio.comentario_respuesta,
+            "version_envio": envio.version_envio,
+        }
+
+    def get_ultimo_envio_firma(self, obj):
+        envio = EnvioContratoFirmaUsuario.objects.filter(
+            usuario__contrato=obj
+        ).order_by('-fecha_envio', '-id').first()
+        if not envio:
+            return None
+        return {
+            "id": envio.id,
+            "uuid": str(envio.uuid),
+            "enviado": envio.enviado,
+            "firmado": envio.firmado,
+            "fecha_envio": envio.fecha_envio,
+            "fecha_firma": envio.fecha_firma,
+        }
+
+    def get_ultimo_comentario_cliente(self, obj):
+        envio = obj.envios_aprobacion.filter(
+            respondido=True,
+            aprobado=False,
+        ).order_by('-fecha_respuesta', '-id').first()
+        return envio.comentario_respuesta if envio else None
+
 class EnvioContratoFirmaUsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = EnvioContratoFirmaUsuario
+        fields = '__all__'
+
+
+class EnvioContratoAprobacionSerializer(serializers.ModelSerializer):
+    destinatario_detalle = UsuarioVinculadoContratoSerializer(source='destinatario', read_only=True)
+
+    class Meta:
+        model = EnvioContratoAprobacion
         fields = '__all__'
 
 

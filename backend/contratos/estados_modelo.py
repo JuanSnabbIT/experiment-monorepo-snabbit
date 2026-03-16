@@ -1,5 +1,9 @@
 ESTADOS_CONTRATO = [
     ('borrador', 'Borrador'),
+    ('en_aprobacion_cliente', 'En aprobacion del cliente'),
+    ('cambios_solicitados', 'Cambios solicitados'),
+    ('aprobado_cliente', 'Aprobado por cliente'),
+    ('en_firma', 'En firma'),
     ('activo', 'Activo'),
     ('suspendido', 'Suspendido'),
     ('finalizado', 'Finalizado')

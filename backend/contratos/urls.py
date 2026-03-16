@@ -22,6 +22,15 @@ from contratos.views import (
     firmar_envio
 )
 from django.urls import path
+from contratos.public_views import (
+    PublicAprobarContratoView,
+    PublicContratoAprobacionDetailView,
+    PublicContratoAprobacionPDFView,
+    PublicContratoFirmaDetailView,
+    PublicContratoFirmaPDFView,
+    PublicFirmarContratoView,
+    PublicRechazarContratoView,
+)
 
 # Router principal para contratos
 router = routers.DefaultRouter()
@@ -62,6 +71,41 @@ urlpatterns = (
     persona_router.urls +
     usuarios_vinculados_router.urls +
     [
+        path(
+            'public/contrato-aprobacion/<uuid:token>/',
+            PublicContratoAprobacionDetailView.as_view(),
+            name='public-contrato-aprobacion-detail'
+        ),
+        path(
+            'public/contrato-aprobacion/<uuid:token>/pdf/',
+            PublicContratoAprobacionPDFView.as_view(),
+            name='public-contrato-aprobacion-pdf'
+        ),
+        path(
+            'public/contrato-aprobacion/<uuid:token>/aprobar/',
+            PublicAprobarContratoView.as_view(),
+            name='public-contrato-aprobacion-aprobar'
+        ),
+        path(
+            'public/contrato-aprobacion/<uuid:token>/rechazar/',
+            PublicRechazarContratoView.as_view(),
+            name='public-contrato-aprobacion-rechazar'
+        ),
+        path(
+            'public/contrato-firma/<uuid:token>/',
+            PublicContratoFirmaDetailView.as_view(),
+            name='public-contrato-firma-detail'
+        ),
+        path(
+            'public/contrato-firma/<uuid:token>/pdf/',
+            PublicContratoFirmaPDFView.as_view(),
+            name='public-contrato-firma-pdf'
+        ),
+        path(
+            'public/contrato-firma/<uuid:token>/firmar/',
+            PublicFirmarContratoView.as_view(),
+            name='public-contrato-firma-firmar'
+        ),
         path(
             'acuerdos-por-envio/<uuid:uuid>/',
             obtener_acuerdos_por_envio,

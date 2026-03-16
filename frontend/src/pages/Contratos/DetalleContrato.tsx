@@ -20,9 +20,13 @@ import {
 import {
     useCambiarEstadoContratoMutation,
     useDeleteContratoMutation,
+    useEnviarAFirmaContratoMutation,
+    useEnviarAprobacionContratoMutation,
     useGetDetalleContratoQuery,
     useGetLicenciasCatalogoQuery,
     useGetVisitasCatalogoQuery,
+    useReenviarAFirmaContratoMutation,
+    useReenviarAprobacionContratoMutation,
     useRenovarContratoMutation,
 } from '@/store/slices/contratos/contratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -62,6 +66,10 @@ const DetalleContrato = () => {
     const [cambiarEstado] = useCambiarEstadoContratoMutation();
     const [renovarContrato] = useRenovarContratoMutation();
     const [deleteContrato] = useDeleteContratoMutation();
+    const [enviarAprobacionContrato] = useEnviarAprobacionContratoMutation();
+    const [reenviarAprobacionContrato] = useReenviarAprobacionContratoMutation();
+    const [enviarAFirmaContrato] = useEnviarAFirmaContratoMutation();
+    const [reenviarAFirmaContrato] = useReenviarAFirmaContratoMutation();
 
     // ── Redux legacy (catálogos sin migrar) ──
     const { listaContentType } = useAppSelector((state) => state.core);
@@ -122,6 +130,46 @@ const DetalleContrato = () => {
             toast.error(getErrorMessage(error) || 'Error al eliminar el contrato');
         } finally {
             setModalEliminar(false);
+        }
+    };
+
+    const handleEnviarAprobacion = async () => {
+        if (!contrato) return;
+        try {
+            await enviarAprobacionContrato(contrato.id).unwrap();
+            toast.success('Borrador enviado a aprobación del cliente');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleReenviarAprobacion = async () => {
+        if (!contrato) return;
+        try {
+            await reenviarAprobacionContrato(contrato.id).unwrap();
+            toast.success('Aprobación reenviada al cliente');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleEnviarFirma = async () => {
+        if (!contrato) return;
+        try {
+            await enviarAFirmaContrato(contrato.id).unwrap();
+            toast.success('Contrato enviado a firma');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleReenviarFirma = async () => {
+        if (!contrato) return;
+        try {
+            await reenviarAFirmaContrato(contrato.id).unwrap();
+            toast.success('Firma reenviada al cliente');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         }
     };
 
@@ -227,6 +275,32 @@ const DetalleContrato = () => {
                                     Activar
                                 </Button>
                             )}
+                            {['borrador', 'cambios_solicitados'].includes(contrato.estado) && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPaperAirplane'
+                                    onClick={handleEnviarAprobacion}>
+                                    Enviar a aprobación
+                                </Button>
+                            )}
+                            {contrato.estado === 'en_aprobacion_cliente' && (
+                                <Button icon='HeroEnvelope' onClick={handleReenviarAprobacion}>
+                                    Reenviar aprobación
+                                </Button>
+                            )}
+                            {contrato.estado === 'aprobado_cliente' && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPencilSquare'
+                                    onClick={handleEnviarFirma}>
+                                    Enviar a firma
+                                </Button>
+                            )}
+                            {contrato.estado === 'en_firma' && (
+                                <Button icon='HeroEnvelope' onClick={handleReenviarFirma}>
+                                    Reenviar firma
+                                </Button>
+                            )}
                             {puedeSuspender && (
                                 <Tooltip text='Suspender contrato'>
                                     <Button
@@ -324,6 +398,47 @@ const DetalleContrato = () => {
                                         <span className='font-bold text-blue-500'>Tipo: </span>
                                         {contrato.tipo_label}
                                     </div>
+
+                                    <div>
+                                        <span className='font-bold text-blue-500'>
+                                            Destinatario principal:{' '}
+                                        </span>
+                                        {contrato.destinatario_principal?.nombre_display ?? 'Sin definir'}
+                                        {contrato.destinatario_principal?.correo_display
+                                            ? ` (${contrato.destinatario_principal.correo_display})`
+                                            : ''}
+                                    </div>
+
+                                    <div>
+                                        <span className='font-bold text-blue-500'>
+                                            Aprobación del cliente:{' '}
+                                        </span>
+                                        {contrato.ultimo_envio_aprobacion?.respondido
+                                            ? contrato.ultimo_envio_aprobacion.aprobado
+                                                ? 'Aprobada'
+                                                : 'Rechazada'
+                                            : contrato.ultimo_envio_aprobacion?.enviado
+                                              ? 'Pendiente'
+                                              : 'No enviada'}
+                                    </div>
+
+                                    <div>
+                                        <span className='font-bold text-blue-500'>Firma: </span>
+                                        {contrato.ultimo_envio_firma?.firmado
+                                            ? 'Firmado'
+                                            : contrato.ultimo_envio_firma?.enviado
+                                              ? 'Pendiente'
+                                              : 'No enviada'}
+                                    </div>
+
+                                    {contrato.ultimo_comentario_cliente && (
+                                        <div>
+                                            <span className='font-bold text-blue-500'>
+                                                Comentario del cliente:{' '}
+                                            </span>
+                                            {contrato.ultimo_comentario_cliente}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Botones de acción */}

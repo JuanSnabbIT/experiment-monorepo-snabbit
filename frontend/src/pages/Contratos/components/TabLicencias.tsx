@@ -20,6 +20,7 @@ interface IModalEstadoState {
     estadoActual: string;
     estadoActualLabel: string;
     colorEstado: 'emerald' | 'red' | 'amber' | 'zinc';
+    sePuedeCancelar: boolean;
 }
 
 const MODAL_ESTADO_INITIAL: IModalEstadoState = {
@@ -28,6 +29,7 @@ const MODAL_ESTADO_INITIAL: IModalEstadoState = {
     estadoActual: '',
     estadoActualLabel: '',
     colorEstado: 'zinc',
+    sePuedeCancelar: false,
 };
 
 const INITIAL_VALUES: IContratoEdicion = {
@@ -318,6 +320,7 @@ const TabLicencias = ({
                 estadoActual={modalEstado.estadoActual}
                 estadoActualLabel={modalEstado.estadoActualLabel}
                 colorEstado={modalEstado.colorEstado}
+                sePuedeCancelar={modalEstado.sePuedeCancelar}
             />
         </>
     );

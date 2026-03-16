@@ -40,7 +40,15 @@ function TablaDeUsuariosVinculadosLicencias({
         estado: string;
         estadoLabel: string;
         color: 'emerald' | 'red' | 'amber' | 'zinc';
-    }>({ open: false, licenciaId: 0, estado: '', estadoLabel: '', color: 'zinc' });
+        sePuedeCancelar: boolean;
+    }>({
+        open: false,
+        licenciaId: 0,
+        estado: '',
+        estadoLabel: '',
+        color: 'zinc',
+        sePuedeCancelar: false,
+    });
 
     // Flujo creacion de licencia
     const [flujoCreacion, setFlujoCreacion] = useState<TFlujoCreacion>('idle');
@@ -193,6 +201,8 @@ function TablaDeUsuariosVinculadosLicencias({
                                                                 estado: lic.estado,
                                                                 estadoLabel: lic.estado_label,
                                                                 color: lic.color_estado,
+                                                                sePuedeCancelar:
+                                                                    lic.se_puede_cancelar,
                                                             })
                                                         }
                                                     />
@@ -281,6 +291,7 @@ function TablaDeUsuariosVinculadosLicencias({
                 estadoActual={modalEstado.estado}
                 estadoActualLabel={modalEstado.estadoLabel}
                 colorEstado={modalEstado.color}
+                sePuedeCancelar={modalEstado.sePuedeCancelar}
             />
         </>
     );

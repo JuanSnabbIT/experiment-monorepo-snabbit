@@ -27,6 +27,10 @@ export interface IContratoEmpresaCliente {
     datos_cliente: IEmpresaContrato;
     tipo: string;
     tipo_label: string;
+    destinatario_principal?: IVinculoContrato | null;
+    ultimo_envio_aprobacion?: IContratoAprobacionEstado | null;
+    ultimo_envio_firma?: IContratoFirmaEstado | null;
+    ultimo_comentario_cliente?: string | null;
 }
 
 export interface IEmpresaContrato {
@@ -65,18 +69,81 @@ export interface IFirmaConfidencialidad {
 
 export interface IVinculoContrato {
     id: number;
-    usuario: number;
+    usuario: number | null;
     contrato: number;
     datos_usuario: {
         nombre: string;
         email: string;
-    };
+    } | null;
     tipo_usuario_label: string;
     existe_envio: number | null;
     fecha_creacion: string;
     fecha_modificacion: string;
     fecha_vinculacion: string;
     tipo_usuario: string;
+    nombre: string | null;
+    correo_generico: string | null;
+    correo_normalizado: string | null;
+    nombre_display: string;
+    correo_display: string;
+    es_externo: boolean;
+    es_destinatario_principal: boolean;
+    aprobacion_pendiente?: IContratoAprobacionEstado | null;
+    firma_pendiente?: IContratoFirmaEstado | null;
+}
+
+export interface IContratoAprobacionEstado {
+    id: number;
+    uuid: string;
+    enviado: boolean;
+    respondido: boolean;
+    aprobado: boolean | null;
+    fecha_envio: string | null;
+    fecha_respuesta: string | null;
+    comentario_respuesta: string | null;
+    version_envio: number;
+}
+
+export interface IContratoFirmaEstado {
+    id: number;
+    uuid: string;
+    enviado: boolean;
+    firmado: boolean;
+    fecha_envio: string | null;
+    fecha_firma: string | null;
+}
+
+export interface IContratoPublicoAprobacion {
+    uuid: string;
+    puede_responder: boolean;
+    ya_respondio: boolean;
+    aprobado: boolean | null;
+    fecha_envio: string | null;
+    fecha_respuesta: string | null;
+    comentario_respuesta: string | null;
+    version_envio: number;
+    destinatario: {
+        id: number;
+        nombre: string;
+        email: string;
+        es_externo: boolean;
+    };
+    contrato: IContratoEmpresaCliente;
+}
+
+export interface IContratoPublicoFirma {
+    uuid: string;
+    puede_firmar: boolean;
+    firmado: boolean;
+    fecha_envio: string | null;
+    fecha_firma: string | null;
+    destinatario: {
+        id: number;
+        nombre: string;
+        email: string;
+        es_externo: boolean;
+    };
+    contrato: IContratoEmpresaCliente;
 }
 
 export interface IContratoCondicionEspecial {

@@ -1,4 +1,4 @@
-﻿export const authPages = {
+export const authPages = {
     loginPage: {
         id: 'loginPage',
         to: '/login',
@@ -22,7 +22,7 @@
     },
     RecuperarPassword: {
         id: 'RecuperarPassword',
-        to: '/recuperar-contraseña',
+        to: '/recuperar-contrase\u00f1a',
         text: 'Recuperar Password',
         icon: 'HeroDocument',
         authority: [],
@@ -44,7 +44,7 @@
     retroalimentacionOT: {
         id: 'retroalimentacionOT',
         to: '/retroalimentacion-orden-trabajo/:uuid',
-        text: 'Retroalimentación OT',
+        text: 'Retroalimentaci\u00f3n OT',
         icon: 'HeroStar',
         authority: [],
     },
@@ -58,8 +58,15 @@
     responderCotizacionPublica: {
         id: 'responderCotizacionPublica',
         to: '/cotizacion/responder/:token',
-        text: 'Responder Cotización',
+        text: 'Responder Cotizaci\u00f3n',
         icon: 'HeroDocumentText',
+        authority: [],
+    },
+    responderContratoPublico: {
+        id: 'responderContratoPublico',
+        to: '/contrato/aprobacion/:token',
+        text: 'Responder Contrato',
+        icon: 'HeroDocumentDuplicate',
         authority: [],
     },
 };
@@ -169,7 +176,7 @@ export const Pages = {
             detalleCotizacion: {
                 id: 'detalleCotizacion',
                 to: '/cotizacion/detalle-cotizacion/:numero_cotizacion',
-                text: 'Detalle Cotización',
+                text: 'Detalle Cotizaci\u00f3n',
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin', 'tecnico'],
             },
@@ -346,7 +353,7 @@ export const Pages = {
     ordenTrabajo: {
         id: 'ordenTrabajo',
         to: '/orden-trabajo',
-        text: 'Asesorías',
+        text: 'Asesorias',
         icon: 'HeroClipboardDocumentList',
         authority: ['staff', 'superadmin'],
         subPages: {
@@ -367,7 +374,7 @@ export const Pages = {
             listaVisitasSoporte: {
                 id: 'listaVisitasSoporte',
                 to: '/orden-trabajo/lista-visitas-soporte',
-                text: 'Asistencias Técnicas',
+                text: 'Asistencias Tecnicas',
                 icon: 'HeroWrenchScrewdriver',
                 authority: ['staff', 'superadmin'],
             },

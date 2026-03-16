@@ -14,7 +14,7 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
     empresa_cliente = models.ForeignKey("empresas.Empresa", related_name="contratos_como_cliente", on_delete=models.CASCADE)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(blank=True, null=True)
-    estado = models.CharField(max_length=20, choices=ESTADOS_CONTRATO, default='borrador')
+    estado = models.CharField(max_length=30, choices=ESTADOS_CONTRATO, default='borrador')
     observaciones = models.TextField(blank=True, null=True)
     nombre = models.CharField(max_length=100)
     tipo = models.CharField(max_length=20, choices=TIPO_CONTRATO, default='servicios')
@@ -45,6 +45,8 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
             )
         ]
 
+    ESTADOS_EDITABLES = ("borrador", "cambios_solicitados")
+
     def clean(self):
         if self.fecha_inicio > date.today():
             raise ValidationError("La fecha de inicio no puede estar en el futuro.")
@@ -61,6 +63,14 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         self.actualizar_estado()
         super().save(*args, **kwargs)
 
+    @property
+    def puede_editar_contenido(self):
+        return self.estado in self.ESTADOS_EDITABLES
+
+    @property
+    def destinatario_principal(self):
+        return self.vinculos_contrato.filter(es_destinatario_principal=True).first()
+
     def __str__(self):
         return f"Contrato: {self.empresa_prestadora} ↔ {self.empresa_cliente} ({self.estado})"
 
@@ -70,6 +80,9 @@ class EnvioContratoFirmaUsuario(ModeloBase):
     firmado = models.BooleanField(default=False)
     fecha_envio = models.DateTimeField(blank=True, null=True)
     enviado = models.BooleanField(default=False)
+    ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
+    pdf_congelado = models.BinaryField(blank=True, null=True)
+    snapshot_contrato = models.JSONField(blank=True, null=True, default=dict)
     uuid = models.UUIDField(unique=True, default=uuid.uuid4)
     usuario = models.ForeignKey("contratos.UsuarioVinculadoContrato", on_delete=models.CASCADE)
 
@@ -77,18 +90,119 @@ class EnvioContratoFirmaUsuario(ModeloBase):
         verbose_name = "Envio del Contrato para Firmar"
         verbose_name_plural = "Envios de Contratos para Firmar"
 
+
+class EnvioContratoAprobacion(ModeloBase):
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="envios_aprobacion",
+    )
+    destinatario = models.ForeignKey(
+        "contratos.UsuarioVinculadoContrato",
+        on_delete=models.CASCADE,
+        related_name="envios_aprobacion",
+    )
+    uuid = models.UUIDField(unique=True, default=uuid.uuid4)
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+    enviado = models.BooleanField(default=False)
+    respondido = models.BooleanField(default=False)
+    aprobado = models.BooleanField(blank=True, null=True)
+    fecha_respuesta = models.DateTimeField(blank=True, null=True)
+    ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
+    comentario_respuesta = models.TextField(blank=True, null=True)
+    pdf_congelado = models.BinaryField(blank=True, null=True)
+    snapshot_contrato = models.JSONField(blank=True, null=True, default=dict)
+    version_envio = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        verbose_name = "Envio del Contrato para Aprobacion"
+        verbose_name_plural = "Envios de Contratos para Aprobacion"
+        ordering = ["-fecha_envio", "-id"]
+
 class UsuarioVinculadoContrato(ModeloBase):
-    usuario = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE)
+    usuario = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE, blank=True, null=True)
     contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="vinculos_contrato")
     fecha_vinculacion = models.DateField(auto_now_add=True)
     tipo_usuario = models.CharField(max_length=20, choices=TIPOS_USUARIO_CONTRATO, default='gerencia')
+    nombre = models.CharField(max_length=255, blank=True, null=True)
+    correo_generico = models.EmailField(max_length=250, blank=True, null=True)
+    correo_normalizado = models.EmailField(max_length=250, blank=True, null=True, db_index=True)
+    es_destinatario_principal = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Usuario Vinculado al Contrato"
         verbose_name_plural = "Usuarios Vinculados a Contratos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["contrato", "usuario"],
+                condition=models.Q(usuario__isnull=False),
+                name="unique_vinculo_contrato_usuario",
+            ),
+            models.UniqueConstraint(
+                fields=["contrato", "correo_normalizado"],
+                condition=models.Q(correo_normalizado__isnull=False),
+                name="unique_vinculo_contrato_correo",
+            ),
+            models.UniqueConstraint(
+                fields=["contrato"],
+                condition=models.Q(es_destinatario_principal=True),
+                name="unique_destinatario_principal_contrato",
+            ),
+        ]
+
+    @property
+    def es_externo(self):
+        return self.usuario_id is None
+
+    @property
+    def nombre_display(self):
+        if self.usuario_id:
+            return self.usuario.usuario.get_nombre_completo()
+        return self.nombre or ""
+
+    @property
+    def correo_display(self):
+        if self.usuario_id:
+            return self.usuario.usuario.email
+        return self.correo_generico or ""
+
+    def clean(self):
+        super().clean()
+        if not self.contrato_id:
+            return
+
+        if not self.usuario_id and not self.correo_generico:
+            raise ValidationError("Debe indicar un usuario existente o un contacto manual con correo.")
+
+        if self.usuario_id:
+            if self.usuario.sucursal.empresa_id != self.contrato.empresa_cliente_id:
+                raise ValidationError("El usuario vinculado debe pertenecer a la empresa cliente del contrato.")
+            self.nombre = None
+            self.correo_generico = None
+            self.correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(
+                self.usuario.usuario.email
+            )
+        else:
+            if not self.nombre:
+                raise ValidationError("Debe indicar el nombre del contacto manual.")
+            self.correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(
+                self.correo_generico
+            )
+
+        if self.es_destinatario_principal:
+            existe = UsuarioVinculadoContrato.objects.exclude(pk=self.pk).filter(
+                contrato=self.contrato,
+                es_destinatario_principal=True,
+            )
+            if existe.exists():
+                raise ValidationError("Ya existe un destinatario principal para este contrato.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.usuario} en {self.contrato}"
+        return f"{self.nombre_display or self.correo_display} en {self.contrato}"
 
 
 class NotificacionVentanaLicencia(ModeloBase):

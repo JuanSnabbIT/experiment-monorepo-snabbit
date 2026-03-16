@@ -14,20 +14,10 @@ interface IAccionesContratoPermitidas {
     puedeSuspender: boolean;
     puedeFinalizar: boolean;
     puedeRenovar: boolean;
-    /** El contrato está en un estado terminal (finalizado) */
     esEstadoTerminal: boolean;
-    /** Mensaje descriptivo si hay restricciones */
     mensajeBloqueo: string | null;
 }
 
-/**
- * Hook para gestionar permisos y acciones disponibles según el estado
- * actual de un Contrato.
- *
- * Flujo de estados:
- * borrador → activo → suspendido ↔ activo
- *                   → finalizado (terminal)
- */
 export const useEstadoContrato = (
     contrato: IContratoEstado | null | undefined,
 ): IAccionesContratoPermitidas => {
@@ -45,27 +35,28 @@ export const useEstadoContrato = (
         }
 
         const estado = (contrato.estado || '').toLowerCase();
-
-        // Transiciones válidas (idénticas al backend)
         const transiciones: Record<string, string[]> = {
-            borrador: ['activo'],
+            borrador: ['en_aprobacion_cliente'],
+            cambios_solicitados: ['en_aprobacion_cliente'],
+            en_aprobacion_cliente: ['aprobado_cliente', 'cambios_solicitados'],
+            aprobado_cliente: ['en_firma'],
+            en_firma: ['activo'],
             activo: ['suspendido', 'finalizado'],
             suspendido: ['activo'],
         };
 
         const estadosPermitidos = transiciones[estado] || [];
         const esEstadoTerminal = estado === 'finalizado';
-
-        // Solo se edita en borrador o activo
-        const puedeEditar = ['borrador', 'activo'].includes(estado);
-
-        // Puede renovar si está activo, suspendido o finalizado
+        const puedeEditar = ['borrador', 'cambios_solicitados'].includes(estado);
         const puedeRenovar = ['activo', 'suspendido', 'finalizado'].includes(estado);
 
         let mensajeBloqueo: string | null = null;
         if (esEstadoTerminal) {
             mensajeBloqueo =
-                'El contrato está finalizado, no se pueden realizar modificaciones';
+                'El contrato esta finalizado, no se pueden realizar modificaciones';
+        } else if (['en_aprobacion_cliente', 'aprobado_cliente', 'en_firma'].includes(estado)) {
+            mensajeBloqueo =
+                'El contrato esta en revision del cliente o en firma, por lo que queda bloqueado para edicion.';
         }
 
         return {

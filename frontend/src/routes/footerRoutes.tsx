@@ -10,6 +10,7 @@ const footerRoutes: RouteProps[] = [
     { path: authPages.pdfContrato.to, element: null },
     { path: authPages.retroalimentacionOT.to, element: null },
     { path: authPages.responderCotizacionPublica.to, element: null },
+    { path: authPages.responderContratoPublico.to, element: null },
 
     // Inventariar Bodega
     { path: Pages.bodega.subPages.inventariarTomaInventario.to, element: null },

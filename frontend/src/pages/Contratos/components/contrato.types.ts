@@ -74,7 +74,10 @@ export interface IContratoEdicion {
     usuarios_vinculados: {
         id?: number;
         usuario_id?: number;
+        nombre?: string | null;
+        correo_generico?: string | null;
         tipo_usuario: string;
+        es_destinatario_principal?: boolean;
     }[];
 }
 

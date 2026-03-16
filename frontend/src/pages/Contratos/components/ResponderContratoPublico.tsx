@@ -1,32 +1,32 @@
+import Textarea from '@/components/form/Textarea';
 import Icon from '@/components/icon/Icon';
 import Button from '@/components/ui/Button';
-import type { IContratoPublicoFirma } from '@/interface/contrato.interface';
+import type { IContratoPublicoAprobacion } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ContratoPublicoResumen from './ContratoPublicoResumen';
 
 dayjs.locale('es');
 
-const FirmarContratoYAcuerdoConfidencialidad = () => {
-    const { uuid } = useParams();
-    const sigCanvas = useRef<SignatureCanvas | null>(null);
-    const [detalle, setDetalle] = useState<IContratoPublicoFirma | null>(null);
+const ResponderContratoPublico = () => {
+    const { token } = useParams();
+    const [detalle, setDetalle] = useState<IContratoPublicoAprobacion | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [comentario, setComentario] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     const fetchDetalle = useCallback(async () => {
-        if (!uuid) return;
+        if (!token) return;
         setLoading(true);
         try {
-            const response = await ApiService.fetchData<IContratoPublicoFirma>({
-                url: `/api/public/contrato-firma/${uuid}/`,
+            const response = await ApiService.fetchData<IContratoPublicoAprobacion>({
+                url: `/api/public/contrato-aprobacion/${token}/`,
                 method: 'get',
                 isLoginRequest: true,
             });
@@ -37,19 +37,17 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
         } finally {
             setLoading(false);
         }
-    }, [uuid]);
+    }, [token]);
 
     useEffect(() => {
         fetchDetalle();
     }, [fetchDetalle]);
 
-    const clear = () => sigCanvas.current?.clear();
-
     const descargarPdf = async () => {
-        if (!uuid) return;
+        if (!token) return;
         try {
             const response = await ApiService.fetchData<Blob>({
-                url: `/api/public/contrato-firma/${uuid}/pdf/`,
+                url: `/api/public/contrato-aprobacion/${token}/pdf/`,
                 method: 'get',
                 responseType: 'blob',
                 isLoginRequest: true,
@@ -58,7 +56,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Contrato_${detalle?.contrato?.id ?? 'firma'}.pdf`;
+            link.download = `Contrato_${detalle?.contrato?.id ?? 'aprobacion'}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -68,27 +66,29 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
         }
     };
 
-    const firmarContrato = async () => {
-        if (!uuid || !detalle?.puede_firmar) return;
-        if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
-            toast.error('Debes ingresar una firma antes de continuar.');
+    const responder = async (accion: 'aprobar' | 'rechazar') => {
+        if (!token || !detalle?.puede_responder) return;
+        if (accion === 'rechazar' && !comentario.trim()) {
+            toast.error('Debes indicar el motivo o cambio sugerido.');
             return;
         }
 
         setSubmitting(true);
         try {
             await ApiService.fetchData({
-                url: `/api/public/contrato-firma/${uuid}/firmar/`,
-                method: 'patch',
+                url: `/api/public/contrato-aprobacion/${token}/${accion}/`,
+                method: 'post',
                 headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({
-                    firma: sigCanvas.current.toDataURL('image/png'),
-                    fecha_firma: dayjs().toISOString(),
-                    firmado: true,
-                }),
+                data: JSON.stringify(
+                    accion === 'rechazar' ? { comentario: comentario.trim() } : {},
+                ),
                 isLoginRequest: true,
             });
-            toast.success('Contrato firmado correctamente.');
+            toast.success(
+                accion === 'aprobar'
+                    ? 'Contrato aprobado correctamente.'
+                    : 'Cambios solicitados enviados correctamente.',
+            );
             await fetchDetalle();
         } catch (requestError: unknown) {
             toast.error(getErrorMessage(requestError));
@@ -137,15 +137,15 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                             <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
                                 <div className='min-w-0'>
                                     <div className='flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
-                                        <Icon icon='HeroPencilSquare' className='h-4 w-4' />
-                                        Firma electr\u00f3nica
+                                        <Icon icon='HeroDocumentText' className='h-4 w-4' />
+                                        Revisión contractual
                                     </div>
                                     <h1 className='mt-2 text-2xl font-bold text-gray-900 dark:text-zinc-100'>
-                                        Firma del contrato
+                                        Revisión del contrato
                                     </h1>
                                     <p className='mt-1 text-sm text-gray-500 dark:text-zinc-400'>
-                                        Revisa el documento y registra tu firma para completar el
-                                        proceso.
+                                        Este enlace te permite revisar el documento y responder una
+                                        sola vez.
                                     </p>
                                 </div>
 
@@ -157,7 +157,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                                     </Button>
                                     <div className='rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-zinc-900 dark:text-zinc-300'>
                                         <span className='font-medium text-gray-900 dark:text-zinc-100'>
-                                            Firmante:
+                                            Destinatario:
                                         </span>{' '}
                                         {detalle.destinatario.nombre} ({detalle.destinatario.email})
                                     </div>
@@ -171,61 +171,100 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                             <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
                                 <div>
                                     <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
-                                        Firma
+                                        Respuesta del cliente
                                     </p>
                                     <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
-                                        Confirmaci\u00f3n del firmante
+                                        Estado de la revisión
                                     </h2>
                                 </div>
-                                {detalle.firmado && (
-                                    <span className='inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700'>
-                                        Firmado
+
+                                {detalle.ya_respondio && (
+                                    <span
+                                        className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+                                            detalle.aprobado
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-red-100 text-red-700'
+                                        }`}>
+                                        {detalle.aprobado ? 'Aprobado' : 'Cambios solicitados'}
                                     </span>
                                 )}
                             </div>
 
-                            {detalle.firmado ? (
-                                <div className='rounded-md border border-green-100 bg-green-50/70 px-4 py-4 text-sm text-green-800 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-200'>
-                                    Este contrato ya fue firmado el{' '}
-                                    {detalle.fecha_firma
-                                        ? dayjs(detalle.fecha_firma).format('DD/MM/YYYY HH:mm')
-                                        : 'sin fecha registrada'}
-                                    .
+                            {detalle.ya_respondio ? (
+                                <div className='overflow-hidden rounded-md border border-gray-100 dark:border-zinc-700'>
+                                    <dl className='divide-y divide-gray-100 text-sm dark:divide-zinc-700'>
+                                        <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[180px,1fr] sm:gap-3'>
+                                            <dt className='text-gray-500 dark:text-zinc-400'>
+                                                Resultado
+                                            </dt>
+                                            <dd className='font-medium text-gray-900 dark:text-zinc-100'>
+                                                {detalle.aprobado
+                                                    ? 'Contrato aprobado'
+                                                    : 'Cambios solicitados'}
+                                            </dd>
+                                        </div>
+
+                                        {detalle.fecha_respuesta && (
+                                            <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[180px,1fr] sm:gap-3'>
+                                                <dt className='text-gray-500 dark:text-zinc-400'>
+                                                    Fecha de respuesta
+                                                </dt>
+                                                <dd className='font-medium text-gray-900 dark:text-zinc-100'>
+                                                    {dayjs(detalle.fecha_respuesta).format(
+                                                        'DD/MM/YYYY HH:mm',
+                                                    )}
+                                                </dd>
+                                            </div>
+                                        )}
+
+                                        {detalle.comentario_respuesta && (
+                                            <div className='grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-[180px,1fr] sm:gap-3'>
+                                                <dt className='text-gray-500 dark:text-zinc-400'>
+                                                    Comentario
+                                                </dt>
+                                                <dd className='rounded-md bg-gray-50 px-3 py-2 text-gray-700 dark:bg-zinc-800 dark:text-zinc-200'>
+                                                    <span className='whitespace-pre-wrap'>
+                                                        {detalle.comentario_respuesta}
+                                                    </span>
+                                                </dd>
+                                            </div>
+                                        )}
+                                    </dl>
                                 </div>
                             ) : (
                                 <div className='space-y-4'>
                                     <div className='rounded-md border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-200'>
-                                        Tu firma confirma la aceptaci\u00f3n del contenido del contrato y
-                                        de los acuerdos asociados mostrados en esta p\u00e1gina.
+                                        Revisa el documento completo antes de decidir. Si necesitas
+                                        ajustes, descríbelos en el comentario y envía la solicitud de
+                                        cambios.
                                     </div>
-                                    <div className='overflow-hidden rounded-md border border-gray-200 bg-white dark:border-zinc-700'>
-                                        <SignatureCanvas
-                                            ref={(ref) => {
-                                                sigCanvas.current = ref;
-                                            }}
-                                            penColor='black'
-                                            canvasProps={{
-                                                height: 220,
-                                                className: 'w-full bg-white',
-                                            }}
-                                        />
-                                    </div>
+                                    <Textarea
+                                        placeholder='Si necesitas cambios, describe aquí el motivo o la sugerencia.'
+                                        value={comentario}
+                                        onChange={(event) => setComentario(event.target.value)}
+                                    />
                                     <div className='flex flex-wrap gap-3'>
-                                        <Button onClick={clear}>Limpiar</Button>
                                         <Button
                                             variant='solid'
                                             icon='HeroCheck'
                                             isLoading={submitting}
-                                            onClick={firmarContrato}>
-                                            Firmar contrato
+                                            onClick={() => responder('aprobar')}>
+                                            Aprobar contrato
+                                        </Button>
+                                        <Button
+                                            color='red'
+                                            icon='HeroXMark'
+                                            isLoading={submitting}
+                                            onClick={() => responder('rechazar')}>
+                                            Solicitar cambios
                                         </Button>
                                     </div>
                                 </div>
                             )}
 
-                            {!detalle.puede_firmar && !detalle.firmado && (
+                            {!detalle.puede_responder && (
                                 <p className='mt-4 text-sm text-gray-500 dark:text-zinc-400'>
-                                    Este enlace ya no admite una firma nueva.
+                                    Este enlace ya registró una respuesta y no admite una nueva acción.
                                 </p>
                             )}
                         </section>
@@ -236,4 +275,4 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
     );
 };
 
-export default FirmarContratoYAcuerdoConfidencialidad;
+export default ResponderContratoPublico;

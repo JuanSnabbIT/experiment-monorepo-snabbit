@@ -1,8 +1,10 @@
 import {
     ICaracteristicaServicio,
     ICondicionEspecial,
+    IContratoAprobacionEstado,
     IContratoCondicionEspecial,
     IContratoEmpresaCliente,
+    IContratoFirmaEstado,
     IContratoLicencia,
     IContratoServicio,
     IContratoVinculadoPorUsuario,
@@ -170,6 +172,54 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 data,
             }),
             invalidatesTags: ['Contratos', 'ContratosDashboard'],
+        }),
+
+        enviarAprobacionContrato: builder.mutation<IContratoAprobacionEstado, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/enviar-aprobacion/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+            ],
+        }),
+
+        reenviarAprobacionContrato: builder.mutation<{ detail: string }, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/reenviar-aprobacion/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+            ],
+        }),
+
+        enviarAFirmaContrato: builder.mutation<IContratoFirmaEstado, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/enviar-firma/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoFirmas',
+                'ContratoUsuarios',
+            ],
+        }),
+
+        reenviarAFirmaContrato: builder.mutation<{ detail: string }, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/reenviar-firma/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoFirmas',
+                'ContratoUsuarios',
+            ],
         }),
 
         // ─── Dashboard / Métricas ───
@@ -658,6 +708,10 @@ export const {
     useUpdateContratoMutation,
     useCambiarEstadoContratoMutation,
     useRenovarContratoMutation,
+    useEnviarAprobacionContratoMutation,
+    useReenviarAprobacionContratoMutation,
+    useEnviarAFirmaContratoMutation,
+    useReenviarAFirmaContratoMutation,
     useGetMetricasDashboardQuery,
     useEditarServiciosGenericosMutation,
     useGetServiciosQuery,

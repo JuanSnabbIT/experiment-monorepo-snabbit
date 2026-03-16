@@ -1,4 +1,4 @@
-﻿import Input from '@/components/form/Input';
+import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
@@ -20,11 +20,14 @@ import {
     useCreateContratoLicenciaMutation,
     useCreateContratoMutation,
     useEditarServiciosGenericosMutation,
+    useGetCondicionesEspecialesQuery,
     useGetLicenciasCatalogoQuery,
     useGetPlanesServicioQuery,
     useGetServiciosQuery,
+    useUpdateContratoMutation,
 } from '@/store/slices/contratos/contratoApi';
 import { listaContentTypeThunk } from '@/store/slices/core/coreSlice';
+import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -37,7 +40,7 @@ import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrat
 import SelectorPlanServicios from '../components/SelectorPlanServicios';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
 
-// ── Tipos ──
+// Tipos
 
 type TWizardStep = 1 | 2 | 3 | 4;
 
@@ -45,7 +48,7 @@ const STEP_LABELS: Record<TWizardStep, string> = {
     1: 'Datos del contrato',
     2: 'Plan y Servicios',
     3: 'Licencias',
-    4: 'Revisión',
+    4: 'Revisi\u00f3n',
 };
 
 interface ICrearContratoDelClienteProps {
@@ -60,7 +63,7 @@ interface ICrearContratoDelClienteProps {
     licenciasIniciales?: IContratoEdicion['licencias'];
 }
 
-// ── Stepper visual ──
+// Stepper visual
 
 const WizardStepper = ({
     step,
@@ -118,7 +121,7 @@ const WizardStepper = ({
     );
 };
 
-// ── Componente principal ──
+// Componente principal
 
 function CrearContratoDelCliente({
     detalleCliente: detalleClienteProp,
@@ -140,7 +143,7 @@ function CrearContratoDelCliente({
     const [step, setStep] = useState<TWizardStep>(1);
     const [modalAddLicencia, setModalAddLicencia] = useState(false);
 
-    // Estado para la selección de plan/servicios (Paso 2)
+    // Estado para la seleccion de plan/servicios (Paso 2)
     const SELECCION_INICIAL: ISeleccionPlanServicios = {
         modo: 'plan',
         plan_id: null,
@@ -153,9 +156,17 @@ function CrearContratoDelCliente({
     const { data: listaLicencias = [] } = useGetLicenciasCatalogoQuery();
     const { data: planes = [] } = useGetPlanesServicioQuery();
     const { data: serviciosCatalogo = [] } = useGetServiciosQuery();
+    const { data: condicionesCatalogo = [] } = useGetCondicionesEspecialesQuery();
+    const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
+        detalleCliente?.info_cliente.id ?? '',
+        {
+            skip: !detalleCliente?.info_cliente.id || !isOpen,
+        },
+    );
     const [createContrato] = useCreateContratoMutation();
     const [createContratoLicencia] = useCreateContratoLicenciaMutation();
     const [editarServiciosGenericos] = useEditarServiciosGenericosMutation();
+    const [updateContrato] = useUpdateContratoMutation();
 
     // Cargar content types necesarios para crear ContratoServicio
     useEffect(() => {
@@ -206,16 +217,39 @@ function CrearContratoDelCliente({
             fecha_fin: '',
             observaciones: '',
             tipo: tipoFijo ?? '',
+            destinatario_modo: 'interno',
+            destinatario_interno_id: '',
+            destinatario_nombre: '',
+            destinatario_correo: '',
+            condicion_catalogo_id: '',
+            condicion_texto: '',
         },
         validationSchema: Yup.object().shape({
             nombre: Yup.string()
                 .required('Requerido')
                 .nonNullable('Requerido')
-                .max(100, 'Máximo 100 caracteres'),
+                .max(100, 'M\u00e1ximo 100 caracteres'),
             fecha_inicio: Yup.string().required('Requerido').nonNullable('Requerido'),
             fecha_fin: Yup.string().notRequired().nullable(),
             observaciones: Yup.string().notRequired().nullable(),
             tipo: Yup.string().required('Requerido').nonNullable('Requerido'),
+            destinatario_modo: Yup.string().oneOf(['interno', 'externo']).required('Requerido'),
+            destinatario_interno_id: Yup.string().when('destinatario_modo', {
+                is: 'interno',
+                then: (schema) => schema.required('Selecciona un usuario del cliente'),
+                otherwise: (schema) => schema.notRequired(),
+            }),
+            destinatario_nombre: Yup.string().when('destinatario_modo', {
+                is: 'externo',
+                then: (schema) => schema.required('Ingresa el nombre del firmante'),
+                otherwise: (schema) => schema.notRequired(),
+            }),
+            destinatario_correo: Yup.string().when('destinatario_modo', {
+                is: 'externo',
+                then: (schema) =>
+                    schema.email('Correo inv\u00e1lido').required('Ingresa el correo del firmante'),
+                otherwise: (schema) => schema.notRequired(),
+            }),
         }),
         onSubmit: async (values) => {
             try {
@@ -231,7 +265,7 @@ function CrearContratoDelCliente({
                     empresa_cliente: detalleCliente?.info_cliente.id,
                 } as Record<string, unknown>).unwrap();
 
-                // ── Guardar servicios/plan si se seleccionaron ──
+                // Guardar servicios/plan si se seleccionaron
                 const tieneServicios =
                     seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0;
                 if (tieneServicios) {
@@ -279,7 +313,39 @@ function CrearContratoDelCliente({
                     }
                 }
 
-                // ── Guardar licencias ──
+                // Guardar licencias
+                try {
+                    const usuariosPayload =
+                        formik.values.destinatario_modo === 'interno'
+                            ? [
+                                  {
+                                      usuario_id: Number(formik.values.destinatario_interno_id),
+                                      tipo_usuario: 'general',
+                                      es_destinatario_principal: true,
+                                  },
+                              ]
+                            : [
+                                  {
+                                      nombre: formik.values.destinatario_nombre,
+                                      correo_generico: formik.values.destinatario_correo,
+                                      tipo_usuario: 'general',
+                                      es_destinatario_principal: true,
+                                  },
+                              ];
+
+                    await updateContrato({
+                        id: contratoCreado.id,
+                        data: {
+                            usuarios_vinculados: usuariosPayload,
+                            condiciones_especiales: licFormik.values.condiciones_especiales,
+                        },
+                    }).unwrap();
+                } catch {
+                    toast.warning(
+                        'Contrato creado, pero hubo errores al guardar el destinatario o las condiciones especiales',
+                    );
+                }
+
                 const totalLicencias = licFormik.values.licencias.length;
 
                 if (values.tipo === 'licencia' && totalLicencias > 0) {
@@ -382,6 +448,15 @@ function CrearContratoDelCliente({
 
     const tipoLabel =
         TIPO_CONTRATO.find((t) => t.value === formik.values.tipo)?.label ?? formik.values.tipo;
+    const usuariosClienteOptions: TSelectOption[] = usuariosCliente.map((usuario) => ({
+        value: String(usuario.id),
+        label: `${usuario.nombre_usuario} (${usuario.email_usuario})`,
+    }));
+
+    const condicionesCatalogoOptions: TSelectOption[] = condicionesCatalogo.map((condicion) => ({
+        value: String(condicion.id),
+        label: condicion.titulo,
+    }));
 
     return (
         <>
@@ -405,7 +480,7 @@ function CrearContratoDelCliente({
                 <ModalBody>
                     <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} />
 
-                    {/* ── Paso 1: Datos del contrato ── */}
+                    {/* Paso 1: Datos del contrato */}
                     {step === 1 && (
                         <div className='grid grid-cols-2 gap-4'>
                             <div>
@@ -502,10 +577,112 @@ function CrearContratoDelCliente({
                                     />
                                 </Validation>
                             </div>
+                            <div className='col-span-full rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                <div className='mb-3 flex items-center justify-between gap-3'>
+                                    <div>
+                                        <p className='text-sm font-semibold'>Destinatario principal</p>
+                                        <p className='text-xs text-zinc-500'>
+                                            Este contacto recibira la aprobacion del borrador y luego la firma.
+                                        </p>
+                                    </div>
+                                    <div className='flex gap-2'>
+                                        <Button
+                                            size='sm'
+                                            variant={
+                                                formik.values.destinatario_modo === 'interno'
+                                                    ? 'solid'
+                                                    : 'default'
+                                            }
+                                            onClick={() =>
+                                                formik.setFieldValue('destinatario_modo', 'interno')
+                                            }>
+                                            Usuario existente
+                                        </Button>
+                                        <Button
+                                            size='sm'
+                                            variant={
+                                                formik.values.destinatario_modo === 'externo'
+                                                    ? 'solid'
+                                                    : 'default'
+                                            }
+                                            onClick={() =>
+                                                formik.setFieldValue('destinatario_modo', 'externo')
+                                            }>
+                                            Contacto manual
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {formik.values.destinatario_modo === 'interno' ? (
+                                    <div>
+                                        <Label htmlFor='destinatario_interno_id'>
+                                            Usuario del cliente
+                                        </Label>
+                                        <Validation
+                                            isValid={formik.isValid}
+                                            isTouched={formik.touched.destinatario_interno_id}
+                                            invalidFeedback={formik.errors.destinatario_interno_id}>
+                                            <SelectReact
+                                                name='destinatario_interno_id'
+                                                options={usuariosClienteOptions}
+                                                value={
+                                                    usuariosClienteOptions.find(
+                                                        (option) =>
+                                                            option.value ===
+                                                            formik.values.destinatario_interno_id,
+                                                    ) ?? null
+                                                }
+                                                onChange={(option) =>
+                                                    formik.setFieldValue(
+                                                        'destinatario_interno_id',
+                                                        (option as TSelectOption | null)?.value ?? '',
+                                                    )
+                                                }
+                                                placeholder='Selecciona un usuario del cliente'
+                                            />
+                                        </Validation>
+                                    </div>
+                                ) : (
+                                    <div className='grid grid-cols-2 gap-4'>
+                                        <div>
+                                            <Label htmlFor='destinatario_nombre'>Nombre</Label>
+                                            <Validation
+                                                isValid={formik.isValid}
+                                                isTouched={formik.touched.destinatario_nombre}
+                                                invalidFeedback={formik.errors.destinatario_nombre}>
+                                                <Input
+                                                    id='destinatario_nombre'
+                                                    name='destinatario_nombre'
+                                                    onChange={formik.handleChange}
+                                                    value={formik.values.destinatario_nombre}
+                                                    onBlur={formik.handleBlur}
+                                                />
+                                            </Validation>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor='destinatario_correo'>Correo</Label>
+                                            <Validation
+                                                isValid={formik.isValid}
+                                                isTouched={formik.touched.destinatario_correo}
+                                                invalidFeedback={formik.errors.destinatario_correo}>
+                                                <Input
+                                                    id='destinatario_correo'
+                                                    name='destinatario_correo'
+                                                    type='email'
+                                                    onChange={formik.handleChange}
+                                                    value={formik.values.destinatario_correo}
+                                                    onBlur={formik.handleBlur}
+                                                />
+                                            </Validation>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            
                         </div>
                     )}
 
-                    {/* ── Paso 2: Plan y Servicios ── */}
+                    {/* Paso 2: Plan y servicios */}
                     {step === 2 && (
                         <SelectorPlanServicios
                             value={seleccionPlan}
@@ -513,12 +690,12 @@ function CrearContratoDelCliente({
                         />
                     )}
 
-                    {/* ── Paso 3: Licencias (solo tipo licencia) ── */}
+                    {/* Paso 3: Licencias (solo tipo licencia) */}
                     {step === 3 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
-                                Agrega las licencias que incluirá este contrato. Puedes omitir
-                                este paso y agregarlas más tarde.
+                                Agrega las licencias que incluira este contrato. Puedes omitir
+                                este paso y agregarlas mas tarde.
                             </p>
                             {licFormik.values.licencias.length > 0 && (
                                 <Table>
@@ -542,7 +719,7 @@ function CrearContratoDelCliente({
                                                                   'DD/MM/YY',
                                                               )
                                                             : ''}{' '}
-                                                        →{' '}
+                                                        {'->'}{' '}
                                                         {lic.fecha_fin
                                                             ? dayjs(lic.fecha_fin).format(
                                                                   'DD/MM/YY',
@@ -578,7 +755,7 @@ function CrearContratoDelCliente({
                         </div>
                     )}
 
-                    {/* ── Paso 4: Revisión ── */}
+                    {/* Paso 4: Revision */}
                     {step === 4 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
@@ -594,7 +771,7 @@ function CrearContratoDelCliente({
                                             ? dayjs(formik.values.fecha_inicio).format(
                                                   'DD/MM/YYYY',
                                               )
-                                            : '—'
+                                            : '-'
                                     }
                                 />
                                 <ResumenItem
@@ -614,6 +791,50 @@ function CrearContratoDelCliente({
                                     </div>
                                 )}
                             </div>
+
+                            <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                <span className='text-xs font-semibold text-zinc-500'>
+                                    Destinatario principal
+                                </span>
+                                <div className='mt-2 text-sm'>
+                                    {formik.values.destinatario_modo === 'interno'
+                                        ? usuariosCliente.find(
+                                              (usuario) =>
+                                                  String(usuario.id) ===
+                                                  formik.values.destinatario_interno_id,
+                                          )?.nombre_usuario ??
+                                          'Sin destinatario seleccionado'
+                                        : formik.values.destinatario_nombre || 'Sin destinatario seleccionado'}
+                                </div>
+                                <div className='text-xs text-zinc-500'>
+                                    {formik.values.destinatario_modo === 'interno'
+                                        ? usuariosCliente.find(
+                                              (usuario) =>
+                                                  String(usuario.id) ===
+                                                  formik.values.destinatario_interno_id,
+                                          )?.email_usuario ?? ''
+                                        : formik.values.destinatario_correo}
+                                </div>
+                            </div>
+
+                            {licFormik.values.condiciones_especiales.length > 0 && (
+                                <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                    <span className='text-xs font-semibold text-zinc-500'>
+                                        Condiciones especiales
+                                    </span>
+                                    <div className='mt-2 flex flex-col gap-1'>
+                                        {licFormik.values.condiciones_especiales.map((condicion, index) => (
+                                            <div key={index} className='text-sm'>
+                                                {condicion.condicion_id
+                                                    ? condicionesCatalogo.find(
+                                                          (item) => item.id === condicion.condicion_id,
+                                                      )?.titulo ?? `Condicion #${condicion.condicion_id}`
+                                                    : condicion.texto}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Resumen de servicios/plan */}
                             {esServicios &&
@@ -676,8 +897,8 @@ function CrearContratoDelCliente({
                                 seleccionPlan.plan_id === null &&
                                 seleccionPlan.servicios.length === 0 && (
                                     <p className='text-sm text-zinc-400'>
-                                        No se seleccionaron servicios. Podrás agregarlos
-                                        después.
+                                        No se seleccionaron servicios. Podras agregarlos
+                                        despues.
                                     </p>
                                 )}
 
@@ -706,7 +927,7 @@ function CrearContratoDelCliente({
 
                             {esLicencia && licFormik.values.licencias.length === 0 && (
                                 <p className='text-sm text-zinc-400'>
-                                    No se agregaron licencias. Podrás agregarlas después.
+                                    No se agregaron licencias. Podras agregarlas despues.
                                 </p>
                             )}
                         </div>
@@ -733,7 +954,7 @@ function CrearContratoDelCliente({
                         <Button color='red' onClick={handleClose}>
                             Cancelar
                         </Button>
-                        {step > 1 && <Button onClick={handleAtras}>Atrás</Button>}
+                        {step > 1 && <Button onClick={handleAtras}>Atras</Button>}
                         {step < 4 && (
                             <Button variant='solid' onClick={handleSiguiente}>
                                 Siguiente
@@ -761,7 +982,7 @@ function CrearContratoDelCliente({
     );
 }
 
-// ── Sub-componente: línea de resumen ──
+// Sub-componente: linea de resumen
 
 const ResumenItem = ({ label, valor }: { label: string; valor: string }) => (
     <div>

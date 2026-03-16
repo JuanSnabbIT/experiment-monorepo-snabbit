@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, serializers
 from django.db import models
 from contratos.models import (
     ContratoEmpresaCliente,
+    EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
     ContratoServicio,
@@ -23,6 +24,7 @@ from contratos.models import (
 from empresas.models import UsuarioEmpresa
 from .serializers import (
     ContratoEmpresaClienteSerializer,
+    EnvioContratoAprobacionSerializer,
     EnvioContratoFirmaUsuarioSerializer,
     # ContratoLicenciaVinculoUsuarioSerializer,
     UsuarioVinculadoContratoSerializer,
@@ -53,12 +55,22 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse, JsonResponse, Http404, HttpResponseBadRequest
-from .funciones import generar_contrato_en_memoria
-from core.tasks import send_email_task
-from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.dateparse import parse_datetime
 from django.utils import timezone
+from core.tasks import send_email_task
+from .flow_helpers import (
+    construir_pdf_contrato,
+    enviar_correo_aprobacion,
+    enviar_correo_firma,
+    get_client_ip,
+    marcar_envio,
+    obtener_destinatario_principal,
+    obtener_envio_aprobacion_pendiente,
+    obtener_envio_firma_pendiente,
+    preparar_documento_contrato,
+)
 import json
 import os
 from dotenv import load_dotenv
@@ -78,6 +90,20 @@ def _empresa_del_usuario(user):
 class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     queryset = ContratoEmpresaCliente.objects.all()
     serializer_class = ContratoEmpresaClienteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _validar_contrato_editable(self, contrato):
+        if contrato.puede_editar_contenido:
+            return None
+        return Response(
+            {
+                "detail": (
+                    "El contrato no se puede editar mientras esta en revision del cliente, "
+                    "aprobado para firma, en firma o finalizado."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     def get_queryset(self):
         """
@@ -98,6 +124,20 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         return ContratoEmpresaCliente.objects.filter(
             models.Q(empresa_prestadora=empresa) | models.Q(empresa_cliente=empresa)
         )
+
+    def partial_update(self, request, *args, **kwargs):
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+        return super().partial_update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+        return super().update(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'], url_path='filtrar-por-empresa-cliente/(?P<empresa_pk>[^/.]+)/(?P<cliente_pk>[^/.]+)')
     def filtrar_por_empresa_cliente(self, request, empresa_pk=None, cliente_pk=None):
@@ -135,7 +175,11 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             )
 
         transiciones_validas = {
-            "borrador": ["activo"],
+            "borrador": ["en_aprobacion_cliente"],
+            "cambios_solicitados": ["en_aprobacion_cliente"],
+            "en_aprobacion_cliente": ["aprobado_cliente", "cambios_solicitados"],
+            "aprobado_cliente": ["en_firma"],
+            "en_firma": ["activo"],
             "activo": ["suspendido", "finalizado"],
             "suspendido": ["activo"],
         }
@@ -220,6 +264,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 ContratoCondicionEspecial.objects.create(
                     contrato=nuevo_contrato,
                     condicion=cce.condicion,
+                    texto=cce.texto,
                 )
 
             # Duplicar usuarios vinculados
@@ -228,6 +273,9 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     usuario=uv.usuario,
                     contrato=nuevo_contrato,
                     tipo_usuario=uv.tipo_usuario,
+                    nombre=uv.nombre,
+                    correo_generico=uv.correo_generico,
+                    es_destinatario_principal=uv.es_destinatario_principal,
                 )
 
             # Duplicar acuerdos de confidencialidad
@@ -251,6 +299,9 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         """
         with transaction.atomic():
             contrato = self.get_object()
+            bloqueo = self._validar_contrato_editable(contrato)
+            if bloqueo:
+                return bloqueo
 
             # 1) ACTUALIZAR CAMPOS DEL CONTRATO PRINCIPAL
             contrato_data = request.data.get("contrato", {})
@@ -419,23 +470,52 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         uv = UsuarioVinculadoContrato.objects.get(id=item["id"], contrato=contrato)
                     except UsuarioVinculadoContrato.DoesNotExist:
                         continue
-                    # No se cambia "contrato" ni "usuario"
+                    usuario_id = item.get("usuario_id")
+                    nombre = item.get("nombre")
+                    correo_generico = item.get("correo_generico")
+                    if usuario_id:
+                        try:
+                            uv.usuario = UsuarioEmpresa.objects.get(pk=usuario_id)
+                        except UsuarioEmpresa.DoesNotExist:
+                            continue
+                    elif nombre or correo_generico:
+                        uv.usuario = None
+                        uv.nombre = nombre
+                        uv.correo_generico = correo_generico
                     uv.tipo_usuario = item.get("tipo_usuario", uv.tipo_usuario)
+                    uv.es_destinatario_principal = item.get(
+                        "es_destinatario_principal",
+                        uv.es_destinatario_principal,
+                    )
                     uv.save()
                 else:
                     # Crear nuevo
                     usuario_id = item.get("usuario_id")
-                    if not usuario_id:
-                        continue
-                    try:
-                        usuario_obj = UsuarioEmpresa.objects.get(pk=usuario_id)
-                    except UsuarioEmpresa.DoesNotExist:
-                        continue
+                    usuario_obj = None
+                    if usuario_id:
+                        try:
+                            usuario_obj = UsuarioEmpresa.objects.get(pk=usuario_id)
+                        except UsuarioEmpresa.DoesNotExist:
+                            continue
                     UsuarioVinculadoContrato.objects.create(
                         usuario=usuario_obj,
                         contrato=contrato,
                         tipo_usuario=item.get("tipo_usuario", "gerencia"),
+                        nombre=item.get("nombre"),
+                        correo_generico=item.get("correo_generico"),
+                        es_destinatario_principal=item.get("es_destinatario_principal", False),
                     )
+
+            if usuarios_data and not contrato.vinculos_contrato.filter(
+                es_destinatario_principal=True
+            ).exists():
+                raise serializers.ValidationError(
+                    {
+                        "usuarios_vinculados": (
+                            "Debe existir exactamente un destinatario principal para el contrato."
+                        )
+                    }
+                )
 
             # Al terminar todas las actualizaciones, retornamos el contrato ya refrescado.
             contrato.refresh_from_db()
@@ -463,6 +543,9 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         }
         """
         contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
         servicios_data = request.data.get("servicios_genericos")
 
         if servicios_data is None:
@@ -582,10 +665,109 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             'lista_tareas': lista_servicios if lista_servicios else ['Sin servicios asociados.'],
         }
 
-        pdf_buffer = generar_contrato_en_memoria(contrato.nombre, datos_cliente, datos_contrato)
+        pdf_buffer = construir_pdf_contrato(contrato)
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="contrato_{contrato.id}_{contrato.nombre}.pdf"'
         return response
+
+    @action(detail=True, methods=["post"], url_path="enviar-aprobacion")
+    def enviar_aprobacion(self, request, pk=None):
+        contrato = self.get_object()
+        if contrato.estado not in ("borrador", "cambios_solicitados"):
+            return Response(
+                {"detail": "Solo se puede enviar a aprobacion desde borrador o cambios solicitados."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        destinatario = obtener_destinatario_principal(contrato)
+        if not destinatario:
+            return Response(
+                {"detail": "Debe existir un destinatario principal antes de enviar a aprobacion."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        snapshot, pdf_bytes = preparar_documento_contrato(contrato, request=request)
+        version = (contrato.envios_aprobacion.order_by("-version_envio").first().version_envio + 1) if contrato.envios_aprobacion.exists() else 1
+        envio = EnvioContratoAprobacion.objects.create(
+            contrato=contrato,
+            destinatario=destinatario,
+            snapshot_contrato=snapshot,
+            pdf_congelado=pdf_bytes,
+            version_envio=version,
+        )
+        marcar_envio(envio)
+        envio.save(update_fields=["enviado", "fecha_envio"])
+        enviar_correo_aprobacion(envio)
+
+        contrato.estado = "en_aprobacion_cliente"
+        contrato.save(update_fields=["estado", "fecha_modificacion"])
+        return Response(
+            EnvioContratoAprobacionSerializer(envio).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="reenviar-aprobacion")
+    def reenviar_aprobacion(self, request, pk=None):
+        contrato = self.get_object()
+        envio = obtener_envio_aprobacion_pendiente(contrato)
+        if not envio:
+            return Response(
+                {"detail": "No existe un envio de aprobacion pendiente para reenviar."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        marcar_envio(envio)
+        envio.save(update_fields=["enviado", "fecha_envio"])
+        enviar_correo_aprobacion(envio)
+        return Response({"detail": "Correo de aprobacion reenviado correctamente."})
+
+    @action(detail=True, methods=["post"], url_path="enviar-firma")
+    def enviar_firma(self, request, pk=None):
+        contrato = self.get_object()
+        if contrato.estado != "aprobado_cliente":
+            return Response(
+                {"detail": "Solo se puede enviar a firma cuando el contrato esta aprobado por el cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        destinatario = obtener_destinatario_principal(contrato)
+        if not destinatario:
+            return Response(
+                {"detail": "Debe existir un destinatario principal antes de enviar a firma."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        snapshot, pdf_bytes = preparar_documento_contrato(contrato, request=request)
+        envio = EnvioContratoFirmaUsuario.objects.create(
+            usuario=destinatario,
+            snapshot_contrato=snapshot,
+            pdf_congelado=pdf_bytes,
+        )
+        marcar_envio(envio)
+        envio.save(update_fields=["enviado", "fecha_envio"])
+        enviar_correo_firma(envio)
+
+        contrato.estado = "en_firma"
+        contrato.save(update_fields=["estado", "fecha_modificacion"])
+        return Response(
+            EnvioContratoFirmaUsuarioSerializer(envio).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"], url_path="reenviar-firma")
+    def reenviar_firma(self, request, pk=None):
+        contrato = self.get_object()
+        envio = obtener_envio_firma_pendiente(contrato)
+        if not envio:
+            return Response(
+                {"detail": "No existe un envio de firma pendiente para reenviar."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        marcar_envio(envio)
+        envio.save(update_fields=["enviado", "fecha_envio"])
+        enviar_correo_firma(envio)
+        return Response({"detail": "Correo de firma reenviado correctamente."})
 
     @action(detail=False, methods=["get"], url_path="metricas-dashboard")
     def metricas_dashboard(self, request):
@@ -748,11 +930,16 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioVinculadoContratoSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
         if contrato_pk:
-            return UsuarioVinculadoContrato.objects.filter(contrato_id=contrato_pk)
+            return UsuarioVinculadoContrato.objects.filter(contrato_id=contrato_pk).select_related(
+                'usuario',
+                'usuario__usuario',
+                'contrato',
+            )
         return UsuarioVinculadoContrato.objects.none()
 
     def perform_create(self, serializer):
@@ -1302,15 +1489,39 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
 class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
     queryset = EnvioContratoFirmaUsuario.objects.all()
     serializer_class = EnvioContratoFirmaUsuarioSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        envio = serializer.save(enviado=True, fecha_envio=timezone.now())
+        usuario_vinculado = UsuarioVinculadoContrato.objects.get(
+            pk=self.kwargs.get("usuario_vinculado_pk"),
+            contrato_id=self.kwargs.get("contrato_pk"),
+        )
+        contrato = usuario_vinculado.contrato
+        if contrato.estado != "aprobado_cliente":
+            return Response(
+                {"detail": "Solo se puede enviar a firma cuando el contrato esta aprobado por el cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not usuario_vinculado.es_destinatario_principal:
+            return Response(
+                {"detail": "En esta version solo se puede enviar a firma al destinatario principal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Preparar y enviar correo
-        self._enviar_correo(envio)
+        snapshot, pdf_bytes = preparar_documento_contrato(contrato, request=request)
+        envio = EnvioContratoFirmaUsuario.objects.create(
+            usuario=usuario_vinculado,
+            snapshot_contrato=snapshot,
+            pdf_congelado=pdf_bytes,
+        )
+        marcar_envio(envio)
+        envio.save(update_fields=["enviado", "fecha_envio"])
+        enviar_correo_firma(envio)
 
+        contrato.estado = "en_firma"
+        contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        serializer = self.get_serializer(envio)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -1339,7 +1550,7 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
         Construye y dispara la tarea de envío de correo.
         """
         subject = "¡Tu contrato está listo para firmar!"
-        recipient_list = [envio.usuario.usuario.usuario.email]
+        recipient_list = [envio.usuario.correo_display]
         html_body = (
             "<p>Hola,</p>"
             "<p>Te hemos enviado (o reenviado) tu contrato para que lo firmes.</p>"
@@ -1428,7 +1639,11 @@ def firmar_envio(request, uuid):
     envio.firma       = firma_value
     envio.fecha_firma = fecha_firma
     envio.firmado     = bool(firmado_value)
-    envio.save(update_fields=['firma', 'fecha_firma', 'firmado'])
+    envio.ip_respuesta = get_client_ip(request)
+    envio.save(update_fields=['firma', 'fecha_firma', 'firmado', 'ip_respuesta'])
+    if envio.usuario.contrato.estado == 'en_firma':
+        envio.usuario.contrato.estado = 'activo'
+        envio.usuario.contrato.save(update_fields=['estado', 'fecha_modificacion'])
 
     # Responder con los campos actualizados
     return JsonResponse({
