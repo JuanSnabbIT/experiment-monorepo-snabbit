@@ -14,6 +14,10 @@ from contratos.models import (
     PersonaLicenciataria,
     CorreoPersonaLicenciataria,
     Servicio,
+    ServicioCaracteristica,
+    PlanServicio,
+    PlanServicioDetalle,
+    CaracteristicaServicio,
     Visita,
     Licencia,
     CondicionEspecial,
@@ -138,6 +142,45 @@ class CatalogoModelTest(TestCase):
             descripcion="Tiempo de respuesta: 4 horas",
         )
         self.assertEqual(str(condicion), "SLA Premium")
+
+    def test_servicio_construye_resumen_desde_alcance_structurado(self):
+        servicio = Servicio.objects.create(nombre="Monitoreo", categoria="soporte")
+        disponibilidad = CaracteristicaServicio.objects.create(nombre="Disponibilidad 24/7")
+        respaldo = CaracteristicaServicio.objects.create(nombre="Respaldo diario")
+
+        ServicioCaracteristica.objects.create(
+            servicio=servicio,
+            caracteristica=disponibilidad,
+            modo=ServicioCaracteristica.MODO_INCLUYE,
+            orden=0,
+        )
+        ServicioCaracteristica.objects.create(
+            servicio=servicio,
+            caracteristica=respaldo,
+            modo=ServicioCaracteristica.MODO_NO_INCLUYE,
+            orden=1,
+        )
+
+        self.assertIn("Disponibilidad 24/7", servicio.construir_texto_alcance("incluye"))
+        self.assertIn("Respaldo diario", servicio.construir_texto_alcance("no_incluye"))
+
+    def test_plan_resuelve_alcance_heredado_desde_servicios(self):
+        servicio = Servicio.objects.create(nombre="Mesa de ayuda", categoria="soporte")
+        caracteristica = CaracteristicaServicio.objects.create(nombre="Atencion remota")
+        ServicioCaracteristica.objects.create(
+            servicio=servicio,
+            caracteristica=caracteristica,
+            modo=ServicioCaracteristica.MODO_INCLUYE,
+            orden=0,
+        )
+        plan = PlanServicio.objects.create(nombre="Plan Base")
+        PlanServicioDetalle.objects.create(plan=plan, servicio_version=servicio, orden=0)
+
+        resumen = plan.obtener_items_alcance_resueltos()
+
+        self.assertEqual(len(resumen), 1)
+        self.assertEqual(resumen[0]["caracteristica"].nombre, "Atencion remota")
+        self.assertEqual(sorted(resumen[0]["incluye"]), ["Mesa de ayuda"])
 
 
 class ContratoLicenciaModelTest(TestCase):

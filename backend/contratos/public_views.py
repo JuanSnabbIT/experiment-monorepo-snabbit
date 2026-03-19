@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .flow_helpers import get_client_ip
+from .flow_helpers import actualizar_pdf_firmado_envio
+from .flow_helpers import validar_firma_imagen
 from .models import EnvioContratoAprobacion, EnvioContratoFirmaUsuario
 from .public_serializers import (
     ContratoAprobacionPublicSerializer,
@@ -17,6 +19,8 @@ from .public_serializers import (
 
 
 def _destinatario_payload(vinculo):
+    if not vinculo:
+        return None
     return {
         "id": vinculo.id,
         "nombre": vinculo.nombre_display,
@@ -185,6 +189,68 @@ class PublicRechazarContratoView(APIView):
         )
 
 
+class PublicRechazarDefinitivoContratoView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, token):
+        try:
+            envio = EnvioContratoAprobacion.objects.select_related("contrato").get(uuid=token, enviado=True)
+        except EnvioContratoAprobacion.DoesNotExist:
+            return Response(
+                {"detail": "Token no valido o aprobacion no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if envio.respondido:
+            return Response(
+                {"detail": "Este enlace ya fue utilizado para responder."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if envio.contrato.estado != "en_aprobacion_cliente":
+            return Response(
+                {"detail": "El contrato no esta disponible para rechazo.", "estado_actual": envio.contrato.estado},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payload = request.data
+        if not isinstance(payload, dict):
+            try:
+                payload = json.loads(request.body.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                payload = {}
+
+        comentario = (payload.get("comentario") or payload.get("motivo") or "").strip()
+        if not comentario:
+            return Response(
+                {"detail": "Debe indicar el motivo del rechazo definitivo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        envio.respondido = True
+        envio.aprobado = False
+        envio.fecha_respuesta = timezone.now()
+        envio.ip_respuesta = get_client_ip(request)
+        envio.comentario_respuesta = comentario
+        envio.save(
+            update_fields=[
+                "respondido",
+                "aprobado",
+                "fecha_respuesta",
+                "ip_respuesta",
+                "comentario_respuesta",
+            ]
+        )
+
+        envio.contrato.estado = "rechazado_cliente"
+        envio.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        return Response(
+            {"detail": "Contrato rechazado definitivamente y cerrado."},
+            status=status.HTTP_200_OK,
+        )
+
+
 class PublicContratoFirmaDetailView(APIView):
     permission_classes = [AllowAny]
 
@@ -207,7 +273,13 @@ class PublicContratoFirmaDetailView(APIView):
                 "puede_firmar": not envio.firmado and envio.usuario.contrato.estado == "en_firma",
                 "firmado": envio.firmado,
                 "fecha_envio": envio.fecha_envio,
+                "fecha_emision": envio.fecha_envio,
                 "fecha_firma": envio.fecha_firma,
+                "firma": envio.firma,
+                "firma_prestadora_disponible": bool(
+                    getattr(envio.usuario.contrato.empresa_prestadora, "firma_empresa", None)
+                ),
+                "es_version_enviada": True,
                 "destinatario": _destinatario_payload(envio.usuario),
                 "contrato": envio.snapshot_contrato or {},
             }
@@ -229,7 +301,7 @@ class PublicContratoFirmaPDFView(APIView):
 
         response = HttpResponse(envio.pdf_congelado, content_type="application/pdf")
         response["Content-Disposition"] = (
-            f'attachment; filename="contrato_firma_{envio.usuario.contrato_id}.pdf"'
+            f'inline; filename="contrato_firma_{envio.usuario.contrato_id}.pdf"'
         )
         return response
 
@@ -282,11 +354,17 @@ class PublicFirmarContratoView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        envio.firma = firma_value
+        try:
+            firma_normalizada = validar_firma_imagen(firma_value)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        envio.firma = firma_normalizada
         envio.fecha_firma = fecha_firma
         envio.firmado = bool(firmado_value)
         envio.ip_respuesta = get_client_ip(request)
-        envio.save(update_fields=["firma", "fecha_firma", "firmado", "ip_respuesta"])
+        actualizar_pdf_firmado_envio(envio)
+        envio.save(update_fields=["firma", "fecha_firma", "firmado", "ip_respuesta", "pdf_congelado"])
 
         contrato = envio.usuario.contrato
         contrato.estado = "activo"

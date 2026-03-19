@@ -3,6 +3,7 @@ import Icon from '@/components/icon/Icon';
 import Button from '@/components/ui/Button';
 import type { IContratoPublicoAprobacion } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
+import { confirmAlert, confirmCritical } from '@/utils/sweetAlert';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -10,6 +11,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ContratoPublicoResumen from './ContratoPublicoResumen';
+
+const buildResumenContrato = (contrato: IContratoPublicoAprobacion['contrato']) => {
+    const items = contrato.contrato_servicios.map(
+        (item) =>
+            `${item.nombre} x${item.cantidad} | $${Number(item.precio_unitario).toLocaleString()} | subtotal $${Number(item.subtotal).toLocaleString()}`,
+    );
+    const licencias = contrato.contrato_licencias.map(
+        (item) =>
+            `${item.nombre_licencia} x${item.cantidad} | $${Number(item.precio_unitario).toLocaleString()}`,
+    );
+    return [...items, ...licencias].join('\n') || 'Sin items asociados.';
+};
 
 dayjs.locale('es');
 
@@ -66,12 +79,42 @@ const ResponderContratoPublico = () => {
         }
     };
 
-    const responder = async (accion: 'aprobar' | 'rechazar') => {
+    const responder = async (
+        accion: 'aprobar' | 'rechazar' | 'rechazar-definitivo',
+    ) => {
         if (!token || !detalle?.puede_responder) return;
-        if (accion === 'rechazar' && !comentario.trim()) {
+        if (accion !== 'aprobar' && !comentario.trim()) {
             toast.error('Debes indicar el motivo o cambio sugerido.');
             return;
         }
+
+        const resumen = buildResumenContrato(detalle.contrato);
+        const confirmado =
+            accion === 'aprobar'
+                ? await confirmAlert({
+                      title: 'Confirmar aprobacion',
+                      text: `Revisaras y aprobaras este contrato.\n\n${resumen}`,
+                      confirmText: 'Aprobar',
+                      cancelText: 'Cancelar',
+                      confirmColor: '#0f766e',
+                  })
+                : accion === 'rechazar'
+                  ? await confirmAlert({
+                        title: 'Solicitar cambios',
+                        text: `Se enviara la solicitud de cambios con este resumen:\n\n${resumen}`,
+                        confirmText: 'Solicitar cambios',
+                        cancelText: 'Volver',
+                        confirmColor: '#c2410c',
+                    })
+                  : await confirmCritical({
+                        title: 'Rechazar definitivamente',
+                        text: `Esta accion cerrara el ciclo del contrato.\n\n${resumen}`,
+                        confirmText: 'Cerrar contrato',
+                        cancelText: 'Volver',
+                        confirmPhrase: 'RECHAZAR',
+                    });
+
+        if (!confirmado) return;
 
         setSubmitting(true);
         try {
@@ -80,14 +123,16 @@ const ResponderContratoPublico = () => {
                 method: 'post',
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(
-                    accion === 'rechazar' ? { comentario: comentario.trim() } : {},
+                    accion === 'aprobar' ? {} : { comentario: comentario.trim() },
                 ),
                 isLoginRequest: true,
             });
             toast.success(
                 accion === 'aprobar'
                     ? 'Contrato aprobado correctamente.'
-                    : 'Cambios solicitados enviados correctamente.',
+                    : accion === 'rechazar'
+                      ? 'Cambios solicitados enviados correctamente.'
+                      : 'Contrato rechazado definitivamente.',
             );
             await fetchDetalle();
         } catch (requestError: unknown) {
@@ -257,6 +302,14 @@ const ResponderContratoPublico = () => {
                                             isLoading={submitting}
                                             onClick={() => responder('rechazar')}>
                                             Solicitar cambios
+                                        </Button>
+                                        <Button
+                                            color='red'
+                                            variant='outline'
+                                            icon='HeroNoSymbol'
+                                            isLoading={submitting}
+                                            onClick={() => responder('rechazar-definitivo')}>
+                                            Rechazar definitivamente
                                         </Button>
                                     </div>
                                 </div>

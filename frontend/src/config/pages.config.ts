@@ -142,6 +142,13 @@ export const Pages = {
                 icon: 'HeroDocumentDuplicate',
                 authority: ['staff', 'superadmin'],
             },
+            previewFirmaContrato: {
+                id: 'previewFirmaContrato',
+                to: '/empresa/contrato/:contratoId/preview-firma',
+                text: 'Vista Previa Firma Contrato',
+                icon: 'HeroEye',
+                authority: ['staff', 'superadmin'],
+            },
             detalleLicencia: {
                 id: 'detalleLicencia',
                 to: '/empresa/detalle-cliente/:clienteId/contrato/:contratoId/licencia/:licenciaId',

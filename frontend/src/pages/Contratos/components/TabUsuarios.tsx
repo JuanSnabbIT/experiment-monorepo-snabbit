@@ -22,10 +22,19 @@ import { toast } from 'react-toastify';
 import { buildUpdatePayload } from './contrato.helpers';
 import { IContratoEdicion, ITabUsuariosProps } from './contrato.types';
 
-const getEstadoFirmaVisual = (existeEnvio: number | null) =>
-    existeEnvio
-        ? ({ label: 'Firma enviada', color: 'amber' } as const)
-        : ({ label: 'Sin envio', color: 'zinc' } as const);
+const getEstadoFirmaVisual = (
+    vinculo: ITabUsuariosProps['detalleContratoEmpresaCliente']['vinculos_contrato'][number],
+) => {
+    if (vinculo.firma_pendiente?.firmado) {
+        return { label: 'Firmado', color: 'emerald' } as const;
+    }
+
+    if (vinculo.firma_pendiente?.enviado) {
+        return { label: 'Pendiente', color: 'amber' } as const;
+    }
+
+    return { label: 'Sin envio', color: 'zinc' } as const;
+};
 
 const TabUsuarios = ({
     detalleContratoEmpresaCliente,
@@ -50,8 +59,10 @@ const TabUsuarios = ({
         const firm: typeof detalleContratoEmpresaCliente.vinculos_contrato = [];
 
         for (const v of detalleContratoEmpresaCliente.vinculos_contrato) {
-            if (!v.existe_envio) {
+            if (!v.firma_pendiente) {
                 sin.push(v);
+            } else if (v.firma_pendiente.firmado) {
+                firm.push(v);
             } else {
                 // existe_envio indica que tiene un envío creado — puede o no estar firmado
                 // No tenemos campo `firmado` en IVinculoContrato, todos con envío van a pendientes
@@ -361,8 +372,8 @@ const TabUsuarios = ({
                                                 )}>
                                                 <Badge
                                                     variant='outline'
-                                                    color={getEstadoFirmaVisual(v.existe_envio).color}>
-                                                    {getEstadoFirmaVisual(v.existe_envio).label}
+                                                    color={getEstadoFirmaVisual(v).color}>
+                                                    {getEstadoFirmaVisual(v).label}
                                                 </Badge>
                                             </div>
                                             <div
@@ -391,11 +402,11 @@ const TabUsuarios = ({
                         {pendientes.length > 0 && (
                             <div>
                                 <h6 className='mb-2 text-sm font-semibold text-amber-500'>
-                                    Firma enviada
+                                    Pendientes de firma
                                 </h6>
                                 <p className='mb-2 text-xs text-zinc-500'>
-                                    El sistema confirma que existe un envio. La firma final no se
-                                    expone en esta vista.
+                                    Ya se enviÃ³ el documento y todavÃ­a falta la firma del
+                                    destinatario.
                                 </p>
                                 <div className='grid grid-cols-12 gap-2'>
                                     <div className='col-span-4 text-xs font-bold'>Usuario</div>
@@ -435,8 +446,8 @@ const TabUsuarios = ({
                                                 )}>
                                                 <Badge
                                                     variant='outline'
-                                                    color={getEstadoFirmaVisual(v.existe_envio).color}>
-                                                    {getEstadoFirmaVisual(v.existe_envio).label}
+                                                    color={getEstadoFirmaVisual(v).color}>
+                                                    {getEstadoFirmaVisual(v).label}
                                                 </Badge>
                                             </div>
                                             <div
@@ -453,11 +464,76 @@ const TabUsuarios = ({
                                                         onClick={() =>
                                                             handleReenviarFirma(
                                                                 v.id,
-                                                                v.existe_envio!,
+                                                                v.firma_pendiente!.id,
                                                             )
                                                         }
                                                     />
                                                 </Tooltip>
+                                            </div>
+                                        </Fragment>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {firmados.length > 0 && (
+                            <div>
+                                <h6 className='mb-2 text-sm font-semibold text-emerald-600'>
+                                    Firmados
+                                </h6>
+                                <p className='mb-2 text-xs text-zinc-500'>
+                                    Estos destinatarios ya completaron la firma del documento.
+                                </p>
+                                <div className='grid grid-cols-12 gap-2'>
+                                    <div className='col-span-4 text-xs font-bold'>Usuario</div>
+                                    <div className='col-span-3 text-xs font-bold'>Tipo</div>
+                                    <div className='col-span-2 text-xs font-bold'>F. firma</div>
+                                    <div className='col-span-2 text-xs font-bold'>Estado</div>
+                                    <div className='col-span-1 text-xs font-bold'></div>
+                                    {firmados.map((v, i) => (
+                                        <Fragment key={v.id}>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-4',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                {v.correo_display}
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-3',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                {v.tipo_usuario_label}
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-2',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                {v.firma_pendiente?.fecha_firma
+                                                    ? dayjs(v.firma_pendiente.fecha_firma).format(
+                                                          'DD/MM/YYYY',
+                                                      )
+                                                    : 'Sin fecha'}
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-2',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                <Badge
+                                                    variant='outline'
+                                                    color={getEstadoFirmaVisual(v).color}>
+                                                    {getEstadoFirmaVisual(v).label}
+                                                </Badge>
+                                            </div>
+                                            <div
+                                                className={classNames(
+                                                    'col-span-1',
+                                                    i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700',
+                                                )}>
+                                                <span className='text-xs text-zinc-400'>-</span>
                                             </div>
                                         </Fragment>
                                     ))}
@@ -483,7 +559,12 @@ const TabUsuarios = ({
                                 )}
                                 {pendientes.length > 0 && (
                                     <Badge variant='outline' color='amber'>
-                                        {pendientes.length} con envio
+                                        {pendientes.length} pendientes
+                                    </Badge>
+                                )}
+                                {firmados.length > 0 && (
+                                    <Badge variant='outline' color='emerald'>
+                                        {firmados.length} firmados
                                     </Badge>
                                 )}
                             </div>

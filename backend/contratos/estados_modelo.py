@@ -3,6 +3,7 @@ ESTADOS_CONTRATO = [
     ('en_aprobacion_cliente', 'En aprobacion del cliente'),
     ('cambios_solicitados', 'Cambios solicitados'),
     ('aprobado_cliente', 'Aprobado por cliente'),
+    ('rechazado_cliente', 'Rechazado por cliente'),
     ('en_firma', 'En firma'),
     ('activo', 'Activo'),
     ('suspendido', 'Suspendido'),
@@ -33,8 +34,15 @@ TIPO_MODALIDAD_LICENCIA = [
 ]
 
 TIPO_MONEDA_LICENCIA = [
+    ('UF', 'Unidad de Fomento'),
     ('USD', 'Dolares Americanos'),
-    ('CLP', 'Pesos Chilenos')
+    ('CLP', 'Pesos Chilenos'),
+]
+
+FORMAS_PAGO_COMERCIALES = [
+    ('mensual', 'Mensual'),
+    ('anual', 'Anual'),
+    ('pago_unico', 'Pago unico'),
 ]
 
 CATEGORIAS_SERVICIO = [

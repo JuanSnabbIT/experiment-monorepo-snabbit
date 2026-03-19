@@ -19,6 +19,7 @@ export const colorEstadoContrato = (estado: string): TColors => {
             return 'emerald';
         case 'suspendido':
         case 'finalizado':
+        case 'rechazado_cliente':
             return 'red';
         default:
             return 'zinc';
@@ -102,6 +103,9 @@ export function buildUpdatePayload(
             overrides?.condiciones_especiales ??
             contrato.contrato_condiciones_especiales.map((c) => ({
                 id: c.id,
+                nombre: c.nombre_condicion,
+                detalle: c.detalle_condicion,
+                multa: c.multa_condicion || 0,
             })),
         eliminar_condiciones: overrides?.eliminar_condiciones ?? [],
         usuarios_vinculados:

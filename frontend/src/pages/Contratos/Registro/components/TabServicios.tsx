@@ -2,6 +2,7 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import OffCanvas, { OffCanvasBody, OffCanvasHeader } from '@/components/ui/OffCanvas';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
@@ -12,6 +13,7 @@ import {
 } from '@/store/slices/contratos/contratoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -24,9 +26,24 @@ import {
 } from '@tanstack/react-table';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import ScopeSummary from '../../components/ScopeSummary';
 import ModalServicio from '../modals/ModalServicio';
+import TabCaracteristicas from './TabCaracteristicas';
 
 const columnHelper = createColumnHelper<IServicio>();
+
+const formatMoney = (value?: string | number | null, suffix = '') => {
+    const numeric = Number(value || 0);
+    return `${new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: suffix === 'UF' ? 2 : 0,
+        maximumFractionDigits: suffix === 'UF' ? 2 : 0,
+    }).format(numeric)}${suffix ? ` ${suffix}` : ''}`;
+};
+
+const truncateText = (value?: string | null, max = 120) => {
+    if (!value) return '-';
+    return value.length > max ? `${value.slice(0, max)}...` : value;
+};
 
 const TabServicios = () => {
     const { data: servicios = [] } = useGetServiciosQuery();
@@ -36,6 +53,7 @@ const TabServicios = () => {
     const [globalFilter, setGlobalFilter] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<IServicio | undefined>();
+    const [offCanvasOpen, setOffCanvasOpen] = useState(false);
 
     const handleEdit = (item: IServicio) => {
         setSelectedItem(item);
@@ -48,7 +66,12 @@ const TabServicios = () => {
     };
 
     const handleDelete = async (item: IServicio) => {
-        if (!window.confirm(`¿Eliminar el servicio "${item.nombre}"?`)) return;
+        const confirmado = await confirmAlert({
+            title: 'Eliminar servicio',
+            text: `Se eliminara "${item.nombre}" del catalogo.`,
+            confirmText: 'Eliminar',
+        });
+        if (!confirmado) return;
         try {
             await deleteServicio(item.id).unwrap();
             toast.success('Servicio eliminado');
@@ -59,46 +82,70 @@ const TabServicios = () => {
 
     const columns = [
         columnHelper.accessor('nombre', {
-            cell: (info) => <span className='font-medium'>{info.getValue()}</span>,
-            header: 'Nombre',
+            cell: (info) => (
+                <div className='space-y-1'>
+                    <div className='font-medium'>{info.getValue()}</div>
+                    <div className='text-sm text-zinc-500'>
+                        {truncateText(info.row.original.descripcion)}
+                    </div>
+                </div>
+            ),
+            header: 'Servicio',
+            size: 280,
         }),
         columnHelper.accessor('categoria_label', {
             cell: (info) => <Badge color='blue'>{info.getValue()}</Badge>,
-            header: 'Categoría',
+            header: 'Categoria',
+            size: 130,
         }),
-        columnHelper.accessor('descripcion', {
-            cell: (info) => (
-                <span className='text-zinc-500'>
-                    {info.getValue()
-                        ? info.getValue().length > 80
-                            ? `${info.getValue().substring(0, 80)}...`
-                            : info.getValue()
-                        : '—'}
-                </span>
-            ),
-            header: 'Descripción',
-        }),
-        columnHelper.accessor('caracteristicas', {
+        columnHelper.display({
+            id: 'precio_base',
             cell: (info) => {
-                const items = info.getValue();
-                if (!items || items.length === 0) return <span className='text-zinc-400'>—</span>;
-                return (
-                    <div className='flex flex-wrap gap-1'>
-                        {items.map((c) => (
-                            <Badge key={c.id} color='violet' variant='outline'>
-                                {c.nombre}
-                            </Badge>
-                        ))}
-                    </div>
-                );
+                const { precio_clp, precio_uf, precio_usd } = info.row.original;
+                const clp = Number(precio_clp || 0);
+                const uf = Number(precio_uf || 0);
+                const usd = Number(precio_usd || 0);
+                // Mostrar solo la moneda principal (la que tiene valor)
+                if (uf > 0)
+                    return (
+                        <span className='font-medium'>{formatMoney(precio_uf, 'UF')}</span>
+                    );
+                if (usd > 0)
+                    return (
+                        <span className='font-medium'>
+                            {formatMoney(precio_usd, 'USD')}
+                        </span>
+                    );
+                if (clp > 0)
+                    return (
+                        <span className='font-medium'>
+                            ${formatMoney(precio_clp)}
+                        </span>
+                    );
+                return <span className='text-zinc-400'>Sin precio</span>;
             },
-            header: 'Características',
+            header: 'Precio',
+            size: 140,
+        }),
+        columnHelper.display({
+            id: 'alcance',
+            cell: (info) => (
+                <ScopeSummary
+                    serviceItems={info.row.original.alcance_caracteristicas}
+                    includeText={info.row.original.incluye}
+                    excludeText={info.row.original.no_incluye}
+                    clauseText={info.row.original.clausulas_especiales}
+                    compact
+                />
+            ),
+            header: 'Alcance',
             enableSorting: false,
+            size: 320,
         }),
         columnHelper.display({
             id: 'acciones',
             cell: (info) => (
-                <div className='flex space-x-2'>
+                <div className='flex gap-1'>
                     <Tooltip text='Editar'>
                         <Button
                             variant='solid'
@@ -120,6 +167,7 @@ const TabServicios = () => {
                 </div>
             ),
             header: 'Acciones',
+            size: 100,
         }),
     ];
 
@@ -146,7 +194,13 @@ const TabServicios = () => {
                             setGlobalFilter={setGlobalFilter}
                         />
                     </CardHeaderChild>
-                    <CardHeaderChild>
+                    <CardHeaderChild className='flex gap-2'>
+                        <Button
+                            icon='HeroTag'
+                            variant='outline'
+                            onClick={() => setOffCanvasOpen(true)}>
+                            Administrar caracteristicas
+                        </Button>
                         <Tooltip text='Crear Servicio'>
                             <Button variant='solid' icon='HeroPlus' onClick={handleCreate}>
                                 Crear
@@ -156,7 +210,7 @@ const TabServicios = () => {
                 </CardHeader>
                 <CardBody className='z-0'>
                     <div className='overflow-auto'>
-                        <Table className='min-w-[700px] table-fixed'>
+                        <Table className='table-auto'>
                             <THead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <Tr key={headerGroup.id}>
@@ -171,7 +225,7 @@ const TabServicios = () => {
                                                         aria-hidden='true'
                                                         className={
                                                             header.column.getCanSort()
-                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                ? 'flex cursor-pointer select-none items-center'
                                                                 : ''
                                                         }
                                                         onClick={header.column.getToggleSortingHandler()}>
@@ -217,7 +271,7 @@ const TabServicios = () => {
                                 ))}
                             </TBody>
                         </Table>
-                        <div className='mt-2 min-w-[700px]'>
+                        <div className='mt-2 min-w-[1200px]'>
                             <TableCardFooterTemplateV2 table={table} />
                         </div>
                     </div>
@@ -229,6 +283,13 @@ const TabServicios = () => {
                 setIsOpen={setModalOpen}
                 servicio={selectedItem}
             />
+
+            <OffCanvas isOpen={offCanvasOpen} setIsOpen={setOffCanvasOpen} isStaticBackdrop>
+                <OffCanvasHeader>Caracteristicas del catalogo</OffCanvasHeader>
+                <OffCanvasBody>
+                    <TabCaracteristicas />
+                </OffCanvasBody>
+            </OffCanvas>
         </>
     );
 };

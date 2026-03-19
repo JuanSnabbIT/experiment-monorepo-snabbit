@@ -14,6 +14,9 @@
                 "text": "Asegúrate de seguir las buenas prácticas de desarrollo: código seguro, eficiente y fácil de mantener. Divide en funciones/clases cuando mejore legibilidad. Incluye comentarios en partes complejas. Sigue las convenciones de este monorepo (Django + DRF + React + TypeScript)."
             },
             {
+                "file": "AGENTS.md"
+            },
+            {
                 "file": ".github\\copilot-instructions.md"
             },
             {
@@ -49,10 +52,13 @@
                 "text": "Revisa que el código siga las buenas prácticas de este proyecto. Verifica: multi-tenancy (filtro por empresa), migraciones pendientes, uso correcto de RTK Query (sin refetch manual), componentes de tema_base, interfaces con prefijo I, y manejo de errores con getErrorMessage."
             },
             {
+                "file": "AGENTS.md"
+            },
+            {
                 "file": ".github\\copilot-instructions.md"
             },
             {
-                "file": ".github\\instructions\\backend-guide.instructions.md"
+                "file": ".github\\instructions\\backend-guide.md"
             },
             {
                 "file": ".github\\instructions\\typescript.instructions.md"

@@ -6,6 +6,7 @@ from contratos.models import (
     ContratoEmpresaCliente,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
+    PlanServicioDetalle,
     ContratoServicio,
     ContratoVisita,
     ContratoLicencia,
@@ -82,6 +83,18 @@ class AcuerdoConfidencialidadContratoInline(admin.TabularInline):
     fields = ['acuerdo_base']
 
 
+class PlanServicioDetalleInline(admin.TabularInline):
+    model = PlanServicioDetalle
+    extra = 1
+    fields = [
+        'servicio_version',
+        'orden',
+        'obligatorio',
+        'cantidad_default',
+        'veces_por_mes_default',
+    ]
+
+
 # ---------- ContratoEmpresaCliente Admin ----------
 @admin.register(ContratoEmpresaCliente)
 class ContratoEmpresaClienteAdmin(admin.ModelAdmin):
@@ -148,7 +161,7 @@ class ServicioAdmin(admin.ModelAdmin):
 class PlanServicioAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'descripcion')
     search_fields = ('nombre',)
-    filter_horizontal = ('servicios',)
+    inlines = [PlanServicioDetalleInline]
 
 
 @admin.register(Visita)

@@ -10,7 +10,6 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
-import ApiService from '@/services/ApiService';
 import {
     listaContentTypeThunk,
     listaPlanServiciosThunk,
@@ -18,7 +17,8 @@ import {
     useAppDispatch,
     useAppSelector,
 } from '@/store';
-import contratoApi from '@/store/slices/contratos/contratoApi';
+import { useEditarServiciosGenericosMutation } from '@/store/slices/contratos/contratoApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -35,9 +35,13 @@ interface IServicioGenericoEdicion {
 
 interface IAgregarServiciosyPlanesContratoProps {
     contrato: IContratoEmpresaCliente;
+    isDisabled?: boolean;
 }
 
-function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesContratoProps) {
+function AgregarServiciosyPlanesContrato({
+    contrato,
+    isDisabled = false,
+}: IAgregarServiciosyPlanesContratoProps) {
     const dispatch = useAppDispatch();
     const { listaContentType } = useAppSelector((state) => state.core);
     const { listaServicios, listaPlanServicios } = useAppSelector(
@@ -50,6 +54,8 @@ function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesC
     const [nuevoServicio, setNuevoServicio] = useState<
         { value: string; label: string; content_type: number } | undefined
     >();
+    const [editarServiciosGenericos, { isLoading: guardando }] =
+        useEditarServiciosGenericosMutation();
 
     useEffect(() => {
         if (contrato && isOpen) {
@@ -87,27 +93,19 @@ function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesC
         },
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/contratos/${contrato.id}/editar-servicios-genericos/`,
-                    method: 'put',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                        servicios_genericos: values.servicios_genericos.map((ser) => ({
-                            content_type: ser.content_type,
-                            object_id: ser.object_id,
-                            cantidad: ser.cantidad,
-                            precio_unitario: ser.precio_unitario,
-                        })),
-                    }),
-                });
-                if (response.data) {
-                    dispatch(contratoApi.util.invalidateTags([{ type: 'Contrato', id: contrato.id }, 'ContratoServicios']));
-                    setIsOpen(false);
-                }
-            } catch (error: any) {
-                toast.error(error.response.data || 'Error al agregar los servicio/planes', {
-                    toastId: 'Error al agregar los servicio/planes',
-                });
+                await editarServiciosGenericos({
+                    id: contrato.id,
+                    servicios_genericos: values.servicios_genericos.map((ser) => ({
+                        content_type: ser.content_type,
+                        object_id: Number(ser.object_id),
+                        cantidad: Number(ser.cantidad),
+                        precio_unitario: Number(ser.precio_unitario),
+                    })),
+                }).unwrap();
+                setIsOpen(false);
+                toast.success('Servicios del contrato actualizados');
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error) || 'Error al actualizar los servicios');
             }
         },
     });
@@ -153,9 +151,12 @@ function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesC
                     variant='outline'
                     color='blue'
                     icon='HeroPlus'
+                    isDisable={isDisabled}
                     className='text-blue-500'
                     onClick={() => {
-                        setIsOpen(true);
+                        if (!isDisabled) {
+                            setIsOpen(true);
+                        }
                     }}>
                     Agregar
                 </Button>
@@ -252,8 +253,8 @@ function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesC
                                             ...formik.values.servicios_genericos,
                                             {
                                                 cantidad: 1,
-                                                precio_unitario: 1,
-                                                object_id: nuevoServicio.value,
+                                                precio_unitario: 0,
+                                                object_id: Number(nuevoServicio.value),
                                                 content_type: nuevoServicio.content_type,
                                                 nombre: nuevoServicio.label,
                                             },
@@ -278,6 +279,7 @@ function AgregarServiciosyPlanesContrato({ contrato }: IAgregarServiciosyPlanesC
                         </Button>
                         <Button
                             variant='solid'
+                            isLoading={guardando}
                             onClick={() => {
                                 formik.handleSubmit();
                             }}>

@@ -65,10 +65,12 @@ function EditarConfidencialidadContrato({ firma, contratoId, empresaClienteId }:
         }
         if (isOpen && firma) {
             formik.setValues({
-                acuerdo_base: firma.acuerdo_base.toString(),
-                archivo_firma: firma.archivo_firma,
-                fecha_firma: firma.fecha_firma,
-                firma_usuario_empresa: firma.firma_usuario_empresa.toString(),
+                acuerdo_base: firma.acuerdo_base ? firma.acuerdo_base.toString() : '',
+                archivo_firma: firma.archivo_firma ?? '',
+                fecha_firma: firma.fecha_firma ?? '',
+                firma_usuario_empresa: firma.firma_usuario_empresa
+                    ? firma.firma_usuario_empresa.toString()
+                    : '',
                 firmado: firma.firmado ? 'true' : 'false',
             });
         }

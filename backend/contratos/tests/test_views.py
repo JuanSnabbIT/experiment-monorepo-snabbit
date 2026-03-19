@@ -6,12 +6,13 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from cuentas.models import User
-from core.models import PersonalizacionUsuario
+from core.models import AcuerdoConfidencialidadBase, PersonalizacionUsuario
 from contratos.models import (
     ContratoEmpresaCliente,
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
+    EnvioContratoAprobacion,
     UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
     PersonaLicenciataria,
@@ -19,11 +20,19 @@ from contratos.models import (
     AcuerdoConfidencialidadContrato,
     EnvioContratoFirmaUsuario,
     Servicio,
+    ServicioCaracteristica,
+    PlanServicio,
+    CaracteristicaServicio,
     Visita,
     Licencia,
     CondicionEspecial,
 )
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
+
+VALID_SIGNATURE_DATA_URL = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Zx6kAAAAASUVORK5CYII="
+)
 
 
 class ContratoAPITestBase(APITestCase):
@@ -187,6 +196,74 @@ class ContratoCRUDTest(ContratoAPITestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
+
+
+class CatalogoServiciosAPITest(ContratoAPITestBase):
+    def test_crear_servicio_con_alcance_structurado(self):
+        caracteristica = CaracteristicaServicio.objects.create(
+            nombre="Monitoreo continuo",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+
+        response = self.client.post(
+            "/api/servicios/",
+            {
+                "nombre": "Soporte Gestionado",
+                "categoria": "soporte",
+                "precio_clp": "10000",
+                "precio_uf": "0.30",
+                "precio_usd": "15",
+                "alcance_config": [
+                    {
+                        "caracteristica_id": caracteristica.id,
+                        "modo": "incluye",
+                        "orden": 0,
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data["alcance_caracteristicas"]), 1)
+        self.assertEqual(response.data["alcance_caracteristicas"][0]["modo"], "incluye")
+        self.assertIn("Monitoreo continuo", response.data["incluye"])
+
+    def test_plan_devuelve_precios_sugeridos_y_alcance_heredado(self):
+        caracteristica = CaracteristicaServicio.objects.create(
+            nombre="Atencion remota",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        servicio = Servicio.objects.create(
+            nombre="Mesa de ayuda",
+            categoria="soporte",
+            empresa_prestadora=self.empresa_prestadora,
+            precio_clp="25000",
+            precio_uf="0.70",
+            precio_usd="30",
+        )
+        ServicioCaracteristica.objects.create(
+            servicio=servicio,
+            caracteristica=caracteristica,
+            modo=ServicioCaracteristica.MODO_INCLUYE,
+            orden=0,
+        )
+        servicio.caracteristicas.add(caracteristica)
+        plan = PlanServicio.objects.create(
+            nombre="Plan Plus",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        plan.servicios.add(servicio)
+
+        response = self.client.get(f"/api/planes-servicio/{plan.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["precio_sugerido_clp"], 25000.0)
+        self.assertEqual(len(response.data["alcance_heredado"]), 1)
+        self.assertEqual(
+            response.data["alcance_heredado"][0]["caracteristica"]["nombre"],
+            "Atencion remota",
+        )
 
 
 class ContratoTransicionEstadoTest(ContratoAPITestBase):
@@ -447,7 +524,7 @@ class RutasPublicasTest(APITestCase):
         response = self.client.patch(
             f"/api/envio-firma/{self.envio.uuid}/firmar/",
             data=json.dumps({
-                "firma": "data:image/png;base64,iVBOR...",
+                "firma": VALID_SIGNATURE_DATA_URL,
                 "fecha_firma": timezone.now().isoformat(),
                 "firmado": True,
             }),
@@ -482,6 +559,270 @@ class RutasPublicasTest(APITestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_firmar_envio_rechaza_firma_no_imagen(self):
+        import json
+        from django.utils import timezone
+
+        response = self.client.patch(
+            f"/api/envio-firma/{self.envio.uuid}/firmar/",
+            data=json.dumps(
+                {
+                    "firma": "firma-plana",
+                    "fecha_firma": timezone.now().isoformat(),
+                    "firmado": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+class ContratoRevisionPublicaTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.estado = "en_aprobacion_cliente"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.aprueba@test.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Aprobacion",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+        self.envio_aprobacion = EnvioContratoAprobacion.objects.create(
+            contrato=self.contrato,
+            destinatario=self.vinculo_principal,
+            enviado=True,
+            snapshot_contrato={"id": self.contrato.id, "nombre": self.contrato.nombre},
+        )
+
+    def test_rechazo_definitivo_cierra_contrato(self):
+        response = self.client.post(
+            f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/rechazar-definitivo/",
+            {"comentario": "No continuaremos con esta propuesta."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.contrato.refresh_from_db()
+        self.envio_aprobacion.refresh_from_db()
+        self.assertEqual(self.contrato.estado, "rechazado_cliente")
+        self.assertTrue(self.envio_aprobacion.respondido)
+        self.assertFalse(self.envio_aprobacion.aprobado)
+        self.assertIn("cerrado", response.data["detail"])
+
+
+class ContratoFirmaPreviewTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.estado = "aprobado_cliente"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente@firma.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Firma",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+        self.acuerdo_base = AcuerdoConfidencialidadBase.objects.create(
+            titulo="NDA Base",
+            contenido="Contenido confidencial",
+        )
+        AcuerdoConfidencialidadContrato.objects.create(
+            contrato=self.contrato,
+            acuerdo_base=self.acuerdo_base,
+        )
+
+    def test_preview_firma_devuelve_metadata_y_confidencialidad(self):
+        self.empresa_prestadora.firma_empresa = VALID_SIGNATURE_DATA_URL
+        self.empresa_prestadora.save(update_fields=["firma_empresa"])
+
+        response = self.client.get(f"/api/contratos/{self.contrato.id}/preview-firma/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["firma_prestadora_disponible"])
+        self.assertFalse(response.data["es_version_enviada"])
+        self.assertEqual(
+            response.data["contrato"]["firmas_confidencialidad"][0]["titulo_acuerdo"],
+            "NDA Base",
+        )
+
+    def test_enviar_firma_falla_si_falta_firma_prestadora(self):
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/enviar-firma/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("firma configurada", response.data["detail"])
+
+    def test_enviar_firma_crea_snapshot_con_pdf_y_version_enviada(self):
+        self.empresa_prestadora.firma_empresa = VALID_SIGNATURE_DATA_URL
+        self.empresa_prestadora.save(update_fields=["firma_empresa"])
+
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/enviar-firma/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        envio = EnvioContratoFirmaUsuario.objects.get(pk=response.data["id"])
+        self.assertTrue(bool(envio.pdf_congelado))
+        self.assertEqual(
+            envio.snapshot_contrato["firmas_confidencialidad"][0]["titulo_acuerdo"],
+            "NDA Base",
+        )
+
+        preview_response = self.client.get(f"/api/contratos/{self.contrato.id}/preview-firma/")
+        self.assertEqual(preview_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(preview_response.data["es_version_enviada"])
+
+    def test_firma_publica_actualiza_pdf_con_firma_cliente(self):
+        from django.utils import timezone
+
+        self.empresa_prestadora.firma_empresa = VALID_SIGNATURE_DATA_URL
+        self.empresa_prestadora.save(update_fields=["firma_empresa"])
+
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/enviar-firma/")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        envio = EnvioContratoFirmaUsuario.objects.get(pk=response.data["id"])
+        pdf_original = bytes(envio.pdf_congelado or b"")
+
+        firma_response = self.client.patch(
+            f"/api/public/contrato-firma/{envio.uuid}/firmar/",
+            {
+                "firma": VALID_SIGNATURE_DATA_URL,
+                "fecha_firma": timezone.now().isoformat(),
+                "firmado": True,
+            },
+            format="json",
+        )
+
+        self.assertEqual(firma_response.status_code, status.HTTP_200_OK)
+
+        envio.refresh_from_db()
+        self.assertTrue(envio.firmado)
+        self.assertTrue(bool(envio.pdf_congelado))
+        self.assertNotEqual(bytes(envio.pdf_congelado), pdf_original)
+
+        pdf_response = self.client.get(f"/api/public/contrato-firma/{envio.uuid}/pdf/")
+        self.assertEqual(pdf_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(pdf_response.content, bytes(envio.pdf_congelado))
+
+
+class EnvioContratoFirmaUsuarioReenvioTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.estado = "en_firma"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.reenvio@firma.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Reenvio",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+        self.envio = EnvioContratoFirmaUsuario.objects.create(
+            usuario=self.vinculo_principal,
+            enviado=True,
+        )
+        self.url_reenvio = (
+            f"/api/contratos/{self.contrato.id}/usuarios-vinculados/"
+            f"{self.vinculo_principal.id}/envio-firma/{self.envio.id}/reenviar/"
+        )
+
+    def test_reenvio_permitido_para_envio_pendiente(self):
+        response = self.client.post(self.url_reenvio)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("reenviado correctamente", response.data["detail"])
+
+    def test_reenvio_rechazado_si_documento_ya_fue_firmado(self):
+        self.envio.firmado = True
+        self.envio.save(update_fields=["firmado"])
+
+        response = self.client.post(self.url_reenvio)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ya fue firmado", response.data["detail"])
+
+    def test_reenvio_rechazado_si_contrato_ya_no_esta_en_firma(self):
+        self.contrato.estado = "activo"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        response = self.client.post(self.url_reenvio)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("ya no esta disponible", response.data["detail"])
+
+
+class ContratoHistorialViewTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        from django.utils import timezone
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.historial@test.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Historial",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+        EnvioContratoAprobacion.objects.create(
+            contrato=self.contrato,
+            destinatario=self.vinculo_principal,
+            enviado=True,
+            respondido=True,
+            aprobado=True,
+        )
+        EnvioContratoFirmaUsuario.objects.create(
+            usuario=self.vinculo_principal,
+            enviado=True,
+            firmado=True,
+            fecha_firma=timezone.now(),
+            firma=VALID_SIGNATURE_DATA_URL,
+        )
+
+    def test_historial_contrato_incluye_eventos_operativos(self):
+        response = self.client.get(f"/api/contratos/{self.contrato.id}/historial/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 3)
+        origenes = {evento["origen"] for evento in response.data}
+        self.assertIn("contrato", origenes)
+        self.assertIn("aprobacion", origenes)
+        self.assertIn("firma", origenes)
 
 
 class ContratoLicenciaHistorialTest(ContratoAPITestBase):

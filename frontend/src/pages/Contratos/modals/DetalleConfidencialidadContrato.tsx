@@ -113,7 +113,7 @@ function DetalleConfidencialidadContrato({ contratoId, empresaClienteId }: IDeta
                                             <div className='p-2'>
                                                 <img
                                                     className='signature-surface'
-                                                    src={firma.archivo_firma}
+                                                    src={firma.archivo_firma ?? undefined}
                                                     alt=''
                                                 />
                                             </div>

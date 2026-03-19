@@ -1,6 +1,6 @@
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
-import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import Card, {
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { useEstadoContrato } from '@/hooks/useEstadoContrato';
+import ApiService from '@/services/ApiService';
 import {
     listaContentTypeThunk,
     useAppDispatch,
@@ -38,6 +39,7 @@ import CicloVidaContrato from './components/CicloVidaContrato';
 import { colorEstadoContrato } from './components/contrato.helpers';
 import ResumenContrato from './components/ResumenContrato';
 import TabCondiciones from './components/TabCondiciones';
+import TabHistorial from './components/TabHistorial';
 import TabLicencias from './components/TabLicencias';
 import TabServicios from './components/TabServicios';
 import TabUsuarios from './components/TabUsuarios';
@@ -82,6 +84,8 @@ const DetalleContrato = () => {
         puedeFinalizar,
         puedeRenovar,
     } = useEstadoContrato(contrato ?? null);
+    const firmaPrestadoraDisponible = Boolean(contrato?.datos_empresa.firma_empresa);
+    const tieneConfidencialidad = Boolean(contrato?.firmas_confidencialidad.length);
 
     // ── Estado local ──
     const [modalEliminar, setModalEliminar] = useState(false);
@@ -265,6 +269,18 @@ const DetalleContrato = () => {
                             <div className='text-xs text-zinc-500'>
                                 Centraliza aqui los cambios de estado y las acciones principales.
                             </div>
+                            {contrato && (
+                                <div className='mt-2 flex flex-wrap gap-2 text-xs'>
+                                    <span className='rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'>
+                                        Firma prestadora:{' '}
+                                        {firmaPrestadoraDisponible ? 'configurada' : 'faltante'}
+                                    </span>
+                                    <span className='rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'>
+                                        Confidencialidad:{' '}
+                                        {tieneConfidencialidad ? 'asociada' : 'sin acuerdos'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <div className='flex flex-wrap items-center gap-2'>
                             {puedeActivar && (
@@ -290,10 +306,49 @@ const DetalleContrato = () => {
                             )}
                             {contrato.estado === 'aprobado_cliente' && (
                                 <Button
+                                    icon='HeroDocumentText'
+                                    onClick={async () => {
+                                        try {
+                                            const response = await ApiService.fetchData<Blob>({
+                                                url: `/api/contratos/${contrato.id}/preview-firma/pdf/`,
+                                                method: 'get',
+                                                responseType: 'blob',
+                                            });
+                                            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                                            window.open(url, '_blank', 'noopener,noreferrer');
+                                        } catch (err: unknown) {
+                                            toast.error(getErrorMessage(err));
+                                        }
+                                    }}>
+                                    Ver PDF del contrato
+                                </Button>
+                            )}
+                            {contrato.estado === 'aprobado_cliente' && (
+                                <Button
                                     variant='solid'
                                     icon='HeroPencilSquare'
+                                    isDisable={!firmaPrestadoraDisponible}
                                     onClick={handleEnviarFirma}>
                                     Enviar a firma
+                                </Button>
+                            )}
+                            {contrato.estado === 'en_firma' && (
+                                <Button
+                                    icon='HeroDocumentText'
+                                    onClick={async () => {
+                                        try {
+                                            const response = await ApiService.fetchData<Blob>({
+                                                url: `/api/contratos/${contrato.id}/preview-firma/pdf/`,
+                                                method: 'get',
+                                                responseType: 'blob',
+                                            });
+                                            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                                            window.open(url, '_blank', 'noopener,noreferrer');
+                                        } catch (err: unknown) {
+                                            toast.error(getErrorMessage(err));
+                                        }
+                                    }}>
+                                    Ver PDF enviado
                                 </Button>
                             )}
                             {contrato.estado === 'en_firma' && (
@@ -439,6 +494,47 @@ const DetalleContrato = () => {
                                             {contrato.ultimo_comentario_cliente}
                                         </div>
                                     )}
+
+                                    {contrato.contrato_anterior_detalle && (
+                                        <div>
+                                            <span className='font-bold text-blue-500'>
+                                                Renovación de:{' '}
+                                            </span>
+                                            <button
+                                                type='button'
+                                                className='text-blue-600 underline hover:text-blue-800'
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/empresa/detalle-cliente/${clienteId}/contrato/${contrato.contrato_anterior_detalle!.id}`,
+                                                    )
+                                                }>
+                                                {contrato.contrato_anterior_detalle.nombre} #{contrato.contrato_anterior_detalle.id}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {contrato.renovaciones_detalle && contrato.renovaciones_detalle.length > 0 && (
+                                        <div>
+                                            <span className='font-bold text-blue-500'>
+                                                Renovado en:{' '}
+                                            </span>
+                                            {contrato.renovaciones_detalle.map((r, idx) => (
+                                                <span key={r.id}>
+                                                    {idx > 0 && ', '}
+                                                    <button
+                                                        type='button'
+                                                        className='text-blue-600 underline hover:text-blue-800'
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/empresa/detalle-cliente/${clienteId}/contrato/${r.id}`,
+                                                            )
+                                                        }>
+                                                        {r.nombre} #{r.id}
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Botones de acción */}
@@ -480,7 +576,7 @@ const DetalleContrato = () => {
                         />
                     </div>
 
-                    {/* ── Columna derecha (4/12): Visitas, Licencias ── */}
+                    {/* ── Columna derecha (4/12): Visitas, Licencias, Historial ── */}
                     <div className='col-span-full flex flex-col gap-4 lg:col-span-4'>
                         <TabVisitas
                             detalleContratoEmpresaCliente={contrato}
@@ -492,6 +588,7 @@ const DetalleContrato = () => {
                             puedeEditar={puedeEditar}
                             listaLicencias={listaLicencias}
                         />
+                        <TabHistorial contratoId={contrato.id} />
                     </div>
                 </div>
             </Container>

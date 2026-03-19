@@ -102,6 +102,9 @@ const ListaSoftware = lazy(() => import('@/pages/Recursos/Software/ListaSoftware
 const ListaContratos = lazy(() => import('@/pages/Contratos/ListaContratos'));
 const DetalleContrato = lazy(() => import('@/pages/Contratos/DetalleContrato'));
 const DetalleLicencia = lazy(() => import('@/pages/Contratos/DetalleLicencia'));
+const VistaPreviaFirmaContrato = lazy(
+    () => import('@/pages/Contratos/VistaPreviaFirmaContrato'),
+);
 const PlanesYServicios = lazy(
     () => import('@/pages/Contratos/Registro/PlanesYServicios'),
 );
@@ -186,6 +189,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: pagesConfig.listaDiasCalendario.to,
         element: <ListaDiasCalendarioV2 />,
         authority: pagesConfig.listaDiasCalendario.authority,
+    },
+    {
+        path: pagesConfig.empresa.subPages.previewFirmaContrato.to,
+        element: <VistaPreviaFirmaContrato />,
+        authority: pagesConfig.empresa.subPages.previewFirmaContrato.authority,
     },
     {
         path: Pages.compras.subPages.completarOrdenCompra.to,

@@ -14,19 +14,16 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
+import { IContratoBorradorPayload } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import { useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
 import {
-    useCreateContratoLicenciaMutation,
-    useCreateContratoMutation,
-    useEditarServiciosGenericosMutation,
+    useCreateContratoCompletoMutation,
     useGetCondicionesEspecialesQuery,
     useGetLicenciasCatalogoQuery,
     useGetPlanesServicioQuery,
     useGetServiciosQuery,
-    useUpdateContratoMutation,
 } from '@/store/slices/contratos/contratoApi';
-import { listaContentTypeThunk } from '@/store/slices/core/coreSlice';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
@@ -49,6 +46,36 @@ const STEP_LABELS: Record<TWizardStep, string> = {
     2: 'Plan y Servicios',
     3: 'Licencias',
     4: 'Revisi\u00f3n',
+};
+
+const MONEDA_OPTIONS: TSelectOption[] = [
+    { value: 'USD', label: 'USD' },
+    { value: 'CLP', label: 'CLP' },
+    { value: 'UF', label: 'UF' },
+];
+
+const FORMA_PAGO_OPTIONS: TSelectOption[] = [
+    { value: 'mensual', label: 'Mensual' },
+    { value: 'anual', label: 'Anual' },
+    { value: 'pago_unico', label: 'Pago unico' },
+];
+
+const formatCurrencyByMoneda = (
+    value: number,
+    moneda: 'CLP' | 'UF' | 'USD' = 'USD',
+) => {
+    if (moneda === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(value)} UF`;
+    }
+
+    return new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency: moneda,
+        maximumFractionDigits: 0,
+    }).format(value);
 };
 
 interface ICrearContratoDelClienteProps {
@@ -131,9 +158,7 @@ function CrearContratoDelCliente({
     licenciasIniciales,
 }: ICrearContratoDelClienteProps = {}) {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
     const { detalleCliente: detalleClienteStore } = useAppSelector((state) => state.empresa);
-    const { listaContentType } = useAppSelector((state) => state.core);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
 
     const isControlledExternally = externalIsOpen !== undefined;
@@ -163,18 +188,7 @@ function CrearContratoDelCliente({
             skip: !detalleCliente?.info_cliente.id || !isOpen,
         },
     );
-    const [createContrato] = useCreateContratoMutation();
-    const [createContratoLicencia] = useCreateContratoLicenciaMutation();
-    const [editarServiciosGenericos] = useEditarServiciosGenericosMutation();
-    const [updateContrato] = useUpdateContratoMutation();
-
-    // Cargar content types necesarios para crear ContratoServicio
-    useEffect(() => {
-        if (listaContentType.length === 0) {
-            dispatch(listaContentTypeThunk());
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const [createContratoCompleto] = useCreateContratoCompletoMutation();
 
     // Formik auxiliar para licencias (Paso 2)
     const licFormik = useFormik<IContratoEdicion>({
@@ -217,6 +231,8 @@ function CrearContratoDelCliente({
             fecha_fin: '',
             observaciones: '',
             tipo: tipoFijo ?? '',
+            moneda_cobro: 'USD',
+            forma_pago_contractual: 'mensual',
             destinatario_modo: 'interno',
             destinatario_interno_id: '',
             destinatario_nombre: '',
@@ -233,6 +249,10 @@ function CrearContratoDelCliente({
             fecha_fin: Yup.string().notRequired().nullable(),
             observaciones: Yup.string().notRequired().nullable(),
             tipo: Yup.string().required('Requerido').nonNullable('Requerido'),
+            moneda_cobro: Yup.string().oneOf(['CLP', 'UF', 'USD']).required('Requerido'),
+            forma_pago_contractual: Yup.string()
+                .oneOf(['mensual', 'anual', 'pago_unico'])
+                .required('Requerido'),
             destinatario_modo: Yup.string().oneOf(['interno', 'externo']).required('Requerido'),
             destinatario_interno_id: Yup.string().when('destinatario_modo', {
                 is: 'interno',
@@ -253,7 +273,7 @@ function CrearContratoDelCliente({
         }),
         onSubmit: async (values) => {
             try {
-                const contratoCreado = await createContrato({
+                const contratoPayload = {
                     nombre: values.nombre,
                     fecha_inicio: dayjs(values.fecha_inicio).format('YYYY-MM-DD'),
                     fecha_fin: values.fecha_fin
@@ -263,122 +283,86 @@ function CrearContratoDelCliente({
                     tipo: values.tipo,
                     empresa_prestadora: detalleCliente?.prestador_servicios,
                     empresa_cliente: detalleCliente?.info_cliente.id,
-                } as Record<string, unknown>).unwrap();
+                    moneda_cobro: values.moneda_cobro as 'CLP' | 'UF' | 'USD',
+                    forma_pago_contractual: values.forma_pago_contractual as
+                        | 'mensual'
+                        | 'anual'
+                        | 'pago_unico',
+                };
 
-                // Guardar servicios/plan si se seleccionaron
-                const tieneServicios =
-                    seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0;
-                if (tieneServicios) {
-                    try {
-                        const ctPlan = listaContentType.find(
-                            (ct) => ct.model === 'planservicio',
-                        );
-                        const ctSer = listaContentType.find((ct) => ct.model === 'servicio');
-                        const payload: Record<string, unknown>[] = [];
+                const destinatarioPrincipal =
+                    formik.values.destinatario_modo === 'interno'
+                        ? {
+                              usuario_id: Number(formik.values.destinatario_interno_id),
+                              tipo_usuario: 'general',
+                              es_destinatario_principal: true,
+                          }
+                        : {
+                              nombre: formik.values.destinatario_nombre,
+                              correo_generico: formik.values.destinatario_correo,
+                              tipo_usuario: 'general',
+                              es_destinatario_principal: true,
+                          };
 
-                        if (
-                            seleccionPlan.modo === 'plan' &&
-                            seleccionPlan.plan_id &&
-                            ctPlan
-                        ) {
-                            payload.push({
-                                content_type: ctPlan.id,
-                                object_id: seleccionPlan.plan_id,
-                                cantidad: seleccionPlan.plan_cantidad,
-                                precio_unitario: seleccionPlan.plan_precio_unitario,
-                            });
-                        }
+                const alcance_comercial: IContratoBorradorPayload['alcance_comercial'] =
+                    seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0
+                        ? {
+                              modo:
+                                  seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
+                                      ? 'plan'
+                                      : 'personalizado',
+                              plan_id: seleccionPlan.plan_id,
+                              plan:
+                                  seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
+                                      ? {
+                                            tipo_origen: 'plan' as const,
+                                            version_id: seleccionPlan.plan_id,
+                                            cantidad: seleccionPlan.plan_cantidad,
+                                            precio_unitario_contratado:
+                                                seleccionPlan.plan_precio_unitario,
+                                        }
+                                      : null,
+                              addons:
+                                  seleccionPlan.modo === 'plan'
+                                      ? seleccionPlan.servicios.map((s) => ({
+                                            tipo_origen: 'servicio' as const,
+                                            version_id: s.servicio_id,
+                                            cantidad: s.cantidad,
+                                            precio_unitario_contratado: s.precio_unitario,
+                                            es_addon: true,
+                                        }))
+                                      : [],
+                              servicios:
+                                  seleccionPlan.modo === 'personalizado'
+                                      ? seleccionPlan.servicios.map((s) => ({
+                                            tipo_origen: 'servicio' as const,
+                                            version_id: s.servicio_id,
+                                            cantidad: s.cantidad,
+                                            precio_unitario_contratado: s.precio_unitario,
+                                        }))
+                                      : [],
+                          }
+                        : { modo: 'vacio' as const };
 
-                        if (ctSer) {
-                            seleccionPlan.servicios.forEach((s) => {
-                                payload.push({
-                                    content_type: ctSer.id,
-                                    object_id: s.servicio_id,
-                                    cantidad: s.cantidad,
-                                    precio_unitario: s.precio_unitario,
-                                });
-                            });
-                        }
+                const contratoCreado = await createContratoCompleto({
+                    contrato: contratoPayload,
+                    destinatario_principal: destinatarioPrincipal,
+                    alcance_comercial,
+                    licencias: licFormik.values.licencias.map((lic) => ({
+                        licencia_id: lic.licencia_id,
+                        tipo_modalidad: lic.tipo_modalidad,
+                        otro_tipo: lic.otro_tipo ?? null,
+                        cantidad: lic.cantidad,
+                        precio_unitario: lic.precio_unitario,
+                        fecha_inicio: lic.fecha_inicio ?? null,
+                        fecha_fin: lic.fecha_fin ?? null,
+                        tipo_moneda: lic.tipo_moneda,
+                    })),
+                    condiciones_especiales: licFormik.values.condiciones_especiales,
+                    visitas: licFormik.values.visitas,
+                }).unwrap();
 
-                        if (payload.length > 0) {
-                            await editarServiciosGenericos({
-                                id: contratoCreado.id,
-                                servicios_genericos: payload,
-                            }).unwrap();
-                        }
-                    } catch {
-                        toast.warning(
-                            'Contrato creado, pero hubo errores al guardar los servicios',
-                        );
-                    }
-                }
-
-                // Guardar licencias
-                try {
-                    const usuariosPayload =
-                        formik.values.destinatario_modo === 'interno'
-                            ? [
-                                  {
-                                      usuario_id: Number(formik.values.destinatario_interno_id),
-                                      tipo_usuario: 'general',
-                                      es_destinatario_principal: true,
-                                  },
-                              ]
-                            : [
-                                  {
-                                      nombre: formik.values.destinatario_nombre,
-                                      correo_generico: formik.values.destinatario_correo,
-                                      tipo_usuario: 'general',
-                                      es_destinatario_principal: true,
-                                  },
-                              ];
-
-                    await updateContrato({
-                        id: contratoCreado.id,
-                        data: {
-                            usuarios_vinculados: usuariosPayload,
-                            condiciones_especiales: licFormik.values.condiciones_especiales,
-                        },
-                    }).unwrap();
-                } catch {
-                    toast.warning(
-                        'Contrato creado, pero hubo errores al guardar el destinatario o las condiciones especiales',
-                    );
-                }
-
-                const totalLicencias = licFormik.values.licencias.length;
-
-                if (values.tipo === 'licencia' && totalLicencias > 0) {
-                    try {
-                        await Promise.all(
-                            licFormik.values.licencias.map((lic) =>
-                                createContratoLicencia({
-                                    contratoId: contratoCreado.id,
-                                    data: {
-                                        licencia: lic.licencia_id,
-                                        tipo_modalidad: lic.tipo_modalidad,
-                                        otro_tipo: lic.otro_tipo ?? null,
-                                        cantidad: lic.cantidad,
-                                        precio_unitario: lic.precio_unitario,
-                                        fecha_inicio: lic.fecha_inicio ?? null,
-                                        fecha_fin: lic.fecha_fin ?? null,
-                                        tipo_moneda: lic.tipo_moneda,
-                                    },
-                                }).unwrap(),
-                            ),
-                        );
-                        toast.success(
-                            `Contrato y ${totalLicencias} licencia${totalLicencias > 1 ? 's' : ''} creadas`,
-                            { autoClose: 1500 },
-                        );
-                    } catch {
-                        toast.warning(
-                            'Contrato creado, pero hubo errores al guardar algunas licencias',
-                        );
-                    }
-                } else {
-                    toast.success('Contrato creado', { autoClose: 1000 });
-                }
+                toast.success('Contrato creado', { autoClose: 1000 });
 
                 handleClose();
                 navigate(
@@ -396,6 +380,19 @@ function CrearContratoDelCliente({
         formik.values.tipo === 'licencia' ||
         tipoFijo === 'servicios' ||
         tipoFijo === 'licencia';
+    const monedaContrato = formik.values.moneda_cobro as 'CLP' | 'UF' | 'USD';
+    const totalPlanSeleccionado =
+        seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
+            ? seleccionPlan.plan_cantidad * seleccionPlan.plan_precio_unitario
+            : 0;
+    const totalServiciosSeleccionados = seleccionPlan.servicios.reduce(
+        (acc, item) => acc + item.cantidad * item.precio_unitario,
+        0,
+    );
+    const totalLicenciasSeleccionadas = licFormik.values.licencias.reduce(
+        (acc, item) => acc + item.cantidad * item.precio_unitario,
+        0,
+    );
 
     const handleClose = () => {
         if (isControlledExternally) {
@@ -561,6 +558,46 @@ function CrearContratoDelCliente({
                                         onBlur={formik.handleBlur}
                                     />
                                 </Validation>
+                            </div>
+                            <div>
+                                <Label htmlFor='moneda_cobro'>Moneda contractual</Label>
+                                <SelectReact
+                                    name='moneda_cobro'
+                                    options={MONEDA_OPTIONS}
+                                    value={
+                                        MONEDA_OPTIONS.find(
+                                            (option) => option.value === formik.values.moneda_cobro,
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        formik.setFieldValue(
+                                            'moneda_cobro',
+                                            (option as TSelectOption | null)?.value ?? 'USD',
+                                        )
+                                    }
+                                    placeholder='Selecciona una moneda'
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor='forma_pago_contractual'>Forma de pago</Label>
+                                <SelectReact
+                                    name='forma_pago_contractual'
+                                    options={FORMA_PAGO_OPTIONS}
+                                    value={
+                                        FORMA_PAGO_OPTIONS.find(
+                                            (option) =>
+                                                option.value ===
+                                                formik.values.forma_pago_contractual,
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        formik.setFieldValue(
+                                            'forma_pago_contractual',
+                                            (option as TSelectOption | null)?.value ?? 'mensual',
+                                        )
+                                    }
+                                    placeholder='Selecciona una forma de pago'
+                                />
                             </div>
                             <div className='col-span-full'>
                                 <Label htmlFor='observaciones'>Observaciones</Label>
@@ -764,6 +801,17 @@ function CrearContratoDelCliente({
                             <div className='grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
                                 <ResumenItem label='Nombre' valor={formik.values.nombre} />
                                 <ResumenItem label='Tipo' valor={tipoLabel} />
+                                <ResumenItem label='Moneda' valor={formik.values.moneda_cobro} />
+                                <ResumenItem
+                                    label='Forma de pago'
+                                    valor={
+                                        FORMA_PAGO_OPTIONS.find(
+                                            (option) =>
+                                                option.value ===
+                                                formik.values.forma_pago_contractual,
+                                        )?.label ?? formik.values.forma_pago_contractual
+                                    }
+                                />
                                 <ResumenItem
                                     label='Fecha inicio'
                                     valor={
@@ -848,18 +896,33 @@ function CrearContratoDelCliente({
                                             {seleccionPlan.modo === 'plan' &&
                                                 seleccionPlan.plan_id && (
                                                     <div className='flex items-center justify-between text-sm'>
-                                                        <span className='font-medium'>
-                                                            Plan:{' '}
-                                                            {planes.find(
-                                                                (p) =>
-                                                                    p.id ===
-                                                                    seleccionPlan.plan_id,
-                                                            )?.nombre ??
-                                                                `#${seleccionPlan.plan_id}`}
-                                                        </span>
-                                                        <span className='text-zinc-500'>
-                                                            x{seleccionPlan.plan_cantidad}
-                                                        </span>
+                                                        <div>
+                                                            <span className='font-medium'>
+                                                                Plan:{' '}
+                                                                {planes.find(
+                                                                    (p) =>
+                                                                        p.id ===
+                                                                        seleccionPlan.plan_id,
+                                                                )?.nombre ??
+                                                                    `#${seleccionPlan.plan_id}`}
+                                                            </span>
+                                                            <div className='text-xs text-zinc-500'>
+                                                                {formatCurrencyByMoneda(
+                                                                    seleccionPlan.plan_precio_unitario,
+                                                                    monedaContrato,
+                                                                )}{' '}
+                                                                c/u
+                                                            </div>
+                                                        </div>
+                                                        <div className='text-right text-zinc-500'>
+                                                            <div>x{seleccionPlan.plan_cantidad}</div>
+                                                            <div className='text-xs'>
+                                                                {formatCurrencyByMoneda(
+                                                                    totalPlanSeleccionado,
+                                                                    monedaContrato,
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             {seleccionPlan.servicios.length > 0 && (
@@ -877,17 +940,41 @@ function CrearContratoDelCliente({
                                                             <div
                                                                 key={s.servicio_id}
                                                                 className='flex items-center justify-between text-sm'>
-                                                                <span>
-                                                                    {serv?.nombre ??
-                                                                        `Servicio #${s.servicio_id}`}
-                                                                </span>
-                                                                <span className='text-zinc-500'>
-                                                                    x{s.cantidad}
-                                                                </span>
+                                                                <div>
+                                                                    <span>
+                                                                        {serv?.nombre ??
+                                                                            `Servicio #${s.servicio_id}`}
+                                                                    </span>
+                                                                    <div className='text-xs text-zinc-500'>
+                                                                        {formatCurrencyByMoneda(
+                                                                            s.precio_unitario,
+                                                                            monedaContrato,
+                                                                        )}{' '}
+                                                                        c/u
+                                                                    </div>
+                                                                </div>
+                                                                <div className='text-right text-zinc-500'>
+                                                                    <div>x{s.cantidad}</div>
+                                                                    <div className='text-xs'>
+                                                                        {formatCurrencyByMoneda(
+                                                                            s.cantidad *
+                                                                                s.precio_unitario,
+                                                                            monedaContrato,
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}
                                                 </>
+                                            )}
+                                        </div>
+                                        <div className='mt-3 border-t border-zinc-200 pt-3 text-right text-sm font-medium dark:border-zinc-700'>
+                                            Total servicios:{' '}
+                                            {formatCurrencyByMoneda(
+                                                totalPlanSeleccionado +
+                                                    totalServiciosSeleccionados,
+                                                monedaContrato,
                                             )}
                                         </div>
                                     </div>
@@ -913,14 +1000,44 @@ function CrearContratoDelCliente({
                                             <div
                                                 key={i}
                                                 className='flex items-center justify-between text-sm'>
-                                                <span>
-                                                    {getLicenciaNombre(lic.licencia_id)}
-                                                </span>
-                                                <span className='text-zinc-500'>
-                                                    {lic.cantidad} cupos
-                                                </span>
+                                                <div>
+                                                    <span>
+                                                        {getLicenciaNombre(lic.licencia_id)}
+                                                    </span>
+                                                    <div className='text-xs text-zinc-500'>
+                                                        {formatCurrencyByMoneda(
+                                                            lic.precio_unitario,
+                                                            (lic.tipo_moneda ||
+                                                                monedaContrato) as
+                                                                | 'CLP'
+                                                                | 'UF'
+                                                                | 'USD',
+                                                        )}{' '}
+                                                        c/u
+                                                    </div>
+                                                </div>
+                                                <div className='text-right text-zinc-500'>
+                                                    <div>{lic.cantidad} cupos</div>
+                                                    <div className='text-xs'>
+                                                        {formatCurrencyByMoneda(
+                                                            lic.cantidad * lic.precio_unitario,
+                                                            (lic.tipo_moneda ||
+                                                                monedaContrato) as
+                                                                | 'CLP'
+                                                                | 'UF'
+                                                                | 'USD',
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
+                                    </div>
+                                    <div className='mt-3 border-t border-zinc-200 pt-3 text-right text-sm font-medium dark:border-zinc-700'>
+                                        Total licencias:{' '}
+                                        {formatCurrencyByMoneda(
+                                            totalLicenciasSeleccionadas,
+                                            monedaContrato,
+                                        )}
                                     </div>
                                 </div>
                             )}

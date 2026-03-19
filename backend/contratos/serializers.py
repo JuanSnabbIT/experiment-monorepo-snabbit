@@ -1,17 +1,21 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
+from dateutil.relativedelta import relativedelta
 from contratos.models import (
     ContratoEmpresaCliente,
     EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
+    ContratoItemComercial,
     ContratoServicio,
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
     AcuerdoConfidencialidadContrato,
     Servicio,
+    ServicioCaracteristica,
     PlanServicio,
+    PlanServicioDetalle,
     CaracteristicaServicio,
     UsuarioVinculadoLicencia,
     PersonaLicenciataria,
@@ -32,33 +36,281 @@ class CaracteristicaServicioSerializer(serializers.ModelSerializer):
         model = CaracteristicaServicio
         fields = '__all__'
 
+
+class ServicioCaracteristicaConfigSerializer(serializers.Serializer):
+    caracteristica_id = serializers.PrimaryKeyRelatedField(
+        queryset=CaracteristicaServicio.objects.all(),
+        source='caracteristica',
+    )
+    modo = serializers.ChoiceField(choices=ServicioCaracteristica.MODO_CHOICES)
+    orden = serializers.IntegerField(required=False, min_value=0)
+
+
+class ServicioCaracteristicaSerializer(serializers.ModelSerializer):
+    caracteristica = CaracteristicaServicioSerializer(read_only=True)
+    caracteristica_id = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ServicioCaracteristica
+        fields = ['id', 'caracteristica_id', 'caracteristica', 'modo', 'orden']
+
+
 # Serializador para Servicio
 class ServicioSerializer(serializers.ModelSerializer):
-    caracteristicas = CaracteristicaServicioSerializer(many=True, read_only=True)
+    caracteristicas = serializers.SerializerMethodField()
+    alcance_caracteristicas = ServicioCaracteristicaSerializer(
+        source='alcance_items',
+        many=True,
+        read_only=True,
+    )
+    alcance_config = ServicioCaracteristicaConfigSerializer(many=True, write_only=True, required=False)
     caracteristicas_ids = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=CaracteristicaServicio.objects.all(),
-        write_only=True, required=False, source='caracteristicas',
+        many=True,
+        queryset=CaracteristicaServicio.objects.all(),
+        write_only=True,
+        required=False,
     )
     categoria_label = serializers.SerializerMethodField()
+    bloqueado_por_uso = serializers.SerializerMethodField()
+    requiere_nueva_version = serializers.SerializerMethodField()
+    incluye = serializers.SerializerMethodField()
+    no_incluye = serializers.SerializerMethodField()
 
     class Meta:
         model = Servicio
         fields = '__all__'
 
+    @staticmethod
+    def _sync_alcance(servicio, alcance_config):
+        if alcance_config is None:
+            return
+
+        ServicioCaracteristica.objects.filter(servicio=servicio).delete()
+
+        caracteristicas = []
+        incluye = []
+        no_incluye = []
+        for index, item in enumerate(alcance_config):
+            caracteristica = item['caracteristica']
+            modo = item['modo']
+            orden = item.get('orden', index)
+            ServicioCaracteristica.objects.create(
+                servicio=servicio,
+                caracteristica=caracteristica,
+                modo=modo,
+                orden=orden,
+            )
+            caracteristicas.append(caracteristica)
+            descripcion = (
+                f"{caracteristica.nombre}: {caracteristica.descripcion}"
+                if caracteristica.descripcion
+                else caracteristica.nombre
+            )
+            if modo == ServicioCaracteristica.MODO_INCLUYE:
+                incluye.append(descripcion)
+            else:
+                no_incluye.append(descripcion)
+
+        servicio.caracteristicas.set(caracteristicas)
+        servicio.incluye = "\n".join(incluye) or None
+        servicio.no_incluye = "\n".join(no_incluye) or None
+        servicio.save(update_fields=['incluye', 'no_incluye', 'fecha_modificacion'])
+
+    @classmethod
+    def clonar_alcance(cls, origen, destino):
+        alcance = [
+            {
+                'caracteristica': item.caracteristica,
+                'modo': item.modo,
+                'orden': item.orden,
+            }
+            for item in origen.alcance_items.select_related('caracteristica').all()
+        ]
+        if alcance:
+            cls._sync_alcance(destino, alcance)
+            return
+        if origen.caracteristicas.exists():
+            cls._sync_alcance(
+                destino,
+                [
+                    {
+                        'caracteristica': caracteristica,
+                        'modo': ServicioCaracteristica.MODO_INCLUYE,
+                        'orden': index,
+                    }
+                    for index, caracteristica in enumerate(origen.caracteristicas.all())
+                ],
+            )
+
+    def create(self, validated_data):
+        alcance_config = validated_data.pop('alcance_config', None)
+        caracteristicas_ids = validated_data.pop('caracteristicas_ids', None)
+        if alcance_config is None and caracteristicas_ids is not None:
+            alcance_config = [
+                {
+                    'caracteristica': caracteristica,
+                    'modo': ServicioCaracteristica.MODO_INCLUYE,
+                    'orden': index,
+                }
+                for index, caracteristica in enumerate(caracteristicas_ids)
+            ]
+        servicio = super().create(validated_data)
+        self._sync_alcance(servicio, alcance_config)
+        return servicio
+
+    def update(self, instance, validated_data):
+        alcance_config = validated_data.pop('alcance_config', None)
+        caracteristicas_ids = validated_data.pop('caracteristicas_ids', None)
+        if alcance_config is None and caracteristicas_ids is not None:
+            alcance_config = [
+                {
+                    'caracteristica': caracteristica,
+                    'modo': ServicioCaracteristica.MODO_INCLUYE,
+                    'orden': index,
+                }
+                for index, caracteristica in enumerate(caracteristicas_ids)
+            ]
+        servicio = super().update(instance, validated_data)
+        self._sync_alcance(servicio, alcance_config)
+        return servicio
+
+    def get_caracteristicas(self, obj):
+        items = obj.obtener_resumen_alcance()
+        caracteristicas = items['incluye'] + items['no_incluye']
+        if caracteristicas:
+            return CaracteristicaServicioSerializer(caracteristicas, many=True).data
+        return CaracteristicaServicioSerializer(obj.caracteristicas.all(), many=True).data
+
     def get_categoria_label(self, obj):
         return obj.get_categoria_display()
+
+    def get_incluye(self, obj):
+        return obj.construir_texto_alcance(ServicioCaracteristica.MODO_INCLUYE) or obj.incluye
+
+    def get_no_incluye(self, obj):
+        return obj.construir_texto_alcance(ServicioCaracteristica.MODO_NO_INCLUYE) or obj.no_incluye
+
+    def get_bloqueado_por_uso(self, obj):
+        return (
+            ContratoItemComercial.objects.filter(servicio_version=obj).exists()
+            or ContratoServicio.objects.filter(object_id=obj.pk, content_type__model='servicio').exists()
+            or PlanServicioDetalle.objects.filter(servicio_version=obj).exists()
+        )
+
+    def get_requiere_nueva_version(self, obj):
+        return self.get_bloqueado_por_uso(obj)
 
 # Serializador para PlanServicio
 class PlanServicioSerializer(serializers.ModelSerializer):
     servicios = ServicioSerializer(many=True, read_only=True)
+    detalles_servicio = serializers.SerializerMethodField()
     servicios_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Servicio.objects.all(),
         write_only=True, required=False, source='servicios',
     )
+    bloqueado_por_uso = serializers.SerializerMethodField()
+    requiere_nueva_version = serializers.SerializerMethodField()
+    alcance_heredado = serializers.SerializerMethodField()
+    alcance_conflictos = serializers.SerializerMethodField()
+    precio_sugerido_clp = serializers.SerializerMethodField()
+    precio_sugerido_uf = serializers.SerializerMethodField()
+    precio_sugerido_usd = serializers.SerializerMethodField()
+    incluye = serializers.SerializerMethodField()
+    no_incluye = serializers.SerializerMethodField()
 
     class Meta:
         model = PlanServicio
         fields = '__all__'
+
+    def create(self, validated_data):
+        servicios = list(validated_data.pop('servicios', []))
+        plan = super().create(validated_data)
+        self._guardar_detalles_servicio(plan, servicios)
+        return plan
+
+    def update(self, instance, validated_data):
+        servicios = validated_data.pop('servicios', None)
+        plan = super().update(instance, validated_data)
+        if servicios is not None:
+            plan.detalles_servicio.all().delete()
+            self._guardar_detalles_servicio(plan, list(servicios))
+        return plan
+
+    def _guardar_detalles_servicio(self, plan, servicios):
+        for orden, servicio in enumerate(servicios):
+            PlanServicioDetalle.objects.create(
+                plan=plan,
+                servicio_version=servicio,
+                orden=orden,
+                obligatorio=True,
+                cantidad_default=1,
+                veces_por_mes_default=getattr(servicio, 'veces_por_mes_default', 1) or 1,
+            )
+
+    def get_detalles_servicio(self, obj):
+        detalles = obj.detalles_servicio.select_related('servicio_version').all()
+        return PlanServicioDetalleSerializer(detalles, many=True).data
+
+    def _build_alcance_data(self, obj):
+        heredado = []
+        conflictos = []
+        for item in obj.obtener_items_alcance_resueltos():
+            caracteristica = CaracteristicaServicioSerializer(item['caracteristica']).data
+            incluye = sorted(item['incluye'])
+            no_incluye = sorted(item['no_incluye'])
+            if incluye and no_incluye:
+                conflictos.append(
+                    {
+                        'caracteristica': caracteristica,
+                        'servicios_incluye': incluye,
+                        'servicios_no_incluye': no_incluye,
+                    }
+                )
+                continue
+            heredado.append(
+                {
+                    'caracteristica': caracteristica,
+                    'modo': (
+                        ServicioCaracteristica.MODO_INCLUYE
+                        if incluye
+                        else ServicioCaracteristica.MODO_NO_INCLUYE
+                    ),
+                    'servicios': incluye or no_incluye,
+                }
+            )
+        return heredado, conflictos
+
+    def get_alcance_heredado(self, obj):
+        heredado, _conflictos = self._build_alcance_data(obj)
+        return heredado
+
+    def get_alcance_conflictos(self, obj):
+        _heredado, conflictos = self._build_alcance_data(obj)
+        return conflictos
+
+    def get_precio_sugerido_clp(self, obj):
+        return sum((detalle.servicio_version.precio_clp or 0) for detalle in obj.detalles_servicio.all())
+
+    def get_precio_sugerido_uf(self, obj):
+        return sum((detalle.servicio_version.precio_uf or 0) for detalle in obj.detalles_servicio.all())
+
+    def get_precio_sugerido_usd(self, obj):
+        return sum((detalle.servicio_version.precio_usd or 0) for detalle in obj.detalles_servicio.all())
+
+    def get_incluye(self, obj):
+        return obj.construir_texto_alcance(ServicioCaracteristica.MODO_INCLUYE) or obj.incluye
+
+    def get_no_incluye(self, obj):
+        return obj.construir_texto_alcance(ServicioCaracteristica.MODO_NO_INCLUYE) or obj.no_incluye
+
+    def get_bloqueado_por_uso(self, obj):
+        return (
+            ContratoItemComercial.objects.filter(plan_version=obj).exists()
+            or ContratoServicio.objects.filter(object_id=obj.pk, content_type__model='planservicio').exists()
+        )
+
+    def get_requiere_nueva_version(self, obj):
+        return self.get_bloqueado_por_uso(obj)
 
 # Serializador para Visita
 class VisitaSerializer(serializers.ModelSerializer):
@@ -110,6 +362,48 @@ class CondicionEspecialSerializer(serializers.ModelSerializer):
         model = CondicionEspecial
         fields = '__all__'
 
+
+class PlanServicioDetalleSerializer(serializers.ModelSerializer):
+    servicio_version = ServicioSerializer(read_only=True)
+
+    class Meta:
+        model = PlanServicioDetalle
+        fields = '__all__'
+
+
+class ContratoItemComercialSerializer(serializers.ModelSerializer):
+    servicio_version = ServicioSerializer(read_only=True)
+    plan_version = PlanServicioSerializer(read_only=True)
+    nombre = serializers.CharField(source='snapshot_nombre', read_only=True)
+    subtotal = serializers.SerializerMethodField()
+    tipo_item = serializers.CharField(source='tipo_origen', read_only=True)
+    servicio_generico = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContratoItemComercial
+        fields = '__all__'
+
+    def get_subtotal(self, obj):
+        if obj.forma_pago == 'pago_unico':
+            return float(obj.total_pago_unico)
+        if obj.forma_pago == 'anual':
+            return float(obj.total_anual)
+        return float(obj.total_mensual)
+
+    def get_servicio_generico(self, obj):
+        if obj.tipo_origen == 'plan' and obj.plan_version_id:
+            return PlanServicioSerializer(obj.plan_version).data
+        if obj.tipo_origen == 'servicio' and obj.servicio_version_id:
+            return ServicioSerializer(obj.servicio_version).data
+        return {
+            'id': obj.catalogo_version_id,
+            'nombre': obj.snapshot_nombre,
+            'descripcion': obj.snapshot_descripcion,
+            'incluye': obj.snapshot_incluye,
+            'no_incluye': obj.snapshot_no_incluye,
+            'clausulas_especiales': obj.snapshot_clausulas,
+        }
+
 # Serializador para ContratoServicio
 class ContratoServicioSerializer(serializers.ModelSerializer):
     # Mostramos en forma anidada el servicio o plan relacionado según el content_type
@@ -117,11 +411,16 @@ class ContratoServicioSerializer(serializers.ModelSerializer):
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     nombre = serializers.SerializerMethodField()
 
+    subtotal = serializers.SerializerMethodField()
+    tipo_item = serializers.SerializerMethodField()
+
     class Meta:
         model = ContratoServicio
         fields = '__all__'
 
     def get_servicio_generico(self, obj):
+        if obj.item_comercial_id:
+            return ContratoItemComercialSerializer(obj.item_comercial).data.get('servicio_generico')
         if obj.content_type.model == 'servicio':
             return ServicioSerializer(obj.servicio_generico).data
         elif obj.content_type.model == 'planservicio':
@@ -129,10 +428,24 @@ class ContratoServicioSerializer(serializers.ModelSerializer):
         return None
 
     def get_nombre(self, obj):
+        if obj.item_comercial_id:
+            return obj.item_comercial.snapshot_nombre
         if obj.servicio_generico:
             return obj.servicio_generico.nombre
         else:
             return ""
+
+    def get_subtotal(self, obj):
+        if obj.item_comercial_id:
+            return float(obj.item_comercial.total_para_forma_pago_contractual)
+        return float(obj.precio_unitario) * obj.cantidad
+
+    def get_tipo_item(self, obj):
+        if obj.item_comercial_id:
+            return obj.item_comercial.tipo_origen
+        if obj.content_type_id:
+            return obj.content_type.model
+        return ""
 
 # Serializador para ContratoVisita
 class ContratoVisitaSerializer(serializers.ModelSerializer):
@@ -407,20 +720,40 @@ class ContratoCondicionEspecialSerializer(serializers.ModelSerializer):
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     titulo_condicion = serializers.SerializerMethodField()
     descripcion_condicion = serializers.SerializerMethodField()
+    nombre_condicion = serializers.SerializerMethodField()
+    detalle_condicion = serializers.SerializerMethodField()
+    multa_condicion = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoCondicionEspecial
         fields = '__all__'
 
     def get_titulo_condicion(self, obj):
-        if obj.condicion:
-            return obj.condicion.titulo
-        return obj.texto or ''
+        return self.get_nombre_condicion(obj)
 
     def get_descripcion_condicion(self, obj):
+        return self.get_detalle_condicion(obj)
+
+    def get_nombre_condicion(self, obj):
+        if obj.titulo_personalizado:
+            return obj.titulo_personalizado
+        if obj.condicion:
+            return obj.condicion.titulo
+        return 'Condicion especial'
+
+    def get_detalle_condicion(self, obj):
+        if obj.detalle_personalizado:
+            return obj.detalle_personalizado
         if obj.condicion:
             return obj.condicion.descripcion
         return obj.texto or ''
+
+    def get_multa_condicion(self, obj):
+        if obj.multa_incumplimiento:
+            return float(obj.multa_incumplimiento)
+        if obj.condicion_id:
+            return float(obj.condicion.multa_incumplimiento)
+        return 0
         
 
 # ── Serializers ligeros para endpoints "por usuario" ──
@@ -488,16 +821,65 @@ class AcuerdoConfidencialidadContratoSerializer(serializers.ModelSerializer):
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
     titulo_acuerdo = serializers.SerializerMethodField()
     contenido_acuerdo = serializers.SerializerMethodField()
+    nombre_usuario = serializers.SerializerMethodField()
+    correo_usuario = serializers.SerializerMethodField()
+    es_externo = serializers.SerializerMethodField()
 
     class Meta:
         model = AcuerdoConfidencialidadContrato
         fields = '__all__'
 
     def get_titulo_acuerdo(self, obj):
-        return obj.acuerdo_base.titulo
+        return obj.acuerdo_base.titulo if obj.acuerdo_base_id else ''
 
     def get_contenido_acuerdo(self, obj):
-        return obj.acuerdo_base.contenido
+        return obj.acuerdo_base.contenido if obj.acuerdo_base_id else ''
+
+    def get_nombre_usuario(self, obj):
+        return obj.nombre_usuario
+
+    def get_correo_usuario(self, obj):
+        return obj.correo_usuario
+
+    def get_es_externo(self, obj):
+        return obj.es_externo
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        usuario_empresa = attrs.get('firma_usuario_empresa') or getattr(self.instance, 'firma_usuario_empresa', None)
+        nombre_firmante = attrs.get('nombre_firmante') or getattr(self.instance, 'nombre_firmante', None)
+        correo_firmante = attrs.get('correo_firmante') or getattr(self.instance, 'correo_firmante', None)
+
+        if not usuario_empresa and not correo_firmante:
+            raise serializers.ValidationError(
+                {'firma_usuario_empresa': 'Debe indicar un usuario interno o un firmante externo.'}
+            )
+        if not usuario_empresa and not nombre_firmante:
+            raise serializers.ValidationError(
+                {'nombre_firmante': 'Debe indicar el nombre del firmante externo.'}
+            )
+
+        periodicidad = attrs.get('periodicidad_meses')
+        if periodicidad is not None and periodicidad <= 0:
+            raise serializers.ValidationError(
+                {'periodicidad_meses': 'La periodicidad debe ser mayor que cero.'}
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        vigencia_desde = validated_data.get("vigencia_desde")
+        periodicidad = validated_data.get("periodicidad_meses")
+        if vigencia_desde and periodicidad and not validated_data.get("vigencia_hasta"):
+            validated_data["vigencia_hasta"] = vigencia_desde + relativedelta(months=periodicidad)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        vigencia_desde = validated_data.get("vigencia_desde", instance.vigencia_desde)
+        periodicidad = validated_data.get("periodicidad_meses", instance.periodicidad_meses)
+        if vigencia_desde and periodicidad and "vigencia_hasta" not in validated_data:
+            validated_data["vigencia_hasta"] = vigencia_desde + relativedelta(months=periodicidad)
+        return super().update(instance, validated_data)
 
 # Serializador para UsuarioVinculadoContrato
 class UsuarioVinculadoContratoSerializer(serializers.ModelSerializer):
@@ -585,6 +967,7 @@ class UsuarioVinculadoContratoSerializer(serializers.ModelSerializer):
 # Serializador para ContratoEmpresaCliente
 class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     # Mostramos los datos de las relaciones a través de inlines de solo lectura.
+    items_comerciales = ContratoItemComercialSerializer(many=True, read_only=True)
     contrato_servicios = ContratoServicioSerializer(many=True, read_only=True)
     contrato_visitas = ContratoVisitaSerializer(many=True, read_only=True)
     contrato_licencias = ContratoLicenciaSerializer(many=True, read_only=True)
@@ -601,6 +984,10 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     ultimo_envio_aprobacion = serializers.SerializerMethodField()
     ultimo_envio_firma = serializers.SerializerMethodField()
     ultimo_comentario_cliente = serializers.SerializerMethodField()
+    total_contrato = serializers.SerializerMethodField()
+    resumen_comercial = serializers.SerializerMethodField()
+    contrato_anterior_detalle = serializers.SerializerMethodField()
+    renovaciones_detalle = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoEmpresaCliente
@@ -636,7 +1023,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         if not obj.vinculos_contrato.exists():
             return False
         # Verifica que exista al menos un servicio asociado al contrato
-        if not obj.contrato_servicios.exists():
+        if not obj.items_comerciales.exists() and not obj.contrato_servicios.exists():
             return False
         return True
 
@@ -698,6 +1085,54 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             aprobado=False,
         ).order_by('-fecha_respuesta', '-id').first()
         return envio.comentario_respuesta if envio else None
+
+    def get_total_contrato(self, obj):
+        if obj.items_comerciales.exists():
+            total_servicios = float(obj.total_items_comerciales)
+        else:
+            total_servicios = sum(
+                float(servicio.precio_unitario) * servicio.cantidad
+                for servicio in obj.contrato_servicios.all()
+            )
+        total_licencias = sum(
+            float(licencia.precio_unitario) * licencia.cantidad
+            for licencia in obj.contrato_licencias.all()
+        )
+        return total_servicios + total_licencias
+
+    def get_contrato_anterior_detalle(self, obj):
+        if not obj.contrato_anterior:
+            return None
+        return {
+            "id": obj.contrato_anterior.id,
+            "nombre": obj.contrato_anterior.nombre,
+            "estado": obj.contrato_anterior.estado,
+        }
+
+    def get_renovaciones_detalle(self, obj):
+        renovaciones = obj.renovaciones.all().order_by("-fecha_creacion")
+        return [
+            {"id": r.id, "nombre": r.nombre, "estado": r.estado}
+            for r in renovaciones
+        ]
+
+    def get_resumen_comercial(self, obj):
+        total_mensual = sum(float(item.total_mensual) for item in obj.items_comerciales.all())
+        total_anual = sum(float(item.total_anual) for item in obj.items_comerciales.all())
+        total_pago_unico = sum(float(item.total_pago_unico) for item in obj.items_comerciales.all())
+        total_licencias = sum(
+            float(licencia.precio_unitario) * licencia.cantidad
+            for licencia in obj.contrato_licencias.all()
+        )
+        return {
+            "moneda": obj.moneda_cobro,
+            "forma_pago_contractual": obj.forma_pago_contractual,
+            "total_mensual": total_mensual,
+            "total_anual": total_anual,
+            "total_pago_unico": total_pago_unico,
+            "total_licencias": total_licencias,
+            "total_contrato": self.get_total_contrato(obj),
+        }
 
 class EnvioContratoFirmaUsuarioSerializer(serializers.ModelSerializer):
     class Meta:

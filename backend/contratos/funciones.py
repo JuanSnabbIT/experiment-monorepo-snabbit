@@ -1,10 +1,43 @@
+import base64
+import binascii
+import html
 from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+
+from reportlab.platypus import (
+    Image,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+
+
+def _safe_paragraph_text(value):
+    return html.escape((value or "")).replace("\n", "<br/>")
+
+
+def _build_signature_image(firma_base64):
+    if not firma_base64:
+        return Spacer(1, 36)
+
+    try:
+        raw_value = firma_base64.split(",", 1)[1] if "," in firma_base64 else firma_base64
+        image_bytes = base64.b64decode(raw_value, validate=True)
+    except (ValueError, TypeError, binascii.Error):
+        return Spacer(1, 36)
+
+    image = Image(BytesIO(image_bytes))
+    image.drawWidth = 2.2 * inch
+    image.drawHeight = 0.9 * inch
+    image.hAlign = "CENTER"
+    return image
 
 
 def generar_contrato_en_memoria(nombre_archivo_pdf, datos_cliente, datos_contrato):
@@ -137,7 +170,7 @@ def generar_contrato_en_memoria(nombre_archivo_pdf, datos_cliente, datos_contrat
     valores_html = f"""
         <b>2.- TIPO DE PLAN Y VALORES</b><br/>
         Asesoría externa tecnológica en sistemas e infraestructura, incluye:<br/>
-        {datos_contrato['descripcion_plan']}<br/><br/>
+        {_safe_paragraph_text(datos_contrato['descripcion_plan'])}<br/><br/>
         <b>Valor fijo por asesoría mensual:</b> ${datos_contrato['valor_mensual']}<br/>
         Factura exenta por servicios.<br/><br/>
     """
@@ -147,13 +180,13 @@ def generar_contrato_en_memoria(nombre_archivo_pdf, datos_cliente, datos_contrat
     # ============= CLAUSULAS / DESCRIPCIÓN =============
     clausulas_html = f"""
         <b>3.- DESCRIPCIÓN DETALLADA DE ASESORÍA</b><br/>
-        {datos_contrato['descripcion_asesoria']}<br/><br/>
+        {_safe_paragraph_text(datos_contrato['descripcion_asesoria'])}<br/><br/>
 
         <b>4.- FORMA Y FECHA DE PAGO</b><br/>
-        {datos_contrato['forma_pago']}<br/><br/>
+        {_safe_paragraph_text(datos_contrato['forma_pago'])}<br/><br/>
 
         <b>5.- CONDICIONES GENERALES</b><br/>
-        {datos_contrato['condiciones_generales']}<br/><br/>
+        {_safe_paragraph_text(datos_contrato['condiciones_generales'])}<br/><br/>
     """
     clausulas_parrafo = Paragraph(clausulas_html, estilo_parrafo)
     elementos.append(clausulas_parrafo)
@@ -169,24 +202,60 @@ def generar_contrato_en_memoria(nombre_archivo_pdf, datos_cliente, datos_contrat
 
     # Para simplicidad, generamos párrafos con cada tarea. Podrías usar tablas anidadas u otro estilo.
     for tarea in datos_contrato['lista_tareas']:
-        elementos.append(Paragraph(f"- {tarea}", estilo_parrafo))
+        elementos.append(Paragraph(f"- {_safe_paragraph_text(tarea)}", estilo_parrafo))
 
     elementos.append(Spacer(1, 12))
+
+    acuerdos_confidencialidad = datos_contrato.get('acuerdos_confidencialidad') or []
+    if acuerdos_confidencialidad:
+        elementos.append(PageBreak())
+        elementos.append(
+            Paragraph("<b>6.- ACUERDO DE CONFIDENCIALIDAD</b>", estilo_parrafo),
+        )
+        elementos.append(Spacer(1, 6))
+        for index, acuerdo in enumerate(acuerdos_confidencialidad, start=1):
+            titulo = _safe_paragraph_text(acuerdo.get('titulo'))
+            contenido = _safe_paragraph_text(acuerdo.get('contenido'))
+            elementos.append(
+                Paragraph(
+                    f"<b>{index}. {titulo}</b><br/>{contenido}",
+                    estilo_parrafo,
+                ),
+            )
+            elementos.append(Spacer(1, 6))
 
     # ============= FIRMAS =============
     # Tabla para firmas
     data_firmas = [
-        [Paragraph("<b>__________________________</b>", estilo_tabla_celda),
-         Paragraph("<b>__________________________</b>", estilo_tabla_celda)],
-        [Paragraph("Firma y Timbre del Cliente", estilo_tabla_celda),
-         Paragraph(f"{datos_contrato['proveedor_representante']}", estilo_tabla_celda)]
+        [
+            _build_signature_image(datos_contrato.get('firma_cliente_b64')),
+            _build_signature_image(datos_contrato.get('firma_empresa_b64')),
+        ],
+        [
+            Paragraph("<b>__________________________</b>", estilo_tabla_celda),
+            Paragraph("<b>__________________________</b>", estilo_tabla_celda),
+        ],
+        [
+            Paragraph("Firma y Timbre del Cliente", estilo_tabla_celda),
+            Paragraph("Firma de la Empresa Prestadora", estilo_tabla_celda),
+        ],
+        [
+            Paragraph(
+                _safe_paragraph_text(datos_contrato.get('cliente_firmante', '')),
+                estilo_tabla_celda,
+            ),
+            Paragraph(
+                _safe_paragraph_text(datos_contrato['proveedor_representante']),
+                estilo_tabla_celda,
+            ),
+        ],
     ]
 
     tabla_firmas = Table(data_firmas, colWidths=[3*inch, 3*inch])
     tabla_firmas.setStyle(TableStyle([
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 30),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 18),
     ]))
 
     elementos.append(tabla_firmas)

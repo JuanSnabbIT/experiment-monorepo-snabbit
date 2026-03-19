@@ -1,5 +1,4 @@
-# Ignorar todas las migraciones de todas las aplicaciones
-**/migrations/
+# Las migraciones deben versionarse
 ENV/
 # Ignorar la base de datos SQLite
 *.sqlite3

@@ -1,4 +1,6 @@
-﻿import Textarea from '@/components/form/Textarea';
+import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
+import Textarea from '@/components/form/Textarea';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
@@ -9,37 +11,69 @@ import { toast } from 'react-toastify';
 import { buildUpdatePayload } from './contrato.helpers';
 import { ITabCondicionesProps } from './contrato.types';
 
+interface INuevaCondicionState {
+    nombre: string;
+    detalle: string;
+    multa: string;
+}
+
+const INITIAL_STATE: INuevaCondicionState = {
+    nombre: '',
+    detalle: '',
+    multa: '',
+};
+
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+        maximumFractionDigits: 0,
+    }).format(value);
+
 const TabCondiciones = ({
     detalleContratoEmpresaCliente,
     puedeEditar,
 }: ITabCondicionesProps) => {
     const [agregando, setAgregando] = useState(false);
-    const [textoCondicion, setTextoCondicion] = useState('');
+    const [nuevaCondicion, setNuevaCondicion] = useState<INuevaCondicionState>(INITIAL_STATE);
     const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
 
+    const resetForm = () => {
+        setNuevaCondicion(INITIAL_STATE);
+        setAgregando(false);
+    };
+
     const handleAgregar = async () => {
-        if (textoCondicion.trim() === '') {
-            toast.error('Ingrese el texto de la condición', {
-                toastId: 'condicion-texto-vacio',
+        const nombre = nuevaCondicion.nombre.trim();
+        const detalle = nuevaCondicion.detalle.trim();
+
+        if (!nombre && !detalle) {
+            toast.error('Ingresa al menos un nombre o un detalle para la condicion.', {
+                toastId: 'condicion-vacia',
             });
             return;
         }
+
         try {
             const payload = buildUpdatePayload(detalleContratoEmpresaCliente, {
                 condiciones_especiales: [
                     ...detalleContratoEmpresaCliente.contrato_condiciones_especiales.map((c) => ({
                         id: c.id,
                     })),
-                    { texto: textoCondicion.trim() },
+                    {
+                        texto: detalle || nombre,
+                        nombre: nombre || 'Condicion especial',
+                        detalle: detalle || nombre,
+                        multa: Number(nuevaCondicion.multa || 0),
+                    },
                 ],
             });
             await updateContrato({
                 id: detalleContratoEmpresaCliente.id,
                 data: payload,
             }).unwrap();
-            setTextoCondicion('');
-            setAgregando(false);
-            toast.success('Condición agregada', { autoClose: 1000 });
+            resetForm();
+            toast.success('Condicion agregada', { autoClose: 1000 });
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
@@ -57,7 +91,7 @@ const TabCondiciones = ({
                 id: detalleContratoEmpresaCliente.id,
                 data: payload,
             }).unwrap();
-            toast.success('Condición eliminada', { autoClose: 1000 });
+            toast.success('Condicion eliminada', { autoClose: 1000 });
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
@@ -71,88 +105,140 @@ const TabCondiciones = ({
                 </CardHeaderChild>
                 <CardHeaderChild>
                     {puedeEditar && (
-                        <Tooltip text='Agregar Condición'>
+                        <Tooltip text='Agregar condicion especial'>
                             <Button
                                 variant='outline'
                                 color='blue'
                                 icon='HeroPlus'
                                 className='text-blue-500'
-                                onClick={() => setAgregando(!agregando)}>
+                                onClick={() => setAgregando((prev) => !prev)}>
                                 Agregar
                             </Button>
                         </Tooltip>
                     )}
                 </CardHeaderChild>
             </CardHeader>
-            <CardBody className='p-4'>
-                <div className='flex flex-col'>
-                    {agregando && (
-                        <div className='mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 p-3 dark:border-blue-800'>
-                            <Textarea
-                                name='texto_condicion'
-                                placeholder='Escriba la condición especial...'
-                                value={textoCondicion}
-                                onChange={(e) => setTextoCondicion(e.target.value)}
-                                rows={3}
-                            />
-                            <div className='flex justify-end gap-2'>
-                                <Button
-                                    icon='HeroXMark'
-                                    color='red'
-                                    size='sm'
-                                    onClick={() => {
-                                        setAgregando(false);
-                                        setTextoCondicion('');
-                                    }}>
-                                    Cancelar
-                                </Button>
-                                <Button
-                                    icon='HeroCheck'
-                                    variant='solid'
-                                    color='emerald'
-                                    size='sm'
-                                    isLoading={guardando}
-                                    onClick={handleAgregar}>
-                                    Guardar
-                                </Button>
+            <CardBody className='space-y-4 p-4'>
+                {agregando && (
+                    <div className='grid gap-4 rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/10'>
+                        <div className='grid gap-4 lg:grid-cols-2'>
+                            <div>
+                                <Label htmlFor='condicion-nombre'>Nombre</Label>
+                                <Input
+                                    id='condicion-nombre'
+                                    name='condicion-nombre'
+                                    placeholder='Ej. SLA reforzado'
+                                    value={nuevaCondicion.nombre}
+                                    onChange={(e) =>
+                                        setNuevaCondicion((prev) => ({
+                                            ...prev,
+                                            nombre: e.target.value,
+                                        }))
+                                    }
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor='condicion-multa'>Multa por incumplimiento</Label>
+                                <Input
+                                    id='condicion-multa'
+                                    name='condicion-multa'
+                                    type='number'
+                                    min='0'
+                                    placeholder='0'
+                                    value={nuevaCondicion.multa}
+                                    onChange={(e) =>
+                                        setNuevaCondicion((prev) => ({
+                                            ...prev,
+                                            multa: e.target.value,
+                                        }))
+                                    }
+                                />
                             </div>
                         </div>
-                    )}
-                    {detalleContratoEmpresaCliente.contrato_condiciones_especiales.length > 0 ? (
-                        detalleContratoEmpresaCliente.contrato_condiciones_especiales.map(
-                            (condicion, index) => (
-                                <div
-                                    className='flex items-start justify-between gap-2 border-b border-zinc-200 px-2 py-3 last:border-b-0 dark:border-zinc-700'
-                                    key={condicion.id ?? index}>
-                                    <div className='flex-1'>
-                                        <div className='font-semibold'>
-                                            {condicion.titulo_condicion}
-                                        </div>
-                                        {condicion.descripcion_condicion &&
-                                            condicion.descripcion_condicion !==
-                                                condicion.titulo_condicion && (
-                                                <div className='mt-1 text-sm text-zinc-500'>
-                                                    {condicion.descripcion_condicion}
+                        <div>
+                            <Label htmlFor='condicion-detalle'>Detalle</Label>
+                            <Textarea
+                                id='condicion-detalle'
+                                name='condicion-detalle'
+                                placeholder='Describe el alcance, excepciones o compromiso de esta condicion.'
+                                value={nuevaCondicion.detalle}
+                                onChange={(e) =>
+                                    setNuevaCondicion((prev) => ({
+                                        ...prev,
+                                        detalle: e.target.value,
+                                    }))
+                                }
+                                rows={4}
+                            />
+                        </div>
+                        <div className='flex flex-wrap justify-end gap-2'>
+                            <Button icon='HeroXMark' color='red' size='sm' onClick={resetForm}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                icon='HeroCheck'
+                                variant='solid'
+                                color='emerald'
+                                size='sm'
+                                isLoading={guardando}
+                                onClick={handleAgregar}>
+                                Guardar condicion
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {detalleContratoEmpresaCliente.contrato_condiciones_especiales.length > 0 ? (
+                    <div className='space-y-3'>
+                        {detalleContratoEmpresaCliente.contrato_condiciones_especiales.map(
+                            (condicion) => {
+                                const multa = Number(condicion.multa_condicion || 0);
+                                return (
+                                    <div
+                                        className='rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800'
+                                        key={condicion.id}>
+                                        <div className='flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between'>
+                                            <div className='space-y-2'>
+                                                <div className='flex flex-wrap items-center gap-2'>
+                                                    <div className='text-base font-semibold text-zinc-900 dark:text-zinc-50'>
+                                                        {condicion.nombre_condicion ||
+                                                            condicion.titulo_condicion}
+                                                    </div>
+                                                    {multa > 0 && (
+                                                        <span className='rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 dark:bg-red-950/30 dark:text-red-300'>
+                                                            Multa: {formatCurrency(multa)}
+                                                        </span>
+                                                    )}
                                                 </div>
+                                                <p className='whitespace-pre-wrap text-sm leading-6 text-zinc-600 dark:text-zinc-300'>
+                                                    {condicion.detalle_condicion ||
+                                                        condicion.descripcion_condicion ||
+                                                        'Sin detalle adicional.'}
+                                                </p>
+                                            </div>
+                                            {puedeEditar && (
+                                                <Tooltip text='Eliminar condicion'>
+                                                    <Button
+                                                        color='red'
+                                                        icon='HeroTrash'
+                                                        size='sm'
+                                                        onClick={() =>
+                                                            handleEliminar(condicion.id)
+                                                        }
+                                                    />
+                                                </Tooltip>
                                             )}
+                                        </div>
                                     </div>
-                                    {puedeEditar && (
-                                        <Tooltip text='Eliminar condición'>
-                                            <Button
-                                                color='red'
-                                                icon='HeroTrash'
-                                                size='sm'
-                                                onClick={() => handleEliminar(condicion.id)}
-                                            />
-                                        </Tooltip>
-                                    )}
-                                </div>
-                            ),
-                        )
-                    ) : (
-                        <div className='text-sm text-zinc-500'>Sin Condiciones</div>
-                    )}
-                </div>
+                                );
+                            },
+                        )}
+                    </div>
+                ) : (
+                    <div className='rounded-2xl border border-dashed border-zinc-300 px-4 py-6 text-sm text-zinc-500 dark:border-zinc-700'>
+                        Sin condiciones especiales registradas.
+                    </div>
+                )}
             </CardBody>
         </Card>
     );

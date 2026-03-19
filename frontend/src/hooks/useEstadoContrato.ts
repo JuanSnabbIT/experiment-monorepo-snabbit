@@ -38,7 +38,7 @@ export const useEstadoContrato = (
         const transiciones: Record<string, string[]> = {
             borrador: ['en_aprobacion_cliente'],
             cambios_solicitados: ['en_aprobacion_cliente'],
-            en_aprobacion_cliente: ['aprobado_cliente', 'cambios_solicitados'],
+            en_aprobacion_cliente: ['aprobado_cliente', 'cambios_solicitados', 'rechazado_cliente'],
             aprobado_cliente: ['en_firma'],
             en_firma: ['activo'],
             activo: ['suspendido', 'finalizado'],
@@ -46,14 +46,16 @@ export const useEstadoContrato = (
         };
 
         const estadosPermitidos = transiciones[estado] || [];
-        const esEstadoTerminal = estado === 'finalizado';
+        const esEstadoTerminal = ['finalizado', 'rechazado_cliente'].includes(estado);
         const puedeEditar = ['borrador', 'cambios_solicitados'].includes(estado);
-        const puedeRenovar = ['activo', 'suspendido', 'finalizado'].includes(estado);
+        const puedeRenovar = ['activo', 'suspendido', 'finalizado', 'rechazado_cliente'].includes(estado);
 
         let mensajeBloqueo: string | null = null;
         if (esEstadoTerminal) {
             mensajeBloqueo =
-                'El contrato esta finalizado, no se pueden realizar modificaciones';
+                estado === 'rechazado_cliente'
+                    ? 'El contrato fue rechazado definitivamente por el cliente y no admite modificaciones.'
+                    : 'El contrato esta finalizado, no se pueden realizar modificaciones';
         } else if (['en_aprobacion_cliente', 'aprobado_cliente', 'en_firma'].includes(estado)) {
             mensajeBloqueo =
                 'El contrato esta en revision del cliente o en firma, por lo que queda bloqueado para edicion.';

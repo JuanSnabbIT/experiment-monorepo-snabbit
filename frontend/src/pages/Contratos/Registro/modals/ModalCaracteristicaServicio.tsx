@@ -4,7 +4,12 @@ import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
+import Modal, {
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
+} from '@/components/ui/Modal';
 import { ICaracteristicaServicio } from '@/interface/contrato.interface';
 import {
     useCreateCaracteristicaServicioMutation,
@@ -20,20 +25,22 @@ interface IModalCaracteristicaServicioProps {
     isOpen: boolean;
     setIsOpen: Dispatch<SetStateAction<boolean>>;
     caracteristica?: ICaracteristicaServicio;
+    onSaved?: (caracteristica: ICaracteristicaServicio) => void;
 }
 
 const validationSchema = Yup.object({
     nombre: Yup.string()
-        .min(2, 'Mínimo 2 caracteres')
-        .max(255, 'Máximo 255 caracteres')
+        .min(2, 'Minimo 2 caracteres')
+        .max(255, 'Maximo 255 caracteres')
         .required('El nombre es requerido'),
-    descripcion: Yup.string().max(1000, 'Máximo 1000 caracteres').nullable(),
+    descripcion: Yup.string().max(1000, 'Maximo 1000 caracteres').nullable(),
 });
 
 const ModalCaracteristicaServicio = ({
     isOpen,
     setIsOpen,
     caracteristica,
+    onSaved,
 }: IModalCaracteristicaServicioProps) => {
     const isEditing = !!caracteristica;
     const [createCaracteristica] = useCreateCaracteristicaServicioMutation();
@@ -48,16 +55,18 @@ const ModalCaracteristicaServicio = ({
         validationSchema,
         onSubmit: async (values) => {
             try {
-                if (isEditing) {
-                    await updateCaracteristica({
+                let savedCaracteristica: ICaracteristicaServicio;
+                if (isEditing && caracteristica) {
+                    savedCaracteristica = await updateCaracteristica({
                         id: caracteristica.id,
                         data: values,
                     }).unwrap();
-                    toast.success('Característica actualizada correctamente');
+                    toast.success('Caracteristica actualizada correctamente');
                 } else {
-                    await createCaracteristica(values).unwrap();
-                    toast.success('Característica creada correctamente');
+                    savedCaracteristica = await createCaracteristica(values).unwrap();
+                    toast.success('Caracteristica creada correctamente');
                 }
+                onSaved?.(savedCaracteristica);
                 setIsOpen(false);
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
@@ -69,13 +78,13 @@ const ModalCaracteristicaServicio = ({
         if (!isOpen) {
             formik.resetForm();
         }
-    }, [isOpen]);
+    }, [formik, isOpen]);
 
     return (
         <Modal isStaticBackdrop isOpen={isOpen} setIsOpen={setIsOpen}>
             <ModalHeader>
                 <Badge className='text-xl'>
-                    {isEditing ? 'Editar Característica' : 'Crear Característica'}
+                    {isEditing ? 'Editar Caracteristica' : 'Crear Caracteristica'}
                 </Badge>
             </ModalHeader>
             <ModalBody>
@@ -89,7 +98,7 @@ const ModalCaracteristicaServicio = ({
                             <Input
                                 id='nombre'
                                 name='nombre'
-                                placeholder='Nombre de la característica'
+                                placeholder='Nombre de la caracteristica'
                                 value={formik.values.nombre}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
@@ -97,7 +106,7 @@ const ModalCaracteristicaServicio = ({
                         </Validation>
                     </div>
                     <div>
-                        <Label htmlFor='descripcion'>Descripción</Label>
+                        <Label htmlFor='descripcion'>Descripcion</Label>
                         <Validation
                             isValid={formik.isValid}
                             isTouched={formik.touched.descripcion}
@@ -105,7 +114,7 @@ const ModalCaracteristicaServicio = ({
                             <Textarea
                                 id='descripcion'
                                 name='descripcion'
-                                placeholder='Descripción (opcional)'
+                                placeholder='Descripcion opcional'
                                 value={formik.values.descripcion}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}

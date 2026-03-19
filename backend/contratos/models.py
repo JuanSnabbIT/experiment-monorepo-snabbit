@@ -1,51 +1,81 @@
-from django.db import models
-from core.models import ModeloBase, ModeloBaseHistorico
-from .estados_modelo import *	
+from datetime import date
+from decimal import Decimal
+import uuid
+
+from dateutil.relativedelta import relativedelta
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from datetime import date
-from dateutil.relativedelta import relativedelta
-import uuid
+from django.db import models
+
+from core.models import ModeloBase, ModeloBaseHistorico
+
+from .estados_modelo import *
+
 
 class ContratoEmpresaCliente(ModeloBaseHistorico):
-    empresa_prestadora = models.ForeignKey("empresas.Empresa", related_name="contratos_como_prestadora", on_delete=models.CASCADE)
-    empresa_cliente = models.ForeignKey("empresas.Empresa", related_name="contratos_como_cliente", on_delete=models.CASCADE)
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        related_name="contratos_como_prestadora",
+        on_delete=models.CASCADE,
+    )
+    empresa_cliente = models.ForeignKey(
+        "empresas.Empresa",
+        related_name="contratos_como_cliente",
+        on_delete=models.CASCADE,
+    )
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(blank=True, null=True)
-    estado = models.CharField(max_length=30, choices=ESTADOS_CONTRATO, default='borrador')
+    estado = models.CharField(max_length=30, choices=ESTADOS_CONTRATO, default="borrador")
     observaciones = models.TextField(blank=True, null=True)
     nombre = models.CharField(max_length=100)
-    tipo = models.CharField(max_length=20, choices=TIPO_CONTRATO, default='servicios')
-    dia_facturacion = models.PositiveSmallIntegerField(
-        blank=True,
+    tipo = models.CharField(max_length=20, choices=TIPO_CONTRATO, default="servicios")
+    moneda_cobro = models.CharField(max_length=3, choices=TIPO_MONEDA_LICENCIA, default="USD")
+    forma_pago_contractual = models.CharField(
+        max_length=20,
+        choices=FORMAS_PAGO_COMERCIALES,
+        default="mensual",
+    )
+    dia_facturacion = models.PositiveSmallIntegerField(blank=True, null=True)
+
+    contrato_anterior = models.ForeignKey(
+        "self",
         null=True,
-        help_text="Día del mes (1-28) en que se genera automáticamente la prefactura.",
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="renovaciones",
+        help_text="Contrato del cual se originó esta renovación.",
     )
 
-    # Relaciones ManyToMany con modelos intermedios
     servicios_genericos = models.ManyToManyField(
         ContentType,
         through="contratos.ContratoServicio",
-        limit_choices_to={"model__in": ["servicio", "planservicio"]},  # Restringe a solo estos modelos
+        limit_choices_to={"model__in": ["servicio", "planservicio"]},
         related_name="contratos_genericos",
-        verbose_name="Servicios o Planes"
+        verbose_name="Servicios o planes",
     )
     visitas = models.ManyToManyField("contratos.Visita", through="contratos.ContratoVisita")
     licencias = models.ManyToManyField("contratos.Licencia", through="contratos.ContratoLicencia")
-    condiciones_especiales = models.ManyToManyField("contratos.CondicionEspecial", through="contratos.ContratoCondicionEspecial")
-    usuarios_vinculados = models.ManyToManyField("empresas.UsuarioEmpresa", through="contratos.UsuarioVinculadoContrato")
+    condiciones_especiales = models.ManyToManyField(
+        "contratos.CondicionEspecial",
+        through="contratos.ContratoCondicionEspecial",
+    )
+    usuarios_vinculados = models.ManyToManyField(
+        "empresas.UsuarioEmpresa",
+        through="contratos.UsuarioVinculadoContrato",
+    )
+
+    ESTADOS_EDITABLES = ("borrador", "cambios_solicitados")
 
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=models.Q(fecha_fin__gte=models.F('fecha_inicio')) | models.Q(fecha_fin__isnull=True),
-                name="check_fecha_inicio_menor_fecha_fin"
+                check=models.Q(fecha_fin__gte=models.F("fecha_inicio"))
+                | models.Q(fecha_fin__isnull=True),
+                name="check_fecha_inicio_menor_fecha_fin",
             )
         ]
-
-    ESTADOS_EDITABLES = ("borrador", "cambios_solicitados")
 
     def clean(self):
         if self.fecha_inicio > date.today():
@@ -54,12 +84,10 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
             raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
     def actualizar_estado(self):
-        """Verifica si el contrato ha vencido y actualiza su estado automáticamente."""
         if self.fecha_fin and self.fecha_fin < date.today():
-            self.estado = 'finalizado'
+            self.estado = "finalizado"
 
     def save(self, *args, **kwargs):
-        """Antes de guardar, verifica si el contrato ha vencido."""
         self.actualizar_estado()
         super().save(*args, **kwargs)
 
@@ -71,8 +99,15 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
     def destinatario_principal(self):
         return self.vinculos_contrato.filter(es_destinatario_principal=True).first()
 
+    @property
+    def total_items_comerciales(self):
+        return sum(
+            item.total_para_forma_pago_contractual for item in self.items_comerciales.all()
+        )
+
     def __str__(self):
-        return f"Contrato: {self.empresa_prestadora} ↔ {self.empresa_cliente} ({self.estado})"
+        return f"Contrato: {self.empresa_prestadora} <-> {self.empresa_cliente} ({self.estado})"
+
 
 class EnvioContratoFirmaUsuario(ModeloBase):
     firma = models.TextField(blank=True, null=True)
@@ -85,10 +120,6 @@ class EnvioContratoFirmaUsuario(ModeloBase):
     snapshot_contrato = models.JSONField(blank=True, null=True, default=dict)
     uuid = models.UUIDField(unique=True, default=uuid.uuid4)
     usuario = models.ForeignKey("contratos.UsuarioVinculadoContrato", on_delete=models.CASCADE)
-
-    class Meta:
-        verbose_name = "Envio del Contrato para Firmar"
-        verbose_name_plural = "Envios de Contratos para Firmar"
 
 
 class EnvioContratoAprobacion(ModeloBase):
@@ -114,24 +145,22 @@ class EnvioContratoAprobacion(ModeloBase):
     snapshot_contrato = models.JSONField(blank=True, null=True, default=dict)
     version_envio = models.PositiveIntegerField(default=1)
 
-    class Meta:
-        verbose_name = "Envio del Contrato para Aprobacion"
-        verbose_name_plural = "Envios de Contratos para Aprobacion"
-        ordering = ["-fecha_envio", "-id"]
 
 class UsuarioVinculadoContrato(ModeloBase):
     usuario = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE, blank=True, null=True)
-    contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="vinculos_contrato")
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="vinculos_contrato",
+    )
     fecha_vinculacion = models.DateField(auto_now_add=True)
-    tipo_usuario = models.CharField(max_length=20, choices=TIPOS_USUARIO_CONTRATO, default='gerencia')
+    tipo_usuario = models.CharField(max_length=20, choices=TIPOS_USUARIO_CONTRATO, default="gerencia")
     nombre = models.CharField(max_length=255, blank=True, null=True)
     correo_generico = models.EmailField(max_length=250, blank=True, null=True)
     correo_normalizado = models.EmailField(max_length=250, blank=True, null=True, db_index=True)
     es_destinatario_principal = models.BooleanField(default=False)
 
     class Meta:
-        verbose_name = "Usuario Vinculado al Contrato"
-        verbose_name_plural = "Usuarios Vinculados a Contratos"
         constraints = [
             models.UniqueConstraint(
                 fields=["contrato", "usuario"],
@@ -170,13 +199,13 @@ class UsuarioVinculadoContrato(ModeloBase):
         super().clean()
         if not self.contrato_id:
             return
-
         if not self.usuario_id and not self.correo_generico:
             raise ValidationError("Debe indicar un usuario existente o un contacto manual con correo.")
-
         if self.usuario_id:
             if self.usuario.sucursal.empresa_id != self.contrato.empresa_cliente_id:
-                raise ValidationError("El usuario vinculado debe pertenecer a la empresa cliente del contrato.")
+                raise ValidationError(
+                    "El usuario vinculado debe pertenecer a la empresa cliente del contrato."
+                )
             self.nombre = None
             self.correo_generico = None
             self.correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(
@@ -188,14 +217,6 @@ class UsuarioVinculadoContrato(ModeloBase):
             self.correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(
                 self.correo_generico
             )
-
-        if self.es_destinatario_principal:
-            existe = UsuarioVinculadoContrato.objects.exclude(pk=self.pk).filter(
-                contrato=self.contrato,
-                es_destinatario_principal=True,
-            )
-            if existe.exists():
-                raise ValidationError("Ya existe un destinatario principal para este contrato.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -215,8 +236,6 @@ class NotificacionVentanaLicencia(ModeloBase):
     destinatarios = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Notificación de Ventana de Licencia"
-        verbose_name_plural = "Notificaciones de Ventana de Licencia"
         constraints = [
             models.UniqueConstraint(
                 fields=["licencia", "ciclo_inicio"],
@@ -227,144 +246,68 @@ class NotificacionVentanaLicencia(ModeloBase):
     def __str__(self):
         return f"Ventana {self.licencia_id} - {self.ciclo_inicio}"
 
+
 class CaracteristicaServicio(ModeloBase):
-    nombre = models.CharField(max_length=255, verbose_name="Nombre de la Característica")
-    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción de la Característica")
-
-    class Meta:
-        verbose_name = "Característica del Servicio"
-        verbose_name_plural = "Características de los Servicios"
-
-    def __str__(self):
-        return self.nombre
-
-class Servicio(ModeloBase):
-    nombre = models.CharField(max_length=255, verbose_name="Nombre del Servicio")
-    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción del Servicio")
-    categoria = models.CharField(max_length=255, verbose_name="Categoría del Servicio", choices=CATEGORIAS_SERVICIO, default='soporte')
-    caracteristicas = models.ManyToManyField(CaracteristicaServicio, blank=True, related_name="servicios", verbose_name="Características del Servicio")
-
-    class Meta:
-        verbose_name = "Servicio"
-        verbose_name_plural = "Servicios"
-
-    def __str__(self):
-        return self.nombre
-
-class Visita(ModeloBase):
-    descripcion = models.CharField(max_length=255, verbose_name="Descripción de la Visita")
-
-    class Meta:
-        verbose_name = "Visita"
-        verbose_name_plural = "Visitas"
-
-    def __str__(self):
-        return self.descripcion
-
-class Licencia(ModeloBase):
-    nombre = models.CharField(max_length=255, verbose_name="Nombre de la Licencia")
-    proveedor = models.CharField(max_length=255, verbose_name="Proveedor de Licencias", blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Licencia"
-        verbose_name_plural = "Licencias"
-
-    def __str__(self):
-        return f"{self.nombre} - {self.proveedor}"
-
-
-class PersonaLicenciataria(ModeloBaseHistorico):
-    empresa = models.ForeignKey(
+    empresa_prestadora = models.ForeignKey(
         "empresas.Empresa",
         on_delete=models.CASCADE,
-        related_name="personas_licenciatarias",
-    )
-    usuario_empresa = models.OneToOneField(
-        "empresas.UsuarioEmpresa",
-        on_delete=models.SET_NULL,
-        related_name="persona_licenciataria",
+        related_name="caracteristicas_servicio_catalogo",
         blank=True,
         null=True,
     )
-    nombre = models.CharField(max_length=255)
-    es_interno = models.BooleanField(default=False)
+    nombre = models.CharField(max_length=255, verbose_name="Nombre de la caracteristica")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripcion")
     activo = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = "Persona Licenciataria"
-        verbose_name_plural = "Personas Licenciatarias"
-        ordering = ["nombre", "id"]
-
-    @classmethod
-    def sincronizar_desde_usuario_empresa(cls, usuario_empresa, empresa=None):
-        empresa_obj = empresa or usuario_empresa.sucursal.empresa
-        defaults = {
-            "empresa": empresa_obj,
-            "nombre": usuario_empresa.usuario.get_nombre_completo(),
-            "es_interno": True,
-            "activo": True,
-        }
-        persona, created = cls.objects.get_or_create(
-            usuario_empresa=usuario_empresa,
-            defaults=defaults,
-        )
-        cambios = []
-        if persona.empresa_id != empresa_obj.id:
-            persona.empresa = empresa_obj
-            cambios.append("empresa")
-        nombre_actual = usuario_empresa.usuario.get_nombre_completo()
-        if persona.nombre != nombre_actual:
-            persona.nombre = nombre_actual
-            cambios.append("nombre")
-        if not persona.es_interno:
-            persona.es_interno = True
-            cambios.append("es_interno")
-        if not persona.activo:
-            persona.activo = True
-            cambios.append("activo")
-        if cambios:
-            persona.save(update_fields=cambios + ["fecha_modificacion"])
-
-        correo = CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
-            persona=persona,
-            correo=usuario_empresa.usuario.email,
-            es_principal=True,
-            es_corporativo=True,
-            verificado=True,
-        )
-        return persona, correo
-
-    @classmethod
-    def obtener_o_crear_externa(cls, empresa, nombre, correo):
-        correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(correo)
-        correo_existente = CorreoPersonaLicenciataria.objects.filter(
-            empresa=empresa,
-            correo_normalizado=correo_normalizado,
-        ).select_related("persona").first()
-        if correo_existente:
-            persona = correo_existente.persona
-            if nombre and persona.nombre != nombre:
-                persona.nombre = nombre
-                persona.save(update_fields=["nombre", "fecha_modificacion"])
-            return persona, correo_existente
-
-        persona = cls.objects.create(
-            empresa=empresa,
-            nombre=nombre or correo_normalizado,
-            es_interno=False,
-            activo=True,
-        )
-        correo_obj = CorreoPersonaLicenciataria.objects.create(
-            persona=persona,
-            empresa=empresa,
-            correo=correo_normalizado,
-            es_principal=True,
-            es_corporativo=False,
-        )
-        return persona, correo_obj
 
     def __str__(self):
         return self.nombre
+
+
+class ServicioCaracteristica(ModeloBaseHistorico):
+    MODO_INCLUYE = "incluye"
+    MODO_NO_INCLUYE = "no_incluye"
+    MODO_CHOICES = (
+        (MODO_INCLUYE, "Incluye"),
+        (MODO_NO_INCLUYE, "No incluye"),
+    )
+
+    servicio = models.ForeignKey(
+        "contratos.Servicio",
+        on_delete=models.CASCADE,
+        related_name="alcance_items",
+    )
+    caracteristica = models.ForeignKey(
+        "contratos.CaracteristicaServicio",
+        on_delete=models.CASCADE,
+        related_name="servicios_configurados",
+    )
+    modo = models.CharField(max_length=20, choices=MODO_CHOICES, default=MODO_INCLUYE)
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["orden", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["servicio", "caracteristica"],
+                name="unique_servicio_caracteristica_alcance",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.servicio} - {self.get_modo_display()} {self.caracteristica}"
+
+
+class CondicionEspecial(ModeloBaseHistorico):
+    titulo = models.CharField(max_length=255, verbose_name="Titulo de la Condicion")
+    descripcion = models.TextField(verbose_name="Detalle de la Condicion")
+    multa_incumplimiento = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Condicion Especial"
+        verbose_name_plural = "Condiciones Especiales"
+
+    def __str__(self):
+        return self.titulo
 
 
 class CorreoPersonaLicenciataria(ModeloBaseHistorico):
@@ -457,7 +400,9 @@ class CorreoPersonaLicenciataria(ModeloBaseHistorico):
 
     def _asegurar_principal_unico(self):
         if self.es_principal and self.persona_id:
-            self.persona.correos.exclude(pk=self.pk).filter(es_principal=True).update(es_principal=False)
+            self.persona.correos.exclude(pk=self.pk).filter(es_principal=True).update(
+                es_principal=False
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -467,49 +412,548 @@ class CorreoPersonaLicenciataria(ModeloBaseHistorico):
     def __str__(self):
         return self.correo
 
-class CondicionEspecial(ModeloBaseHistorico):
-    titulo = models.CharField(max_length=255, verbose_name="Título de la Condición")
-    descripcion = models.TextField(verbose_name="Detalle de la Condición")
 
-    class Meta:
-        verbose_name = "Condición Especial"
-        verbose_name_plural = "Condiciones Especiales"
+class Servicio(ModeloBase):
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="servicios_catalogo",
+        blank=True,
+        null=True,
+    )
+    nombre = models.CharField(max_length=255, verbose_name="Nombre del servicio")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripcion del servicio")
+    categoria = models.CharField(
+        max_length=255,
+        verbose_name="Categoria del servicio",
+        choices=CATEGORIAS_SERVICIO,
+        default="soporte",
+    )
+    caracteristicas = models.ManyToManyField(
+        CaracteristicaServicio,
+        blank=True,
+        related_name="servicios",
+        verbose_name="Caracteristicas del servicio",
+    )
+    version = models.PositiveIntegerField(default=1)
+    servicio_origen = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="versiones_servicio",
+        blank=True,
+        null=True,
+    )
+    version_anterior = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="siguiente_version_servicio",
+        blank=True,
+        null=True,
+    )
+    activo = models.BooleanField(default=True)
+    es_vigente = models.BooleanField(default=True)
+    precio_clp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    precio_uf = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    precio_usd = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    veces_por_mes_default = models.PositiveIntegerField(default=1)
+    formas_pago_permitidas = models.JSONField(default=list, blank=True)
+    incluye = models.TextField(blank=True, null=True, verbose_name="Incluye")
+    no_incluye = models.TextField(blank=True, null=True, verbose_name="No incluye")
+    clausulas_especiales = models.TextField(blank=True, null=True, verbose_name="Clausulas especiales")
+
+    def obtener_items_alcance(self):
+        return list(
+            self.alcance_items.select_related("caracteristica").order_by("orden", "id")
+        )
+
+    def obtener_resumen_alcance(self):
+        items = self.obtener_items_alcance()
+        if not items and self.caracteristicas.exists():
+            return {
+                "incluye": list(self.caracteristicas.all()),
+                "no_incluye": [],
+            }
+        resumen = {"incluye": [], "no_incluye": []}
+        for item in items:
+            resumen[item.modo].append(item.caracteristica)
+        return resumen
+
+    def construir_texto_alcance(self, modo):
+        resumen = self.obtener_resumen_alcance()
+        items = resumen.get(modo, [])
+        if not items:
+            return None
+        return "\n".join(
+            (
+                f"{item.nombre}: {item.descripcion}"
+                if item.descripcion
+                else item.nombre
+            )
+            for item in items
+        )
+
+    def get_precio_por_moneda(self, moneda):
+        return {
+            "CLP": self.precio_clp,
+            "UF": self.precio_uf,
+            "USD": self.precio_usd,
+        }.get(moneda, self.precio_usd)
 
     def __str__(self):
-        return self.titulo
+        return self.nombre
+
+
+class Visita(ModeloBase):
+    descripcion = models.CharField(max_length=255, verbose_name="Descripcion de la visita")
+
+    def __str__(self):
+        return self.descripcion
+
+
+class Licencia(ModeloBase):
+    nombre = models.CharField(max_length=255, verbose_name="Nombre de la licencia")
+    proveedor = models.CharField(max_length=255, verbose_name="Proveedor", blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.nombre} - {self.proveedor}"
+
+
+class PersonaLicenciataria(ModeloBaseHistorico):
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="personas_licenciatarias",
+    )
+    usuario_empresa = models.OneToOneField(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        related_name="persona_licenciataria",
+        blank=True,
+        null=True,
+    )
+    nombre = models.CharField(max_length=255)
+    es_interno = models.BooleanField(default=False)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nombre", "id"]
+
+    @classmethod
+    def sincronizar_desde_usuario_empresa(cls, usuario_empresa, empresa=None):
+        empresa_obj = empresa or usuario_empresa.sucursal.empresa
+        defaults = {
+            "empresa": empresa_obj,
+            "nombre": usuario_empresa.usuario.get_nombre_completo(),
+            "es_interno": True,
+            "activo": True,
+        }
+        persona, _created = cls.objects.get_or_create(
+            usuario_empresa=usuario_empresa,
+            defaults=defaults,
+        )
+        cambios = []
+        if persona.empresa_id != empresa_obj.id:
+            persona.empresa = empresa_obj
+            cambios.append("empresa")
+        nombre_actual = usuario_empresa.usuario.get_nombre_completo()
+        if persona.nombre != nombre_actual:
+            persona.nombre = nombre_actual
+            cambios.append("nombre")
+        if not persona.es_interno:
+            persona.es_interno = True
+            cambios.append("es_interno")
+        if not persona.activo:
+            persona.activo = True
+            cambios.append("activo")
+        if cambios:
+            persona.save(update_fields=cambios + ["fecha_modificacion"])
+
+        correo = CorreoPersonaLicenciataria.obtener_o_crear_para_persona(
+            persona=persona,
+            correo=usuario_empresa.usuario.email,
+            es_principal=True,
+            es_corporativo=True,
+            verificado=True,
+        )
+        return persona, correo
+
+    @classmethod
+    def obtener_o_crear_externa(cls, empresa, nombre, correo):
+        correo_normalizado = CorreoPersonaLicenciataria.normalizar_correo(correo)
+        correo_existente = CorreoPersonaLicenciataria.objects.filter(
+            empresa=empresa,
+            correo_normalizado=correo_normalizado,
+        ).select_related("persona").first()
+        if correo_existente:
+            persona = correo_existente.persona
+            if nombre and persona.nombre != nombre:
+                persona.nombre = nombre
+                persona.save(update_fields=["nombre", "fecha_modificacion"])
+            return persona, correo_existente
+
+        persona = cls.objects.create(
+            empresa=empresa,
+            nombre=nombre or correo_normalizado,
+            es_interno=False,
+            activo=True,
+        )
+        correo_obj = CorreoPersonaLicenciataria.objects.create(
+            persona=persona,
+            empresa=empresa,
+            correo=correo_normalizado,
+            es_principal=True,
+            es_corporativo=False,
+        )
+        return persona, correo_obj
+
+    def __str__(self):
+        return self.nombre
+
+
+class PlanServicio(ModeloBaseHistorico):
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="planes_servicio_catalogo",
+        blank=True,
+        null=True,
+    )
+    nombre = models.CharField(max_length=255, verbose_name="Nombre del Plan")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripcion del Plan")
+    version = models.PositiveIntegerField(default=1)
+    plan_origen = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="versiones_plan",
+        blank=True,
+        null=True,
+    )
+    version_anterior = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="siguiente_version_plan",
+        blank=True,
+        null=True,
+    )
+    activo = models.BooleanField(default=True)
+    es_vigente = models.BooleanField(default=True)
+    precio_clp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    precio_uf = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    precio_usd = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    veces_por_mes_default = models.PositiveIntegerField(default=1)
+    formas_pago_permitidas = models.JSONField(default=list, blank=True)
+    incluye = models.TextField(blank=True, null=True, verbose_name="Incluye")
+    no_incluye = models.TextField(blank=True, null=True, verbose_name="No incluye")
+    clausulas_especiales = models.TextField(blank=True, null=True, verbose_name="Clausulas especiales")
+    servicios = models.ManyToManyField(
+        Servicio,
+        through="contratos.PlanServicioDetalle",
+        related_name="planes",
+        verbose_name="Servicios incluidos en el Plan",
+        blank=True,
+    )
+
+    class Meta:
+        verbose_name = "Plan de Servicio"
+        verbose_name_plural = "Planes de Servicio"
+
+    def obtener_items_alcance_resueltos(self):
+        agrupados = {}
+        detalles = self.detalles_servicio.select_related("servicio_version").prefetch_related(
+            "servicio_version__alcance_items__caracteristica",
+            "servicio_version__caracteristicas",
+        )
+        for detalle in detalles:
+            servicio = detalle.servicio_version
+            resumen = servicio.obtener_resumen_alcance()
+            for modo in (ServicioCaracteristica.MODO_INCLUYE, ServicioCaracteristica.MODO_NO_INCLUYE):
+                for caracteristica in resumen.get(modo, []):
+                    registro = agrupados.setdefault(
+                        caracteristica.id,
+                        {
+                            "caracteristica": caracteristica,
+                            "incluye": set(),
+                            "no_incluye": set(),
+                        },
+                    )
+                    registro[modo].add(servicio.nombre)
+        return list(agrupados.values())
+
+    def construir_texto_alcance(self, modo):
+        bloques = []
+        for item in self.obtener_items_alcance_resueltos():
+            servicios = sorted(item[modo])
+            if not servicios:
+                continue
+            descripcion = (
+                f"{item['caracteristica'].nombre}: {item['caracteristica'].descripcion}"
+                if item["caracteristica"].descripcion
+                else item["caracteristica"].nombre
+            )
+            bloques.append(f"{descripcion} ({', '.join(servicios)})")
+        if not bloques:
+            return None
+        return "\n".join(bloques)
+
+    def get_precio_por_moneda(self, moneda):
+        return {
+            "CLP": self.precio_clp,
+            "UF": self.precio_uf,
+            "USD": self.precio_usd,
+        }.get(moneda, self.precio_usd)
+
+    def __str__(self):
+        return self.nombre
+
+
+class PlanServicioDetalle(ModeloBaseHistorico):
+    plan = models.ForeignKey(
+        "contratos.PlanServicio",
+        on_delete=models.CASCADE,
+        related_name="detalles_servicio",
+    )
+    servicio_version = models.ForeignKey(
+        "contratos.Servicio",
+        on_delete=models.PROTECT,
+        related_name="detalles_en_planes",
+    )
+    orden = models.PositiveIntegerField(default=0)
+    obligatorio = models.BooleanField(default=True)
+    cantidad_default = models.PositiveIntegerField(default=1)
+    veces_por_mes_default = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ["orden", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan", "servicio_version"],
+                name="unique_plan_servicio_detalle",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.plan} -> {self.servicio_version}"
+
+
+class ContratoItemComercial(ModeloBaseHistorico):
+    TIPO_ORIGEN_CHOICES = (
+        ("servicio", "Servicio"),
+        ("plan", "Plan"),
+    )
+
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="items_comerciales",
+    )
+    tipo_origen = models.CharField(max_length=20, choices=TIPO_ORIGEN_CHOICES)
+    servicio_version = models.ForeignKey(
+        "contratos.Servicio",
+        on_delete=models.PROTECT,
+        related_name="items_contractuales",
+        blank=True,
+        null=True,
+    )
+    plan_version = models.ForeignKey(
+        "contratos.PlanServicio",
+        on_delete=models.PROTECT,
+        related_name="items_contractuales",
+        blank=True,
+        null=True,
+    )
+    catalogo_version_id = models.PositiveIntegerField(blank=True, null=True)
+    snapshot_nombre = models.CharField(max_length=255)
+    snapshot_descripcion = models.TextField(blank=True, null=True)
+    snapshot_incluye = models.TextField(blank=True, null=True)
+    snapshot_no_incluye = models.TextField(blank=True, null=True)
+    snapshot_clausulas = models.TextField(blank=True, null=True)
+    snapshot_componentes_plan = models.JSONField(default=list, blank=True)
+    cantidad = models.PositiveIntegerField(default=1)
+    veces_por_mes = models.PositiveIntegerField(default=1)
+    forma_pago = models.CharField(
+        max_length=20,
+        choices=FORMAS_PAGO_COMERCIALES,
+        default="mensual",
+    )
+    moneda = models.CharField(max_length=3, choices=TIPO_MONEDA_LICENCIA, default="USD")
+    precio_unitario_contratado = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    total_mensual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    total_anual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    total_pago_unico = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    es_addon = models.BooleanField(default=False)
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["orden", "id"]
+
+    @property
+    def referencia_catalogo(self):
+        return self.servicio_version or self.plan_version
+
+    @property
+    def total_para_forma_pago_contractual(self):
+        forma = self.contrato.forma_pago_contractual if self.contrato_id else self.forma_pago
+        if forma == "pago_unico":
+            return self.total_pago_unico
+        if forma == "anual":
+            return self.total_anual
+        return self.total_mensual
+
+    def recalcular_totales(self):
+        cantidad = Decimal(self.cantidad or 0)
+        veces = Decimal(self.veces_por_mes or 0)
+        precio = Decimal(self.precio_unitario_contratado or 0)
+        self.total_pago_unico = precio * cantidad
+        self.total_mensual = precio * cantidad * veces
+        self.total_anual = self.total_mensual * Decimal("12")
+
+    def clean(self):
+        super().clean()
+        if self.tipo_origen == "servicio" and not self.servicio_version_id:
+            raise ValidationError("Debe indicar la version del servicio.")
+        if self.tipo_origen == "plan" and not self.plan_version_id:
+            raise ValidationError("Debe indicar la version del plan.")
+        if self.tipo_origen == "servicio":
+            self.plan_version = None
+            referencia = self.servicio_version
+        else:
+            self.servicio_version = None
+            referencia = self.plan_version
+
+        if referencia:
+            self.catalogo_version_id = referencia.pk
+            if not self.snapshot_nombre:
+                self.snapshot_nombre = referencia.nombre
+            if not self.snapshot_descripcion:
+                self.snapshot_descripcion = referencia.descripcion
+            if not self.snapshot_incluye:
+                self.snapshot_incluye = getattr(referencia, "incluye", None)
+            if not self.snapshot_no_incluye:
+                self.snapshot_no_incluye = getattr(referencia, "no_incluye", None)
+            if not self.snapshot_clausulas:
+                self.snapshot_clausulas = getattr(referencia, "clausulas_especiales", None)
+            if not self.precio_unitario_contratado:
+                self.precio_unitario_contratado = referencia.get_precio_por_moneda(self.moneda)
+            if not self.veces_por_mes:
+                self.veces_por_mes = getattr(referencia, "veces_por_mes_default", 1) or 1
+
+            if self.tipo_origen == "plan" and not self.snapshot_componentes_plan:
+                self.snapshot_componentes_plan = [
+                    {
+                        "servicio_version_id": detalle.servicio_version_id,
+                        "nombre": detalle.servicio_version.nombre,
+                        "cantidad_default": detalle.cantidad_default,
+                        "veces_por_mes_default": detalle.veces_por_mes_default,
+                        "obligatorio": detalle.obligatorio,
+                        "orden": detalle.orden,
+                    }
+                    for detalle in referencia.detalles_servicio.select_related("servicio_version").all()
+                ]
+
+        self.recalcular_totales()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.snapshot_nombre} en {self.contrato}"
+
 
 class ContratoServicio(ModeloBaseHistorico):
-    contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_servicios")
-
-    # Configuración de ContentType para polimorfismo
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="contrato_servicios",
+    )
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
-        limit_choices_to={"model__in": ["servicio", "planservicio"]},  # Solo permite Servicio y PlanServicio
-        verbose_name="Tipo de Servicio"
+        limit_choices_to={"model__in": ["servicio", "planservicio"]},
+        verbose_name="Tipo de Servicio",
     )
     object_id = models.PositiveIntegerField(verbose_name="ID del Servicio o Plan")
     servicio_generico = GenericForeignKey("content_type", "object_id")
-
+    item_comercial = models.OneToOneField(
+        "contratos.ContratoItemComercial",
+        on_delete=models.SET_NULL,
+        related_name="legacy_contrato_servicio",
+        blank=True,
+        null=True,
+    )
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad")
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Precio Unitario")
+    precio_unitario = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Precio Unitario",
+    )
+
+    def sync_item_comercial(self):
+        referencia = self.servicio_generico
+        if referencia is None or not self.contrato_id:
+            return None
+
+        tipo_origen = "plan" if isinstance(referencia, PlanServicio) else "servicio"
+        defaults = {
+            "tipo_origen": tipo_origen,
+            "servicio_version": referencia if tipo_origen == "servicio" else None,
+            "plan_version": referencia if tipo_origen == "plan" else None,
+            "catalogo_version_id": referencia.pk,
+            "snapshot_nombre": referencia.nombre,
+            "snapshot_descripcion": getattr(referencia, "descripcion", None),
+            "snapshot_incluye": getattr(referencia, "incluye", None),
+            "snapshot_no_incluye": getattr(referencia, "no_incluye", None),
+            "snapshot_clausulas": getattr(referencia, "clausulas_especiales", None),
+            "cantidad": self.cantidad,
+            "veces_por_mes": getattr(referencia, "veces_por_mes_default", 1) or 1,
+            "forma_pago": self.contrato.forma_pago_contractual,
+            "moneda": self.contrato.moneda_cobro,
+            "precio_unitario_contratado": self.precio_unitario
+            or referencia.get_precio_por_moneda(self.contrato.moneda_cobro),
+        }
+        item = self.item_comercial
+        if item is None:
+            item = ContratoItemComercial.objects.create(contrato=self.contrato, **defaults)
+        else:
+            for field, value in defaults.items():
+                setattr(item, field, value)
+            item.contrato = self.contrato
+            item.save()
+        self.item_comercial = item
+        return item
 
     def save(self, *args, **kwargs):
-        """Asigna automáticamente el content_type basado en la selección."""
         if isinstance(self.servicio_generico, Servicio):
             self.content_type = ContentType.objects.get_for_model(Servicio)
         elif isinstance(self.servicio_generico, PlanServicio):
             self.content_type = ContentType.objects.get_for_model(PlanServicio)
 
         super().save(*args, **kwargs)
+        if self.contrato_id and self.object_id:
+            self.sync_item_comercial()
+            super().save(update_fields=["item_comercial", "fecha_modificacion"])
 
     def __str__(self):
         return f"{self.servicio_generico} ({self.cantidad}) en {self.contrato}"
 
+
 class ContratoVisita(ModeloBaseHistorico):
-    contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_visitas")
-    visita = models.ForeignKey("contratos.Visita", on_delete=models.CASCADE, related_name="visita_contratos")
-    frecuencia = models.CharField(max_length=20, choices=FRECUENCIA_VISITA, verbose_name="Frecuencia de Visitas")
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="contrato_visitas",
+    )
+    visita = models.ForeignKey(
+        "contratos.Visita",
+        on_delete=models.CASCADE,
+        related_name="visita_contratos",
+    )
+    frecuencia = models.CharField(
+        max_length=20,
+        choices=FRECUENCIA_VISITA,
+        verbose_name="Frecuencia de Visitas",
+    )
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad de Visitas")
 
     class Meta:
@@ -519,20 +963,52 @@ class ContratoVisita(ModeloBaseHistorico):
     def __str__(self):
         return f"{self.visita.descripcion} ({self.frecuencia}, {self.cantidad} veces) en {self.contrato}"
 
+
 class ContratoLicencia(ModeloBaseHistorico):
-    contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_licencias")
-    licencia = models.ForeignKey("contratos.Licencia", on_delete=models.CASCADE, related_name="licencia_contratos")
-    tipo_modalidad = models.CharField(max_length=20, choices=TIPO_MODALIDAD_LICENCIA, verbose_name="Tipo de Modalidad", default='otros')
-    otro_tipo = models.CharField(max_length=255, blank=True, null=True, verbose_name="Otro Tipo de Modalidad")
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="contrato_licencias",
+    )
+    licencia = models.ForeignKey(
+        "contratos.Licencia",
+        on_delete=models.CASCADE,
+        related_name="licencia_contratos",
+    )
+    tipo_modalidad = models.CharField(
+        max_length=20,
+        choices=TIPO_MODALIDAD_LICENCIA,
+        verbose_name="Tipo de Modalidad",
+        default="otros",
+    )
+    otro_tipo = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Otro Tipo de Modalidad",
+    )
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad de Licencias")
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Precio Unitario")
+    precio_unitario = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Precio Unitario",
+    )
     tipo_moneda = models.CharField(max_length=3, choices=TIPO_MONEDA_LICENCIA, default="USD")
     fecha_inicio = models.DateField(blank=True, null=True, verbose_name="Fecha de Inicio")
     fecha_fin = models.DateField(blank=True, null=True, verbose_name="Fecha de Fin")
     partner = models.BooleanField(default=True, verbose_name="Partner")
-    estado = models.CharField(max_length=20, choices=ESTADOS_CONTRATO_LICENCIA, default='activa', verbose_name="Estado")
-    usuarios = models.ManyToManyField("empresas.UsuarioEmpresa", through="contratos.UsuarioVinculadoLicencia")
-    
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS_CONTRATO_LICENCIA,
+        default="activa",
+        verbose_name="Estado",
+    )
+    usuarios = models.ManyToManyField(
+        "empresas.UsuarioEmpresa",
+        through="contratos.UsuarioVinculadoLicencia",
+    )
+
     class Meta:
         verbose_name = "Licencia del Contrato"
         verbose_name_plural = "Licencias del Contrato"
@@ -541,16 +1017,11 @@ class ContratoLicencia(ModeloBaseHistorico):
         return self.fecha_inicio or self.contrato.fecha_inicio
 
     def _inicio_periodo(self):
-        """
-        Calcula el inicio del período vigente según modalidad:
-        - modalidades anuales: bloques anuales desde fecha_inicio.
-        - otras modalidades: el período inicia en la activación.
-        """
         fecha_base = self._fecha_base_periodo()
         if not fecha_base:
             return None
 
-        if self.tipo_modalidad in ('anual', 'p1y-a', 'p1y-m'):
+        if self.tipo_modalidad in ("anual", "p1y-a", "p1y-m"):
             rd = relativedelta(date.today(), fecha_base)
             bloques = rd.years
             return fecha_base + relativedelta(years=bloques)
@@ -573,15 +1044,15 @@ class ContratoLicencia(ModeloBaseHistorico):
 
     @property
     def puede_aumentar_cupos(self):
-        return self.estado not in ('vencida', 'cancelada')
+        return self.estado not in ("vencida", "cancelada")
 
     @property
     def puede_reducir_cupos(self):
-        return self.estado not in ('vencida', 'cancelada') and self.en_ventana_edicion
+        return self.estado not in ("vencida", "cancelada") and self.en_ventana_edicion
 
     @property
     def puede_cancelar(self):
-        return self.estado in ('activa', 'suspendida', 'vencida') and self.en_ventana_edicion
+        return self.estado in ("activa", "suspendida", "vencida") and self.en_ventana_edicion
 
     @property
     def puede_desvincular_usuarios(self):
@@ -624,38 +1095,45 @@ class ContratoLicencia(ModeloBaseHistorico):
     def mensaje_inicio_periodo(self):
         dias = self.dias_desde_inicio_periodo
         if dias == 0:
-            return "Hoy comienza la ventana de edición de la licencia."
+            return "Hoy comienza la ventana de edicion de la licencia."
         if dias == 7:
-            return "Hoy finaliza la ventana de edición de la licencia."
+            return "Hoy finaliza la ventana de edicion de la licencia."
         return ""
 
     @property
     def mensaje_ventana_edicion(self):
         if self.en_ventana_edicion:
-            return "Dentro de esta ventana puedes aumentar cupos, reducir cupos, desvincular usuarios o cancelar la licencia."
+            return (
+                "Dentro de esta ventana puedes aumentar cupos, reducir cupos, "
+                "desvincular usuarios o cancelar la licencia."
+            )
         if self.puede_aumentar_cupos:
-            return "Fuera de la ventana solo se permite aumentar cupos. No se puede reducir, desvincular usuarios ni cancelar la licencia."
-        return "La licencia no admite cambios de cupos ni cancelación en su estado actual."
+            return (
+                "Fuera de la ventana solo se permite aumentar cupos. "
+                "No se puede reducir, desvincular usuarios ni cancelar la licencia."
+            )
+        return "La licencia no admite cambios de cupos ni cancelacion en su estado actual."
 
     @property
     def dias_hasta_fin_edicion(self):
         return self.dias_hasta_fin_periodo
 
     def _actualizar_estado_automatico(self):
-        """Actualiza el estado según fecha_fin. Los estados manuales (suspendida, cancelada) no se modifican."""
-        if self.estado in ('suspendida', 'cancelada'):
+        if self.estado in ("suspendida", "cancelada"):
             return
         fecha_cierre = self.fecha_fin or (self.contrato.fecha_fin if self.contrato_id else None)
         if fecha_cierre and fecha_cierre < date.today():
-            self.estado = 'vencida'
-        elif self.estado == 'vencida':
-            # Si se extiende la fecha y ya no está vencida, volver a activa
-            self.estado = 'activa'
+            self.estado = "vencida"
+        elif self.estado == "vencida":
+            self.estado = "activa"
 
     def clean(self):
         super().clean()
         if not self.contrato_id:
             return
+
+        if self.tipo_moneda != self.contrato.moneda_cobro:
+            self.tipo_moneda = self.contrato.moneda_cobro
 
         if self.pk:
             original = ContratoLicencia.objects.get(pk=self.pk).cantidad
@@ -663,12 +1141,12 @@ class ContratoLicencia(ModeloBaseHistorico):
 
             if nueva > original and not self.puede_aumentar_cupos:
                 raise ValidationError(
-                    "No puedes aumentar cupos cuando la licencia está vencida o cancelada."
+                    "No puedes aumentar cupos cuando la licencia esta vencida o cancelada."
                 )
 
             if nueva < original and not self.puede_reducir_cupos:
                 raise ValidationError(
-                    "No puedes reducir cupos fuera de los 7 días posteriores al inicio del ciclo vigente."
+                    "No puedes reducir cupos fuera de los 7 dias posteriores al inicio del ciclo vigente."
                 )
 
             if nueva < self.vinculos_licencia.count():
@@ -684,9 +1162,19 @@ class ContratoLicencia(ModeloBaseHistorico):
     def __str__(self):
         return f"{self.licencia.nombre} ({self.cantidad}) en {self.contrato}"
 
+
 class UsuarioVinculadoLicencia(ModeloBaseHistorico):
-    usuario = models.ForeignKey("empresas.UsuarioEmpresa", on_delete=models.CASCADE, blank=True, null=True)
-    licencia = models.ForeignKey("contratos.ContratoLicencia", on_delete=models.CASCADE, related_name="vinculos_licencia")
+    usuario = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    licencia = models.ForeignKey(
+        "contratos.ContratoLicencia",
+        on_delete=models.CASCADE,
+        related_name="vinculos_licencia",
+    )
     correo_persona = models.ForeignKey(
         "contratos.CorreoPersonaLicenciataria",
         on_delete=models.SET_NULL,
@@ -753,7 +1241,9 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
             nombre = self.nombre or self.correo_generico
             empresa = self.licencia.contrato.empresa_cliente if self.licencia_id else None
             if empresa is None:
-                raise ValidationError("No se pudo determinar la empresa cliente para el correo asignado.")
+                raise ValidationError(
+                    "No se pudo determinar la empresa cliente para el correo asignado."
+                )
             _, correo_obj = PersonaLicenciataria.obtener_o_crear_externa(
                 empresa=empresa,
                 nombre=nombre,
@@ -785,7 +1275,7 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
         self._resolver_correo_persona()
 
         if not self.correo_persona_id and not self.usuario_id and not self.correo_generico:
-            raise ValidationError("Debe indicar un correo o una persona licenciataria para el vínculo.")
+            raise ValidationError("Debe indicar un correo o una persona licenciataria para el vinculo.")
 
         if self.correo_persona_id:
             if self.correo_persona.empresa_id != self.licencia.contrato.empresa_cliente_id:
@@ -798,7 +1288,7 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
                 correo_persona=self.correo_persona,
             )
             if existe.exists():
-                raise ValidationError("Este correo ya está vinculado a la licencia.")
+                raise ValidationError("Este correo ya esta vinculado a la licencia.")
 
         self._sincronizar_campos_legacy()
 
@@ -809,63 +1299,92 @@ class UsuarioVinculadoLicencia(ModeloBaseHistorico):
     def __str__(self):
         return f"{self.nombre_asignado or self.correo_asignado} en {self.licencia}"
 
+
 class ContratoCondicionEspecial(ModeloBaseHistorico):
-    contrato = models.ForeignKey("contratos.ContratoEmpresaCliente", on_delete=models.CASCADE, related_name="contrato_condiciones_especiales")
-    condicion = models.ForeignKey("contratos.CondicionEspecial", on_delete=models.CASCADE, related_name="condicion_contratos", blank=True, null=True)
-    texto = models.TextField(blank=True, null=True, verbose_name="Texto de condición personalizada")
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="contrato_condiciones_especiales",
+    )
+    condicion = models.ForeignKey(
+        "contratos.CondicionEspecial",
+        on_delete=models.CASCADE,
+        related_name="condicion_contratos",
+        blank=True,
+        null=True,
+    )
+    texto = models.TextField(blank=True, null=True, verbose_name="Texto de condicion personalizada")
+    titulo_personalizado = models.CharField(max_length=255, blank=True, null=True)
+    detalle_personalizado = models.TextField(blank=True, null=True)
+    multa_incumplimiento = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     class Meta:
-        verbose_name = "Condición Especial del Contrato"
+        verbose_name = "Condicion Especial del Contrato"
         verbose_name_plural = "Condiciones Especiales del Contrato"
 
     def __str__(self):
         if self.condicion:
             return f"{self.condicion.titulo} en {self.contrato}"
-        return f"Condición personalizada en {self.contrato}"
+        return f"Condicion personalizada en {self.contrato}"
 
-class PlanServicio(ModeloBase):
-    nombre = models.CharField(max_length=255, verbose_name="Nombre del Plan")
-    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción del Plan")
-    servicios = models.ManyToManyField(Servicio, related_name="planes", verbose_name="Servicios incluidos en el Plan")
-
-    class Meta:
-        verbose_name = "Plan de Servicio"
-        verbose_name_plural = "Planes de Servicio"
-
-    def __str__(self):
-        return self.nombre
 
 class AcuerdoConfidencialidadContrato(ModeloBaseHistorico):
     contrato = models.ForeignKey(
         "contratos.ContratoEmpresaCliente",
         on_delete=models.CASCADE,
-        related_name="firmas_confidencialidad"
+        related_name="firmas_confidencialidad",
     )
     acuerdo_base = models.ForeignKey(
         "core.AcuerdoConfidencialidadBase",
         on_delete=models.CASCADE,
         related_name="firmas",
         blank=True,
-        null=True
+        null=True,
     )
+    firma_usuario_empresa = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        related_name="firmas_confidencialidad",
+        blank=True,
+        null=True,
+    )
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+    fecha_firma = models.DateTimeField(blank=True, null=True)
+    firmado = models.BooleanField(default=False)
+    archivo_firma = models.TextField(blank=True, null=True)
+    nombre_firmante = models.CharField(max_length=255, blank=True, null=True)
+    correo_firmante = models.EmailField(max_length=255, blank=True, null=True)
+    periodicidad_meses = models.PositiveIntegerField(blank=True, null=True)
+    vigencia_desde = models.DateField(blank=True, null=True)
+    vigencia_hasta = models.DateField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Firma de Acuerdo de Confidencialidad"
         verbose_name_plural = "Firmas de Acuerdos de Confidencialidad"
 
+    @property
+    def nombre_usuario(self):
+        if self.firma_usuario_empresa_id:
+            return self.firma_usuario_empresa.usuario.get_nombre_completo()
+        return self.nombre_firmante
+
+    @property
+    def correo_usuario(self):
+        if self.firma_usuario_empresa_id:
+            return self.firma_usuario_empresa.usuario.email
+        return self.correo_firmante
+
+    @property
+    def es_externo(self):
+        return self.firma_usuario_empresa_id is None
+
     def __str__(self):
-        return f"Firma de {self.acuerdo_base.titulo} para Contrato #{self.contrato.id}"
+        if self.acuerdo_base_id:
+            return f"Firma de {self.acuerdo_base.titulo} para Contrato #{self.contrato.id}"
+        return f"Firma de acuerdo para Contrato #{self.contrato.id}"
 
 
 class FacturaContrato(ModeloBaseHistorico):
-    """Prefactura mensual generada a partir de un contrato activo.
-
-    Representa el documento de prefacturación que se genera automáticamente
-    (vía Celery) o manualmente para un período de facturación específico.
-    La factura real se emite en un sistema externo; aquí solo se registra
-    el estado de prefacturación y el documento asociado.
-    """
-
     contrato = models.ForeignKey(
         "contratos.ContratoEmpresaCliente",
         on_delete=models.CASCADE,
@@ -886,16 +1405,12 @@ class FacturaContrato(ModeloBaseHistorico):
         choices=ESTADOS_FACTURA_CONTRATO,
         default="borrador",
     )
-    periodo_inicio = models.DateField(
-        help_text="Inicio del período de facturación.",
-    )
-    periodo_fin = models.DateField(
-        help_text="Fin del período de facturación.",
-    )
+    periodo_inicio = models.DateField(help_text="Inicio del periodo de facturacion.")
+    periodo_fin = models.DateField(help_text="Fin del periodo de facturacion.")
     fecha_emision = models.DateField(
         blank=True,
         null=True,
-        help_text="Fecha en que se marcó como 'Por facturar'.",
+        help_text="Fecha en que se marco como 'Por facturar'.",
     )
     monto_total = models.DecimalField(
         max_digits=14,
@@ -906,7 +1421,7 @@ class FacturaContrato(ModeloBaseHistorico):
     moneda = models.CharField(
         max_length=5,
         choices=TIPO_MONEDA_LICENCIA,
-        default="2",
+        default="USD",
         help_text="Moneda de la factura.",
     )
     resultado = models.JSONField(
@@ -949,6 +1464,6 @@ class FacturaContrato(ModeloBaseHistorico):
 
     def __str__(self):
         return (
-            f"Factura #{self.pk} — {self.contrato.nombre} "
-            f"({self.periodo_inicio} → {self.periodo_fin}) [{self.get_estado_display()}]"
+            f"Factura #{self.pk} - {self.contrato.nombre} "
+            f"({self.periodo_inicio} -> {self.periodo_fin}) [{self.get_estado_display()}]"
         )

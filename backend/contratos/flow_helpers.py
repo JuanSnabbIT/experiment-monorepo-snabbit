@@ -1,5 +1,9 @@
+import json
 import os
+import base64
+import binascii
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.utils import timezone
 
 from core.tasks import send_email_task
@@ -9,6 +13,7 @@ from .models import (
     ContratoCondicionEspecial,
     ContratoEmpresaCliente,
     ContratoServicio,
+    AcuerdoConfidencialidadContrato,
     EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
 )
@@ -41,79 +46,216 @@ def obtener_envio_firma_pendiente(contrato: ContratoEmpresaCliente):
     )
 
 
+def obtener_ultimo_envio_firma(contrato: ContratoEmpresaCliente):
+    return (
+        EnvioContratoFirmaUsuario.objects.filter(usuario__contrato=contrato)
+        .order_by("-fecha_envio", "-id")
+        .first()
+    )
+
+
 def construir_snapshot_contrato(contrato: ContratoEmpresaCliente, request=None):
     contrato.refresh_from_db()
-    return ContratoEmpresaClienteSerializer(
+    snapshot = ContratoEmpresaClienteSerializer(
         contrato,
         context={"request": request} if request else {},
     ).data
+    # JSONField no acepta datetime/date nativos dentro de estructuras anidadas.
+    return json.loads(json.dumps(snapshot, cls=DjangoJSONEncoder))
+
+
+def firma_prestadora_disponible(contrato: ContratoEmpresaCliente):
+    return bool(getattr(contrato.empresa_prestadora, "firma_empresa", None))
+
+
+def validar_firma_imagen(firma_value):
+    if not isinstance(firma_value, str) or not firma_value.startswith("data:image/"):
+        raise ValueError("La firma debe enviarse como una imagen en formato data URL.")
+    if ";base64," not in firma_value:
+        raise ValueError("La firma debe incluir una imagen codificada en base64.")
+
+    encoded_value = firma_value.split(";base64,", 1)[1]
+    try:
+        base64.b64decode(encoded_value, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise ValueError("La firma no contiene una imagen base64 valida.") from exc
+
+    return firma_value
+
+
+def _format_money(value):
+    try:
+        return f"{float(value):,.0f}"
+    except (TypeError, ValueError):
+        return "0"
+
+
+def _build_service_lines_from_payload(contrato_payload):
+    lineas = []
+    for item in contrato_payload.get("items_comerciales") or []:
+        nombre = item.get("snapshot_nombre") or item.get("nombre") or "Servicio"
+        cantidad = item.get("cantidad") or 0
+        precio = item.get("precio_unitario_contratado") or 0
+        forma_pago = item.get("forma_pago") or contrato_payload.get("forma_pago_contractual") or "mensual"
+        subtotal = (
+            item.get("total_pago_unico")
+            if forma_pago == "pago_unico"
+            else item.get("total_anual")
+            if forma_pago == "anual"
+            else item.get("total_mensual")
+        )
+        lineas.append(
+            f"{nombre} | Cantidad: {cantidad} | Precio unitario: ${_format_money(precio)}"
+            f" | Subtotal: ${_format_money(subtotal)}"
+        )
+        for label, value in (
+            ("Incluye", item.get("snapshot_incluye")),
+            ("No incluye", item.get("snapshot_no_incluye")),
+            ("Clausulas", item.get("snapshot_clausulas")),
+        ):
+            if value:
+                lineas.append(f"  {label}: {value}")
+
+    if lineas:
+        return lineas
+
+    for item in contrato_payload.get("contrato_servicios") or []:
+        nombre = item.get("nombre") or "Servicio"
+        cantidad = item.get("cantidad") or 0
+        precio = item.get("precio_unitario") or 0
+        subtotal = item.get("subtotal")
+        servicio = item.get("servicio_generico") or {}
+        lineas.append(
+            f"{nombre} | Cantidad: {cantidad} | Precio unitario: ${_format_money(precio)}"
+            f" | Subtotal: ${_format_money(subtotal if subtotal is not None else float(precio) * float(cantidad))}"
+        )
+        for label, value in (
+            ("Incluye", servicio.get("incluye")),
+            ("No incluye", servicio.get("no_incluye")),
+            ("Clausulas", servicio.get("clausulas_especiales")),
+        ):
+            if value:
+                lineas.append(f"  {label}: {value}")
+    for licencia in contrato_payload.get("contrato_licencias") or []:
+        nombre = licencia.get("nombre_licencia") or "Licencia"
+        cantidad = licencia.get("cantidad") or 0
+        precio = licencia.get("precio_unitario") or 0
+        lineas.append(
+            f"{nombre} | Cantidad: {cantidad} | Precio unitario: ${_format_money(precio)}"
+            f" | Subtotal: ${_format_money(float(precio) * float(cantidad))}"
+        )
+    return lineas or ["Sin servicios asociados."]
+
+
+def _build_conditions_from_payload(contrato_payload):
+    condiciones = []
+    for condicion in contrato_payload.get("contrato_condiciones_especiales") or []:
+        nombre = (
+            condicion.get("nombre_condicion")
+            or condicion.get("titulo_condicion")
+            or "Condicion especial"
+        )
+        detalle = (
+            condicion.get("detalle_condicion")
+            or condicion.get("descripcion_condicion")
+            or condicion.get("texto")
+            or ""
+        )
+        multa = condicion.get("multa_condicion")
+        linea = f"{nombre}: {detalle}".strip()
+        if multa:
+            linea += f" | Multa: ${_format_money(multa)}"
+        condiciones.append(linea)
+    return "\n".join(condiciones) or "Sin condiciones especiales."
+
+
+def construir_pdf_desde_payload(
+    contrato_payload,
+    *,
+    firma_cliente_b64=None,
+    firmante_cliente=None,
+):
+    datos_empresa = contrato_payload.get("datos_empresa") or {}
+    datos_cliente_payload = contrato_payload.get("datos_cliente") or {}
+    destinatario = contrato_payload.get("destinatario_principal") or {}
+
+    datos_cliente = {
+        "razon_social": datos_cliente_payload.get("nombre") or "",
+        "rut": datos_cliente_payload.get("rut_empresa") or "",
+        "domicilio": datos_cliente_payload.get("direccion_principal") or "",
+        "giro": "",
+        "representante_legal": destinatario.get("nombre_display") or "",
+        "rut_representante_legal": "",
+        "fono": datos_cliente_payload.get("telefono") or "",
+        "email": datos_cliente_payload.get("email") or "",
+    }
+
+    lista_servicios = _build_service_lines_from_payload(contrato_payload)
+    resumen_comercial = contrato_payload.get("resumen_comercial") or {}
+    datos_contrato = {
+        "fecha": contrato_payload.get("fecha_inicio") or "",
+        "proveedor_razon_social": datos_empresa.get("nombre") or "",
+        "proveedor_rut": datos_empresa.get("rut_empresa") or "",
+        "proveedor_direccion": datos_empresa.get("direccion_principal") or "",
+        "proveedor_representante": datos_empresa.get("nombre") or "",
+        "descripcion_plan": contrato_payload.get("observaciones") or "Sin descripcion adicional.",
+        "valor_mensual": _format_money(
+            resumen_comercial.get("total_contrato", contrato_payload.get("total_contrato"))
+        ),
+        "descripcion_asesoria": contrato_payload.get("observaciones") or "",
+        "forma_pago": resumen_comercial.get(
+            "forma_pago_contractual",
+            contrato_payload.get("forma_pago_contractual", ""),
+        ),
+        "condiciones_generales": _build_conditions_from_payload(contrato_payload),
+        "lista_tareas": lista_servicios,
+        "firma_empresa_b64": datos_empresa.get("firma_empresa"),
+        "firma_cliente_b64": firma_cliente_b64,
+        "cliente_firmante": firmante_cliente or destinatario.get("nombre_display") or "",
+        "acuerdos_confidencialidad": [
+            {
+                "titulo": acuerdo.get("titulo_acuerdo"),
+                "contenido": acuerdo.get("contenido_acuerdo"),
+            }
+            for acuerdo in contrato_payload.get("firmas_confidencialidad") or []
+            if acuerdo.get("titulo_acuerdo")
+        ],
+    }
+
+    return generar_contrato_en_memoria(
+        contrato_payload.get("nombre") or "Contrato",
+        datos_cliente,
+        datos_contrato,
+    )
 
 
 def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
-    empresa_cliente = contrato.empresa_cliente
-    empresa_prestadora = contrato.empresa_prestadora
+    payload = ContratoEmpresaClienteSerializer(contrato).data
+    return construir_pdf_desde_payload(payload)
 
-    representantes_cliente = getattr(empresa_cliente, "representantes_legales", None)
-    rep_legal_nombre = ""
-    rep_legal_rut = ""
-    if representantes_cliente and representantes_cliente.exists():
-        rep = representantes_cliente.first()
-        rep_legal_nombre = rep.usuario.get_nombre_completo() if hasattr(rep, "usuario") else ""
 
-    datos_cliente = {
-        "razon_social": empresa_cliente.nombre or "",
-        "rut": getattr(empresa_cliente, "rut_empresa", "") or "",
-        "domicilio": getattr(empresa_cliente, "direccion_principal", "") or "",
-        "giro": "",
-        "representante_legal": rep_legal_nombre,
-        "rut_representante_legal": rep_legal_rut,
-        "fono": getattr(empresa_cliente, "telefono", "") or "",
-        "email": getattr(empresa_cliente, "email", "") or "",
-    }
+def actualizar_pdf_firmado_envio(envio: EnvioContratoFirmaUsuario):
+    snapshot = envio.snapshot_contrato or ContratoEmpresaClienteSerializer(
+        envio.usuario.contrato
+    ).data
+    envio.pdf_congelado = construir_pdf_desde_payload(
+        snapshot,
+        firma_cliente_b64=envio.firma,
+        firmante_cliente=envio.usuario.nombre_display,
+    )
+    return envio
 
-    representantes_prestadora = getattr(empresa_prestadora, "representantes_legales", None)
-    rep_prest_nombre = ""
-    if representantes_prestadora and representantes_prestadora.exists():
-        rep_p = representantes_prestadora.first()
-        rep_prest_nombre = rep_p.usuario.get_nombre_completo() if hasattr(rep_p, "usuario") else ""
 
-    servicios = ContratoServicio.objects.filter(contrato=contrato)
-    lista_servicios = [
-        cs.servicio_generico.nombre if cs.servicio_generico else f"Servicio #{cs.object_id}"
-        for cs in servicios
-    ]
-    valor_total = sum(float(cs.precio_unitario) * cs.cantidad for cs in servicios)
-
-    datos_contrato = {
-        "fecha": contrato.fecha_inicio.strftime("%d de %B del %Y") if contrato.fecha_inicio else "",
-        "proveedor_razon_social": empresa_prestadora.nombre or "",
-        "proveedor_rut": getattr(empresa_prestadora, "rut_empresa", "") or "",
-        "proveedor_direccion": getattr(empresa_prestadora, "direccion_principal", "") or "",
-        "proveedor_representante": rep_prest_nombre,
-        "descripcion_plan": contrato.observaciones or "Sin descripcion adicional.",
-        "valor_mensual": f"{valor_total:,.0f}",
-        "descripcion_asesoria": contrato.observaciones or "",
-        "forma_pago": "",
-        "condiciones_generales": "\n".join(
-            [
-                (
-                    f"{cce.condicion.titulo}: {cce.condicion.descripcion}"
-                    if cce.condicion
-                    else (cce.texto or "")
-                )
-                for cce in ContratoCondicionEspecial.objects.filter(contrato=contrato).select_related(
-                    "condicion"
-                )
-            ]
+def preparar_documento_contrato(
+    contrato: ContratoEmpresaCliente,
+    request=None,
+    *,
+    require_provider_signature=False,
+):
+    if require_provider_signature and not firma_prestadora_disponible(contrato):
+        raise ValueError(
+            "La empresa prestadora debe tener una firma configurada antes de enviar el contrato a firma."
         )
-        or "Sin condiciones especiales.",
-        "lista_tareas": lista_servicios if lista_servicios else ["Sin servicios asociados."],
-    }
-
-    return generar_contrato_en_memoria(contrato.nombre, datos_cliente, datos_contrato)
-
-
-def preparar_documento_contrato(contrato: ContratoEmpresaCliente, request=None):
     snapshot = construir_snapshot_contrato(contrato, request=request)
     pdf_bytes = construir_pdf_contrato(contrato)
     return snapshot, pdf_bytes

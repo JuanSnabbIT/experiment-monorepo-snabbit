@@ -12,21 +12,36 @@ import {
 } from '@/store/slices/contratos/contratoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
+    SortingState,
     createColumnHelper,
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
-    SortingState,
     useReactTable,
 } from '@tanstack/react-table';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import ScopeSummary from '../../components/ScopeSummary';
 import ModalPlanServicio from '../modals/ModalPlanServicio';
 
 const columnHelper = createColumnHelper<IPlanServicio>();
+
+const formatMoney = (value?: string | number | null, suffix = '') => {
+    const numeric = Number(value || 0);
+    return `${new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: suffix === 'UF' ? 2 : 0,
+        maximumFractionDigits: suffix === 'UF' ? 2 : 0,
+    }).format(numeric)}${suffix ? ` ${suffix}` : ''}`;
+};
+
+const truncateText = (value?: string | null, max = 120) => {
+    if (!value) return '-';
+    return value.length > max ? `${value.slice(0, max)}...` : value;
+};
 
 const TabPlanes = () => {
     const { data: planes = [] } = useGetPlanesServicioQuery();
@@ -48,7 +63,12 @@ const TabPlanes = () => {
     };
 
     const handleDelete = async (item: IPlanServicio) => {
-        if (!window.confirm(`¿Eliminar el plan "${item.nombre}"?`)) return;
+        const confirmado = await confirmAlert({
+            title: 'Eliminar plan',
+            text: `Se eliminara "${item.nombre}" del catalogo.`,
+            confirmText: 'Eliminar',
+        });
+        if (!confirmado) return;
         try {
             await deletePlan(item.id).unwrap();
             toast.success('Plan eliminado');
@@ -59,25 +79,20 @@ const TabPlanes = () => {
 
     const columns = [
         columnHelper.accessor('nombre', {
-            cell: (info) => <span className='font-medium'>{info.getValue()}</span>,
-            header: 'Nombre',
-        }),
-        columnHelper.accessor('descripcion', {
             cell: (info) => (
-                <span className='text-zinc-500'>
-                    {info.getValue()
-                        ? info.getValue().length > 80
-                            ? `${info.getValue().substring(0, 80)}...`
-                            : info.getValue()
-                        : '—'}
-                </span>
+                <div className='space-y-1'>
+                    <div className='font-medium'>{info.getValue()}</div>
+                    <div className='text-sm text-zinc-500'>
+                        {truncateText(info.row.original.descripcion)}
+                    </div>
+                </div>
             ),
-            header: 'Descripción',
+            header: 'Plan',
         }),
         columnHelper.accessor('servicios', {
             cell: (info) => {
                 const items = info.getValue();
-                if (!items || items.length === 0) return <span className='text-zinc-400'>—</span>;
+                if (!items || items.length === 0) return <span className='text-zinc-400'>-</span>;
                 return (
                     <div className='flex flex-wrap gap-1'>
                         {items.map((s) => (
@@ -89,6 +104,46 @@ const TabPlanes = () => {
                 );
             },
             header: 'Servicios incluidos',
+            enableSorting: false,
+        }),
+        columnHelper.display({
+            id: 'precio_plan',
+            cell: (info) => (
+                <div className='min-w-[210px] space-y-2 text-sm'>
+                    <div className='flex justify-between gap-3'>
+                        <span className='text-zinc-500'>CLP</span>
+                        <span className='font-medium'>{formatMoney(info.row.original.precio_clp)}</span>
+                    </div>
+                    <div className='flex justify-between gap-3'>
+                        <span className='text-zinc-500'>UF</span>
+                        <span className='font-medium'>{formatMoney(info.row.original.precio_uf, 'UF')}</span>
+                    </div>
+                    <div className='flex justify-between gap-3'>
+                        <span className='text-zinc-500'>USD</span>
+                        <span className='font-medium'>{formatMoney(info.row.original.precio_usd, 'USD')}</span>
+                    </div>
+                    <div className='rounded-2xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900/40 dark:text-zinc-300'>
+                        Sugerido: {formatMoney(info.row.original.precio_sugerido_clp)} CLP
+                    </div>
+                </div>
+            ),
+            header: 'Precio del plan',
+        }),
+        columnHelper.display({
+            id: 'alcance',
+            cell: (info) => (
+                <div className='min-w-[340px]'>
+                    <ScopeSummary
+                        planItems={info.row.original.alcance_heredado}
+                        conflicts={info.row.original.alcance_conflictos}
+                        includeText={info.row.original.incluye}
+                        excludeText={info.row.original.no_incluye}
+                        clauseText={info.row.original.clausulas_especiales}
+                        compact
+                    />
+                </div>
+            ),
+            header: 'Alcance heredado',
             enableSorting: false,
         }),
         columnHelper.display({
@@ -152,7 +207,7 @@ const TabPlanes = () => {
                 </CardHeader>
                 <CardBody className='z-0'>
                     <div className='overflow-auto'>
-                        <Table className='min-w-[700px] table-fixed'>
+                        <Table className='min-w-[1240px] table-fixed'>
                             <THead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <Tr key={headerGroup.id}>
@@ -167,7 +222,7 @@ const TabPlanes = () => {
                                                         aria-hidden='true'
                                                         className={
                                                             header.column.getCanSort()
-                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                ? 'flex cursor-pointer select-none items-center'
                                                                 : ''
                                                         }
                                                         onClick={header.column.getToggleSortingHandler()}>
@@ -213,7 +268,7 @@ const TabPlanes = () => {
                                 ))}
                             </TBody>
                         </Table>
-                        <div className='mt-2 min-w-[700px]'>
+                        <div className='mt-2 min-w-[1240px]'>
                             <TableCardFooterTemplateV2 table={table} />
                         </div>
                     </div>

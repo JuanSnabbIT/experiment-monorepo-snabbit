@@ -2,9 +2,12 @@ import {
     ICaracteristicaServicio,
     ICondicionEspecial,
     IContratoAprobacionEstado,
+    IContratoBorradorPayload,
     IContratoCondicionEspecial,
     IContratoEmpresaCliente,
     IContratoFirmaEstado,
+    IContratoFirmaPreview,
+    IContratoHistorialEvento,
     IContratoLicencia,
     IContratoServicio,
     IContratoVinculadoPorUsuario,
@@ -15,6 +18,7 @@ import {
     ILicencia,
     ILicenciaVinculadaPorUsuario,
     IPlanServicio,
+    IResumenComercialContrato,
     IServicio,
     IUsuarioVinculadoLicencia,
     IVinculoContrato,
@@ -75,6 +79,34 @@ export interface IContratoMetricasDashboard {
     }[];
 }
 
+interface IServicioCatalogoPayload {
+    nombre: string;
+    descripcion?: string;
+    categoria: string;
+    alcance_config?: Array<{
+        caracteristica_id: number;
+        modo: 'incluye' | 'no_incluye';
+        orden?: number;
+    }>;
+    caracteristicas_ids?: number[];
+    precio_clp?: number | string;
+    precio_uf?: number | string;
+    precio_usd?: number | string;
+    veces_por_mes_default?: number;
+    clausulas_especiales?: string | null;
+}
+
+interface IPlanServicioCatalogoPayload {
+    nombre: string;
+    descripcion?: string;
+    servicios_ids?: number[];
+    precio_clp?: number | string;
+    precio_uf?: number | string;
+    precio_usd?: number | string;
+    veces_por_mes_default?: number;
+    clausulas_especiales?: string | null;
+}
+
 // ── API RTK Query para Contratos ──
 
 const contratoApi = RtkQueryService.injectEndpoints({
@@ -100,6 +132,21 @@ const contratoApi = RtkQueryService.injectEndpoints({
             query: (id) => ({ url: `/api/contratos/${id}/`, method: 'get' }),
             providesTags: (_result, _error, id) => [{ type: 'Contrato', id: Number(id) }],
         }),
+        getPreviewFirmaContrato: builder.query<IContratoFirmaPreview, number | string>({
+            query: (id) => ({ url: `/api/contratos/${id}/preview-firma/`, method: 'get' }),
+            providesTags: (_result, _error, id) => [{ type: 'Contrato', id: Number(id) }],
+        }),
+        getHistorialContrato: builder.query<
+            IContratoHistorialEvento[],
+            { id: number | string; soloCliente?: boolean }
+        >({
+            query: ({ id, soloCliente = true }) => ({
+                url: `/api/contratos/${id}/historial/`,
+                method: 'get',
+                params: { solo_cliente: soloCliente },
+            }),
+            providesTags: (_result, _error, { id }) => [{ type: 'Contrato', id: Number(id) }],
+        }),
 
         createContrato: builder.mutation<
             IContratoEmpresaCliente,
@@ -107,6 +154,22 @@ const contratoApi = RtkQueryService.injectEndpoints({
         >({
             query: (data) => ({ url: '/api/contratos/', method: 'post', data }),
             invalidatesTags: ['Contratos'],
+        }),
+
+        createContratoCompleto: builder.mutation<IContratoEmpresaCliente, IContratoBorradorPayload>({
+            query: (data) => ({
+                url: '/api/contratos/crear-completo/',
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: [
+                'Contratos',
+                'ContratoServicios',
+                'ContratoLicencias',
+                'ContratoVisitas',
+                'ContratoCondiciones',
+                'ContratoUsuarios',
+            ],
         }),
 
         patchContrato: builder.mutation<
@@ -183,6 +246,34 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 { type: 'Contrato', id: Number(id) },
                 'Contratos',
             ],
+        }),
+
+        updateContratoBorrador: builder.mutation<
+            IContratoEmpresaCliente,
+            { id: number | string; data: IContratoBorradorPayload }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/contratos/${id}/actualizar-borrador/`,
+                method: 'put',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoServicios',
+                'ContratoLicencias',
+                'ContratoVisitas',
+                'ContratoCondiciones',
+                'ContratoUsuarios',
+            ],
+        }),
+
+        getResumenComercialContrato: builder.query<IResumenComercialContrato, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/resumen-comercial/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'Contrato', id: Number(id) }],
         }),
 
         reenviarAprobacionContrato: builder.mutation<{ detail: string }, number | string>({
@@ -650,12 +741,15 @@ const contratoApi = RtkQueryService.injectEndpoints({
         }),
 
         // ─── Servicios CRUD ───
-        createServicio: builder.mutation<IServicio, { nombre: string; descripcion?: string; categoria: string; caracteristicas_ids?: number[] }>({
+        createServicio: builder.mutation<IServicio, IServicioCatalogoPayload>({
             query: (data) => ({ url: '/api/servicios/', method: 'post', data }),
             invalidatesTags: ['Servicios', 'ContratoServicios'],
         }),
 
-        updateServicio: builder.mutation<IServicio, { id: number | string; data: Partial<IServicio & { caracteristicas_ids?: number[] }> }>({
+        updateServicio: builder.mutation<
+            IServicio,
+            { id: number | string; data: Partial<IServicioCatalogoPayload> }
+        >({
             query: ({ id, data }) => ({ url: `/api/servicios/${id}/`, method: 'patch', data }),
             invalidatesTags: ['Servicios', 'ContratoServicios', 'PlanesServicio'],
         }),
@@ -666,12 +760,15 @@ const contratoApi = RtkQueryService.injectEndpoints({
         }),
 
         // ─── Planes de Servicio CRUD ───
-        createPlanServicio: builder.mutation<IPlanServicio, { nombre: string; descripcion?: string; servicios_ids?: number[] }>({
+        createPlanServicio: builder.mutation<IPlanServicio, IPlanServicioCatalogoPayload>({
             query: (data) => ({ url: '/api/planes-servicio/', method: 'post', data }),
             invalidatesTags: ['PlanesServicio', 'ContratoServicios'],
         }),
 
-        updatePlanServicio: builder.mutation<IPlanServicio, { id: number | string; data: Partial<IPlanServicio & { servicios_ids?: number[] }> }>({
+        updatePlanServicio: builder.mutation<
+            IPlanServicio,
+            { id: number | string; data: Partial<IPlanServicioCatalogoPayload> }
+        >({
             query: ({ id, data }) => ({ url: `/api/planes-servicio/${id}/`, method: 'patch', data }),
             invalidatesTags: ['PlanesServicio', 'ContratoServicios'],
         }),
@@ -703,9 +800,14 @@ export const {
     useGetContratosQuery,
     useGetContratosPorEmpresaClienteQuery,
     useGetDetalleContratoQuery,
+    useGetPreviewFirmaContratoQuery,
+    useGetHistorialContratoQuery,
     useCreateContratoMutation,
+    useCreateContratoCompletoMutation,
     usePatchContratoMutation,
     useUpdateContratoMutation,
+    useUpdateContratoBorradorMutation,
+    useGetResumenComercialContratoQuery,
     useCambiarEstadoContratoMutation,
     useRenovarContratoMutation,
     useEnviarAprobacionContratoMutation,

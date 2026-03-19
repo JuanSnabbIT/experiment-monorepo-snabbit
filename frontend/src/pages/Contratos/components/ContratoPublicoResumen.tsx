@@ -14,13 +14,33 @@ const formatFechaLarga = (fecha?: string | null) => {
     return dayjs(fecha).format('D [de] MMMM [de] YYYY');
 };
 
+const formatCurrency = (
+    value?: number | string | null,
+    currency: 'CLP' | 'UF' | 'USD' = 'USD',
+) => {
+    const amount = Number(value || 0);
+    if (currency === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} UF`;
+    }
+
+    return new Intl.NumberFormat('es-CL', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+    }).format(amount);
+};
+
 const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
     const logoEmpresa = contrato.datos_empresa.logo || contrato.datos_cliente.logo;
+    const monedaContrato = contrato.moneda_cobro || 'USD';
 
     return (
-        <div className='space-y-5'>
-            <div className='border-b border-gray-100 pb-5 dark:border-zinc-700'>
-                <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='space-y-6'>
+            <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                <div className='flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'>
                     <div className='flex justify-center sm:justify-start'>
                         {logoEmpresa ? (
                             <img
@@ -36,12 +56,12 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                     </div>
 
                     <div className='min-w-0 flex-1'>
-                        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div className='grid grid-cols-1 gap-5 sm:grid-cols-2'>
                             <div className='min-w-0'>
                                 <p className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
                                     {contrato.datos_empresa.nombre}
                                 </p>
-                                <div className='mt-1 space-y-1 text-sm text-gray-600 dark:text-zinc-400'>
+                                <div className='mt-2 space-y-1.5 text-sm text-gray-600 dark:text-zinc-400'>
                                     {contrato.datos_empresa.rut_empresa && (
                                         <p>RUT: {contrato.datos_empresa.rut_empresa}</p>
                                     )}
@@ -54,7 +74,7 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                             </div>
 
                             <div className='min-w-0 sm:text-right'>
-                                <div className='space-y-1 text-sm text-gray-600 dark:text-zinc-400'>
+                                <div className='space-y-1.5 text-sm text-gray-600 dark:text-zinc-400'>
                                     {contrato.datos_empresa.telefono && (
                                         <p>Tel: {contrato.datos_empresa.telefono}</p>
                                     )}
@@ -71,15 +91,15 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+            <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                 <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
-                    <div className='min-w-0'>
+                    <div className='min-w-0 space-y-2'>
                         <h1 className='text-2xl font-bold text-gray-900 dark:text-zinc-100'>
                             {contrato.nombre}
                         </h1>
-                        <p className='mt-1 text-sm text-gray-500 dark:text-zinc-400'>
+                        <p className='text-sm leading-6 text-gray-500 dark:text-zinc-400'>
                             Contrato {contrato.tipo_label.toLowerCase()} entre{' '}
                             {contrato.datos_empresa.nombre} y {contrato.datos_cliente.nombre}.
                         </p>
@@ -90,11 +110,11 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                     </Badge>
                 </div>
 
-                <div className='mt-4 overflow-hidden rounded-md border border-gray-100 dark:border-zinc-700'>
+                <div className='mt-5 overflow-hidden rounded-md border border-gray-100 dark:border-zinc-700'>
                     <div className='grid grid-cols-1 divide-y divide-gray-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0 dark:divide-zinc-700'>
                         <div className='p-4'>
                             <dl className='divide-y divide-gray-100 text-sm dark:divide-zinc-700'>
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>
                                         Cliente
                                     </dt>
@@ -103,14 +123,14 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                                     </dd>
                                 </div>
 
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>RUT</dt>
                                     <dd className='font-medium text-gray-900 dark:text-zinc-100'>
                                         {contrato.datos_cliente.rut_empresa || 'No informado'}
                                     </dd>
                                 </div>
 
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>
                                         Prestadora
                                     </dt>
@@ -123,14 +143,23 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
 
                         <div className='p-4'>
                             <dl className='divide-y divide-gray-100 text-sm dark:divide-zinc-700'>
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>Tipo</dt>
                                     <dd className='font-medium text-gray-900 dark:text-zinc-100'>
                                         {contrato.tipo_label}
                                     </dd>
                                 </div>
 
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
+                                    <dt className='text-gray-500 dark:text-zinc-400'>
+                                        Moneda
+                                    </dt>
+                                    <dd className='font-medium text-gray-900 dark:text-zinc-100'>
+                                        {monedaContrato}
+                                    </dd>
+                                </div>
+
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>
                                         Inicio
                                     </dt>
@@ -139,9 +168,9 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                                     </dd>
                                 </div>
 
-                                <div className='grid grid-cols-1 gap-1 py-2 sm:grid-cols-[160px,1fr] sm:gap-3'>
+                                <div className='grid grid-cols-1 gap-1.5 py-3 sm:grid-cols-[160px,1fr] sm:gap-4'>
                                     <dt className='text-gray-500 dark:text-zinc-400'>
-                                        Término
+                                        Termino
                                     </dt>
                                     <dd className='font-medium text-gray-900 dark:text-zinc-100'>
                                         {contrato.fecha_fin
@@ -155,8 +184,8 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                 </div>
 
                 {contrato.observaciones && (
-                    <div className='mt-4 rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
-                        <p className='text-sm text-gray-700 dark:text-zinc-300'>
+                    <div className='mt-5 rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                        <p className='text-sm leading-6 text-gray-700 dark:text-zinc-300'>
                             <span className='font-medium text-gray-900 dark:text-zinc-100'>
                                 Observaciones:
                             </span>{' '}
@@ -167,7 +196,7 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
             </section>
 
             {contrato.contrato_servicios.length > 0 && (
-                <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                     <div className='mb-4'>
                         <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
                             Alcance
@@ -181,13 +210,53 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                             {contrato.contrato_servicios.map((servicio) => (
                                 <div
                                     key={servicio.id}
-                                    className='grid gap-3 px-4 py-3 sm:grid-cols-[1fr,120px]'>
-                                    <p className='font-medium text-gray-900 dark:text-zinc-100'>
-                                        {servicio.nombre}
-                                    </p>
-                                    <p className='text-sm text-gray-500 sm:text-right dark:text-zinc-400'>
-                                        Cantidad: {servicio.cantidad}
-                                    </p>
+                                    className='space-y-3 px-4 py-4'>
+                                    <div className='grid gap-3 sm:grid-cols-[1fr,120px,160px]'>
+                                        <p className='font-medium text-gray-900 dark:text-zinc-100'>
+                                            {servicio.nombre}
+                                        </p>
+                                        <p className='text-sm text-gray-500 sm:text-right dark:text-zinc-400'>
+                                            Cantidad: {servicio.cantidad}
+                                        </p>
+                                        <p className='text-sm text-gray-600 sm:text-right dark:text-zinc-300'>
+                                            {formatCurrency(
+                                                servicio.precio_unitario,
+                                                monedaContrato,
+                                            )}{' '}
+                                            c/u
+                                        </p>
+                                    </div>
+                                    <div className='rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-zinc-800/60 dark:text-zinc-200'>
+                                        Subtotal:{' '}
+                                        {formatCurrency(servicio.subtotal, monedaContrato)}
+                                    </div>
+                                    {'incluye' in servicio.servicio_generico &&
+                                        servicio.servicio_generico.incluye && (
+                                            <p className='text-sm text-gray-600 dark:text-zinc-300'>
+                                                <span className='font-medium text-gray-900 dark:text-zinc-100'>
+                                                    Incluye:
+                                                </span>{' '}
+                                                {servicio.servicio_generico.incluye}
+                                            </p>
+                                        )}
+                                    {'no_incluye' in servicio.servicio_generico &&
+                                        servicio.servicio_generico.no_incluye && (
+                                            <p className='text-sm text-gray-600 dark:text-zinc-300'>
+                                                <span className='font-medium text-gray-900 dark:text-zinc-100'>
+                                                    No incluye:
+                                                </span>{' '}
+                                                {servicio.servicio_generico.no_incluye}
+                                            </p>
+                                        )}
+                                    {'clausulas_especiales' in servicio.servicio_generico &&
+                                        servicio.servicio_generico.clausulas_especiales && (
+                                            <p className='text-sm text-gray-600 dark:text-zinc-300'>
+                                                <span className='font-medium text-gray-900 dark:text-zinc-100'>
+                                                    Clausulas:
+                                                </span>{' '}
+                                                {servicio.servicio_generico.clausulas_especiales}
+                                            </p>
+                                        )}
                                 </div>
                             ))}
                         </div>
@@ -196,10 +265,10 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
             )}
 
             {contrato.contrato_visitas.length > 0 && (
-                <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                     <div className='mb-4'>
                         <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
-                            Operación
+                            Operacion
                         </p>
                         <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
                             Visitas comprometidas
@@ -228,7 +297,7 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
             )}
 
             {contrato.contrato_licencias.length > 0 && (
-                <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                     <div className='mb-4'>
                         <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
                             Licencias
@@ -267,7 +336,7 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
             )}
 
             {contrato.contrato_condiciones_especiales.length > 0 && (
-                <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                     <div className='mb-4'>
                         <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
                             Condiciones
@@ -284,17 +353,45 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                                 <p className='font-medium text-gray-900 dark:text-zinc-100'>
                                     {condicion.titulo_condicion}
                                 </p>
-                                <p className='mt-1 whitespace-pre-wrap text-gray-600 dark:text-zinc-300'>
-                                    {condicion.texto || condicion.descripcion_condicion}
+                                <p className='mt-1 whitespace-pre-wrap leading-6 text-gray-600 dark:text-zinc-300'>
+                                    {condicion.detalle_condicion || condicion.descripcion_condicion}
                                 </p>
+                                {condicion.multa_condicion > 0 && (
+                                    <p className='mt-2 text-sm font-medium text-amber-700 dark:text-amber-300'>
+                                        Multa por incumplimiento:{' '}
+                                        {formatCurrency(
+                                            condicion.multa_condicion,
+                                            monedaContrato,
+                                        )}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
                 </section>
             )}
 
+            <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                <div className='flex items-center justify-between gap-3'>
+                    <div>
+                        <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                            Resumen comercial
+                        </p>
+                        <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                            Total contractual referencial
+                        </h2>
+                        <p className='text-sm text-gray-500 dark:text-zinc-400'>
+                            Moneda de la propuesta: {monedaContrato}
+                        </p>
+                    </div>
+                    <Badge variant='outline' color='emerald'>
+                        {formatCurrency(contrato.total_contrato, monedaContrato)}
+                    </Badge>
+                </div>
+            </section>
+
             {contrato.firmas_confidencialidad.length > 0 && (
-                <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                     <div className='mb-4'>
                         <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
                             Confidencialidad
@@ -311,7 +408,7 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                                 <p className='font-medium text-gray-900 dark:text-zinc-100'>
                                     {acuerdo.titulo_acuerdo}
                                 </p>
-                                <p className='mt-2 whitespace-pre-wrap text-gray-600 dark:text-zinc-300'>
+                                <p className='mt-2 whitespace-pre-wrap leading-6 text-gray-600 dark:text-zinc-300'>
                                     {acuerdo.contenido_acuerdo}
                                 </p>
                             </div>

@@ -3,16 +3,14 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
 import { useState } from 'react';
-import TabCaracteristicas from './components/TabCaracteristicas';
 import TabPlanes from './components/TabPlanes';
 import TabServicios from './components/TabServicios';
 
-type TTab = 'servicios' | 'planes' | 'caracteristicas';
+type TTab = 'servicios' | 'planes';
 
 const TABS: { key: TTab; label: string; icon: string }[] = [
     { key: 'servicios', label: 'Servicios', icon: 'HeroWrenchScrewdriver' },
     { key: 'planes', label: 'Planes', icon: 'HeroBriefcase' },
-    { key: 'caracteristicas', label: 'Características', icon: 'HeroTag' },
 ];
 
 const PlanesYServicios = () => {
@@ -39,7 +37,6 @@ const PlanesYServicios = () => {
             <Container className='h-full w-full'>
                 {activeTab === 'servicios' && <TabServicios />}
                 {activeTab === 'planes' && <TabPlanes />}
-                {activeTab === 'caracteristicas' && <TabCaracteristicas />}
             </Container>
         </PageWrapper>
     );

@@ -1,10 +1,14 @@
+import logging
+
 from rest_framework import viewsets, status, serializers
 from django.db import models
+from django.conf import settings
 from contratos.models import (
     ContratoEmpresaCliente,
     EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
+    ContratoItemComercial,
     ContratoServicio,
     ContratoVisita,
     ContratoLicencia,
@@ -12,6 +16,7 @@ from contratos.models import (
     AcuerdoConfidencialidadContrato,
     Servicio,
     PlanServicio,
+    PlanServicioDetalle,
     CaracteristicaServicio,
     UsuarioVinculadoLicencia,
     PersonaLicenciataria,
@@ -28,6 +33,7 @@ from .serializers import (
     EnvioContratoFirmaUsuarioSerializer,
     # ContratoLicenciaVinculoUsuarioSerializer,
     UsuarioVinculadoContratoSerializer,
+    ContratoItemComercialSerializer,
     ContratoServicioSerializer,
     ContratoVisitaSerializer,
     ContratoLicenciaSerializer,
@@ -35,6 +41,7 @@ from .serializers import (
     AcuerdoConfidencialidadContratoSerializer,
     ServicioSerializer,
     PlanServicioSerializer,
+    PlanServicioDetalleSerializer,
     CaracteristicaServicioSerializer,
     UsuarioVinculadoLicenciaSerializer,
     PersonaLicenciatariaSerializer,
@@ -61,20 +68,26 @@ from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from core.tasks import send_email_task
 from .flow_helpers import (
+    actualizar_pdf_firmado_envio,
     construir_pdf_contrato,
     enviar_correo_aprobacion,
     enviar_correo_firma,
+    firma_prestadora_disponible,
     get_client_ip,
     marcar_envio,
     obtener_destinatario_principal,
     obtener_envio_aprobacion_pendiente,
     obtener_envio_firma_pendiente,
+    obtener_ultimo_envio_firma,
     preparar_documento_contrato,
+    validar_firma_imagen,
 )
 import json
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def _empresa_del_usuario(user):
@@ -84,6 +97,23 @@ def _empresa_del_usuario(user):
     if personalizacion and personalizacion.sucursal_principal:
         return personalizacion.sucursal_principal.empresa
     return None
+
+
+def _build_envio_firma_error_response(*, etapa, exc):
+    detail = "Ocurrio un error interno al enviar el contrato a firma."
+    payload = {"detail": detail, "etapa": etapa}
+    if settings.DEBUG:
+        payload["error"] = str(exc)
+        payload["error_type"] = exc.__class__.__name__
+    return Response(payload, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _contratos_visibles_para_empresa(empresa):
+    if not empresa:
+        return ContratoEmpresaCliente.objects.none()
+    return ContratoEmpresaCliente.objects.filter(
+        models.Q(empresa_prestadora=empresa) | models.Q(empresa_cliente=empresa)
+    )
 
 
 # ViewSet para Contrato (modelo padre)
@@ -99,7 +129,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             {
                 "detail": (
                     "El contrato no se puede editar mientras esta en revision del cliente, "
-                    "aprobado para firma, en firma o finalizado."
+                    "aprobado para firma, en firma, rechazado por cliente o finalizado."
                 )
             },
             status=status.HTTP_400_BAD_REQUEST,
@@ -121,9 +151,380 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         empresa = personalizacion.sucursal_principal.empresa
         
         # Contratos donde la empresa es prestadora o cliente
-        return ContratoEmpresaCliente.objects.filter(
-            models.Q(empresa_prestadora=empresa) | models.Q(empresa_cliente=empresa)
+        return _contratos_visibles_para_empresa(empresa)
+
+    def _empresa_usuario(self):
+        return _empresa_del_usuario(self.request.user)
+
+    def _resolver_referencia_catalogo(self, contrato, item):
+        tipo_origen = item.get("tipo_origen")
+        if not tipo_origen and item.get("content_type"):
+            try:
+                tipo_origen = ContentType.objects.get(pk=item.get("content_type")).model
+            except ContentType.DoesNotExist:
+                tipo_origen = None
+            if tipo_origen == "planservicio":
+                tipo_origen = "plan"
+
+        version_id = (
+            item.get("version_id")
+            or item.get("catalogo_version_id")
+            or item.get("plan_version_id")
+            or item.get("servicio_version_id")
+            or item.get("object_id")
+            or item.get("id")
         )
+
+        if tipo_origen == "plan":
+            referencia = PlanServicio.objects.filter(
+                pk=version_id,
+                empresa_prestadora=contrato.empresa_prestadora,
+            ).first()
+        else:
+            tipo_origen = "servicio"
+            referencia = Servicio.objects.filter(
+                pk=version_id,
+                empresa_prestadora=contrato.empresa_prestadora,
+            ).first()
+
+        if not referencia:
+            raise serializers.ValidationError(
+                {"alcance": [f"No se encontro un registro de catalogo valido para {tipo_origen}."]}
+            )
+        return tipo_origen, referencia
+
+    def _crear_item_comercial_desde_payload(self, contrato, item, orden=0, es_addon=False):
+        tipo_origen, referencia = self._resolver_referencia_catalogo(contrato, item)
+        moneda = item.get("moneda") or contrato.moneda_cobro
+        precio_unitario = (
+            item.get("precio_unitario_contratado")
+            or item.get("precio_unitario")
+            or referencia.get_precio_por_moneda(moneda)
+        )
+        forma_pago = item.get("forma_pago") or contrato.forma_pago_contractual
+        cantidad = item.get("cantidad") or 1
+        veces_por_mes = item.get("veces_por_mes") or getattr(referencia, "veces_por_mes_default", 1) or 1
+
+        item_comercial = ContratoItemComercial.objects.create(
+            contrato=contrato,
+            tipo_origen=tipo_origen,
+            servicio_version=referencia if tipo_origen == "servicio" else None,
+            plan_version=referencia if tipo_origen == "plan" else None,
+            catalogo_version_id=referencia.pk,
+            snapshot_nombre=item.get("snapshot_nombre") or referencia.nombre,
+            snapshot_descripcion=item.get("snapshot_descripcion") or referencia.descripcion,
+            snapshot_incluye=item.get("snapshot_incluye") or getattr(referencia, "incluye", None),
+            snapshot_no_incluye=item.get("snapshot_no_incluye") or getattr(referencia, "no_incluye", None),
+            snapshot_clausulas=item.get("snapshot_clausulas")
+            or getattr(referencia, "clausulas_especiales", None),
+            snapshot_componentes_plan=item.get("snapshot_componentes_plan") or [],
+            cantidad=cantidad,
+            veces_por_mes=veces_por_mes,
+            forma_pago=forma_pago,
+            moneda=moneda,
+            precio_unitario_contratado=precio_unitario,
+            es_addon=bool(item.get("es_addon", es_addon)),
+            orden=orden,
+        )
+
+        content_type = ContentType.objects.get_for_model(
+            PlanServicio if tipo_origen == "plan" else Servicio
+        )
+        ContratoServicio.objects.create(
+            contrato=contrato,
+            content_type=content_type,
+            object_id=referencia.pk,
+            cantidad=cantidad,
+            precio_unitario=precio_unitario,
+            item_comercial=item_comercial,
+        )
+        return item_comercial
+
+    def _reemplazar_alcance_comercial(self, contrato, alcance_data):
+        ContratoServicio.objects.filter(contrato=contrato).delete()
+        ContratoItemComercial.objects.filter(contrato=contrato).delete()
+
+        if not alcance_data:
+            return []
+
+        modo = alcance_data.get("modo", "vacio")
+        creados = []
+        orden = 0
+
+        plan_item = alcance_data.get("plan")
+        plan_id = alcance_data.get("plan_id") or alcance_data.get("plan_version_id")
+        if modo == "plan" and (plan_item or plan_id):
+            payload_plan = plan_item or {"tipo_origen": "plan", "version_id": plan_id}
+            creados.append(self._crear_item_comercial_desde_payload(contrato, payload_plan, orden=orden))
+            orden += 1
+
+        for bloque, es_addon in (("items", False), ("servicios", False), ("addons", True)):
+            for item in alcance_data.get(bloque, []) or []:
+                if bloque == "items" and item.get("tipo_origen") == "plan":
+                    creados.append(
+                        self._crear_item_comercial_desde_payload(
+                            contrato,
+                            item,
+                            orden=orden,
+                            es_addon=bool(item.get("es_addon")),
+                        )
+                    )
+                else:
+                    creados.append(
+                        self._crear_item_comercial_desde_payload(
+                            contrato,
+                            item,
+                            orden=orden,
+                            es_addon=es_addon,
+                        )
+                    )
+                orden += 1
+        return creados
+
+    def _reemplazar_visitas(self, contrato, visitas_data):
+        ContratoVisita.objects.filter(contrato=contrato).delete()
+        for item in visitas_data or []:
+            visita_id = item.get("visita_id") or item.get("visita")
+            if not visita_id:
+                continue
+            visita = Visita.objects.filter(pk=visita_id).first()
+            if not visita:
+                raise serializers.ValidationError({"visitas": [f"Visita {visita_id} no encontrada."]})
+            ContratoVisita.objects.create(
+                contrato=contrato,
+                visita=visita,
+                frecuencia=item.get("frecuencia", "mensual"),
+                cantidad=item.get("cantidad", 1),
+            )
+
+    def _reemplazar_licencias(self, contrato, licencias_data):
+        ContratoLicencia.objects.filter(contrato=contrato).delete()
+        for item in licencias_data or []:
+            licencia_id = item.get("licencia_id") or item.get("licencia")
+            if not licencia_id:
+                continue
+            licencia = Licencia.objects.filter(pk=licencia_id).first()
+            if not licencia:
+                raise serializers.ValidationError(
+                    {"licencias": [f"Licencia {licencia_id} no encontrada."]}
+                )
+            ContratoLicencia.objects.create(
+                contrato=contrato,
+                licencia=licencia,
+                tipo_modalidad=item.get("tipo_modalidad", "otros"),
+                otro_tipo=item.get("otro_tipo"),
+                cantidad=item.get("cantidad", 1),
+                precio_unitario=item.get("precio_unitario", 0),
+                fecha_inicio=item.get("fecha_inicio"),
+                fecha_fin=item.get("fecha_fin"),
+                tipo_moneda=item.get("tipo_moneda") or contrato.moneda_cobro,
+                partner=item.get("partner", True),
+            )
+
+    def _reemplazar_condiciones(self, contrato, condiciones_data):
+        ContratoCondicionEspecial.objects.filter(contrato=contrato).delete()
+        for item in condiciones_data or []:
+            condicion_id = item.get("condicion_id") or item.get("condicion")
+            condicion = None
+            if condicion_id:
+                condicion = CondicionEspecial.objects.filter(pk=condicion_id).first()
+                if not condicion:
+                    raise serializers.ValidationError(
+                        {"condiciones_especiales": [f"Condicion {condicion_id} no encontrada."]}
+                    )
+            ContratoCondicionEspecial.objects.create(
+                contrato=contrato,
+                condicion=condicion,
+                texto=item.get("texto") or item.get("detalle") or item.get("detalle_personalizado"),
+            )
+
+    def _reemplazar_usuarios(self, contrato, usuarios_data, destinatario_principal=None):
+        payload_usuarios = list(usuarios_data or [])
+        if destinatario_principal:
+            payload_usuarios = [
+                {
+                    **destinatario_principal,
+                    "es_destinatario_principal": True,
+                },
+                *[item for item in payload_usuarios if item.get("es_destinatario_principal") is not True],
+            ]
+
+        if not payload_usuarios:
+            raise serializers.ValidationError(
+                {"destinatario_principal": ["Debe indicar al menos un destinatario principal."]}
+            )
+
+        UsuarioVinculadoContrato.objects.filter(contrato=contrato).delete()
+        principales = 0
+        for item in payload_usuarios:
+            usuario_id = item.get("usuario_id") or item.get("usuario")
+            usuario = None
+            if usuario_id:
+                usuario = UsuarioEmpresa.objects.filter(pk=usuario_id).first()
+                if not usuario:
+                    raise serializers.ValidationError(
+                        {"destinatario_principal": [f"UsuarioEmpresa {usuario_id} no encontrado."]}
+                    )
+            es_principal = bool(item.get("es_destinatario_principal"))
+            principales += 1 if es_principal else 0
+            UsuarioVinculadoContrato.objects.create(
+                contrato=contrato,
+                usuario=usuario,
+                tipo_usuario=item.get("tipo_usuario", "gerencia"),
+                nombre=item.get("nombre"),
+                correo_generico=item.get("correo_generico") or item.get("correo"),
+                es_destinatario_principal=es_principal,
+            )
+
+        if principales != 1:
+            raise serializers.ValidationError(
+                {"destinatario_principal": ["Debe existir exactamente un destinatario principal."]}
+            )
+
+    def _guardar_borrador_unificado(self, contrato, payload, *, crear=False):
+        errores = {}
+        contrato_data = payload.get("contrato") or {}
+        destinatario = payload.get("destinatario_principal")
+        alcance = payload.get("alcance_comercial")
+        licencias = payload.get("licencias")
+        visitas = payload.get("visitas")
+        condiciones = payload.get("condiciones_especiales")
+        usuarios = payload.get("usuarios_vinculados")
+
+        if contrato_data and not crear:
+            serializer = ContratoEmpresaClienteSerializer(
+                contrato,
+                data=contrato_data,
+                partial=not crear,
+                context={"request": self.request},
+            )
+            if not serializer.is_valid():
+                errores["contrato"] = serializer.errors
+            else:
+                serializer.save()
+
+        if errores:
+            raise serializers.ValidationError(errores)
+
+        try:
+            if alcance is not None:
+                self._reemplazar_alcance_comercial(contrato, alcance)
+        except serializers.ValidationError as exc:
+            errores["alcance"] = exc.detail
+
+        try:
+            if licencias is not None:
+                self._reemplazar_licencias(contrato, licencias)
+        except serializers.ValidationError as exc:
+            errores["licencias"] = exc.detail
+
+        try:
+            if visitas is not None:
+                self._reemplazar_visitas(contrato, visitas)
+        except serializers.ValidationError as exc:
+            errores["visitas"] = exc.detail
+
+        try:
+            if condiciones is not None:
+                self._reemplazar_condiciones(contrato, condiciones)
+        except serializers.ValidationError as exc:
+            errores["condiciones_especiales"] = exc.detail
+
+        try:
+            if usuarios is not None or destinatario is not None:
+                self._reemplazar_usuarios(contrato, usuarios, destinatario_principal=destinatario)
+        except serializers.ValidationError as exc:
+            errores["destinatario_principal"] = exc.detail
+
+        if errores:
+            raise serializers.ValidationError(errores)
+        return contrato
+
+    @staticmethod
+    def _history_label(history_type):
+        return {
+            "+": "Creacion",
+            "~": "Actualizacion",
+            "-": "Eliminacion",
+        }.get(history_type, "Cambio")
+
+    @staticmethod
+    def _safe_user_display(history_user):
+        if not history_user:
+            return None
+        if hasattr(history_user, "get_nombre_completo"):
+            return history_user.get_nombre_completo() or str(history_user)
+        return str(history_user)
+
+    def _build_contract_history_event(self, registro):
+        detalle = self._humanize_contract_change(registro)
+        return {
+            "id": f"contrato-{registro.history_id}",
+            "fecha": registro.history_date,
+            "tipo": self._history_label(registro.history_type),
+            "usuario": self._safe_user_display(registro.history_user),
+            "origen": "contrato",
+            "detalle": detalle,
+            "cambios": registro.history_change_reason or "",
+            "solicitado_por_cliente": self._es_cambio_solicitado_por_cliente(registro),
+        }
+
+    def _humanize_contract_change(self, registro):
+        if registro.history_type == "+":
+            return "Se creó el contrato"
+        if registro.history_type == "-":
+            return "Se eliminó el contrato"
+        # Para actualizaciones, intentar describir qué cambió
+        try:
+            prev = registro.prev_record
+            if prev is None:
+                return "Actualización del contrato"
+            delta = registro.diff_against(prev)
+            descripciones = []
+            CAMPOS_LEGIBLES = {
+                "estado": "Estado",
+                "nombre": "Nombre",
+                "fecha_inicio": "Fecha de inicio",
+                "fecha_fin": "Fecha de término",
+                "observaciones": "Observaciones",
+                "tipo": "Tipo de contrato",
+                "moneda_cobro": "Moneda de cobro",
+                "forma_pago_contractual": "Forma de pago",
+                "dia_facturacion": "Día de facturación",
+            }
+            for change in delta.changes:
+                nombre_legible = CAMPOS_LEGIBLES.get(change.field, change.field)
+                if change.field == "estado":
+                    descripciones.append(f"{nombre_legible} cambió de '{change.old}' a '{change.new}'")
+                else:
+                    descripciones.append(f"Se modificó {nombre_legible}")
+            if descripciones:
+                return "; ".join(descripciones)
+            return "Actualización del contrato"
+        except Exception:
+            return "Actualización del contrato"
+
+    def _es_cambio_solicitado_por_cliente(self, registro):
+        """Determina si el cambio fue posterior a una solicitud de cambios del cliente."""
+        try:
+            prev = registro.prev_record
+            if prev and prev.estado == "cambios_solicitados":
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _build_generic_history_event(self, registro, origen, detalle):
+        return {
+            "id": f"{origen}-{registro.history_id}",
+            "fecha": registro.history_date,
+            "tipo": self._history_label(registro.history_type),
+            "usuario": self._safe_user_display(registro.history_user),
+            "origen": origen,
+            "detalle": detalle,
+            "cambios": registro.history_change_reason or "",
+            "solicitado_por_cliente": False,
+        }
 
     def partial_update(self, request, *args, **kwargs):
         contrato = self.get_object()
@@ -177,7 +578,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         transiciones_validas = {
             "borrador": ["en_aprobacion_cliente"],
             "cambios_solicitados": ["en_aprobacion_cliente"],
-            "en_aprobacion_cliente": ["aprobado_cliente", "cambios_solicitados"],
+            "en_aprobacion_cliente": ["aprobado_cliente", "cambios_solicitados", "rechazado_cliente"],
             "aprobado_cliente": ["en_firma"],
             "en_firma": ["activo"],
             "activo": ["suspendido", "finalizado"],
@@ -225,6 +626,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 observaciones=f"Renovación del contrato #{contrato_original.id} — {contrato_original.nombre}",
                 nombre=nuevo_nombre,
                 tipo=contrato_original.tipo,
+                contrato_anterior=contrato_original,
             )
 
             # Duplicar servicios genéricos
@@ -431,6 +833,19 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         cce = ContratoCondicionEspecial.objects.get(id=item["id"], contrato=contrato)
                     except ContratoCondicionEspecial.DoesNotExist:
                         continue
+                    cce.titulo_personalizado = item.get(
+                        "nombre",
+                        item.get("titulo_personalizado", cce.titulo_personalizado),
+                    )
+                    cce.detalle_personalizado = item.get(
+                        "detalle",
+                        item.get("detalle_personalizado", cce.detalle_personalizado),
+                    )
+                    if "multa" in item or "multa_incumplimiento" in item:
+                        cce.multa_incumplimiento = item.get(
+                            "multa",
+                            item.get("multa_incumplimiento", cce.multa_incumplimiento),
+                        )
                     cce.save()
                 else:
                     texto = item.get("texto")
@@ -439,7 +854,13 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         # Condición de texto libre
                         ContratoCondicionEspecial.objects.create(
                             contrato=contrato,
-                            texto=texto
+                            texto=texto,
+                            titulo_personalizado=item.get("nombre"),
+                            detalle_personalizado=item.get("detalle") or texto,
+                            multa_incumplimiento=item.get(
+                                "multa",
+                                item.get("multa_incumplimiento", 0),
+                            ),
                         )
                     elif condicion_id:
                         # Condición desde catálogo
@@ -449,7 +870,13 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                             continue
                         ContratoCondicionEspecial.objects.create(
                             contrato=contrato,
-                            condicion=condicion_obj
+                            condicion=condicion_obj,
+                            titulo_personalizado=item.get("nombre"),
+                            detalle_personalizado=item.get("detalle"),
+                            multa_incumplimiento=item.get(
+                                "multa",
+                                item.get("multa_incumplimiento", 0),
+                            ),
                         )
 
             # ============ USUARIOS VINCULADOS ============
@@ -522,6 +949,63 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             serializer_response = ContratoEmpresaClienteSerializer(contrato)
             return Response(serializer_response.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=["post"], url_path="crear-completo")
+    def crear_completo(self, request):
+        empresa = self._empresa_usuario()
+        if not empresa:
+            return Response(
+                {"detail": "No se pudo determinar la empresa del usuario autenticado."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        payload = request.data or {}
+        contrato_data = payload.get("contrato") or {}
+        if contrato_data.get("empresa_prestadora") and contrato_data.get("empresa_prestadora") != empresa.id:
+            return Response(
+                {"contrato": {"empresa_prestadora": ["Debe coincidir con la empresa autenticada."]}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        contrato_data["empresa_prestadora"] = empresa.id
+        serializer = ContratoEmpresaClienteSerializer(
+            data=contrato_data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            contrato = serializer.save()
+            try:
+                self._guardar_borrador_unificado(contrato, payload, crear=True)
+            except serializers.ValidationError:
+                raise
+            contrato.refresh_from_db()
+            return Response(
+                ContratoEmpresaClienteSerializer(contrato, context={"request": request}).data,
+                status=status.HTTP_201_CREATED,
+            )
+
+    @action(detail=True, methods=["put"], url_path="actualizar-borrador")
+    def actualizar_borrador(self, request, pk=None):
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        with transaction.atomic():
+            self._guardar_borrador_unificado(contrato, request.data or {}, crear=False)
+            contrato.refresh_from_db()
+            return Response(
+                ContratoEmpresaClienteSerializer(contrato, context={"request": request}).data,
+                status=status.HTTP_200_OK,
+            )
+
+    @action(detail=True, methods=["get"], url_path="resumen-comercial")
+    def resumen_comercial(self, request, pk=None):
+        contrato = self.get_object()
+        serializer = ContratoEmpresaClienteSerializer(contrato, context={"request": request})
+        return Response(serializer.data.get("resumen_comercial", {}), status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['put'], url_path='editar-servicios-genericos')
     def editar_servicios_genericos(self, request, pk=None):
         """
@@ -560,13 +1044,16 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        allowed_models = ['servicio', 'planservicio']
-
         with transaction.atomic():
             # Eliminar las relaciones actuales para el contrato
             ContratoServicio.objects.filter(contrato=contrato).delete()
+            ContratoItemComercial.objects.filter(contrato=contrato).delete()
 
-            for item in servicios_data:
+            for orden, item in enumerate(servicios_data):
+                if item.get("tipo_origen") or item.get("version_id") or item.get("catalogo_version_id"):
+                    self._crear_item_comercial_desde_payload(contrato, item, orden=orden)
+                    continue
+
                 ct_id = item.get("content_type")
                 object_id = item.get("object_id")
                 if not ct_id or not object_id:
@@ -583,7 +1070,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Validar que el ContentType pertenezca a los modelos permitidos
+                allowed_models = ['servicio', 'planservicio']
                 if ct.model not in allowed_models:
                     return Response(
                         {"detail": f"El ContentType con id {ct_id} no pertenece a un modelo permitido (servicio, planservicio)."},
@@ -594,13 +1081,16 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 precio_unitario = item.get("precio_unitario", 0)
 
                 # Crear la nueva relación en la tabla intermedia
-                ContratoServicio.objects.create(
+                legado = ContratoServicio.objects.create(
                     contrato=contrato,
                     content_type=ct,
                     object_id=object_id,
                     cantidad=cantidad,
                     precio_unitario=precio_unitario
                 )
+                if legado.item_comercial_id and legado.item_comercial.orden != orden:
+                    legado.item_comercial.orden = orden
+                    legado.item_comercial.save(update_fields=["orden", "fecha_modificacion"])
 
         contrato.refresh_from_db()
         serializer = ContratoEmpresaClienteSerializer(contrato)
@@ -609,65 +1099,63 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
         contrato = self.get_object()
-
-        # Datos reales del cliente desde el contrato
-        empresa_cliente = contrato.empresa_cliente
-        empresa_prestadora = contrato.empresa_prestadora
-
-        # Representantes legales de la empresa cliente
-        representantes_cliente = getattr(empresa_cliente, 'representantes_legales', None)
-        rep_legal_nombre = ""
-        rep_legal_rut = ""
-        if representantes_cliente and representantes_cliente.exists():
-            rep = representantes_cliente.first()
-            rep_legal_nombre = rep.usuario.get_nombre_completo() if hasattr(rep, 'usuario') else ""
-            rep_legal_rut = ""
-
-        datos_cliente = {
-            'razon_social': empresa_cliente.nombre or '',
-            'rut': getattr(empresa_cliente, 'rut_empresa', '') or '',
-            'domicilio': getattr(empresa_cliente, 'direccion_principal', '') or '',
-            'giro': '',
-            'representante_legal': rep_legal_nombre,
-            'rut_representante_legal': rep_legal_rut,
-            'fono': getattr(empresa_cliente, 'telefono', '') or '',
-            'email': getattr(empresa_cliente, 'email', '') or '',
-        }
-
-        # Representantes legales de la empresa prestadora
-        representantes_prestadora = getattr(empresa_prestadora, 'representantes_legales', None)
-        rep_prest_nombre = ""
-        if representantes_prestadora and representantes_prestadora.exists():
-            rep_p = representantes_prestadora.first()
-            rep_prest_nombre = rep_p.usuario.get_nombre_completo() if hasattr(rep_p, 'usuario') else ""
-
-        # Servicios contratados como lista de tareas
-        servicios = ContratoServicio.objects.filter(contrato=contrato)
-        lista_servicios = [cs.servicio_generico.nombre if cs.servicio_generico else f"Servicio #{cs.object_id}" for cs in servicios]
-
-        # Valor mensual: suma de servicios
-        valor_total = sum(float(cs.precio_unitario) * cs.cantidad for cs in servicios)
-
-        datos_contrato = {
-            'fecha': contrato.fecha_inicio.strftime('%d de %B del %Y') if contrato.fecha_inicio else '',
-            'proveedor_razon_social': empresa_prestadora.nombre or '',
-            'proveedor_rut': getattr(empresa_prestadora, 'rut_empresa', '') or '',
-            'proveedor_direccion': getattr(empresa_prestadora, 'direccion_principal', '') or '',
-            'proveedor_representante': rep_prest_nombre,
-            'descripcion_plan': contrato.observaciones or 'Sin descripción adicional.',
-            'valor_mensual': f"{valor_total:,.0f}",
-            'descripcion_asesoria': contrato.observaciones or '',
-            'forma_pago': '',
-            'condiciones_generales': '\n'.join(
-                [f"{cce.condicion.titulo}: {cce.condicion.descripcion}"
-                 for cce in ContratoCondicionEspecial.objects.filter(contrato=contrato).select_related("condicion")]
-            ) or 'Sin condiciones especiales.',
-            'lista_tareas': lista_servicios if lista_servicios else ['Sin servicios asociados.'],
-        }
-
         pdf_buffer = construir_pdf_contrato(contrato)
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="contrato_{contrato.id}_{contrato.nombre}.pdf"'
+        return response
+
+    @action(detail=True, methods=["get"], url_path="preview-firma")
+    def preview_firma(self, request, pk=None):
+        contrato = self.get_object()
+        envio = obtener_ultimo_envio_firma(contrato)
+        destinatario = obtener_destinatario_principal(contrato)
+        es_version_enviada = bool(envio and envio.enviado and envio.snapshot_contrato)
+
+        contrato_payload = (
+            envio.snapshot_contrato
+            if es_version_enviada
+            else ContratoEmpresaClienteSerializer(
+                contrato,
+                context={"request": request},
+            ).data
+        )
+
+        return Response(
+            {
+                "uuid": str(envio.uuid) if envio else None,
+                "puede_firmar": False,
+                "firmado": bool(envio.firmado) if envio else False,
+                "fecha_envio": envio.fecha_envio if envio else None,
+                "fecha_emision": envio.fecha_envio if envio else timezone.now(),
+                "fecha_firma": envio.fecha_firma if envio else None,
+                "firma": envio.firma if envio else None,
+                "firma_prestadora_disponible": firma_prestadora_disponible(contrato),
+                "es_version_enviada": es_version_enviada,
+                "destinatario": {
+                    "id": destinatario.id,
+                    "nombre": destinatario.nombre_display,
+                    "email": destinatario.correo_display,
+                    "es_externo": destinatario.es_externo,
+                }
+                if destinatario
+                else None,
+                "contrato": contrato_payload,
+            }
+        )
+
+    @action(detail=True, methods=["get"], url_path="preview-firma/pdf")
+    def preview_firma_pdf(self, request, pk=None):
+        contrato = self.get_object()
+        envio = obtener_ultimo_envio_firma(contrato)
+        pdf_buffer = (
+            envio.pdf_congelado
+            if envio and envio.enviado and envio.pdf_congelado
+            else construir_pdf_contrato(contrato)
+        )
+        response = HttpResponse(pdf_buffer, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="contrato_preview_firma_{contrato.id}.pdf"'
+        )
         return response
 
     @action(detail=True, methods=["post"], url_path="enviar-aprobacion")
@@ -737,22 +1225,77 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        snapshot, pdf_bytes = preparar_documento_contrato(contrato, request=request)
-        envio = EnvioContratoFirmaUsuario.objects.create(
-            usuario=destinatario,
-            snapshot_contrato=snapshot,
-            pdf_congelado=pdf_bytes,
-        )
-        marcar_envio(envio)
-        envio.save(update_fields=["enviado", "fecha_envio"])
-        enviar_correo_firma(envio)
+        if not firma_prestadora_disponible(contrato):
+            return Response(
+                {
+                    "detail": (
+                        "La empresa prestadora debe tener una firma configurada antes de enviar el contrato a firma."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        contrato.estado = "en_firma"
-        contrato.save(update_fields=["estado", "fecha_modificacion"])
-        return Response(
-            EnvioContratoFirmaUsuarioSerializer(envio).data,
-            status=status.HTTP_201_CREATED,
-        )
+        try:
+            snapshot, pdf_bytes = preparar_documento_contrato(
+                contrato,
+                request=request,
+                require_provider_signature=True,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Error preparando documento para envio de firma. contrato_id=%s",
+                contrato.id,
+            )
+            return _build_envio_firma_error_response(etapa="preparar_documento", exc=exc)
+
+        try:
+            envio = EnvioContratoFirmaUsuario.objects.create(
+                usuario=destinatario,
+                snapshot_contrato=snapshot,
+                pdf_congelado=pdf_bytes,
+            )
+            marcar_envio(envio)
+            envio.save(update_fields=["enviado", "fecha_envio"])
+        except Exception as exc:
+            logger.exception(
+                "Error creando registro de envio de firma. contrato_id=%s destinatario_id=%s",
+                contrato.id,
+                destinatario.id,
+            )
+            return _build_envio_firma_error_response(etapa="crear_envio", exc=exc)
+
+        try:
+            enviar_correo_firma(envio)
+        except Exception as exc:
+            logger.exception(
+                "Error despachando correo de firma. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="enviar_correo", exc=exc)
+
+        try:
+            contrato.estado = "en_firma"
+            contrato.save(update_fields=["estado", "fecha_modificacion"])
+        except Exception as exc:
+            logger.exception(
+                "Error actualizando contrato a en_firma. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="actualizar_estado", exc=exc)
+
+        try:
+            data = EnvioContratoFirmaUsuarioSerializer(envio).data
+        except Exception as exc:
+            logger.exception(
+                "Error serializando respuesta de envio de firma. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="serializar_respuesta", exc=exc)
+
+        return Response(data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="reenviar-firma")
     def reenviar_firma(self, request, pk=None):
@@ -768,6 +1311,74 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         envio.save(update_fields=["enviado", "fecha_envio"])
         enviar_correo_firma(envio)
         return Response({"detail": "Correo de firma reenviado correctamente."})
+
+    @action(detail=True, methods=["get"], url_path="historial")
+    def historial(self, request, pk=None):
+        contrato = self.get_object()
+        solo_cliente = request.query_params.get("solo_cliente", "true").lower() == "true"
+
+        eventos = [
+            self._build_contract_history_event(registro)
+            for registro in contrato.historia.all().order_by("-history_date")[:30]
+        ]
+        eventos.extend(
+            self._build_generic_history_event(registro, "servicio", "Se modificaron los servicios del contrato")
+            for registro in ContratoServicio.historia.filter(contrato_id=contrato.pk).order_by("-history_date")[:30]
+        )
+        eventos.extend(
+            self._build_generic_history_event(registro, "condicion", "Se modificaron las condiciones especiales")
+            for registro in ContratoCondicionEspecial.historia.filter(contrato_id=contrato.pk).order_by("-history_date")[:30]
+        )
+        eventos.extend(
+            self._build_generic_history_event(registro, "confidencialidad", "Se modificó un acuerdo de confidencialidad")
+            for registro in AcuerdoConfidencialidadContrato.historia.filter(contrato_id=contrato.pk).order_by("-history_date")[:30]
+        )
+        for envio in contrato.envios_aprobacion.all()[:30]:
+            if envio.respondido:
+                if envio.aprobado:
+                    detalle_aprobacion = f"El cliente aprobó el contrato"
+                else:
+                    detalle_aprobacion = f"El cliente solicitó cambios: {envio.comentario_respuesta or 'Sin comentario'}"
+            else:
+                detalle_aprobacion = f"Se envió el contrato para revisión del cliente"
+            eventos.append({
+                "id": f"aprobacion-{envio.id}",
+                "fecha": envio.fecha_respuesta or envio.fecha_envio,
+                "tipo": "Aprobacion" if envio.aprobado else "Revision",
+                "usuario": envio.destinatario.nombre_display,
+                "origen": "aprobacion",
+                "detalle": detalle_aprobacion,
+                "cambios": envio.comentario_respuesta or "",
+                "solicitado_por_cliente": True,
+            })
+        for envio in EnvioContratoFirmaUsuario.objects.filter(usuario__contrato=contrato).order_by("-fecha_envio", "-id")[:30]:
+            if envio.firmado:
+                detalle_firma = f"Contrato firmado por {envio.usuario.nombre_display}"
+            else:
+                detalle_firma = f"Se envió el contrato para firma de {envio.usuario.nombre_display}"
+            eventos.append({
+                "id": f"firma-{envio.id}",
+                "fecha": envio.fecha_firma or envio.fecha_envio,
+                "tipo": "Firma" if envio.firmado else "Envio",
+                "usuario": envio.usuario.nombre_display,
+                "origen": "firma",
+                "detalle": detalle_firma,
+                "cambios": "Documento firmado y versión PDF actualizada." if envio.firmado else "",
+                "solicitado_por_cliente": True,
+            })
+
+        # Filtrar: por defecto solo creación + cambios solicitados por cliente
+        if solo_cliente:
+            eventos = [
+                e for e in eventos
+                if e.get("tipo") == "Creacion" or e.get("solicitado_por_cliente", False)
+            ]
+
+        eventos.sort(
+            key=lambda item: (item["fecha"] is not None, item["fecha"] or timezone.now()),
+            reverse=True,
+        )
+        return Response(eventos[:50])
 
     @action(detail=False, methods=["get"], url_path="metricas-dashboard")
     def metricas_dashboard(self, request):
@@ -934,8 +1545,13 @@ class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
+        empresa = _empresa_del_usuario(self.request.user)
+        contratos_visibles = _contratos_visibles_para_empresa(empresa)
         if contrato_pk:
-            return UsuarioVinculadoContrato.objects.filter(contrato_id=contrato_pk).select_related(
+            return UsuarioVinculadoContrato.objects.filter(
+                contrato_id=contrato_pk,
+                contrato__in=contratos_visibles,
+            ).select_related(
                 'usuario',
                 'usuario__usuario',
                 'contrato',
@@ -952,8 +1568,13 @@ class ContratoServicioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
+        empresa = _empresa_del_usuario(self.request.user)
+        contratos_visibles = _contratos_visibles_para_empresa(empresa)
         if contrato_pk:
-            return ContratoServicio.objects.filter(contrato_id=contrato_pk)
+            return ContratoServicio.objects.filter(
+                contrato_id=contrato_pk,
+                contrato__in=contratos_visibles,
+            ).select_related("item_comercial", "content_type")
         return ContratoServicio.objects.none()
 
     def perform_create(self, serializer):
@@ -966,8 +1587,13 @@ class ContratoVisitaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
+        empresa = _empresa_del_usuario(self.request.user)
+        contratos_visibles = _contratos_visibles_para_empresa(empresa)
         if contrato_pk:
-            return ContratoVisita.objects.filter(contrato_id=contrato_pk)
+            return ContratoVisita.objects.filter(
+                contrato_id=contrato_pk,
+                contrato__in=contratos_visibles,
+            )
         return ContratoVisita.objects.none()
 
     def perform_create(self, serializer):
@@ -1242,8 +1868,13 @@ class ContratoCondicionEspecialViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
+        empresa = _empresa_del_usuario(self.request.user)
+        contratos_visibles = _contratos_visibles_para_empresa(empresa)
         if contrato_pk:
-            return ContratoCondicionEspecial.objects.filter(contrato_id=contrato_pk)
+            return ContratoCondicionEspecial.objects.filter(
+                contrato_id=contrato_pk,
+                contrato__in=contratos_visibles,
+            )
         return ContratoCondicionEspecial.objects.none()
 
     def perform_create(self, serializer):
@@ -1256,14 +1887,23 @@ class AcuerdoConfidencialidadContratoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
+        empresa = _empresa_del_usuario(self.request.user)
+        contratos_visibles = _contratos_visibles_para_empresa(empresa)
         if contrato_pk:
-            return AcuerdoConfidencialidadContrato.objects.filter(contrato_id=contrato_pk)
+            return AcuerdoConfidencialidadContrato.objects.filter(
+                contrato_id=contrato_pk,
+                contrato__in=contratos_visibles,
+            )
         return AcuerdoConfidencialidadContrato.objects.none()
 
     def perform_create(self, serializer):
         contrato_pk = self.kwargs.get('contrato_pk')
         contrato = ContratoEmpresaCliente.objects.get(pk=contrato_pk)
-        serializer.save(contrato=contrato)
+        serializer.save(
+            contrato=contrato,
+            fecha_envio=timezone.now(),
+            vigencia_desde=serializer.validated_data.get("vigencia_desde") or contrato.fecha_inicio,
+        )
 
 # ViewSets para modelos de catálogo, que permanecen a nivel superior:
 class ServicioViewSet(viewsets.ModelViewSet):
@@ -1271,12 +1911,91 @@ class ServicioViewSet(viewsets.ModelViewSet):
     serializer_class = ServicioSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return Servicio.objects.none()
+        qs = Servicio.objects.filter(empresa_prestadora=empresa).prefetch_related(
+            "caracteristicas",
+            "alcance_items__caracteristica",
+        )
+        if self.action == "list":
+            qs = qs.filter(es_vigente=True)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(empresa_prestadora=_empresa_del_usuario(self.request.user))
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        usado_en_contrato = (
+            ContratoItemComercial.objects.filter(servicio_version=instance).exists()
+            or ContratoServicio.objects.filter(
+                content_type=ContentType.objects.get_for_model(Servicio),
+                object_id=instance.pk,
+            ).exists()
+        )
+        if not usado_en_contrato:
+            self.perform_update(serializer)
+            return Response(serializer.data)
+
+        with transaction.atomic():
+            alcance_config = serializer.validated_data.pop("alcance_config", None)
+            caracteristicas_ids = serializer.validated_data.pop("caracteristicas_ids", None)
+            if alcance_config is None and caracteristicas_ids is not None:
+                alcance_config = [
+                    {
+                        "caracteristica": caracteristica,
+                        "modo": "incluye",
+                        "orden": index,
+                    }
+                    for index, caracteristica in enumerate(caracteristicas_ids)
+                ]
+            payload = {
+                "nombre": instance.nombre,
+                "descripcion": instance.descripcion,
+                "categoria": instance.categoria,
+                "incluye": instance.incluye,
+                "no_incluye": instance.no_incluye,
+                "clausulas_especiales": instance.clausulas_especiales,
+                "precio_clp": instance.precio_clp,
+                "precio_uf": instance.precio_uf,
+                "precio_usd": instance.precio_usd,
+                "veces_por_mes_default": instance.veces_por_mes_default,
+                "formas_pago_permitidas": instance.formas_pago_permitidas,
+            }
+            payload.update(serializer.validated_data)
+            instance.es_vigente = False
+            instance.save(update_fields=["es_vigente", "fecha_modificacion"])
+            nuevo = Servicio.objects.create(
+                **payload,
+                empresa_prestadora=instance.empresa_prestadora,
+                version=instance.version + 1,
+                servicio_origen=instance.servicio_origen or instance,
+                version_anterior=instance,
+                activo=True,
+                es_vigente=True,
+            )
+            if alcance_config is not None:
+                ServicioSerializer._sync_alcance(nuevo, alcance_config)
+            else:
+                ServicioSerializer.clonar_alcance(instance, nuevo)
+        return Response(self.get_serializer(nuevo).data, status=status.HTTP_200_OK)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if ContratoServicio.objects.filter(
-            content_type=ContentType.objects.get_for_model(Servicio),
-            object_id=instance.pk,
-        ).exists():
+        if (
+            ContratoServicio.objects.filter(
+                content_type=ContentType.objects.get_for_model(Servicio),
+                object_id=instance.pk,
+            ).exists()
+            or ContratoItemComercial.objects.filter(servicio_version=instance).exists()
+            or PlanServicioDetalle.objects.filter(servicio_version=instance).exists()
+        ):
             return Response(
                 {"detail": "No se puede eliminar: este servicio está asociado a contratos."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1288,12 +2007,86 @@ class PlanServicioViewSet(viewsets.ModelViewSet):
     serializer_class = PlanServicioSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return PlanServicio.objects.none()
+        return PlanServicio.objects.filter(empresa_prestadora=empresa).prefetch_related(
+            "detalles_servicio__servicio_version__alcance_items__caracteristica",
+            "detalles_servicio__servicio_version__caracteristicas",
+            "servicios__alcance_items__caracteristica",
+            "servicios__caracteristicas",
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(empresa_prestadora=_empresa_del_usuario(self.request.user))
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        usado_en_contrato = (
+            ContratoItemComercial.objects.filter(plan_version=instance).exists()
+            or ContratoServicio.objects.filter(
+                content_type=ContentType.objects.get_for_model(PlanServicio),
+                object_id=instance.pk,
+            ).exists()
+        )
+        if not usado_en_contrato:
+            self.perform_update(serializer)
+            return Response(serializer.data)
+
+        with transaction.atomic():
+            servicios = list(serializer.validated_data.pop("servicios", []))
+            payload = {
+                "nombre": instance.nombre,
+                "descripcion": instance.descripcion,
+                "incluye": instance.incluye,
+                "no_incluye": instance.no_incluye,
+                "clausulas_especiales": instance.clausulas_especiales,
+                "precio_clp": instance.precio_clp,
+                "precio_uf": instance.precio_uf,
+                "precio_usd": instance.precio_usd,
+                "veces_por_mes_default": instance.veces_por_mes_default,
+                "formas_pago_permitidas": instance.formas_pago_permitidas,
+            }
+            payload.update(serializer.validated_data)
+            instance.es_vigente = False
+            instance.save(update_fields=["es_vigente", "fecha_modificacion"])
+            nuevo = PlanServicio.objects.create(
+                **payload,
+                empresa_prestadora=instance.empresa_prestadora,
+                version=instance.version + 1,
+                plan_origen=instance.plan_origen or instance,
+                version_anterior=instance,
+                activo=True,
+                es_vigente=True,
+            )
+            if servicios:
+                serializer._guardar_detalles_servicio(nuevo, servicios)
+            else:
+                for detalle in instance.detalles_servicio.all():
+                    PlanServicioDetalle.objects.create(
+                        plan=nuevo,
+                        servicio_version=detalle.servicio_version,
+                        orden=detalle.orden,
+                        obligatorio=detalle.obligatorio,
+                        cantidad_default=detalle.cantidad_default,
+                        veces_por_mes_default=detalle.veces_por_mes_default,
+                    )
+        return Response(self.get_serializer(nuevo).data, status=status.HTTP_200_OK)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if ContratoServicio.objects.filter(
-            content_type=ContentType.objects.get_for_model(PlanServicio),
-            object_id=instance.pk,
-        ).exists():
+        if (
+            ContratoServicio.objects.filter(
+                content_type=ContentType.objects.get_for_model(PlanServicio),
+                object_id=instance.pk,
+            ).exists()
+            or ContratoItemComercial.objects.filter(plan_version=instance).exists()
+        ):
             return Response(
                 {"detail": "No se puede eliminar: este plan está asociado a contratos."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1304,6 +2097,26 @@ class CaracteristicaServicioViewSet(viewsets.ModelViewSet):
     queryset = CaracteristicaServicio.objects.all()
     serializer_class = CaracteristicaServicioSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return CaracteristicaServicio.objects.none()
+        return CaracteristicaServicio.objects.filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(empresa_prestadora=_empresa_del_usuario(self.request.user))
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.servicios.exists():
+            return Response(
+                {"detail": "No se puede eliminar: la caracteristica esta asociada a servicios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all()
@@ -1492,10 +2305,17 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        usuario_vinculado = UsuarioVinculadoContrato.objects.get(
-            pk=self.kwargs.get("usuario_vinculado_pk"),
-            contrato_id=self.kwargs.get("contrato_pk"),
-        )
+        try:
+            usuario_vinculado = UsuarioVinculadoContrato.objects.get(
+                pk=self.kwargs.get("usuario_vinculado_pk"),
+                contrato_id=self.kwargs.get("contrato_pk"),
+            )
+        except UsuarioVinculadoContrato.DoesNotExist:
+            return Response(
+                {"detail": "No se encontro el usuario vinculado indicado para este contrato."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         contrato = usuario_vinculado.contrato
         if contrato.estado != "aprobado_cliente":
             return Response(
@@ -1507,23 +2327,80 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
                 {"detail": "En esta version solo se puede enviar a firma al destinatario principal."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if not firma_prestadora_disponible(contrato):
+            return Response(
+                {
+                    "detail": (
+                        "La empresa prestadora debe tener una firma configurada antes de enviar el contrato a firma."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        snapshot, pdf_bytes = preparar_documento_contrato(contrato, request=request)
-        envio = EnvioContratoFirmaUsuario.objects.create(
-            usuario=usuario_vinculado,
-            snapshot_contrato=snapshot,
-            pdf_congelado=pdf_bytes,
-        )
-        marcar_envio(envio)
-        envio.save(update_fields=["enviado", "fecha_envio"])
-        enviar_correo_firma(envio)
+        try:
+            snapshot, pdf_bytes = preparar_documento_contrato(
+                contrato,
+                request=request,
+                require_provider_signature=True,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Error preparando documento para envio de firma anidado. contrato_id=%s usuario_vinculado_id=%s",
+                contrato.id,
+                usuario_vinculado.id,
+            )
+            return _build_envio_firma_error_response(etapa="preparar_documento", exc=exc)
 
-        contrato.estado = "en_firma"
-        contrato.save(update_fields=["estado", "fecha_modificacion"])
+        try:
+            envio = EnvioContratoFirmaUsuario.objects.create(
+                usuario=usuario_vinculado,
+                snapshot_contrato=snapshot,
+                pdf_congelado=pdf_bytes,
+            )
+            marcar_envio(envio)
+            envio.save(update_fields=["enviado", "fecha_envio"])
+        except Exception as exc:
+            logger.exception(
+                "Error creando envio de firma anidado. contrato_id=%s usuario_vinculado_id=%s",
+                contrato.id,
+                usuario_vinculado.id,
+            )
+            return _build_envio_firma_error_response(etapa="crear_envio", exc=exc)
 
-        serializer = self.get_serializer(envio)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        try:
+            enviar_correo_firma(envio)
+        except Exception as exc:
+            logger.exception(
+                "Error despachando correo de firma anidado. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="enviar_correo", exc=exc)
+
+        try:
+            contrato.estado = "en_firma"
+            contrato.save(update_fields=["estado", "fecha_modificacion"])
+        except Exception as exc:
+            logger.exception(
+                "Error actualizando contrato a en_firma en flujo anidado. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="actualizar_estado", exc=exc)
+
+        try:
+            serializer = self.get_serializer(envio)
+            data = serializer.data
+        except Exception as exc:
+            logger.exception(
+                "Error serializando respuesta de envio de firma anidado. contrato_id=%s envio_id=%s",
+                contrato.id,
+                envio.id,
+            )
+            return _build_envio_firma_error_response(etapa="serializar_respuesta", exc=exc)
+
+        headers = self.get_success_headers(data)
+        return Response(data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=['post'], url_path='reenviar')
     def reenviar(self, request, pk=None, contrato_pk=None, usuario_vinculado_pk=None):
@@ -1531,6 +2408,19 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
         Reenvía el correo de firma para este EnvioContratoFirmaUsuario.
         """
         envio = self.get_object()
+        contrato = envio.usuario.contrato
+
+        if envio.firmado:
+            return Response(
+                {"detail": "El documento ya fue firmado y no admite un nuevo reenvio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if contrato.estado != "en_firma":
+            return Response(
+                {"detail": "El contrato ya no esta disponible para reenviar a firma."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Actualizar fecha de envío
         envio.fecha_envio = timezone.now()
@@ -1636,11 +2526,17 @@ def firmar_envio(request, uuid):
         return HttpResponseBadRequest('"fecha_firma" no es un datetime ISO válido.')
 
     # Actualizar y guardar sólo los campos necesarios
-    envio.firma       = firma_value
+    try:
+        firma_normalizada = validar_firma_imagen(firma_value)
+    except ValueError as exc:
+        return HttpResponseBadRequest(str(exc))
+
+    envio.firma       = firma_normalizada
     envio.fecha_firma = fecha_firma
     envio.firmado     = bool(firmado_value)
     envio.ip_respuesta = get_client_ip(request)
-    envio.save(update_fields=['firma', 'fecha_firma', 'firmado', 'ip_respuesta'])
+    actualizar_pdf_firmado_envio(envio)
+    envio.save(update_fields=['firma', 'fecha_firma', 'firmado', 'ip_respuesta', 'pdf_congelado'])
     if envio.usuario.contrato.estado == 'en_firma':
         envio.usuario.contrato.estado = 'activo'
         envio.usuario.contrato.save(update_fields=['estado', 'fecha_modificacion'])

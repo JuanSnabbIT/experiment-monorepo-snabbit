@@ -29,6 +29,7 @@ from contratos.public_views import (
     PublicContratoFirmaDetailView,
     PublicContratoFirmaPDFView,
     PublicFirmarContratoView,
+    PublicRechazarDefinitivoContratoView,
     PublicRechazarContratoView,
 )
 
@@ -90,6 +91,11 @@ urlpatterns = (
             'public/contrato-aprobacion/<uuid:token>/rechazar/',
             PublicRechazarContratoView.as_view(),
             name='public-contrato-aprobacion-rechazar'
+        ),
+        path(
+            'public/contrato-aprobacion/<uuid:token>/rechazar-definitivo/',
+            PublicRechazarDefinitivoContratoView.as_view(),
+            name='public-contrato-aprobacion-rechazar-definitivo'
         ),
         path(
             'public/contrato-firma/<uuid:token>/',

@@ -68,6 +68,9 @@ export interface IContratoEdicion {
         id?: number;
         condicion_id?: number;
         texto?: string;
+        nombre?: string;
+        detalle?: string;
+        multa?: number;
     }[];
     // USUARIOS VINCULADOS
     eliminar_usuarios: number[];
