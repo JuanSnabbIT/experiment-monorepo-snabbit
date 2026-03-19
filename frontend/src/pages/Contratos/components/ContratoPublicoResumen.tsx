@@ -1,5 +1,11 @@
 import Badge from '@/components/ui/Badge';
-import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
+import type {
+    IContratoEmpresaCliente,
+    IPlanAlcanceItem,
+    IPlanServicio,
+    IServicio,
+    IServicioAlcanceItem,
+} from '@/interface/contrato.interface';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -8,6 +14,11 @@ dayjs.locale('es');
 interface IContratoPublicoResumenProps {
     contrato: IContratoEmpresaCliente;
 }
+
+type TScopeListItem = {
+    nombre: string;
+    descripcion?: string;
+};
 
 const formatFechaLarga = (fecha?: string | null) => {
     if (!fecha) return 'Sin fecha';
@@ -31,6 +42,69 @@ const formatCurrency = (
         currency,
         maximumFractionDigits: 0,
     }).format(amount);
+};
+
+const formatSubtotalCurrency = (
+    value?: number | string | null,
+    currency: 'CLP' | 'UF' | 'USD' = 'CLP',
+) => {
+    const amount = Number(value || 0);
+
+    if (currency === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} UF`;
+    }
+
+    if (currency === 'USD') {
+        return `$${new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} USD`;
+    }
+
+    return `$${new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount)} CLP`;
+};
+
+const normalizeScopeItems = (value?: string | null): TScopeListItem[] =>
+    (value ?? '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/^[-*•]\s*/, '').trim())
+        .filter(Boolean)
+        .map((line) => ({ nombre: line }));
+
+const renderScopeList = (title: string, items: TScopeListItem[]) => {
+    if (items.length === 0) return null;
+
+    return (
+        <div className='rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-950/30'>
+            <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                {title}:
+            </div>
+            <ul className='mt-2 list-disc space-y-1.5 pl-5'>
+                {items.map((item) => (
+                    <li key={item.nombre} className='text-sm text-zinc-700 dark:text-zinc-300'>
+                        {item.descripcion ? (
+                            <>
+                                <span className='font-medium text-zinc-900 dark:text-zinc-100'>
+                                    {item.nombre}:
+                                </span>{' '}
+                                {item.descripcion}
+                            </>
+                        ) : (
+                            item.nombre
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
 };
 
 const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
@@ -228,26 +302,70 @@ const ContratoPublicoResumen = ({ contrato }: IContratoPublicoResumenProps) => {
                                     </div>
                                     <div className='rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-zinc-800/60 dark:text-zinc-200'>
                                         Subtotal:{' '}
-                                        {formatCurrency(servicio.subtotal, monedaContrato)}
+                                        {formatSubtotalCurrency(
+                                            servicio.subtotal,
+                                            monedaContrato,
+                                        )}
                                     </div>
-                                    {'incluye' in servicio.servicio_generico &&
-                                        servicio.servicio_generico.incluye && (
-                                            <p className='text-sm text-gray-600 dark:text-zinc-300'>
-                                                <span className='font-medium text-gray-900 dark:text-zinc-100'>
-                                                    Incluye:
-                                                </span>{' '}
-                                                {servicio.servicio_generico.incluye}
-                                            </p>
-                                        )}
-                                    {'no_incluye' in servicio.servicio_generico &&
-                                        servicio.servicio_generico.no_incluye && (
-                                            <p className='text-sm text-gray-600 dark:text-zinc-300'>
-                                                <span className='font-medium text-gray-900 dark:text-zinc-100'>
-                                                    No incluye:
-                                                </span>{' '}
-                                                {servicio.servicio_generico.no_incluye}
-                                            </p>
-                                        )}
+                                    {(() => {
+                                        const sg = servicio.servicio_generico;
+                                        const alcanceItems: IServicioAlcanceItem[] =
+                                            'alcance_caracteristicas' in sg
+                                                ? ((sg as IServicio).alcance_caracteristicas ?? [])
+                                                : [];
+                                        const planItems: IPlanAlcanceItem[] =
+                                            'alcance_heredado' in sg
+                                                ? ((sg as IPlanServicio).alcance_heredado ?? [])
+                                                : [];
+
+                                        const hasStructured =
+                                            alcanceItems.length > 0 || planItems.length > 0;
+
+                                        if (hasStructured) {
+                                            const sourceItems =
+                                                alcanceItems.length > 0
+                                                    ? alcanceItems.map((i) => ({
+                                                          modo: i.modo,
+                                                          nombre: i.caracteristica.nombre,
+                                                          descripcion: i.caracteristica.descripcion || undefined,
+                                                      }))
+                                                    : planItems.map((i) => ({
+                                                          modo: i.modo,
+                                                          nombre: i.caracteristica.nombre,
+                                                          descripcion: i.caracteristica.descripcion || undefined,
+                                                      }));
+
+                                            const incluye = sourceItems.filter(
+                                                (i) => i.modo === 'incluye',
+                                            );
+                                            const noIncluye = sourceItems.filter(
+                                                (i) => i.modo === 'no_incluye',
+                                            );
+
+                                            return (
+                                                <div className='space-y-3'>
+                                                    {renderScopeList('Incluye', incluye)}
+                                                    {renderScopeList('No incluye', noIncluye)}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Fallback: texto legado
+                                        return (
+                                            <div className='space-y-3'>
+                                                {'incluye' in sg &&
+                                                    renderScopeList(
+                                                        'Incluye',
+                                                        normalizeScopeItems(sg.incluye),
+                                                    )}
+                                                {'no_incluye' in sg &&
+                                                    renderScopeList(
+                                                        'No incluye',
+                                                        normalizeScopeItems(sg.no_incluye),
+                                                    )}
+                                            </div>
+                                        );
+                                    })()}
                                     {'clausulas_especiales' in servicio.servicio_generico &&
                                         servicio.servicio_generico.clausulas_especiales && (
                                             <p className='text-sm text-gray-600 dark:text-zinc-300'>

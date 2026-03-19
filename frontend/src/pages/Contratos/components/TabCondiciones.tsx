@@ -23,12 +23,19 @@ const INITIAL_STATE: INuevaCondicionState = {
     multa: '',
 };
 
-const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('es-CL', {
+const formatCurrency = (value: number, currency: 'CLP' | 'UF' | 'USD' = 'CLP') => {
+    if (currency === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(value)} UF`;
+    }
+    return new Intl.NumberFormat('es-CL', {
         style: 'currency',
-        currency: 'CLP',
+        currency,
         maximumFractionDigits: 0,
     }).format(value);
+};
 
 const TabCondiciones = ({
     detalleContratoEmpresaCliente,
@@ -36,6 +43,7 @@ const TabCondiciones = ({
 }: ITabCondicionesProps) => {
     const [agregando, setAgregando] = useState(false);
     const [nuevaCondicion, setNuevaCondicion] = useState<INuevaCondicionState>(INITIAL_STATE);
+    const monedaContrato = detalleContratoEmpresaCliente.moneda_cobro ?? 'CLP';
     const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
 
     const resetForm = () => {
@@ -138,7 +146,9 @@ const TabCondiciones = ({
                                 />
                             </div>
                             <div>
-                                <Label htmlFor='condicion-multa'>Multa por incumplimiento</Label>
+                                <Label htmlFor='condicion-multa'>
+                                    Multa por incumplimiento ({monedaContrato})
+                                </Label>
                                 <Input
                                     id='condicion-multa'
                                     name='condicion-multa'
@@ -206,7 +216,7 @@ const TabCondiciones = ({
                                                     </div>
                                                     {multa > 0 && (
                                                         <span className='rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 dark:bg-red-950/30 dark:text-red-300'>
-                                                            Multa: {formatCurrency(multa)}
+                                                            Multa: {formatCurrency(multa, monedaContrato)}
                                                         </span>
                                                     )}
                                                 </div>

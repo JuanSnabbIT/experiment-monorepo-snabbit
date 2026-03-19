@@ -18,8 +18,61 @@ const formatCurrency = (value: number, currency: 'CLP' | 'UF' | 'USD' = 'CLP') =
     }).format(value);
 };
 
-const renderScopeBlock = (label: string, value?: string | null) => {
+const formatSubtotalCurrency = (
+    value: number,
+    currency: 'CLP' | 'UF' | 'USD' = 'CLP',
+) => {
+    const amount = Number(value || 0);
+
+    if (currency === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} UF`;
+    }
+
+    if (currency === 'USD') {
+        return `$${new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} USD`;
+    }
+
+    return `$${new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount)} CLP`;
+};
+
+const normalizeScopeItems = (value?: string | null) =>
+    (value ?? '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.replace(/^[-*•]\s*/, '').trim())
+        .filter(Boolean);
+
+const renderScopeList = (label: string, value?: string | null) => {
+    const items = normalizeScopeItems(value);
+    if (items.length === 0) return null;
+
+    return (
+        <div className='rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40'>
+            <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                {label}:
+            </div>
+            <ul className='mt-2 list-disc space-y-1.5 pl-5 text-sm leading-6 text-zinc-700 dark:text-zinc-300'>
+                {items.map((item) => (
+                    <li key={`${label}-${item}`}>{item}</li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+const renderTextBlock = (label: string, value?: string | null) => {
     if (!value) return null;
+
     return (
         <div className='rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40'>
             <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
@@ -128,7 +181,7 @@ const TabServicios = ({
                                                     Subtotal
                                                 </div>
                                                 <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                    {formatCurrency(
+                                                    {formatSubtotalCurrency(
                                                         subtotal,
                                                         detalleContratoEmpresaCliente.moneda_cobro,
                                                     )}
@@ -196,15 +249,15 @@ const TabServicios = ({
                                             )}
 
                                         <div className='mt-4 space-y-3'>
-                                            {renderScopeBlock(
+                                            {renderScopeList(
                                                 'Incluye',
                                                 servicioGenerico.incluye ?? null,
                                             )}
-                                            {renderScopeBlock(
+                                            {renderScopeList(
                                                 'No incluye',
                                                 servicioGenerico.no_incluye ?? null,
                                             )}
-                                            {renderScopeBlock(
+                                            {renderTextBlock(
                                                 'Clausulas especiales',
                                                 servicioGenerico.clausulas_especiales ?? null,
                                             )}
@@ -220,7 +273,7 @@ const TabServicios = ({
                                     Total referencial
                                 </div>
                                 <div className='text-lg font-semibold text-blue-700 dark:text-blue-200'>
-                                    {formatCurrency(
+                                    {formatSubtotalCurrency(
                                         totalServicios,
                                         detalleContratoEmpresaCliente.moneda_cobro,
                                     )}
