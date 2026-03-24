@@ -40,6 +40,150 @@ def _build_signature_image(firma_base64):
     return image
 
 
+def generar_contrato_desde_plantilla(
+    contrato,
+    *,
+    firma_cliente_b64=None,
+    firmante_cliente="",
+):
+    """
+    Genera PDF de contrato a partir de sus SeccionContratoGenerada.
+
+    Cada sección se renderiza según su tipo (vía seccion_plantilla.tipo):
+      - encabezado → título centrado
+      - clausula / condiciones_generales / libre → título + párrafo justificado
+      - firmas → bloque de firmas (se replica en cada sección de este tipo)
+
+    Retorna bytes del PDF.
+    """
+    secciones = contrato.secciones_generadas.select_related("seccion_plantilla").order_by("orden")
+
+    firma_empresa_b64 = None
+    if contrato.empresa_prestadora:
+        firma_empresa_b64 = contrato.empresa_prestadora.firma_empresa
+
+    representante = ""
+    if contrato.empresa_prestadora:
+        representante = contrato.empresa_prestadora.nombre or ""
+
+    buffer = BytesIO()
+
+    estilos = getSampleStyleSheet()
+    estilo_normal = estilos["Normal"]
+    estilo_normal.fontName = "Times-Roman"
+    estilo_normal.fontSize = 10
+    estilo_normal.leading = 14
+
+    estilo_titulo = ParagraphStyle(
+        "titulo_plantilla",
+        parent=estilo_normal,
+        fontSize=12,
+        leading=16,
+        alignment=TA_CENTER,
+        spaceAfter=10,
+        bold=True,
+    )
+
+    estilo_subtitulo = ParagraphStyle(
+        "subtitulo_plantilla",
+        parent=estilo_normal,
+        fontSize=11,
+        leading=14,
+        alignment=TA_LEFT,
+        spaceBefore=12,
+        spaceAfter=6,
+        bold=True,
+    )
+
+    estilo_parrafo = ParagraphStyle(
+        "parrafo_plantilla",
+        parent=estilo_normal,
+        alignment=TA_JUSTIFY,
+        firstLineIndent=20,
+        spaceAfter=8,
+    )
+
+    estilo_tabla_celda = ParagraphStyle(
+        "tabla_celda_plantilla",
+        parent=estilo_normal,
+        alignment=TA_LEFT,
+        fontSize=10,
+    )
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=LETTER,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=50,
+        bottomMargin=50,
+    )
+
+    elementos = []
+
+    for seccion in secciones:
+        tipo = seccion.seccion_plantilla.tipo if seccion.seccion_plantilla else "libre"
+
+        if tipo == "encabezado":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_titulo,
+            ))
+            if seccion.contenido_renderizado.strip():
+                elementos.append(Paragraph(
+                    _safe_paragraph_text(seccion.contenido_renderizado),
+                    estilo_parrafo,
+                ))
+            elementos.append(Spacer(1, 12))
+
+        elif tipo == "firmas":
+            elementos.append(Spacer(1, 24))
+            data_firmas = [
+                [
+                    _build_signature_image(firma_cliente_b64),
+                    _build_signature_image(firma_empresa_b64),
+                ],
+                [
+                    Paragraph("<b>__________________________</b>", estilo_tabla_celda),
+                    Paragraph("<b>__________________________</b>", estilo_tabla_celda),
+                ],
+                [
+                    Paragraph("Firma y Timbre del Cliente", estilo_tabla_celda),
+                    Paragraph("Firma de la Empresa Prestadora", estilo_tabla_celda),
+                ],
+                [
+                    Paragraph(_safe_paragraph_text(firmante_cliente), estilo_tabla_celda),
+                    Paragraph(_safe_paragraph_text(representante), estilo_tabla_celda),
+                ],
+            ]
+            tabla_firmas = Table(data_firmas, colWidths=[3 * inch, 3 * inch])
+            tabla_firmas.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 18),
+            ]))
+            elementos.append(tabla_firmas)
+
+        else:
+            # clausula, condiciones_generales, libre
+            elementos.append(Paragraph(
+                f"<b>{_safe_paragraph_text(seccion.titulo)}</b>",
+                estilo_subtitulo,
+            ))
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.contenido_renderizado),
+                estilo_parrafo,
+            ))
+            elementos.append(Spacer(1, 6))
+
+    if not elementos:
+        elementos.append(Paragraph("(Sin contenido de plantilla)", estilo_parrafo))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def generar_contrato_en_memoria(nombre_archivo_pdf, datos_cliente, datos_contrato):
     """
     Genera un contrato en PDF con un formato similar al proporcionado,

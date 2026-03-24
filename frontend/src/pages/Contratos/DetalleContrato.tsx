@@ -39,6 +39,7 @@ import CicloVidaContrato from './components/CicloVidaContrato';
 import { colorEstadoContrato } from './components/contrato.helpers';
 import ResumenContrato from './components/ResumenContrato';
 import TabCondiciones from './components/TabCondiciones';
+import TabDocumento from './components/TabDocumento';
 import TabHistorial from './components/TabHistorial';
 import TabLicencias from './components/TabLicencias';
 import TabServicios from './components/TabServicios';
@@ -574,6 +575,12 @@ const DetalleContrato = () => {
                             detalleContratoEmpresaCliente={contrato}
                             puedeEditar={puedeEditar}
                         />
+                        {contrato.plantilla && (
+                            <TabDocumento
+                                contrato={contrato}
+                                puedeEditar={puedeEditar}
+                            />
+                        )}
                     </div>
 
                     {/* ── Columna derecha (4/12): Visitas, Licencias, Historial ── */}

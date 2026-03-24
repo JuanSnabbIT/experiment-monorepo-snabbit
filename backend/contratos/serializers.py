@@ -24,6 +24,10 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
     FacturaContrato,
+    PlantillaContrato,
+    SeccionPlantilla,
+    EtiquetaPlantilla,
+    SeccionContratoGenerada,
 )
 from core.models import AcuerdoConfidencialidadBase
 from empresas.models import UsuarioEmpresa
@@ -964,6 +968,59 @@ class UsuarioVinculadoContratoSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
+# ── Serializers del Sistema de Plantillas ──
+
+class SeccionPlantillaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeccionPlantilla
+        fields = '__all__'
+        read_only_fields = ['plantilla', 'fecha_creacion', 'fecha_modificacion']
+
+    def validate(self, attrs):
+        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS
+
+        tipo = attrs.get('tipo', getattr(self.instance, 'tipo', None))
+
+        if tipo == 'firmas':
+            attrs['contenido_template'] = CONTENIDO_CANONICO_FIRMAS
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = True
+        return attrs
+
+
+class PlantillaContratoSerializer(serializers.ModelSerializer):
+    secciones = SeccionPlantillaSerializer(many=True, read_only=True)
+    tipo_contrato_label = serializers.CharField(
+        source='get_tipo_contrato_display', read_only=True,
+    )
+    moneda_cobro_label = serializers.CharField(
+        source='get_moneda_cobro_display', read_only=True,
+    )
+    forma_pago_contractual_label = serializers.CharField(
+        source='get_forma_pago_contractual_display', read_only=True,
+    )
+
+    class Meta:
+        model = PlantillaContrato
+        fields = '__all__'
+        read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'empresa_prestadora']
+
+
+class EtiquetaPlantillaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EtiquetaPlantilla
+        fields = '__all__'
+        read_only_fields = ['fecha_creacion', 'fecha_modificacion']
+
+
+class SeccionContratoGeneradaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeccionContratoGenerada
+        fields = '__all__'
+        read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'contrato']
+
+
 # Serializador para ContratoEmpresaCliente
 class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     # Mostramos los datos de las relaciones a través de inlines de solo lectura.
@@ -975,6 +1032,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     # La relación ManyToMany mediante el modelo intermedio se accede mediante el related_name "vinculos_contrato"
     vinculos_contrato = UsuarioVinculadoContratoSerializer(many=True, read_only=True)
     firmas_confidencialidad = AcuerdoConfidencialidadContratoSerializer(many=True, read_only=True)
+    secciones_generadas = SeccionContratoGeneradaSerializer(many=True, read_only=True)
     estado_label = serializers.SerializerMethodField()
     valido = serializers.SerializerMethodField()
     datos_empresa = serializers.SerializerMethodField()
@@ -988,6 +1046,8 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     resumen_comercial = serializers.SerializerMethodField()
     contrato_anterior_detalle = serializers.SerializerMethodField()
     renovaciones_detalle = serializers.SerializerMethodField()
+
+    documento_final_url = serializers.CharField(read_only=True, required=False)
 
     class Meta:
         model = ContratoEmpresaCliente

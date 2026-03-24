@@ -48,6 +48,21 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         help_text="Contrato del cual se originó esta renovación.",
     )
 
+    lugar_firma = models.CharField(max_length=255, blank=True, null=True, verbose_name="Lugar de firma")
+    fecha_firma = models.DateField(blank=True, null=True, verbose_name="Fecha de firma del contrato")
+    renovacion_automatica = models.BooleanField(default=True, verbose_name="Renovación automática")
+    dias_aviso_termino = models.PositiveIntegerField(default=60, verbose_name="Días de aviso previo para término")
+    documento_final_url = models.TextField(blank=True, null=True, verbose_name="URL del documento final firmado")
+
+    plantilla = models.ForeignKey(
+        "contratos.PlantillaContrato",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contratos",
+        verbose_name="Plantilla utilizada",
+    )
+
     servicios_genericos = models.ManyToManyField(
         ContentType,
         through="contratos.ContratoServicio",
@@ -1467,3 +1482,219 @@ class FacturaContrato(ModeloBaseHistorico):
             f"Factura #{self.pk} - {self.contrato.nombre} "
             f"({self.periodo_inicio} -> {self.periodo_fin}) [{self.get_estado_display()}]"
         )
+
+
+# =====================================================================
+# Sistema de Plantillas de Contrato
+# =====================================================================
+
+class PlantillaContrato(ModeloBase):
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="plantillas_contrato",
+    )
+    titulo = models.CharField(max_length=255, verbose_name="Título de la plantilla")
+    descripcion = models.TextField(blank=True, null=True)
+    version = models.PositiveIntegerField(default=1)
+    activa = models.BooleanField(default=True)
+    tipo_contrato = models.CharField(
+        max_length=20,
+        choices=TIPO_CONTRATO,
+        default="servicios",
+    )
+
+    # ── Defaults reutilizables (template-level) ──
+    moneda_cobro = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        default="CLP",
+        blank=True,
+        verbose_name="Moneda de cobro por defecto",
+    )
+    forma_pago_contractual = models.CharField(
+        max_length=20,
+        choices=FORMAS_PAGO_COMERCIALES,
+        default="mensual",
+        blank=True,
+        verbose_name="Forma de pago por defecto",
+    )
+    lugar_firma = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Lugar de firma por defecto",
+    )
+    renovacion_automatica = models.BooleanField(
+        default=True,
+        verbose_name="Renovación automática por defecto",
+    )
+    dias_aviso_termino = models.PositiveIntegerField(
+        default=60,
+        verbose_name="Días de aviso de término por defecto",
+    )
+
+    # ── Posición de bloques demo en el documento ──
+    orden_bloque_alcance = models.PositiveIntegerField(
+        default=1000,
+        verbose_name="Posición del bloque de alcance",
+    )
+    orden_bloque_operacion = models.PositiveIntegerField(
+        default=2000,
+        verbose_name="Posición del bloque de operación",
+    )
+    orden_bloque_condiciones = models.PositiveIntegerField(
+        default=3000,
+        verbose_name="Posición del bloque de condiciones",
+    )
+
+    class Meta:
+        ordering = ["-fecha_creacion"]
+        verbose_name = "Plantilla de contrato"
+        verbose_name_plural = "Plantillas de contrato"
+
+    def __str__(self):
+        return f"{self.titulo} v{self.version}"
+
+
+TIPO_SECCION_CHOICES = [
+    ("encabezado", "Encabezado"),
+    ("clausula", "Cláusula"),
+    ("condiciones_generales", "Condiciones Generales"),
+    ("firmas", "Firmas"),
+    ("libre", "Sección Libre"),
+]
+
+SLOT_DOCUMENTAL_CHOICES = [
+    ("antes_alcance", "Antes de alcance"),
+    ("entre_alcance_y_operacion", "Entre alcance y operación"),
+    ("entre_operacion_y_condiciones", "Entre operación y condiciones"),
+    ("despues_condiciones", "Después de condiciones"),
+]
+
+SLOT_DOCUMENTAL_ORDER = [
+    "antes_alcance",
+    "entre_alcance_y_operacion",
+    "entre_operacion_y_condiciones",
+    "despues_condiciones",
+]
+
+DEFAULT_SLOT_DOCUMENTAL = "despues_condiciones"
+
+
+class SeccionPlantilla(ModeloBase):
+    plantilla = models.ForeignKey(
+        PlantillaContrato,
+        on_delete=models.CASCADE,
+        related_name="secciones",
+    )
+    titulo = models.CharField(max_length=255, verbose_name="Título de la sección")
+    tipo = models.CharField(max_length=30, choices=TIPO_SECCION_CHOICES, default="clausula")
+    contenido_template = models.TextField(
+        verbose_name="Contenido con etiquetas",
+        help_text="Usa [nombre_etiqueta] para insertar datos dinámicos",
+    )
+    orden = models.PositiveIntegerField(default=0)
+    slot_documental = models.CharField(
+        max_length=40,
+        choices=SLOT_DOCUMENTAL_CHOICES,
+        blank=True,
+        null=True,
+    )
+    orden_en_slot = models.PositiveIntegerField(blank=True, null=True)
+    es_editable_en_contrato = models.BooleanField(
+        default=False,
+        verbose_name="¿Editable al crear contrato?",
+    )
+    es_obligatoria = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["orden"]
+        verbose_name = "Sección de plantilla"
+        verbose_name_plural = "Secciones de plantilla"
+
+    def __str__(self):
+        return f"{self.plantilla.titulo} → {self.titulo}"
+
+
+CATEGORIA_ETIQUETA_CHOICES = [
+    ("cliente", "Datos del Cliente"),
+    ("proveedor", "Datos del Proveedor"),
+    ("contrato", "Datos del Contrato"),
+    ("servicio", "Datos del Servicio"),
+    ("economico", "Datos Económicos"),
+    ("custom", "Personalizada"),
+]
+
+
+class EtiquetaPlantilla(ModeloBase):
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="etiquetas_plantilla",
+        null=True,
+        blank=True,
+    )
+    clave = models.CharField(
+        max_length=100,
+        verbose_name="Clave de la etiqueta",
+        help_text="Sin corchetes. Ej: nombre_cliente",
+    )
+    nombre_display = models.CharField(max_length=255, verbose_name="Nombre para mostrar")
+    categoria = models.CharField(max_length=20, choices=CATEGORIA_ETIQUETA_CHOICES, default="custom")
+    origen_dato = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Ruta del dato en el sistema",
+        help_text="Ej: empresa_cliente.nombre, contrato.fecha_inicio. Null si es custom.",
+    )
+    descripcion = models.TextField(blank=True, null=True)
+    valor_default = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        ordering = ["categoria", "clave"]
+        verbose_name = "Etiqueta de plantilla"
+        verbose_name_plural = "Etiquetas de plantilla"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa_prestadora", "clave"],
+                condition=models.Q(empresa_prestadora__isnull=False),
+                name="unique_etiqueta_por_empresa",
+            ),
+            models.UniqueConstraint(
+                fields=["clave"],
+                condition=models.Q(empresa_prestadora__isnull=True),
+                name="unique_etiqueta_global",
+            ),
+        ]
+
+    def __str__(self):
+        return f"[{self.clave}] — {self.nombre_display}"
+
+
+class SeccionContratoGenerada(ModeloBase):
+    contrato = models.ForeignKey(
+        ContratoEmpresaCliente,
+        on_delete=models.CASCADE,
+        related_name="secciones_generadas",
+    )
+    seccion_plantilla = models.ForeignKey(
+        SeccionPlantilla,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="secciones_generadas",
+    )
+    titulo = models.CharField(max_length=255)
+    contenido_renderizado = models.TextField(verbose_name="Texto final con etiquetas resueltas")
+    orden = models.PositiveIntegerField(default=0)
+    fue_editado_manualmente = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["orden"]
+        verbose_name = "Sección de contrato generada"
+        verbose_name_plural = "Secciones de contrato generadas"
+
+    def __str__(self):
+        return f"{self.contrato.nombre} → {self.titulo}"

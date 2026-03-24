@@ -24,6 +24,9 @@ import {
     useGetPlanesServicioQuery,
     useGetServiciosQuery,
 } from '@/store/slices/contratos/contratoApi';
+import {
+    useGetPlantillasContratoQuery,
+} from '@/store/slices/contratos/plantillaContratoApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
@@ -182,6 +185,7 @@ function CrearContratoDelCliente({
     const { data: planes = [] } = useGetPlanesServicioQuery();
     const { data: serviciosCatalogo = [] } = useGetServiciosQuery();
     const { data: condicionesCatalogo = [] } = useGetCondicionesEspecialesQuery();
+    const { data: plantillasContrato = [] } = useGetPlantillasContratoQuery();
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
         detalleCliente?.info_cliente.id ?? '',
         {
@@ -233,6 +237,7 @@ function CrearContratoDelCliente({
             tipo: tipoFijo ?? '',
             moneda_cobro: 'USD',
             forma_pago_contractual: 'mensual',
+            plantilla: '',
             destinatario_modo: 'interno',
             destinatario_interno_id: '',
             destinatario_nombre: '',
@@ -288,6 +293,7 @@ function CrearContratoDelCliente({
                         | 'mensual'
                         | 'anual'
                         | 'pago_unico',
+                    plantilla: values.plantilla ? Number(values.plantilla) : null,
                 };
 
                 const destinatarioPrincipal =
@@ -374,6 +380,24 @@ function CrearContratoDelCliente({
         },
     });
 
+    useEffect(() => {
+        if (!formik.values.plantilla) return;
+
+        const tipoSeleccionado = formik.values.tipo || tipoFijo || '';
+        const plantillaSeleccionada = plantillasContrato.find(
+            (plantilla) => String(plantilla.id) === formik.values.plantilla,
+        );
+
+        if (!plantillaSeleccionada) {
+            formik.setFieldValue('plantilla', '');
+            return;
+        }
+
+        if (tipoSeleccionado && plantillaSeleccionada.tipo_contrato !== tipoSeleccionado) {
+            formik.setFieldValue('plantilla', '');
+        }
+    }, [formik.values.plantilla, formik.values.tipo, plantillasContrato, tipoFijo]);
+
     const esLicencia = formik.values.tipo === 'licencia' || tipoFijo === 'licencia';
     const esServicios =
         formik.values.tipo === 'servicios' ||
@@ -445,6 +469,7 @@ function CrearContratoDelCliente({
 
     const tipoLabel =
         TIPO_CONTRATO.find((t) => t.value === formik.values.tipo)?.label ?? formik.values.tipo;
+    const tipoContratoSeleccionado = formik.values.tipo || tipoFijo || '';
     const usuariosClienteOptions: TSelectOption[] = usuariosCliente.map((usuario) => ({
         value: String(usuario.id),
         label: `${usuario.nombre_usuario} (${usuario.email_usuario})`,
@@ -454,6 +479,25 @@ function CrearContratoDelCliente({
         value: String(condicion.id),
         label: condicion.titulo,
     }));
+
+    const plantillasCompatibles = plantillasContrato.filter(
+        (plantilla) =>
+            plantilla.activa &&
+            (!tipoContratoSeleccionado || plantilla.tipo_contrato === tipoContratoSeleccionado),
+    );
+
+    const plantillaOptions: TSelectOption[] = plantillasCompatibles
+        .map((p) => ({
+            value: String(p.id),
+            label: `${p.titulo} · v${p.version} · ${
+                TIPO_CONTRATO.find((tipo) => tipo.value === p.tipo_contrato)?.label ||
+                p.tipo_contrato
+            }`,
+        }));
+
+    const plantillaSeleccionada = plantillasCompatibles.find(
+        (plantilla) => String(plantilla.id) === formik.values.plantilla,
+    );
 
     return (
         <>
@@ -470,7 +514,7 @@ function CrearContratoDelCliente({
                 setIsOpen={(val) => {
                     if (!val) handleClose();
                 }}
-                size='md'>
+                size='lg'>
                 <ModalHeader>
                     <Badge className='text-xl'>Crear Contrato</Badge>
                 </ModalHeader>
@@ -479,7 +523,7 @@ function CrearContratoDelCliente({
 
                     {/* Paso 1: Datos del contrato */}
                     {step === 1 && (
-                        <div className='grid grid-cols-2 gap-4'>
+                        <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                             <div>
                                 <Label htmlFor='nombre'>Nombre</Label>
                                 <Validation
@@ -526,6 +570,105 @@ function CrearContratoDelCliente({
                                         />
                                     </Validation>
                                 )}
+                            </div>
+                            <div className='rounded-lg border border-blue-200 bg-blue-50/60 p-4 md:col-span-2 dark:border-blue-900/60 dark:bg-blue-950/20'>
+                                <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
+                                    <div className='max-w-xl'>
+                                        <p className='text-sm font-semibold text-blue-700 dark:text-blue-300'>
+                                            Documento base
+                                        </p>
+                                        <p className='mt-1 text-xs text-zinc-500'>
+                                            La plantilla define la estructura inicial del documento del contrato.
+                                        </p>
+                                    </div>
+                                    <Badge
+                                        variant='outline'
+                                        color={tipoContratoSeleccionado ? 'blue' : 'zinc'}>
+                                        {tipoContratoSeleccionado
+                                            ? tipoLabel
+                                            : 'Selecciona un tipo primero'}
+                                    </Badge>
+                                </div>
+                                <div className='mt-4'>
+                                    <Label htmlFor='plantilla'>Plantilla del documento</Label>
+                                    <SelectReact
+                                        name='plantilla'
+                                        options={plantillaOptions}
+                                        value={
+                                            plantillaOptions.find(
+                                                (option) => option.value === formik.values.plantilla,
+                                            ) ?? null
+                                        }
+                                        onChange={(option) =>
+                                            formik.setFieldValue(
+                                                'plantilla',
+                                                (option as TSelectOption | null)?.value ?? '',
+                                            )
+                                        }
+                                        isClearable
+                                        isDisabled={!tipoContratoSeleccionado}
+                                        placeholder={
+                                            tipoContratoSeleccionado
+                                                ? 'Sin plantilla (opcional)'
+                                                : 'Selecciona primero el tipo de contrato'
+                                        }
+                                        noOptionsMessage={() =>
+                                            tipoContratoSeleccionado
+                                                ? 'No hay plantillas activas para este tipo'
+                                                : 'Selecciona primero el tipo de contrato'
+                                        }
+                                    />
+                                    <p className='mt-2 text-xs text-zinc-500'>
+                                        Elegir una plantilla te deja partir desde una estructura lista para generar el borrador.
+                                    </p>
+                                    {plantillaSeleccionada && (
+                                        <div className='mt-3 rounded-lg border border-blue-200 bg-white p-3 dark:border-blue-900/60 dark:bg-zinc-950'>
+                                            <div className='flex flex-col gap-2 md:flex-row md:items-start md:justify-between'>
+                                                <div>
+                                                    <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                        {plantillaSeleccionada.titulo}
+                                                    </p>
+                                                    <p className='text-xs text-zinc-500'>
+                                                        {plantillaSeleccionada.descripcion ||
+                                                            'Estructura lista para iniciar el documento del contrato.'}
+                                                    </p>
+                                                </div>
+                                                <div className='flex gap-2'>
+                                                    <Badge variant='outline' color='amber'>
+                                                        v{plantillaSeleccionada.version}
+                                                    </Badge>
+                                                    <Badge variant='outline' color='blue'>
+                                                        {TIPO_CONTRATO.find(
+                                                            (tipo) =>
+                                                                tipo.value ===
+                                                                plantillaSeleccionada.tipo_contrato,
+                                                        )?.label ||
+                                                            plantillaSeleccionada.tipo_contrato}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {tipoContratoSeleccionado &&
+                                        plantillasCompatibles.length === 0 && (
+                                            <div className='mt-3 flex flex-col gap-3 rounded-lg border border-dashed border-zinc-300 p-3 text-xs text-zinc-500 dark:border-zinc-700'>
+                                                <p>
+                                                    No hay plantillas activas para este tipo de contrato.
+                                                </p>
+                                                <div>
+                                                    <Button
+                                                        size='sm'
+                                                        icon='HeroArrowTopRightOnSquare'
+                                                        onClick={() => {
+                                                            handleClose();
+                                                            navigate('/registros/plantillas-contrato');
+                                                        }}>
+                                                        Gestionar plantillas
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                </div>
                             </div>
                             <div>
                                 <Label htmlFor='fecha_inicio'>Fecha de inicio</Label>
@@ -599,7 +742,7 @@ function CrearContratoDelCliente({
                                     placeholder='Selecciona una forma de pago'
                                 />
                             </div>
-                            <div className='col-span-full'>
+                            <div className='md:col-span-2'>
                                 <Label htmlFor='observaciones'>Observaciones</Label>
                                 <Validation
                                     isValid={formik.isValid}

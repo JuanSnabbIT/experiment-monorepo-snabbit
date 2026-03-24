@@ -80,3 +80,13 @@ TRANSICIONES_ESTADO_LICENCIA = {
     'vencida': ['cancelada'],
     'cancelada': [],
 }
+
+# ── Contenido canónico para secciones de tipo "firmas" ──
+# Este texto se fuerza en SeccionPlantilla.contenido_template cuando tipo='firmas'.
+# El PDF contractual real (funciones.py) genera el bloque de firmas de forma independiente;
+# este contenido es solo referencia semántica para el authoring de plantillas.
+CONTENIDO_CANONICO_FIRMAS = (
+    "[Zona de firmas del contrato]\n\n"
+    "Representante Empresa Prestadora: [nombre_empresa_prestadora]\n"
+    "Representante Cliente: [nombre_cliente]"
+)

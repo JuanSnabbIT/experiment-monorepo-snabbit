@@ -493,6 +493,20 @@ export const Pages = {
                 icon: 'HeroBriefcase',
                 authority: ['staff', 'superadmin'],
             },
+            listaPlantillasContrato: {
+                id: 'listaPlantillasContrato',
+                to: '/registros/plantillas-contrato',
+                text: 'Plantillas de Contrato',
+                icon: 'HeroDocumentDuplicate',
+                authority: ['staff', 'superadmin'],
+            },
+            detallePlantillaContrato: {
+                id: 'detallePlantillaContrato',
+                to: '/registros/plantillas-contrato/:plantillaId',
+                text: 'Detalle Plantilla',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
         },
     },
 

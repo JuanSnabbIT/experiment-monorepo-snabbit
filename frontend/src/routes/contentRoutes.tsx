@@ -108,6 +108,12 @@ const VistaPreviaFirmaContrato = lazy(
 const PlanesYServicios = lazy(
     () => import('@/pages/Contratos/Registro/PlanesYServicios'),
 );
+const ListaPlantillasContrato = lazy(
+    () => import('@/pages/Contratos/PlantillasContrato/ListaPlantillas'),
+);
+const DetallePlantillaContrato = lazy(
+    () => import('@/pages/Contratos/PlantillasContrato/DetallePlantilla'),
+);
 const DetalleUsuarioCliente = lazy(() => import('@/pages/Clientes/DetalleUsuarioCliente'));
 const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'));
 const ListaCompras = lazy(() => import('@/pages/Bodegas/Compra/ListaCompra'));
@@ -324,6 +330,16 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.registros.subPages.listaPlanesYServicios.to,
         element: <PlanesYServicios />,
         authority: Pages.registros.subPages.listaPlanesYServicios.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaPlantillasContrato.to,
+        element: <ListaPlantillasContrato />,
+        authority: Pages.registros.subPages.listaPlantillasContrato.authority,
+    },
+    {
+        path: Pages.registros.subPages.detallePlantillaContrato.to,
+        element: <DetallePlantillaContrato />,
+        authority: Pages.registros.subPages.detallePlantillaContrato.authority,
     },
 
     // empresas

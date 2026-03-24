@@ -26,6 +26,8 @@ from contratos.models import (
     Visita,
     Licencia,
     CondicionEspecial,
+    PlantillaContrato,
+    SeccionPlantilla,
 )
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
@@ -138,6 +140,151 @@ class ContratoMultiTenancyTest(ContratoAPITestBase):
         response = self.client.get(f"/api/contratos/{self.contrato.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.contrato.id)
+
+
+class PlantillaContratoReordenarTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.plantilla = PlantillaContrato.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            titulo="Plantilla Servicios",
+            version=1,
+            activa=True,
+            tipo_contrato="servicios",
+        )
+        self.seccion_intro = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla,
+            titulo="Introducción",
+            tipo="encabezado",
+            contenido_template="Intro",
+            orden=1,
+        )
+        self.seccion_base = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla,
+            titulo="Base Comercial",
+            tipo="clausula",
+            contenido_template="Base",
+            orden=2,
+        )
+        self.seccion_operacion = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla,
+            titulo="Operación",
+            tipo="libre",
+            contenido_template="Operación",
+            orden=3,
+        )
+        self.seccion_condiciones = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla,
+            titulo="Condiciones",
+            tipo="condiciones_generales",
+            contenido_template="Condiciones",
+            orden=4,
+        )
+
+    def test_reordenar_plantilla_con_slots_persiste_posicion_documental(self):
+        response = self.client.post(
+            f"/api/plantillas-contrato/{self.plantilla.id}/secciones/reordenar/",
+            {
+                "secciones": [
+                    {
+                        "id": self.seccion_intro.id,
+                        "slot_documental": "antes_alcance",
+                        "orden_en_slot": 1,
+                    },
+                    {
+                        "id": self.seccion_base.id,
+                        "slot_documental": "entre_alcance_y_operacion",
+                        "orden_en_slot": 1,
+                    },
+                    {
+                        "id": self.seccion_operacion.id,
+                        "slot_documental": "entre_operacion_y_condiciones",
+                        "orden_en_slot": 1,
+                    },
+                    {
+                        "id": self.seccion_condiciones.id,
+                        "slot_documental": "despues_condiciones",
+                        "orden_en_slot": 1,
+                    },
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.seccion_intro.refresh_from_db()
+        self.seccion_base.refresh_from_db()
+        self.seccion_operacion.refresh_from_db()
+        self.seccion_condiciones.refresh_from_db()
+
+        self.assertEqual(self.seccion_intro.slot_documental, "antes_alcance")
+        self.assertEqual(self.seccion_intro.orden_en_slot, 1)
+        self.assertEqual(self.seccion_intro.orden, 1)
+
+        self.assertEqual(
+            self.seccion_base.slot_documental,
+            "entre_alcance_y_operacion",
+        )
+        self.assertEqual(self.seccion_base.orden_en_slot, 1)
+        self.assertEqual(self.seccion_base.orden, 2)
+
+        self.assertEqual(
+            self.seccion_operacion.slot_documental,
+            "entre_operacion_y_condiciones",
+        )
+        self.assertEqual(self.seccion_operacion.orden_en_slot, 1)
+        self.assertEqual(self.seccion_operacion.orden, 3)
+
+        self.assertEqual(self.seccion_condiciones.slot_documental, "despues_condiciones")
+        self.assertEqual(self.seccion_condiciones.orden_en_slot, 1)
+        self.assertEqual(self.seccion_condiciones.orden, 4)
+
+    def test_reordenar_plantilla_acepta_payload_legado_y_genera_slots(self):
+        response = self.client.post(
+            f"/api/plantillas-contrato/{self.plantilla.id}/secciones/reordenar/",
+            {
+                "secciones": [
+                    {"id": self.seccion_base.id, "orden": 1},
+                    {"id": self.seccion_intro.id, "orden": 2},
+                    {"id": self.seccion_operacion.id, "orden": 3},
+                    {"id": self.seccion_condiciones.id, "orden": 4},
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.seccion_base.refresh_from_db()
+        self.seccion_intro.refresh_from_db()
+        self.seccion_operacion.refresh_from_db()
+        self.seccion_condiciones.refresh_from_db()
+
+        self.assertEqual(self.seccion_base.slot_documental, "antes_alcance")
+        self.assertEqual(self.seccion_base.orden_en_slot, 1)
+        self.assertEqual(self.seccion_base.orden, 1)
+
+        self.assertEqual(
+            self.seccion_intro.slot_documental,
+            "entre_operacion_y_condiciones",
+        )
+        self.assertEqual(self.seccion_intro.orden_en_slot, 1)
+        self.assertEqual(self.seccion_intro.orden, 2)
+
+        self.assertEqual(
+            self.seccion_operacion.slot_documental,
+            "entre_operacion_y_condiciones",
+        )
+        self.assertEqual(self.seccion_operacion.orden_en_slot, 2)
+        self.assertEqual(self.seccion_operacion.orden, 3)
+
+        self.assertEqual(
+            self.seccion_condiciones.slot_documental,
+            "entre_operacion_y_condiciones",
+        )
+        self.assertEqual(self.seccion_condiciones.orden_en_slot, 3)
+        self.assertEqual(self.seccion_condiciones.orden, 4)
 
     def test_usuario_sin_personalizacion_ve_lista_vacia(self):
         """Sin PersonalizacionUsuario, el queryset devuelve vacío."""

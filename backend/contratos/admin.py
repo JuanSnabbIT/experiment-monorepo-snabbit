@@ -22,6 +22,10 @@ from contratos.models import (
     CorreoPersonaLicenciataria,
     AcuerdoConfidencialidadContrato,
     FacturaContrato,
+    PlantillaContrato,
+    SeccionPlantilla,
+    EtiquetaPlantilla,
+    SeccionContratoGenerada,
 )
 
 
@@ -261,3 +265,26 @@ class FacturaContratoAdmin(admin.ModelAdmin):
     search_fields = ('contrato__nombre', 'empresa_cliente__nombre')
     readonly_fields = ('fecha_creacion', 'fecha_modificacion')
     raw_id_fields = ('contrato', 'empresa_prestadora', 'empresa_cliente', 'creado_por', 'actualizado_por')
+
+
+# ---------- Sistema de Plantillas ----------
+class SeccionPlantillaInline(admin.TabularInline):
+    model = SeccionPlantilla
+    extra = 1
+
+
+@admin.register(PlantillaContrato)
+class PlantillaContratoAdmin(admin.ModelAdmin):
+    list_display = ["titulo", "version", "activa", "tipo_contrato", "empresa_prestadora"]
+    inlines = [SeccionPlantillaInline]
+
+
+@admin.register(EtiquetaPlantilla)
+class EtiquetaPlantillaAdmin(admin.ModelAdmin):
+    list_display = ["clave", "nombre_display", "categoria", "empresa_prestadora"]
+    list_filter = ["categoria"]
+
+
+@admin.register(SeccionContratoGenerada)
+class SeccionContratoGeneradaAdmin(admin.ModelAdmin):
+    list_display = ["contrato", "titulo", "orden", "fue_editado_manualmente"]

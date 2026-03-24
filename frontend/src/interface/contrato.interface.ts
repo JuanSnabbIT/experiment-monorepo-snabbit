@@ -39,6 +39,7 @@ export interface IContratoEmpresaCliente {
     contrato_anterior: number | null;
     contrato_anterior_detalle?: IContratoRenovacionRef | null;
     renovaciones_detalle?: IContratoRenovacionRef[];
+    plantilla?: number | null;
 }
 
 export interface IEmpresaContrato {
@@ -573,6 +574,7 @@ export interface IContratoBorradorPayload {
             | 'empresa_prestadora'
             | 'moneda_cobro'
             | 'forma_pago_contractual'
+            | 'plantilla'
         >
     >;
     destinatario_principal?: {

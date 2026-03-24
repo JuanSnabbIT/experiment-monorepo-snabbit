@@ -1,4 +1,6 @@
-import React, {
+import classNames from 'classnames';
+import isHotkey from 'is-hotkey';
+import {
     Dispatch,
     FC,
     HTMLAttributes,
@@ -7,11 +9,14 @@ import React, {
     useMemo,
     useState,
 } from 'react';
-import isHotkey from 'is-hotkey';
-import { Editable, Slate, withReact } from 'slate-react';
 import { createEditor, Descendant } from 'slate';
 import { withHistory } from 'slate-history';
-import classNames from 'classnames';
+import { Editable, Slate, withReact } from 'slate-react';
+import themeConfig from '../config/theme.config';
+import { TBorderWidth } from '../types/borderWidth.type';
+import { TColorIntensity } from '../types/colorIntensities.type';
+import { TColors } from '../types/colors.type';
+import { TRounded } from '../types/rounded.type';
 import {
     BlockButton,
     Element,
@@ -22,11 +27,6 @@ import {
     ToolbarChild,
 } from './helper/richtext.helper';
 import Button from './ui/Button';
-import { TBorderWidth } from '../types/borderWidth.type';
-import { TColors } from '../types/colors.type';
-import { TColorIntensity } from '../types/colorIntensities.type';
-import themeConfig from '../config/theme.config';
-import { TRounded } from '../types/rounded.type';
 
 const HOTKEYS = {
     'mod+b': 'bold',
@@ -35,9 +35,9 @@ const HOTKEYS = {
     'mod+`': 'code',
 };
 
-const initialValue = [
+const initialValue: Descendant[] = [
     {
-        type: 'paragraph',
+        type: 'paragraph' as const,
         children: [{ text: '' }],
     },
 ];

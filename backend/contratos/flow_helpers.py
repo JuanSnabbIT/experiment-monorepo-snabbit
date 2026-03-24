@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from core.tasks import send_email_task
 
-from .funciones import generar_contrato_en_memoria
+from .funciones import generar_contrato_en_memoria, generar_contrato_desde_plantilla
 from .models import (
     ContratoCondicionEspecial,
     ContratoEmpresaCliente,
@@ -230,11 +230,21 @@ def construir_pdf_desde_payload(
 
 
 def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
+    if contrato.plantilla and contrato.secciones_generadas.exists():
+        return generar_contrato_desde_plantilla(contrato)
     payload = ContratoEmpresaClienteSerializer(contrato).data
     return construir_pdf_desde_payload(payload)
 
 
 def actualizar_pdf_firmado_envio(envio: EnvioContratoFirmaUsuario):
+    contrato = envio.usuario.contrato
+    if contrato.plantilla and contrato.secciones_generadas.exists():
+        envio.pdf_congelado = generar_contrato_desde_plantilla(
+            contrato,
+            firma_cliente_b64=envio.firma,
+            firmante_cliente=envio.usuario.nombre_display,
+        )
+        return envio
     snapshot = envio.snapshot_contrato or ContratoEmpresaClienteSerializer(
         envio.usuario.contrato
     ).data

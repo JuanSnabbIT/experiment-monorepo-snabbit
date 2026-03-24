@@ -18,6 +18,10 @@ from contratos.views import (
     LicenciaViewSet,
     CondicionEspecialViewSet,
     FacturaContratoViewSet,
+    PlantillaContratoViewSet,
+    SeccionPlantillaViewSet,
+    EtiquetaPlantillaViewSet,
+    SeccionContratoGeneradaViewSet,
     obtener_acuerdos_por_envio,
     firmar_envio
 )
@@ -45,6 +49,7 @@ contrato_router.register(r'visitas', ContratoVisitaViewSet, basename='contrato-v
 contrato_router.register(r'licencias', ContratoLicenciaViewSet, basename='contrato-licencias')
 contrato_router.register(r'condiciones-especiales', ContratoCondicionEspecialViewSet, basename='contrato-condiciones')
 contrato_router.register(r'firmas', AcuerdoConfidencialidadContratoViewSet, basename='contrato-firmas')
+contrato_router.register(r'secciones-generadas', SeccionContratoGeneradaViewSet, basename='contrato-secciones-generadas')
 
 usuarios_vinculados_router = routers.NestedDefaultRouter(contrato_router, r'usuarios-vinculados', lookup='usuario_vinculado')
 usuarios_vinculados_router.register(r'envio-firma', EnvioContratoFirmaUsuarioViewSet, basename='contrato-usuarios-firma')
@@ -60,6 +65,13 @@ router.register(r'contrato-licencias', ContratoLicenciaViewSet, basename='contra
 router.register(r'personas-licenciatarias', PersonaLicenciatariaViewSet, basename='persona-licenciataria')
 router.register(r'facturas-contrato', FacturaContratoViewSet, basename='factura-contrato')
 
+# Plantillas de contrato
+router.register(r'plantillas-contrato', PlantillaContratoViewSet, basename='plantilla-contrato')
+router.register(r'etiquetas-plantilla', EtiquetaPlantillaViewSet, basename='etiqueta-plantilla')
+
+plantilla_router = routers.NestedDefaultRouter(router, r'plantillas-contrato', lookup='plantilla')
+plantilla_router.register(r'secciones', SeccionPlantillaViewSet, basename='seccion-plantilla')
+
 licencia_router = routers.NestedDefaultRouter(router, r'contrato-licencias', lookup='licencia')
 licencia_router.register(r'usuarios-vinculados', UsuarioVinculadoLicenciaViewSet, basename='contrato-licencia-usuarios')
 persona_router = routers.NestedDefaultRouter(router, r'personas-licenciatarias', lookup='persona')
@@ -68,6 +80,7 @@ persona_router.register(r'correos', CorreoPersonaLicenciatariaViewSet, basename=
 urlpatterns = (
     router.urls +
     contrato_router.urls +
+    plantilla_router.urls +
     licencia_router.urls +
     persona_router.urls +
     usuarios_vinculados_router.urls +

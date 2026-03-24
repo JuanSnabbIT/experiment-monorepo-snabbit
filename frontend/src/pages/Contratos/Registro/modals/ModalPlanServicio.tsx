@@ -11,7 +11,7 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
-import { IPlanServicio, IServicio } from '@/interface/contrato.interface';
+import { ICaracteristicaServicio, IPlanServicio, IServicio } from '@/interface/contrato.interface';
 import {
     useCreatePlanServicioMutation,
     useGetServiciosQuery,
@@ -149,7 +149,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
         const agrupados: Record<
             number,
             {
-                caracteristica: { id: number; nombre: string; descripcion: string };
+                caracteristica: ICaracteristicaServicio;
                 incluye: string[];
                 no_incluye: string[];
             }
@@ -167,12 +167,12 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
         });
 
         const heredado: Array<{
-            caracteristica: { id: number; nombre: string; descripcion: string };
+            caracteristica: ICaracteristicaServicio;
             modo: 'incluye' | 'no_incluye';
             servicios: string[];
         }> = [];
         const conflictos: Array<{
-            caracteristica: { id: number; nombre: string; descripcion: string };
+            caracteristica: ICaracteristicaServicio;
             servicios_incluye: string[];
             servicios_no_incluye: string[];
         }> = [];

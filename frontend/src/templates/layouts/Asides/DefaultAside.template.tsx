@@ -169,6 +169,15 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.registros.subPages.listaPlanesYServicios.icon}
                                     id={Pages.registros.subPages.listaPlanesYServicios.id}></NavItem>
                             </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.registros.subPages.listaPlantillasContrato.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.registros.subPages.listaPlantillasContrato.text}
+                                    to={Pages.registros.subPages.listaPlantillasContrato.to}
+                                    icon={Pages.registros.subPages.listaPlantillasContrato.icon}
+                                    id={Pages.registros.subPages.listaPlantillasContrato.id}></NavItem>
+                            </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
 

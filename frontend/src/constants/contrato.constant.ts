@@ -50,12 +50,54 @@ export const TIPO_MONEDA_LICENCIA = [
     { value: 'UF', label: 'UF' },
 ];
 
+export const FORMAS_PAGO_COMERCIALES = [
+    { value: 'mensual', label: 'Mensual' },
+    { value: 'anual', label: 'Anual' },
+    { value: 'pago_unico', label: 'Pago único' },
+];
+
+export const TIPOS_SECCION = [
+    { value: 'encabezado', label: 'Encabezado' },
+    { value: 'clausula', label: 'Cláusula' },
+    { value: 'condiciones_generales', label: 'Condiciones Generales' },
+    { value: 'firmas', label: 'Firmas' },
+    { value: 'libre', label: 'Sección Libre' },
+];
+
+export const SLOT_DOCUMENTAL = [
+    { value: 'antes_alcance', label: 'Antes de alcance' },
+    { value: 'entre_alcance_y_operacion', label: 'Entre alcance y operación' },
+    { value: 'entre_operacion_y_condiciones', label: 'Entre operación y condiciones' },
+    { value: 'despues_condiciones', label: 'Después de condiciones' },
+] as const;
+
+export const CATEGORIAS_ETIQUETA = [
+    { value: 'cliente', label: 'Datos del Cliente' },
+    { value: 'proveedor', label: 'Datos del Proveedor' },
+    { value: 'contrato', label: 'Datos del Contrato' },
+    { value: 'servicio', label: 'Datos del Servicio' },
+    { value: 'economico', label: 'Datos Económicos' },
+    { value: 'custom', label: 'Personalizada' },
+];
+
 export const ESTADOS_LICENCIA = [
     { value: 'activa',     label: 'Activa',     color: 'emerald' as const },
     { value: 'vencida',    label: 'Vencida',    color: 'red'     as const },
     { value: 'suspendida', label: 'Suspendida', color: 'amber'   as const },
     { value: 'cancelada',  label: 'Cancelada',  color: 'zinc'    as const },
 ];
+
+// ─── Colores por categoría de etiqueta ───
+import { TColors } from '@/types/colors.type';
+
+export const COLORES_CATEGORIA: Record<string, TColors> = {
+    cliente: 'blue',
+    proveedor: 'violet',
+    contrato: 'emerald',
+    servicio: 'amber',
+    economico: 'red',
+    custom: 'zinc',
+};
 
 /** Espejo del backend contratos/estados_modelo.py → TRANSICIONES_ESTADO_LICENCIA */
 export const TRANSICIONES_ESTADO_LICENCIA: Record<string, string[]> = {
@@ -64,3 +106,9 @@ export const TRANSICIONES_ESTADO_LICENCIA: Record<string, string[]> = {
     vencida:    ['cancelada'],
     cancelada:  [],
 };
+
+// Contenido canónico para secciones tipo "firmas" (espejo del backend)
+export const CONTENIDO_CANONICO_FIRMAS =
+    '[Zona de firmas del contrato]\n\n' +
+    'Representante Empresa Prestadora: [nombre_empresa_prestadora]\n' +
+    'Representante Cliente: [nombre_cliente]';

@@ -25,6 +25,10 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
     FacturaContrato,
+    PlantillaContrato,
+    SeccionPlantilla,
+    EtiquetaPlantilla,
+    SeccionContratoGenerada,
 )
 from empresas.models import UsuarioEmpresa
 from .serializers import (
@@ -52,6 +56,10 @@ from .serializers import (
     FacturaContratoSerializer,
     LicenciaVinculadaPorUsuarioSerializer,
     ContratoVinculadoPorUsuarioSerializer,
+    PlantillaContratoSerializer,
+    SeccionPlantillaSerializer,
+    EtiquetaPlantillaSerializer,
+    SeccionContratoGeneradaSerializer,
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
@@ -89,6 +97,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+BLOQUES_VALIDOS = {"alcance", "operacion", "condiciones"}
+
 
 def _empresa_del_usuario(user):
     from core.models import PersonalizacionUsuario
@@ -114,6 +124,14 @@ def _contratos_visibles_para_empresa(empresa):
     return ContratoEmpresaCliente.objects.filter(
         models.Q(empresa_prestadora=empresa) | models.Q(empresa_cliente=empresa)
     )
+
+
+def _aplicar_orden_secciones(qs, orden_por_id):
+    """Aplica el orden de secciones en una sola pasada atómica."""
+    with transaction.atomic():
+        for seccion_id, orden in orden_por_id.items():
+            qs.filter(id=seccion_id).update(orden=orden)
+
 
 
 # ViewSet para Contrato (modelo padre)
@@ -1538,6 +1556,26 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         serializer = ContratoVinculadoPorUsuarioSerializer(vinculos, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], url_path="generar-secciones")
+    def generar_secciones(self, request, pk=None):
+        """Genera/regenera secciones de contrato desde la plantilla asociada."""
+        from contratos.motor_plantillas import generar_secciones_contrato
+        contrato = self.get_object()
+        if not contrato.plantilla:
+            return Response(
+                {"detail": "El contrato no tiene plantilla asociada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        secciones = generar_secciones_contrato(contrato)
+        return Response(SeccionContratoGeneradaSerializer(secciones, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="secciones-generadas")
+    def secciones_generadas_action(self, request, pk=None):
+        """Lista las secciones generadas del contrato."""
+        contrato = self.get_object()
+        secciones = contrato.secciones_generadas.all().order_by("orden")
+        return Response(SeccionContratoGeneradaSerializer(secciones, many=True).data)
+
 
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioVinculadoContratoSerializer
@@ -2697,3 +2735,231 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
             total=Sum("monto_total"),
         )
         return Response(list(resumen))
+
+
+# =====================================================================
+# ViewSets del Sistema de Plantillas
+# =====================================================================
+
+class PlantillaContratoViewSet(viewsets.ModelViewSet):
+    serializer_class = PlantillaContratoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if empresa:
+            return PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+        return PlantillaContrato.objects.none()
+
+    def _serialize_plantilla(self, plantilla):
+        return PlantillaContratoSerializer(plantilla).data
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        return Response([self._serialize_plantilla(plantilla) for plantilla in queryset])
+
+    def retrieve(self, request, *args, **kwargs):
+        plantilla = self.get_object()
+        return Response(self._serialize_plantilla(plantilla))
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            self._serialize_plantilla(serializer.instance),
+            status=status.HTTP_201_CREATED,
+        )
+
+    def perform_create(self, serializer):
+        empresa = _empresa_del_usuario(self.request.user)
+        serializer.save(empresa_prestadora=empresa)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(self._serialize_plantilla(serializer.instance))
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], url_path="duplicar")
+    def duplicar(self, request, pk=None):
+        """Duplica una plantilla con sus secciones."""
+        plantilla_original = self.get_object()
+        nueva = PlantillaContrato.objects.create(
+            empresa_prestadora=plantilla_original.empresa_prestadora,
+            titulo=f"{plantilla_original.titulo} (copia)",
+            descripcion=plantilla_original.descripcion,
+            version=plantilla_original.version + 1,
+            tipo_contrato=plantilla_original.tipo_contrato,
+            moneda_cobro=plantilla_original.moneda_cobro,
+            forma_pago_contractual=plantilla_original.forma_pago_contractual,
+            lugar_firma=plantilla_original.lugar_firma,
+            renovacion_automatica=plantilla_original.renovacion_automatica,
+            dias_aviso_termino=plantilla_original.dias_aviso_termino,
+            orden_bloque_alcance=plantilla_original.orden_bloque_alcance,
+            orden_bloque_operacion=plantilla_original.orden_bloque_operacion,
+            orden_bloque_condiciones=plantilla_original.orden_bloque_condiciones,
+        )
+        for seccion in plantilla_original.secciones.all():
+            SeccionPlantilla.objects.create(
+                plantilla=nueva,
+                titulo=seccion.titulo,
+                tipo=seccion.tipo,
+                contenido_template=seccion.contenido_template,
+                orden=seccion.orden,
+                es_editable_en_contrato=seccion.es_editable_en_contrato,
+                es_obligatoria=seccion.es_obligatoria,
+            )
+        return Response(
+            self._serialize_plantilla(nueva),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SeccionPlantillaViewSet(viewsets.ModelViewSet):
+    serializer_class = SeccionPlantillaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        plantilla_id = self.kwargs.get("plantilla_pk")
+        return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id)
+
+    def _normalizar_firmas(self, serializer):
+        """Si la sección es tipo firmas, fuerza contenido canónico y flags."""
+        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS
+
+        if serializer.validated_data.get('tipo') == 'firmas' or (
+            self.action in ('partial_update', 'update')
+            and serializer.instance
+            and serializer.instance.tipo == 'firmas'
+        ):
+            serializer.validated_data['contenido_template'] = CONTENIDO_CANONICO_FIRMAS
+            serializer.validated_data['es_editable_en_contrato'] = False
+            serializer.validated_data['es_obligatoria'] = True
+
+    def perform_create(self, serializer):
+        plantilla_id = self.kwargs.get("plantilla_pk")
+        self._normalizar_firmas(serializer)
+        orden = serializer.validated_data.get("orden")
+        if orden is None or SeccionPlantilla.objects.filter(
+            plantilla_id=plantilla_id, orden=orden
+        ).exists():
+            max_orden = (
+                SeccionPlantilla.objects.filter(plantilla_id=plantilla_id)
+                .order_by("-orden")
+                .values_list("orden", flat=True)
+                .first()
+            ) or 0
+            serializer.save(plantilla_id=plantilla_id, orden=max_orden + 1)
+        else:
+            serializer.save(plantilla_id=plantilla_id)
+
+    def perform_update(self, serializer):
+        self._normalizar_firmas(serializer)
+        serializer.save()
+
+    @action(detail=False, methods=["post"], url_path="reordenar")
+    def reordenar(self, request, plantilla_pk=None):
+        """Reordena secciones y posición de bloques demo.
+        Body: {
+            "secciones": [{ "id": 1, "orden": 1 }, { "id": 2, "orden": 2 }],
+            "bloques": { "alcance": 3, "operacion": 5, "condiciones": 7 }
+        }
+        """
+        secciones_data = request.data.get("secciones", [])
+        bloques_data = request.data.get("bloques", {})
+
+        if not secciones_data:
+            return Response(
+                {"detail": "Debe enviar una lista de secciones con id y orden."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = SeccionPlantilla.objects.filter(plantilla_id=plantilla_pk)
+        ids_plantilla = set(qs.values_list("id", flat=True))
+        ids_recibidos = []
+
+        orden_por_id = {}
+        for item in secciones_data:
+            sec_id = item.get("id")
+            orden = item.get("orden")
+
+            if sec_id is None or orden is None:
+                return Response(
+                    {"detail": "Cada elemento debe tener 'id' y 'orden'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if sec_id not in ids_plantilla:
+                return Response(
+                    {"detail": f"La sección {sec_id} no pertenece a esta plantilla."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if sec_id in ids_recibidos:
+                return Response(
+                    {"detail": f"La sección {sec_id} está repetida en la solicitud."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            ids_recibidos.append(sec_id)
+            orden_por_id[sec_id] = orden
+
+        if set(ids_recibidos) != ids_plantilla:
+            return Response(
+                {"detail": "Debe enviar todas las secciones de la plantilla para reordenar."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validar y aplicar posiciones de bloques
+        bloque_fields = {}
+        for bloque_key in ("alcance", "operacion", "condiciones"):
+            if bloque_key in bloques_data:
+                valor = bloques_data[bloque_key]
+                if not isinstance(valor, int) or valor < 0:
+                    return Response(
+                        {"detail": f"El bloque '{bloque_key}' debe ser un entero positivo."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                bloque_fields[f"orden_bloque_{bloque_key}"] = valor
+
+        with transaction.atomic():
+            _aplicar_orden_secciones(qs, orden_por_id)
+            if bloque_fields:
+                PlantillaContrato.objects.filter(id=plantilla_pk).update(**bloque_fields)
+
+        return Response({"detail": "Secciones reordenadas."}, status=status.HTTP_200_OK)
+
+
+class EtiquetaPlantillaViewSet(viewsets.ModelViewSet):
+    serializer_class = EtiquetaPlantillaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if empresa:
+            return EtiquetaPlantilla.objects.filter(
+                models.Q(empresa_prestadora__isnull=True)
+                | models.Q(empresa_prestadora=empresa)
+            )
+        return EtiquetaPlantilla.objects.filter(empresa_prestadora__isnull=True)
+
+    def perform_create(self, serializer):
+        empresa = _empresa_del_usuario(self.request.user)
+        serializer.save(empresa_prestadora=empresa)
+
+
+class SeccionContratoGeneradaViewSet(viewsets.ModelViewSet):
+    serializer_class = SeccionContratoGeneradaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'patch', 'head']
+
+    def get_queryset(self):
+        contrato_id = self.kwargs.get("contrato_pk")
+        return SeccionContratoGenerada.objects.filter(contrato_id=contrato_id)
+
+    def perform_update(self, serializer):
+        serializer.save(fue_editado_manualmente=True)
