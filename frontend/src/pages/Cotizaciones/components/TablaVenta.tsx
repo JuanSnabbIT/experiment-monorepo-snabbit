@@ -81,6 +81,9 @@ function TablaVenta({
                                                 <div className='mt-1 text-xs text-zinc-500 dark:text-zinc-400'>
                                                     {item.descripcion}
                                                 </div>
+                                                <div className='mt-1 text-xs text-zinc-500 dark:text-zinc-400'>
+                                                    Moneda item: {item.tipo_moneda_label || 'CLP'}
+                                                </div>
                                             </div>
                                             <div className='col-span-1 flex items-center justify-center border-r border-zinc-200 p-4 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300'>
                                                 {item.cantidad}

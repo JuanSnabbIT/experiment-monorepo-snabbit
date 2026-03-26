@@ -435,10 +435,6 @@ class ItemsGuiaSalida(ModeloBaseHistorico):
         verbose_name = "Item en Guia de Salida"
         verbose_name_plural = "Items en Guias de Salidas"
         constraints = [
-            models.UniqueConstraint(
-                fields=["guia", "source_item"],
-                name="uniq_guia_source_item",
-            ),
             models.CheckConstraint(
                 check=~models.Q(individualizado=True) | models.Q(cantidad_rebajada=1),
                 name="individualizado_implica_cantidad_1",

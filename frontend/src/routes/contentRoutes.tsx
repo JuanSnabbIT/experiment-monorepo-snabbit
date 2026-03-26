@@ -1,6 +1,6 @@
 import RetroalimentacionOT from '@/pages/OrdenTrabajo/components/RetroalimentacionOT';
 import { lazy } from 'react';
-import { RouteProps } from 'react-router-dom';
+import { Navigate, RouteProps } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
 
 export type IRoutePersonalizadas = RouteProps & {
@@ -85,9 +85,9 @@ const DetalleRendicion = lazy(() => import('@/pages/Rendiciones/components/Detal
 const DetalleBodega = lazy(() => import('@/pages/Bodegas/components/DetalleBodega'));
 const ListaMisRendiciones = lazy(() => import('@/pages/Rendiciones/ListaMisRendiciones'));
 const FacturacionesComparativa = lazy(() => import('@/pages/Facturacion/FacturacionesComparativa'));
-const ListaFacturas = lazy(() => import('@/pages/Facturacion/ListaFacturas'));
 const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
-const ListaFacturasContrato = lazy(() => import('@/pages/Facturacion/ListaFacturasContrato'));
+const ListaFacturasUnificada = lazy(() => import('@/pages/Facturacion/ListaFacturasUnificada'));
+const DetalleFacturaContrato = lazy(() => import('@/pages/Facturacion/DetalleFacturaContrato'));
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
 // const ListaCotizaciones = lazy(() => import('@/pages/Cotizaciones/ListaCotizaciones'))
 const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/DetalleCotizacion'));
@@ -442,7 +442,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.listaFacturas.to,
-        element: <ListaFacturas />,
+        element: <Navigate to={`${Pages.facturacion.subPages.facturasContrato.to}?tab=ot`} replace />,
         authority: Pages.facturacion.subPages.listaFacturas.authority,
     },
     {
@@ -457,8 +457,13 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.facturasContrato.to,
-        element: <ListaFacturasContrato />,
+        element: <ListaFacturasUnificada />,
         authority: Pages.facturacion.subPages.facturasContrato.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.detalleFacturaContrato.to,
+        element: <DetalleFacturaContrato />,
+        authority: Pages.facturacion.subPages.detalleFacturaContrato.authority,
     },
     // { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
 

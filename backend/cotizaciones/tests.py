@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
-from empresas.models import Empresa, UsuarioEmpresa
+from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from core.models import PersonalizacionUsuario
 from .models import Cotizacion, ItemCotizacion, SolicitanteCotizacion
 from django.contrib.contenttypes.models import ContentType
@@ -22,34 +22,33 @@ class CrearCopiaRechazadaTestCase(TestCase):
         # Crear empresa principal
         self.empresa = Empresa.objects.create(
             nombre="Empresa Test",
-            rut="12345678-9",
-            razon_social="Empresa Test SpA",
         )
 
         # Crear cliente
         self.cliente = Empresa.objects.create(
             nombre="Cliente Test",
-            rut="98765432-1",
-            razon_social="Cliente Test SpA",
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Casa Matriz",
+            empresa=self.empresa,
         )
 
         # Crear usuario
         self.user = User.objects.create_user(
-            username="testuser",
             email="test@example.com",
             password="testpass123",
         )
 
         # Crear personalización de usuario
-        self.personalizacion = PersonalizacionUsuario.objects.create(
+        self.personalizacion, _ = PersonalizacionUsuario.objects.get_or_create(
             usuario=self.user,
-            sucursal_principal=self.empresa,
+            defaults={"sucursal_principal": self.sucursal},
         )
 
         # Crear UsuarioEmpresa
         self.usuario_empresa = UsuarioEmpresa.objects.create(
             usuario=self.user,
-            empresa=self.empresa,
+            sucursal=self.sucursal,
         )
 
         # Crear cotización rechazada
@@ -69,6 +68,7 @@ class CrearCopiaRechazadaTestCase(TestCase):
             descripcion="Descripción test",
             cantidad=1,
             precio_unitario=100.00,
+            tipo_moneda="2",
         )
 
         # Crear solicitante
@@ -141,6 +141,7 @@ class CrearCopiaRechazadaTestCase(TestCase):
         self.assertEqual(item_original.nombre, item_nuevo.nombre)
         self.assertEqual(item_original.cantidad, item_nuevo.cantidad)
         self.assertEqual(item_original.precio_unitario, item_nuevo.precio_unitario)
+        self.assertEqual(item_original.tipo_moneda, item_nuevo.tipo_moneda)
 
     def test_solicitantes_copiados_correctamente(self):
         """Test: Verificar que los solicitantes se copian correctamente"""
@@ -189,3 +190,85 @@ class CrearCopiaRechazadaTestCase(TestCase):
         seguimiento = nueva_cotizacion.seguimientos.first()
         self.assertIn("Copia", seguimiento.comentario)
         self.assertIn("creada", seguimiento.comentario)
+
+
+class MonedaItemCotizacionTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Test",
+        )
+        self.cliente = Empresa.objects.create(
+            nombre="Cliente Test",
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Casa Matriz",
+            empresa=self.empresa,
+        )
+        self.user = User.objects.create_user(
+            email="testmoneda@example.com",
+            password="testpass123",
+        )
+        PersonalizacionUsuario.objects.get_or_create(
+            usuario=self.user,
+            defaults={"sucursal_principal": self.sucursal},
+        )
+        UsuarioEmpresa.objects.create(
+            usuario=self.user,
+            sucursal=self.sucursal,
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_crear_item_rechaza_moneda_uf_sin_tasas(self):
+        cotizacion = Cotizacion.objects.create(
+            nombre="Cotización USD sin tasas",
+            empresa=self.empresa,
+            cliente=self.cliente,
+            tipo_moneda="1",
+            dolar_observado=None,
+            valor_uf=None,
+        )
+
+        response = self.client.post(
+            f"/api/cotizaciones/{cotizacion.id}/items/",
+            {
+                "cotizacion": cotizacion.id,
+                "nombre": "Item UF",
+                "cantidad": 1,
+                "precio_unitario": "2.00",
+                "tipo_moneda": "3",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dolar_observado", response.data)
+        self.assertIn("valor_uf", response.data)
+
+    def test_actualizar_cotizacion_rechaza_tasas_faltantes_con_items_configurados(self):
+        cotizacion = Cotizacion.objects.create(
+            nombre="Cotización USD válida",
+            empresa=self.empresa,
+            cliente=self.cliente,
+            tipo_moneda="1",
+            dolar_observado=950,
+            valor_uf=38000,
+        )
+        ItemCotizacion.objects.create(
+            cotizacion=cotizacion,
+            nombre="Item UF",
+            cantidad=1,
+            precio_unitario="2.00",
+            tipo_moneda="3",
+        )
+
+        response = self.client.patch(
+            f"/api/cotizaciones/{cotizacion.id}/",
+            {
+                "dolar_observado": None,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("dolar_observado", response.data)

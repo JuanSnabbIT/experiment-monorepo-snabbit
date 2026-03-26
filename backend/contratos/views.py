@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from rest_framework import viewsets, status, serializers
 from django.db import models
@@ -30,6 +31,7 @@ from contratos.models import (
     EtiquetaPlantilla,
     SeccionContratoGenerada,
 )
+from cotizaciones.models import Cotizacion
 from empresas.models import UsuarioEmpresa
 from .serializers import (
     ContratoEmpresaClienteSerializer,
@@ -60,6 +62,7 @@ from .serializers import (
     SeccionPlantillaSerializer,
     EtiquetaPlantillaSerializer,
     SeccionContratoGeneradaSerializer,
+    ContratoMatchingSerializer,
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
@@ -90,6 +93,7 @@ from .flow_helpers import (
     preparar_documento_contrato,
     validar_firma_imagen,
 )
+from .venta_helpers import obtener_errores_conversion_cotizaciones
 import json
 import os
 from dotenv import load_dotenv
@@ -98,6 +102,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 BLOQUES_VALIDOS = {"alcance", "operacion", "condiciones"}
+MOTIVO_DEPRECACION_APROBACION_BORRADOR = "Contrato devuelto a borrador"
 
 
 def _empresa_del_usuario(user):
@@ -241,6 +246,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             forma_pago=forma_pago,
             moneda=moneda,
             precio_unitario_contratado=precio_unitario,
+            num_visitas_mensuales=item.get("num_visitas_mensuales"),
             es_addon=bool(item.get("es_addon", es_addon)),
             orden=orden,
         )
@@ -339,6 +345,39 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 partner=item.get("partner", True),
             )
 
+    def _reemplazar_cotizaciones(self, contrato, cotizaciones_ids):
+        """Vincula cotizaciones al contrato de venta. Desvincula las previas."""
+        # Desvincular cotizaciones previas de este contrato
+        contrato.cotizaciones_vinculadas.update(contrato=None)
+
+        if not cotizaciones_ids:
+            return
+
+        # Validar y vincular nuevas cotizaciones
+        cotizaciones = Cotizacion.objects.filter(
+            id__in=cotizaciones_ids,
+            cliente=contrato.empresa_cliente,
+            estado='aceptada',
+        )
+        # Verificar que no estén vinculadas a otro contrato
+        ya_vinculadas = cotizaciones.exclude(contrato__isnull=True).exclude(contrato=contrato)
+        if ya_vinculadas.exists():
+            nums = ", ".join(str(c.numero_cotizacion) for c in ya_vinculadas)
+            raise serializers.ValidationError(
+                {"cotizaciones": [f"Las cotizaciones {nums} ya están vinculadas a otro contrato."]}
+            )
+
+        cotizaciones_validas = cotizaciones.filter(
+            models.Q(contrato__isnull=True) | models.Q(contrato=contrato)
+        )
+        errores_conversion = obtener_errores_conversion_cotizaciones(
+            cotizaciones_validas,
+            contrato.moneda_cobro,
+        )
+        if errores_conversion:
+            raise serializers.ValidationError(errores_conversion)
+        cotizaciones_validas.update(contrato=contrato)
+
     def _reemplazar_condiciones(self, contrato, condiciones_data):
         ContratoCondicionEspecial.objects.filter(contrato=contrato).delete()
         for item in condiciones_data or []:
@@ -435,6 +474,13 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 self._reemplazar_licencias(contrato, licencias)
         except serializers.ValidationError as exc:
             errores["licencias"] = exc.detail
+
+        cotizaciones_ids = payload.get("cotizaciones_ids")
+        try:
+            if cotizaciones_ids is not None:
+                self._reemplazar_cotizaciones(contrato, cotizaciones_ids)
+        except serializers.ValidationError as exc:
+            errores["cotizaciones"] = exc.detail
 
         try:
             if visitas is not None:
@@ -685,6 +731,9 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     contrato=nuevo_contrato,
                     condicion=cce.condicion,
                     texto=cce.texto,
+                    titulo_personalizado=cce.titulo_personalizado,
+                    detalle_personalizado=cce.detalle_personalizado,
+                    multa_incumplimiento=cce.multa_incumplimiento,
                 )
 
             # Duplicar usuarios vinculados
@@ -703,6 +752,17 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 AcuerdoConfidencialidadContrato.objects.create(
                     contrato=nuevo_contrato,
                     acuerdo_base=ac.acuerdo_base,
+                )
+
+            # Duplicar secciones generadas por plantilla
+            for sg in SeccionContratoGenerada.objects.filter(contrato=contrato_original).order_by("orden"):
+                SeccionContratoGenerada.objects.create(
+                    contrato=nuevo_contrato,
+                    seccion_plantilla=sg.seccion_plantilla,
+                    titulo=sg.titulo,
+                    contenido_renderizado=sg.contenido_renderizado,
+                    orden=sg.orden,
+                    fue_editado_manualmente=sg.fue_editado_manualmente,
                 )
 
         return Response(
@@ -997,6 +1057,10 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 self._guardar_borrador_unificado(contrato, payload, crear=True)
             except serializers.ValidationError:
                 raise
+            # Auto-generar secciones documentales desde la plantilla
+            if contrato.plantilla:
+                from contratos.motor_plantillas import generar_secciones_contrato
+                generar_secciones_contrato(contrato)
             contrato.refresh_from_db()
             return Response(
                 ContratoEmpresaClienteSerializer(contrato, context={"request": request}).data,
@@ -1023,6 +1087,112 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         contrato = self.get_object()
         serializer = ContratoEmpresaClienteSerializer(contrato, context={"request": request})
         return Response(serializer.data.get("resumen_comercial", {}), status=status.HTTP_200_OK)
+
+    # ── Cotizaciones vinculadas (contratos de venta) ──────────────────
+
+    @action(detail=True, methods=["get"], url_path="cotizaciones-disponibles")
+    def cotizaciones_disponibles(self, request, pk=None):
+        """Lista cotizaciones aceptadas del mismo cliente, sin contrato asignado (o ya vinculadas a este)."""
+        from .serializers import CotizacionVinculadaResumenSerializer
+
+        contrato = self.get_object()
+        cotizaciones = Cotizacion.objects.filter(
+            cliente=contrato.empresa_cliente,
+            estado='aceptada',
+        ).filter(
+            models.Q(contrato__isnull=True) | models.Q(contrato=contrato)
+        ).order_by('-numero_cotizacion')
+
+        return Response(
+            CotizacionVinculadaResumenSerializer(cotizaciones, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path=r"cotizaciones-disponibles-cliente/(?P<cliente_id>\d+)")
+    def cotizaciones_disponibles_cliente(self, request, cliente_id=None):
+        """Lista cotizaciones aceptadas de un cliente, sin contrato asignado. Para el wizard de creación."""
+        from .serializers import CotizacionVinculadaResumenSerializer
+
+        cotizaciones = Cotizacion.objects.filter(
+            cliente_id=cliente_id,
+            estado='aceptada',
+            contrato__isnull=True,
+        ).order_by('-numero_cotizacion')
+
+        return Response(
+            CotizacionVinculadaResumenSerializer(cotizaciones, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="vincular-cotizacion")
+    def vincular_cotizacion(self, request, pk=None):
+        """Vincula una o varias cotizaciones al contrato de venta."""
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        cotizacion_ids = request.data.get("cotizacion_ids", [])
+        if not cotizacion_ids:
+            return Response(
+                {"detail": "Debe indicar al menos una cotizacion a vincular."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cotizaciones = Cotizacion.objects.filter(
+            id__in=cotizacion_ids,
+            cliente=contrato.empresa_cliente,
+            estado='aceptada',
+        )
+        # Verificar que no estén vinculadas a otro contrato
+        ya_vinculadas = cotizaciones.exclude(contrato__isnull=True).exclude(contrato=contrato)
+        if ya_vinculadas.exists():
+            nums = ", ".join(str(c.numero_cotizacion) for c in ya_vinculadas)
+            return Response(
+                {"detail": f"Las cotizaciones {nums} ya estan vinculadas a otro contrato."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cotizaciones.filter(
+            models.Q(contrato__isnull=True) | models.Q(contrato=contrato)
+        ).update(contrato=contrato)
+
+        contrato.refresh_from_db()
+        return Response(
+            ContratoEmpresaClienteSerializer(contrato, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="desvincular-cotizacion")
+    def desvincular_cotizacion(self, request, pk=None):
+        """Desvincula una cotización del contrato."""
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        cotizacion_id = request.data.get("cotizacion_id")
+        if not cotizacion_id:
+            return Response(
+                {"detail": "Debe indicar la cotizacion a desvincular."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cotizacion = Cotizacion.objects.filter(id=cotizacion_id, contrato=contrato).first()
+        if not cotizacion:
+            return Response(
+                {"detail": "Cotizacion no encontrada o no vinculada a este contrato."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        cotizacion.contrato = None
+        cotizacion.save(update_fields=["contrato"])
+
+        contrato.refresh_from_db()
+        return Response(
+            ContratoEmpresaClienteSerializer(contrato, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=['put'], url_path='editar-servicios-genericos')
     def editar_servicios_genericos(self, request, pk=None):
@@ -1109,6 +1279,42 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 if legado.item_comercial_id and legado.item_comercial.orden != orden:
                     legado.item_comercial.orden = orden
                     legado.item_comercial.save(update_fields=["orden", "fecha_modificacion"])
+
+        contrato.refresh_from_db()
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['put'], url_path='editar-alcance-comercial')
+    def editar_alcance_comercial(self, request, pk=None):
+        """
+        Reemplaza el alcance comercial (plan + servicios/addons) del contrato.
+        Solo disponible en estado borrador o cambios_solicitados.
+
+        Payload esperado:
+        {
+            "alcance_comercial": {
+                "modo": "plan" | "personalizado" | "vacio",
+                "plan_id": <id opcional>,
+                "plan": { "tipo_origen": "plan", "version_id": ..., "cantidad": ..., ... },
+                "addons": [ { "tipo_origen": "servicio", "version_id": ..., ... } ],
+                "servicios": [ { "tipo_origen": "servicio", "version_id": ..., ... } ]
+            }
+        }
+        """
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        alcance_data = request.data.get("alcance_comercial")
+        if alcance_data is None:
+            return Response(
+                {"detail": "No se proporcionaron datos para 'alcance_comercial'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            self._reemplazar_alcance_comercial(contrato, alcance_data)
 
         contrato.refresh_from_db()
         serializer = ContratoEmpresaClienteSerializer(contrato)
@@ -1226,6 +1432,43 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         envio.save(update_fields=["enviado", "fecha_envio"])
         enviar_correo_aprobacion(envio)
         return Response({"detail": "Correo de aprobacion reenviado correctamente."})
+
+    @action(detail=True, methods=["post"], url_path="volver-a-borrador")
+    def volver_a_borrador(self, request, pk=None):
+        contrato = self.get_object()
+        if contrato.estado != "en_aprobacion_cliente":
+            return Response(
+                {
+                    "detail": (
+                        "Solo se puede volver a borrador cuando el contrato esta en revision del cliente."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            fecha_deprecacion = timezone.now()
+            envios_deprecados = contrato.envios_aprobacion.filter(
+                enviado=True,
+                respondido=False,
+                deprecado=False,
+            ).update(
+                deprecado=True,
+                fecha_deprecacion=fecha_deprecacion,
+                motivo_deprecacion=MOTIVO_DEPRECACION_APROBACION_BORRADOR,
+            )
+
+            contrato.estado = "borrador"
+            contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        contrato.refresh_from_db()
+        return Response(
+            {
+                "detail": "Contrato devuelto a borrador. El enlace anterior fue invalidado.",
+                "envios_deprecados": envios_deprecados,
+                "contrato": self.get_serializer(contrato).data,
+            }
+        )
 
     @action(detail=True, methods=["post"], url_path="enviar-firma")
     def enviar_firma(self, request, pk=None):
@@ -1351,23 +1594,36 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             self._build_generic_history_event(registro, "confidencialidad", "Se modificó un acuerdo de confidencialidad")
             for registro in AcuerdoConfidencialidadContrato.historia.filter(contrato_id=contrato.pk).order_by("-history_date")[:30]
         )
-        for envio in contrato.envios_aprobacion.all()[:30]:
-            if envio.respondido:
+        for envio in contrato.envios_aprobacion.order_by("-fecha_envio", "-id")[:30]:
+            if envio.deprecado:
+                detalle_aprobacion = (
+                    "Se invalido el enlace de aprobacion pendiente porque el contrato volvio a borrador"
+                )
+                fecha_aprobacion = envio.fecha_deprecacion or envio.fecha_envio
+                tipo_aprobacion = "Revision"
+                cambios_aprobacion = envio.motivo_deprecacion or ""
+                solicitado_por_cliente = False
+            elif envio.respondido:
                 if envio.aprobado:
                     detalle_aprobacion = f"El cliente aprobó el contrato"
                 else:
                     detalle_aprobacion = f"El cliente solicitó cambios: {envio.comentario_respuesta or 'Sin comentario'}"
             else:
                 detalle_aprobacion = f"Se envió el contrato para revisión del cliente"
+            if not envio.deprecado:
+                fecha_aprobacion = envio.fecha_respuesta or envio.fecha_envio
+                tipo_aprobacion = "Aprobacion" if envio.aprobado else "Revision"
+                cambios_aprobacion = envio.comentario_respuesta or ""
+                solicitado_por_cliente = True
             eventos.append({
                 "id": f"aprobacion-{envio.id}",
-                "fecha": envio.fecha_respuesta or envio.fecha_envio,
-                "tipo": "Aprobacion" if envio.aprobado else "Revision",
+                "fecha": fecha_aprobacion,
+                "tipo": tipo_aprobacion,
                 "usuario": envio.destinatario.nombre_display,
                 "origen": "aprobacion",
                 "detalle": detalle_aprobacion,
-                "cambios": envio.comentario_respuesta or "",
-                "solicitado_por_cliente": True,
+                "cambios": cambios_aprobacion,
+                "solicitado_por_cliente": solicitado_por_cliente,
             })
         for envio in EnvioContratoFirmaUsuario.objects.filter(usuario__contrato=contrato).order_by("-fecha_envio", "-id")[:30]:
             if envio.firmado:
@@ -1575,6 +1831,26 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         contrato = self.get_object()
         secciones = contrato.secciones_generadas.all().order_by("orden")
         return Response(SeccionContratoGeneradaSerializer(secciones, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="activos-cliente")
+    def activos_cliente(self, request):
+        """Contratos activos de un cliente, con visitas (incluidas/usadas) e ítems comerciales.
+        Usado por el módulo de facturación para matching OT → contrato.
+        Query params: ?cliente_id=<int>
+        """
+        cliente_id = request.query_params.get("cliente_id")
+        if not cliente_id:
+            return Response(
+                {"detail": "Se requiere el parámetro 'cliente_id'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = self.get_queryset().filter(
+            empresa_cliente_id=cliente_id,
+            estado="activo",
+        ).prefetch_related("contrato_visitas", "contrato_visitas__visita", "items_comerciales")
+        serializer = ContratoMatchingSerializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
@@ -2723,6 +2999,62 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    # ── Próximo período disponible ─────────────────────────────
+    @action(detail=False, methods=["get"], url_path="proximo-periodo")
+    def proximo_periodo(self, request):
+        """Calcula el próximo período de facturación no facturado para un contrato.
+
+        Query params:
+          - ?contrato_id=<id>  (obligatorio)
+
+        Retorna: { periodo_inicio, periodo_fin } según la forma_pago_contractual.
+        """
+        from dateutil.relativedelta import relativedelta
+
+        contrato_id = request.query_params.get("contrato_id")
+        if not contrato_id:
+            return Response(
+                {"detail": "Debe indicar 'contrato_id'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            contrato = ContratoEmpresaCliente.objects.get(pk=contrato_id)
+        except ContratoEmpresaCliente.DoesNotExist:
+            return Response(
+                {"detail": "Contrato no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        hoy = timezone.now().date()
+        forma = contrato.forma_pago_contractual
+
+        if forma == "anual":
+            delta = relativedelta(years=1)
+        elif forma == "pago_unico":
+            delta = relativedelta(years=1)
+        else:
+            delta = relativedelta(months=1)
+
+        ultima_factura = (
+            FacturaContrato.objects.filter(contrato=contrato)
+            .exclude(estado="anulado")
+            .order_by("-periodo_fin")
+            .first()
+        )
+
+        if ultima_factura:
+            periodo_inicio = ultima_factura.periodo_fin + timedelta(days=1)
+        else:
+            periodo_inicio = contrato.fecha_inicio
+
+        periodo_fin = periodo_inicio + delta - timedelta(days=1)
+
+        return Response({
+            "periodo_inicio": periodo_inicio.isoformat(),
+            "periodo_fin": periodo_fin.isoformat(),
+        })
+
     # ── Resumen / métricas ──────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="resumen")
     def resumen(self, request):
@@ -2778,6 +3110,11 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
+        if instance.es_default:
+            return Response(
+                {"detail": "Las plantillas del sistema no se pueden modificar."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -2786,6 +3123,15 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.es_default:
+            return Response(
+                {"detail": "Las plantillas del sistema no se pueden eliminar."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="duplicar")
     def duplicar(self, request, pk=None):
@@ -2797,14 +3143,10 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
             descripcion=plantilla_original.descripcion,
             version=plantilla_original.version + 1,
             tipo_contrato=plantilla_original.tipo_contrato,
-            moneda_cobro=plantilla_original.moneda_cobro,
-            forma_pago_contractual=plantilla_original.forma_pago_contractual,
-            lugar_firma=plantilla_original.lugar_firma,
-            renovacion_automatica=plantilla_original.renovacion_automatica,
-            dias_aviso_termino=plantilla_original.dias_aviso_termino,
             orden_bloque_alcance=plantilla_original.orden_bloque_alcance,
             orden_bloque_operacion=plantilla_original.orden_bloque_operacion,
             orden_bloque_condiciones=plantilla_original.orden_bloque_condiciones,
+            es_default=False,
         )
         for seccion in plantilla_original.secciones.all():
             SeccionPlantilla.objects.create(
@@ -2829,6 +3171,42 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         plantilla_id = self.kwargs.get("plantilla_pk")
         return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id)
+
+    def _plantilla_es_default(self):
+        plantilla_id = self.kwargs.get("plantilla_pk")
+        return PlantillaContrato.objects.filter(id=plantilla_id, es_default=True).exists()
+
+    def create(self, request, *args, **kwargs):
+        if self._plantilla_es_default():
+            return Response(
+                {"detail": "No se pueden agregar secciones a plantillas del sistema."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if self._plantilla_es_default():
+            return Response(
+                {"detail": "No se pueden modificar secciones de plantillas del sistema."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if self._plantilla_es_default():
+            return Response(
+                {"detail": "No se pueden modificar secciones de plantillas del sistema."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if self._plantilla_es_default():
+            return Response(
+                {"detail": "No se pueden eliminar secciones de plantillas del sistema."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     def _normalizar_firmas(self, serializer):
         """Si la sección es tipo firmas, fuerza contenido canónico y flags."""
@@ -2872,6 +3250,11 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
             "bloques": { "alcance": 3, "operacion": 5, "condiciones": 7 }
         }
         """
+        if self._plantilla_es_default():
+            return Response(
+                {"detail": "No se pueden reordenar secciones de plantillas del sistema."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         secciones_data = request.data.get("secciones", [])
         bloques_data = request.data.get("bloques", {})
 

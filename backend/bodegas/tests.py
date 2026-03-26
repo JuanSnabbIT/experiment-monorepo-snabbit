@@ -1,13 +1,19 @@
+import json
+
 from django.test import TestCase, TransactionTestCase
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from rest_framework.test import APIClient
 
 from bodegas.models import (
     Bodega,
     GuiaSalida,
+    ItemEnOrdenCompra,
     ItemOrdenCompraEnStock,
     ItemsGuiaSalida,
     MovimientoStock,
+    OrdenCompra,
     StockItemEnBodega,
 )
 from empresas.models import Empresa, SucursalEmpresa, RelacionEmpresa, UsuarioEmpresa
@@ -558,3 +564,177 @@ class CheckConstraintIndividualizadoTest(TransactionTestCase):
                 guia=self.guia, stock_item=self.stock,
                 cantidad_rebajada=3, individualizado=True,
             )
+
+
+class GuiaSerializacionUnitariaTest(TransactionTestCase):
+    """Regresiones para creación y despiece unitario de items serializables."""
+
+    def setUp(self):
+        from bodegas.series import agregar_serie_a_stock
+
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa GUIA", rut_empresa="91919191-1", direccion_principal="Dir"
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal GUIA", empresa=self.empresa
+        )
+        self.user = User.objects.create_user(email="guia@test.com", password="test1234")
+        self.usuario = UsuarioEmpresa.objects.create(
+            usuario=self.user, sucursal=self.sucursal
+        )
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
+        if personalizacion:
+            personalizacion.sucursal_principal = self.sucursal
+            personalizacion.save(update_fields=["sucursal_principal"])
+        else:
+            PersonalizacionUsuario.objects.create(
+                usuario=self.user,
+                sucursal_principal=self.sucursal,
+            )
+
+        self.empresa_cliente = Empresa.objects.create(
+            nombre="Cliente GUIA", rut_empresa="92929292-2", direccion_principal="Dir"
+        )
+        RelacionEmpresa.objects.create(
+            prestador_servicios=self.empresa, cliente=self.empresa_cliente
+        )
+
+        self.categoria = Categoria.objects.create(nombre="Cat GUIA")
+        self.item = ItemEmpresa.objects.create(
+            nombre="Item Serial", categoria=self.categoria, empresa=self.empresa
+        )
+        self.bodega = Bodega.objects.create(nombre="Bodega GUIA", sucursal=self.sucursal)
+        self.stock = StockItemEnBodega.objects.create(
+            bodega=self.bodega, item=self.item, cantidad=10, cantidad_no_disponible=0
+        )
+        self.guia = GuiaSalida.objects.create(
+            bodega=self.bodega,
+            cliente=self.empresa_cliente,
+            creado_por=self.usuario,
+            estado="P",
+        )
+        self.orden_compra = OrdenCompra.objects.create(
+            oc_empresa=self.empresa,
+            creado_por=self.usuario,
+            fecha_compra="2026-03-26",
+        )
+        self.item_oc = ItemEnOrdenCompra.objects.create(
+            orden_compra=self.orden_compra,
+            item=self.item,
+            cantidad=3,
+            precio=1000,
+        )
+        self.oc_stock = ItemOrdenCompraEnStock.objects.create(
+            content_type=ContentType.objects.get_for_model(ItemEnOrdenCompra),
+            item_oc_id=self.item_oc.id,
+            stock_item=self.stock,
+            bodega_temporal=self.bodega,
+            cantidad=3,
+            numeros_serie={"numeros_serie": []},
+        )
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.user)
+        for serie in ("SER-001", "SER-002", "SER-003", "SER-004"):
+            agregar_serie_a_stock(self.oc_stock, serie)
+
+    def test_add_oc_items_to_guia_crea_filas_unitarias_para_serializados(self):
+        from bodegas.functions import add_oc_items_to_guia
+
+        resultado = add_oc_items_to_guia(
+            self.guia,
+            self.orden_compra,
+            usuario=self.usuario,
+            cantidades_map={self.item_oc.id: 3},
+        )
+
+        items = ItemsGuiaSalida.objects.filter(
+            guia=self.guia, source_item=self.item_oc
+        ).order_by("id")
+        self.stock.refresh_from_db()
+
+        self.assertEqual(resultado["errors"], [])
+        self.assertEqual(resultado["added"], 3)
+        self.assertEqual(items.count(), 3)
+        self.assertTrue(all(item.individualizado for item in items))
+        self.assertTrue(all(item.cantidad_rebajada == 1 for item in items))
+        self.assertEqual(self.stock.cantidad, 7)
+        self.assertEqual(self.stock.cantidad_no_disponible, 3)
+
+    def test_agregar_item_manual_serializable_crea_filas_unitarias(self):
+        response = self.api_client.post(
+            f"/api/guia-salida/{self.guia.id}/agregar-item/",
+            data=json.dumps(
+                {"stock_item_id": self.stock.id, "cantidad_rebajada": 3}
+            ),
+            content_type="application/json",
+        )
+
+        items = ItemsGuiaSalida.objects.filter(
+            guia=self.guia, stock_item=self.stock
+        ).order_by("id")
+        self.stock.refresh_from_db()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(items.count(), 3)
+        self.assertTrue(all(item.individualizado for item in items))
+        self.assertTrue(all(item.cantidad_rebajada == 1 for item in items))
+        self.assertEqual(self.stock.cantidad, 7)
+        self.assertEqual(self.stock.cantidad_no_disponible, 3)
+
+    def test_toggle_individualizado_descompone_item_legacy_agrupado(self):
+        item_guia = ItemsGuiaSalida.objects.create(
+            guia=self.guia,
+            stock_item=self.stock,
+            cantidad_original=10,
+            cantidad_rebajada=3,
+            individualizado=False,
+            source_item=self.item_oc,
+        )
+        cantidad_antes = self.stock.cantidad
+        no_disponible_antes = self.stock.cantidad_no_disponible
+
+        response = self.api_client.patch(
+            f"/api/guia-salida/{self.guia.id}/items-guia/{item_guia.id}/toggle-individualizado/",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+
+        items = ItemsGuiaSalida.objects.filter(
+            guia=self.guia, stock_item=self.stock
+        ).order_by("id")
+        self.stock.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(items.count(), 3)
+        self.assertTrue(all(item.individualizado for item in items))
+        self.assertTrue(all(item.cantidad_rebajada == 1 for item in items))
+        self.assertTrue(ItemsGuiaSalida.objects.filter(pk=item_guia.id).exists())
+        self.assertEqual(self.stock.cantidad, cantidad_antes)
+        self.assertEqual(self.stock.cantidad_no_disponible, no_disponible_antes)
+
+    def test_permite_multiples_items_guia_con_mismo_source_item(self):
+        item_1 = ItemsGuiaSalida.objects.create(
+            guia=self.guia,
+            stock_item=self.stock,
+            cantidad_original=10,
+            cantidad_rebajada=1,
+            individualizado=True,
+            source_item=self.item_oc,
+        )
+        item_2 = ItemsGuiaSalida.objects.create(
+            guia=self.guia,
+            stock_item=self.stock,
+            cantidad_original=10,
+            cantidad_rebajada=1,
+            individualizado=True,
+            source_item=self.item_oc,
+        )
+
+        self.assertIsNotNone(item_1.pk)
+        self.assertIsNotNone(item_2.pk)
+        self.assertEqual(
+            ItemsGuiaSalida.objects.filter(
+                guia=self.guia, source_item=self.item_oc
+            ).count(),
+            2,
+        )

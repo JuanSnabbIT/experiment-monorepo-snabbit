@@ -1694,6 +1694,10 @@ def calcular_ejecutado_de_ots_seleccionadas(ots_ids, fecha_prefactura=None):
                                 precio_cot_cache[cache_key] = 0.0
                         precio_unitario = precio_cot_cache.get(cache_key, 0.0)
 
+                # Fallback: si no se resolvió precio desde cotización, usar precio de compra de la OC
+                if precio_unitario == 0.0 and item_guia.source_item_id:
+                    precio_unitario = float(item_guia.source_item.precio or 0)
+
                 total_item = float(cantidad_entregada * precio_unitario)
                 total_ejecutado += Decimal(str(total_item))
 

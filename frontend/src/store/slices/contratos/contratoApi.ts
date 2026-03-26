@@ -1,4 +1,5 @@
 import {
+    IAlcanceComercialPayload,
     ICaracteristicaServicio,
     ICondicionEspecial,
     IContratoAprobacionEstado,
@@ -9,10 +10,12 @@ import {
     IContratoFirmaPreview,
     IContratoHistorialEvento,
     IContratoLicencia,
+    IContratoMatching,
     IContratoServicio,
     IContratoVinculadoPorUsuario,
     IContratoVisita,
     ICorreoPersonaLicenciataria,
+    ICotizacionVinculadaResumen,
     IFacturaContrato,
     IFacturaContratoResumen,
     ILicencia,
@@ -22,7 +25,8 @@ import {
     IServicio,
     IUsuarioVinculadoLicencia,
     IVinculoContrato,
-    IVisita
+    IVisita,
+    IVolverContratoBorradorResponse
 } from '@/interface/contrato.interface';
 import { IUsuarioEquipo } from '@/interface/recursos.interface';
 import RtkQueryService from '@/services/RtkQueryService';
@@ -169,6 +173,7 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 'ContratoVisitas',
                 'ContratoCondiciones',
                 'ContratoUsuarios',
+                'SeccionesContratoGeneradas',
             ],
         }),
 
@@ -287,6 +292,22 @@ const contratoApi = RtkQueryService.injectEndpoints({
             ],
         }),
 
+        volverContratoABorrador: builder.mutation<IVolverContratoBorradorResponse, number | string>({
+            query: (id) => ({
+                url: `/api/contratos/${id}/volver-a-borrador/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoServicios',
+                'ContratoLicencias',
+                'ContratoVisitas',
+                'ContratoCondiciones',
+                'ContratoUsuarios',
+            ],
+        }),
+
         enviarAFirmaContrato: builder.mutation<IContratoFirmaEstado, number | string>({
             query: (id) => ({
                 url: `/api/contratos/${id}/enviar-firma/`,
@@ -328,6 +349,21 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 url: `/api/contratos/${id}/editar-servicios-genericos/`,
                 method: 'put',
                 data: { servicios_genericos },
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'ContratoServicios',
+            ],
+        }),
+
+        editarAlcanceComercial: builder.mutation<
+            IContratoEmpresaCliente,
+            { id: number | string; alcance_comercial: IAlcanceComercialPayload }
+        >({
+            query: ({ id, alcance_comercial }) => ({
+                url: `/api/contratos/${id}/editar-alcance-comercial/`,
+                method: 'put',
+                data: { alcance_comercial },
             }),
             invalidatesTags: (_result, _error, { id }) => [
                 { type: 'Contrato', id: Number(id) },
@@ -793,6 +829,84 @@ const contratoApi = RtkQueryService.injectEndpoints({
             query: (id) => ({ url: `/api/caracteristicas-servicio/${id}/`, method: 'delete' }),
             invalidatesTags: ['CaracteristicasServicio', 'Servicios', 'ContratoServicios'],
         }),
+
+        // ═══════════════════════════════════════════════════════
+        //  Cotizaciones vinculadas a contrato (tipo venta)
+        // ═══════════════════════════════════════════════════════
+
+        getCotizacionesDisponibles: builder.query<
+            ICotizacionVinculadaResumen[],
+            number | string
+        >({
+            query: (contratoId) => ({
+                url: `/api/contratos/${contratoId}/cotizaciones-disponibles/`,
+                method: 'get',
+            }),
+            providesTags: ['ContratoCotizaciones'],
+        }),
+
+        getCotizacionesDisponiblesCliente: builder.query<
+            ICotizacionVinculadaResumen[],
+            number | string
+        >({
+            query: (clienteId) => ({
+                url: `/api/contratos/cotizaciones-disponibles-cliente/${clienteId}/`,
+                method: 'get',
+            }),
+            providesTags: ['ContratoCotizaciones'],
+        }),
+
+        vincularCotizacion: builder.mutation<
+            IContratoEmpresaCliente,
+            { contratoId: number | string; cotizaciones_ids: number[] }
+        >({
+            query: ({ contratoId, cotizaciones_ids }) => ({
+                url: `/api/contratos/${contratoId}/vincular-cotizacion/`,
+                method: 'post',
+                data: { cotizaciones_ids },
+            }),
+            invalidatesTags: (_result, _error, { contratoId }) => [
+                { type: 'Contrato', id: Number(contratoId) },
+                'ContratoCotizaciones',
+                'Cotizaciones',
+            ],
+        }),
+
+        desvincularCotizacion: builder.mutation<
+            IContratoEmpresaCliente,
+            { contratoId: number | string; cotizacion_id: number }
+        >({
+            query: ({ contratoId, cotizacion_id }) => ({
+                url: `/api/contratos/${contratoId}/desvincular-cotizacion/`,
+                method: 'post',
+                data: { cotizacion_id },
+            }),
+            invalidatesTags: (_result, _error, { contratoId }) => [
+                { type: 'Contrato', id: Number(contratoId) },
+                'ContratoCotizaciones',
+                'Cotizaciones',
+            ],
+        }),
+
+        // ─── Contratos activos por cliente (para matching OT) ───
+        getContratosActivosCliente: builder.query<IContratoMatching[], number | string>({
+            query: (clienteId) => ({
+                url: `/api/contratos/activos-cliente/?cliente_id=${clienteId}`,
+                method: 'get',
+            }),
+            providesTags: ['ContratosActivosCliente'],
+        }),
+
+        // ─── Próximo período disponible para prefactura ───
+        getProximoPeriodoFactura: builder.query<
+            { periodo_inicio: string; periodo_fin: string },
+            number | string
+        >({
+            query: (contratoId) => ({
+                url: `/api/facturas-contrato/proximo-periodo/?contrato_id=${contratoId}`,
+                method: 'get',
+            }),
+        }),
     }),
 });
 
@@ -812,10 +926,12 @@ export const {
     useRenovarContratoMutation,
     useEnviarAprobacionContratoMutation,
     useReenviarAprobacionContratoMutation,
+    useVolverContratoABorradorMutation,
     useEnviarAFirmaContratoMutation,
     useReenviarAFirmaContratoMutation,
     useGetMetricasDashboardQuery,
     useEditarServiciosGenericosMutation,
+    useEditarAlcanceComercialMutation,
     useGetServiciosQuery,
     useGetPlanesServicioQuery,
     useGetVisitasCatalogoQuery,
@@ -867,6 +983,14 @@ export const {
     useCreateCaracteristicaServicioMutation,
     useUpdateCaracteristicaServicioMutation,
     useDeleteCaracteristicaServicioMutation,
+    // Cotizaciones vinculadas
+    useGetCotizacionesDisponiblesQuery,
+    useGetCotizacionesDisponiblesClienteQuery,
+    useVincularCotizacionMutation,
+    useDesvincularCotizacionMutation,
+    // Matching OT-Contrato
+    useGetContratosActivosClienteQuery,
+    useGetProximoPeriodoFacturaQuery,
 } = contratoApi;
 
 export default contratoApi;

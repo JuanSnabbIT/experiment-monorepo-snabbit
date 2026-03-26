@@ -1,11 +1,61 @@
 import { IUsuarioEmpresa } from './empresas.interface';
 
+export interface ISeccionContratoGenerada {
+    id: number;
+    titulo: string;
+    contenido_renderizado: string;
+    orden: number;
+    tipo: string;
+}
+
+export interface ICotizacionVinculadaItem {
+    id: number;
+    nombre: string;
+    cantidad: number;
+    tipo_moneda?: string;
+    tipo_moneda_label?: string;
+    precio_unitario_origen?: number;
+    costo_total_origen?: number;
+    precio_unitario: number;
+    costo_total: number;
+}
+
+export interface ICuotaVenta {
+    orden: number;
+    porcentaje: number;
+    monto?: number;
+    hito_pago_tipo?: 'inicio' | 'entrega_intermedia' | 'entrega_final' | 'personalizado';
+    hito_pago_descripcion?: string;
+    hito_pago_label?: string;
+}
+
+export interface ICotizacionVinculadaResumen {
+    id: number;
+    numero_cotizacion: string;
+    nombre: string;
+    estado: string;
+    estado_label: string;
+    tipo_moneda: string;
+    tipo_moneda_label: string;
+    total_estimado: number;
+    fecha_vencimiento: string | null;
+    items_count: number;
+    items: ICotizacionVinculadaItem[];
+    moneda_contrato?: 'CLP' | 'UF' | 'USD' | null;
+    total_convertido?: number | null;
+    dolar_observado?: number | null;
+    valor_uf?: number | null;
+    tiene_items_moneda_mixta?: boolean;
+    monedas_items?: Array<'CLP' | 'UF' | 'USD'>;
+}
+
 export interface IContratoEmpresaCliente {
     id: number;
     items_comerciales: IContratoItemComercial[];
     contrato_servicios: IContratoServicio[];
     contrato_visitas: IContratoVisita[];
     contrato_licencias: IContratoLicencia[];
+    cotizaciones_vinculadas: ICotizacionVinculadaResumen[];
     contrato_condiciones_especiales: IContratoCondicionEspecial[];
     vinculos_contrato: IVinculoContrato[];
     firmas_confidencialidad: IFirmaConfidencialidad[];
@@ -29,6 +79,8 @@ export interface IContratoEmpresaCliente {
     tipo: string;
     moneda_cobro: 'CLP' | 'UF' | 'USD';
     forma_pago_contractual: 'mensual' | 'anual' | 'pago_unico';
+    forma_pago_venta?: 'contado' | 'cuotas' | null;
+    cuotas_venta?: ICuotaVenta[];
     tipo_label: string;
     destinatario_principal?: IVinculoContrato | null;
     ultimo_envio_aprobacion?: IContratoAprobacionEstado | null;
@@ -40,6 +92,7 @@ export interface IContratoEmpresaCliente {
     contrato_anterior_detalle?: IContratoRenovacionRef | null;
     renovaciones_detalle?: IContratoRenovacionRef[];
     plantilla?: number | null;
+    dias_aviso_termino?: number;
 }
 
 export interface IEmpresaContrato {
@@ -118,6 +171,9 @@ export interface IContratoAprobacionEstado {
     fecha_respuesta: string | null;
     comentario_respuesta: string | null;
     version_envio: number;
+    deprecado: boolean;
+    fecha_deprecacion: string | null;
+    motivo_deprecacion?: string | null;
 }
 
 export interface IContratoFirmaEstado {
@@ -146,6 +202,12 @@ export interface IContratoRenovacionRef {
     estado: string;
 }
 
+export interface IVolverContratoBorradorResponse {
+    detail: string;
+    envios_deprecados: number;
+    contrato: IContratoEmpresaCliente;
+}
+
 export interface IContratoPublicoAprobacion {
     uuid: string;
     puede_responder: boolean;
@@ -162,6 +224,7 @@ export interface IContratoPublicoAprobacion {
         es_externo: boolean;
     };
     contrato: IContratoEmpresaCliente;
+    secciones_generadas: ISeccionContratoGenerada[];
 }
 
 export interface IContratoPublicoFirma {
@@ -181,6 +244,7 @@ export interface IContratoPublicoFirma {
         es_externo: boolean;
     } | null;
     contrato: IContratoEmpresaCliente;
+    secciones_generadas: ISeccionContratoGenerada[];
 }
 
 export interface IContratoFirmaPreview extends IContratoPublicoFirma {}
@@ -245,19 +309,42 @@ export interface IContratoVisita {
     fecha_modificacion: string;
     frecuencia: string;
     cantidad: number;
+    visitas_usadas: number;
     visita: number;
     descripcion_visita: string;
     frecuencia_label: string;
 }
 
 export interface IResumenComercialContrato {
+    tipo_resumen?: 'servicios' | 'licencia' | 'venta';
     moneda: 'CLP' | 'UF' | 'USD';
     forma_pago_contractual: 'mensual' | 'anual' | 'pago_unico';
+    forma_pago_venta?: 'contado' | 'cuotas' | null;
+    forma_pago_venta_label?: string | null;
     total_mensual: number;
     total_anual: number;
     total_pago_unico: number;
     total_licencias: number;
     total_contrato: number;
+    cuotas_venta?: ICuotaVenta[];
+    cuotas_venta_resumen?: ICuotaVenta[];
+    cotizaciones_vinculadas_count?: number;
+    cotizaciones_detalle?: Array<{
+        id: number;
+        numero_cotizacion: number | null;
+        nombre: string;
+        moneda_origen: 'CLP' | 'UF' | 'USD';
+        total_origen: number;
+        moneda_contrato: 'CLP' | 'UF' | 'USD';
+        total_convertido: number | null;
+        dolar_observado?: number | null;
+        valor_uf?: number | null;
+        tiene_items_moneda_mixta?: boolean;
+        monedas_items?: Array<'CLP' | 'UF' | 'USD'>;
+        items_count: number;
+        error_conversion?: string | null;
+    }>;
+    errores_conversion?: string[];
 }
 
 export interface IPlanServicioDetalle {
@@ -268,6 +355,24 @@ export interface IPlanServicioDetalle {
     obligatorio: boolean;
     cantidad_default: number;
     veces_por_mes_default: number;
+}
+
+export interface IContratoPlanComponenteSnapshot {
+    servicio_version_id?: number | null;
+    nombre: string;
+    descripcion?: string | null;
+    categoria?: string | null;
+    categoria_label?: string | null;
+    obligatorio?: boolean | null;
+    cantidad_default?: number | null;
+    veces_por_mes_default?: number | null;
+    orden?: number | null;
+    caracteristicas?: ICaracteristicaServicio[];
+    alcance_caracteristicas?: IServicioAlcanceItem[];
+    alcance_caracteristicas_texto?: string | null;
+    incluye?: string | null;
+    no_incluye?: string | null;
+    clausulas_especiales?: string | null;
 }
 
 export interface IContratoItemComercial {
@@ -282,9 +387,11 @@ export interface IContratoItemComercial {
     snapshot_incluye: string | null;
     snapshot_no_incluye: string | null;
     snapshot_clausulas: string | null;
-    snapshot_componentes_plan: Array<Record<string, unknown>>;
+    snapshot_componentes_plan: IContratoPlanComponenteSnapshot[];
     cantidad: number;
     veces_por_mes: number;
+    num_visitas_mensuales?: number | null;
+    snapshot_num_visitas_mensuales?: number | null;
     forma_pago: 'mensual' | 'anual' | 'pago_unico';
     moneda: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado: string;
@@ -330,6 +437,7 @@ export interface IPlanServicio {
     precio_uf?: string;
     precio_usd?: string;
     veces_por_mes_default?: number;
+    num_visitas_mensuales?: number | null;
     formas_pago_permitidas?: string[];
     bloqueado_por_uso?: boolean;
     requiere_nueva_version?: boolean;
@@ -498,8 +606,48 @@ export interface IFacturaContrato {
     nombre_contrato: string;
     nombre_cliente: string;
     nombre_prestadora: string;
+    monto_calculado?: string;
     fecha_creacion: string;
     fecha_modificacion: string;
+}
+
+// ── Interfaces para matching OT-Contrato ──
+
+export interface IContratoVisitaMatching {
+    id: number;
+    visita: number;
+    frecuencia: string;
+    frecuencia_label?: string;
+    cantidad: number;
+    visitas_usadas: number;
+    descripcion_visita: string;
+}
+
+export interface IContratoItemComercialMatching {
+    id: number;
+    tipo_origen: 'servicio' | 'plan';
+    snapshot_nombre: string;
+    cantidad: number;
+    veces_por_mes: number;
+    precio_unitario_contratado: string;
+    total_mensual: string;
+    moneda: string;
+    num_visitas_mensuales: number | null;
+    snapshot_componentes_plan: IContratoPlanComponenteSnapshot[];
+}
+
+export interface IContratoMatching {
+    id: number;
+    nombre: string;
+    estado: string;
+    estado_label: string;
+    empresa_cliente: number;
+    moneda_cobro: string;
+    dia_facturacion?: number | null;
+    fecha_inicio?: string;
+    fecha_fin?: string | null;
+    visitas: IContratoVisitaMatching[];
+    items_comerciales: IContratoItemComercialMatching[];
 }
 
 export interface IFacturaContratoResumen {
@@ -545,6 +693,7 @@ export interface IContratoItemComercialPayload {
     catalogo_version_id?: number;
     cantidad?: number;
     veces_por_mes?: number;
+    num_visitas_mensuales?: number | null;
     forma_pago?: 'mensual' | 'anual' | 'pago_unico';
     moneda?: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado?: number;
@@ -574,7 +723,10 @@ export interface IContratoBorradorPayload {
             | 'empresa_prestadora'
             | 'moneda_cobro'
             | 'forma_pago_contractual'
+            | 'forma_pago_venta'
             | 'plantilla'
+            | 'dias_aviso_termino'
+            | 'cuotas_venta'
         >
     >;
     destinatario_principal?: {
@@ -598,4 +750,5 @@ export interface IContratoBorradorPayload {
     licencias?: Array<Record<string, unknown>>;
     visitas?: Array<Record<string, unknown>>;
     condiciones_especiales?: Array<Record<string, unknown>>;
+    cotizaciones_ids?: number[];
 }

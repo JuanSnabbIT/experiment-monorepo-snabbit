@@ -9,7 +9,7 @@ import Card, {
     CardFooter,
     CardFooterChild,
 } from '@/components/ui/Card';
-import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { useEstadoContrato } from '@/hooks/useEstadoContrato';
 import ApiService from '@/services/ApiService';
@@ -25,26 +25,28 @@ import {
     useEnviarAprobacionContratoMutation,
     useGetDetalleContratoQuery,
     useGetLicenciasCatalogoQuery,
-    useGetVisitasCatalogoQuery,
+    useGetPreviewFirmaContratoQuery,
     useReenviarAFirmaContratoMutation,
     useReenviarAprobacionContratoMutation,
     useRenovarContratoMutation,
+    useVolverContratoABorradorMutation
 } from '@/store/slices/contratos/contratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CicloVidaContrato from './components/CicloVidaContrato';
 import { colorEstadoContrato } from './components/contrato.helpers';
+import ContratoFirmaExperience from './components/ContratoFirmaExperience';
 import ResumenContrato from './components/ResumenContrato';
 import TabCondiciones from './components/TabCondiciones';
+import TabCotizaciones from './components/TabCotizaciones';
 import TabDocumento from './components/TabDocumento';
 import TabHistorial from './components/TabHistorial';
 import TabLicencias from './components/TabLicencias';
 import TabServicios from './components/TabServicios';
 import TabUsuarios from './components/TabUsuarios';
-import TabVisitas from './components/TabVisitas';
 import DetalleConfidencialidadContrato from './modals/DetalleConfidencialidadContrato';
 import ModalEditarDatosGenerales from './modals/ModalEditarDatosGenerales';
 
@@ -63,7 +65,6 @@ const DetalleContrato = () => {
         isError,
     } = useGetDetalleContratoQuery(contratoId!, { skip: !contratoId });
 
-    const { data: listaVisitas = [] } = useGetVisitasCatalogoQuery();
     const { data: listaLicencias = [] } = useGetLicenciasCatalogoQuery();
 
     const [cambiarEstado] = useCambiarEstadoContratoMutation();
@@ -71,6 +72,7 @@ const DetalleContrato = () => {
     const [deleteContrato] = useDeleteContratoMutation();
     const [enviarAprobacionContrato] = useEnviarAprobacionContratoMutation();
     const [reenviarAprobacionContrato] = useReenviarAprobacionContratoMutation();
+    const [volverContratoABorrador] = useVolverContratoABorradorMutation();
     const [enviarAFirmaContrato] = useEnviarAFirmaContratoMutation();
     const [reenviarAFirmaContrato] = useReenviarAFirmaContratoMutation();
 
@@ -87,10 +89,13 @@ const DetalleContrato = () => {
     } = useEstadoContrato(contrato ?? null);
     const firmaPrestadoraDisponible = Boolean(contrato?.datos_empresa.firma_empresa);
     const tieneConfidencialidad = Boolean(contrato?.firmas_confidencialidad.length);
+    const ultimoEnvioAprobacionDeprecado = Boolean(contrato?.ultimo_envio_aprobacion?.deprecado);
 
     // ── Estado local ──
     const [modalEliminar, setModalEliminar] = useState(false);
     const [modalEditarDatos, setModalEditarDatos] = useState(false);
+    const [modalVolverBorrador, setModalVolverBorrador] = useState(false);
+    const [firmaModalOpen, setFirmaModalOpen] = useState(false);
     const clientTab = searchParams.get('tab') || 'contratos';
 
     // ── Cargar catálogos legacy al montar ──
@@ -153,6 +158,19 @@ const DetalleContrato = () => {
         try {
             await reenviarAprobacionContrato(contrato.id).unwrap();
             toast.success('Aprobación reenviada al cliente');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleVolverABorrador = async () => {
+        if (!contrato) return;
+        try {
+            const response = await volverContratoABorrador(contrato.id).unwrap();
+            toast.success(
+                `${response.detail} ${response.envios_deprecados} enlace(s) invalidado(s).`,
+            );
+            setModalVolverBorrador(false);
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
@@ -305,6 +323,15 @@ const DetalleContrato = () => {
                                     Reenviar aprobación
                                 </Button>
                             )}
+                            {contrato.estado === 'en_aprobacion_cliente' && (
+                                <Button
+                                    variant='solid'
+                                    color='amber'
+                                    icon='HeroArrowUturnLeft'
+                                    onClick={() => setModalVolverBorrador(true)}>
+                                    Volver a borrador
+                                </Button>
+                            )}
                             {contrato.estado === 'aprobado_cliente' && (
                                 <Button
                                     icon='HeroDocumentText'
@@ -355,6 +382,14 @@ const DetalleContrato = () => {
                             {contrato.estado === 'en_firma' && (
                                 <Button icon='HeroEnvelope' onClick={handleReenviarFirma}>
                                     Reenviar firma
+                                </Button>
+                            )}
+                            {contrato.estado === 'en_firma' && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPencilSquare'
+                                    onClick={() => setFirmaModalOpen(true)}>
+                                    Firmar contrato
                                 </Button>
                             )}
                             {puedeSuspender && (
@@ -469,7 +504,9 @@ const DetalleContrato = () => {
                                         <span className='font-bold text-blue-500'>
                                             Aprobación del cliente:{' '}
                                         </span>
-                                        {contrato.ultimo_envio_aprobacion?.respondido
+                                        {ultimoEnvioAprobacionDeprecado
+                                            ? 'Enlace invalidado'
+                                            : contrato.ultimo_envio_aprobacion?.respondido
                                             ? contrato.ultimo_envio_aprobacion.aprobado
                                                 ? 'Aprobada'
                                                 : 'Rechazada'
@@ -477,6 +514,18 @@ const DetalleContrato = () => {
                                               ? 'Pendiente'
                                               : 'No enviada'}
                                     </div>
+
+                                    {ultimoEnvioAprobacionDeprecado && (
+                                        <div className='rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
+                                            El ultimo enlace de aprobacion fue invalidado
+                                            {contrato.ultimo_envio_aprobacion?.fecha_deprecacion
+                                                ? ` el ${dayjs(
+                                                      contrato.ultimo_envio_aprobacion.fecha_deprecacion,
+                                                  ).format('DD/MM/YYYY HH:mm')}`
+                                                : ''}
+                                            . Corrige el destinatario o el contenido y luego reenvia una nueva aprobacion.
+                                        </div>
+                                    )}
 
                                     <div>
                                         <span className='font-bold text-blue-500'>Firma: </span>
@@ -575,25 +624,22 @@ const DetalleContrato = () => {
                             detalleContratoEmpresaCliente={contrato}
                             puedeEditar={puedeEditar}
                         />
-                        {contrato.plantilla && (
-                            <TabDocumento
-                                contrato={contrato}
-                                puedeEditar={puedeEditar}
-                            />
-                        )}
+                        <TabDocumento
+                            contrato={contrato}
+                            puedeEditar={puedeEditar}
+                        />
                     </div>
 
-                    {/* ── Columna derecha (4/12): Visitas, Licencias, Historial ── */}
+                    {/* ── Columna derecha (4/12): Licencias, Historial ── */}
                     <div className='col-span-full flex flex-col gap-4 lg:col-span-4'>
-                        <TabVisitas
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                            listaVisitas={listaVisitas}
-                        />
                         <TabLicencias
                             detalleContratoEmpresaCliente={contrato}
                             puedeEditar={puedeEditar}
                             listaLicencias={listaLicencias}
+                        />
+                        <TabCotizaciones
+                            detalleContratoEmpresaCliente={contrato}
+                            puedeEditar={puedeEditar}
                         />
                         <TabHistorial contratoId={contrato.id} />
                     </div>
@@ -608,6 +654,49 @@ const DetalleContrato = () => {
                 />
             )}
             {/* ── Modal de confirmación de eliminación ── */}
+            <Modal isOpen={modalVolverBorrador} setIsOpen={setModalVolverBorrador}>
+                <ModalHeader>Volver contrato a borrador</ModalHeader>
+                <ModalBody className='space-y-4'>
+                    <p>
+                        Esta accion sacara el contrato de <strong>Revision cliente</strong> y lo
+                        devolvera a <strong>Borrador</strong>.
+                    </p>
+                    <div className='rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900'>
+                        <p className='font-semibold'>Advertencias importantes</p>
+                        <ul className='mt-2 list-disc space-y-1 pl-5'>
+                            <li>El enlace enviado al cliente quedara invalidado inmediatamente.</li>
+                            <li>El cliente no podra aprobar ni rechazar usando el correo anterior.</li>
+                            <li>El contrato volvera a ser editable desde esta vista.</li>
+                            <li>Despues de corregir destinatario o contenido, deberas reenviar una nueva aprobacion.</li>
+                        </ul>
+                    </div>
+                    <div className='rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700'>
+                        <p>
+                            <strong>Destinatario actual:</strong>{' '}
+                            {contrato.destinatario_principal?.correo_display || 'Sin definir'}
+                        </p>
+                        <p>
+                            <strong>Version del ultimo envio:</strong>{' '}
+                            {contrato.ultimo_envio_aprobacion?.version_envio || 'Sin envio'}
+                        </p>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <ModalFooterChild />
+                    <ModalFooterChild>
+                        <Button color='zinc' onClick={() => setModalVolverBorrador(false)}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant='solid'
+                            color='amber'
+                            icon='HeroArrowUturnLeft'
+                            onClick={handleVolverABorrador}>
+                            Volver a borrador e invalidar enlace
+                        </Button>
+                    </ModalFooterChild>
+                </ModalFooter>
+            </Modal>
             <Modal isOpen={modalEliminar} setIsOpen={setModalEliminar}>
                 <ModalHeader>Eliminar Contrato</ModalHeader>
                 <ModalBody>
@@ -627,7 +716,105 @@ const DetalleContrato = () => {
                     </Button>
                 </ModalFooter>
             </Modal>
+            {/* Modal de firma interna */}
+            {firmaModalOpen && contrato && (
+                <FirmaInternaModal
+                    isOpen={firmaModalOpen}
+                    setIsOpen={setFirmaModalOpen}
+                    contratoId={contrato.id}
+                />
+            )}
         </PageWrapper>
+    );
+};
+
+const FirmaInternaModal = ({
+    isOpen,
+    setIsOpen,
+    contratoId,
+}: {
+    isOpen: boolean;
+    setIsOpen: Dispatch<SetStateAction<boolean>>;
+    contratoId: number;
+}) => {
+    const { data: detalle, isLoading } = useGetPreviewFirmaContratoQuery(contratoId);
+    const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfError, setPdfError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let objectUrl: string | null = null;
+        const loadPdf = async () => {
+            setPdfLoading(true);
+            setPdfError(null);
+            try {
+                const response = await ApiService.fetchData<Blob>({
+                    url: `/api/contratos/${contratoId}/preview-firma/pdf/`,
+                    method: 'get',
+                    responseType: 'blob',
+                });
+                objectUrl = window.URL.createObjectURL(response.data);
+                setPdfObjectUrl((currentUrl) => {
+                    if (currentUrl) window.URL.revokeObjectURL(currentUrl);
+                    return objectUrl;
+                });
+            } catch (err: unknown) {
+                setPdfError(getErrorMessage(err));
+            } finally {
+                setPdfLoading(false);
+            }
+        };
+        loadPdf();
+        return () => {
+            if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+        };
+    }, [contratoId]);
+
+    const descargarPdf = () => {
+        if (!pdfObjectUrl) return;
+        const link = document.createElement('a');
+        link.href = pdfObjectUrl;
+        link.download = `Contrato_firma_${contratoId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const abrirPdf = () => {
+        if (!pdfObjectUrl) return;
+        window.open(pdfObjectUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    return (
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen} fullScreen isScrollable>
+            <ModalHeader>Firma del contrato</ModalHeader>
+            <ModalBody>
+                {isLoading && (
+                    <div className='flex items-center justify-center py-12'>
+                        <p className='text-sm text-zinc-500'>Cargando vista previa de firma...</p>
+                    </div>
+                )}
+                {!isLoading && detalle && (
+                    <Container className='py-4'>
+                        <ContratoFirmaExperience
+                            detalle={detalle}
+                            mode='preview'
+                            pdfObjectUrl={pdfObjectUrl}
+                            pdfLoading={pdfLoading}
+                            pdfError={pdfError}
+                            onDownloadPdf={descargarPdf}
+                            onOpenPdf={abrirPdf}
+                        />
+                    </Container>
+                )}
+            </ModalBody>
+            <ModalFooter>
+                <ModalFooterChild />
+                <ModalFooterChild>
+                    <Button onClick={() => setIsOpen(false)}>Cerrar</Button>
+                </ModalFooterChild>
+            </ModalFooter>
+        </Modal>
     );
 };
 

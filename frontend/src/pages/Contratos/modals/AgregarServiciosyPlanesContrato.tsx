@@ -1,6 +1,3 @@
-import Input from '@/components/form/Input';
-import SelectReact from '@/components/form/SelectReact';
-import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
     ModalBody,
@@ -9,280 +6,175 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import {
-    listaContentTypeThunk,
-    listaPlanServiciosThunk,
-    listaServiciosThunk,
-    useAppDispatch,
-    useAppSelector,
-} from '@/store';
-import { useEditarServiciosGenericosMutation } from '@/store/slices/contratos/contratoApi';
+    IAlcanceComercialPayload,
+    IContratoEmpresaCliente,
+} from '@/interface/contrato.interface';
+import { useEditarAlcanceComercialMutation } from '@/store/slices/contratos/contratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-
-interface IServicioGenericoEdicion {
-    servicios_genericos: {
-        cantidad: number;
-        precio_unitario: number;
-        object_id: number;
-        content_type: number;
-        nombre: string;
-    }[];
-}
+import SelectorPlanServicios from '../components/SelectorPlanServicios';
+import { ISeleccionPlanServicios } from '../components/contrato.types';
 
 interface IAgregarServiciosyPlanesContratoProps {
     contrato: IContratoEmpresaCliente;
     isDisabled?: boolean;
 }
 
+const SELECCION_VACIA: ISeleccionPlanServicios = {
+    modo: 'plan',
+    plan_id: null,
+    plan_cantidad: 1,
+    plan_precio_unitario: 0,
+    plan_num_visitas_mensuales: null,
+    servicios: [],
+};
+
+function mapItemsComercialesToSeleccion(
+    contrato: IContratoEmpresaCliente,
+): ISeleccionPlanServicios {
+    const items = contrato.items_comerciales ?? [];
+    const itemPlan = items.find((i) => i.tipo_origen === 'plan');
+
+    if (itemPlan && itemPlan.plan_version) {
+        const addons = items.filter(
+            (i) => i.tipo_origen === 'servicio' && i.es_addon && i.servicio_version,
+        );
+        return {
+            modo: 'plan',
+            plan_id: itemPlan.plan_version.id,
+            plan_cantidad: itemPlan.cantidad,
+            plan_precio_unitario: Number(itemPlan.precio_unitario_contratado),
+            plan_num_visitas_mensuales: itemPlan.num_visitas_mensuales ?? null,
+            servicios: addons.map((a) => ({
+                servicio_id: a.servicio_version!.id,
+                cantidad: a.cantidad,
+                precio_unitario: Number(a.precio_unitario_contratado),
+            })),
+        };
+    }
+
+    const serviciosItems = items.filter(
+        (i) => i.tipo_origen === 'servicio' && i.servicio_version,
+    );
+    if (serviciosItems.length > 0) {
+        return {
+            modo: 'personalizado',
+            plan_id: null,
+            plan_cantidad: 1,
+            plan_precio_unitario: 0,
+            plan_num_visitas_mensuales: null,
+            servicios: serviciosItems.map((s) => ({
+                servicio_id: s.servicio_version!.id,
+                cantidad: s.cantidad,
+                precio_unitario: Number(s.precio_unitario_contratado),
+            })),
+        };
+    }
+
+    return { ...SELECCION_VACIA };
+}
+
+function buildAlcanceComercialPayload(
+    seleccion: ISeleccionPlanServicios,
+): IAlcanceComercialPayload {
+    if (seleccion.plan_id === null && seleccion.servicios.length === 0) {
+        return { modo: 'vacio' };
+    }
+
+    if (seleccion.modo === 'plan' && seleccion.plan_id) {
+        return {
+            modo: 'plan',
+            plan_id: seleccion.plan_id,
+            plan: {
+                tipo_origen: 'plan',
+                version_id: seleccion.plan_id,
+                cantidad: seleccion.plan_cantidad,
+                precio_unitario_contratado: seleccion.plan_precio_unitario,
+                ...(seleccion.plan_num_visitas_mensuales != null && {
+                    num_visitas_mensuales: seleccion.plan_num_visitas_mensuales,
+                }),
+            },
+            addons: seleccion.servicios.map((s) => ({
+                tipo_origen: 'servicio' as const,
+                version_id: s.servicio_id,
+                cantidad: s.cantidad,
+                precio_unitario_contratado: s.precio_unitario,
+                es_addon: true,
+            })),
+            servicios: [],
+        };
+    }
+
+    return {
+        modo: 'personalizado',
+        plan_id: null,
+        plan: null,
+        addons: [],
+        servicios: seleccion.servicios.map((s) => ({
+            tipo_origen: 'servicio' as const,
+            version_id: s.servicio_id,
+            cantidad: s.cantidad,
+            precio_unitario_contratado: s.precio_unitario,
+        })),
+    };
+}
+
 function AgregarServiciosyPlanesContrato({
     contrato,
     isDisabled = false,
 }: IAgregarServiciosyPlanesContratoProps) {
-    const dispatch = useAppDispatch();
-    const { listaContentType } = useAppSelector((state) => state.core);
-    const { listaServicios, listaPlanServicios } = useAppSelector(
-        (state) => state.contrato,
-    );
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const [optionsSerGenericos, setOptionsSerGenericos] = useState<
-        { label: string; options: { value: string; label: string; content_type: number }[] }[]
-    >([]);
-    const [nuevoServicio, setNuevoServicio] = useState<
-        { value: string; label: string; content_type: number } | undefined
-    >();
-    const [editarServiciosGenericos, { isLoading: guardando }] =
-        useEditarServiciosGenericosMutation();
+    const [isOpen, setIsOpen] = useState(false);
+    const [seleccion, setSeleccion] = useState<ISeleccionPlanServicios>(SELECCION_VACIA);
+    const [editarAlcanceComercial, { isLoading: guardando }] = useEditarAlcanceComercialMutation();
 
     useEffect(() => {
-        if (contrato && isOpen) {
-            dispatch(listaServiciosThunk());
-            dispatch(listaPlanServiciosThunk());
+        if (isOpen) {
+            setSeleccion(mapItemsComercialesToSeleccion(contrato));
         }
-    }, [contrato, isOpen]);
+    }, [isOpen, contrato]);
 
-    useEffect(() => {
-        if (listaContentType.length === 0) {
-            dispatch(listaContentTypeThunk());
+    const handleGuardar = async () => {
+        try {
+            await editarAlcanceComercial({
+                id: contrato.id,
+                alcance_comercial: buildAlcanceComercialPayload(seleccion),
+            }).unwrap();
+            setIsOpen(false);
+            toast.success('Plan y servicios actualizados');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         }
-    }, []);
-
-    useEffect(() => {
-        if (contrato && isOpen) {
-            formik.setValues({
-                servicios_genericos: contrato.contrato_servicios.map(
-                    (ser) => ({
-                        nombre: ser.nombre,
-                        cantidad: ser.cantidad,
-                        content_type: ser.content_type,
-                        object_id: ser.object_id,
-                        precio_unitario: Number(ser.precio_unitario),
-                    }),
-                ),
-            });
-        }
-    }, [contrato, isOpen]);
-
-    const formik = useFormik<IServicioGenericoEdicion>({
-        enableReinitialize: true,
-        initialValues: {
-            servicios_genericos: [],
-        },
-        onSubmit: async (values) => {
-            try {
-                await editarServiciosGenericos({
-                    id: contrato.id,
-                    servicios_genericos: values.servicios_genericos.map((ser) => ({
-                        content_type: ser.content_type,
-                        object_id: Number(ser.object_id),
-                        cantidad: Number(ser.cantidad),
-                        precio_unitario: Number(ser.precio_unitario),
-                    })),
-                }).unwrap();
-                setIsOpen(false);
-                toast.success('Servicios del contrato actualizados');
-            } catch (error: unknown) {
-                toast.error(getErrorMessage(error) || 'Error al actualizar los servicios');
-            }
-        },
-    });
-
-    useEffect(() => {
-        if (listaPlanServicios && listaServicios && isOpen) {
-            const ctPlan = listaContentType.find((ct) => ct.model === 'planservicio');
-            const ctSer = listaContentType.find((ct) => ct.model === 'servicio');
-            if (ctPlan && ctSer) {
-                setOptionsSerGenericos([
-                    {
-                        label: 'Planes',
-                        options: listaPlanServicios.map((plan) => ({
-                            value: plan.id.toString(),
-                            label: plan.nombre,
-                            content_type: ctPlan.id,
-                        })),
-                    },
-                    {
-                        label: 'Servicios',
-                        options: listaServicios.map((ser) => ({
-                            value: ser.id.toString(),
-                            label: ser.nombre,
-                            content_type: ctSer.id,
-                        })),
-                    },
-                ]);
-            }
-        }
-    }, [listaPlanServicios, listaServicios, isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            formik.resetForm();
-            setNuevoServicio(undefined);
-        }
-    }, [isOpen]);
+    };
 
     return (
         <>
-            <Tooltip text='Agregar Servicios/Planes'>
+            <Tooltip text='Editar plan y servicios'>
                 <Button
                     variant='outline'
                     color='blue'
-                    icon='HeroPlus'
+                    icon='HeroPencil'
                     isDisable={isDisabled}
                     className='text-blue-500'
                     onClick={() => {
-                        if (!isDisabled) {
-                            setIsOpen(true);
-                        }
+                        if (!isDisabled) setIsOpen(true);
                     }}>
-                    Agregar
+                    Editar
                 </Button>
             </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className='text-xl'>Agregar Servicios/Planes</Badge>
-                </ModalHeader>
+            <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='xl'>
+                <ModalHeader>Plan y servicios del contrato</ModalHeader>
                 <ModalBody>
-                    <div className='flex flex-col gap-4'>
-                        {formik.values.servicios_genericos.map((servicio, index) => (
-                            <div
-                                className='grid grid-cols-3 gap-2 rounded-xl border border-blue-500 p-4'
-                                key={index}>
-                                <div>
-                                    <Badge>
-                                        Nombre
-                                        <Button
-                                            color='red'
-                                            icon='HeroTrash'
-                                            size='sm'
-                                            onClick={() => {
-                                                // const servicioEliminado = formik.values.servicios_genericos[index];
-                                                const nuevasCondiciones =
-                                                    formik.values.servicios_genericos.filter(
-                                                        (_, i) => i !== index,
-                                                    );
-                                                // Agregamos al array de eliminación solo si la condición eliminada posee un id (esto es útil si ya estaba registrada en la BD).
-                                                // let nuevosEliminados = [...formik.values.eliminar_condiciones];
-                                                // if (servicioEliminado.id) {
-                                                //     nuevosEliminados.push(servicioEliminado.id);
-                                                // }
-                                                formik.setFieldValue(
-                                                    'servicios_genericos',
-                                                    nuevasCondiciones,
-                                                );
-                                                // formik.setFieldValue("eliminar_condiciones", nuevosEliminados);
-                                            }}
-                                        />
-                                    </Badge>
-                                    <div className='ml-2'>{servicio.nombre}</div>
-                                </div>
-                                <div>
-                                    <Badge>Cantidad</Badge>
-                                    <Input
-                                        name={`servicios_genericos[${index}].cantidad`}
-                                        type='number'
-                                        // onChange={(e) => {formik.setFieldValue(`servicios_genericos[${index}].cantidad`)}}
-                                        onChange={formik.handleChange}
-                                        value={servicio.cantidad}
-                                    />
-                                </div>
-                                <div>
-                                    <Badge>Precio Unitario</Badge>
-                                    <Input
-                                        name={`servicios_genericos[${index}].precio_unitario`}
-                                        type='number'
-                                        onChange={formik.handleChange}
-                                        value={servicio.precio_unitario}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                        <div className='flex flex-row items-center justify-center'>
-                            <div className='w-full'>
-                                <Badge>Servicio/Plan</Badge>
-                                <SelectReact
-                                    name='servicio_plan'
-                                    options={optionsSerGenericos}
-                                    onChange={(e: any) => {
-                                        // formik.setFieldValue(`servicios_genericos`,
-                                        //     {cantidad: 1, precio_unitario: 1, object_id: (e as TSelectOption).value, content_type: 0}
-                                        // )
-                                        setNuevoServicio(e);
-                                    }}
-                                    value={nuevoServicio}
-                                    placeholder='Agregue un Servicio/Plan'
-                                />
-                            </div>
-                            <div>
-                                <Button
-                                    onClick={() => {
-                                        if (!nuevoServicio) {
-                                            toast.error(
-                                                'Seleccione un servicio o plan para agregarlo',
-                                                {
-                                                    toastId:
-                                                        'Seleccione un servicio o plan para agregarlo',
-                                                },
-                                            );
-                                            return;
-                                        }
-                                        formik.setFieldValue('servicios_genericos', [
-                                            ...formik.values.servicios_genericos,
-                                            {
-                                                cantidad: 1,
-                                                precio_unitario: 0,
-                                                object_id: Number(nuevoServicio.value),
-                                                content_type: nuevoServicio.content_type,
-                                                nombre: nuevoServicio.label,
-                                            },
-                                        ]);
-                                        setNuevoServicio(undefined);
-                                    }}>
-                                    Agregar
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+                    <SelectorPlanServicios value={seleccion} onChange={setSeleccion} />
                 </ModalBody>
                 <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
+                    <ModalFooterChild />
                     <ModalFooterChild>
-                        <Button
-                            color='red'
-                            onClick={() => {
-                                setIsOpen(false);
-                            }}>
+                        <Button color='red' onClick={() => setIsOpen(false)}>
                             Cancelar
                         </Button>
-                        <Button
-                            variant='solid'
-                            isLoading={guardando}
-                            onClick={() => {
-                                formik.handleSubmit();
-                            }}>
+                        <Button variant='solid' isLoading={guardando} onClick={handleGuardar}>
                             Guardar
                         </Button>
                     </ModalFooterChild>

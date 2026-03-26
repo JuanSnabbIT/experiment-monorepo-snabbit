@@ -3,13 +3,15 @@ import Button from '@/components/ui/Button';
 import type { IContratoPublicoFirma } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert, showAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
-import ContratoPublicoResumen from './ContratoPublicoResumen';
+import ContratoPreviewModal from './ContratoPreviewModal';
+import ResumenDatosContrato from './ResumenDatosContrato';
 
 dayjs.locale('es');
 
@@ -26,6 +28,8 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [signatureMode, setSignatureMode] = useState<'draw' | 'upload'>('draw');
     const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [haVistoPreview, setHaVistoPreview] = useState(false);
 
     const pdfEndpoint = useMemo(
         () => (uuid ? `/api/public/contrato-firma/${uuid}/pdf/` : null),
@@ -113,8 +117,32 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
         reader.readAsDataURL(file);
     };
 
+    const handleClosePreview = () => {
+        setHaVistoPreview(true);
+    };
+
+    const verificarPreviewAntes = async (): Promise<boolean> => {
+        if (haVistoPreview) return true;
+        const result = await confirmAlert({
+            title: 'No has revisado el documento completo',
+            text: 'Te recomendamos revisar el documento completo antes de firmar. ¿Deseas verlo ahora?',
+            confirmText: 'Ver documento',
+            cancelText: 'Continuar sin ver',
+            icon: 'info',
+        });
+        if (result) {
+            setPreviewOpen(true);
+            return false;
+        }
+        return true;
+    };
+
     const firmarContrato = async () => {
         if (!uuid || !detalle?.puede_firmar) return;
+
+        const puedeProceeder = await verificarPreviewAntes();
+        if (!puedeProceeder) return;
+
         let firma: string | null = null;
         if (signatureMode === 'upload') {
             if (!uploadedSignature) return;
@@ -123,6 +151,18 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
             if (!sigCanvas.current || sigCanvas.current.isEmpty()) return;
             firma = sigCanvas.current.toDataURL('image/png');
         }
+
+        const nombreContrato = detalle?.contrato?.nombre ?? 'este contrato';
+        const confirmado = await confirmAlert({
+            title: '¿Confirmar firma?',
+            text: `Estás a punto de firmar "${nombreContrato}". Esta acción queda registrada y no puede deshacerse.`,
+            confirmText: 'Sí, firmar',
+            cancelText: 'Cancelar',
+            icon: 'question',
+            confirmColor: '#0f766e',
+        });
+        if (!confirmado) return;
+
         setSubmitting(true);
         try {
             await ApiService.fetchData({
@@ -136,9 +176,14 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                 }),
                 isLoginRequest: true,
             });
-            toast.success('Contrato firmado correctamente.');
             await fetchDetalle();
             await loadPdf();
+            await showAlert({
+                title: '¡Contrato firmado!',
+                text: 'Tu firma fue registrada correctamente. Puedes descargar el PDF firmado.',
+                icon: 'success',
+                confirmText: 'Cerrar',
+            });
         } catch (requestError: unknown) {
             toast.error(getErrorMessage(requestError));
         } finally {
@@ -219,8 +264,25 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                             </div>
                         </section>
 
-                        {/* Sección 2: Resumen del contrato */}
-                        <ContratoPublicoResumen contrato={detalle.contrato} />
+                        {/* Sección 2: Resumen de datos del contrato */}
+                        <ResumenDatosContrato contrato={detalle.contrato} />
+
+                        <div className='flex justify-center'>
+                            <Button
+                                variant='outline'
+                                icon='HeroDocumentText'
+                                onClick={() => setPreviewOpen(true)}>
+                                Ver documento completo
+                            </Button>
+                        </div>
+
+                        <ContratoPreviewModal
+                            isOpen={previewOpen}
+                            setIsOpen={setPreviewOpen}
+                            contrato={detalle.contrato}
+                            secciones={detalle.secciones_generadas ?? []}
+                            onClose={handleClosePreview}
+                        />
 
                         {/* Sección 3: Firma */}
                         <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>

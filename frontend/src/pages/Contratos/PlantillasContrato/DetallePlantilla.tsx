@@ -36,9 +36,10 @@ interface ISeccionCardProps {
     onEdit: (seccion: ISeccionPlantilla) => void;
     onDeleted: () => void;
     onPreviewSection: (seccion: ISeccionPlantilla) => void;
+    esDefault?: boolean;
 }
 
-const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection }: ISeccionCardProps) => (
+const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection, esDefault }: ISeccionCardProps) => (
     <div className='rounded-xl border border-zinc-200 p-4 transition-all hover:border-blue-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900'>
         <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
@@ -58,17 +59,21 @@ const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection
                     icon='HeroEye'
                     onClick={() => onPreviewSection(seccion)}
                 />
-                <Button
-                    size='sm'
-                    icon='HeroPencil'
-                    onClick={() => onEdit(seccion)}
-                />
-                <ConfirmarEliminar
-                    peticionUrl={`/api/plantillas-contrato/${plantillaId}/secciones/${seccion.id}/`}
-                    onDispatch={onDeleted}
-                    nombre={seccion.titulo}
-                    buttonSize='sm'
-                />
+                {!esDefault && (
+                    <Button
+                        size='sm'
+                        icon='HeroPencil'
+                        onClick={() => onEdit(seccion)}
+                    />
+                )}
+                {!esDefault && (
+                    <ConfirmarEliminar
+                        peticionUrl={`/api/plantillas-contrato/${plantillaId}/secciones/${seccion.id}/`}
+                        onDispatch={onDeleted}
+                        nombre={seccion.titulo}
+                        buttonSize='sm'
+                    />
+                )}
             </div>
         </div>
     </div>
@@ -169,6 +174,11 @@ const DetallePlantilla = () => {
                     </div>
                 </SubheaderLeft>
                 <SubheaderRight>
+                    {plantilla.es_default && (
+                        <Badge color='blue' variant='outline'>
+                            Sistema
+                        </Badge>
+                    )}
                     <Badge color={plantilla.activa ? 'emerald' : 'zinc'}>
                         {plantilla.activa ? 'Activa' : 'Inactiva'}
                     </Badge>
@@ -191,18 +201,22 @@ const DetallePlantilla = () => {
                             <Button icon='HeroEye' onClick={handlePreview}>
                                 Validar borrador
                             </Button>
-                            <Button icon='HeroBars3BottomLeft' onClick={handleReorder}>
-                                Ordenar secciones
-                            </Button>
+                            {!plantilla.es_default && (
+                                <Button icon='HeroBars3BottomLeft' onClick={handleReorder}>
+                                    Ordenar secciones
+                                </Button>
+                            )}
                             <Button icon='HeroDocumentDuplicate' onClick={handleDuplicar}>
                                 Duplicar
                             </Button>
-                            <Button
-                                variant='solid'
-                                icon='HeroPlus'
-                                onClick={() => setCreateSectionModalOpen(true)}>
-                                Nueva seccion
-                            </Button>
+                            {!plantilla.es_default && (
+                                <Button
+                                    variant='solid'
+                                    icon='HeroPlus'
+                                    onClick={() => setCreateSectionModalOpen(true)}>
+                                    Nueva seccion
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -230,6 +244,7 @@ const DetallePlantilla = () => {
                                         onEdit={handleOpenEditSeccion}
                                         onDeleted={handleSeccionDeleted}
                                         onPreviewSection={handlePreviewSection}
+                                        esDefault={plantilla.es_default}
                                     />
                                 ))}
                             </div>

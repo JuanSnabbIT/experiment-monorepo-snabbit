@@ -699,6 +699,7 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
             invalidatesTags: (_result, _error, { ordenId, soporteId }) => [
                 { type: 'OrdenTrabajoSoportes', id: ordenId },
                 { type: 'OrdenTrabajoDetalleTrabajo', id: soporteId },
+                { type: 'OrdenTrabajo', id: ordenId },
             ],
         }),
         eliminarSoporteTecnico: builder.mutation<void, { ordenId: number | string; soporteId: number | string }>(

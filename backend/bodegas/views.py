@@ -32,10 +32,13 @@ from rest_framework.response import Response
 from .estados_modelo import ESTADOS_OC
 from .filters import TomaInventarioFilter
 from .functions import (
+    crear_items_serializados_en_guia,
     crear_equipos_para_items_guia,
+    dividir_item_guia_en_unitarios,
     generar_orden_de_compra,
     generar_pdf_bodega,
     generar_pdf_bodega_resumido,
+    obtener_series_disponibles_para_stock,
     obtener_guia_pendiente_por_cotizacion,
     recepcionar_oc_y_crear_guia,
 )
@@ -2323,17 +2326,16 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Auto-detectar si el stock_item tiene números de serie registrados.
-        # Si tiene series, forzar individualizado=True y cantidad_rebajada=1.
-        tiene_series = any(
-            oc.numeros_serie.get("numeros_serie", [])
-            for oc in ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item)
-        )
+        # Auto-detectar si el stock_item tiene números de serie disponibles.
+        series_disponibles = obtener_series_disponibles_para_stock(stock_item)
+        tiene_series = bool(series_disponibles)
         if tiene_series:
             individualizado = True
-            if cantidad_rebajada != 1:
+            if len(series_disponibles) < cantidad_rebajada:
                 return Response(
-                    {"detail": "Los ítems con números de serie deben agregarse como individualizados con cantidad 1."},
+                    {
+                        "detail": f"Solo hay {len(series_disponibles)} series disponibles para este item."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -2343,11 +2345,47 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        cantidad_original = stock_item.cantidad
+
+        if tiene_series:
+            items_creados = crear_items_serializados_en_guia(
+                guia_salida,
+                stock_item,
+                cantidad_rebajada,
+                cantidad_original=cantidad_original,
+            )
+            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+                cantidad_no_disponible=F("cantidad_no_disponible") + cantidad_rebajada
+            )
+
+            for item_guia in items_creados:
+                registrar_salida(
+                    stock_item=stock_item,
+                    cantidad=1,
+                    origen=item_guia,
+                    usuario=usuario_empresa,
+                    descripcion="Items serializados añadidos a la guia",
+                )
+
+            stock_item.refresh_from_db()
+            serializer = ItemsGuiaSalidaSerializer(items_creados[0])
+            data = serializer.data
+            data["bodega_id"] = guia_salida.bodega_id
+            return Response(data, status=status.HTTP_201_CREATED)
+
+        if individualizado and cantidad_rebajada != 1:
+            return Response(
+                {
+                    "detail": "Los ítems individualizados deben agregarse con cantidad 1."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Crear el ítem en la guía de salida incluyendo el campo individualizado
         item_guia = ItemsGuiaSalida.objects.create(
             guia=guia_salida,
             stock_item=stock_item,
-            cantidad_original=stock_item.cantidad,
+            cantidad_original=cantidad_original,
             cantidad_rebajada=cantidad_rebajada,
             individualizado=individualizado,
         )
@@ -2753,6 +2791,35 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             from bodegas.series import liberar_series_por_item_guia
             liberar_series_por_item_guia(item_guia.stock_item, item_guia.id)
             item_guia.numero_serie = {}
+        else:
+            series_disponibles = obtener_series_disponibles_para_stock(item_guia.stock_item)
+            if not series_disponibles:
+                return Response(
+                    {"detail": "Este item no tiene series disponibles para serializarse."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if item_guia.cantidad_rebajada > 1:
+                if len(series_disponibles) < item_guia.cantidad_rebajada:
+                    return Response(
+                        {
+                            "detail": f"Solo hay {len(series_disponibles)} series disponibles para separar este item."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                try:
+                    dividir_item_guia_en_unitarios(item_guia)
+                except ValueError as exc:
+                    return Response(
+                        {"detail": str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                serializer = self.get_serializer(item_guia)
+                data = serializer.data
+                data["detail"] = "Item separado y listo para asignar serie."
+                return Response(data, status=status.HTTP_200_OK)
 
         item_guia.individualizado = nuevo_valor
         item_guia.save()

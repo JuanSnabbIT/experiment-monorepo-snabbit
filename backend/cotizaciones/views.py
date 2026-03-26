@@ -291,6 +291,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                     cotizacion=nueva_cotizacion,
                     item_empresa=item.item_empresa,
                     proveedor_empresa=item.proveedor_empresa,
+                    tipo_moneda=item.tipo_moneda,
                     aprobado=False,
                     nombre=item.nombre,
                     descripcion=item.descripcion,
@@ -1286,4 +1287,3 @@ class SolicitanteCotizacionViewSet(viewsets.ModelViewSet):
 class SolicitanteExternoViewSet(viewsets.ModelViewSet):
     serializer_class = SolicitanteExternoSerializer
     queryset = SolicitanteExterno.objects.all()
-

@@ -10,11 +10,17 @@ from rest_framework.views import APIView
 
 from .flow_helpers import get_client_ip
 from .flow_helpers import actualizar_pdf_firmado_envio
+from .flow_helpers import construir_pdf_contrato
 from .flow_helpers import validar_firma_imagen
 from .models import EnvioContratoAprobacion, EnvioContratoFirmaUsuario
 from .public_serializers import (
     ContratoAprobacionPublicSerializer,
     ContratoFirmaPublicSerializer,
+    SeccionGeneradaPublicSerializer,
+)
+
+APROBACION_DEPRECADA_DETAIL = (
+    "Este enlace fue invalidado porque el contrato volvio a borrador. Solicita un nuevo correo."
 )
 
 
@@ -29,21 +35,53 @@ def _destinatario_payload(vinculo):
     }
 
 
+def _build_aprobacion_deprecada_response(envio):
+    return Response(
+        {
+            "detail": APROBACION_DEPRECADA_DETAIL,
+            "contrato_id": envio.contrato_id,
+        },
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+def _get_envio_aprobacion_publico(token, *, select_related_fields=None):
+    queryset = EnvioContratoAprobacion.objects
+    if select_related_fields:
+        queryset = queryset.select_related(*select_related_fields)
+    try:
+        envio = queryset.get(uuid=token, enviado=True)
+    except EnvioContratoAprobacion.DoesNotExist:
+        return None, Response(
+            {"detail": "Token no valido o aprobacion no encontrada."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if envio.deprecado:
+        return None, _build_aprobacion_deprecada_response(envio)
+
+    return envio, None
+
+
 class PublicContratoAprobacionDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, token):
-        try:
-            envio = EnvioContratoAprobacion.objects.select_related(
+        envio, error_response = _get_envio_aprobacion_publico(
+            token,
+            select_related_fields=(
                 "contrato",
                 "destinatario",
                 "destinatario__usuario__usuario",
-            ).get(uuid=token, enviado=True)
-        except EnvioContratoAprobacion.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o aprobacion no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            ),
+        )
+        if error_response:
+            return error_response
+
+        secciones_qs = envio.contrato.secciones_generadas.select_related(
+            "seccion_plantilla"
+        ).order_by("orden")
+        secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
 
         serializer = ContratoAprobacionPublicSerializer(
             {
@@ -57,6 +95,7 @@ class PublicContratoAprobacionDetailView(APIView):
                 "version_envio": envio.version_envio,
                 "destinatario": _destinatario_payload(envio.destinatario),
                 "contrato": envio.snapshot_contrato or {},
+                "secciones_generadas": secciones_data,
             }
         )
         return Response(serializer.data)
@@ -66,15 +105,15 @@ class PublicContratoAprobacionPDFView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, token):
-        try:
-            envio = EnvioContratoAprobacion.objects.get(uuid=token, enviado=True)
-        except EnvioContratoAprobacion.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o aprobacion no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        envio, error_response = _get_envio_aprobacion_publico(
+            token, select_related_fields=("contrato",)
+        )
+        if error_response:
+            return error_response
 
-        response = HttpResponse(envio.pdf_congelado, content_type="application/pdf")
+        # Regenerar PDF desde datos vivos del contrato
+        pdf_bytes = construir_pdf_contrato(envio.contrato)
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="contrato_aprobacion_{envio.contrato_id}_v{envio.version_envio}.pdf"'
         )
@@ -85,13 +124,12 @@ class PublicAprobarContratoView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, token):
-        try:
-            envio = EnvioContratoAprobacion.objects.select_related("contrato").get(uuid=token, enviado=True)
-        except EnvioContratoAprobacion.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o aprobacion no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        envio, error_response = _get_envio_aprobacion_publico(
+            token,
+            select_related_fields=("contrato",),
+        )
+        if error_response:
+            return error_response
 
         if envio.respondido:
             return Response(
@@ -131,13 +169,12 @@ class PublicRechazarContratoView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, token):
-        try:
-            envio = EnvioContratoAprobacion.objects.select_related("contrato").get(uuid=token, enviado=True)
-        except EnvioContratoAprobacion.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o aprobacion no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        envio, error_response = _get_envio_aprobacion_publico(
+            token,
+            select_related_fields=("contrato",),
+        )
+        if error_response:
+            return error_response
 
         if envio.respondido:
             return Response(
@@ -193,13 +230,12 @@ class PublicRechazarDefinitivoContratoView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, token):
-        try:
-            envio = EnvioContratoAprobacion.objects.select_related("contrato").get(uuid=token, enviado=True)
-        except EnvioContratoAprobacion.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o aprobacion no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        envio, error_response = _get_envio_aprobacion_publico(
+            token,
+            select_related_fields=("contrato",),
+        )
+        if error_response:
+            return error_response
 
         if envio.respondido:
             return Response(
@@ -267,21 +303,28 @@ class PublicContratoFirmaDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        contrato = envio.usuario.contrato
+        secciones_qs = contrato.secciones_generadas.select_related(
+            "seccion_plantilla"
+        ).order_by("orden")
+        secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
+
         serializer = ContratoFirmaPublicSerializer(
             {
                 "uuid": envio.uuid,
-                "puede_firmar": not envio.firmado and envio.usuario.contrato.estado == "en_firma",
+                "puede_firmar": not envio.firmado and contrato.estado == "en_firma",
                 "firmado": envio.firmado,
                 "fecha_envio": envio.fecha_envio,
                 "fecha_emision": envio.fecha_envio,
                 "fecha_firma": envio.fecha_firma,
                 "firma": envio.firma,
                 "firma_prestadora_disponible": bool(
-                    getattr(envio.usuario.contrato.empresa_prestadora, "firma_empresa", None)
+                    getattr(contrato.empresa_prestadora, "firma_empresa", None)
                 ),
                 "es_version_enviada": True,
                 "destinatario": _destinatario_payload(envio.usuario),
                 "contrato": envio.snapshot_contrato or {},
+                "secciones_generadas": secciones_data,
             }
         )
         return Response(serializer.data)
@@ -292,14 +335,22 @@ class PublicContratoFirmaPDFView(APIView):
 
     def get(self, request, token):
         try:
-            envio = EnvioContratoFirmaUsuario.objects.get(uuid=token, enviado=True)
+            envio = EnvioContratoFirmaUsuario.objects.select_related(
+                "usuario__contrato"
+            ).get(uuid=token, enviado=True)
         except EnvioContratoFirmaUsuario.DoesNotExist:
             return Response(
                 {"detail": "Token no valido o envio de firma no encontrado."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        response = HttpResponse(envio.pdf_congelado, content_type="application/pdf")
+        # Si ya fue firmado, servir el PDF congelado (con firma incrustada)
+        if envio.firmado and envio.pdf_congelado:
+            pdf_bytes = envio.pdf_congelado
+        else:
+            pdf_bytes = construir_pdf_contrato(envio.usuario.contrato)
+
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'inline; filename="contrato_firma_{envio.usuario.contrato_id}.pdf"'
         )

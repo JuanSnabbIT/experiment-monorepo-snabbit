@@ -8,6 +8,7 @@ from contratos.models import (
     SeccionPlantilla,
     SeccionContratoGenerada,
 )
+from contratos.venta_helpers import construir_resumen_venta_contrato
 
 PATRON_ETIQUETA = re.compile(r'\[([a-z_]+)\]')
 
@@ -17,6 +18,24 @@ def resolver_valor_etiqueta(clave, contrato, etiquetas_map):
     Dado una clave de etiqueta y un contrato, retorna el valor resuelto.
     etiquetas_map: dict {clave: EtiquetaPlantilla} pre-cargado.
     """
+    # Etiquetas especiales calculadas para cotizaciones de venta
+    if clave == 'cotizaciones_tabla':
+        return _renderizar_cotizaciones_tabla(contrato)
+    if clave == 'cantidad_cotizaciones':
+        return str(contrato.cotizaciones_vinculadas.count())
+    if clave == 'total_cotizaciones':
+        return _calcular_total_cotizaciones(contrato)
+    if clave == 'forma_pago_venta':
+        return _obtener_forma_pago_venta(contrato)
+    if clave == 'cantidad_cuotas_venta':
+        return _obtener_cantidad_cuotas_venta(contrato)
+    if clave == 'cuotas_venta_tabla':
+        return _renderizar_cuotas_venta_tabla(contrato)
+    if clave == 'cotizaciones_totales_convertidos':
+        return _renderizar_totales_convertidos_cotizaciones(contrato)
+    if clave == 'dolar_observado_cotizaciones':
+        return _renderizar_dolar_observado_cotizaciones(contrato)
+
     etiqueta = etiquetas_map.get(clave)
     if not etiqueta or not etiqueta.origen_dato:
         return etiqueta.valor_default if etiqueta else f"[{clave}]"
@@ -98,6 +117,128 @@ def _obtener_representante(empresa):
         .select_related("usuario")
         .first()
     )
+
+
+def _renderizar_cotizaciones_tabla(contrato):
+    """Genera una tabla HTML con cotizaciones vinculadas y sus items."""
+    cotizaciones = contrato.cotizaciones_vinculadas.all().order_by('numero_cotizacion')
+    if not cotizaciones.exists():
+        return ''
+
+    resumen = construir_resumen_venta_contrato(contrato)
+    detalles_por_id = {
+        detalle["id"]: detalle for detalle in resumen.get("cotizaciones_detalle", [])
+    }
+    filas = []
+    for cot in cotizaciones:
+        detalle = detalles_por_id.get(cot.id, {})
+        moneda_label = cot.get_tipo_moneda_display()
+        total = cot.calcular_total_estimado
+        filas.append(
+            f'<tr><td colspan="4"><strong>'
+            f'Cotizaci\u00f3n #{cot.numero_cotizacion} - {cot.nombre}'
+            f'</strong> ({moneda_label} {total})</td></tr>'
+        )
+        if detalle.get("total_convertido") is not None:
+            filas.append(
+                f'<tr><td colspan="4">Total convertido a {detalle.get("moneda_contrato")}: '
+                f'{detalle.get("total_convertido")}</td></tr>'
+            )
+        if detalle.get("dolar_observado") is not None:
+            filas.append(
+                f'<tr><td colspan="4">Dolar observado al cotizar: '
+                f'{detalle.get("dolar_observado")}</td></tr>'
+            )
+        if detalle.get("valor_uf") is not None:
+            filas.append(
+                f'<tr><td colspan="4">Valor UF al cotizar: {detalle.get("valor_uf")}</td></tr>'
+            )
+        for item in cot.items.all():
+            nombre = item.item_empresa.nombre if item.item_empresa else item.nombre
+            filas.append(
+                f'<tr><td>{nombre}</td>'
+                f'<td>{item.cantidad}</td>'
+                f'<td>{moneda_label} {item.precio_unitario}</td>'
+                f'<td>{moneda_label} {item.costo_total}</td></tr>'
+            )
+
+    return (
+        '<table><thead><tr>'
+        '<th>Descripci\u00f3n</th><th>Cantidad</th><th>Precio Unit.</th><th>Total</th>'
+        '</tr></thead><tbody>'
+        + ''.join(filas)
+        + '</tbody></table>'
+    )
+
+
+def _calcular_total_cotizaciones(contrato):
+    """Retorna el total consolidado de todas las cotizaciones vinculadas."""
+    resumen = construir_resumen_venta_contrato(contrato)
+    return str(resumen["total_contrato"])
+
+
+def _obtener_forma_pago_venta(contrato):
+    resumen = construir_resumen_venta_contrato(contrato)
+    return resumen.get("forma_pago_venta_label", "")
+
+
+def _obtener_cantidad_cuotas_venta(contrato):
+    resumen = construir_resumen_venta_contrato(contrato)
+    return str(len(resumen.get("cuotas_venta_resumen") or []))
+
+
+def _renderizar_cuotas_venta_tabla(contrato):
+    resumen = construir_resumen_venta_contrato(contrato)
+    cuotas = resumen.get("cuotas_venta_resumen") or []
+    if not cuotas:
+        return ""
+    filas = [
+        (
+            f"<tr><td>{cuota.get('orden')}</td><td>{cuota.get('porcentaje')}%</td>"
+            f"<td>{cuota.get('hito_pago_label') or cuota.get('hito_pago_descripcion') or 'Sin definir'}</td>"
+            f"<td>{cuota.get('monto')} {resumen.get('moneda')}</td></tr>"
+        )
+        for cuota in cuotas
+    ]
+    return (
+        "<table><thead><tr>"
+        "<th>Cuota</th><th>Porcentaje</th><th>Hito</th><th>Monto</th>"
+        "</tr></thead><tbody>"
+        + "".join(filas)
+        + "</tbody></table>"
+    )
+
+
+def _renderizar_totales_convertidos_cotizaciones(contrato):
+    resumen = construir_resumen_venta_contrato(contrato)
+    detalles = resumen.get("cotizaciones_detalle") or []
+    if not detalles:
+        return ""
+    lineas = [
+        (
+            f"Cotizacion #{detalle.get('numero_cotizacion') or detalle.get('id')}: "
+            f"{detalle.get('total_convertido')} {detalle.get('moneda_contrato')}"
+        )
+        for detalle in detalles
+        if detalle.get("total_convertido") is not None
+    ]
+    return "<br/>".join(lineas)
+
+
+def _renderizar_dolar_observado_cotizaciones(contrato):
+    resumen = construir_resumen_venta_contrato(contrato)
+    detalles = resumen.get("cotizaciones_detalle") or []
+    if not detalles:
+        return ""
+    lineas = [
+        (
+            f"Cotizacion #{detalle.get('numero_cotizacion') or detalle.get('id')}: "
+            f"{detalle.get('dolar_observado')}"
+        )
+        for detalle in detalles
+        if detalle.get("dolar_observado") is not None
+    ]
+    return "<br/>".join(lineas)
 
 
 def renderizar_seccion(contenido_template, contrato, etiquetas_map):

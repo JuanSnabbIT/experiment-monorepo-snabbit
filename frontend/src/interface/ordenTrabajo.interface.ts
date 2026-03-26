@@ -22,6 +22,8 @@ export interface IOrdenDeTrabajo {
     tipo_servicio: 'general' | 'soporte_r' | 'soporte_p';
     tecnico_responsable_ot: number | null;
     cliente_solicitante: number | null;
+    contrato?: number | null;
+    contrato_nombre?: string | null;
     soporte_tecnico_count?: number;
     servicios_count?: number;
     cierre_administrativo?: ICierreAdministrativoOT | null;
@@ -342,6 +344,7 @@ export interface ISoporteTecnico {
     estado_label?: string;
     tecnico_asignado: number | null;
     nombre_tecnico?: string | null;
+    modalidad: string;
     fecha_soporte: string | null;
     guia_salida?: {
         id: number;

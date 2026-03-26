@@ -37,6 +37,7 @@ interface IFormularioPlan {
     precio_clp: string;
     precio_uf: string;
     precio_usd: string;
+    num_visitas_mensuales: string;
     clausulas_especiales: string;
 }
 
@@ -50,6 +51,11 @@ const validationSchema = Yup.object({
     precio_clp: Yup.number().nullable().typeError('Debe ser un numero'),
     precio_uf: Yup.number().nullable().typeError('Debe ser un numero'),
     precio_usd: Yup.number().nullable().typeError('Debe ser un numero'),
+    num_visitas_mensuales: Yup.number()
+        .nullable()
+        .min(0, 'Debe ser mayor o igual a 0')
+        .integer('Debe ser un entero')
+        .typeError('Debe ser un numero'),
     clausulas_especiales: Yup.string().max(2000, 'Maximo 2000 caracteres').nullable(),
 });
 
@@ -73,6 +79,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
             precio_clp: plan?.precio_clp || '',
             precio_uf: plan?.precio_uf || '',
             precio_usd: plan?.precio_usd || '',
+            num_visitas_mensuales: plan?.num_visitas_mensuales != null ? String(plan.num_visitas_mensuales) : '',
             clausulas_especiales: plan?.clausulas_especiales || '',
         },
         validationSchema,
@@ -85,6 +92,10 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                     precio_clp: values.precio_clp || undefined,
                     precio_uf: values.precio_uf || undefined,
                     precio_usd: values.precio_usd || undefined,
+                    num_visitas_mensuales:
+                        values.num_visitas_mensuales !== ''
+                            ? Number(values.num_visitas_mensuales)
+                            : null,
                     clausulas_especiales: values.clausulas_especiales || null,
                 };
                 if (isEditing && plan) {
@@ -382,6 +393,25 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                             onBlur={formik.handleBlur}
                             rows={3}
                         />
+                    </div>
+                    <div>
+                        <Label htmlFor='num_visitas_mensuales'>Visitas presenciales mensuales</Label>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.num_visitas_mensuales}
+                            invalidFeedback={formik.errors.num_visitas_mensuales}>
+                            <Input
+                                id='num_visitas_mensuales'
+                                name='num_visitas_mensuales'
+                                type='number'
+                                min={0}
+                                step={1}
+                                placeholder='0 (dejar vacio si no aplica)'
+                                value={formik.values.num_visitas_mensuales}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                            />
+                        </Validation>
                     </div>
                 </div>
             </ModalBody>

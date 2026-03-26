@@ -15,7 +15,6 @@ import TabCondiciones from '@/pages/Contratos/components/TabCondiciones';
 import TabLicencias from '@/pages/Contratos/components/TabLicencias';
 import TabServicios from '@/pages/Contratos/components/TabServicios';
 import TabUsuarios from '@/pages/Contratos/components/TabUsuarios';
-import TabVisitas from '@/pages/Contratos/components/TabVisitas';
 import { IContratoEdicion } from '@/pages/Contratos/components/contrato.types';
 import DetalleConfidencialidadContrato from '@/pages/Contratos/modals/DetalleConfidencialidadContrato';
 import ApiService from '@/services/ApiService';
@@ -65,7 +64,7 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
 
     // ── Redux selectors ──
     const { listaContentType } = useAppSelector((state) => state.core);
-    const { listaVisitas, listaLicencias } = useAppSelector((state) => state.contrato);
+    const { listaLicencias } = useAppSelector((state) => state.contrato);
 
     // ── RTK Query para detalle ──
     const {
@@ -483,11 +482,6 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                     />
                 </div>
                 <div className='col-span-full flex flex-col gap-4 lg:col-span-4'>
-                    <TabVisitas
-                        detalleContratoEmpresaCliente={contrato}
-                        puedeEditar={editando}
-                        listaVisitas={listaVisitas}
-                    />
                     <TabLicencias
                         detalleContratoEmpresaCliente={contrato}
                         puedeEditar={editando}

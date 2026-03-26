@@ -30,6 +30,12 @@ import * as Yup from 'yup';
 
 import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 
+const ITEM_MONEDA_OPTIONS = [
+    { value: '1', label: 'USD' },
+    { value: '2', label: 'CLP' },
+    { value: '3', label: 'UF' },
+];
+
 function CrearItemCotizacion({
     cotizacion,
     items = [],
@@ -110,6 +116,7 @@ function CrearItemCotizacion({
             descripcion: '',
             cantidad: 1,
             precio_unitario: '',
+            tipo_moneda: '2',
             recargo_dolar: 0,
             porcentaje_recargo: cotizacion?.porcentaje_recargo || 0,
             categoria: '',
@@ -134,6 +141,7 @@ function CrearItemCotizacion({
                                 cotizacion: cotizacion?.id,
                                 cantidad: values.cantidad,
                                 precio_unitario: precioUnitario,
+                                tipo_moneda: values.tipo_moneda,
                                 item_empresa: itemSeleccionado.id,
                                 descripcion: values.descripcion,
                                 proveedor_empresa: proveedorSeleccionado.id,
@@ -233,6 +241,7 @@ function CrearItemCotizacion({
                                 cotizacion: cotizacion?.id,
                                 cantidad: values.cantidad,
                                 precio_unitario: precioUnitario,
+                                tipo_moneda: values.tipo_moneda,
                                 item_empresa: response.data.id,
                                 descripcion: values.descripcion,
                                 proveedor_empresa: proveedorSeleccionado?.id,
@@ -485,6 +494,10 @@ function CrearItemCotizacion({
                                                     const primerProveedor =
                                                         sel?.datos_proveedores?.[0];
                                                     setProveedorSeleccionado(primerProveedor);
+                                                    formik.setFieldValue(
+                                                        'tipo_moneda',
+                                                        primerProveedor?.tipo_moneda || '2',
+                                                    );
                                                     // Auto-fill recargo_dolar if provider has USD currency
                                                     if (primerProveedor?.tipo_moneda === '1') {
                                                         formik.setFieldValue(
@@ -573,6 +586,10 @@ function CrearItemCotizacion({
                                                             (e as TSelectOption).value,
                                                     );
                                                     setProveedorSeleccionado(prov);
+                                                    formik.setFieldValue(
+                                                        'tipo_moneda',
+                                                        prov?.tipo_moneda || '2',
+                                                    );
                                                     formik.setFieldValue(
                                                         'recargo_dolar',
                                                         prov?.recargo_dolar || 0,
@@ -720,6 +737,10 @@ function CrearItemCotizacion({
                                                     );
                                                 setProveedorSeleccionado(prov);
                                                 formik.setFieldValue(
+                                                    'tipo_moneda',
+                                                    prov?.tipo_moneda || '2',
+                                                );
+                                                formik.setFieldValue(
                                                     'recargo_dolar',
                                                     prov?.recargo_dolar || 0,
                                                 );
@@ -790,6 +811,37 @@ function CrearItemCotizacion({
                             </>
                         )}
 
+                        <div className='col-span-3'>
+                            <Badge>Moneda del Item</Badge>
+                            <SelectReact
+                                name='tipo_moneda'
+                                options={ITEM_MONEDA_OPTIONS}
+                                onChange={(e) => {
+                                    formik.setFieldValue(
+                                        'tipo_moneda',
+                                        e ? (e as TSelectOption).value : '2',
+                                    );
+                                }}
+                                value={
+                                    ITEM_MONEDA_OPTIONS.find(
+                                        (option) => option.value === formik.values.tipo_moneda,
+                                    ) || ITEM_MONEDA_OPTIONS[1]
+                                }
+                            />
+                        </div>
+                        <div className='col-span-3'>
+                            <Badge>Moneda Proveedor Referencia</Badge>
+                            <div className='flex min-h-[38px] items-center rounded-md border border-zinc-200 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'>
+                                {proveedorSeleccionado
+                                    ? proveedorSeleccionado.tipo_moneda === '1'
+                                        ? 'USD'
+                                        : proveedorSeleccionado.tipo_moneda === '3'
+                                          ? 'UF'
+                                          : 'CLP'
+                                    : 'Sin proveedor'}
+                            </div>
+                        </div>
+
                         {/* Row: Cantidad + Precio side-by-side */}
                         <div className='col-span-3'>
                             <Badge>Cantidad</Badge>
@@ -811,12 +863,12 @@ function CrearItemCotizacion({
                         <div className='col-span-3'>
                             <Badge>
                                 Precio Unitario
-                                {proveedorSeleccionado && (
+                                {formik.values.tipo_moneda && (
                                     <span className='ml-1 text-xs font-normal text-gray-500'>
                                         (
-                                        {proveedorSeleccionado.tipo_moneda === '1'
+                                        {formik.values.tipo_moneda === '1'
                                             ? 'USD'
-                                            : proveedorSeleccionado.tipo_moneda === '3'
+                                            : formik.values.tipo_moneda === '3'
                                               ? 'UF'
                                               : 'CLP'}
                                         )

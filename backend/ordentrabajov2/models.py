@@ -80,6 +80,14 @@ class OrdenDeTrabajo(ModeloBase):
         verbose_name="Cliente Solicitante",
         related_name="solicitante_ot_v2",
     )
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Contrato asociado",
+        related_name="ordenes_trabajo",
+    )
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -150,6 +158,12 @@ class SoporteTecnico(ModeloBase):
     )
     fecha_soporte = models.DateField(
         null=True, blank=True, verbose_name="Fecha del soporte"
+    )
+    modalidad = models.CharField(
+        max_length=20,
+        choices=[("presencial", "Presencial"), ("remoto", "Remoto")],
+        default="remoto",
+        verbose_name="Modalidad del soporte",
     )
     # ⚠️ DEPRECATED (2026-01): No usar para vincular guías.
     # Las guías deben vincularse directamente a la OT.

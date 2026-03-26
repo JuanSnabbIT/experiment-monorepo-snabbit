@@ -83,6 +83,7 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
             plan_id: nuevoPlanId,
             plan_cantidad: value.plan_cantidad || 1,
             plan_precio_unitario: value.plan_precio_unitario,
+            plan_num_visitas_mensuales: nuevoPlan?.num_visitas_mensuales ?? null,
             servicios: addonsRestantes,
         });
     };
@@ -165,7 +166,7 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
 
             {/* ── Precio y cantidad del plan (solo modo plan) ── */}
             {value.modo === 'plan' && value.plan_id && (
-                <div className='grid grid-cols-2 gap-3'>
+                <div className='grid grid-cols-2 gap-3 lg:grid-cols-3'>
                     <div>
                         <Label htmlFor='plan_cantidad'>Cantidad del plan</Label>
                         <Input
@@ -195,12 +196,39 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
                             }
                         />
                     </div>
+                    <div>
+                        <Label htmlFor='plan_visitas'>Visitas presenciales / mes</Label>
+                        <Input
+                            id='plan_visitas'
+                            name='plan_visitas'
+                            type='number'
+                            min={0}
+                            value={value.plan_num_visitas_mensuales ?? ''}
+                            placeholder='0'
+                            onChange={(e) =>
+                                onChange({
+                                    ...value,
+                                    plan_num_visitas_mensuales: e.target.value
+                                        ? Number(e.target.value)
+                                        : null,
+                                })
+                            }
+                        />
+                        <p className='mt-1 text-xs text-zinc-400'>
+                            Heredado del plan. Personalizable para este contrato.
+                        </p>
+                    </div>
                 </div>
             )}
 
             {/* ── Zona B: Lista de servicios por categoría ── */}
             {(value.plan_id || value.modo === 'personalizado') && (
                 <div className='flex flex-col gap-3'>
+                    <h3 className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                        {value.modo === 'plan'
+                            ? 'Servicios adicionales (add-ons)'
+                            : 'Servicios'}
+                    </h3>
                     {serviciosPorCategoria.map((grupo) => (
                         <div key={grupo.categoria}>
                             <h4 className='mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500'>

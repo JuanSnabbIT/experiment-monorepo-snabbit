@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import ContratoPublicoResumen from './ContratoPublicoResumen';
+import ContratoDocumentoRenderer from './ContratoDocumentoRenderer';
 
 dayjs.locale('es');
 
@@ -181,7 +181,10 @@ const ContratoFirmaExperience = ({
                 </section>
 
                 <div className='min-w-0 space-y-6'>
-                    <ContratoPublicoResumen contrato={detalle.contrato} />
+                    <ContratoDocumentoRenderer
+                        secciones={detalle.secciones_generadas ?? []}
+                        contrato={detalle.contrato}
+                    />
 
                     <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
                         <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>

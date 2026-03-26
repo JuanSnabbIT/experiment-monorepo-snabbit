@@ -1,10 +1,7 @@
-import Icon from '@/components/icon/Icon';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
-import Tooltip from '@/components/ui/Tooltip';
-import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IPlanServicio } from '@/interface/contrato.interface';
 import {
     useDeletePlanServicioMutation,
@@ -16,7 +13,6 @@ import { confirmAlert } from '@/utils/sweetAlert';
 import {
     SortingState,
     createColumnHelper,
-    flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
@@ -25,22 +21,28 @@ import {
 } from '@tanstack/react-table';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import ScopeSummary from '../../components/ScopeSummary';
+import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import ModalPlanServicio from '../modals/ModalPlanServicio';
+import PlanCatalogCard from './PlanCatalogCard';
 
 const columnHelper = createColumnHelper<IPlanServicio>();
 
-const formatMoney = (value?: string | number | null, suffix = '') => {
-    const numeric = Number(value || 0);
-    return `${new Intl.NumberFormat('es-CL', {
-        minimumFractionDigits: suffix === 'UF' ? 2 : 0,
-        maximumFractionDigits: suffix === 'UF' ? 2 : 0,
-    }).format(numeric)}${suffix ? ` ${suffix}` : ''}`;
-};
+const SORT_OPTIONS: TSelectOption[] = [
+    { value: 'default', label: 'Orden actual' },
+    { value: 'nombre_asc', label: 'Nombre A-Z' },
+    { value: 'nombre_desc', label: 'Nombre Z-A' },
+];
 
-const truncateText = (value?: string | null, max = 120) => {
-    if (!value) return '-';
-    return value.length > max ? `${value.slice(0, max)}...` : value;
+const getSortValue = (sorting: SortingState) => {
+    if (sorting[0]?.id === 'nombre' && sorting[0]?.desc) {
+        return SORT_OPTIONS[2];
+    }
+
+    if (sorting[0]?.id === 'nombre') {
+        return SORT_OPTIONS[1];
+    }
+
+    return SORT_OPTIONS[0];
 };
 
 const TabPlanes = () => {
@@ -77,101 +79,45 @@ const TabPlanes = () => {
         }
     };
 
+    const handleSortChange = (option: TSelectOption | null) => {
+        if (!option || option.value === 'default') {
+            setSorting([]);
+            return;
+        }
+
+        setSorting([
+            {
+                id: 'nombre',
+                desc: option.value === 'nombre_desc',
+            },
+        ]);
+    };
+
     const columns = [
         columnHelper.accessor('nombre', {
-            cell: (info) => (
-                <div className='space-y-1'>
-                    <div className='font-medium'>{info.getValue()}</div>
-                    <div className='text-sm text-zinc-500'>
-                        {truncateText(info.row.original.descripcion)}
-                    </div>
-                </div>
-            ),
-            header: 'Plan',
+            header: 'Nombre',
         }),
-        columnHelper.accessor('servicios', {
-            cell: (info) => {
-                const items = info.getValue();
-                if (!items || items.length === 0) return <span className='text-zinc-400'>-</span>;
-                return (
-                    <div className='flex flex-wrap gap-1'>
-                        {items.map((s) => (
-                            <Badge key={s.id} color='emerald' variant='outline'>
-                                {s.nombre}
-                            </Badge>
-                        ))}
-                    </div>
-                );
+        columnHelper.accessor((row) => row.descripcion || '', {
+            id: 'descripcion',
+            enableSorting: false,
+            header: 'Descripcion',
+        }),
+        columnHelper.accessor((row) => row.servicios.map((service) => service.nombre).join(' '), {
+            id: 'servicios',
+            enableSorting: false,
+            header: 'Servicios',
+        }),
+        columnHelper.accessor(
+            (row) =>
+                [row.incluye, row.no_incluye, row.clausulas_especiales]
+                    .filter(Boolean)
+                    .join(' '),
+            {
+                id: 'alcance',
+                enableSorting: false,
+                header: 'Alcance',
             },
-            header: 'Servicios incluidos',
-            enableSorting: false,
-        }),
-        columnHelper.display({
-            id: 'precio_plan',
-            cell: (info) => (
-                <div className='min-w-[210px] space-y-2 text-sm'>
-                    <div className='flex justify-between gap-3'>
-                        <span className='text-zinc-500'>CLP</span>
-                        <span className='font-medium'>{formatMoney(info.row.original.precio_clp)}</span>
-                    </div>
-                    <div className='flex justify-between gap-3'>
-                        <span className='text-zinc-500'>UF</span>
-                        <span className='font-medium'>{formatMoney(info.row.original.precio_uf, 'UF')}</span>
-                    </div>
-                    <div className='flex justify-between gap-3'>
-                        <span className='text-zinc-500'>USD</span>
-                        <span className='font-medium'>{formatMoney(info.row.original.precio_usd, 'USD')}</span>
-                    </div>
-                    <div className='rounded-2xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900/40 dark:text-zinc-300'>
-                        Sugerido: {formatMoney(info.row.original.precio_sugerido_clp)} CLP
-                    </div>
-                </div>
-            ),
-            header: 'Precio del plan',
-        }),
-        columnHelper.display({
-            id: 'alcance',
-            cell: (info) => (
-                <div className='min-w-[340px]'>
-                    <ScopeSummary
-                        planItems={info.row.original.alcance_heredado}
-                        conflicts={info.row.original.alcance_conflictos}
-                        includeText={info.row.original.incluye}
-                        excludeText={info.row.original.no_incluye}
-                        clauseText={info.row.original.clausulas_especiales}
-                        compact
-                    />
-                </div>
-            ),
-            header: 'Alcance heredado',
-            enableSorting: false,
-        }),
-        columnHelper.display({
-            id: 'acciones',
-            cell: (info) => (
-                <div className='flex space-x-2'>
-                    <Tooltip text='Editar'>
-                        <Button
-                            variant='solid'
-                            color='blue'
-                            icon='HeroPencil'
-                            size='sm'
-                            onClick={() => handleEdit(info.row.original)}
-                        />
-                    </Tooltip>
-                    <Tooltip text='Eliminar'>
-                        <Button
-                            variant='solid'
-                            color='red'
-                            icon='HeroTrash'
-                            size='sm'
-                            onClick={() => handleDelete(info.row.original)}
-                        />
-                    </Tooltip>
-                </div>
-            ),
-            header: 'Acciones',
-        }),
+        ),
     ];
 
     const table = useReactTable({
@@ -187,92 +133,90 @@ const TabPlanes = () => {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
+    const filteredCount = table.getFilteredRowModel().rows.length;
+    const visibleRows = table.getRowModel().rows;
+    const hasResults = filteredCount > 0;
+
     return (
         <>
             <Card>
                 <CardHeader>
-                    <CardHeaderChild>
+                    <CardHeaderChild className='flex-1'>
                         <AnimacionDeInputModoMovil
                             globalFilter={globalFilter}
                             setGlobalFilter={setGlobalFilter}
                         />
                     </CardHeaderChild>
-                    <CardHeaderChild>
-                        <Tooltip text='Crear Plan'>
-                            <Button variant='solid' icon='HeroPlus' onClick={handleCreate}>
-                                Crear
-                            </Button>
-                        </Tooltip>
+                    <CardHeaderChild className='w-full justify-between lg:w-auto lg:justify-end'>
+                        <div className='min-w-[220px]'>
+                            <SelectReact
+                                name='orden_planes'
+                                options={SORT_OPTIONS}
+                                value={getSortValue(sorting)}
+                                onChange={(option) => handleSortChange(option as TSelectOption)}
+                                placeholder='Ordenar por...'
+                            />
+                        </div>
+                        <Button variant='solid' icon='HeroPlus' onClick={handleCreate}>
+                            Crear
+                        </Button>
                     </CardHeaderChild>
                 </CardHeader>
-                <CardBody className='z-0'>
-                    <div className='overflow-auto'>
-                        <Table className='min-w-[1240px] table-fixed'>
-                            <THead>
-                                {table.getHeaderGroups().map((headerGroup) => (
-                                    <Tr key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => (
-                                            <Th
-                                                key={header.id}
-                                                isColumnBorder={false}
-                                                className='text-left'>
-                                                {header.isPlaceholder ? null : (
-                                                    <div
-                                                        key={header.id}
-                                                        aria-hidden='true'
-                                                        className={
-                                                            header.column.getCanSort()
-                                                                ? 'flex cursor-pointer select-none items-center'
-                                                                : ''
-                                                        }
-                                                        onClick={header.column.getToggleSortingHandler()}>
-                                                        {flexRender(
-                                                            header.column.columnDef.header,
-                                                            header.getContext(),
-                                                        )}
-                                                        {{
-                                                            asc: (
-                                                                <Icon
-                                                                    icon='HeroChevronUp'
-                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                />
-                                                            ),
-                                                            desc: (
-                                                                <Icon
-                                                                    icon='HeroChevronDown'
-                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
-                                                                />
-                                                            ),
-                                                        }[
-                                                            header.column.getIsSorted() as string
-                                                        ] ?? null}
-                                                    </div>
-                                                )}
-                                            </Th>
-                                        ))}
-                                    </Tr>
-                                ))}
-                            </THead>
-                            <TBody>
-                                {table.getRowModel().rows.map((row) => (
-                                    <Tr key={row.id}>
-                                        {row.getVisibleCells().map((cell) => (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        ))}
-                                    </Tr>
-                                ))}
-                            </TBody>
-                        </Table>
-                        <div className='mt-2 min-w-[1240px]'>
-                            <TableCardFooterTemplateV2 table={table} />
-                        </div>
+
+                <CardBody className='space-y-5'>
+                    <div className='flex flex-wrap items-center gap-2'>
+                        <Badge variant='outline' color='blue'>
+                            {planes.length} planes
+                        </Badge>
+                        <Badge variant='outline' color='emerald'>
+                            {filteredCount} visibles
+                        </Badge>
+                        {sorting.length > 0 && (
+                            <Badge variant='outline' color='amber'>
+                                {sorting[0]?.desc ? 'Nombre Z-A' : 'Nombre A-Z'}
+                            </Badge>
+                        )}
                     </div>
+
+                    {!planes.length ? (
+                        <div className='flex flex-col items-center gap-4 rounded-2xl border border-dashed border-zinc-200 px-6 py-12 text-center dark:border-zinc-700'>
+                            <div className='space-y-2'>
+                                <h3 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                                    Aun no hay planes creados
+                                </h3>
+                                <p className='max-w-xl text-sm text-zinc-500 dark:text-zinc-400'>
+                                    Crea el primer plan para comparar alcance, precios y servicios
+                                    desde una vista vertical.
+                                </p>
+                            </div>
+                            <Button variant='solid' icon='HeroPlus' onClick={handleCreate}>
+                                Crear primer plan
+                            </Button>
+                        </div>
+                    ) : !hasResults ? (
+                        <div className='rounded-2xl border border-dashed border-zinc-200 px-6 py-12 text-center dark:border-zinc-700'>
+                            <h3 className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                                No hay resultados para tu busqueda
+                            </h3>
+                            <p className='mt-2 text-sm text-zinc-500 dark:text-zinc-400'>
+                                Ajusta el filtro para volver a ver los planes del catalogo.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className='grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3'>
+                            {visibleRows.map((row) => (
+                                <PlanCatalogCard
+                                    key={row.original.id}
+                                    plan={row.original}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </CardBody>
+
+                {hasResults && <TableCardFooterTemplateV2 table={table} />}
             </Card>
 
             <ModalPlanServicio

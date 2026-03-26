@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from .models import *
 from rest_framework import serializers
 from django.utils import timezone
@@ -5,10 +7,54 @@ from cuentas.models import User
 from empresas.models import UsuarioEmpresa
 
 
+def _decimal_gt_zero(value):
+    try:
+        return Decimal(str(value or 0)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
+def _resolve_item_currency(attrs, instance=None):
+    if attrs.get("tipo_moneda"):
+        return attrs["tipo_moneda"]
+    if instance and getattr(instance, "tipo_moneda", None):
+        return instance.tipo_moneda
+
+    proveedor = attrs.get("proveedor_empresa")
+    if proveedor is None and instance:
+        proveedor = getattr(instance, "proveedor_empresa", None)
+    if proveedor and getattr(proveedor, "tipo_moneda", None):
+        attrs["tipo_moneda"] = proveedor.tipo_moneda
+        return proveedor.tipo_moneda
+
+    attrs["tipo_moneda"] = "2"
+    return "2"
+
+
+def _validate_currency_chain(item_currency, cotizacion_currency, dolar_observado, valor_uf):
+    errors = {}
+
+    if item_currency == "1" or cotizacion_currency == "1":
+        if not _decimal_gt_zero(dolar_observado):
+            errors["dolar_observado"] = (
+                "Se requiere un dolar observado valido para convertir entre la moneda del item y la de la cotizacion."
+            )
+
+    if item_currency == "3" or cotizacion_currency == "3":
+        if not _decimal_gt_zero(valor_uf):
+            errors["valor_uf"] = (
+                "Se requiere un valor UF valido para convertir entre la moneda del item y la de la cotizacion."
+            )
+
+    if errors:
+        raise serializers.ValidationError(errors)
+
+
 class ItemCotizacionSerializer(serializers.ModelSerializer):
     ppm = serializers.SerializerMethodField()
     nombre_item = serializers.SerializerMethodField()
     nombre_proveedor = serializers.SerializerMethodField()
+    tipo_moneda_label = serializers.SerializerMethodField()
     tipo_moneda_proveedor = serializers.SerializerMethodField()
     tipo_moneda_proveedor_label = serializers.SerializerMethodField()
     recargo_iva_venta = serializers.SerializerMethodField()
@@ -38,6 +84,9 @@ class ItemCotizacionSerializer(serializers.ModelSerializer):
         if obj.proveedor_empresa:
             return obj.proveedor_empresa.nombre
         return None
+
+    def get_tipo_moneda_label(self, obj):
+        return obj.get_tipo_moneda_display()
 
     def get_tipo_moneda_proveedor(self, obj):
         if obj.proveedor_empresa:
@@ -78,6 +127,20 @@ class ItemCotizacionSerializer(serializers.ModelSerializer):
 
     def get_precio_venta_neta_total_moneda_base(self, obj):
         return obj.precio_venta_neta_total_moneda_base
+
+    def validate(self, attrs):
+        cotizacion = attrs.get("cotizacion") or getattr(self.instance, "cotizacion", None)
+        if not cotizacion:
+            return super().validate(attrs)
+
+        item_currency = _resolve_item_currency(attrs, self.instance)
+        _validate_currency_chain(
+            item_currency,
+            cotizacion.tipo_moneda,
+            getattr(cotizacion, "dolar_observado", None),
+            getattr(cotizacion, "valor_uf", None),
+        )
+        return super().validate(attrs)
 
 class CotizacionSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
@@ -133,6 +196,7 @@ class CotizacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cotizacion
         fields = '__all__'
+        read_only_fields = ['contrato']
 
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
@@ -164,6 +228,22 @@ class CotizacionSerializer(serializers.ModelSerializer):
                             "fecha_facturacion_congelada": "No se puede desbloquear la fecha de facturación una vez fijada."
                         }
                     )
+            cotizacion_currency = attrs.get("tipo_moneda") or self.instance.tipo_moneda
+            dolar_observado = attrs.get("dolar_observado", self.instance.dolar_observado)
+            valor_uf = attrs.get("valor_uf", self.instance.valor_uf)
+            item_currencies = {item.tipo_moneda or "2" for item in self.instance.items.all()}
+            errors = {}
+
+            if ("1" in item_currencies or cotizacion_currency == "1") and not _decimal_gt_zero(dolar_observado):
+                errors["dolar_observado"] = (
+                    "La cotizacion requiere un dolar observado valido para convertir los items configurados."
+                )
+            if ("3" in item_currencies or cotizacion_currency == "3") and not _decimal_gt_zero(valor_uf):
+                errors["valor_uf"] = (
+                    "La cotizacion requiere un valor UF valido para convertir los items configurados."
+                )
+            if errors:
+                raise serializers.ValidationError(errors)
         return super().validate(attrs)
 
 class SeguimientoCotizacionSerializer(serializers.ModelSerializer):
@@ -266,4 +346,3 @@ class SolicitanteExternoSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolicitanteExterno
         fields = '__all__'
-

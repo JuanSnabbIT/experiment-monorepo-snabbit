@@ -352,6 +352,103 @@ def generar_pdf_bodega_resumido(*args, **kwargs):
     """Placeholder for generar_pdf_bodega_resumido."""
     return BytesIO()
 
+
+def obtener_series_disponibles_para_stock(stock_item):
+    """
+    Retorna series libres para un stock_item usando SerieItem como SSOT y
+    completando con JSON legacy cuando aplique.
+    """
+    from bodegas.models import ItemOrdenCompraEnStock, SerieItem
+
+    series_disponibles = set(
+        SerieItem.objects.filter(
+            stock_item=stock_item, estado="disponible"
+        ).values_list("serie", flat=True)
+    )
+
+    for oc in ItemOrdenCompraEnStock.objects.filter(stock_item=stock_item):
+        for entry in (oc.numeros_serie or {}).get("numeros_serie", []):
+            serie = entry.get("serie")
+            if not serie:
+                continue
+            if entry.get("object_id") not in (0, None):
+                continue
+            if entry.get("modelo") not in ("", None):
+                continue
+            series_disponibles.add(serie)
+
+    return sorted(series_disponibles)
+
+def crear_items_serializados_en_guia(
+    guia,
+    stock_item,
+    cantidad,
+    *,
+    cantidad_original=None,
+    source_item=None,
+):
+    """
+    Crea una fila por unidad para items serializables.
+    """
+    from bodegas.models import ItemsGuiaSalida
+
+    cantidad_original = (
+        stock_item.cantidad if cantidad_original is None else cantidad_original
+    )
+
+    items_creados = []
+    for _ in range(cantidad):
+        items_creados.append(
+            ItemsGuiaSalida.objects.create(
+                guia=guia,
+                stock_item=stock_item,
+                cantidad_original=cantidad_original,
+                cantidad_rebajada=1,
+                individualizado=True,
+                source_item=source_item,
+            )
+        )
+
+    return items_creados
+
+
+def dividir_item_guia_en_unitarios(item_guia):
+    """
+    Convierte un renglón agrupado en múltiples renglones unitarios sin tocar stock.
+
+    Conserva el registro original para mantener compatibilidad con el frontend que
+    accionó sobre un item_id ya existente.
+    """
+    cantidad_total = item_guia.cantidad_rebajada
+    if cantidad_total <= 1:
+        item_guia.individualizado = True
+        item_guia.numero_serie = {}
+        item_guia.save(update_fields=["individualizado", "numero_serie"])
+        return [item_guia]
+
+    if item_guia.cantidad_devuelta:
+        raise ValueError(
+            "No se puede serializar un item agrupado que ya tiene devoluciones registradas."
+        )
+
+    item_guia.cantidad_rebajada = 1
+    item_guia.individualizado = True
+    item_guia.numero_serie = {}
+    item_guia.save(
+        update_fields=["cantidad_rebajada", "individualizado", "numero_serie"]
+    )
+
+    nuevos_items = crear_items_serializados_en_guia(
+        item_guia.guia,
+        item_guia.stock_item,
+        cantidad_total - 1,
+        cantidad_original=item_guia.cantidad_original,
+        source_item=item_guia.source_item,
+    )
+
+    return [item_guia, *nuevos_items]
+
+
 def crear_equipos_para_items_guia(guia_salida, usuario_empresa):
     """
     Crea registros Equipo para todos los Items individualizados de la guia.
@@ -650,11 +747,9 @@ def add_oc_items_to_guia(guia, orden_compra, usuario=None, cantidades_map=None):
     Añade los items de una `OrdenCompra` a una `GuiaSalida`.
 
     Reglas:
-    - Si ya existe un `ItemsGuiaSalida` con `source_item` igual al item de la OC,
-      se suma la cantidad.
-    - Si existe un `ItemsGuiaSalida` con el mismo `stock_item` pero sin `source_item`,
-      se suma la cantidad y se asigna `source_item` si está vacío.
-    - Si no existe, se crea un nuevo `ItemsGuiaSalida` y se registra la salida.
+    - Si el stock tiene series disponibles, cada unidad se crea como un
+      `ItemsGuiaSalida` individualizado con cantidad 1.
+    - Si no tiene series, se mantiene el comportamiento agrupado actual.
 
     Devuelve un dict resumen con conteos y listas de errores.
     """
@@ -662,7 +757,6 @@ def add_oc_items_to_guia(guia, orden_compra, usuario=None, cantidades_map=None):
     from bodegas.models import (
         ItemsGuiaSalida,
         StockItemEnBodega,
-        ItemEnOrdenCompra,
     )
     from bodegas.movimientos import registrar_salida
 
@@ -694,9 +788,44 @@ def add_oc_items_to_guia(guia, orden_compra, usuario=None, cantidades_map=None):
                 continue
 
             try:
+                cantidad_original = stock_item.cantidad
+                series_disponibles = obtener_series_disponibles_para_stock(stock_item)
+                es_serializable = bool(series_disponibles)
+
+                if es_serializable:
+                    if len(series_disponibles) < cantidad_a_usar:
+                        resultado["errors"].append(
+                            f"El item OC {item_oc.pk} requiere {cantidad_a_usar} series disponibles y solo hay {len(series_disponibles)}."
+                        )
+                        continue
+
+                    items_creados = crear_items_serializados_en_guia(
+                        guia,
+                        stock_item,
+                        cantidad_a_usar,
+                        cantidad_original=cantidad_original,
+                        source_item=item_oc,
+                    )
+                    stock_item.cantidad_no_disponible = (
+                        stock_item.cantidad_no_disponible + cantidad_a_usar
+                    )
+                    stock_item.save(update_fields=["cantidad_no_disponible"])
+
+                    for item_guia in items_creados:
+                        registrar_salida(
+                            stock_item=stock_item,
+                            cantidad=1,
+                            origen=item_guia,
+                            usuario=usuario,
+                            descripcion=f"Items añadidos desde OC {orden_compra.pk}",
+                        )
+
+                    resultado["added"] += len(items_creados)
+                    continue
+
                 # Prefer match by source_item (explicit trace)
                 existente = ItemsGuiaSalida.objects.filter(
-                    guia=guia, source_item=item_oc
+                    guia=guia, source_item=item_oc, individualizado=False
                 ).select_for_update().first()
 
                 if existente:
@@ -709,7 +838,7 @@ def add_oc_items_to_guia(guia, orden_compra, usuario=None, cantidades_map=None):
 
                 # Fallback: match by stock_item
                 existente_stock = ItemsGuiaSalida.objects.filter(
-                    guia=guia, stock_item=stock_item
+                    guia=guia, stock_item=stock_item, individualizado=False
                 ).select_for_update().first()
 
                 if existente_stock:

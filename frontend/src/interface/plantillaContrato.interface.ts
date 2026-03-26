@@ -1,9 +1,3 @@
-export type TSlotDocumental =
-    | 'antes_alcance'
-    | 'entre_alcance_y_operacion'
-    | 'entre_operacion_y_condiciones'
-    | 'despues_condiciones';
-
 export interface IPlantillaContrato {
     id: number;
     empresa_prestadora: number;
@@ -15,20 +9,13 @@ export interface IPlantillaContrato {
     secciones: ISeccionPlantilla[];
     fecha_creacion: string;
     fecha_modificacion: string;
-    // Defaults reutilizables (template-level)
-    moneda_cobro?: string;
-    forma_pago_contractual?: string;
-    lugar_firma?: string | null;
-    renovacion_automatica?: boolean;
-    dias_aviso_termino?: number;
+    es_default: boolean;
     // Posición de bloques demo en el documento
     orden_bloque_alcance: number;
     orden_bloque_operacion: number;
     orden_bloque_condiciones: number;
     // Labels de display
     tipo_contrato_label?: string;
-    moneda_cobro_label?: string;
-    forma_pago_contractual_label?: string;
 }
 
 export interface ISeccionPlantilla {
@@ -38,8 +25,6 @@ export interface ISeccionPlantilla {
     tipo: 'encabezado' | 'clausula' | 'condiciones_generales' | 'firmas' | 'libre';
     contenido_template: string;
     orden: number;
-    slot_documental: TSlotDocumental | null;
-    orden_en_slot: number | null;
     es_editable_en_contrato: boolean;
     es_obligatoria: boolean;
     fecha_creacion: string;

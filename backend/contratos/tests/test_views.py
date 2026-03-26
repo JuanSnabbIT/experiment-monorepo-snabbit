@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework import status
@@ -9,6 +10,7 @@ from cuentas.models import User
 from core.models import AcuerdoConfidencialidadBase, PersonalizacionUsuario
 from contratos.models import (
     ContratoEmpresaCliente,
+    ContratoItemComercial,
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
@@ -29,6 +31,8 @@ from contratos.models import (
     PlantillaContrato,
     SeccionPlantilla,
 )
+from contratos.serializers import ContratoEmpresaClienteSerializer
+from cotizaciones.models import Cotizacion, ItemCotizacion
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
 VALID_SIGNATURE_DATA_URL = (
@@ -343,6 +347,343 @@ class ContratoCRUDTest(ContratoAPITestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
+
+
+class ContratoVentaCotizacionesTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato_venta = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Venta",
+            estado="borrador",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+            forma_pago_venta="cuotas",
+            cuotas_venta=[
+                {
+                    "orden": 1,
+                    "porcentaje": 40,
+                    "hito_pago_tipo": "inicio",
+                    "hito_pago_descripcion": "Inicio",
+                },
+                {
+                    "orden": 2,
+                    "porcentaje": 60,
+                    "hito_pago_tipo": "entrega_final",
+                    "hito_pago_descripcion": "Entrega final",
+                },
+            ],
+        )
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.venta@test.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Venta",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato_venta,
+            es_destinatario_principal=True,
+        )
+        acuerdo_base = AcuerdoConfidencialidadBase.objects.create(
+            titulo="NDA Venta",
+            contenido="Acuerdo base para contrato de venta.",
+        )
+        AcuerdoConfidencialidadContrato.objects.create(
+            contrato=self.contrato_venta,
+            acuerdo_base=acuerdo_base,
+        )
+
+        self.cotizacion_usd = self._crear_cotizacion(
+            nombre="Equipamiento en USD",
+            tipo_moneda="1",
+            precio_unitario=9000,
+            dolar_observado=900,
+        )
+        self.cotizacion_clp = self._crear_cotizacion(
+            nombre="Servicios locales",
+            tipo_moneda="2",
+            precio_unitario=15000,
+        )
+        self.cotizacion_uf = self._crear_cotizacion(
+            nombre="Puesta en marcha UF",
+            tipo_moneda="3",
+            precio_unitario=76000,
+            valor_uf=38000,
+        )
+        Cotizacion.objects.filter(
+            pk__in=[
+                self.cotizacion_usd.id,
+                self.cotizacion_clp.id,
+                self.cotizacion_uf.id,
+            ]
+        ).update(contrato=self.contrato_venta)
+
+    def _crear_cotizacion(
+        self,
+        *,
+        nombre,
+        tipo_moneda,
+        precio_unitario,
+        item_tipo_moneda=None,
+        dolar_observado=None,
+        valor_uf=None,
+    ):
+        cotizacion = Cotizacion.objects.create(
+            nombre=nombre,
+            empresa=self.empresa_prestadora,
+            cliente=self.empresa_cliente,
+            estado="aceptada",
+            tipo_moneda=tipo_moneda,
+            dolar_observado=dolar_observado,
+            valor_uf=valor_uf,
+        )
+        ItemCotizacion.objects.create(
+            cotizacion=cotizacion,
+            nombre=f"Item {nombre}",
+            cantidad=1,
+            precio_unitario=precio_unitario,
+            tipo_moneda=item_tipo_moneda or "2",
+        )
+        return cotizacion
+
+    def test_serializer_venta_calcula_total_convertido_y_valido(self):
+        self.contrato_venta.estado = "activo"
+        self.contrato_venta.save(update_fields=["estado", "fecha_modificacion"])
+
+        serializer = ContratoEmpresaClienteSerializer(self.contrato_venta)
+
+        self.assertEqual(serializer.data["total_contrato"], 100000.0)
+        self.assertTrue(serializer.data["valido"])
+        self.assertEqual(serializer.data["resumen_comercial"]["tipo_resumen"], "venta")
+        self.assertEqual(serializer.data["resumen_comercial"]["forma_pago_venta"], "cuotas")
+        self.assertEqual(
+            serializer.data["resumen_comercial"]["cuotas_venta_resumen"],
+            [
+                {
+                    "orden": 1,
+                    "porcentaje": 40.0,
+                    "monto": 40000.0,
+                    "hito_pago_tipo": "inicio",
+                    "hito_pago_descripcion": "Inicio",
+                    "hito_pago_label": "Inicio",
+                },
+                {
+                    "orden": 2,
+                    "porcentaje": 60.0,
+                    "monto": 60000.0,
+                    "hito_pago_tipo": "entrega_final",
+                    "hito_pago_descripcion": "Entrega final",
+                    "hito_pago_label": "Entrega final",
+                },
+            ],
+        )
+        self.assertEqual(
+            serializer.data["resumen_comercial"]["cotizaciones_vinculadas_count"],
+            3,
+        )
+        self.assertEqual(serializer.data["cotizaciones_vinculadas"][0]["moneda_contrato"], "CLP")
+        self.assertTrue(
+            any(
+                cotizacion["total_convertido"] is not None
+                for cotizacion in serializer.data["cotizaciones_vinculadas"]
+            )
+        )
+        self.assertIn(
+            900.0,
+            [cotizacion["dolar_observado"] for cotizacion in serializer.data["cotizaciones_vinculadas"]],
+        )
+
+    def test_enviar_aprobacion_congela_snapshot_venta_con_total_convertido(self):
+        response = self.client.post(f"/api/contratos/{self.contrato_venta.id}/enviar-aprobacion/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        envio = EnvioContratoAprobacion.objects.get(pk=response.data["id"])
+        self.assertEqual(envio.snapshot_contrato["total_contrato"], 100000.0)
+        self.assertEqual(
+            envio.snapshot_contrato["resumen_comercial"]["tipo_resumen"],
+            "venta",
+        )
+        self.assertEqual(
+            envio.snapshot_contrato["resumen_comercial"]["forma_pago_venta"],
+            "cuotas",
+        )
+        self.assertEqual(len(envio.snapshot_contrato["cotizaciones_vinculadas"]), 3)
+
+    def test_enviar_firma_congela_snapshot_venta_con_total_convertido(self):
+        self.contrato_venta.estado = "aprobado_cliente"
+        self.contrato_venta.save(update_fields=["estado", "fecha_modificacion"])
+        self.empresa_prestadora.firma_empresa = VALID_SIGNATURE_DATA_URL
+        self.empresa_prestadora.save(update_fields=["firma_empresa"])
+
+        response = self.client.post(f"/api/contratos/{self.contrato_venta.id}/enviar-firma/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        envio = EnvioContratoFirmaUsuario.objects.get(pk=response.data["id"])
+        self.assertEqual(envio.snapshot_contrato["total_contrato"], 100000.0)
+        self.assertEqual(
+            envio.snapshot_contrato["resumen_comercial"]["tipo_resumen"],
+            "venta",
+        )
+        self.assertEqual(
+            envio.snapshot_contrato["resumen_comercial"]["cuotas_venta_resumen"][0]["monto"],
+            40000.0,
+        )
+        self.assertEqual(
+            envio.snapshot_contrato["resumen_comercial"]["cuotas_venta_resumen"][0][
+                "hito_pago_descripcion"
+            ],
+            "Inicio",
+        )
+        self.assertEqual(len(envio.snapshot_contrato["cotizaciones_vinculadas"]), 3)
+
+    def test_serializer_venta_rechaza_cuota_sin_hito_pago(self):
+        serializer = ContratoEmpresaClienteSerializer(
+            instance=self.contrato_venta,
+            data={
+                "cuotas_venta": [
+                    {"orden": 1, "porcentaje": 50},
+                    {
+                        "orden": 2,
+                        "porcentaje": 50,
+                        "hito_pago_tipo": "entrega_final",
+                        "hito_pago_descripcion": "Entrega final",
+                    },
+                ]
+            },
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("cuotas_venta", serializer.errors)
+
+    def test_serializer_venta_rechaza_hito_personalizado_sin_descripcion(self):
+        serializer = ContratoEmpresaClienteSerializer(
+            instance=self.contrato_venta,
+            data={
+                "cuotas_venta": [
+                    {
+                        "orden": 1,
+                        "porcentaje": 100,
+                        "hito_pago_tipo": "personalizado",
+                        "hito_pago_descripcion": "",
+                    }
+                ]
+            },
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("cuotas_venta", serializer.errors)
+
+    def test_serializer_venta_legacy_infiere_hitos_para_cuotas_antiguas(self):
+        contrato_legacy = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Venta Legacy",
+            estado="activo",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+            forma_pago_venta="cuotas",
+            cuotas_venta=[
+                {"orden": 1, "porcentaje": 60},
+                {"orden": 2, "porcentaje": 20},
+                {"orden": 3, "porcentaje": 20},
+            ],
+        )
+        Cotizacion.objects.filter(
+            pk__in=[
+                self.cotizacion_usd.id,
+                self.cotizacion_clp.id,
+                self.cotizacion_uf.id,
+            ]
+        ).update(contrato=contrato_legacy)
+
+        serializer = ContratoEmpresaClienteSerializer(contrato_legacy)
+        cuotas_resumen = serializer.data["resumen_comercial"]["cuotas_venta_resumen"]
+
+        self.assertEqual(cuotas_resumen[0]["hito_pago_descripcion"], "Inicio")
+        self.assertEqual(cuotas_resumen[1]["hito_pago_descripcion"], "Entrega intermedia")
+        self.assertEqual(cuotas_resumen[2]["hito_pago_descripcion"], "Entrega final")
+
+    def test_actualizar_borrador_venta_rechaza_cotizacion_sin_tipo_cambio(self):
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=30),
+            nombre="Contrato Venta Invalido",
+            estado="borrador",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+        )
+        cotizacion_sin_tipo_cambio = self._crear_cotizacion(
+            nombre="Cotizacion sin dolar",
+            tipo_moneda="1",
+            precio_unitario=9000,
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{contrato.id}/actualizar-borrador/",
+            {
+                "contrato": {"nombre": contrato.nombre},
+                "cotizaciones_ids": [cotizacion_sin_tipo_cambio.id],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cotizaciones", response.data)
+
+    def test_serializer_venta_respeta_item_uf_cotizacion_usd_contrato_clp(self):
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=30),
+            nombre="Contrato Mixto UF USD CLP",
+            estado="activo",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+            forma_pago_venta="contado",
+        )
+        cotizacion = self._crear_cotizacion(
+            nombre="Cotizacion item UF en USD",
+            tipo_moneda="1",
+            item_tipo_moneda="3",
+            precio_unitario=2,
+            dolar_observado=950,
+            valor_uf=38000,
+        )
+        cotizacion.contrato = contrato
+        cotizacion.save(update_fields=["contrato"])
+
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        cotizacion_serializada = serializer.data["cotizaciones_vinculadas"][0]
+        item_serializado = cotizacion_serializada["items"][0]
+
+        self.assertEqual(serializer.data["total_contrato"], 76000.0)
+        self.assertEqual(cotizacion_serializada["total_estimado"], 80.0)
+        self.assertEqual(cotizacion_serializada["total_convertido"], 76000.0)
+        self.assertTrue(cotizacion_serializada["tiene_items_moneda_mixta"])
+        self.assertEqual(cotizacion_serializada["monedas_items"], ["UF"])
+        self.assertEqual(item_serializado["tipo_moneda"], "3")
+        self.assertEqual(item_serializado["precio_unitario_origen"], "2.00")
+        self.assertEqual(item_serializado["precio_unitario"], 80.0)
 
 
 class CatalogoServiciosAPITest(ContratoAPITestBase):
@@ -725,6 +1066,84 @@ class RutasPublicasTest(APITestCase):
         self.assertEqual(response.status_code, 400)
 
 
+class ContratoVolverABorradorTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.estado = "en_aprobacion_cliente"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.rollback@test.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Rollback",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+        self.envio_aprobacion = EnvioContratoAprobacion.objects.create(
+            contrato=self.contrato,
+            destinatario=self.vinculo_principal,
+            enviado=True,
+            version_envio=1,
+            snapshot_contrato={"id": self.contrato.id, "nombre": self.contrato.nombre},
+        )
+
+    def test_volver_a_borrador_depreca_envio_pendiente(self):
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/volver-a-borrador/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.contrato.refresh_from_db()
+        self.envio_aprobacion.refresh_from_db()
+        self.assertEqual(self.contrato.estado, "borrador")
+        self.assertTrue(self.envio_aprobacion.deprecado)
+        self.assertIsNotNone(self.envio_aprobacion.fecha_deprecacion)
+        self.assertEqual(
+            self.envio_aprobacion.motivo_deprecacion,
+            "Contrato devuelto a borrador",
+        )
+        self.assertEqual(response.data["envios_deprecados"], 1)
+        self.assertEqual(response.data["contrato"]["estado"], "borrador")
+
+    def test_volver_a_borrador_falla_fuera_de_revision_cliente(self):
+        self.contrato.estado = "borrador"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/volver-a-borrador/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("revision del cliente", response.data["detail"])
+
+    @patch("contratos.flow_helpers.send_email_task.delay")
+    def test_reenviar_aprobacion_post_rollback_crea_nuevo_uuid_y_version(self, mocked_delay):
+        rollback_response = self.client.post(f"/api/contratos/{self.contrato.id}/volver-a-borrador/")
+        self.assertEqual(rollback_response.status_code, status.HTTP_200_OK)
+
+        response = self.client.post(f"/api/contratos/{self.contrato.id}/enviar-aprobacion/")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.envio_aprobacion.refresh_from_db()
+        self.assertTrue(self.envio_aprobacion.deprecado)
+
+        nuevo_envio = EnvioContratoAprobacion.objects.exclude(id=self.envio_aprobacion.id).get()
+        self.assertNotEqual(nuevo_envio.uuid, self.envio_aprobacion.uuid)
+        self.assertEqual(nuevo_envio.version_envio, 2)
+        self.assertFalse(nuevo_envio.deprecado)
+        self.assertEqual(mocked_delay.call_count, 1)
+
+        old_detail_response = self.client.get(
+            f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/"
+        )
+        self.assertEqual(old_detail_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("invalidado", old_detail_response.data["detail"])
+
+
 class ContratoRevisionPublicaTest(ContratoAPITestBase):
     def setUp(self):
         super().setUp()
@@ -753,6 +1172,62 @@ class ContratoRevisionPublicaTest(ContratoAPITestBase):
             snapshot_contrato={"id": self.contrato.id, "nombre": self.contrato.nombre},
         )
 
+    def test_detalle_publico_rechaza_token_deprecado(self):
+        from django.utils import timezone
+
+        self.envio_aprobacion.deprecado = True
+        self.envio_aprobacion.fecha_deprecacion = timezone.now()
+        self.envio_aprobacion.motivo_deprecacion = "Contrato devuelto a borrador"
+        self.envio_aprobacion.save(
+            update_fields=["deprecado", "fecha_deprecacion", "motivo_deprecacion"]
+        )
+
+        response = self.client.get(f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("invalidado", response.data["detail"])
+
+    def test_pdf_publico_rechaza_token_deprecado(self):
+        from django.utils import timezone
+
+        self.envio_aprobacion.deprecado = True
+        self.envio_aprobacion.fecha_deprecacion = timezone.now()
+        self.envio_aprobacion.motivo_deprecacion = "Contrato devuelto a borrador"
+        self.envio_aprobacion.save(
+            update_fields=["deprecado", "fecha_deprecacion", "motivo_deprecacion"]
+        )
+
+        response = self.client.get(
+            f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/pdf/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("invalidado", response.data["detail"])
+
+    def test_respuestas_publicas_rechazan_token_deprecado(self):
+        from django.utils import timezone
+
+        self.envio_aprobacion.deprecado = True
+        self.envio_aprobacion.fecha_deprecacion = timezone.now()
+        self.envio_aprobacion.motivo_deprecacion = "Contrato devuelto a borrador"
+        self.envio_aprobacion.save(
+            update_fields=["deprecado", "fecha_deprecacion", "motivo_deprecacion"]
+        )
+
+        payloads = {
+            "aprobar": {},
+            "rechazar": {"comentario": "Necesito cambios"},
+            "rechazar-definitivo": {"comentario": "No avanzaremos"},
+        }
+        for accion, payload in payloads.items():
+            response = self.client.post(
+                f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/{accion}/",
+                payload,
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("invalidado", response.data["detail"])
+
     def test_rechazo_definitivo_cierra_contrato(self):
         response = self.client.post(
             f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/rechazar-definitivo/",
@@ -767,6 +1242,141 @@ class ContratoRevisionPublicaTest(ContratoAPITestBase):
         self.assertTrue(self.envio_aprobacion.respondido)
         self.assertFalse(self.envio_aprobacion.aprobado)
         self.assertIn("cerrado", response.data["detail"])
+
+
+class ContratoPlanDetalleSnapshotTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato.moneda_cobro = "CLP"
+        self.contrato.save(update_fields=["moneda_cobro", "fecha_modificacion"])
+
+        self.user_cliente = User.objects.create_user(
+            email="cliente.plan@test.com",
+            password="testpass123",
+            first_name="Cliente",
+            last_name="Plan",
+        )
+        self.usuario_empresa_cliente = UsuarioEmpresa.objects.create(
+            usuario=self.user_cliente,
+            sucursal=self.sucursal_cliente,
+        )
+        self.vinculo_principal = UsuarioVinculadoContrato.objects.create(
+            usuario=self.usuario_empresa_cliente,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+
+        self.caracteristica_incluida = CaracteristicaServicio.objects.create(
+            nombre="Monitoreo 24/7",
+            descripcion="Seguimiento continuo del servicio",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        self.caracteristica_excluida = CaracteristicaServicio.objects.create(
+            nombre="Soporte on-site fuera de horario",
+            descripcion="Atencion fuera de SLA normal",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        self.servicio = Servicio.objects.create(
+            nombre="Mesa de ayuda avanzada",
+            descripcion="Soporte remoto y seguimiento operativo.",
+            categoria="soporte",
+            empresa_prestadora=self.empresa_prestadora,
+            precio_clp="45000",
+            incluye="Mesa de ayuda remota",
+            no_incluye="Hardware",
+            clausulas_especiales="Atencion prioritaria en horario habil.",
+        )
+        self.servicio.caracteristicas.add(self.caracteristica_incluida)
+        ServicioCaracteristica.objects.create(
+            servicio=self.servicio,
+            caracteristica=self.caracteristica_incluida,
+            modo=ServicioCaracteristica.MODO_INCLUYE,
+            orden=0,
+        )
+        ServicioCaracteristica.objects.create(
+            servicio=self.servicio,
+            caracteristica=self.caracteristica_excluida,
+            modo=ServicioCaracteristica.MODO_NO_INCLUYE,
+            orden=1,
+        )
+
+        self.plan = PlanServicio.objects.create(
+            nombre="Plan Soporte Integral",
+            descripcion="Cobertura principal para clientes con SLA extendido.",
+            empresa_prestadora=self.empresa_prestadora,
+            precio_clp="45000",
+            num_visitas_mensuales=2,
+            incluye="Coordinacion operativa",
+            no_incluye="Cambios de infraestructura mayor",
+            clausulas_especiales="Se agenda con 48 horas de anticipacion.",
+        )
+        self.plan.servicios.add(self.servicio)
+        detalle = self.plan.detalles_servicio.get(servicio_version=self.servicio)
+        detalle.cantidad_default = 1
+        detalle.veces_por_mes_default = 2
+        detalle.save(update_fields=["cantidad_default", "veces_por_mes_default", "fecha_modificacion"])
+
+    def test_item_plan_guarda_snapshot_componentes_enriquecido(self):
+        item = ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="plan",
+            plan_version=self.plan,
+            snapshot_nombre=self.plan.nombre,
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="CLP",
+        )
+
+        self.assertEqual(len(item.snapshot_componentes_plan), 1)
+        componente = item.snapshot_componentes_plan[0]
+        self.assertEqual(componente["nombre"], "Mesa de ayuda avanzada")
+        self.assertEqual(componente["descripcion"], "Soporte remoto y seguimiento operativo.")
+        self.assertEqual(componente["categoria_label"], "Soporte")
+        self.assertEqual(componente["veces_por_mes_default"], 2)
+        self.assertEqual(componente["caracteristicas"][0]["nombre"], "Monitoreo 24/7")
+        self.assertEqual(componente["alcance_caracteristicas"][0]["modo"], "incluye")
+        self.assertIn("Monitoreo 24/7", componente["incluye"])
+        self.assertIn("Soporte on-site fuera de horario", componente["no_incluye"])
+        self.assertIn("Atencion prioritaria", componente["clausulas_especiales"])
+
+    def test_enviar_aprobacion_y_firma_congelan_detalle_de_plan(self):
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="plan",
+            plan_version=self.plan,
+            snapshot_nombre=self.plan.nombre,
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="CLP",
+        )
+
+        respuesta_aprobacion = self.client.post(
+            f"/api/contratos/{self.contrato.id}/enviar-aprobacion/"
+        )
+        self.assertEqual(respuesta_aprobacion.status_code, status.HTTP_201_CREATED)
+        envio_aprobacion = EnvioContratoAprobacion.objects.get(
+            pk=respuesta_aprobacion.data["id"]
+        )
+        componente_aprobacion = envio_aprobacion.snapshot_contrato["items_comerciales"][0][
+            "snapshot_componentes_plan"
+        ][0]
+        self.assertEqual(componente_aprobacion["nombre"], "Mesa de ayuda avanzada")
+        self.assertIn("Monitoreo 24/7", componente_aprobacion["incluye"])
+
+        self.contrato.estado = "aprobado_cliente"
+        self.contrato.save(update_fields=["estado", "fecha_modificacion"])
+        self.empresa_prestadora.firma_empresa = VALID_SIGNATURE_DATA_URL
+        self.empresa_prestadora.save(update_fields=["firma_empresa"])
+
+        respuesta_firma = self.client.post(f"/api/contratos/{self.contrato.id}/enviar-firma/")
+        self.assertEqual(respuesta_firma.status_code, status.HTTP_201_CREATED)
+        envio_firma = EnvioContratoFirmaUsuario.objects.get(pk=respuesta_firma.data["id"])
+        componente_firma = envio_firma.snapshot_contrato["items_comerciales"][0][
+            "snapshot_componentes_plan"
+        ][0]
+        self.assertEqual(componente_firma["categoria_label"], "Soporte")
+        self.assertIn("Soporte on-site fuera de horario", componente_firma["no_incluye"])
+        self.assertTrue(bool(envio_firma.pdf_congelado))
 
 
 class ContratoFirmaPreviewTest(ContratoAPITestBase):
@@ -970,6 +1580,26 @@ class ContratoHistorialViewTest(ContratoAPITestBase):
         self.assertIn("contrato", origenes)
         self.assertIn("aprobacion", origenes)
         self.assertIn("firma", origenes)
+
+    def test_historial_contrato_muestra_envio_deprecado_en_ver_todo(self):
+        from django.utils import timezone
+
+        EnvioContratoAprobacion.objects.create(
+            contrato=self.contrato,
+            destinatario=self.vinculo_principal,
+            enviado=True,
+            deprecado=True,
+            fecha_deprecacion=timezone.now(),
+            motivo_deprecacion="Contrato devuelto a borrador",
+        )
+
+        response = self.client.get(f"/api/contratos/{self.contrato.id}/historial/?solo_cliente=false")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        detalles = [evento["detalle"] for evento in response.data]
+        self.assertTrue(
+            any("volvio a borrador" in detalle.lower() for detalle in detalles)
+        )
 
 
 class ContratoLicenciaHistorialTest(ContratoAPITestBase):

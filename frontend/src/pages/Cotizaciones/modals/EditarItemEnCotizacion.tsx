@@ -20,7 +20,13 @@ import {
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { formatPrice, parseLocaleNumber } from '@/utils/currency';
+import { parseLocaleNumber } from '@/utils/currency';
+
+const ITEM_MONEDA_OPTIONS = [
+    { value: '1', label: 'USD' },
+    { value: '2', label: 'CLP' },
+    { value: '3', label: 'UF' },
+];
 
 function EditarItemEnCotizacion({
     item,
@@ -50,6 +56,7 @@ function EditarItemEnCotizacion({
                 cantidad: item.cantidad,
                 porcentaje_recargo: item.porcentaje_recargo || 0,
                     precio_unitario: Number(parseLocaleNumber(item.precio_unitario)),
+                tipo_moneda: item.tipo_moneda || '2',
                 proveedor_empresa: item.proveedor_empresa ? item.proveedor_empresa.toString() : '',
                 recargo_dolar: item.recargo_dolar,
             });
@@ -65,6 +72,7 @@ function EditarItemEnCotizacion({
             proveedor_empresa: '',
             cantidad: 0,
             precio_unitario: 0,
+            tipo_moneda: '2',
             porcentaje_recargo: 0,
             recargo_dolar: 0,
         },
@@ -129,6 +137,18 @@ function EditarItemEnCotizacion({
                                         'proveedor_empresa',
                                         (e as TSelectOption).value,
                                     );
+                                    const proveedor = (!item.item_empresa
+                                        ? listaProveedoresEmpresa
+                                        : listaProveedoresDelItem
+                                    ).find(
+                                        (pro) =>
+                                            pro.id.toString() ===
+                                            (e as TSelectOption).value,
+                                    );
+                                    formik.setFieldValue(
+                                        'tipo_moneda',
+                                        proveedor?.tipo_moneda || formik.values.tipo_moneda,
+                                    );
                                 }}
                                 value={{
                                     value: formik.values.proveedor_empresa,
@@ -144,6 +164,54 @@ function EditarItemEnCotizacion({
                                                   formik.values.proveedor_empresa,
                                           )?.nombre || '',
                                 }}
+                            />
+                            <div className='mt-2 text-xs text-zinc-500 dark:text-zinc-400'>
+                                Moneda proveedor referencia:{' '}
+                                {!item.item_empresa
+                                    ? listaProveedoresEmpresa.find(
+                                          (pro) =>
+                                              pro.id.toString() ===
+                                              formik.values.proveedor_empresa,
+                                      )?.tipo_moneda === '1'
+                                        ? 'USD'
+                                        : listaProveedoresEmpresa.find(
+                                                (pro) =>
+                                                    pro.id.toString() ===
+                                                    formik.values.proveedor_empresa,
+                                            )?.tipo_moneda === '3'
+                                          ? 'UF'
+                                          : 'CLP'
+                                    : listaProveedoresDelItem.find(
+                                          (pro) =>
+                                              pro.id.toString() ===
+                                              formik.values.proveedor_empresa,
+                                      )?.tipo_moneda === '1'
+                                      ? 'USD'
+                                      : listaProveedoresDelItem.find(
+                                              (pro) =>
+                                                  pro.id.toString() ===
+                                                  formik.values.proveedor_empresa,
+                                          )?.tipo_moneda === '3'
+                                        ? 'UF'
+                                        : 'CLP'}
+                            </div>
+                        </div>
+                        <div>
+                            <Badge>Moneda del Item</Badge>
+                            <SelectReact
+                                name='tipo_moneda'
+                                options={ITEM_MONEDA_OPTIONS}
+                                onChange={(e) => {
+                                    formik.setFieldValue(
+                                        'tipo_moneda',
+                                        e ? (e as TSelectOption).value : '2',
+                                    );
+                                }}
+                                value={
+                                    ITEM_MONEDA_OPTIONS.find(
+                                        (option) => option.value === formik.values.tipo_moneda,
+                                    ) || ITEM_MONEDA_OPTIONS[1]
+                                }
                             />
                         </div>
                         <div>

@@ -13,6 +13,7 @@ import ApiService from '@/services/ApiService';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { TColorIntensity } from '@/types/colorIntensities.type';
 import { TColors } from '@/types/colors.type';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
@@ -26,14 +27,27 @@ import {
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { buildPrefacturacionListPath, parsePrefacturacionSearchParams } from './prefacturacion.shared';
 
 interface PrefacturaResumen {
     total_items?: number;
     total_facturar?: number;
     total_excluidos?: number;
     [key: string]: unknown;
+}
+
+interface PrefacturaVisitas {
+    periodo?: string;
+    incluidas_mes?: number;
+    confirmadas_mes?: number;
+    marcadas_prefactura?: number;
+    proyectadas_mes?: number;
+    exceso_prefactura?: number;
+    ots_marcadas?: number[];
+    precio_unitario_exceso?: number;
+    total_exceso?: number;
 }
 
 interface PrefacturaItem {
@@ -56,9 +70,11 @@ interface PrefacturaItem {
 
 interface PrefacturaItemsPayload {
     cliente_id?: number | null;
+    contrato_id?: number | null;
     ots_incluidas?: number[];
     items?: PrefacturaItem[];
     resumen?: PrefacturaResumen;
+    visitas?: PrefacturaVisitas;
     [key: string]: unknown;
 }
 
@@ -82,6 +98,8 @@ const getItemDetailUrl = (item: PrefacturaItem): string | null => {
     const { tipo, id, ot_id } = item;
 
     switch (tipo) {
+        case 'visita_adicional_contrato':
+            return null;
         case 'servicio_ot':
         case 'soporte_tecnico':
             // Navegar al detalle de la Orden de Trabajo
@@ -105,6 +123,9 @@ const getItemDetailUrl = (item: PrefacturaItem): string | null => {
 const DetalleFactura = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
+    const routeState = parsePrefacturacionSearchParams(searchParams, 'ot');
+    const backToList = buildPrefacturacionListPath(routeState, 'ot');
     const [factura, setFactura] = useState<PrefacturaDetalle | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -164,11 +185,9 @@ const DetalleFactura = () => {
                 method: 'delete',
             });
             toast.success(`Prefactura #${factura.id} eliminada`);
-            navigate('/facturacion/facturas');
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.detail || error?.message || 'Error al eliminar prefactura';
-            toast.error(message);
+            navigate(backToList);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         }
     };
 
@@ -194,10 +213,8 @@ const DetalleFactura = () => {
                 });
                 toast.success('Documento asociado exitosamente');
                 fetchFactura();
-            } catch (error: any) {
-                const message =
-                    error?.response?.data?.detail || 'Error al asociar documento';
-                toast.error(message);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error));
             } finally {
                 setUploadingDocument(false);
             }
@@ -214,36 +231,6 @@ const DetalleFactura = () => {
         
         if (url) {
             window.open(url, '_blank');
-        }
-    };
-
-    const handleEliminarDocumento = async () => {
-        if (!factura) return;
-
-        const ok = await confirmAlert({
-            title: 'Eliminar documento',
-            text: '¿Confirmas eliminar el documento asociado? Esta acción no se puede deshacer.',
-            confirmText: 'Eliminar',
-            cancelText: 'Cancelar',
-            icon: 'warning',
-            confirmColor: '#dc2626',
-        });
-        if (!ok) return;
-
-        setUploadingDocument(true);
-        try {
-            await ApiService.fetchData({
-                url: `/api/cierres-administrativos/${factura.id}/`,
-                method: 'patch',
-                data: { documento_factura: null },
-            });
-            toast.success('Documento eliminado exitosamente');
-            fetchFactura();
-        } catch (error: any) {
-            const message = error?.response?.data?.detail || 'Error al eliminar documento';
-            toast.error(message);
-        } finally {
-            setUploadingDocument(false);
         }
     };
 
@@ -287,6 +274,7 @@ const DetalleFactura = () => {
 
     const items = enrichedItems;
     const resumen = factura?.resultado?.resumen;
+    const visitas = factura?.resultado?.visitas;
     const otsIncluidas = factura?.resultado?.ots_incluidas ?? [];
 
     useEffect(() => {
@@ -341,6 +329,7 @@ const DetalleFactura = () => {
                     compra_material: { label: 'Compra Material', color: 'lime' },
                     gasto_operativo: { label: 'Gasto Operativo', color: 'red' },
                     rendicion_gasto: { label: 'Gasto Operativo', color: 'blue' },
+                    visita_adicional_contrato: { label: 'Visita adicional', color: 'red' },
                 };
 
                 const config = tipoBadgeMap[tipo ?? ''] ?? {
@@ -394,6 +383,9 @@ const DetalleFactura = () => {
                         break;
                     case 'gasto_operativo':
                         detalles = `Gasto #${item.id} de la OT #${item.ot_id}`;
+                        break;
+                    case 'visita_adicional_contrato':
+                        detalles = `Cobro adicional del período ${factura?.resultado?.visitas?.periodo ?? '-'}`;
                         break;
                     default:
                         detalles = `${item.tipo} #${item.id}`;
@@ -637,7 +629,7 @@ const DetalleFactura = () => {
                     <Button
                         variant='outline'
                         icon='HeroArrowLeft'
-                        onClick={() => navigate('/facturacion/facturas')}>
+                        onClick={() => navigate(backToList)}>
                         Volver
                     </Button>
                 </SubheaderLeft>
@@ -674,11 +666,8 @@ const DetalleFactura = () => {
                                         });
                                         toast.success(`Prefactura #${factura.id} marcada como "Por facturar"`);
                                         fetchFactura();
-                                    } catch (error: any) {
-                                        toast.error(
-                                            error?.response?.data?.detail ||
-                                                'No se pudo avanzar el estado',
-                                        );
+                                    } catch (error: unknown) {
+                                        toast.error(getErrorMessage(error));
                                     }
                                 }}>
                                 Finalizar
@@ -693,7 +682,9 @@ const DetalleFactura = () => {
                             icon='HeroDocumentArrowUp'
                             isLoading={uploadingDocument}
                             onClick={handleAsociarDocumento}>
-                            {factura.documento_factura ? 'Cambiar Documento' : 'Adjuntar Factura'}
+                            {factura.documento_factura
+                                ? 'Reemplazar documento'
+                                : 'Adjuntar factura'}
                         </Button>
                     )}
 
@@ -723,7 +714,7 @@ const DetalleFactura = () => {
                     <Card>
                         <CardBody>
                             <div className='py-12 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
-                                Factura no encontrada.
+                                Prefactura no encontrada.
                             </div>
                         </CardBody>
                     </Card>
@@ -811,13 +802,69 @@ const DetalleFactura = () => {
                             </CardBody>
                         </Card>
 
+                        {visitas && (
+                            <Card className='mb-4 border-l-4 border-l-emerald-500'>
+                                <CardHeader>
+                                    <CardHeaderChild>
+                                        <CardTitle>Visitas del contrato</CardTitle>
+                                    </CardHeaderChild>
+                                </CardHeader>
+                                <CardBody>
+                                    <div className='grid grid-cols-1 gap-4 md:grid-cols-4'>
+                                        <div className='rounded-lg bg-emerald-50 p-4 dark:bg-emerald-900/20'>
+                                            <div className='text-sm font-semibold uppercase text-emerald-600 dark:text-emerald-400'>
+                                                Incluidas
+                                            </div>
+                                            <div className='mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-100'>
+                                                {visitas.incluidas_mes ?? 0}
+                                            </div>
+                                        </div>
+                                        <div className='rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20'>
+                                            <div className='text-sm font-semibold uppercase text-blue-600 dark:text-blue-400'>
+                                                Confirmadas
+                                            </div>
+                                            <div className='mt-1 text-2xl font-bold text-blue-900 dark:text-blue-100'>
+                                                {visitas.confirmadas_mes ?? 0}
+                                            </div>
+                                        </div>
+                                        <div className='rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20'>
+                                            <div className='text-sm font-semibold uppercase text-amber-600 dark:text-amber-400'>
+                                                Marcadas
+                                            </div>
+                                            <div className='mt-1 text-2xl font-bold text-amber-900 dark:text-amber-100'>
+                                                {visitas.marcadas_prefactura ?? 0}
+                                            </div>
+                                        </div>
+                                        <div className='rounded-lg bg-red-50 p-4 dark:bg-red-900/20'>
+                                            <div className='text-sm font-semibold uppercase text-red-600 dark:text-red-400'>
+                                                Exceso
+                                            </div>
+                                            <div className='mt-1 text-2xl font-bold text-red-900 dark:text-red-100'>
+                                                {visitas.exceso_prefactura ?? 0}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className='mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 p-4 text-sm dark:bg-gray-900/40'>
+                                        <div className='text-gray-700 dark:text-gray-300'>
+                                            Período {visitas.periodo ?? '-'} | Proyección{' '}
+                                            {(visitas.proyectadas_mes ?? 0)}/{visitas.incluidas_mes ?? 0}
+                                        </div>
+                                        <div className='font-semibold text-gray-900 dark:text-gray-100'>
+                                            Total adicional:{' '}
+                                            {`$${Number(visitas.total_exceso ?? 0).toLocaleString('es-CL')}`}
+                                        </div>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        )}
+
                         {(factura.estado_cierre === 'por_facturar' || factura.estado_cierre === 'facturado') && (
                             <Card className='mb-4 border-l-4 border-l-violet-500'>
                                 <CardHeader>
                                     <CardHeaderChild>
                                         <CardTitle className='flex items-center gap-2'>
                                             <Icon icon='HeroDocumentText' className='size-5' />
-                                            Documento de Factura
+                                            Documento de Prefactura
                                         </CardTitle>
                                     </CardHeaderChild>
                                 </CardHeader>
@@ -850,26 +897,17 @@ const DetalleFactura = () => {
                                                     Descargar
                                                 </Button>
                                                 {factura.estado_cierre === 'facturado' && (
-                                                    <>
-                                                        <Button
-                                                            variant='solid'
-                                                            color='amber'
-                                                            size='sm'
-                                                            icon='HeroArrowPath'
-                                                            isDisable={uploadingDocument}
-                                                            onClick={handleAsociarDocumento}>
-                                                            {uploadingDocument ? 'Subiendo...' : 'Cambiar'}
-                                                        </Button>
-                                                        <Button
-                                                            variant='solid'
-                                                            color='red'
-                                                            size='sm'
-                                                            icon='HeroTrash'
-                                                            isDisable={uploadingDocument}
-                                                            onClick={handleEliminarDocumento}>
-                                                            Eliminar
-                                                        </Button>
-                                                    </>
+                                                    <Button
+                                                        variant='solid'
+                                                        color='amber'
+                                                        size='sm'
+                                                        icon='HeroArrowPath'
+                                                        isDisable={uploadingDocument}
+                                                        onClick={handleAsociarDocumento}>
+                                                        {uploadingDocument
+                                                            ? 'Subiendo...'
+                                                            : 'Reemplazar documento'}
+                                                    </Button>
                                                 )}
                                             </div>
                                         </div>

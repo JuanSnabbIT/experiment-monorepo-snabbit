@@ -1,4 +1,3 @@
-import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -6,11 +5,7 @@ import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
-import {
-    FORMAS_PAGO_COMERCIALES,
-    TIPO_CONTRATO,
-    TIPO_MONEDA_LICENCIA,
-} from '@/constants/contrato.constant';
+import { TIPO_CONTRATO } from '@/constants/contrato.constant';
 import { IPlantillaContrato } from '@/interface/plantillaContrato.interface';
 import { useCreatePlantillaMutation } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -30,16 +25,6 @@ const tipoOptions: TSelectOption[] = TIPO_CONTRATO.map((t) => ({
     label: t.label,
 }));
 
-const monedaOptions: TSelectOption[] = TIPO_MONEDA_LICENCIA.map((m) => ({
-    value: m.value,
-    label: m.label,
-}));
-
-const formaPagoOptions: TSelectOption[] = FORMAS_PAGO_COMERCIALES.map((f) => ({
-    value: f.value,
-    label: f.label,
-}));
-
 const validationSchema = Yup.object({
     titulo: Yup.string().required('El título es requerido'),
     tipo_contrato: Yup.string().required('El tipo de contrato es requerido'),
@@ -55,11 +40,6 @@ const ModalCrearPlantilla = ({ isOpen, setIsOpen }: IModalCrearPlantillaProps) =
             titulo: '',
             tipo_contrato: '',
             descripcion: '',
-            moneda_cobro: 'CLP',
-            forma_pago_contractual: 'mensual',
-            lugar_firma: '',
-            renovacion_automatica: true,
-            dias_aviso_termino: 60,
         },
         validationSchema,
         onSubmit: async (values, { resetForm }) => {
@@ -67,7 +47,6 @@ const ModalCrearPlantilla = ({ isOpen, setIsOpen }: IModalCrearPlantillaProps) =
                 const nueva = await createPlantilla({
                     ...values,
                     tipo_contrato: values.tipo_contrato as IPlantillaContrato['tipo_contrato'],
-                    lugar_firma: values.lugar_firma || null,
                 }).unwrap();
                 toast.success('Plantilla creada correctamente');
                 resetForm();
@@ -99,99 +78,27 @@ const ModalCrearPlantilla = ({ isOpen, setIsOpen }: IModalCrearPlantillaProps) =
                             />
                         </Validation>
                     </div>
-                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                        <div>
-                            <Label htmlFor='modal-tipo_contrato'>Tipo de Contrato</Label>
-                            <Validation
-                                isValid={formik.isValid}
-                                isTouched={formik.touched.tipo_contrato}
-                                invalidFeedback={formik.errors.tipo_contrato}>
-                                <SelectReact
-                                    id='modal-tipo_contrato'
-                                    name='tipo_contrato'
-                                    options={tipoOptions}
-                                    value={tipoOptions.find(
-                                        (o) => o.value === formik.values.tipo_contrato,
-                                    )}
-                                    onChange={(option) =>
-                                        formik.setFieldValue(
-                                            'tipo_contrato',
-                                            (option as TSelectOption)?.value || '',
-                                        )
-                                    }
-                                />
-                            </Validation>
-                        </div>
-                        <div>
-                            <Label htmlFor='modal-moneda_cobro'>Moneda de cobro</Label>
+                    <div>
+                        <Label htmlFor='modal-tipo_contrato'>Tipo de Contrato</Label>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.tipo_contrato}
+                            invalidFeedback={formik.errors.tipo_contrato}>
                             <SelectReact
-                                id='modal-moneda_cobro'
-                                name='moneda_cobro'
-                                options={monedaOptions}
-                                value={monedaOptions.find(
-                                    (o) => o.value === formik.values.moneda_cobro,
+                                id='modal-tipo_contrato'
+                                name='tipo_contrato'
+                                options={tipoOptions}
+                                value={tipoOptions.find(
+                                    (o) => o.value === formik.values.tipo_contrato,
                                 )}
                                 onChange={(option) =>
                                     formik.setFieldValue(
-                                        'moneda_cobro',
-                                        (option as TSelectOption)?.value || 'CLP',
+                                        'tipo_contrato',
+                                        (option as TSelectOption)?.value || '',
                                     )
                                 }
                             />
-                        </div>
-                    </div>
-                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                        <div>
-                            <Label htmlFor='modal-forma_pago'>Forma de pago</Label>
-                            <SelectReact
-                                id='modal-forma_pago'
-                                name='forma_pago_contractual'
-                                options={formaPagoOptions}
-                                value={formaPagoOptions.find(
-                                    (o) => o.value === formik.values.forma_pago_contractual,
-                                )}
-                                onChange={(option) =>
-                                    formik.setFieldValue(
-                                        'forma_pago_contractual',
-                                        (option as TSelectOption)?.value || 'mensual',
-                                    )
-                                }
-                            />
-                        </div>
-                        <div>
-                            <Label htmlFor='modal-lugar_firma'>Lugar de firma</Label>
-                            <Input
-                                id='modal-lugar_firma'
-                                name='lugar_firma'
-                                value={formik.values.lugar_firma}
-                                onChange={formik.handleChange}
-                                placeholder='Ej: Santiago, Chile'
-                            />
-                        </div>
-                    </div>
-                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                        <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
-                            <Checkbox
-                                id='modal-renovacion'
-                                name='renovacion_automatica'
-                                checked={formik.values.renovacion_automatica}
-                                onChange={formik.handleChange}
-                                label='Renovación automática'
-                            />
-                            <p className='mt-1 text-xs text-zinc-500'>
-                                Default para contratos creados con esta plantilla.
-                            </p>
-                        </div>
-                        <div>
-                            <Label htmlFor='modal-dias_aviso'>Días de aviso de término</Label>
-                            <Input
-                                id='modal-dias_aviso'
-                                name='dias_aviso_termino'
-                                type='number'
-                                value={formik.values.dias_aviso_termino}
-                                onChange={formik.handleChange}
-                            />
-                        </div>
+                        </Validation>
                     </div>
                     <div>
                         <Label htmlFor='modal-descripcion'>Descripción (opcional)</Label>

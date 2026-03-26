@@ -118,10 +118,12 @@ def generar_facturas_mensuales():
             contrato=contrato,
             empresa_prestadora=contrato.empresa_prestadora,
             empresa_cliente=contrato.empresa_cliente,
-            estado="borrador",
+            estado="por_facturar",
             periodo_inicio=periodo_inicio,
             periodo_fin=periodo_fin,
-            moneda="2",  # CLP por defecto
+            fecha_emision=hoy,
+            monto_total=contrato.total_items_comerciales or 0,
+            moneda=contrato.moneda_cobro,
             comentario=f"Prefactura automática — período {periodo_inicio.strftime('%m/%Y')}",
         )
         facturas_creadas += 1

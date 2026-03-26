@@ -56,9 +56,9 @@ const ScopeSummary = ({
     }
 
     return (
-        <div className='space-y-3'>
+        <div className={compact ? 'space-y-2' : 'space-y-3'}>
             {serviceItems.length > 0 && (
-                <div className='grid gap-3 xl:grid-cols-2'>
+                <div className={compact ? 'grid gap-2' : 'grid gap-3 xl:grid-cols-2'}>
                     <ScopeGroup
                         title='Incluye'
                         color='blue'
@@ -75,7 +75,7 @@ const ScopeSummary = ({
             )}
 
             {planItems.length > 0 && (
-                <div className='grid gap-3 xl:grid-cols-2'>
+                <div className={compact ? 'grid gap-2' : 'grid gap-3 xl:grid-cols-2'}>
                     <ScopeGroup
                         title='Incluye'
                         color='blue'
@@ -110,13 +110,29 @@ const ScopeSummary = ({
             )}
 
             {conflicts.length > 0 && (
-                <div className='rounded-2xl border border-red-200 bg-red-50 px-3 py-3 dark:border-red-900/50 dark:bg-red-950/20'>
-                    <div className='text-[11px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-300'>
+                <div
+                    className={
+                        compact
+                            ? 'rounded-2xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/20'
+                            : 'rounded-2xl border border-red-200 bg-red-50 px-3 py-3 dark:border-red-900/50 dark:bg-red-950/20'
+                    }>
+                    <div
+                        className={
+                            compact
+                                ? 'text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-300'
+                                : 'text-[11px] font-semibold uppercase tracking-wide text-red-600 dark:text-red-300'
+                        }>
                         Conflictos de alcance
                     </div>
-                    <div className='mt-2 space-y-2'>
+                    <div className={compact ? 'mt-2 space-y-1.5' : 'mt-2 space-y-2'}>
                         {conflicts.map((conflict) => (
-                            <div key={conflict.caracteristica.id} className='text-sm text-red-700 dark:text-red-200'>
+                            <div
+                                key={conflict.caracteristica.id}
+                                className={
+                                    compact
+                                        ? 'text-xs text-red-700 dark:text-red-200'
+                                        : 'text-sm text-red-700 dark:text-red-200'
+                                }>
                                 <span className='font-semibold'>{conflict.caracteristica.nombre}</span>
                                 {': '}
                                 incluye en {conflict.servicios_incluye.join(', ')} y no incluye en{' '}
@@ -128,7 +144,7 @@ const ScopeSummary = ({
             )}
 
             {!hasStructuredScope && (
-                <div className='space-y-3'>
+                <div className={compact ? 'space-y-2' : 'space-y-3'}>
                     {renderLegacyBlock('Incluye', includeText)}
                     {renderLegacyBlock('No incluye', excludeText)}
                 </div>
@@ -153,11 +169,21 @@ const ScopeGroup = ({
     if (items.length === 0) return null;
 
     return (
-        <div className='rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-950/30'>
-            <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
+        <div
+            className={
+                compact
+                    ? 'rounded-2xl border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-950/30'
+                    : 'rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-950/30'
+            }>
+            <div
+                className={
+                    compact
+                        ? 'text-[10px] font-semibold uppercase tracking-wide text-zinc-500'
+                        : 'text-[11px] font-semibold uppercase tracking-wide text-zinc-500'
+                }>
                 {title}
             </div>
-            <div className='mt-2 flex flex-wrap gap-2'>
+            <div className={compact ? 'mt-2 flex flex-wrap gap-1.5' : 'mt-2 flex flex-wrap gap-2'}>
                 {items.map((item) => (
                     <Badge
                         key={item}

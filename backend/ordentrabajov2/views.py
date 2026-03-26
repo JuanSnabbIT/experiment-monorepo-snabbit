@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from bodegas.models import GuiaSalida, ItemsGuiaSalida
 from bodegas.serializers import GuiaSalidaSerializer, ItemsGuiaSalidaSerializer
@@ -9,7 +10,7 @@ from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
@@ -58,6 +59,7 @@ from .serializers import (
     ServicioEnOTSerializer,
     SoporteTecnicoSerializer,
     UsuarioAsignadoSoporteSerializer,
+    validate_prefactura_resultado,
 )
 
 
@@ -2293,6 +2295,61 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         for cotizacion in cotizaciones:
             actualizar_tipo_cambio_cotizacion.delay(cotizacion.id)
 
+    def _resolve_fecha_prefactura(self, raw_fecha) -> date:
+        if isinstance(raw_fecha, date):
+            return raw_fecha
+        if isinstance(raw_fecha, str):
+            try:
+                return date.fromisoformat(raw_fecha)
+            except ValueError:
+                pass
+        return timezone.localdate()
+
+    def _build_visitas_contrato_resumen(self, contrato, fecha_prefactura: date) -> dict:
+        incluidas_mes = sum(
+            int(item.num_visitas_mensuales or 0)
+            for item in contrato.items_comerciales.all()
+            if item.num_visitas_mensuales
+        )
+        periodo = fecha_prefactura.strftime("%Y-%m")
+        prefacturas_mes = CierreAdministrativoOT.objects.filter(
+            estado_cierre__in=["por_facturar", "facturado"],
+            fecha_prefactura__year=fecha_prefactura.year,
+            fecha_prefactura__month=fecha_prefactura.month,
+            resultado__contrato_id=contrato.id,
+        ).only("resultado")
+
+        confirmadas_mes = 0
+        for prefactura in prefacturas_mes:
+            resultado = prefactura.resultado or {}
+            visitas = resultado.get("visitas") or {}
+            try:
+                confirmadas_mes += int(visitas.get("marcadas_prefactura") or 0)
+            except (TypeError, ValueError):
+                continue
+
+        return {
+            "periodo": periodo,
+            "incluidas_mes": incluidas_mes,
+            "confirmadas_mes": confirmadas_mes,
+        }
+
+    def _get_prefactura_resultado_error(self, prefactura: CierreAdministrativoOT) -> str | None:
+        try:
+            validate_prefactura_resultado(prefactura.resultado or {})
+        except serializers.ValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, list) and detail:
+                return str(detail[0])
+            if isinstance(detail, dict):
+                first_value = next(iter(detail.values()), None)
+                if isinstance(first_value, list) and first_value:
+                    return str(first_value[0])
+                if first_value is not None:
+                    return str(first_value)
+            return str(detail)
+        return None
+
     def get_queryset(self):
         from core.models import PersonalizacionUsuario
 
@@ -2380,6 +2437,13 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
                 {
                     "detail": "Prefactura debe tener al menos un item marcado como 'facturar=true'"
                 },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resultado_error = self._get_prefactura_resultado_error(prefactura)
+        if resultado_error:
+            return Response(
+                {"detail": resultado_error},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2505,11 +2569,18 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
         pactado = None
         ejecutado = None
         diferencia = None
+        visitas_contrato = None
 
         if contrato_id:
             try:
-                contrato = ContratoEmpresaCliente.objects.get(id=contrato_id)
+                contrato = ContratoEmpresaCliente.objects.prefetch_related(
+                    "items_comerciales"
+                ).get(id=contrato_id)
                 pactado = calcular_pactado_del_contrato(contrato)
+                visitas_contrato = self._build_visitas_contrato_resumen(
+                    contrato,
+                    self._resolve_fecha_prefactura(fecha_prefactura),
+                )
             except ContratoEmpresaCliente.DoesNotExist:
                 return Response(
                     {"detail": "Contrato no encontrado"},
@@ -2530,6 +2601,7 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
                 "pactado": pactado,
                 "ejecutado": ejecutado,
                 "diferencia": diferencia,
+                "visitas_contrato": visitas_contrato,
             },
             status=status.HTTP_200_OK,
         )

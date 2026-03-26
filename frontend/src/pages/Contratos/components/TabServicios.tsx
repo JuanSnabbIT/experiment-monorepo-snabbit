@@ -1,6 +1,13 @@
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import AgregarServiciosyPlanesContrato from '../modals/AgregarServiciosyPlanesContrato';
+import {
+    ContractTextBlock,
+    ContractTextList,
+    PlanIncludedServicesDetail,
+    getPlanComponentDetails,
+    isPlanContractSource,
+} from './planContractDetail';
 import { ITabServiciosProps } from './contrato.types';
 
 const formatCurrency = (value: number, currency: 'CLP' | 'UF' | 'USD' = 'CLP') => {
@@ -42,47 +49,6 @@ const formatSubtotalCurrency = (
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(amount)} CLP`;
-};
-
-const normalizeScopeItems = (value?: string | null) =>
-    (value ?? '')
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => line.replace(/^[-*•]\s*/, '').trim())
-        .filter(Boolean);
-
-const renderScopeList = (label: string, value?: string | null) => {
-    const items = normalizeScopeItems(value);
-    if (items.length === 0) return null;
-
-    return (
-        <div className='rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40'>
-            <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                {label}:
-            </div>
-            <ul className='mt-2 list-disc space-y-1.5 pl-5 text-sm leading-6 text-zinc-700 dark:text-zinc-300'>
-                {items.map((item) => (
-                    <li key={`${label}-${item}`}>{item}</li>
-                ))}
-            </ul>
-        </div>
-    );
-};
-
-const renderTextBlock = (label: string, value?: string | null) => {
-    if (!value) return null;
-
-    return (
-        <div className='rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40'>
-            <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                {label}
-            </div>
-            <div className='mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-300'>
-                {value}
-            </div>
-        </div>
-    );
 };
 
 const TabServicios = ({
@@ -146,15 +112,19 @@ const TabServicios = ({
                                                     ct.id === legacyItem.content_type,
                                             )
                                           : false;
+
                                 const servicioGenerico = (contServ.servicio_generico ??
                                     {}) as {
                                     categoria_label?: string;
                                     incluye?: string | null;
                                     no_incluye?: string | null;
                                     clausulas_especiales?: string | null;
-                                    servicios?: Array<{ id: number; nombre: string }>;
                                 };
                                 const subtotal = Number(contServ.subtotal || 0);
+                                const esPlan = !esServicio && isPlanContractSource(contServ);
+                                const componentesPlan = esPlan
+                                    ? getPlanComponentDetails(contServ)
+                                    : [];
 
                                 return (
                                     <div
@@ -171,10 +141,10 @@ const TabServicios = ({
                                                     {contServ.nombre}
                                                 </div>
                                                 {esServicio && servicioGenerico.categoria_label && (
-                                                        <div className='mt-1 text-sm text-zinc-500'>
-                                                            {servicioGenerico.categoria_label}
-                                                        </div>
-                                                    )}
+                                                    <div className='mt-1 text-sm text-zinc-500'>
+                                                        {servicioGenerico.categoria_label}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className='rounded-2xl bg-zinc-50 px-4 py-3 text-right dark:bg-zinc-900/60'>
                                                 <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
@@ -228,39 +198,25 @@ const TabServicios = ({
                                             </div>
                                         </div>
 
-                                        {!esServicio &&
-                                            Array.isArray(servicioGenerico.servicios) &&
-                                            servicioGenerico.servicios.length > 0 && (
-                                                <div className='mt-4'>
-                                                    <div className='mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                                                        Servicios incluidos en el plan
-                                                    </div>
-                                                    <div className='flex flex-wrap gap-2'>
-                                                        {servicioGenerico.servicios.map((servicio) => (
-                                                            <Badge
-                                                                key={servicio.id}
-                                                                color='emerald'
-                                                                variant='outline'>
-                                                                {servicio.nombre}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                        {esPlan && (
+                                            <PlanIncludedServicesDetail
+                                                components={componentesPlan}
+                                            />
+                                        )}
 
                                         <div className='mt-4 space-y-3'>
-                                            {renderScopeList(
-                                                'Incluye',
-                                                servicioGenerico.incluye ?? null,
-                                            )}
-                                            {renderScopeList(
-                                                'No incluye',
-                                                servicioGenerico.no_incluye ?? null,
-                                            )}
-                                            {renderTextBlock(
-                                                'Clausulas especiales',
-                                                servicioGenerico.clausulas_especiales ?? null,
-                                            )}
+                                            <ContractTextList
+                                                title='Incluye'
+                                                value={servicioGenerico.incluye ?? null}
+                                            />
+                                            <ContractTextList
+                                                title='No incluye'
+                                                value={servicioGenerico.no_incluye ?? null}
+                                            />
+                                            <ContractTextBlock
+                                                title='Clausulas especiales'
+                                                value={servicioGenerico.clausulas_especiales ?? null}
+                                            />
                                         </div>
                                     </div>
                                 );

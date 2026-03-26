@@ -49,6 +49,7 @@ class ItemCotizacionPublicSerializer(serializers.ModelSerializer):
     - precio_venta_total: Precio total con recargo (en moneda de cotización)
     """
     nombre_display = serializers.SerializerMethodField()
+    tipo_moneda_label = serializers.SerializerMethodField()
     precio_venta_unitario = serializers.SerializerMethodField()
     precio_venta_total = serializers.SerializerMethodField()
 
@@ -59,6 +60,8 @@ class ItemCotizacionPublicSerializer(serializers.ModelSerializer):
             'nombre_display',
             'descripcion',
             'cantidad',
+            'tipo_moneda',
+            'tipo_moneda_label',
             'precio_venta_unitario',
             'precio_venta_total',
             'aprobado',
@@ -77,6 +80,9 @@ class ItemCotizacionPublicSerializer(serializers.ModelSerializer):
     def get_precio_venta_total(self, obj):
         """Precio total con recargo en moneda de la cotización."""
         return float(obj.precio_venta_neta_total_moneda_base)
+
+    def get_tipo_moneda_label(self, obj):
+        return obj.get_tipo_moneda_display()
 
 
 class SolicitanteInfoSerializer(serializers.Serializer):

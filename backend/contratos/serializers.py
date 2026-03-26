@@ -32,6 +32,13 @@ from contratos.models import (
 from core.models import AcuerdoConfidencialidadBase
 from empresas.models import UsuarioEmpresa
 from empresas.serializers import EmpresaContratoSerializer  # Importa el modelo de usuario vinculado a la empresa
+from .venta_helpers import (
+    calcular_total_convertido_cotizacion,
+    construir_resumen_venta_contrato,
+    normalizar_moneda,
+    resolver_cuotas_venta,
+    resolver_forma_pago_venta,
+)
 
 
 # Serializador para CaracteristicaServicio
@@ -937,6 +944,9 @@ class UsuarioVinculadoContratoSerializer(serializers.ModelSerializer):
             "fecha_respuesta": envio.fecha_respuesta,
             "comentario_respuesta": envio.comentario_respuesta,
             "version_envio": envio.version_envio,
+            "deprecado": envio.deprecado,
+            "fecha_deprecacion": envio.fecha_deprecacion,
+            "motivo_deprecacion": envio.motivo_deprecacion,
         }
 
     def get_firma_pendiente(self, obj):
@@ -994,17 +1004,11 @@ class PlantillaContratoSerializer(serializers.ModelSerializer):
     tipo_contrato_label = serializers.CharField(
         source='get_tipo_contrato_display', read_only=True,
     )
-    moneda_cobro_label = serializers.CharField(
-        source='get_moneda_cobro_display', read_only=True,
-    )
-    forma_pago_contractual_label = serializers.CharField(
-        source='get_forma_pago_contractual_display', read_only=True,
-    )
 
     class Meta:
         model = PlantillaContrato
         fields = '__all__'
-        read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'empresa_prestadora']
+        read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'empresa_prestadora', 'es_default']
 
 
 class EtiquetaPlantillaSerializer(serializers.ModelSerializer):
@@ -1021,6 +1025,111 @@ class SeccionContratoGeneradaSerializer(serializers.ModelSerializer):
         read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'contrato']
 
 
+# Serializadores para cotizaciones vinculadas a contratos de venta
+class CotizacionVinculadaItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    nombre = serializers.SerializerMethodField()
+    cantidad = serializers.IntegerField()
+    tipo_moneda = serializers.CharField()
+    tipo_moneda_label = serializers.SerializerMethodField()
+    precio_unitario_origen = serializers.DecimalField(max_digits=10, decimal_places=2, source="precio_unitario")
+    costo_total_origen = serializers.DecimalField(max_digits=10, decimal_places=2, source="costo_total")
+    precio_unitario = serializers.SerializerMethodField()
+    costo_total = serializers.SerializerMethodField()
+
+    def get_nombre(self, obj):
+        if obj.item_empresa:
+            return obj.item_empresa.nombre
+        return obj.nombre
+
+    def get_tipo_moneda_label(self, obj):
+        return obj.get_tipo_moneda_display()
+
+    def get_precio_unitario(self, obj):
+        return float(obj.precio_venta_neta_unitario_moneda_base)
+
+    def get_costo_total(self, obj):
+        return float(obj.precio_venta_neta_total_moneda_base)
+
+
+class CotizacionVinculadaResumenSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    numero_cotizacion = serializers.IntegerField()
+    nombre = serializers.CharField()
+    estado = serializers.CharField()
+    estado_label = serializers.SerializerMethodField()
+    tipo_moneda = serializers.CharField()
+    tipo_moneda_label = serializers.SerializerMethodField()
+    total_estimado = serializers.SerializerMethodField()
+    fecha_vencimiento = serializers.DateField()
+    items_count = serializers.SerializerMethodField()
+    items = serializers.SerializerMethodField()
+    moneda_contrato = serializers.SerializerMethodField()
+    total_convertido = serializers.SerializerMethodField()
+    dolar_observado = serializers.SerializerMethodField()
+    valor_uf = serializers.SerializerMethodField()
+    tiene_items_moneda_mixta = serializers.SerializerMethodField()
+    monedas_items = serializers.SerializerMethodField()
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
+
+    def get_tipo_moneda_label(self, obj):
+        return obj.get_tipo_moneda_display()
+
+    def get_total_estimado(self, obj):
+        return obj.calcular_total_estimado
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+    def get_items(self, obj):
+        return CotizacionVinculadaItemSerializer(obj.items.all(), many=True).data
+
+    def get_moneda_contrato(self, obj):
+        contrato = getattr(obj, "contrato", None)
+        if not contrato:
+            return None
+        try:
+            return normalizar_moneda(contrato.moneda_cobro)
+        except ValueError:
+            return contrato.moneda_cobro
+
+    def get_total_convertido(self, obj):
+        contrato = getattr(obj, "contrato", None)
+        if not contrato:
+            return None
+        try:
+            return float(calcular_total_convertido_cotizacion(obj, contrato.moneda_cobro))
+        except ValueError:
+            return None
+
+    def get_dolar_observado(self, obj):
+        value = getattr(obj, "dolar_observado", None)
+        return float(value) if value not in (None, "") else None
+
+    def get_valor_uf(self, obj):
+        value = getattr(obj, "valor_uf", None)
+        return float(value) if value not in (None, "") else None
+
+    def get_tiene_items_moneda_mixta(self, obj):
+        moneda_cotizacion = normalizar_moneda(getattr(obj, "tipo_moneda", None))
+        monedas_items = {
+            normalizar_moneda(getattr(item, "tipo_moneda", None) or "2")
+            for item in obj.items.all()
+        }
+        return any(moneda != moneda_cotizacion for moneda in monedas_items)
+
+    def get_monedas_items(self, obj):
+        monedas_items = sorted(
+            {
+                normalizar_moneda(getattr(item, "tipo_moneda", None) or "2")
+                for item in obj.items.all()
+            }
+        )
+        return monedas_items
+
+
 # Serializador para ContratoEmpresaCliente
 class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     # Mostramos los datos de las relaciones a través de inlines de solo lectura.
@@ -1029,6 +1138,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     contrato_visitas = ContratoVisitaSerializer(many=True, read_only=True)
     contrato_licencias = ContratoLicenciaSerializer(many=True, read_only=True)
     contrato_condiciones_especiales = ContratoCondicionEspecialSerializer(many=True, read_only=True)
+    cotizaciones_vinculadas = CotizacionVinculadaResumenSerializer(many=True, read_only=True)
     # La relación ManyToMany mediante el modelo intermedio se accede mediante el related_name "vinculos_contrato"
     vinculos_contrato = UsuarioVinculadoContratoSerializer(many=True, read_only=True)
     firmas_confidencialidad = AcuerdoConfidencialidadContratoSerializer(many=True, read_only=True)
@@ -1055,6 +1165,27 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        tipo_contrato = attrs.get("tipo") or getattr(self.instance, "tipo", None)
+        if tipo_contrato == "venta":
+            forma_pago_venta = resolver_forma_pago_venta(
+                self.instance,
+                forma_pago_venta=attrs.get("forma_pago_venta"),
+                forma_pago_contractual=attrs.get("forma_pago_contractual"),
+            )
+            try:
+                cuotas_venta = resolver_cuotas_venta(
+                    self.instance,
+                    forma_pago_venta=forma_pago_venta,
+                    cuotas_venta=attrs.get("cuotas_venta"),
+                    forma_pago_contractual=attrs.get("forma_pago_contractual"),
+                    strict=True,
+                    require_hitos="cuotas_venta" in attrs,
+                )
+            except ValueError as exc:
+                raise serializers.ValidationError({"cuotas_venta": [str(exc)]}) from exc
+            attrs["forma_pago_venta"] = forma_pago_venta
+            attrs["cuotas_venta"] = cuotas_venta
+            attrs["forma_pago_contractual"] = "pago_unico"
         if self.instance:
             campos_bloqueados = {"estado", "empresa_prestadora", "empresa_cliente", "tipo"}
             presentes = campos_bloqueados.intersection(attrs.keys())
@@ -1082,8 +1213,12 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         # Verifica que exista al menos un usuario vinculado
         if not obj.vinculos_contrato.exists():
             return False
-        # Verifica que exista al menos un servicio asociado al contrato
-        if not obj.items_comerciales.exists() and not obj.contrato_servicios.exists():
+        tiene_contenido_comercial = (
+            obj.items_comerciales.exists()
+            or obj.contrato_servicios.exists()
+            or (obj.tipo == "venta" and obj.cotizaciones_vinculadas.exists())
+        )
+        if not tiene_contenido_comercial:
             return False
         return True
 
@@ -1122,6 +1257,9 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             "fecha_respuesta": envio.fecha_respuesta,
             "comentario_respuesta": envio.comentario_respuesta,
             "version_envio": envio.version_envio,
+            "deprecado": envio.deprecado,
+            "fecha_deprecacion": envio.fecha_deprecacion,
+            "motivo_deprecacion": envio.motivo_deprecacion,
         }
 
     def get_ultimo_envio_firma(self, obj):
@@ -1147,6 +1285,11 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         return envio.comentario_respuesta if envio else None
 
     def get_total_contrato(self, obj):
+        if obj.tipo == "venta":
+            try:
+                return construir_resumen_venta_contrato(obj)["total_contrato"]
+            except ValueError:
+                return 0
         if obj.items_comerciales.exists():
             total_servicios = float(obj.total_items_comerciales)
         else:
@@ -1177,6 +1320,29 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         ]
 
     def get_resumen_comercial(self, obj):
+        if obj.tipo == "venta":
+            try:
+                return construir_resumen_venta_contrato(obj)
+            except ValueError as exc:
+                return {
+                    "tipo_resumen": "venta",
+                    "moneda": obj.moneda_cobro,
+                    "forma_pago_contractual": "pago_unico",
+                    "forma_pago_venta": resolver_forma_pago_venta(obj),
+                    "forma_pago_venta_label": (
+                        "Cuotas" if resolver_forma_pago_venta(obj) == "cuotas" else "Contado"
+                    ),
+                    "total_mensual": 0,
+                    "total_anual": 0,
+                    "total_pago_unico": 0,
+                    "total_licencias": 0,
+                    "total_contrato": 0,
+                    "cuotas_venta": [],
+                    "cuotas_venta_resumen": [],
+                    "cotizaciones_vinculadas_count": obj.cotizaciones_vinculadas.count(),
+                    "cotizaciones_detalle": [],
+                    "errores_conversion": [str(exc)],
+                }
         total_mensual = sum(float(item.total_mensual) for item in obj.items_comerciales.all())
         total_anual = sum(float(item.total_anual) for item in obj.items_comerciales.all())
         total_pago_unico = sum(float(item.total_pago_unico) for item in obj.items_comerciales.all())
@@ -1185,6 +1351,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             for licencia in obj.contrato_licencias.all()
         )
         return {
+            "tipo_resumen": obj.tipo,
             "moneda": obj.moneda_cobro,
             "forma_pago_contractual": obj.forma_pago_contractual,
             "total_mensual": total_mensual,
@@ -1219,6 +1386,7 @@ class FacturaContratoSerializer(serializers.ModelSerializer):
         source="empresa_prestadora.nombre", read_only=True
     )
     creado_por_nombre = serializers.SerializerMethodField()
+    monto_calculado = serializers.SerializerMethodField()
 
     class Meta:
         model = FacturaContrato
@@ -1240,3 +1408,59 @@ class FacturaContratoSerializer(serializers.ModelSerializer):
         if obj.creado_por:
             return str(obj.creado_por)
         return None
+
+    def get_monto_calculado(self, obj):
+        return str(obj.contrato.total_items_comerciales or 0)
+
+
+# ── Serializers para Matching OT → Contrato ──
+
+class ContratoVisitaMatchingSerializer(serializers.ModelSerializer):
+    descripcion_visita = serializers.SerializerMethodField()
+    frecuencia_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContratoVisita
+        fields = [
+            "id", "visita", "frecuencia", "frecuencia_label",
+            "cantidad", "visitas_usadas", "descripcion_visita",
+        ]
+
+    def get_descripcion_visita(self, obj):
+        return obj.visita.descripcion
+
+    def get_frecuencia_label(self, obj):
+        return obj.get_frecuencia_display()
+
+
+class ContratoItemComercialMatchingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContratoItemComercial
+        fields = [
+            "id", "tipo_origen", "snapshot_nombre", "cantidad", "veces_por_mes",
+            "precio_unitario_contratado", "total_mensual", "moneda",
+            "num_visitas_mensuales", "snapshot_componentes_plan",
+        ]
+
+
+class ContratoMatchingSerializer(serializers.ModelSerializer):
+    visitas = ContratoVisitaMatchingSerializer(
+        source="contrato_visitas", many=True, read_only=True
+    )
+    items_comerciales = ContratoItemComercialMatchingSerializer(
+        many=True, read_only=True
+    )
+    estado_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContratoEmpresaCliente
+        fields = [
+            "id", "nombre", "estado", "estado_label",
+            "empresa_cliente",
+            "moneda_cobro", "dia_facturacion",
+            "fecha_inicio", "fecha_fin",
+            "visitas", "items_comerciales",
+        ]
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()

@@ -14,15 +14,20 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
-import { IContratoBorradorPayload } from '@/interface/contrato.interface';
+import {
+    IContratoBorradorPayload,
+    ICotizacionVinculadaResumen,
+    ICuotaVenta,
+} from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { useAppSelector } from '@/store';
 import {
     useCreateContratoCompletoMutation,
     useGetCondicionesEspecialesQuery,
+    useGetCotizacionesDisponiblesClienteQuery,
     useGetLicenciasCatalogoQuery,
     useGetPlanesServicioQuery,
-    useGetServiciosQuery,
+    useGetServiciosQuery
 } from '@/store/slices/contratos/contratoApi';
 import {
     useGetPlantillasContratoQuery,
@@ -42,13 +47,16 @@ import ModalLicenciaContrato from './ModalLicenciaContrato';
 
 // Tipos
 
-type TWizardStep = 1 | 2 | 3 | 4;
+type TWizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const STEP_LABELS: Record<TWizardStep, string> = {
-    1: 'Datos del contrato',
-    2: 'Plan y Servicios',
-    3: 'Licencias',
-    4: 'Revisi\u00f3n',
+    1: 'Datos b\u00e1sicos',
+    2: 'Configuraci\u00f3n comercial',
+    3: 'Destinatario',
+    4: 'Plan y Servicios',
+    5: 'Licencias',
+    6: 'Cotizaciones',
+    7: 'Revisi\u00f3n',
 };
 
 const MONEDA_OPTIONS: TSelectOption[] = [
@@ -61,6 +69,27 @@ const FORMA_PAGO_OPTIONS: TSelectOption[] = [
     { value: 'mensual', label: 'Mensual' },
     { value: 'anual', label: 'Anual' },
     { value: 'pago_unico', label: 'Pago unico' },
+];
+
+const FORMA_PAGO_VENTA_OPTIONS: TSelectOption[] = [
+    { value: 'contado', label: 'Contado' },
+    { value: 'cuotas', label: 'Cuotas' },
+];
+
+type THitoPagoVenta = NonNullable<ICuotaVenta['hito_pago_tipo']>;
+
+const HITO_PAGO_VENTA_LABELS: Record<THitoPagoVenta, string> = {
+    inicio: 'Inicio',
+    entrega_intermedia: 'Entrega intermedia',
+    entrega_final: 'Entrega final',
+    personalizado: 'Personalizado',
+};
+
+const HITO_PAGO_VENTA_OPTIONS: TSelectOption[] = [
+    { value: 'inicio', label: HITO_PAGO_VENTA_LABELS.inicio },
+    { value: 'entrega_intermedia', label: HITO_PAGO_VENTA_LABELS.entrega_intermedia },
+    { value: 'entrega_final', label: HITO_PAGO_VENTA_LABELS.entrega_final },
+    { value: 'personalizado', label: HITO_PAGO_VENTA_LABELS.personalizado },
 ];
 
 const formatCurrencyByMoneda = (
@@ -81,6 +110,41 @@ const formatCurrencyByMoneda = (
     }).format(value);
 };
 
+const normalizeCurrency = (currency?: string | null): 'CLP' | 'UF' | 'USD' => {
+    if (currency === '1') return 'USD';
+    if (currency === '2') return 'CLP';
+    if (currency === '3') return 'UF';
+    if (currency === 'CLP' || currency === 'UF' || currency === 'USD') return currency;
+    return 'CLP';
+};
+
+const getHitoPagoVentaLabel = (tipo?: THitoPagoVenta | null) =>
+    (tipo ? HITO_PAGO_VENTA_LABELS[tipo] : null) || HITO_PAGO_VENTA_LABELS.inicio;
+
+const buildCuotaVenta = (
+    orden: number,
+    hitoPagoTipo: THitoPagoVenta = orden === 1 ? 'inicio' : 'entrega_intermedia',
+): ICuotaVenta => ({
+    orden,
+    porcentaje: orden === 1 ? 100 : 0,
+    hito_pago_tipo: hitoPagoTipo,
+    hito_pago_descripcion: getHitoPagoVentaLabel(hitoPagoTipo),
+});
+
+const buildDefaultCuotasVenta = (): ICuotaVenta[] => [buildCuotaVenta(1, 'inicio')];
+
+const getCuotaFieldError = (
+    cuotasErrors: unknown,
+    index: number,
+    field: 'porcentaje' | 'hito_pago_tipo' | 'hito_pago_descripcion',
+) => {
+    if (!Array.isArray(cuotasErrors)) return null;
+    const cuotaError = cuotasErrors[index];
+    if (!cuotaError || typeof cuotaError !== 'object') return null;
+    const value = (cuotaError as Record<string, unknown>)[field];
+    return typeof value === 'string' ? value : null;
+};
+
 interface ICrearContratoDelClienteProps {
     detalleCliente?: IRelacionEmpresa;
     /** Control externo: si se define, el modal se abre/cierra desde afuera */
@@ -99,16 +163,21 @@ const WizardStepper = ({
     step,
     esServicios,
     esLicencia,
+    esVenta,
 }: {
     step: TWizardStep;
     esServicios: boolean;
     esLicencia: boolean;
+    esVenta: boolean;
 }) => {
     const pasos: { key: TWizardStep; label: string; visible: boolean }[] = [
         { key: 1, label: STEP_LABELS[1], visible: true },
-        { key: 2, label: STEP_LABELS[2], visible: esServicios },
-        { key: 3, label: STEP_LABELS[3], visible: esLicencia },
-        { key: 4, label: STEP_LABELS[4], visible: true },
+        { key: 2, label: STEP_LABELS[2], visible: true },
+        { key: 3, label: STEP_LABELS[3], visible: true },
+        { key: 4, label: STEP_LABELS[4], visible: esServicios },
+        { key: 5, label: STEP_LABELS[5], visible: esLicencia },
+        { key: 6, label: STEP_LABELS[6], visible: esVenta },
+        { key: 7, label: STEP_LABELS[7], visible: true },
     ];
 
     const pasosVisibles = pasos.filter((p) => p.visible);
@@ -170,6 +239,7 @@ function CrearContratoDelCliente({
 
     const [step, setStep] = useState<TWizardStep>(1);
     const [modalAddLicencia, setModalAddLicencia] = useState(false);
+    const [cotizacionesSeleccionadas, setCotizacionesSeleccionadas] = useState<number[]>([]);
 
     // Estado para la seleccion de plan/servicios (Paso 2)
     const SELECCION_INICIAL: ISeleccionPlanServicios = {
@@ -177,6 +247,7 @@ function CrearContratoDelCliente({
         plan_id: null,
         plan_cantidad: 1,
         plan_precio_unitario: 0,
+        plan_num_visitas_mensuales: null,
         servicios: [],
     };
     const [seleccionPlan, setSeleccionPlan] = useState<ISeleccionPlanServicios>(SELECCION_INICIAL);
@@ -237,7 +308,10 @@ function CrearContratoDelCliente({
             tipo: tipoFijo ?? '',
             moneda_cobro: 'USD',
             forma_pago_contractual: 'mensual',
+            forma_pago_venta: 'contado',
+            cuotas_venta: [] as ICuotaVenta[],
             plantilla: '',
+            dias_aviso_termino: 60,
             destinatario_modo: 'interno',
             destinatario_interno_id: '',
             destinatario_nombre: '',
@@ -254,9 +328,60 @@ function CrearContratoDelCliente({
             fecha_fin: Yup.string().notRequired().nullable(),
             observaciones: Yup.string().notRequired().nullable(),
             tipo: Yup.string().required('Requerido').nonNullable('Requerido'),
+            plantilla: Yup.string().required('Debes seleccionar una plantilla'),
             moneda_cobro: Yup.string().oneOf(['CLP', 'UF', 'USD']).required('Requerido'),
             forma_pago_contractual: Yup.string()
                 .oneOf(['mensual', 'anual', 'pago_unico'])
+                .required('Requerido'),
+            forma_pago_venta: Yup.string().when('tipo', {
+                is: 'venta',
+                then: (schema) => schema.oneOf(['contado', 'cuotas']).required('Requerido'),
+                otherwise: (schema) => schema.notRequired(),
+            }),
+            cuotas_venta: Yup.array()
+                .of(
+                    Yup.object({
+                        orden: Yup.number().min(1).required(),
+                        porcentaje: Yup.number().moreThan(0, 'Debe ser mayor a 0').required(),
+                        hito_pago_tipo: Yup.string()
+                            .oneOf([
+                                'inicio',
+                                'entrega_intermedia',
+                                'entrega_final',
+                                'personalizado',
+                            ])
+                            .required('Selecciona cuando se cobra la cuota'),
+                        hito_pago_descripcion: Yup.string().when('hito_pago_tipo', {
+                            is: 'personalizado',
+                            then: (schema) =>
+                                schema
+                                    .trim()
+                                    .required('Describe el hito de cobro para esta cuota'),
+                            otherwise: (schema) => schema.notRequired(),
+                        }),
+                    }),
+                )
+                .when(['tipo', 'forma_pago_venta'], {
+                    is: (tipo: string, formaPagoVenta: string) =>
+                        tipo === 'venta' && formaPagoVenta === 'cuotas',
+                    then: (schema) =>
+                        schema
+                            .min(1, 'Debes agregar al menos una cuota')
+                            .test(
+                                'sum-100',
+                                'La suma de cuotas debe ser exactamente 100%',
+                                (value) =>
+                                    Math.round(
+                                        (value ?? []).reduce(
+                                            (acc, cuota) => acc + Number(cuota?.porcentaje || 0),
+                                            0,
+                                        ) * 100,
+                                    ) === 10000,
+                            ),
+                    otherwise: (schema) => schema.notRequired(),
+                }),
+            dias_aviso_termino: Yup.number()
+                .min(0, 'Debe ser mayor o igual a 0')
                 .required('Requerido'),
             destinatario_modo: Yup.string().oneOf(['interno', 'externo']).required('Requerido'),
             destinatario_interno_id: Yup.string().when('destinatario_modo', {
@@ -289,11 +414,29 @@ function CrearContratoDelCliente({
                     empresa_prestadora: detalleCliente?.prestador_servicios,
                     empresa_cliente: detalleCliente?.info_cliente.id,
                     moneda_cobro: values.moneda_cobro as 'CLP' | 'UF' | 'USD',
-                    forma_pago_contractual: values.forma_pago_contractual as
-                        | 'mensual'
-                        | 'anual'
-                        | 'pago_unico',
-                    plantilla: values.plantilla ? Number(values.plantilla) : null,
+                    forma_pago_contractual: (values.tipo === 'venta'
+                        ? 'pago_unico'
+                        : values.forma_pago_contractual) as 'mensual' | 'anual' | 'pago_unico',
+                    forma_pago_venta:
+                        values.tipo === 'venta'
+                            ? (values.forma_pago_venta as 'contado' | 'cuotas')
+                            : undefined,
+                    cuotas_venta:
+                        values.tipo === 'venta' && values.forma_pago_venta === 'cuotas'
+                            ? values.cuotas_venta.map((cuota) => ({
+                                  orden: cuota.orden,
+                                  porcentaje: Number(cuota.porcentaje),
+                                  hito_pago_tipo: cuota.hito_pago_tipo,
+                                  hito_pago_descripcion:
+                                      cuota.hito_pago_tipo === 'personalizado'
+                                          ? cuota.hito_pago_descripcion?.trim() || ''
+                                          : getHitoPagoVentaLabel(
+                                                cuota.hito_pago_tipo as THitoPagoVenta | null,
+                                            ),
+                              }))
+                            : [],
+                    plantilla: Number(values.plantilla),
+                    dias_aviso_termino: values.dias_aviso_termino,
                 };
 
                 const destinatarioPrincipal =
@@ -326,6 +469,10 @@ function CrearContratoDelCliente({
                                             cantidad: seleccionPlan.plan_cantidad,
                                             precio_unitario_contratado:
                                                 seleccionPlan.plan_precio_unitario,
+                                            ...(seleccionPlan.plan_num_visitas_mensuales != null && {
+                                                num_visitas_mensuales:
+                                                    seleccionPlan.plan_num_visitas_mensuales,
+                                            }),
                                         }
                                       : null,
                               addons:
@@ -365,7 +512,10 @@ function CrearContratoDelCliente({
                         tipo_moneda: lic.tipo_moneda,
                     })),
                     condiciones_especiales: licFormik.values.condiciones_especiales,
-                    visitas: licFormik.values.visitas,
+                    cotizaciones_ids:
+                        esVenta && cotizacionesSeleccionadas.length > 0
+                            ? cotizacionesSeleccionadas
+                            : undefined,
                 }).unwrap();
 
                 toast.success('Contrato creado', { autoClose: 1000 });
@@ -399,11 +549,40 @@ function CrearContratoDelCliente({
     }, [formik.values.plantilla, formik.values.tipo, plantillasContrato, tipoFijo]);
 
     const esLicencia = formik.values.tipo === 'licencia' || tipoFijo === 'licencia';
+    const esVenta = formik.values.tipo === 'venta' || tipoFijo === 'venta';
     const esServicios =
         formik.values.tipo === 'servicios' ||
         formik.values.tipo === 'licencia' ||
         tipoFijo === 'servicios' ||
         tipoFijo === 'licencia';
+
+    useEffect(() => {
+        if (!esVenta) return;
+        if (formik.values.forma_pago_contractual !== 'pago_unico') {
+            formik.setFieldValue('forma_pago_contractual', 'pago_unico');
+        }
+        if (
+            formik.values.forma_pago_venta === 'cuotas' &&
+            formik.values.cuotas_venta.length === 0
+        ) {
+            formik.setFieldValue('cuotas_venta', buildDefaultCuotasVenta());
+        }
+        if (
+            formik.values.forma_pago_venta === 'contado' &&
+            formik.values.cuotas_venta.length > 0
+        ) {
+            formik.setFieldValue('cuotas_venta', []);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esVenta, formik.values.forma_pago_venta, formik.values.cuotas_venta.length]);
+
+    const { data: cotizacionesDisponibles = [] } = useGetCotizacionesDisponiblesClienteQuery(
+        detalleCliente?.info_cliente.id ?? '',
+        {
+            skip: !detalleCliente?.info_cliente.id || !isOpen || !esVenta,
+        },
+    );
+
     const monedaContrato = formik.values.moneda_cobro as 'CLP' | 'UF' | 'USD';
     const totalPlanSeleccionado =
         seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
@@ -417,6 +596,12 @@ function CrearContratoDelCliente({
         (acc, item) => acc + item.cantidad * item.precio_unitario,
         0,
     );
+    const totalCotizacionesSeleccionadas = cotizacionesSeleccionadas.reduce((acc, cotizacionId) => {
+        const cotizacion = cotizacionesDisponibles.find(
+            (item: ICotizacionVinculadaResumen) => item.id === cotizacionId,
+        );
+        return acc + Number(cotizacion?.total_convertido ?? 0);
+    }, 0);
 
     const handleClose = () => {
         if (isControlledExternally) {
@@ -426,6 +611,7 @@ function CrearContratoDelCliente({
         }
         setStep(1);
         setSeleccionPlan(SELECCION_INICIAL);
+        setCotizacionesSeleccionadas([]);
         formik.resetForm();
         licFormik.resetForm();
     };
@@ -433,26 +619,53 @@ function CrearContratoDelCliente({
     const handleSiguiente = async () => {
         if (step === 1) {
             const errors = await formik.validateForm();
+            const step1Fields = ['nombre', 'tipo', 'fecha_inicio', 'fecha_fin', 'observaciones'];
             formik.setTouched(
-                Object.keys(formik.values).reduce(
-                    (acc, key) => ({ ...acc, [key]: true }),
-                    {},
-                ),
+                step1Fields.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
             );
-            if (Object.keys(errors).length > 0) return;
-            setStep(esServicios ? 2 : esLicencia ? 3 : 4);
+            const step1Errors = step1Fields.filter((k) => errors[k as keyof typeof errors]);
+            if (step1Errors.length > 0) return;
+            setStep(2);
         } else if (step === 2) {
-            setStep(esLicencia ? 3 : 4);
+            const errors = await formik.validateForm();
+            const step2Fields = esVenta
+                ? ['plantilla', 'moneda_cobro', 'forma_pago_venta', 'cuotas_venta', 'dias_aviso_termino']
+                : ['plantilla', 'moneda_cobro', 'forma_pago_contractual', 'dias_aviso_termino'];
+            formik.setTouched(
+                step2Fields.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+            );
+            const step2Errors = step2Fields.filter((k) => errors[k as keyof typeof errors]);
+            if (step2Errors.length > 0) return;
+            setStep(3);
         } else if (step === 3) {
-            setStep(4);
+            const errors = await formik.validateForm();
+            const step3Fields = ['destinatario_modo', 'destinatario_interno_id', 'destinatario_nombre', 'destinatario_correo'];
+            formik.setTouched(
+                step3Fields.reduce((acc, key) => ({ ...acc, [key]: true }), {}),
+            );
+            const step3Errors = step3Fields.filter((k) => errors[k as keyof typeof errors]);
+            if (step3Errors.length > 0) return;
+            setStep(esServicios ? 4 : esLicencia ? 5 : esVenta ? 6 : 7);
+        } else if (step === 4) {
+            setStep(esLicencia ? 5 : esVenta ? 6 : 7);
+        } else if (step === 5) {
+            setStep(esVenta ? 6 : 7);
+        } else if (step === 6) {
+            setStep(7);
         }
     };
 
     const handleAtras = () => {
-        if (step === 4) {
-            setStep(esLicencia ? 3 : esServicios ? 2 : 1);
+        if (step === 7) {
+            setStep(esVenta ? 6 : esLicencia ? 5 : esServicios ? 4 : 3);
+        } else if (step === 6) {
+            setStep(esLicencia ? 5 : esServicios ? 4 : 3);
+        } else if (step === 5) {
+            setStep(esServicios ? 4 : 3);
+        } else if (step === 4) {
+            setStep(3);
         } else if (step === 3) {
-            setStep(esServicios ? 2 : 1);
+            setStep(2);
         } else if (step === 2) {
             setStep(1);
         }
@@ -519,9 +732,9 @@ function CrearContratoDelCliente({
                     <Badge className='text-xl'>Crear Contrato</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} />
+                    <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} esVenta={esVenta} />
 
-                    {/* Paso 1: Datos del contrato */}
+                    {/* Paso 1: Datos básicos */}
                     {step === 1 && (
                         <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                             <div>
@@ -571,6 +784,332 @@ function CrearContratoDelCliente({
                                     </Validation>
                                 )}
                             </div>
+                            <div>
+                                <Label htmlFor='fecha_inicio'>Fecha de inicio</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.fecha_inicio}
+                                    invalidFeedback={formik.errors.fecha_inicio}>
+                                    <Input
+                                        id='fecha_inicio'
+                                        name='fecha_inicio'
+                                        type='date'
+                                        onChange={formik.handleChange}
+                                        value={formik.values.fecha_inicio}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </Validation>
+                            </div>
+                            <div>
+                                <Label htmlFor='fecha_fin'>Fecha de fin</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.fecha_fin}
+                                    invalidFeedback={formik.errors.fecha_fin}>
+                                    <Input
+                                        id='fecha_fin'
+                                        name='fecha_fin'
+                                        type='date'
+                                        onChange={formik.handleChange}
+                                        value={formik.values.fecha_fin}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </Validation>
+                            </div>
+                            <div className='md:col-span-2'>
+                                <Label htmlFor='observaciones'>Observaciones</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.observaciones}
+                                    invalidFeedback={formik.errors.observaciones}>
+                                    <Textarea
+                                        id='observaciones'
+                                        name='observaciones'
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                        value={formik.values.observaciones}
+                                    />
+                                </Validation>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Paso 2: Configuración comercial + Plantilla */}
+                    {step === 2 && (
+                        <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                            <div>
+                                <Label htmlFor='moneda_cobro'>Moneda contractual</Label>
+                                <SelectReact
+                                    name='moneda_cobro'
+                                    options={MONEDA_OPTIONS}
+                                    value={
+                                        MONEDA_OPTIONS.find(
+                                            (option) => option.value === formik.values.moneda_cobro,
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        formik.setFieldValue(
+                                            'moneda_cobro',
+                                            (option as TSelectOption | null)?.value ?? 'USD',
+                                        )
+                                    }
+                                    placeholder='Selecciona una moneda'
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor={esVenta ? 'forma_pago_venta' : 'forma_pago_contractual'}>
+                                    Forma de pago
+                                </Label>
+                                <SelectReact
+                                    name={esVenta ? 'forma_pago_venta' : 'forma_pago_contractual'}
+                                    options={esVenta ? FORMA_PAGO_VENTA_OPTIONS : FORMA_PAGO_OPTIONS}
+                                    value={
+                                        (esVenta ? FORMA_PAGO_VENTA_OPTIONS : FORMA_PAGO_OPTIONS).find(
+                                            (option) =>
+                                                option.value ===
+                                                (esVenta
+                                                    ? formik.values.forma_pago_venta
+                                                    : formik.values.forma_pago_contractual),
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        formik.setFieldValue(
+                                            esVenta ? 'forma_pago_venta' : 'forma_pago_contractual',
+                                            (option as TSelectOption | null)?.value ??
+                                                (esVenta ? 'contado' : 'mensual'),
+                                        )
+                                    }
+                                    placeholder='Selecciona una forma de pago'
+                                />
+                                {esVenta && (
+                                    <p className='mt-1 text-xs text-zinc-500'>
+                                        Para venta el pago se configura como contado o cuotas.
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <Label htmlFor='dias_aviso_termino'>Días de aviso previo</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.dias_aviso_termino}
+                                    invalidFeedback={formik.errors.dias_aviso_termino}>
+                                    <Input
+                                        id='dias_aviso_termino'
+                                        name='dias_aviso_termino'
+                                        type='number'
+                                        onChange={formik.handleChange}
+                                        value={String(formik.values.dias_aviso_termino)}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </Validation>
+                                <p className='mt-1 text-xs text-zinc-500'>
+                                    Días de anticipación para notificar el término del contrato.
+                                </p>
+                            </div>
+                            {esVenta && formik.values.forma_pago_venta === 'cuotas' && (
+                                <div className='rounded-lg border border-zinc-200 p-4 md:col-span-2 dark:border-zinc-700'>
+                                    <div className='mb-3 flex items-center justify-between gap-3'>
+                                        <div>
+                                            <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
+                                                Cuotas de venta
+                                            </p>
+                                            <p className='text-xs text-zinc-500'>
+                                                La suma de porcentajes debe ser exactamente 100%.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            size='sm'
+                                            icon='HeroPlus'
+                                            onClick={() =>
+                                                formik.setFieldValue('cuotas_venta', [
+                                                    ...formik.values.cuotas_venta,
+                                                    buildCuotaVenta(
+                                                        formik.values.cuotas_venta.length + 1,
+                                                    ),
+                                                ])
+                                            }>
+                                            Agregar cuota
+                                        </Button>
+                                    </div>
+                                    <div className='space-y-3'>
+                                        {formik.values.cuotas_venta.map((cuota, index) => (
+                                            <div
+                                                key={`cuota-${cuota.orden}-${index}`}
+                                                className='grid gap-3 rounded-md border border-zinc-200 p-3 md:grid-cols-[120px,1fr,1fr,140px] dark:border-zinc-700'>
+                                                <div className='flex items-center text-sm font-medium text-zinc-800 dark:text-zinc-100'>
+                                                    Cuota {cuota.orden}
+                                                </div>
+                                                <div>
+                                                    <Label htmlFor={`cuotas_venta.${index}.porcentaje`}>
+                                                        Porcentaje
+                                                    </Label>
+                                                    <Input
+                                                        id={`cuotas_venta.${index}.porcentaje`}
+                                                        name={`cuotas_venta.${index}.porcentaje`}
+                                                        type='number'
+                                                        value={String(cuota.porcentaje)}
+                                                        onChange={(event) => {
+                                                            const next = [...formik.values.cuotas_venta];
+                                                            next[index] = {
+                                                                ...next[index],
+                                                                porcentaje: Number(event.target.value),
+                                                            };
+                                                            formik.setFieldValue('cuotas_venta', next);
+                                                        }}
+                                                    />
+                                                    {formik.submitCount > 0 &&
+                                                        getCuotaFieldError(
+                                                            formik.errors.cuotas_venta,
+                                                            index,
+                                                            'porcentaje',
+                                                        ) && (
+                                                            <p className='mt-1 text-xs text-red-500'>
+                                                                {getCuotaFieldError(
+                                                                    formik.errors.cuotas_venta,
+                                                                    index,
+                                                                    'porcentaje',
+                                                                )}
+                                                            </p>
+                                                        )}
+                                                </div>
+                                                <div>
+                                                    <Label htmlFor={`cuotas_venta.${index}.hito_pago_tipo`}>
+                                                        Cuando se paga
+                                                    </Label>
+                                                    <SelectReact
+                                                        name={`cuotas_venta.${index}.hito_pago_tipo`}
+                                                        options={HITO_PAGO_VENTA_OPTIONS}
+                                                        value={
+                                                            HITO_PAGO_VENTA_OPTIONS.find(
+                                                                (option) =>
+                                                                    option.value === cuota.hito_pago_tipo,
+                                                            ) ?? null
+                                                        }
+                                                        onChange={(option) => {
+                                                            const tipo =
+                                                                ((option as TSelectOption | null)
+                                                                    ?.value as THitoPagoVenta | undefined) ??
+                                                                'inicio';
+                                                            const next = [...formik.values.cuotas_venta];
+                                                            next[index] = {
+                                                                ...next[index],
+                                                                hito_pago_tipo: tipo,
+                                                                hito_pago_descripcion:
+                                                                    tipo === 'personalizado'
+                                                                        ? next[index]
+                                                                              .hito_pago_descripcion || ''
+                                                                        : getHitoPagoVentaLabel(tipo),
+                                                            };
+                                                            formik.setFieldValue('cuotas_venta', next);
+                                                        }}
+                                                        placeholder='Selecciona un hito'
+                                                    />
+                                                    {cuota.hito_pago_tipo === 'personalizado' ? (
+                                                        <div className='mt-2'>
+                                                            <Input
+                                                                id={`cuotas_venta.${index}.hito_pago_descripcion`}
+                                                                name={`cuotas_venta.${index}.hito_pago_descripcion`}
+                                                                type='text'
+                                                                value={
+                                                                    cuota.hito_pago_descripcion || ''
+                                                                }
+                                                                placeholder='Ej: Contra acta de recepcion'
+                                                                onChange={(event) => {
+                                                                    const next = [
+                                                                        ...formik.values.cuotas_venta,
+                                                                    ];
+                                                                    next[index] = {
+                                                                        ...next[index],
+                                                                        hito_pago_descripcion:
+                                                                            event.target.value,
+                                                                    };
+                                                                    formik.setFieldValue(
+                                                                        'cuotas_venta',
+                                                                        next,
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <p className='mt-2 text-xs text-zinc-500'>
+                                                            Se mostrara como:{' '}
+                                                            {getHitoPagoVentaLabel(
+                                                                cuota.hito_pago_tipo as THitoPagoVenta | null,
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                    {formik.submitCount > 0 &&
+                                                        (getCuotaFieldError(
+                                                            formik.errors.cuotas_venta,
+                                                            index,
+                                                            'hito_pago_tipo',
+                                                        ) ||
+                                                            getCuotaFieldError(
+                                                                formik.errors.cuotas_venta,
+                                                                index,
+                                                                'hito_pago_descripcion',
+                                                            )) && (
+                                                            <p className='mt-1 text-xs text-red-500'>
+                                                                {getCuotaFieldError(
+                                                                    formik.errors.cuotas_venta,
+                                                                    index,
+                                                                    'hito_pago_tipo',
+                                                                ) ||
+                                                                    getCuotaFieldError(
+                                                                        formik.errors.cuotas_venta,
+                                                                        index,
+                                                                        'hito_pago_descripcion',
+                                                                    )}
+                                                            </p>
+                                                        )}
+                                                </div>
+                                                <div className='flex items-end justify-end'>
+                                                    <Button
+                                                        color='red'
+                                                        isDisable={formik.values.cuotas_venta.length === 1}
+                                                        onClick={() =>
+                                                            formik.setFieldValue(
+                                                                'cuotas_venta',
+                                                                formik.values.cuotas_venta
+                                                                    .filter((_, cuotaIndex) => cuotaIndex !== index)
+                                                                    .map((item, cuotaIndex) => ({
+                                                                        ...item,
+                                                                        orden: cuotaIndex + 1,
+                                                                    })),
+                                                            )
+                                                        }>
+                                                        Eliminar
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className='mt-3 flex items-center justify-between text-xs text-zinc-500'>
+                                        <span>
+                                            Suma actual:{' '}
+                                            {formik.values.cuotas_venta.reduce(
+                                                (acc, cuota) => acc + Number(cuota.porcentaje || 0),
+                                                0,
+                                            )}
+                                            %
+                                        </span>
+                                        {totalCotizacionesSeleccionadas > 0 && (
+                                            <span>
+                                                Total estimado:{' '}
+                                                {formatCurrencyByMoneda(
+                                                    totalCotizacionesSeleccionadas,
+                                                    monedaContrato,
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {typeof formik.errors.cuotas_venta === 'string' && (
+                                        <p className='mt-2 text-xs text-red-500'>
+                                            {formik.errors.cuotas_venta}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             <div className='rounded-lg border border-blue-200 bg-blue-50/60 p-4 md:col-span-2 dark:border-blue-900/60 dark:bg-blue-950/20'>
                                 <div className='flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
                                     <div className='max-w-xl'>
@@ -591,35 +1130,39 @@ function CrearContratoDelCliente({
                                 </div>
                                 <div className='mt-4'>
                                     <Label htmlFor='plantilla'>Plantilla del documento</Label>
-                                    <SelectReact
-                                        name='plantilla'
-                                        options={plantillaOptions}
-                                        value={
-                                            plantillaOptions.find(
-                                                (option) => option.value === formik.values.plantilla,
-                                            ) ?? null
-                                        }
-                                        onChange={(option) =>
-                                            formik.setFieldValue(
-                                                'plantilla',
-                                                (option as TSelectOption | null)?.value ?? '',
-                                            )
-                                        }
-                                        isClearable
-                                        isDisabled={!tipoContratoSeleccionado}
-                                        placeholder={
-                                            tipoContratoSeleccionado
-                                                ? 'Sin plantilla (opcional)'
-                                                : 'Selecciona primero el tipo de contrato'
-                                        }
-                                        noOptionsMessage={() =>
-                                            tipoContratoSeleccionado
-                                                ? 'No hay plantillas activas para este tipo'
-                                                : 'Selecciona primero el tipo de contrato'
-                                        }
-                                    />
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.plantilla}
+                                        invalidFeedback={formik.errors.plantilla}>
+                                        <SelectReact
+                                            name='plantilla'
+                                            options={plantillaOptions}
+                                            value={
+                                                plantillaOptions.find(
+                                                    (option) => option.value === formik.values.plantilla,
+                                                ) ?? null
+                                            }
+                                            onChange={(option) =>
+                                                formik.setFieldValue(
+                                                    'plantilla',
+                                                    (option as TSelectOption | null)?.value ?? '',
+                                                )
+                                            }
+                                            isDisabled={!tipoContratoSeleccionado}
+                                            placeholder={
+                                                tipoContratoSeleccionado
+                                                    ? 'Selecciona una plantilla'
+                                                    : 'Selecciona primero el tipo de contrato'
+                                            }
+                                            noOptionsMessage={() =>
+                                                tipoContratoSeleccionado
+                                                    ? 'No hay plantillas activas para este tipo'
+                                                    : 'Selecciona primero el tipo de contrato'
+                                            }
+                                        />
+                                    </Validation>
                                     <p className='mt-2 text-xs text-zinc-500'>
-                                        Elegir una plantilla te deja partir desde una estructura lista para generar el borrador.
+                                        La plantilla define la estructura del documento del contrato. Las secciones se generan automáticamente.
                                     </p>
                                     {plantillaSeleccionada && (
                                         <div className='mt-3 rounded-lg border border-blue-200 bg-white p-3 dark:border-blue-900/60 dark:bg-zinc-950'>
@@ -670,208 +1213,124 @@ function CrearContratoDelCliente({
                                         )}
                                 </div>
                             </div>
-                            <div>
-                                <Label htmlFor='fecha_inicio'>Fecha de inicio</Label>
-                                <Validation
-                                    isValid={formik.isValid}
-                                    isTouched={formik.touched.fecha_inicio}
-                                    invalidFeedback={formik.errors.fecha_inicio}>
-                                    <Input
-                                        id='fecha_inicio'
-                                        name='fecha_inicio'
-                                        type='date'
-                                        onChange={formik.handleChange}
-                                        value={formik.values.fecha_inicio}
-                                        onBlur={formik.handleBlur}
-                                    />
-                                </Validation>
-                            </div>
-                            <div>
-                                <Label htmlFor='fecha_fin'>Fecha de fin</Label>
-                                <Validation
-                                    isValid={formik.isValid}
-                                    isTouched={formik.touched.fecha_fin}
-                                    invalidFeedback={formik.errors.fecha_fin}>
-                                    <Input
-                                        id='fecha_fin'
-                                        name='fecha_fin'
-                                        type='date'
-                                        onChange={formik.handleChange}
-                                        value={formik.values.fecha_fin}
-                                        onBlur={formik.handleBlur}
-                                    />
-                                </Validation>
-                            </div>
-                            <div>
-                                <Label htmlFor='moneda_cobro'>Moneda contractual</Label>
-                                <SelectReact
-                                    name='moneda_cobro'
-                                    options={MONEDA_OPTIONS}
-                                    value={
-                                        MONEDA_OPTIONS.find(
-                                            (option) => option.value === formik.values.moneda_cobro,
-                                        ) ?? null
-                                    }
-                                    onChange={(option) =>
-                                        formik.setFieldValue(
-                                            'moneda_cobro',
-                                            (option as TSelectOption | null)?.value ?? 'USD',
-                                        )
-                                    }
-                                    placeholder='Selecciona una moneda'
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor='forma_pago_contractual'>Forma de pago</Label>
-                                <SelectReact
-                                    name='forma_pago_contractual'
-                                    options={FORMA_PAGO_OPTIONS}
-                                    value={
-                                        FORMA_PAGO_OPTIONS.find(
-                                            (option) =>
-                                                option.value ===
-                                                formik.values.forma_pago_contractual,
-                                        ) ?? null
-                                    }
-                                    onChange={(option) =>
-                                        formik.setFieldValue(
-                                            'forma_pago_contractual',
-                                            (option as TSelectOption | null)?.value ?? 'mensual',
-                                        )
-                                    }
-                                    placeholder='Selecciona una forma de pago'
-                                />
-                            </div>
-                            <div className='md:col-span-2'>
-                                <Label htmlFor='observaciones'>Observaciones</Label>
-                                <Validation
-                                    isValid={formik.isValid}
-                                    isTouched={formik.touched.observaciones}
-                                    invalidFeedback={formik.errors.observaciones}>
-                                    <Textarea
-                                        id='observaciones'
-                                        name='observaciones'
-                                        onChange={formik.handleChange}
-                                        onBlur={formik.handleBlur}
-                                        value={formik.values.observaciones}
-                                    />
-                                </Validation>
-                            </div>
-                            <div className='col-span-full rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
-                                <div className='mb-3 flex items-center justify-between gap-3'>
-                                    <div>
-                                        <p className='text-sm font-semibold'>Destinatario principal</p>
-                                        <p className='text-xs text-zinc-500'>
-                                            Este contacto recibira la aprobacion del borrador y luego la firma.
-                                        </p>
-                                    </div>
-                                    <div className='flex gap-2'>
-                                        <Button
-                                            size='sm'
-                                            variant={
-                                                formik.values.destinatario_modo === 'interno'
-                                                    ? 'solid'
-                                                    : 'default'
-                                            }
-                                            onClick={() =>
-                                                formik.setFieldValue('destinatario_modo', 'interno')
-                                            }>
-                                            Usuario existente
-                                        </Button>
-                                        <Button
-                                            size='sm'
-                                            variant={
-                                                formik.values.destinatario_modo === 'externo'
-                                                    ? 'solid'
-                                                    : 'default'
-                                            }
-                                            onClick={() =>
-                                                formik.setFieldValue('destinatario_modo', 'externo')
-                                            }>
-                                            Contacto manual
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {formik.values.destinatario_modo === 'interno' ? (
-                                    <div>
-                                        <Label htmlFor='destinatario_interno_id'>
-                                            Usuario del cliente
-                                        </Label>
-                                        <Validation
-                                            isValid={formik.isValid}
-                                            isTouched={formik.touched.destinatario_interno_id}
-                                            invalidFeedback={formik.errors.destinatario_interno_id}>
-                                            <SelectReact
-                                                name='destinatario_interno_id'
-                                                options={usuariosClienteOptions}
-                                                value={
-                                                    usuariosClienteOptions.find(
-                                                        (option) =>
-                                                            option.value ===
-                                                            formik.values.destinatario_interno_id,
-                                                    ) ?? null
-                                                }
-                                                onChange={(option) =>
-                                                    formik.setFieldValue(
-                                                        'destinatario_interno_id',
-                                                        (option as TSelectOption | null)?.value ?? '',
-                                                    )
-                                                }
-                                                placeholder='Selecciona un usuario del cliente'
-                                            />
-                                        </Validation>
-                                    </div>
-                                ) : (
-                                    <div className='grid grid-cols-2 gap-4'>
-                                        <div>
-                                            <Label htmlFor='destinatario_nombre'>Nombre</Label>
-                                            <Validation
-                                                isValid={formik.isValid}
-                                                isTouched={formik.touched.destinatario_nombre}
-                                                invalidFeedback={formik.errors.destinatario_nombre}>
-                                                <Input
-                                                    id='destinatario_nombre'
-                                                    name='destinatario_nombre'
-                                                    onChange={formik.handleChange}
-                                                    value={formik.values.destinatario_nombre}
-                                                    onBlur={formik.handleBlur}
-                                                />
-                                            </Validation>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor='destinatario_correo'>Correo</Label>
-                                            <Validation
-                                                isValid={formik.isValid}
-                                                isTouched={formik.touched.destinatario_correo}
-                                                invalidFeedback={formik.errors.destinatario_correo}>
-                                                <Input
-                                                    id='destinatario_correo'
-                                                    name='destinatario_correo'
-                                                    type='email'
-                                                    onChange={formik.handleChange}
-                                                    value={formik.values.destinatario_correo}
-                                                    onBlur={formik.handleBlur}
-                                                />
-                                            </Validation>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            
                         </div>
                     )}
 
-                    {/* Paso 2: Plan y servicios */}
-                    {step === 2 && (
+                    {/* Paso 3: Destinatario */}
+                    {step === 3 && (
+                        <div className='col-span-full rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                            <div className='mb-3 flex items-center justify-between gap-3'>
+                                <div>
+                                    <p className='text-sm font-semibold'>Destinatario principal</p>
+                                    <p className='text-xs text-zinc-500'>
+                                        Este contacto recibira la aprobacion del borrador y luego la firma.
+                                    </p>
+                                </div>
+                                <div className='flex gap-2'>
+                                    <Button
+                                        size='sm'
+                                        variant={
+                                            formik.values.destinatario_modo === 'interno'
+                                                ? 'solid'
+                                                : 'default'
+                                        }
+                                        onClick={() =>
+                                            formik.setFieldValue('destinatario_modo', 'interno')
+                                        }>
+                                        Usuario existente
+                                    </Button>
+                                    <Button
+                                        size='sm'
+                                        variant={
+                                            formik.values.destinatario_modo === 'externo'
+                                                ? 'solid'
+                                                : 'default'
+                                        }
+                                        onClick={() =>
+                                            formik.setFieldValue('destinatario_modo', 'externo')
+                                        }>
+                                        Contacto manual
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {formik.values.destinatario_modo === 'interno' ? (
+                                <div>
+                                    <Label htmlFor='destinatario_interno_id'>
+                                        Usuario del cliente
+                                    </Label>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.destinatario_interno_id}
+                                        invalidFeedback={formik.errors.destinatario_interno_id}>
+                                        <SelectReact
+                                            name='destinatario_interno_id'
+                                            options={usuariosClienteOptions}
+                                            value={
+                                                usuariosClienteOptions.find(
+                                                    (option) =>
+                                                        option.value ===
+                                                        formik.values.destinatario_interno_id,
+                                                ) ?? null
+                                            }
+                                            onChange={(option) =>
+                                                formik.setFieldValue(
+                                                    'destinatario_interno_id',
+                                                    (option as TSelectOption | null)?.value ?? '',
+                                                )
+                                            }
+                                            placeholder='Selecciona un usuario del cliente'
+                                        />
+                                    </Validation>
+                                </div>
+                            ) : (
+                                <div className='grid grid-cols-2 gap-4'>
+                                    <div>
+                                        <Label htmlFor='destinatario_nombre'>Nombre</Label>
+                                        <Validation
+                                            isValid={formik.isValid}
+                                            isTouched={formik.touched.destinatario_nombre}
+                                            invalidFeedback={formik.errors.destinatario_nombre}>
+                                            <Input
+                                                id='destinatario_nombre'
+                                                name='destinatario_nombre'
+                                                onChange={formik.handleChange}
+                                                value={formik.values.destinatario_nombre}
+                                                onBlur={formik.handleBlur}
+                                            />
+                                        </Validation>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor='destinatario_correo'>Correo</Label>
+                                        <Validation
+                                            isValid={formik.isValid}
+                                            isTouched={formik.touched.destinatario_correo}
+                                            invalidFeedback={formik.errors.destinatario_correo}>
+                                            <Input
+                                                id='destinatario_correo'
+                                                name='destinatario_correo'
+                                                type='email'
+                                                onChange={formik.handleChange}
+                                                value={formik.values.destinatario_correo}
+                                                onBlur={formik.handleBlur}
+                                            />
+                                        </Validation>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Paso 4: Plan y servicios */}
+                    {step === 4 && (
                         <SelectorPlanServicios
                             value={seleccionPlan}
                             onChange={setSeleccionPlan}
                         />
                     )}
 
-                    {/* Paso 3: Licencias (solo tipo licencia) */}
-                    {step === 3 && (
+                    {/* Paso 5: Licencias (solo tipo licencia) */}
+                    {step === 5 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
                                 Agrega las licencias que incluira este contrato. Puedes omitir
@@ -935,8 +1394,111 @@ function CrearContratoDelCliente({
                         </div>
                     )}
 
-                    {/* Paso 4: Revision */}
-                    {step === 4 && (
+                    {/* Paso 6: Cotizaciones (solo tipo venta) */}
+                    {step === 6 && (
+                        <div className='flex flex-col gap-3'>
+                            <p className='text-sm text-zinc-500'>
+                                Selecciona cotizaciones aceptadas para vincular a este contrato
+                                de venta. Puedes omitir este paso y vincularlas después.
+                            </p>
+                            {cotizacionesDisponibles.length === 0 ? (
+                                <p className='text-sm text-zinc-400'>
+                                    No hay cotizaciones aceptadas disponibles para este cliente.
+                                </p>
+                            ) : (
+                                <Table>
+                                    <THead>
+                                        <Tr>
+                                            <Th>{' '}</Th>
+                                            <Th>N° Cotización</Th>
+                                            <Th>Nombre</Th>
+                                            <Th>Moneda</Th>
+                                            <Th>Total original</Th>
+                                            <Th>Total contrato</Th>
+                                            <Th>Dolar obs.</Th>
+                                            <Th>Items</Th>
+                                        </Tr>
+                                    </THead>
+                                    <TBody>
+                                        {cotizacionesDisponibles.map((cot: ICotizacionVinculadaResumen) => (
+                                            <Tr
+                                                key={cot.id}
+                                                className={
+                                                    cotizacionesSeleccionadas.includes(cot.id)
+                                                        ? 'bg-blue-50 dark:bg-blue-950/30'
+                                                        : 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                                                }
+                                                onClick={() =>
+                                                    setCotizacionesSeleccionadas((prev) =>
+                                                        prev.includes(cot.id)
+                                                            ? prev.filter((x) => x !== cot.id)
+                                                            : [...prev, cot.id],
+                                                    )
+                                                }>
+                                                <Td>
+                                                    <input
+                                                        type='checkbox'
+                                                        checked={cotizacionesSeleccionadas.includes(
+                                                            cot.id,
+                                                        )}
+                                                        onChange={() =>
+                                                            setCotizacionesSeleccionadas((prev) =>
+                                                                prev.includes(cot.id)
+                                                                    ? prev.filter(
+                                                                          (x) => x !== cot.id,
+                                                                      )
+                                                                    : [...prev, cot.id],
+                                                            )
+                                                        }
+                                                        className='h-4 w-4'
+                                                    />
+                                                </Td>
+                                                <Td>{cot.numero_cotizacion || '-'}</Td>
+                                                <Td>{cot.nombre}</Td>
+                                                <Td>
+                                                    <Badge variant='outline' color='blue'>
+                                                        {cot.tipo_moneda_label}
+                                                    </Badge>
+                                                </Td>
+                                                <Td>
+                                                    {formatCurrencyByMoneda(
+                                                        Number(cot.total_estimado || 0),
+                                                        normalizeCurrency(cot.tipo_moneda),
+                                                    )}
+                                                </Td>
+                                                <Td>
+                                                    {cot.total_convertido != null
+                                                        ? formatCurrencyByMoneda(
+                                                              Number(cot.total_convertido || 0),
+                                                              monedaContrato,
+                                                          )
+                                                        : '-'}
+                                                </Td>
+                                                <Td>
+                                                    {cot.dolar_observado != null
+                                                        ? formatCurrencyByMoneda(
+                                                              Number(cot.dolar_observado),
+                                                              'CLP',
+                                                          )
+                                                        : '-'}
+                                                </Td>
+                                                <Td>{cot.items_count}</Td>
+                                            </Tr>
+                                        ))}
+                                    </TBody>
+                                </Table>
+                            )}
+                            {cotizacionesSeleccionadas.length > 0 && (
+                                <p className='text-sm text-blue-600'>
+                                    {cotizacionesSeleccionadas.length} cotización(es)
+                                    seleccionada(s)
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Paso 7: Revisión */}
+                    {step === 7 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
                                 Revisa los datos antes de crear el contrato.
@@ -944,16 +1506,29 @@ function CrearContratoDelCliente({
                             <div className='grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
                                 <ResumenItem label='Nombre' valor={formik.values.nombre} />
                                 <ResumenItem label='Tipo' valor={tipoLabel} />
+                                <ResumenItem
+                                    label='Plantilla'
+                                    valor={plantillaSeleccionada?.titulo ?? '-'}
+                                />
                                 <ResumenItem label='Moneda' valor={formik.values.moneda_cobro} />
                                 <ResumenItem
                                     label='Forma de pago'
                                     valor={
-                                        FORMA_PAGO_OPTIONS.find(
-                                            (option) =>
-                                                option.value ===
-                                                formik.values.forma_pago_contractual,
-                                        )?.label ?? formik.values.forma_pago_contractual
+                                        esVenta
+                                            ? FORMA_PAGO_VENTA_OPTIONS.find(
+                                                  (option) =>
+                                                      option.value === formik.values.forma_pago_venta,
+                                              )?.label ?? formik.values.forma_pago_venta
+                                            : FORMA_PAGO_OPTIONS.find(
+                                                  (option) =>
+                                                      option.value ===
+                                                      formik.values.forma_pago_contractual,
+                                              )?.label ?? formik.values.forma_pago_contractual
                                     }
+                                />
+                                <ResumenItem
+                                    label='Aviso previo'
+                                    valor={`${formik.values.dias_aviso_termino} días`}
                                 />
                                 <ResumenItem
                                     label='Fecha inicio'
@@ -980,6 +1555,15 @@ function CrearContratoDelCliente({
                                             valor={formik.values.observaciones}
                                         />
                                     </div>
+                                )}
+                                {esVenta && (
+                                    <ResumenItem
+                                        label='Total contrato estimado'
+                                        valor={formatCurrencyByMoneda(
+                                            totalCotizacionesSeleccionadas,
+                                            monedaContrato,
+                                        )}
+                                    />
                                 )}
                             </div>
 
@@ -1190,6 +1774,96 @@ function CrearContratoDelCliente({
                                     No se agregaron licencias. Podras agregarlas despues.
                                 </p>
                             )}
+
+                            {/* Resumen de cotizaciones */}
+                            {esVenta && cotizacionesSeleccionadas.length > 0 && (
+                                <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                    <span className='text-xs font-semibold text-zinc-500'>
+                                        Cotizaciones ({cotizacionesSeleccionadas.length})
+                                    </span>
+                                    <div className='mt-2 flex flex-col gap-1'>
+                                        {cotizacionesSeleccionadas.map((cotId) => {
+                                            const cot = cotizacionesDisponibles.find(
+                                                (c: ICotizacionVinculadaResumen) => c.id === cotId,
+                                            );
+                                            if (!cot) return null;
+                                            return (
+                                                <div
+                                                    key={cot.id}
+                                                    className='flex items-center justify-between text-sm'>
+                                                    <span>
+                                                        {cot.numero_cotizacion
+                                                            ? `#${cot.numero_cotizacion} — `
+                                                            : ''}
+                                                        {cot.nombre}
+                                                    </span>
+                                                    <div className='text-right text-zinc-500'>
+                                                        <div className='text-xs'>
+                                                            {cot.tipo_moneda_label}{' '}
+                                                            {formatCurrencyByMoneda(
+                                                                Number(cot.total_estimado || 0),
+                                                                normalizeCurrency(cot.tipo_moneda),
+                                                            )}
+                                                        </div>
+                                                        <div className='text-xs'>
+                                                            {cot.total_convertido != null
+                                                                ? formatCurrencyByMoneda(
+                                                                      Number(cot.total_convertido || 0),
+                                                                      monedaContrato,
+                                                                  )
+                                                                : '-'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className='mt-3 border-t border-zinc-200 pt-3 text-right text-sm font-medium dark:border-zinc-700'>
+                                        Total cotizaciones:{' '}
+                                        {formatCurrencyByMoneda(totalCotizacionesSeleccionadas, monedaContrato)}
+                                    </div>
+                                </div>
+                            )}
+
+                            {esVenta && formik.values.forma_pago_venta === 'cuotas' && (
+                                <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
+                                    <span className='text-xs font-semibold text-zinc-500'>
+                                        Cuotas de venta
+                                    </span>
+                                    <div className='mt-2 flex flex-col gap-1'>
+                                        {formik.values.cuotas_venta.map((cuota) => (
+                                            <div
+                                                key={`review-cuota-${cuota.orden}`}
+                                                className='flex items-center justify-between text-sm'>
+                                                <span>
+                                                    Cuota {cuota.orden} - {cuota.porcentaje}% -{' '}
+                                                    {cuota.hito_pago_tipo === 'personalizado'
+                                                        ? cuota.hito_pago_descripcion || 'Sin descripcion'
+                                                        : getHitoPagoVentaLabel(
+                                                              cuota.hito_pago_tipo as
+                                                                  THitoPagoVenta | null,
+                                                          )}
+                                                </span>
+                                                <span className='text-zinc-500'>
+                                                    {formatCurrencyByMoneda(
+                                                        (totalCotizacionesSeleccionadas *
+                                                            Number(cuota.porcentaje || 0)) /
+                                                            100,
+                                                        monedaContrato,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {esVenta && cotizacionesSeleccionadas.length === 0 && (
+                                <p className='text-sm text-zinc-400'>
+                                    No se seleccionaron cotizaciones. Podras vincularlas
+                                    despues.
+                                </p>
+                            )}
                         </div>
                     )}
                 </ModalBody>
@@ -1200,14 +1874,17 @@ function CrearContratoDelCliente({
                             {
                                 [
                                     { key: 1, visible: true },
-                                    { key: 2, visible: esServicios },
-                                    { key: 3, visible: esLicencia },
-                                    { key: 4, visible: true },
+                                    { key: 2, visible: true },
+                                    { key: 3, visible: true },
+                                    { key: 4, visible: esServicios },
+                                    { key: 5, visible: esLicencia },
+                                    { key: 6, visible: esVenta },
+                                    { key: 7, visible: true },
                                 ]
                                     .filter((p) => p.visible)
                                     .findIndex((p) => p.key === step) + 1
                             }{' '}
-                            de {2 + (esServicios ? 1 : 0) + (esLicencia ? 1 : 0)}
+                            de {4 + (esServicios ? 1 : 0) + (esLicencia ? 1 : 0) + (esVenta ? 1 : 0)}
                         </span>
                     </ModalFooterChild>
                     <ModalFooterChild>
@@ -1215,12 +1892,12 @@ function CrearContratoDelCliente({
                             Cancelar
                         </Button>
                         {step > 1 && <Button onClick={handleAtras}>Atras</Button>}
-                        {step < 4 && (
+                        {step < 7 && (
                             <Button variant='solid' onClick={handleSiguiente}>
                                 Siguiente
                             </Button>
                         )}
-                        {step === 4 && (
+                        {step === 7 && (
                             <Button
                                 variant='solid'
                                 isLoading={formik.isSubmitting}

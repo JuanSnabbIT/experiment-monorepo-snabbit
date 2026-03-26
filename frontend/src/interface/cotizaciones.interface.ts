@@ -64,6 +64,8 @@ export interface IItemCotizacion {
     aprobado: boolean;
     nombre: null | string;
     descripcion: null | string;
+    tipo_moneda: string;
+    tipo_moneda_label?: string;
     porcentaje_recargo: number;
     cantidad: number;
     precio_unitario: string;
@@ -121,6 +123,8 @@ export interface IItemCotizacionPublico {
     nombre_display: string;
     descripcion?: string | null;
     cantidad: number;
+    tipo_moneda: string;
+    tipo_moneda_label?: string;
     precio_venta_unitario: number;
     precio_venta_total: number;
     aprobado: boolean;

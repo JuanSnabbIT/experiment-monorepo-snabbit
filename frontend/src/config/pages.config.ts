@@ -655,8 +655,15 @@ export const Pages = {
             facturasContrato: {
                 id: 'facturasContrato',
                 to: '/facturacion/facturas-contrato',
-                text: 'Facturas de Contrato',
+                text: 'Prefacturación',
                 icon: 'HeroClipboardDocumentList',
+                authority: ['staff', 'superadmin'],
+            },
+            detalleFacturaContrato: {
+                id: 'detalleFacturaContrato',
+                to: '/facturacion/facturas-contrato/:id',
+                text: 'Detalle Prefactura Contrato',
+                icon: 'HeroDocumentMagnifyingGlass',
                 authority: ['staff', 'superadmin'],
             },
         },

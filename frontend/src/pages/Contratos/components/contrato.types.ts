@@ -19,6 +19,8 @@ export interface ISeleccionPlanServicios {
     plan_cantidad: number;
     /** Precio unitario del plan */
     plan_precio_unitario: number;
+    /** Visitas presenciales mensuales incluidas en el plan (pre-fill desde PlanServicio) */
+    plan_num_visitas_mensuales?: number | null;
     /** Servicios agregados como addon (modo plan) o seleccionados (modo personalizado) */
     servicios: IServicioSeleccionado[];
 }
@@ -110,3 +112,6 @@ export interface ITabVisitasProps extends ITabContratoBaseProps {
 export interface ITabLicenciasProps extends ITabContratoBaseProps {
     listaLicencias: ILicencia[];
 }
+
+/** Cotizaciones vinculadas (solo contratos tipo 'venta') */
+export interface ITabCotizacionesProps extends ITabContratoBaseProps {}

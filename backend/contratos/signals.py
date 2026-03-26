@@ -1,9 +1,19 @@
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.core.exceptions import ObjectDoesNotExist
-from .models import ContratoEmpresaCliente, ContratoServicio, Servicio, ContratoLicencia
+from datetime import date
+from decimal import Decimal
+
 from django.db.models import F, Sum, ExpressionWrapper, DecimalField
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ObjectDoesNotExist
+
+from .models import (
+    ContratoEmpresaCliente,
+    ContratoServicio,
+    FacturaContrato,
+    Servicio,
+    ContratoLicencia,
+)
 
 
 @receiver(post_save, sender=ContratoEmpresaCliente)
@@ -73,3 +83,67 @@ def update_contrato_servicio_price(sender, instance, **kwargs):
     # Actualizar el precio del ContratoServicio y guardarlo
     contrato_servicio.precio_unitario = total_price
     contrato_servicio.save()
+
+
+# ── Tracking: estado anterior del contrato para detectar transiciones ──
+@receiver(pre_save, sender=ContratoEmpresaCliente)
+def capturar_estado_anterior_contrato(sender, instance, **kwargs):
+    """Guarda el estado anterior en un atributo temporal para el post_save."""
+    if instance.pk:
+        try:
+            instance._estado_anterior = (
+                ContratoEmpresaCliente.objects.filter(pk=instance.pk)
+                .values_list("estado", flat=True)
+                .first()
+            )
+        except ContratoEmpresaCliente.DoesNotExist:
+            instance._estado_anterior = None
+    else:
+        instance._estado_anterior = None
+
+
+# ── Auto-generar primera prefactura al activar contrato ──
+@receiver(post_save, sender=ContratoEmpresaCliente)
+def generar_primera_prefactura_al_activar(sender, instance, created, **kwargs):
+    """
+    Cuando un contrato pasa a estado 'activo' (firma completada),
+    genera automáticamente la primera prefactura en estado 'por_facturar'
+    con el monto calculado desde los ítems comerciales.
+    """
+    estado_anterior = getattr(instance, "_estado_anterior", None)
+    if instance.estado != "activo" or estado_anterior == "activo":
+        return
+
+    hoy = date.today()
+    periodo_inicio = hoy.replace(day=1)
+    # Fin del mes actual
+    if hoy.month == 12:
+        periodo_fin = hoy.replace(year=hoy.year + 1, month=1, day=1)
+    else:
+        periodo_fin = hoy.replace(month=hoy.month + 1, day=1)
+    from datetime import timedelta
+    periodo_fin = periodo_fin - timedelta(days=1)
+
+    # Evitar duplicados
+    ya_existe = FacturaContrato.objects.filter(
+        contrato=instance,
+        periodo_inicio=periodo_inicio,
+        periodo_fin=periodo_fin,
+    ).exists()
+    if ya_existe:
+        return
+
+    monto_total = instance.total_items_comerciales or Decimal("0")
+
+    FacturaContrato.objects.create(
+        contrato=instance,
+        empresa_prestadora=instance.empresa_prestadora,
+        empresa_cliente=instance.empresa_cliente,
+        estado="por_facturar",
+        periodo_inicio=periodo_inicio,
+        periodo_fin=periodo_fin,
+        fecha_emision=hoy,
+        monto_total=monto_total,
+        moneda=instance.moneda_cobro,
+        comentario=f"Prefactura automática — primer período {periodo_inicio.strftime('%m/%Y')}",
+    )

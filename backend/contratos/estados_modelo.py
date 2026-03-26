@@ -45,6 +45,11 @@ FORMAS_PAGO_COMERCIALES = [
     ('pago_unico', 'Pago unico'),
 ]
 
+FORMAS_PAGO_VENTA = [
+    ('contado', 'Contado'),
+    ('cuotas', 'Cuotas'),
+]
+
 CATEGORIAS_SERVICIO = [
     ('mantencion', 'Mantención Infraestructura'),
     ('desarrollo', 'Desarrollo de Software'),

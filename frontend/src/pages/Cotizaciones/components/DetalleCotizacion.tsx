@@ -465,7 +465,17 @@ const DetalleCotizacion = () => {
             header: 'Nombre',
         }),
         columnHelper.accessor('nombre_proveedor', {
-            cell: (info) => <div>{info.row.original.nombre_proveedor || 'Sin Proveedor'}</div>,
+            cell: (info) => (
+                <div>
+                    <div>{info.row.original.nombre_proveedor || 'Sin Proveedor'}</div>
+                    <div className='text-xs text-gray-500'>
+                        Item: {info.row.original.tipo_moneda_label || 'CLP'}
+                        {info.row.original.tipo_moneda_proveedor_label
+                            ? ` | Proveedor: ${info.row.original.tipo_moneda_proveedor_label}`
+                            : ''}
+                    </div>
+                </div>
+            ),
             header: 'Proveedor',
         }),
         columnHelper.accessor('cantidad', {
@@ -475,12 +485,21 @@ const DetalleCotizacion = () => {
         columnHelper.accessor('precio_unitario', {
             cell: (info) => {
                 const porcentajeRecargo = info.row.original.porcentaje_recargo ?? detalleCotizacion?.porcentaje_recargo ?? 0;
+                const monedaItem = info.row.original.tipo_moneda || '2';
+                const monedaCotizacion = detalleCotizacion?.tipo_moneda || '2';
                 return (
                     <div>
                         {formatCurrency(
                             info.row.original.precio_unitario,
-                            info.row.original.tipo_moneda_proveedor,
+                            monedaItem,
                         )}
+                        <div className='text-xs text-gray-500'>
+                            Venta cotización:{' '}
+                            {formatCurrency(
+                                info.row.original.precio_venta_neta_unitario_moneda_base,
+                                monedaCotizacion,
+                            )}
+                        </div>
                         <Tooltip text='Porcentaje de Recargo' placement='bottom'>
                             <div>
                                 <Balance
@@ -506,8 +525,15 @@ const DetalleCotizacion = () => {
                 <div>
                     {formatCurrency(
                         info.row.original.costo_total,
-                        info.row.original.tipo_moneda_proveedor,
+                        info.row.original.tipo_moneda || '2',
                     )}
+                    <div className='text-xs text-gray-500'>
+                        Total cotización:{' '}
+                        {formatCurrency(
+                            info.row.original.precio_venta_neta_total_moneda_base,
+                            detalleCotizacion?.tipo_moneda || '2',
+                        )}
+                    </div>
                 </div>
             ),
             header: 'Total Neto',

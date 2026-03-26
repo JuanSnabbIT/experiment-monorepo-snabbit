@@ -46,7 +46,14 @@ function TablaItemsTecnico({
                 header: 'Nombre',
             }),
             columnHelper.accessor('nombre_proveedor', {
-                cell: (info) => <div>{info.row.original.nombre_proveedor || 'Sin Proveedor'}</div>,
+                cell: (info) => (
+                    <div>
+                        <div>{info.row.original.nombre_proveedor || 'Sin Proveedor'}</div>
+                        <div className='text-xs text-gray-500'>
+                            Item: {info.row.original.tipo_moneda_label || 'CLP'}
+                        </div>
+                    </div>
+                ),
                 header: 'Proveedor',
             }),
             columnHelper.accessor('cantidad', {
@@ -54,8 +61,20 @@ function TablaItemsTecnico({
                 header: 'Cantidad',
             }),
             columnHelper.accessor('precio_unitario', {
-                cell: (info) =>
-                    formatCurrency(info.getValue(), info.row.original.tipo_moneda_proveedor),
+                cell: (info) => (
+                    <div>
+                        <div>
+                            {formatCurrency(info.getValue(), info.row.original.tipo_moneda || '2')}
+                        </div>
+                        <div className='text-xs text-gray-500'>
+                            Venta:{' '}
+                            {formatCurrency(
+                                info.row.original.precio_venta_neta_unitario_moneda_base,
+                                tipoMoneda || '2',
+                            )}
+                        </div>
+                    </div>
+                ),
                 header: 'Precio Unitario',
             }),
             columnHelper.accessor('costo_total', {
@@ -64,7 +83,20 @@ function TablaItemsTecnico({
                         info.getValue() ||
                         parseFloat(info.row.original.precio_unitario || '0') *
                             info.row.original.cantidad;
-                    return formatCurrency(costoTotal, info.row.original.tipo_moneda_proveedor);
+                    return (
+                        <div>
+                            <div>
+                                {formatCurrency(costoTotal, info.row.original.tipo_moneda || '2')}
+                            </div>
+                            <div className='text-xs text-gray-500'>
+                                Total cotización:{' '}
+                                {formatCurrency(
+                                    info.row.original.precio_venta_neta_total_moneda_base,
+                                    tipoMoneda || '2',
+                                )}
+                            </div>
+                        </div>
+                    );
                 },
                 header: 'Total Neto',
             }),

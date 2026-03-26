@@ -37,6 +37,13 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         choices=FORMAS_PAGO_COMERCIALES,
         default="mensual",
     )
+    forma_pago_venta = models.CharField(
+        max_length=20,
+        choices=FORMAS_PAGO_VENTA,
+        blank=True,
+        null=True,
+    )
+    cuotas_venta = models.JSONField(default=list, blank=True)
     dia_facturacion = models.PositiveSmallIntegerField(blank=True, null=True)
 
     contrato_anterior = models.ForeignKey(
@@ -159,6 +166,9 @@ class EnvioContratoAprobacion(ModeloBase):
     pdf_congelado = models.BinaryField(blank=True, null=True)
     snapshot_contrato = models.JSONField(blank=True, null=True, default=dict)
     version_envio = models.PositiveIntegerField(default=1)
+    deprecado = models.BooleanField(default=False)
+    fecha_deprecacion = models.DateTimeField(blank=True, null=True)
+    motivo_deprecacion = models.CharField(max_length=255, blank=True, null=True)
 
 
 class UsuarioVinculadoContrato(ModeloBase):
@@ -656,6 +666,12 @@ class PlanServicio(ModeloBaseHistorico):
     precio_uf = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     precio_usd = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     veces_por_mes_default = models.PositiveIntegerField(default=1)
+    num_visitas_mensuales = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Visitas presenciales mensuales incluidas",
+        help_text="Numero de visitas presenciales mensuales incluidas en este plan.",
+    )
     formas_pago_permitidas = models.JSONField(default=list, blank=True)
     incluye = models.TextField(blank=True, null=True, verbose_name="Incluye")
     no_incluye = models.TextField(blank=True, null=True, verbose_name="No incluye")
@@ -750,6 +766,62 @@ class PlanServicioDetalle(ModeloBaseHistorico):
         return f"{self.plan} -> {self.servicio_version}"
 
 
+def _serializar_caracteristica_servicio(caracteristica):
+    return {
+        "id": caracteristica.id,
+        "nombre": caracteristica.nombre,
+        "descripcion": caracteristica.descripcion,
+    }
+
+
+def _serializar_alcance_item_servicio(item):
+    return {
+        "id": item.id,
+        "caracteristica_id": item.caracteristica_id,
+        "caracteristica": _serializar_caracteristica_servicio(item.caracteristica),
+        "modo": item.modo,
+        "orden": item.orden,
+    }
+
+
+def _construir_snapshot_componentes_plan(plan):
+    detalles = plan.detalles_servicio.select_related("servicio_version").prefetch_related(
+        "servicio_version__caracteristicas",
+        "servicio_version__alcance_items__caracteristica",
+    )
+    componentes = []
+    for detalle in detalles:
+        servicio = detalle.servicio_version
+        alcance_items = list(
+            servicio.alcance_items.select_related("caracteristica").order_by("orden", "id")
+        )
+        componentes.append(
+            {
+                "servicio_version_id": detalle.servicio_version_id,
+                "nombre": servicio.nombre,
+                "descripcion": servicio.descripcion,
+                "categoria": servicio.categoria,
+                "categoria_label": servicio.get_categoria_display(),
+                "obligatorio": detalle.obligatorio,
+                "cantidad_default": detalle.cantidad_default,
+                "veces_por_mes_default": detalle.veces_por_mes_default,
+                "orden": detalle.orden,
+                "caracteristicas": [
+                    _serializar_caracteristica_servicio(caracteristica)
+                    for caracteristica in servicio.caracteristicas.all()
+                ],
+                "alcance_caracteristicas": [
+                    _serializar_alcance_item_servicio(item) for item in alcance_items
+                ],
+                "incluye": servicio.construir_texto_alcance("incluye") or servicio.incluye,
+                "no_incluye": servicio.construir_texto_alcance("no_incluye")
+                or servicio.no_incluye,
+                "clausulas_especiales": servicio.clausulas_especiales,
+            }
+        )
+    return componentes
+
+
 class ContratoItemComercial(ModeloBaseHistorico):
     TIPO_ORIGEN_CHOICES = (
         ("servicio", "Servicio"),
@@ -797,6 +869,18 @@ class ContratoItemComercial(ModeloBaseHistorico):
     total_pago_unico = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     es_addon = models.BooleanField(default=False)
     orden = models.PositiveIntegerField(default=0)
+    num_visitas_mensuales = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Visitas presenciales mensuales",
+        help_text="Heredado del plan al contratar. Editable por contrato.",
+    )
+    snapshot_num_visitas_mensuales = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Snapshot: visitas presenciales mensuales",
+        help_text="Valor congelado al enviar a aprobacion/firma.",
+    )
 
     class Meta:
         ordering = ["orden", "id"]
@@ -851,19 +935,15 @@ class ContratoItemComercial(ModeloBaseHistorico):
                 self.precio_unitario_contratado = referencia.get_precio_por_moneda(self.moneda)
             if not self.veces_por_mes:
                 self.veces_por_mes = getattr(referencia, "veces_por_mes_default", 1) or 1
+            if self.num_visitas_mensuales is None:
+                self.num_visitas_mensuales = getattr(referencia, "num_visitas_mensuales", None)
+            if self.snapshot_num_visitas_mensuales is None:
+                self.snapshot_num_visitas_mensuales = getattr(referencia, "num_visitas_mensuales", None)
 
             if self.tipo_origen == "plan" and not self.snapshot_componentes_plan:
-                self.snapshot_componentes_plan = [
-                    {
-                        "servicio_version_id": detalle.servicio_version_id,
-                        "nombre": detalle.servicio_version.nombre,
-                        "cantidad_default": detalle.cantidad_default,
-                        "veces_por_mes_default": detalle.veces_por_mes_default,
-                        "obligatorio": detalle.obligatorio,
-                        "orden": detalle.orden,
-                    }
-                    for detalle in referencia.detalles_servicio.select_related("servicio_version").all()
-                ]
+                self.snapshot_componentes_plan = _construir_snapshot_componentes_plan(
+                    referencia
+                )
 
         self.recalcular_totales()
 
@@ -970,6 +1050,9 @@ class ContratoVisita(ModeloBaseHistorico):
         verbose_name="Frecuencia de Visitas",
     )
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad de Visitas")
+    visitas_usadas = models.PositiveIntegerField(
+        default=0, verbose_name="Visitas Usadas"
+    )
 
     class Meta:
         verbose_name = "Visita del Contrato"
@@ -1504,34 +1587,9 @@ class PlantillaContrato(ModeloBase):
         default="servicios",
     )
 
-    # ── Defaults reutilizables (template-level) ──
-    moneda_cobro = models.CharField(
-        max_length=3,
-        choices=TIPO_MONEDA_LICENCIA,
-        default="CLP",
-        blank=True,
-        verbose_name="Moneda de cobro por defecto",
-    )
-    forma_pago_contractual = models.CharField(
-        max_length=20,
-        choices=FORMAS_PAGO_COMERCIALES,
-        default="mensual",
-        blank=True,
-        verbose_name="Forma de pago por defecto",
-    )
-    lugar_firma = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="Lugar de firma por defecto",
-    )
-    renovacion_automatica = models.BooleanField(
-        default=True,
-        verbose_name="Renovación automática por defecto",
-    )
-    dias_aviso_termino = models.PositiveIntegerField(
-        default=60,
-        verbose_name="Días de aviso de término por defecto",
+    es_default = models.BooleanField(
+        default=False,
+        verbose_name="Plantilla del sistema (no editable)",
     )
 
     # ── Posición de bloques demo en el documento ──

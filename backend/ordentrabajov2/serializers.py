@@ -16,6 +16,99 @@ from .models import (
 )
 
 
+def _coerce_int(value, default=0):
+    try:
+        if value in (None, ""):
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_float(value, default=0.0):
+    try:
+        if value in (None, ""):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def validate_prefactura_resultado(value):
+    # Normalizar y asegurar llaves esperadas
+    if value is None:
+        return {
+            "cliente_id": None,
+            "contrato_id": None,
+            "ots_incluidas": [],
+            "items": [],
+            "resumen": {},
+        }
+    if not isinstance(value, dict):
+        return {
+            "cliente_id": None,
+            "contrato_id": None,
+            "ots_incluidas": [],
+            "items": [],
+            "resumen": {},
+        }
+
+    value.setdefault("cliente_id", None)
+    value.setdefault("contrato_id", None)
+    value.setdefault("ots_incluidas", [])
+    value.setdefault("items", [])
+    value.setdefault("resumen", {})
+
+    visitas = value.get("visitas")
+    if isinstance(visitas, dict):
+        ots_marcadas = []
+        for ot_id in visitas.get("ots_marcadas", []):
+            coerced_ot_id = _coerce_int(ot_id, default=None)
+            if coerced_ot_id:
+                ots_marcadas.append(coerced_ot_id)
+
+        visitas_normalizadas = {
+            "periodo": visitas.get("periodo"),
+            "incluidas_mes": _coerce_int(visitas.get("incluidas_mes")),
+            "confirmadas_mes": _coerce_int(visitas.get("confirmadas_mes")),
+            "marcadas_prefactura": _coerce_int(visitas.get("marcadas_prefactura")),
+            "proyectadas_mes": _coerce_int(visitas.get("proyectadas_mes")),
+            "exceso_prefactura": _coerce_int(visitas.get("exceso_prefactura")),
+            "ots_marcadas": ots_marcadas,
+            "precio_unitario_exceso": _coerce_float(visitas.get("precio_unitario_exceso")),
+            "total_exceso": _coerce_float(visitas.get("total_exceso")),
+        }
+
+        if (
+            visitas_normalizadas["marcadas_prefactura"]
+            != len(visitas_normalizadas["ots_marcadas"])
+        ):
+            raise serializers.ValidationError(
+                "La cantidad de visitas marcadas no coincide con las OTs marcadas."
+            )
+
+        synthetic_items = [
+            item
+            for item in value.get("items", [])
+            if isinstance(item, dict) and item.get("tipo") == "visita_adicional_contrato"
+        ]
+        exceso_prefactura = visitas_normalizadas["exceso_prefactura"]
+        precio_unitario_exceso = visitas_normalizadas["precio_unitario_exceso"]
+        if exceso_prefactura > 0:
+            if precio_unitario_exceso <= 0:
+                raise serializers.ValidationError(
+                    "Debe indicar un precio unitario mayor a 0 para las visitas adicionales."
+                )
+            if not synthetic_items:
+                raise serializers.ValidationError(
+                    "La prefactura debe incluir el item de visita adicional cuando existe exceso."
+                )
+
+        value["visitas"] = visitas_normalizadas
+
+    return value
+
+
 class GuiaSalidaMiniSerializer(serializers.ModelSerializer):
     cantidad_items = serializers.SerializerMethodField()
     estado_label = serializers.SerializerMethodField()
@@ -64,6 +157,7 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
     ultimo_historial = serializers.SerializerMethodField()
     nombre_solicitante = serializers.SerializerMethodField()
     nombre_responsable = serializers.SerializerMethodField()
+    contrato_nombre = serializers.SerializerMethodField()
 
     def get_empresa_nombre(self, obj):
         return obj.empresa.nombre
@@ -152,6 +246,11 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
         guias = GuiaSalida.objects.filter(orden_trabajo=obj).values('id', 'estado')
         return list(guias)
 
+    def get_contrato_nombre(self, obj):
+        if obj.contrato:
+            return obj.contrato.nombre
+        return None
+
     class Meta:
         model = OrdenDeTrabajo
         fields = "__all__"
@@ -194,6 +293,7 @@ class SoporteTecnicoSerializer(serializers.ModelSerializer):
             "tecnico_asignado",
             "nombre_tecnico",
             "fecha_soporte",
+            "modalidad",
             "guia_salida",
             "usuarios_asignados_count",
             "usuarios_asignados_total",
@@ -438,16 +538,7 @@ class CierreAdministrativoOTSerializer(serializers.ModelSerializer):
         read_only_fields = ["fecha_creacion", "fecha_modificacion"]
 
     def validate_resultado(self, value):
-        # Normalizar y asegurar llaves esperadas
-        if value is None:
-            return {}
-        if not isinstance(value, dict):
-            return {}
-        value.setdefault("cliente_id", None)
-        value.setdefault("ots_incluidas", [])
-        value.setdefault("items", [])
-        value.setdefault("resumen", {})
-        return value
+        return validate_prefactura_resultado(value)
 
 
 class SeguimientoItemOTSerializer(serializers.ModelSerializer):

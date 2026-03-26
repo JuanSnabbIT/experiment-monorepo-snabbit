@@ -4,17 +4,30 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardTitle } from '@/components/ui/Card';
+import { IContratoMatching } from '@/interface/contrato.interface';
 import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
 import ApiService from '@/services/ApiService';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaContratosDeEmpresaYClienteThunk } from '@/store/slices/contratos/contratoSlice';
+import { useAppSelector } from '@/store';
+import { useGetContratosActivosClienteQuery } from '@/store/slices/contratos/contratoApi';
+import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
 import { useGetOrdenesTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { formatCurrency } from '@/utils/currency';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import {
+    getPlanComponentDetails,
+    isPlanContractSource,
+    PlanIncludedServicesDetail,
+} from '../Contratos/components/planContractDetail';
+import {
+    buildPrefacturacionListPath,
+    buildPrefacturaOTDetailPath,
+    parsePrefacturacionSearchParams,
+} from './prefacturacion.shared';
 
 interface ItemEjecutado {
     id: string;
@@ -32,6 +45,21 @@ interface ItemEjecutado {
     item_rendicion_id?: number;
     content_type?: string;
     item_id?: number;
+}
+
+interface VisitasContratoResumen {
+    periodo: string;
+    incluidas_mes: number;
+    confirmadas_mes: number;
+}
+
+interface VisitasPrefacturaPayload extends VisitasContratoResumen {
+    marcadas_prefactura: number;
+    proyectadas_mes: number;
+    exceso_prefactura: number;
+    ots_marcadas: number[];
+    precio_unitario_exceso: number;
+    total_exceso: number;
 }
 
 interface ItemPrefactura {
@@ -61,7 +89,7 @@ interface IComparativaData {
         items: any[];
         total: number;
         moneda: string;
-    };
+    } | null;
     ejecutado: {
         items: ItemEjecutado[];
         total: number;
@@ -69,11 +97,14 @@ interface IComparativaData {
         resumen?: {
             trabajos: number;
             guias: number;
+            compras?: number;
+            gastos_operativos?: number;
             rendiciones: number;
         };
         cotizaciones?: CotizacionRelacionada[];
-    };
-    diferencia: number;
+    } | null;
+    diferencia: number | null;
+    visitas_contrato?: VisitasContratoResumen | null;
 }
 
 interface ITipoCambioResponse {
@@ -85,17 +116,31 @@ interface ITipoCambioResponse {
 }
 
 const FacturacionesComparativa = () => {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const routeState = parsePrefacturacionSearchParams(searchParams, 'ot');
+    const backToList = buildPrefacturacionListPath(routeState, 'ot');
     const { data: listaOrdenTrabajo = [], refetch: refetchOrdenesTrabajo } =
         useGetOrdenesTrabajoQuery();
-    const { listaContratosDeEmpresaYCliente } = useAppSelector((state) => state.contrato);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+
+    // Obtener TODOS los clientes de la empresa (vía RelacionEmpresa)
+    const empresaId = personalizacionUsuario?.empresa;
+    const { data: misClientes = [] } = useGetMisClientesQuery(empresaId ?? undefined, {
+        skip: !empresaId,
+    });
 
     // Estado para selección de empresa cliente
     const [selectedEmpresaClienteId, setSelectedEmpresaClienteId] = useState<number | null>(null);
     const [selectedContratoId, setSelectedContratoId] = useState<number | ''>('');
     const [selectedOts, setSelectedOts] = useState<number[]>([]);
+    const [visitasMarcadasPorOt, setVisitasMarcadasPorOt] = useState<Record<number, boolean>>({});
+    const [precioVisitaAdicional, setPrecioVisitaAdicional] = useState<number>(0);
+    const [expandedPlanItems, setExpandedPlanItems] = useState<Record<number, boolean>>({});
+    const { data: contratosActivosCliente = [], isLoading: loadingContratos } =
+        useGetContratosActivosClienteQuery(selectedEmpresaClienteId ?? 0, {
+            skip: !selectedEmpresaClienteId,
+        });
 
     // Estado para búsqueda en dropdown OTs
     const [searchOtInput, setSearchOtInput] = useState<string>('');
@@ -153,37 +198,54 @@ const FacturacionesComparativa = () => {
     // Función para crear prefactura (POST a API)
     const handleCrearPrefactura = async () => {
         try {
+            if (!selectedEmpresaClienteId) {
+                toast.warning('Debes seleccionar una empresa cliente.');
+                return;
+            }
+            if (!selectedContratoId) {
+                toast.warning('Debes seleccionar un contrato.');
+                return;
+            }
+            if (visitasPrefactura.exceso_prefactura > 0 && precioVisitaAdicional <= 0) {
+                toast.warning(
+                    'Debes indicar un precio mayor a 0 para las visitas adicionales antes de crear la prefactura.',
+                );
+                return;
+            }
+
             setCreatingPrefactura(true);
 
-            // Construir items con la estructura exacta que espera el backend
-            // INCLUIR TODOS los items; el flag `facturar` viene en cada item
-            const itemsFacturables =
-                ejecutadoData?.ejecutado?.items?.map((item: any) => {
+            const itemsFacturables = [
+                ...((ejecutadoData?.ejecutado?.items ?? []).map((item: ItemEjecutado) => {
                     const itemKey = `${item.tipo}_${item.id}`;
-                    const config = (itemsConfig.get(itemKey) as any) ?? {};
+                    const config: Partial<ItemPrefactura> = itemsConfig.get(itemKey) ?? {};
+                    const itemRecord = item as unknown as Record<string, unknown>;
+                    const categoria = itemRecord.categoria;
                     const fallbackCategoria =
-                        item.categoria_nombre ||
-                        (item.categoria && typeof item.categoria === 'object'
-                            ? item.categoria.nombre
-                            : item.categoria) ||
+                        itemRecord.categoria_nombre ||
+                        (categoria && typeof categoria === 'object'
+                            ? (categoria as { nombre?: string }).nombre
+                            : categoria) ||
                         null;
-                    const fallbackFecha =
-                        item.fecha_gasto || item.fecha_compra || item.fecha || null;
+                    const fallbackFecha = itemRecord.fecha_gasto || itemRecord.fecha_compra || itemRecord.fecha || null;
                     return {
                         tipo: item.tipo,
                         id: item.id,
-                        descripcion: config?.descripcion || item.descripcion || item.nombre || '',
+                        descripcion: String(itemRecord.descripcion || item.nombre || ''),
                         ot_id: item.ot_id,
                         cantidad: item.cantidad || 1,
                         precio_total: Number(item.precio_unitario || 0) * (item.cantidad || 1),
-                        precio_ajustado: config?.precioAsignado ?? null,
-                        facturar: config?.facturar ?? true,
-                        comentario: config?.comentario || '',
+                        precio_ajustado: config.precioAsignado ?? null,
+                        facturar: config.facturar ?? true,
+                        comentario: config.comentario || '',
                         categoria_id:
-                            item.categoria_id ?? (item.categoria && item.categoria.id) ?? null,
+                            itemRecord.categoria_id ??
+                            (categoria && typeof categoria === 'object'
+                                ? ((categoria as { id?: number }).id ?? null)
+                                : null),
                         categoria_nombre: fallbackCategoria,
                         fecha_gasto: fallbackFecha,
-                        dolar_observado: item.dolar_observado ?? null,
+                        dolar_observado: itemRecord.dolar_observado ?? null,
                         parent_id: item.guia_id ?? item.compra_id ?? item.rendicion_id ?? null,
                         item_id: item.item_id ?? item.id,
                         guia_id: item.guia_id ?? null,
@@ -192,26 +254,27 @@ const FacturacionesComparativa = () => {
                         item_rendicion_id: item.item_rendicion_id ?? null,
                         content_type: item.content_type ?? null,
                     };
-                }) || [];
+                })),
+                ...(syntheticVisitaItem ? [syntheticVisitaItem] : []),
+            ];
 
             if (itemsFacturables.length === 0) {
                 toast.warning('No hay items seleccionados para facturar');
-                setCreatingPrefactura(false);
                 return;
             }
 
-            // Estructura JSON que va en resultado
             const itemsJsonPayload = {
                 cliente_id: selectedEmpresaClienteId,
+                contrato_id: selectedContratoId,
                 ots_incluidas: selectedOts,
                 items: itemsFacturables,
                 resumen: {
-                    total_items: itemsFacturables.length,
+                    total_items: prefacturaPreviewItems.length,
                     total_facturar: totales.totalFacturable,
                 },
+                visitas: visitasPrefactura,
             };
 
-            // Payload final para POST
             const payloadPOST = {
                 cliente: selectedEmpresaClienteId,
                 resultado: itemsJsonPayload,
@@ -220,7 +283,6 @@ const FacturacionesComparativa = () => {
                 fecha_prefactura: fechaPrefactura,
             };
 
-            // POST a /cierres-administrativos/
             const response = await ApiService.fetchData<{ id: number }>({
                 url: '/api/cierres-administrativos/',
                 method: 'post',
@@ -231,17 +293,13 @@ const FacturacionesComparativa = () => {
 
             if (response.status === 201 && prefacturaId) {
                 toast.success(`Prefactura #${prefacturaId} creada exitosamente`);
-                // Recargar la lista de OTs para reflejar el cambio de estado
                 refetchOrdenesTrabajo();
-                // Esperar un poco y luego navegar a la prefactura
                 setTimeout(() => {
-                    navigate(`/facturacion/facturas/${prefacturaId}`);
+                    navigate(buildPrefacturaOTDetailPath(prefacturaId, routeState));
                 }, 1000);
             }
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.detail || error?.message || 'Error al crear prefactura';
-            toast.error(message);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         } finally {
             setCreatingPrefactura(false);
         }
@@ -267,34 +325,12 @@ const FacturacionesComparativa = () => {
         }
     }, [searchParams]);
 
-    // Cargar OTs al montar
     useEffect(() => {
-    }, [dispatch]);
-
-    // Cargar contratos cuando se selecciona empresa cliente
-    useEffect(() => {
-        if (selectedEmpresaClienteId) {
-            // Obtener empresas prestatarias de las OTs de esta empresa cliente
-            const otasDelCliente = otasDisponibles.filter(
-                (ot) => ot.cliente === selectedEmpresaClienteId,
-            );
-            if (otasDelCliente.length > 0) {
-                const empresasPrestadorasIds = Array.from(
-                    new Set(otasDelCliente.map((ot) => ot.empresa)),
-                );
-                if (empresasPrestadorasIds.length > 0) {
-                    dispatch(
-                        listaContratosDeEmpresaYClienteThunk({
-                            id_cliente: selectedEmpresaClienteId,
-                            id_empresa: empresasPrestadorasIds[0], // Usar la primera empresa prestadora encontrada
-                        }),
-                    );
-                }
-            }
-        } else {
+        if (!selectedEmpresaClienteId) {
             setSelectedContratoId('');
+            setExpandedPlanItems({});
         }
-    }, [selectedEmpresaClienteId, dispatch]);
+    }, [selectedEmpresaClienteId]);
 
     useEffect(() => {
         if (fechaInicialSetRef.current) return;
@@ -327,7 +363,7 @@ const FacturacionesComparativa = () => {
                     setPactadoData(response.data);
                     setEjecutadoData(response.data);
                 })
-                .catch((_error) => {
+                .catch(() => {
                     setComparativaData(null);
                 })
                 .finally(() => {
@@ -397,8 +433,9 @@ const FacturacionesComparativa = () => {
                     if (response.data?.ejecutado?.items) {
                         const newConfig = new Map<string, ItemPrefactura>();
                         response.data.ejecutado.items.forEach((item: ItemEjecutado) => {
-                            newConfig.set(item.id, {
-                                itemId: item.id,
+                            const itemKey = `${item.tipo}_${item.id}`;
+                            newConfig.set(itemKey, {
+                                itemId: itemKey,
                                 facturar: true,
                                 comentario: '',
                                 precioAsignado:
@@ -408,7 +445,7 @@ const FacturacionesComparativa = () => {
                         setItemsConfig(newConfig);
                     }
                 })
-                .catch((_error) => {
+                .catch(() => {
                     setEjecutadoData(null);
                 })
                 .finally(() => {
@@ -417,6 +454,7 @@ const FacturacionesComparativa = () => {
         } else {
             setEjecutadoData(null);
             setItemsConfig(new Map());
+            setVisitasMarcadasPorOt({});
         }
     }, [selectedOts, fechaPrefactura]);
 
@@ -436,7 +474,7 @@ const FacturacionesComparativa = () => {
                     // La respuesta debería tener estructura { pactado: {...}, ejecutado: null, diferencia: null }
                     setPactadoData(response.data);
                 })
-                .catch((_error) => {
+                .catch(() => {
                     setPactadoData(null);
                 })
                 .finally(() => {
@@ -508,6 +546,12 @@ const FacturacionesComparativa = () => {
                     color: 'amber' as const,
                     label: 'Gasto Operativo',
                 };
+            case 'visita_adicional_contrato':
+                return {
+                    variant: 'solid' as const,
+                    color: 'red' as const,
+                    label: 'Visita adicional',
+                };
             default:
                 return { variant: 'solid' as const, color: 'gray' as const, label: 'Otro' };
         }
@@ -533,16 +577,88 @@ const FacturacionesComparativa = () => {
     }, [otasDisponibles, searchOtInput]);
 
     // Obtener contrato seleccionado
-    const contratoSeleccionado = useMemo(
-        () => listaContratosDeEmpresaYCliente.find((c) => c.id === selectedContratoId),
-        [listaContratosDeEmpresaYCliente, selectedContratoId],
+    const contratoSeleccionado = useMemo<IContratoMatching | undefined>(
+        () => contratosActivosCliente.find((contrato) => contrato.id === selectedContratoId),
+        [contratosActivosCliente, selectedContratoId],
     );
 
-    // Loguear datos del contrato para debugging
-    useEffect(() => {
-        if (contratoSeleccionado) {
+    const visitasContratoBase = useMemo<VisitasContratoResumen>(() => {
+        const periodo = dayjs(fechaPrefactura).format('YYYY-MM');
+        const incluidasDesdeContrato = (contratoSeleccionado?.items_comerciales ?? []).reduce(
+            (acumulado, item) => acumulado + Number(item.num_visitas_mensuales ?? 0),
+            0,
+        );
+
+        return {
+            periodo: comparativaData?.visitas_contrato?.periodo ?? periodo,
+            incluidas_mes:
+                comparativaData?.visitas_contrato?.incluidas_mes ?? incluidasDesdeContrato,
+            confirmadas_mes: comparativaData?.visitas_contrato?.confirmadas_mes ?? 0,
+        };
+    }, [comparativaData?.visitas_contrato, contratoSeleccionado, fechaPrefactura]);
+
+    const otsMarcadasVisita = useMemo(
+        () => selectedOts.filter((otId) => Boolean(visitasMarcadasPorOt[otId])),
+        [selectedOts, visitasMarcadasPorOt],
+    );
+
+    const visitasPrefactura = useMemo<VisitasPrefacturaPayload>(() => {
+        const proyectadasMes =
+            visitasContratoBase.confirmadas_mes + otsMarcadasVisita.length;
+        const excesoTotalProyectado = Math.max(
+            proyectadasMes - visitasContratoBase.incluidas_mes,
+            0,
+        );
+        const excesoYaConfirmado = Math.max(
+            visitasContratoBase.confirmadas_mes - visitasContratoBase.incluidas_mes,
+            0,
+        );
+        const excesoPrefactura = Math.max(excesoTotalProyectado - excesoYaConfirmado, 0);
+
+        return {
+            ...visitasContratoBase,
+            marcadas_prefactura: otsMarcadasVisita.length,
+            proyectadas_mes: proyectadasMes,
+            exceso_prefactura: excesoPrefactura,
+            ots_marcadas: otsMarcadasVisita,
+            precio_unitario_exceso: precioVisitaAdicional,
+            total_exceso: excesoPrefactura * precioVisitaAdicional,
+        };
+    }, [otsMarcadasVisita, precioVisitaAdicional, visitasContratoBase]);
+
+    const syntheticVisitaItem = useMemo(() => {
+        if (!selectedContratoId || visitasPrefactura.exceso_prefactura <= 0) {
+            return null;
         }
-    }, [contratoSeleccionado]);
+
+        return {
+            tipo: 'visita_adicional_contrato',
+            id: `visita-extra-${visitasPrefactura.periodo}`,
+            descripcion: `Visita adicional contrato - ${visitasPrefactura.periodo}`,
+            nombre: `Visita adicional contrato - ${visitasPrefactura.periodo}`,
+            cantidad: visitasPrefactura.exceso_prefactura,
+            precio_total: visitasPrefactura.total_exceso,
+            precio_ajustado: visitasPrefactura.total_exceso,
+            precio_unitario: precioVisitaAdicional,
+            facturar: true,
+            comentario: 'Cobro adicional por exceso de visitas contractuales.',
+        };
+    }, [precioVisitaAdicional, selectedContratoId, visitasPrefactura]);
+
+    const prefacturaPreviewItems = useMemo(
+        () => [
+            ...(ejecutadoData?.ejecutado?.items ?? []),
+            ...(syntheticVisitaItem ? [syntheticVisitaItem] : []),
+        ],
+        [ejecutadoData?.ejecutado?.items, syntheticVisitaItem],
+    );
+
+    useEffect(() => {
+        if (selectedContratoId && !loadingContratos && !contratoSeleccionado) {
+            setSelectedContratoId('');
+            setExpandedPlanItems({});
+        }
+    }, [contratoSeleccionado, loadingContratos, selectedContratoId]);
 
     // Cargar facturas existentes para excluir OTs ya incluidas en otras prefacturas
     useEffect(() => {
@@ -563,6 +679,7 @@ const FacturacionesComparativa = () => {
                 });
                 if (mounted) setExcludedOtIds(Array.from(new Set(otIds)));
             } catch (err) {
+                void err;
             }
         };
         fetchFacturas();
@@ -571,20 +688,16 @@ const FacturacionesComparativa = () => {
         };
     }, []);
 
-    // Obtener empresas cliente disponibles (desde todas las OTs completadas)
+    // Obtener empresas cliente disponibles (desde RelacionEmpresa, NO solo OTs completadas)
     const empresasClienteDisponibles = useMemo(() => {
-        const clientesUnicos = Array.from(
-            new Set(
-                listaOrdenTrabajo
-                    .filter((ot: IOrdenDeTrabajo) => ot.estado === 'completada')
-                    .map((ot) => ot.cliente),
-            ),
-        );
-        return clientesUnicos;
-    }, [listaOrdenTrabajo]);
+        return misClientes.map((r) => r.cliente);
+    }, [misClientes]);
 
-    // Obtener nombre de empresa cliente por ID (buscar en TODAS las OTs, no solo en las filtradas)
+    // Obtener nombre de empresa cliente por ID
     const getNombreEmpresaCliente = (empresaClienteId: number) => {
+        const relacion = misClientes.find((r) => r.cliente === empresaClienteId);
+        if (relacion?.info_cliente?.nombre) return relacion.info_cliente.nombre;
+        // Fallback: buscar en OTs
         return (
             listaOrdenTrabajo.find((ot: IOrdenDeTrabajo) => ot.cliente === empresaClienteId)
                 ?.cliente_nombre || `Empresa #${empresaClienteId}`
@@ -687,31 +800,44 @@ const FacturacionesComparativa = () => {
         let countFacturables = 0;
         let countNoFacturables = 0;
 
-        ejecutadoData?.ejecutado?.items?.forEach((item: ItemEjecutado) => {
+        prefacturaPreviewItems.forEach((item) => {
+            if (item.tipo === 'visita_adicional_contrato') {
+                totalFacturable += visitasPrefactura.total_exceso;
+                countFacturables++;
+                return;
+            }
+
             const itemKey = `${item.tipo}_${item.id}`;
             const config = itemsConfig.get(itemKey);
-            if (config?.facturar !== false) {
-                const cantidad = item.cantidad ?? 1;
-                const computed = computeItemValues(item as any, 'CLP');
-                const totalBase =
-                    typeof computed.total === 'number'
-                        ? computed.total
-                        : (computed.unit ?? 0) * cantidad;
-                const totalLinea = config?.precioAsignado ?? totalBase;
-                totalFacturable += totalLinea;
-                countFacturables++;
-            } else {
+            if (config?.facturar === false) {
                 countNoFacturables++;
+                return;
             }
+
+            const cantidad = item.cantidad ?? 1;
+            const computed = computeItemValues(item as any, 'CLP');
+            const totalBase =
+                typeof computed.total === 'number'
+                    ? computed.total
+                    : (computed.unit ?? 0) * cantidad;
+            const totalLinea = config?.precioAsignado ?? totalBase;
+            totalFacturable += totalLinea;
+            countFacturables++;
         });
 
         return {
             totalFacturable,
             countFacturables,
             countNoFacturables,
-            totalItems: ejecutadoData?.ejecutado?.items?.length || 0,
+            totalItems: prefacturaPreviewItems.length,
         };
-    }, [ejecutadoData, itemsConfig, cotizacionesRelacionadasKey, cotizacionItemsById]);
+    }, [
+        cotizacionItemsById,
+        cotizacionesRelacionadasKey,
+        itemsConfig,
+        prefacturaPreviewItems,
+        visitasPrefactura.total_exceso,
+    ]);
 
     useEffect(() => {
         let mounted = true;
@@ -789,6 +915,7 @@ const FacturacionesComparativa = () => {
                     });
                 }
             } catch (error) {
+                void error;
             } finally {
                 if (mounted) {
                     setLoadingCotizaciones(false);
@@ -816,6 +943,9 @@ const FacturacionesComparativa = () => {
     // Manejar selección de contrato
     const handleSelectContrato = (contratoId: number | '') => {
         setSelectedContratoId(contratoId);
+        setVisitasMarcadasPorOt({});
+        setPrecioVisitaAdicional(0);
+        setExpandedPlanItems({});
     };
 
     // Manejar selección de empresa cliente
@@ -823,6 +953,9 @@ const FacturacionesComparativa = () => {
         setSelectedEmpresaClienteId(empresaClienteId);
         setSelectedContratoId('');
         setSelectedOts([]);
+        setVisitasMarcadasPorOt({});
+        setPrecioVisitaAdicional(0);
+        setExpandedPlanItems({});
     };
 
     // Manejar selección/deselección de OT
@@ -833,6 +966,13 @@ const FacturacionesComparativa = () => {
             : [...selectedOts, ot.id];
 
         setSelectedOts(nextSelected);
+        if (isSelected) {
+            setVisitasMarcadasPorOt((prev) => {
+                const next = { ...prev };
+                delete next[ot.id];
+                return next;
+            });
+        }
     };
 
     // Limpiar selección
@@ -846,7 +986,22 @@ const FacturacionesComparativa = () => {
         setSearchOtInput('');
         setShowOtDropdown(false);
         setItemsConfig(new Map());
+        setVisitasMarcadasPorOt({});
+        setPrecioVisitaAdicional(0);
+        setExpandedPlanItems({});
     };
+
+    const toggleExpandedPlanItem = (itemId: number) => {
+        setExpandedPlanItems((prev) => ({
+            ...prev,
+            [itemId]: !prev[itemId],
+        }));
+    };
+
+    const totalPactadoComparativa = Number(comparativaData?.pactado?.total ?? 0);
+    const totalEjecutadoComparativa = Number(comparativaData?.ejecutado?.total ?? 0);
+    const diferenciaComparativa = Number(comparativaData?.diferencia ?? 0);
+    const diferenciaComparativaPositiva = diferenciaComparativa >= 0;
 
     return (
         <PageWrapper name='Facturación - Matching Manual'>
@@ -859,7 +1014,10 @@ const FacturacionesComparativa = () => {
                     </p>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <Button icon='HeroXMark' variant='outline' onClick={() => navigate(-1)}>
+                    <Button
+                        icon='HeroXMark'
+                        variant='outline'
+                        onClick={() => navigate(backToList)}>
                         Volver
                     </Button>
                 </SubheaderRight>
@@ -905,7 +1063,7 @@ const FacturacionesComparativa = () => {
                                     : 'bg-white dark:bg-gray-900 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
                             }`}>
                             <option value=''>-- Selecciona un contrato --</option>
-                            {listaContratosDeEmpresaYCliente.map((contrato) => (
+                            {contratosActivosCliente.map((contrato) => (
                                 <option key={contrato.id} value={contrato.id}>
                                     #{contrato.id} - {contrato.nombre}
                                 </option>
@@ -914,6 +1072,11 @@ const FacturacionesComparativa = () => {
                         {selectedEmpresaClienteId === null && (
                             <p className='text-xs italic text-gray-500 dark:text-gray-400'>
                                 Selecciona una empresa cliente primero
+                            </p>
+                        )}
+                        {selectedEmpresaClienteId !== null && loadingContratos && (
+                            <p className='text-xs italic text-gray-500 dark:text-gray-400'>
+                                Cargando contratos activos...
                             </p>
                         )}
                     </div>
@@ -1030,57 +1193,133 @@ const FacturacionesComparativa = () => {
                                                         {contratoSeleccionado.nombre}
                                                     </h3>
                                                     <p className='text-xs text-gray-500 dark:text-gray-400'>
-                                                        ID #{contratoSeleccionado.id} |{' '}
-                                                        {contratoSeleccionado.datos_empresa?.nombre}
+                                                        ID #{contratoSeleccionado.id} | Estado:{' '}
+                                                        {contratoSeleccionado.estado_label}
+                                                    </p>
+                                                    <p className='text-xs text-gray-500 dark:text-gray-400'>
+                                                        Moneda {contratoSeleccionado.moneda_cobro}
+                                                        {contratoSeleccionado.dia_facturacion
+                                                            ? ` | Día facturación ${contratoSeleccionado.dia_facturacion}`
+                                                            : ''}
                                                     </p>
                                                 </div>
 
                                                 {/* SERVICIOS CONTRATADOS (TABLA COMPACTA) */}
-                                                {(contratoSeleccionado as any)?.contrato_servicios
-                                                    ?.length > 0 ? (
+                                                {contratoSeleccionado.items_comerciales.length > 0 ? (
                                                     <div>
                                                         <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
-                                                            Servicios Contratados
+                                                            Ítems comerciales
                                                         </h4>
                                                         <div className='overflow-hidden rounded border border-gray-300 dark:border-gray-600'>
                                                             <table className='w-full text-xs dark:text-gray-100'>
                                                                 <thead className='bg-gray-100 dark:bg-gray-800'>
                                                                     <tr>
                                                                         <th className='px-2 py-1 text-left font-medium text-gray-700 dark:text-gray-300'>
-                                                                            Servicio
+                                                                            Ítem
                                                                         </th>
                                                                         <th className='px-2 py-1 text-right font-medium text-gray-700 dark:text-gray-300'>
-                                                                            Monto
+                                                                            Total mes
                                                                         </th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody className='divide-y bg-white dark:bg-gray-900'>
-                                                                    {(
-                                                                        contratoSeleccionado as any
-                                                                    ).contrato_servicios.map(
-                                                                        (
-                                                                            servicio: any,
-                                                                            idx: number,
-                                                                        ) => (
-                                                                            <tr
-                                                                                key={idx}
-                                                                                className='hover:bg-gray-50 dark:hover:bg-gray-700'>
-                                                                                <td className='px-2 py-1.5 text-gray-800 dark:text-gray-100'>
-                                                                                    {servicio.nombre ||
-                                                                                        servicio.descripcion ||
-                                                                                        'Servicio'}
-                                                                                </td>
-                                                                                <td className='px-2 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100'>
-                                                                                    $
-                                                                                    {(
-                                                                                        servicio.precio ||
-                                                                                        0
-                                                                                    ).toLocaleString(
-                                                                                        'es-CL',
-                                                                                    )}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ),
+                                                                    {contratoSeleccionado.items_comerciales.map(
+                                                                        (item) => {
+                                                                            const planComponents =
+                                                                                isPlanContractSource(
+                                                                                    item,
+                                                                                )
+                                                                                    ? getPlanComponentDetails(
+                                                                                          item,
+                                                                                      )
+                                                                                    : [];
+                                                                            const hasPlanBreakdown =
+                                                                                item.tipo_origen ===
+                                                                                    'plan' &&
+                                                                                planComponents.length >
+                                                                                    0;
+                                                                            const isExpanded =
+                                                                                Boolean(
+                                                                                    expandedPlanItems[
+                                                                                        item.id
+                                                                                    ],
+                                                                                );
+
+                                                                            return (
+                                                                                <Fragment
+                                                                                    key={item.id}>
+                                                                                    <tr
+                                                                                        className='hover:bg-gray-50 dark:hover:bg-gray-700'>
+                                                                                        <td className='px-2 py-1.5 text-gray-800 dark:text-gray-100'>
+                                                                                            <div className='font-medium'>
+                                                                                                {
+                                                                                                    item.snapshot_nombre
+                                                                                                }
+                                                                                            </div>
+                                                                                            {Number(
+                                                                                                item.num_visitas_mensuales ??
+                                                                                                    0,
+                                                                                            ) > 0 && (
+                                                                                                <div className='text-[11px] text-blue-600 dark:text-blue-400'>
+                                                                                                    {
+                                                                                                        item.num_visitas_mensuales
+                                                                                                    }{' '}
+                                                                                                    visita(s)/mes
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {hasPlanBreakdown && (
+                                                                                                <button
+                                                                                                    type='button'
+                                                                                                    onClick={() =>
+                                                                                                        toggleExpandedPlanItem(
+                                                                                                            item.id,
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className='mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200'>
+                                                                                                    <span>
+                                                                                                        {isExpanded
+                                                                                                            ? '▾'
+                                                                                                            : '▸'}
+                                                                                                    </span>
+                                                                                                    <span>
+                                                                                                        {isExpanded
+                                                                                                            ? 'Ocultar servicios incluidos'
+                                                                                                            : 'Ver servicios incluidos'}
+                                                                                                    </span>
+                                                                                                </button>
+                                                                                            )}
+                                                                                        </td>
+                                                                                        <td className='px-2 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100'>
+                                                                                            {formatCurrency(
+                                                                                                Number(
+                                                                                                    item.total_mensual ||
+                                                                                                        0,
+                                                                                                ),
+                                                                                                item.moneda,
+                                                                                            )}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                    {hasPlanBreakdown &&
+                                                                                        isExpanded && (
+                                                                                            <tr
+                                                                                                key={`item-${item.id}-expanded`}
+                                                                                                className='bg-gray-50 dark:bg-gray-800/60'>
+                                                                                                <td
+                                                                                                    colSpan={2}
+                                                                                                    className='px-3 py-2'>
+                                                                                                    <PlanIncludedServicesDetail
+                                                                                                        components={
+                                                                                                            planComponents
+                                                                                                        }
+                                                                                                        title='Servicios incluidos'
+                                                                                                        compact
+                                                                                                    />
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        )}
+                                                                                </Fragment>
+                                                                            );
+                                                                        },
                                                                     )}
                                                                 </tbody>
                                                             </table>
@@ -1092,7 +1331,100 @@ const FacturacionesComparativa = () => {
                                                     </div>
                                                 ) : (
                                                     <div className='py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
-                                                        Sin servicios contratados
+                                                        Sin ítems comerciales
+                                                    </div>
+                                                )}
+
+                                                {visitasContratoBase.incluidas_mes > 0 && (
+                                                    <div className='mt-3'>
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                            Visitas del contrato
+                                                        </h4>
+                                                        <div className='space-y-3 rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 p-3'>
+                                                            <div className='grid grid-cols-2 gap-2 text-xs'>
+                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
+                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                        Incluidas este mes
+                                                                    </p>
+                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                        {visitasContratoBase.incluidas_mes}
+                                                                    </p>
+                                                                </div>
+                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
+                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                        Confirmadas este mes
+                                                                    </p>
+                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                        {visitasContratoBase.confirmadas_mes}
+                                                                    </p>
+                                                                </div>
+                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
+                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                        Marcadas en esta prefactura
+                                                                    </p>
+                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                        {visitasPrefactura.marcadas_prefactura}
+                                                                    </p>
+                                                                </div>
+                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
+                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                        Proyección
+                                                                    </p>
+                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                        {visitasPrefactura.proyectadas_mes}/
+                                                                        {visitasContratoBase.incluidas_mes}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className='flex items-center justify-between rounded bg-white dark:bg-gray-800 p-2 text-xs'>
+                                                                <div>
+                                                                    <p className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                        Estado mensual
+                                                                    </p>
+                                                                    <p className='text-gray-600 dark:text-gray-400'>
+                                                                        Período {visitasContratoBase.periodo}
+                                                                    </p>
+                                                                </div>
+                                                                <Badge
+                                                                    variant='solid'
+                                                                    color={
+                                                                        visitasPrefactura.exceso_prefactura > 0
+                                                                            ? 'red'
+                                                                            : 'emerald'
+                                                                    }>
+                                                                    {visitasPrefactura.exceso_prefactura > 0
+                                                                        ? `Exceso x${visitasPrefactura.exceso_prefactura}`
+                                                                        : 'Dentro del plan'}
+                                                                </Badge>
+                                                            </div>
+
+                                                            {visitasPrefactura.exceso_prefactura > 0 && (
+                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
+                                                                    <label className='mb-1 block text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400'>
+                                                                        Precio visita adicional
+                                                                    </label>
+                                                                    <input
+                                                                        type='number'
+                                                                        min='0'
+                                                                        value={precioVisitaAdicional}
+                                                                        onChange={(event) =>
+                                                                            setPrecioVisitaAdicional(
+                                                                                Number(event.target.value || 0),
+                                                                            )
+                                                                        }
+                                                                        className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-sm'
+                                                                    />
+                                                                    <p className='mt-1 text-xs text-gray-600 dark:text-gray-400'>
+                                                                        Total adicional:{' '}
+                                                                        {formatCurrency(
+                                                                            visitasPrefactura.total_exceso,
+                                                                            'CLP',
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -1158,6 +1490,29 @@ const FacturacionesComparativa = () => {
                                                                     .observaciones
                                                             }
                                                         </p>
+                                                    </div>
+                                                )}
+
+                                                {contratoSeleccionado.visitas.length > 0 && (
+                                                    <div className='mt-3'>
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                            Visitas programadas
+                                                        </h4>
+                                                        <div className='space-y-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2'>
+                                                            {contratoSeleccionado.visitas.map((visita) => (
+                                                                <div
+                                                                    key={visita.id}
+                                                                    className='rounded bg-white dark:bg-gray-800 p-2 text-xs'>
+                                                                    <p className='font-medium text-gray-800 dark:text-gray-100'>
+                                                                        {visita.descripcion_visita}
+                                                                    </p>
+                                                                    <p className='text-gray-600 dark:text-gray-400'>
+                                                                        {visita.frecuencia_label || visita.frecuencia} | Incluidas:{' '}
+                                                                        {visita.cantidad}
+                                                                    </p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -1620,9 +1975,7 @@ const FacturacionesComparativa = () => {
                                         </div>
 
                                         {/* Tabla ejecutado con controles de prefactura */}
-                                        {ejecutadoData?.ejecutado?.items &&
-                                        Array.isArray(ejecutadoData.ejecutado.items) &&
-                                        ejecutadoData.ejecutado.items.length > 0 ? (
+                                        {prefacturaPreviewItems.length > 0 ? (
                                             <div className='overflow-x-auto'>
                                                 <table className='w-full text-xs dark:text-gray-100'>
                                                     <thead className='border-b-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800'>
@@ -1637,10 +1990,10 @@ const FacturacionesComparativa = () => {
                                                                 Cant
                                                             </th>
                                                             <th className='p-2 text-right font-semibold'>
-                                                                P.Unit
+                                                                P.Unit ({ejecutadoData.ejecutado.moneda})
                                                             </th>
                                                             <th className='p-2 text-right font-semibold'>
-                                                                Total
+                                                                Total ({ejecutadoData.ejecutado.moneda})
                                                             </th>
                                                             <th className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center font-semibold'>
                                                                 Facturar
@@ -1657,10 +2010,10 @@ const FacturacionesComparativa = () => {
                                                         {(() => {
                                                             // Agrupar items por OT
                                                             const itemsPorOT =
-                                                                ejecutadoData.ejecutado.items.reduce(
+                                                                prefacturaPreviewItems.reduce(
                                                                     (
                                                                         acc: any,
-                                                                        item: ItemEjecutado,
+                                                                        item: any,
                                                                     ) => {
                                                                         const otId =
                                                                             item.ot_id || 'sin_ot';
@@ -1686,13 +2039,49 @@ const FacturacionesComparativa = () => {
                                                                             key={`sep-ot-${otId}`}
                                                                             className={
                                                                                 isFirstOT
-                                                                                    ? 'bg-blue-50'
-                                                                                    : 'border-t-2 border-blue-300 bg-blue-50'
+                                                                                    ? 'bg-blue-50 dark:bg-slate-800'
+                                                                                    : 'border-t-2 border-blue-300 bg-blue-50 dark:border-slate-600 dark:bg-slate-800'
                                                                             }>
                                                                             <td
-                                                                                colSpan={8}
-                                                                                className='p-2 font-bold text-gray-700 dark:text-gray-300'>
-                                                                                OT #{otId}
+                                                                               colSpan={8}
+                                                                                className='p-2 font-bold text-gray-700 dark:text-gray-100'>
+                                                                                <div className='flex items-center justify-between gap-3'>
+                                                                                    <span>
+                                                                                        {otId === 'sin_ot'
+                                                                                            ? 'Ajustes de contrato'
+                                                                                            : `OT #${otId}`}
+                                                                                    </span>
+                                                                                    {otId !== 'sin_ot' &&
+                                                                                        visitasContratoBase.incluidas_mes > 0 && (
+                                                                                        <label className='flex items-center gap-2 rounded-md bg-white/80 px-2 py-1 text-[11px] font-medium text-gray-700 shadow-sm dark:bg-slate-700 dark:text-gray-100'>
+                                                                                            <input
+                                                                                                type='checkbox'
+                                                                                                checked={Boolean(
+                                                                                                    visitasMarcadasPorOt[
+                                                                                                        Number(otId)
+                                                                                                    ],
+                                                                                                )}
+                                                                                                onChange={(event) =>
+                                                                                                    setVisitasMarcadasPorOt(
+                                                                                                        (
+                                                                                                            prev,
+                                                                                                        ) => ({
+                                                                                                            ...prev,
+                                                                                                            [Number(
+                                                                                                                otId,
+                                                                                                            )]:
+                                                                                                                event
+                                                                                                                    .target
+                                                                                                                    .checked,
+                                                                                                        }),
+                                                                                                    )
+                                                                                                }
+                                                                                                className='h-4 w-4 cursor-pointer'
+                                                                                            />
+                                                                                            Cuenta como visita
+                                                                                        </label>
+                                                                                    )}
+                                                                                </div>
                                                                             </td>
                                                                         </tr>,
                                                                     );
@@ -1710,6 +2099,12 @@ const FacturacionesComparativa = () => {
                                                                             let grupoKey = '';
 
                                                                             if (
+                                                                                item.tipo ===
+                                                                                'visita_adicional_contrato'
+                                                                            ) {
+                                                                                grupoKey =
+                                                                                    'visitas_contrato';
+                                                                            } else if (
                                                                                 item.tipo ===
                                                                                 'guia_salida'
                                                                             ) {
@@ -1762,6 +2157,7 @@ const FacturacionesComparativa = () => {
                                                                         'guia_',
                                                                         'compras',
                                                                         'gastos',
+                                                                        'visitas_contrato',
                                                                     ];
                                                                     const gruposOrdenados =
                                                                         Object.entries(grupos).sort(
@@ -1812,6 +2208,12 @@ const FacturacionesComparativa = () => {
                                                                             ) {
                                                                                 nombreGrupo = `Trabajos - ${itemsGrupo.length} item(s)`;
                                                                             } else if (
+                                                                                grupoKey ===
+                                                                                'visitas_contrato'
+                                                                            ) {
+                                                                                nombreGrupo =
+                                                                                    'Visitas de contrato';
+                                                                            } else if (
                                                                                 grupoKey.startsWith(
                                                                                     'guia_',
                                                                                 )
@@ -1859,10 +2261,23 @@ const FacturacionesComparativa = () => {
                                                                                         itemsConfig.get(
                                                                                             itemId,
                                                                                         );
+                                                                                    const isSyntheticVisit =
+                                                                                        item.tipo ===
+                                                                                        'visita_adicional_contrato';
                                                                                     const tipoBadge =
                                                                                         getTipoBadge(
                                                                                             item.tipo,
                                                                                         );
+                                                                                    const computedValues =
+                                                                                        isSyntheticVisit
+                                                                                            ? {
+                                                                                                  unit: precioVisitaAdicional,
+                                                                                                  total: visitasPrefactura.total_exceso,
+                                                                                              }
+                                                                                            : computeItemValues(
+                                                                                                  item as any,
+                                                                                                  'CLP',
+                                                                                              );
                                                                                     rows.push(
                                                                                         <tr
                                                                                             key={`${item.tipo}_${item.id}_${item.ot_id || 'no_ot'}`}
@@ -1884,6 +2299,8 @@ const FacturacionesComparativa = () => {
                                                                                             <td className='p-2 text-gray-800 dark:text-gray-100'>
                                                                                                 <div className='font-medium'>
                                                                                                     {item.nombre ||
+                                                                                                        (item as any)
+                                                                                                            .descripcion ||
                                                                                                         'Sin nombre'}
                                                                                                 </div>
                                                                                             </td>
@@ -1894,100 +2311,116 @@ const FacturacionesComparativa = () => {
                                                                                             </td>
                                                                                             <td className='p-2 text-right'>
                                                                                                 {formatCurrency(
-                                                                                                    computeItemValues(
-                                                                                                        item as any,
-                                                                                                        'CLP',
-                                                                                                    )
-                                                                                                        .unit,
+                                                                                                    computedValues.unit,
                                                                                                     'CLP',
                                                                                                 )}
                                                                                             </td>
                                                                                             <td className='p-2 text-right font-semibold text-green-600'>
                                                                                                 {formatCurrency(
-                                                                                                    computeItemValues(
-                                                                                                        item as any,
-                                                                                                        'CLP',
-                                                                                                    )
-                                                                                                        .total,
+                                                                                                    computedValues.total,
                                                                                                     'CLP',
                                                                                                 )}
                                                                                             </td>
                                                                                             <td className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center'>
-                                                                                                <input
-                                                                                                    type='checkbox'
-                                                                                                    checked={
-                                                                                                        config?.facturar ??
-                                                                                                        true
-                                                                                                    }
-                                                                                                    onChange={(
-                                                                                                        e,
-                                                                                                    ) =>
-                                                                                                        updateItemConfig(
-                                                                                                            itemId,
-                                                                                                            {
-                                                                                                                facturar:
-                                                                                                                    e
-                                                                                                                        .target
-                                                                                                                        .checked,
-                                                                                                            },
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className='h-4 w-4 cursor-pointer'
-                                                                                                />
+                                                                                                {isSyntheticVisit ? (
+                                                                                                    <Badge
+                                                                                                        variant='solid'
+                                                                                                        color='red'
+                                                                                                        className='text-[10px]'>
+                                                                                                        Exceso
+                                                                                                    </Badge>
+                                                                                                ) : (
+                                                                                                    <input
+                                                                                                        type='checkbox'
+                                                                                                        checked={
+                                                                                                            config?.facturar ??
+                                                                                                            true
+                                                                                                        }
+                                                                                                        onChange={(
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            updateItemConfig(
+                                                                                                                itemId,
+                                                                                                                {
+                                                                                                                    facturar:
+                                                                                                                        e
+                                                                                                                            .target
+                                                                                                                            .checked,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className='h-4 w-4 cursor-pointer'
+                                                                                                    />
+                                                                                                )}
                                                                                             </td>
                                                                                             <td className='p-2'>
-                                                                                                <input
-                                                                                                    type='number'
-                                                                                                    placeholder='$'
-                                                                                                    value={
-                                                                                                        config?.precioAsignado ??
-                                                                                                        ''
-                                                                                                    }
-                                                                                                    onChange={(
-                                                                                                        e,
-                                                                                                    ) =>
-                                                                                                        updateItemConfig(
-                                                                                                            itemId,
-                                                                                                            {
-                                                                                                                precioAsignado:
-                                                                                                                    e
-                                                                                                                        .target
-                                                                                                                        .value
-                                                                                                                        ? Number(
-                                                                                                                              e
-                                                                                                                                  .target
-                                                                                                                                  .value,
-                                                                                                                          )
-                                                                                                                        : null,
-                                                                                                            },
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className='w-20 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-right text-xs'
-                                                                                                />
+                                                                                                {isSyntheticVisit ? (
+                                                                                                    <div className='text-right font-semibold text-red-600 dark:text-red-400'>
+                                                                                                        {formatCurrency(
+                                                                                                            visitasPrefactura.total_exceso,
+                                                                                                            'CLP',
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <input
+                                                                                                        type='number'
+                                                                                                        placeholder='$'
+                                                                                                        value={
+                                                                                                            config?.precioAsignado ??
+                                                                                                            ''
+                                                                                                        }
+                                                                                                        onChange={(
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            updateItemConfig(
+                                                                                                                itemId,
+                                                                                                                {
+                                                                                                                    precioAsignado:
+                                                                                                                        e
+                                                                                                                            .target
+                                                                                                                            .value
+                                                                                                                            ? Number(
+                                                                                                                                  e
+                                                                                                                                      .target
+                                                                                                                                      .value,
+                                                                                                                              )
+                                                                                                                            : null,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className='w-20 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-right text-xs'
+                                                                                                    />
+                                                                                                )}
                                                                                             </td>
                                                                                             <td className='p-2'>
-                                                                                                <input
-                                                                                                    type='text'
-                                                                                                    placeholder='Comentario...'
-                                                                                                    value={
-                                                                                                        config?.comentario ??
-                                                                                                        ''
-                                                                                                    }
-                                                                                                    onChange={(
-                                                                                                        e,
-                                                                                                    ) =>
-                                                                                                        updateItemConfig(
-                                                                                                            itemId,
-                                                                                                            {
-                                                                                                                comentario:
-                                                                                                                    e
-                                                                                                                        .target
-                                                                                                                        .value,
-                                                                                                            },
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-xs'
-                                                                                                />
+                                                                                                {isSyntheticVisit ? (
+                                                                                                    <span className='text-xs text-gray-600 dark:text-gray-400'>
+                                                                                                        Cobro por exceso de visitas del contrato.
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <input
+                                                                                                        type='text'
+                                                                                                        placeholder='Comentario...'
+                                                                                                        value={
+                                                                                                            config?.comentario ??
+                                                                                                            ''
+                                                                                                        }
+                                                                                                        onChange={(
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            updateItemConfig(
+                                                                                                                itemId,
+                                                                                                                {
+                                                                                                                    comentario:
+                                                                                                                        e
+                                                                                                                            .target
+                                                                                                                            .value,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-xs'
+                                                                                                    />
+                                                                                                )}
                                                                                             </td>
                                                                                         </tr>,
                                                                                     );
@@ -2078,40 +2511,34 @@ const FacturacionesComparativa = () => {
                                     <p className='text-sm text-gray-600 dark:text-gray-400'>Total Pactado</p>
                                     <p className='text-3xl font-bold text-blue-600 dark:text-blue-400'>
                                         $
-                                        {Number(comparativaData.pactado.total).toLocaleString(
-                                            'es-CL',
-                                        )}
+                                        {totalPactadoComparativa.toLocaleString('es-CL')}
                                     </p>
                                 </div>
                                 <div className='rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30 p-4 text-center'>
                                     <p className='text-sm text-gray-600 dark:text-gray-400'>Total Ejecutado</p>
                                     <p className='text-3xl font-bold text-green-600 dark:text-green-400'>
                                         $
-                                        {Number(comparativaData.ejecutado.total).toLocaleString(
-                                            'es-CL',
-                                        )}
+                                        {totalEjecutadoComparativa.toLocaleString('es-CL')}
                                     </p>
                                 </div>
                                 <div
                                     className={`rounded-lg p-4 text-center ${
-                                        comparativaData.diferencia >= 0
+                                        diferenciaComparativaPositiva
                                             ? 'bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30'
                                             : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-30'
                                     }`}>
                                     <p className='text-sm text-gray-600 dark:text-gray-400'>Diferencia</p>
                                     <p
                                         className={`text-3xl font-bold ${
-                                            comparativaData.diferencia >= 0
+                                            diferenciaComparativaPositiva
                                                 ? 'text-emerald-600 dark:text-emerald-400'
                                                 : 'text-red-600 dark:text-red-400'
                                         }`}>
                                         $
-                                        {Math.abs(comparativaData.diferencia).toLocaleString(
-                                            'es-CL',
-                                        )}
+                                        {Math.abs(diferenciaComparativa).toLocaleString('es-CL')}
                                     </p>
                                     <p className='mt-2 text-xs text-gray-500 dark:text-gray-400'>
-                                        {comparativaData.diferencia >= 0 ? '+ Sobra' : '- Falta'}
+                                        {diferenciaComparativaPositiva ? '+ Sobra' : '- Falta'}
                                     </p>
                                 </div>
                             </div>
@@ -2133,6 +2560,3 @@ const FacturacionesComparativa = () => {
 };
 
 export default FacturacionesComparativa;
-
-
-

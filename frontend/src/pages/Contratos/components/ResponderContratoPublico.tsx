@@ -3,25 +3,71 @@ import Icon from '@/components/icon/Icon';
 import Button from '@/components/ui/Button';
 import type { IContratoPublicoAprobacion } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
-import { confirmAlert, confirmCritical } from '@/utils/sweetAlert';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert, confirmCritical } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import ContratoPublicoResumen from './ContratoPublicoResumen';
+import ContratoPreviewModal from './ContratoPreviewModal';
+import ResumenDatosContrato from './ResumenDatosContrato';
 
 const buildResumenContrato = (contrato: IContratoPublicoAprobacion['contrato']) => {
-    const items = contrato.contrato_servicios.map(
+    if (contrato.tipo === 'venta') {
+        const cotizaciones = contrato.cotizaciones_vinculadas.map((cotizacion) => {
+            const total = Number(cotizacion.total_estimado || 0).toLocaleString();
+            const totalConvertido =
+                cotizacion.total_convertido != null
+                    ? Number(cotizacion.total_convertido || 0).toLocaleString()
+                    : null;
+            const dolar = cotizacion.dolar_observado != null ? Number(cotizacion.dolar_observado).toLocaleString() : null;
+            const mezclaMonedas =
+                cotizacion.tiene_items_moneda_mixta && cotizacion.monedas_items?.length
+                    ? `Items convertidos: ${cotizacion.monedas_items.join(', ')}`
+                    : null;
+            return [
+                `Cotizacion #${cotizacion.numero_cotizacion || cotizacion.id}`,
+                cotizacion.nombre,
+                `${cotizacion.tipo_moneda_label} ${total}`,
+                totalConvertido
+                    ? `Convertido ${cotizacion.moneda_contrato}: ${totalConvertido}`
+                    : null,
+                dolar ? `Dolar observado: ${dolar}` : null,
+                mezclaMonedas,
+            ]
+                .filter(Boolean)
+                .join(' | ');
+        });
+        const pago = contrato.resumen_comercial?.forma_pago_venta_label || 'Contado';
+        const totalContrato = Number(contrato.total_contrato || 0).toLocaleString();
+        return [
+            `Forma de pago: ${pago}`,
+            `Total contrato ${contrato.moneda_cobro}: ${totalContrato}`,
+            ...cotizaciones,
+        ].join('\n') || 'Sin cotizaciones vinculadas.';
+    }
+    const itemsComerciales = contrato.items_comerciales ?? [];
+    const serviciosLegacy = contrato.contrato_servicios ?? [];
+    const licencias = contrato.contrato_licencias ?? [];
+
+    if (itemsComerciales.length > 0) {
+        const lines = itemsComerciales.map((item) => {
+            const nombre = item.snapshot_nombre || item.nombre;
+            const precio = Number(item.precio_unitario_contratado).toLocaleString();
+            const subtotal = Number(item.subtotal).toLocaleString();
+            const visitas = item.snapshot_num_visitas_mensuales;
+            const visitasLabel = visitas != null && visitas > 0 ? ` | Visitas/mes: ${visitas}` : '';
+            return `${nombre} x${item.cantidad} | $${precio} | subtotal $${subtotal}${visitasLabel}`;
+        });
+        return [...lines, ...licencias.map((l) => `${l.nombre_licencia} x${l.cantidad}`)].join('\n') || 'Sin items asociados.';
+    }
+
+    const items = serviciosLegacy.map(
         (item) =>
             `${item.nombre} x${item.cantidad} | $${Number(item.precio_unitario).toLocaleString()} | subtotal $${Number(item.subtotal).toLocaleString()}`,
     );
-    const licencias = contrato.contrato_licencias.map(
-        (item) =>
-            `${item.nombre_licencia} x${item.cantidad} | $${Number(item.precio_unitario).toLocaleString()}`,
-    );
-    return [...items, ...licencias].join('\n') || 'Sin items asociados.';
+    return [...items, ...licencias.map((l) => `${l.nombre_licencia} x${l.cantidad}`)].join('\n') || 'Sin items asociados.';
 };
 
 dayjs.locale('es');
@@ -33,6 +79,8 @@ const ResponderContratoPublico = () => {
     const [submitting, setSubmitting] = useState(false);
     const [comentario, setComentario] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const [haVistoPreview, setHaVistoPreview] = useState(false);
 
     const fetchDetalle = useCallback(async () => {
         if (!token) return;
@@ -79,6 +127,26 @@ const ResponderContratoPublico = () => {
         }
     };
 
+    const handleClosePreview = () => {
+        setHaVistoPreview(true);
+    };
+
+    const verificarPreviewAntes = async (): Promise<boolean> => {
+        if (haVistoPreview) return true;
+        const result = await confirmAlert({
+            title: 'No has revisado el documento completo',
+            text: 'Te recomendamos revisar el documento completo antes de continuar. ¿Deseas verlo ahora?',
+            confirmText: 'Ver documento',
+            cancelText: 'Continuar sin ver',
+            icon: 'info',
+        });
+        if (result) {
+            setPreviewOpen(true);
+            return false;
+        }
+        return true;
+    };
+
     const responder = async (
         accion: 'aprobar' | 'rechazar' | 'rechazar-definitivo',
     ) => {
@@ -87,6 +155,9 @@ const ResponderContratoPublico = () => {
             toast.error('Debes indicar el motivo o cambio sugerido.');
             return;
         }
+
+        const puedeProceeder = await verificarPreviewAntes();
+        if (!puedeProceeder) return;
 
         const resumen = buildResumenContrato(detalle.contrato);
         const confirmado =
@@ -210,7 +281,25 @@ const ResponderContratoPublico = () => {
                             </div>
                         </section>
 
-                        <ContratoPublicoResumen contrato={detalle.contrato} />
+                        <ResumenDatosContrato contrato={detalle.contrato} />
+
+                        <div className='flex justify-center'>
+                            <Button
+                                variant='outline'
+                                icon='HeroDocumentText'
+                                onClick={() => setPreviewOpen(true)}>
+                                Ver documento completo
+                            </Button>
+                        </div>
+
+                        <ContratoPreviewModal
+                            isOpen={previewOpen}
+                            setIsOpen={setPreviewOpen}
+                            contrato={detalle.contrato}
+                            secciones={detalle.secciones_generadas ?? []}
+                            ocultarFirmas
+                            onClose={handleClosePreview}
+                        />
 
                         <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
                             <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>

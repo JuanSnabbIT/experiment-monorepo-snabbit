@@ -108,7 +108,6 @@ const ListaPlantillas = () => {
                                             <Tr>
                                                 <Th>Plantilla</Th>
                                                 <Th>Tipo contrato</Th>
-                                                <Th>Moneda</Th>
                                                 <Th>Acciones</Th>
                                             </Tr>
                                         </THead>
@@ -132,6 +131,14 @@ const ListaPlantillas = () => {
                                                                     'Sin descripcion.'}
                                                             </span>
                                                             <div className='mt-1 flex flex-wrap gap-1'>
+                                                                {plantilla.es_default && (
+                                                                    <Badge
+                                                                        variant='outline'
+                                                                        color='blue'
+                                                                        className='text-[10px]'>
+                                                                        Sistema
+                                                                    </Badge>
+                                                                )}
                                                                 <Badge
                                                                     variant='outline'
                                                                     color='zinc'
@@ -169,13 +176,6 @@ const ListaPlantillas = () => {
                                                         </Badge>
                                                     </Td>
                                                     <Td>
-                                                        <span className='text-sm'>
-                                                            {plantilla.moneda_cobro_label ||
-                                                                plantilla.moneda_cobro ||
-                                                                'Sin definir'}
-                                                        </span>
-                                                    </Td>
-                                                    <Td>
                                                         <div className='flex flex-wrap items-center gap-2'>
                                                             <Button
                                                                 variant='solid'
@@ -188,14 +188,16 @@ const ListaPlantillas = () => {
                                                                 }>
                                                                 Editar
                                                             </Button>
-                                                            <ConfirmarEliminar
-                                                                peticionUrl={`/api/plantillas-contrato/${plantilla.id}/`}
-                                                                nombre={plantilla.titulo}
-                                                                onDispatch={
-                                                                    handlePlantillaDeleted
-                                                                }
-                                                                buttonSize='sm'
-                                                            />
+                                                            {!plantilla.es_default && (
+                                                                <ConfirmarEliminar
+                                                                    peticionUrl={`/api/plantillas-contrato/${plantilla.id}/`}
+                                                                    nombre={plantilla.titulo}
+                                                                    onDispatch={
+                                                                        handlePlantillaDeleted
+                                                                    }
+                                                                    buttonSize='sm'
+                                                                />
+                                                            )}
                                                         </div>
                                                     </Td>
                                                 </Tr>

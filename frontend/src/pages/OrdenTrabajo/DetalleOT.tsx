@@ -30,6 +30,7 @@ import {
     useGetHistorialSimpleQuery,
     useUpdateOrdenTrabajoMutation,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useGetContratosActivosClienteQuery } from '@/store/slices/contratos/contratoApi';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
@@ -52,6 +53,10 @@ import SeguimientoOTDropdown from './components/SeguimientoOTDropdown';
 import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
 import CerrarOT from './modals/CerrarOT';
 import CompletarOT from './modals/CompletarOT';
+import {
+    buildPrefacturaOTCreatePath,
+    buildPrefacturaOTDetailPath,
+} from '@/pages/Facturacion/prefacturacion.shared';
 
 const DetalleOT = () => {
     const dispatch = useAppDispatch();
@@ -78,6 +83,10 @@ const DetalleOT = () => {
     const [createHistorialCambio] = useCreateHistorialCambioMutation();
     const [descargarPdf] = useDescargarOrdenTrabajoPdfMutation();
     const prefacturaAsociadaId = detalleOrdenTrabajo?.prefactura_asociada_id;
+    const { data: contratosActivos = [] } = useGetContratosActivosClienteQuery(
+        detalleOrdenTrabajo?.cliente ?? 0,
+        { skip: !detalleOrdenTrabajo?.cliente },
+    );
     const { usuarioEmpresaLogeado, listaUsuariosTodoElCliente, listaUsuariosTodaLaEmpresa } =
         useAppSelector((state) => state.empresa);
     const { selectEmpresas } = useAppSelector((state) => state.empresa);
@@ -215,6 +224,7 @@ const DetalleOT = () => {
             notas_internas: '',
             solicitante_empresa: '',
             responsable_empresa: '',
+            contrato: '',
             // Historial
             estado_anterior: '',
             estado_actual: '',
@@ -227,6 +237,7 @@ const DetalleOT = () => {
             notas_internas: Yup.string().notRequired().nullable(),
             solicitante_empresa: Yup.string().notRequired().nullable(),
             responsable_empresa: Yup.string().notRequired().nullable(),
+            contrato: Yup.string().notRequired().nullable(),
         }),
         onSubmit: async (values) => {
             try {
@@ -261,6 +272,7 @@ const DetalleOT = () => {
                         notas_internas: values.notas_internas,
                         cliente_solicitante: clienteSolicitanteId,
                         tecnico_responsable_ot: responsableId,
+                        contrato: values.contrato ? Number(values.contrato) : null,
                     };
                     const response = await updateOrdenTrabajo({
                         id: detalleOrdenTrabajo?.id || 0,
@@ -311,6 +323,7 @@ const DetalleOT = () => {
                     detalleOrdenTrabajo.tecnico_responsable_ot?.toString() ||
                     detalleOrdenTrabajo.responsable_empresa?.toString() ||
                     '',
+                contrato: detalleOrdenTrabajo.contrato?.toString() || '',
                 comentario: '',
                 estado_actual: '',
                 estado_anterior: '',
@@ -353,7 +366,10 @@ const DetalleOT = () => {
                                         icon='HeroReceiptPercent'
                                         onClick={() =>
                                             navigate(
-                                                `/facturacion/facturas/${prefacturaAsociadaId}`,
+                                                buildPrefacturaOTDetailPath(
+                                                    prefacturaAsociadaId,
+                                                    { tab: 'ot' },
+                                                ),
                                             )
                                         }
                                     />
@@ -367,7 +383,13 @@ const DetalleOT = () => {
                                         icon='HeroPlusCircle'
                                         onClick={() =>
                                             navigate(
-                                                `/facturacion/facturas/crear?cliente_id=${detalleOrdenTrabajo.cliente}&ot_id=${detalleOrdenTrabajo.id}`,
+                                                buildPrefacturaOTCreatePath(
+                                                    { tab: 'ot' },
+                                                    {
+                                                        cliente_id: detalleOrdenTrabajo.cliente,
+                                                        ot_id: detalleOrdenTrabajo.id,
+                                                    },
+                                                ),
                                             )
                                         }
                                     />
@@ -624,6 +646,38 @@ const DetalleOT = () => {
                                                 />
                                             </Validation>
                                         </div>
+                                        <div className='w-full'>
+                                            <Badge>Contrato</Badge>
+                                            <SelectReact
+                                                name='contrato'
+                                                isClearable
+                                                placeholder='Sin contrato'
+                                                noOptionsMessage={() => 'Sin contratos activos'}
+                                                options={contratosActivos.map((c) => ({
+                                                    value: c.id.toString(),
+                                                    label: c.nombre,
+                                                }))}
+                                                value={
+                                                    formik.values.contrato
+                                                        ? {
+                                                              value: formik.values.contrato,
+                                                              label:
+                                                                  contratosActivos.find(
+                                                                      (c) =>
+                                                                          c.id.toString() ===
+                                                                          formik.values.contrato,
+                                                                  )?.nombre || '',
+                                                          }
+                                                        : null
+                                                }
+                                                onChange={(e) => {
+                                                    formik.setFieldValue(
+                                                        'contrato',
+                                                        e ? (e as TSelectOption).value : '',
+                                                    );
+                                                }}
+                                            />
+                                        </div>
                                         <div className='col-span-full'>
                                             <Badge>Instrucciones OT</Badge>
                                             <div className='ml-4'>
@@ -715,6 +769,14 @@ const DetalleOT = () => {
                                                 className={`ml-4 ${!detalleOrdenTrabajo?.nombre_solicitante ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.nombre_solicitante ||
                                                     'Por confirmar'}
+                                            </div>
+                                        </div>
+                                        <div className='w-full'>
+                                            <Badge>Contrato</Badge>
+                                            <div
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.contrato_nombre ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                {detalleOrdenTrabajo?.contrato_nombre ||
+                                                    'Sin contrato'}
                                             </div>
                                         </div>
                                         <div className='col-span-full'>

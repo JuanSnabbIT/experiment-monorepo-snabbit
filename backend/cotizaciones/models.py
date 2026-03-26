@@ -97,6 +97,14 @@ class Cotizacion(ModeloBase):
         related_name="copias",
         verbose_name="Cotizacion original",
     )
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cotizaciones_vinculadas",
+        verbose_name="Contrato vinculado",
+    )
 
     class Meta:
         verbose_name = "Cotización"
@@ -163,6 +171,12 @@ class ItemCotizacion(ModeloBase):
     )
     proveedor_empresa = models.ForeignKey(
         "items.ProveedorEmpresa", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    tipo_moneda = models.CharField(
+        max_length=1,
+        choices=TIPOS_MONEDA,
+        default="2",
+        verbose_name="Tipo de moneda del item",
     )
     aprobado = models.BooleanField(default=False)
     nombre = models.CharField(
@@ -294,13 +308,15 @@ class ItemCotizacion(ModeloBase):
         Tasa CLP por 1 UF.
           = cotizacion.valor_uf
         """
-        return Decimal(self.cotizacion.valor_uf or 1)
+        return Decimal(self.cotizacion.valor_uf or 0)
 
     def _get_tipo_moneda(self) -> str:
         """
-        Obtiene el tipo de moneda del proveedor asociado al item.
-        Default: '2' (CLP) si no hay proveedor.
+        Obtiene el tipo de moneda propio del item.
+        Si no existe por compatibilidad, usa la moneda del proveedor y luego CLP.
         """
+        if self.tipo_moneda:
+            return self.tipo_moneda
         if self.proveedor_empresa:
             return self.proveedor_empresa.tipo_moneda or "2"
         return "2"  # CLP por defecto
@@ -321,10 +337,13 @@ class ItemCotizacion(ModeloBase):
         if tipo == "1":  # USD -> CLP
             if tasa_usd > 0:
                 return (costo * tasa_usd).quantize(Decimal("0.01"))
+            return Decimal("0.00")
         elif tipo == "2":  # CLP -> CLP
             return costo
         elif tipo == "3":  # UF -> CLP
-            return (costo * tasa_uf).quantize(Decimal("0.01"))
+            if tasa_uf > 0:
+                return (costo * tasa_uf).quantize(Decimal("0.01"))
+            return Decimal("0.00")
 
         return costo
 
@@ -467,6 +486,8 @@ class ItemCotizacion(ModeloBase):
         verbose_name_plural = "Items de Cotizaciones"
 
     def save(self, *args, **kwargs):
+        if not self.tipo_moneda and self.proveedor_empresa:
+            self.tipo_moneda = self.proveedor_empresa.tipo_moneda or "2"
         self.costo_total = self.cantidad * self.precio_unitario
         super().save(*args, **kwargs)
 
