@@ -118,6 +118,12 @@ const DetalleUsuarioCliente = lazy(() => import('@/pages/Clientes/DetalleUsuario
 const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'));
 const ListaCompras = lazy(() => import('@/pages/Bodegas/Compra/ListaCompra'));
 const DetalleCompra = lazy(() => import('@/pages/Bodegas/Compra/DetalleCompra'));
+const ListaOCsAgrupadas = lazy(
+    () => import('@/pages/Bodegas/OrdenCompra/ListaOCsAgrupadas'),
+);
+const DetalleOCAgrupada = lazy(
+    () => import('@/pages/Bodegas/OrdenCompra/DetalleOCAgrupada'),
+);
 const ListaTomaDeInventario = lazy(
     () => import('@/pages/Bodegas/TomaInventario/ListaTomaDeInventario'),
 );
@@ -562,6 +568,16 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.compras.subPages.detalleCompra.to,
         element: <DetalleCompra />,
         authority: Pages.compras.subPages.detalleCompra.authority,
+    },
+    {
+        path: Pages.compras.subPages.listaOCsAgrupadas.to,
+        element: <ListaOCsAgrupadas />,
+        authority: Pages.compras.subPages.listaOCsAgrupadas.authority,
+    },
+    {
+        path: Pages.compras.subPages.detalleOCAgrupada.to,
+        element: <DetalleOCAgrupada />,
+        authority: Pages.compras.subPages.detalleOCAgrupada.authority,
     },
 
     { path: '/', element: <Home />, authority: [] },

@@ -213,3 +213,100 @@ def crear_orden_compra_para_proveedor(cotizacion, proveedor, usuario_empresa):
             precio=int(item.precio_unitario)
         )
     return orden
+
+
+def crear_oc_agrupada(cotizaciones_ids, oc_empresa, usuario_empresa, observaciones=""):
+    """
+    Crea una OrdenCompraAgrupada a partir de una lista de cotizaciones aprobadas.
+    Por cada proveedor distinto encontrado entre todos los items elegibles
+    de las cotizaciones seleccionadas, crea una OrdenCompra individual
+    y la enlaza al contenedor.
+
+    Retorna la instancia de OrdenCompraAgrupada creada.
+    Lanza ValueError si no hay items elegibles o las cotizaciones no son del mismo cliente.
+    """
+    from bodegas.models import OrdenCompra, OrdenCompraAgrupada, ItemEnOrdenCompra
+    from items.models import ProveedorEmpresa
+    from django.db import transaction
+
+    cotizaciones = list(
+        Cotizacion.objects.filter(id__in=cotizaciones_ids, estado="aceptada")
+    )
+    if not cotizaciones:
+        raise ValueError("No se encontraron cotizaciones aceptadas con los IDs indicados.")
+
+    # Validar que todas las cotizaciones son del mismo empresa y mismo cliente
+    clientes = set(c.cliente_id for c in cotizaciones)
+    empresas = set(c.empresa_id for c in cotizaciones)
+    if len(clientes) > 1:
+        raise ValueError("Todas las cotizaciones deben ser del mismo cliente.")
+    if len(empresas) > 1:
+        raise ValueError("Todas las cotizaciones deben ser de la misma empresa.")
+
+    oc_cliente = cotizaciones[0].cliente
+
+    with transaction.atomic():
+        agrupada = OrdenCompraAgrupada.objects.create(
+            oc_empresa=oc_empresa,
+            oc_cliente=oc_cliente,
+            creado_por=usuario_empresa,
+            observaciones=observaciones,
+        )
+        agrupada.cotizaciones.set(cotizaciones)
+
+        # Recolectar proveedores distintos de todos los items elegibles
+        # (items con proveedor asignado, item_empresa definido y aprobado)
+        from .models import ItemCotizacion
+        items_elegibles = ItemCotizacion.objects.filter(
+            cotizacion__in=cotizaciones,
+            proveedor_empresa__isnull=False,
+            item_empresa__isnull=False,
+            aprobado=True,
+        ).select_related("proveedor_empresa", "item_empresa", "cotizacion")
+
+        # Agrupar por proveedor
+        proveedores_map: dict = {}
+        for item in items_elegibles:
+            pid = item.proveedor_empresa_id
+            if pid not in proveedores_map:
+                proveedores_map[pid] = []
+            proveedores_map[pid].append(item)
+
+        if not proveedores_map:
+            raise ValueError(
+                "No hay items elegibles (aprobados, con proveedor e item de empresa) "
+                "en las cotizaciones seleccionadas."
+            )
+
+        for proveedor_id, items in proveedores_map.items():
+            proveedor = items[0].proveedor_empresa
+            # Evitar duplicar OC si ya existe una para ese proveedor en esas cotizaciones
+            cot_ids_del_proveedor = [it.cotizacion_id for it in items]
+            ya_existe = OrdenCompra.objects.filter(
+                relacion_cotizacion__in=cot_ids_del_proveedor,
+                proveedor=proveedor,
+                oc_agrupada=agrupada,
+            ).exists()
+            if ya_existe:
+                continue
+
+            # Usar la primera cotizacion del proveedor como relacion_cotizacion
+            primera_cotizacion = items[0].cotizacion
+
+            oc = OrdenCompra.objects.create(
+                proveedor=proveedor,
+                oc_cliente=oc_cliente,
+                oc_empresa=oc_empresa,
+                creado_por=usuario_empresa,
+                relacion_cotizacion=primera_cotizacion,
+                oc_agrupada=agrupada,
+            )
+            for item in items:
+                ItemEnOrdenCompra.objects.create(
+                    orden_compra=oc,
+                    item=item.item_empresa,
+                    cantidad=item.cantidad,
+                    precio=int(item.precio_unitario),
+                )
+
+    return agrupada

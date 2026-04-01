@@ -348,6 +348,38 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
+    def test_crear_completo_acepta_fechas_string_en_licencias(self):
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Completo con Licencia",
+                    "tipo": "servicios",
+                },
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 5,
+                        "precio_unitario": "15000.00",
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
+                        "tipo_moneda": "USD",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Completo con Licencia")
+        licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
+        self.assertEqual(licencia_contrato.fecha_inicio, date.today())
+        self.assertEqual(licencia_contrato.fecha_fin, date.today() + timedelta(days=30))
+
 
 class ContratoVentaCotizacionesTest(ContratoAPITestBase):
     def setUp(self):
@@ -648,6 +680,53 @@ class ContratoVentaCotizacionesTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("cotizaciones", response.data)
 
+    def test_actualizar_borrador_acepta_fechas_string_en_licencias(self):
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar-borrador/",
+            {
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 3,
+                        "precio_unitario": "9900.00",
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=60)).isoformat(),
+                        "tipo_moneda": "USD",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        licencia_contrato = ContratoLicencia.objects.get(contrato=self.contrato, licencia=self.licencia)
+        self.assertEqual(licencia_contrato.fecha_inicio, date.today())
+        self.assertEqual(licencia_contrato.fecha_fin, date.today() + timedelta(days=60))
+
+    def test_actualizar_borrador_rechaza_fecha_invalida_en_licencias(self):
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar-borrador/",
+            {
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 3,
+                        "precio_unitario": "9900.00",
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": "2026-99-99",
+                        "tipo_moneda": "USD",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+        self.assertIn("fecha_fin", response.data["licencias"])
+
     def test_serializer_venta_respeta_item_uf_cotizacion_usd_contrato_clp(self):
         contrato = ContratoEmpresaCliente.objects.create(
             empresa_prestadora=self.empresa_prestadora,
@@ -936,6 +1015,79 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
         self.assertEqual(
             ContratoVisita.objects.filter(contrato=self.contrato).count(), 0
         )
+
+    def test_actualizar_contrato_acepta_fecha_string_en_licencia_existente(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1y-m",
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=30),
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "id": contrato_licencia.id,
+                        "cantidad": 4,
+                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
+                        "precio_unitario": str(contrato_licencia.precio_unitario),
+                        "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=90)).isoformat(),
+                        "tipo_moneda": contrato_licencia.tipo_moneda,
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.fecha_fin, date.today() + timedelta(days=90))
+
+    def test_actualizar_contrato_acepta_fechas_string_en_nueva_licencia(self):
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 2,
+                        "precio_unitario": "12000.00",
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=45)).isoformat(),
+                        "tipo_moneda": "USD",
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        licencia_contrato = ContratoLicencia.objects.get(contrato=self.contrato, licencia=self.licencia)
+        self.assertEqual(licencia_contrato.fecha_inicio, date.today())
+        self.assertEqual(licencia_contrato.fecha_fin, date.today() + timedelta(days=45))
 
 
 class ContratoAuthTest(ContratoAPITestBase):

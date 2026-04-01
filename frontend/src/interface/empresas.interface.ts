@@ -27,6 +27,7 @@ export interface IRelacionEmpresa {
     fecha_creacion: string;
     fecha_modificacion: string;
     tipo_relacion: string;
+    tipo_relacion_label: string;
     prestador_servicios: number;
     cliente: number;
 }

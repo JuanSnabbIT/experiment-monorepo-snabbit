@@ -5,11 +5,11 @@ from bodegas.estados_modelo import MOVIMIENTOS_TIPO
 from items.models import ItemEmpresa
 from items.serializers import CategoriaSerializer, FabricanteSerializer
 from .models import (
-    ArchivoCompra, Bodega, Compra, EstadoTomaInventario, 
-    ImagenDeItemEnTomaInventario, ItemEnCompra, ItemEnTomaInventario, 
-    ItemsGuiaSalida, GuiaSalida, MovimientoStock, TomaInventario, 
-    OrdenCompra, ItemEnOrdenCompra, StockItemEnBodega, ItemOrdenCompraEnStock,
-    VoucherDevolucion, MovimientoEnVoucher
+    ArchivoCompra, Bodega, Compra, EstadoTomaInventario,
+    ImagenDeItemEnTomaInventario, ItemEnCompra, ItemEnTomaInventario,
+    ItemsGuiaSalida, GuiaSalida, MovimientoStock, TomaInventario,
+    OrdenCompra, OrdenCompraAgrupada, ItemEnOrdenCompra, StockItemEnBodega,
+    ItemOrdenCompraEnStock, VoucherDevolucion, MovimientoEnVoucher
 )
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Sum
@@ -187,6 +187,75 @@ class OrdenCompraSerializer(serializers.ModelSerializer):
             recargo = obj.proveedor.recargo_dolar
 
         return int(Decimal(obj.dolar_observado) + Decimal(recargo))
+
+
+class OrdenCompraAgrupadaSerializer(serializers.ModelSerializer):
+    """
+    Serializer principal de OC Agrupada.
+    Incluye grupos por proveedor con el estado de cada OC individual.
+    """
+    estado_derivado = serializers.CharField(read_only=True)
+    estado_derivado_label = serializers.CharField(read_only=True)
+    nombre_cliente = serializers.SerializerMethodField()
+    nombre_empresa = serializers.SerializerMethodField()
+    es_prospecto = serializers.SerializerMethodField()
+    grupos_proveedor = serializers.SerializerMethodField()
+    cotizaciones_ids = serializers.PrimaryKeyRelatedField(
+        many=True, read_only=True, source="cotizaciones"
+    )
+
+    class Meta:
+        model = OrdenCompraAgrupada
+        fields = [
+            "id", "codigo", "oc_empresa", "oc_cliente",
+            "nombre_empresa", "nombre_cliente", "es_prospecto",
+            "cotizaciones_ids", "observaciones",
+            "estado_derivado", "estado_derivado_label",
+            "grupos_proveedor",
+            "creado_por", "fecha_creacion", "fecha_modificacion",
+        ]
+        read_only_fields = ["id", "codigo", "fecha_creacion", "fecha_modificacion"]
+
+    def get_nombre_cliente(self, obj):
+        return obj.oc_cliente.nombre if obj.oc_cliente else None
+
+    def get_nombre_empresa(self, obj):
+        return obj.oc_empresa.nombre if obj.oc_empresa else None
+
+    def get_es_prospecto(self, obj):
+        from empresas.models import RelacionEmpresa
+        return RelacionEmpresa.objects.filter(
+            prestador_servicios=obj.oc_empresa,
+            cliente=obj.oc_cliente,
+            tipo_relacion="prospecto",
+        ).exists()
+
+    def get_grupos_proveedor(self, obj):
+        ocs = obj.ordenes_compra.select_related("proveedor").all()
+        return [
+            {
+                "id": oc.id,
+                "codigo": oc.codigo,
+                "proveedor_id": oc.proveedor_id,
+                "nombre_proveedor": oc.proveedor.nombre if oc.proveedor else "Sin proveedor",
+                "estado": oc.estado,
+                "estado_label": oc.get_estado_display(),
+                "fecha_compra": oc.fecha_compra,
+            }
+            for oc in ocs
+        ]
+
+
+class OrdenCompraAgrupadaCreateSerializer(serializers.Serializer):
+    """
+    Payload para crear una OC Agrupada desde cotizaciones aprobadas.
+    """
+    oc_empresa = serializers.IntegerField()
+    oc_cliente = serializers.IntegerField()
+    cotizaciones_ids = serializers.ListField(
+        child=serializers.IntegerField(), min_length=1
+    )
+    observaciones = serializers.CharField(required=False, allow_blank=True, default="")
 
 class ItemEmpresaEnStockSerializer(serializers.ModelSerializer):
     datos_categoria = CategoriaSerializer(source="categoria", read_only=True)

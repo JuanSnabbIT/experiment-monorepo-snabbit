@@ -281,6 +281,20 @@ export const Pages = {
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin'],
             },
+            listaOCsAgrupadas: {
+                id: 'listaOCsAgrupadas',
+                to: '/compras/lista-oc-agrupadas',
+                text: 'OCs Agrupadas',
+                icon: 'HeroRectangleGroup',
+                authority: ['staff', 'superadmin'],
+            },
+            detalleOCAgrupada: {
+                id: 'detalleOCAgrupada',
+                to: '/compras/oc-agrupada/:id',
+                text: 'Detalle OC Agrupada',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
         },
     },
 

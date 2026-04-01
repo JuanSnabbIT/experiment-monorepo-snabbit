@@ -12,6 +12,7 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ESTADOS_OC } from '@/constants/bodegas.constant';
 import { IOrdenCompra } from '@/interface/bodega.interface';
+import CrearOCDeCotizacion from '@/pages/Cotizaciones/modals/CrearOCDeCotizacion';
 import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { useGetOrdenesCompraPorEmpresaQuery } from '@/store/slices/bodega/ordenCompraApi';
@@ -286,6 +287,7 @@ function ListaOrdenesCompraV2() {
                                 }}
                             />
                         </div>
+                        <CrearOCDeCotizacion />
                         <CrearOrdenCompra id_empresa={personalizacionUsuario?.empresa} />
                     </div>
                 </SubheaderRight>

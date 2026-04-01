@@ -1,265 +1,334 @@
+﻿﻿import Checkbox from '@/components/form/Checkbox';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
-} from '@/components/ui/Modal';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
+import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 import {
-    listaItemsEnCotizacionThunk,
-    listaOrdenesDeCompraCotizacionThunk,
+    listaMisClientesThunk,
+    listaMisProspectosThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
+import {
+    useCrearOCAgrupadaMutation,
+    useGetCotizacionesAprobadasParaOCQuery,
+} from '@/store/slices/bodega/ordenCompraApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
+type TipoContraparte = 'cliente' | 'prospecto';
 
-function CrearOCDeCotizacion({
-    cotizacion,
-    items = [],
-}: {
-    cotizacion: ICotizacion;
-    items: IItemCotizacion[];
-}) {
+interface Props {
+    cotizacion?: ICotizacion;
+    items?: IItemCotizacion[];
+}
+
+function CrearOCDeCotizacion({ cotizacion }: Props) {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { listaOrdenesDeCompraCotizacion } = useAppSelector((state) => state.cotizacion);
-    const [isOpen, setIsOpen] = useState<boolean>(false);
-    const [proveedores, setProveedores] = useState<
-        { id: string; nombre: string; moneda: string }[]
-    >([]);
-    const [creandoOCProveedor, setCreandoOCProveedor] = useState<string | null>(null);
-    const [creandoTodas, setCreandoTodas] = useState<boolean>(false);
 
+    const { listaMisClientes, listaMisProspectos } = useAppSelector((state) => state.empresa);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+
+    const [isOpen, setIsOpen] = useState(false);
+    const [tipoContraparte, setTipoContraparte] = useState<TipoContraparte>('cliente');
+    const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | null>(null);
+    const [cotizacionesSeleccionadas, setCotizacionesSeleccionadas] = useState<number[]>([]);
+
+    const empresaId = personalizacionUsuario?.empresa ?? null;
+
+    // Cargar listas al abrir
     useEffect(() => {
-        if (cotizacion?.id) {
-            dispatch(listaOrdenesDeCompraCotizacionThunk({ id_cotizacion: cotizacion.id }));
+        if (isOpen && empresaId) {
+            dispatch(listaMisClientesThunk({ id_empresa: empresaId }));
+            dispatch(listaMisProspectosThunk({ id_empresa: empresaId }));
         }
-        // Limpiar proveedores al cambiar de cotización
-        return () => {
-            setProveedores([]);
-        };
-    }, [cotizacion?.id, dispatch]);
+    }, [isOpen, empresaId, dispatch]);
 
+    // Preseleccionar datos si viene de una cotizacion
     useEffect(() => {
         if (isOpen && cotizacion) {
-            dispatch(listaOrdenesDeCompraCotizacionThunk({ id_cotizacion: cotizacion.id }));
-            dispatch(listaItemsEnCotizacionThunk({ id_cotizacion: cotizacion.id }));
+            setClienteSeleccionadoId(cotizacion.cliente ?? null);
+            setCotizacionesSeleccionadas([cotizacion.id]);
         }
-    }, [isOpen, cotizacion, dispatch]);
+    }, [isOpen, cotizacion]);
 
-    useEffect(() => {
-        if (items.length > 0 && items.filter((item) => item.item_empresa).length > 0 && isOpen) {
-            let lista_proveedores: { id: string; nombre: string; moneda: string }[] = [];
-            items
-                .filter((item) => item.item_empresa && item.aprobado)
-                .forEach((item) => {
-                    if (item.proveedor_empresa && item.nombre_proveedor) {
-                        if (
-                            !lista_proveedores.some(
-                                (pro) => pro.id === item.proveedor_empresa?.toString(),
-                            )
-                        ) {
-                            lista_proveedores = [
-                                ...lista_proveedores,
-                                {
-                                    id: item.proveedor_empresa?.toString(),
-                                    nombre: item.nombre_proveedor,
-                                    moneda: item.tipo_moneda_proveedor_label || 'CLP',
-                                },
-                            ];
-                        }
-                    }
-                });
-            setProveedores(lista_proveedores);
-        }
-    }, [items, isOpen]);
+    // Resetear seleccion de cotizaciones al cambiar cliente
+    // (el reset se hace directamente en los handlers para evitar borrar la preselección)
 
-    const handleCrearOCProveedor = async (proveedorId: string) => {
-        if (!cotizacion) return;
+    // Cotizaciones aprobadas para el cliente seleccionado
+    const { data: cotizacionesElegibles = [], isFetching: cargandoCots } =
+        useGetCotizacionesAprobadasParaOCQuery(
+            { cliente_id: clienteSeleccionadoId! },
+            { skip: !clienteSeleccionadoId },
+        );
+
+    const [crearOCAgrupada, { isLoading: creando }] = useCrearOCAgrupadaMutation();
+
+    const listaContraparte =
+        tipoContraparte === 'cliente' ? listaMisClientes : listaMisProspectos;
+
+    const esProspecto = tipoContraparte === 'prospecto';
+
+    const handleToggleCotizacion = (id: number) => {
+        setCotizacionesSeleccionadas((prev) =>
+            prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+        );
+    };
+
+    const handleConfirmar = async () => {
+        if (!empresaId || !clienteSeleccionadoId || cotizacionesSeleccionadas.length === 0) return;
         try {
-            if (creandoTodas) return;
-            setCreandoOCProveedor(proveedorId);
-            const response = await ApiService.fetchData<{ id: number }>({
-                url: `/api/cotizaciones/${cotizacion.id}/crear-orden-compra/`,
-                method: 'post',
-                headers: { 'Content-Type': 'application/json' },
-                data: { proveedor_id: proveedorId },
-            });
-            if (response.data?.id) {
-                toast.success('Orden creada', { autoClose: 1000 });
-                navigate(`/compras/detalle-orden-compra/${response.data.id}`);
-            }
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error || 'Error al crear la orden de compra');
-        } finally {
-            setCreandoOCProveedor(null);
+            const resultado = await crearOCAgrupada({
+                oc_empresa: typeof empresaId === 'number' ? empresaId : Number(empresaId),
+                oc_cliente: clienteSeleccionadoId,
+                cotizaciones_ids: cotizacionesSeleccionadas,
+            }).unwrap();
+            toast.success(`OC Agrupada ${resultado.codigo} creada correctamente`);
+            setIsOpen(false);
+            navigate(`/compras/oc-agrupada/${resultado.id}`);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         }
     };
 
-    const tieneOrdenCompra = listaOrdenesDeCompraCotizacion.length > 0;
-    const proveedoresPendientes = proveedores.filter(
-        (prov) => !listaOrdenesDeCompraCotizacion.some((oc) => oc.proveedor.toString() === prov.id),
-    );
-    const mostrarCrearTodas = proveedoresPendientes.length > 1;
-
-    const handleCrearTodasOCs = async () => {
-        if (!cotizacion || proveedoresPendientes.length === 0 || creandoTodas) return;
-        try {
-            setCreandoTodas(true);
-            for (const proveedor of proveedoresPendientes) {
-                setCreandoOCProveedor(proveedor.id);
-                try {
-                    const response = await ApiService.fetchData<{ id: number }>({
-                        url: `/api/cotizaciones/${cotizacion.id}/crear-orden-compra/`,
-                        method: 'post',
-                        headers: { 'Content-Type': 'application/json' },
-                        data: { proveedor_id: proveedor.id },
-                    });
-                    if (response.data?.id) {
-                        toast.success('Orden creada', { autoClose: 1000 });
-                    }
-                } catch (error: any) {
-                    toast.error(
-                        error?.response?.data?.error || 'Error al crear la orden de compra',
-                    );
-                }
-            }
-            dispatch(listaOrdenesDeCompraCotizacionThunk({ id_cotizacion: cotizacion.id }));
-        } finally {
-            setCreandoOCProveedor(null);
-            setCreandoTodas(false);
-        }
+    const handleCerrar = () => {
+        setIsOpen(false);
+        setClienteSeleccionadoId(null);
+        setCotizacionesSeleccionadas([]);
+        setTipoContraparte('cliente');
     };
+
+    const puedeConfirmar =
+        !!clienteSeleccionadoId &&
+        cotizacionesSeleccionadas.length > 0 &&
+        cotizacionesElegibles
+            .filter((c) => cotizacionesSeleccionadas.includes(c.id))
+            .some((c) => c.tiene_items_elegibles);
 
     return (
         <>
-            <Tooltip text={tieneOrdenCompra ? 'Gestionar Órdenes de Compra' : 'Crear OC'}>
+            <Tooltip text='Crear OC Agrupada'>
                 <Button
                     variant='solid'
-                    color={tieneOrdenCompra ? 'violet' : 'amber'}
-                    icon={tieneOrdenCompra ? 'HeroEye' : 'HeroShoppingCart'}
-                    onClick={() => setIsOpen(true)}></Button>
+                    color='amber'
+                    icon='HeroShoppingCart'
+                    onClick={() => setIsOpen(true)}
+                />
             </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+
+            <Modal isOpen={isOpen} setIsOpen={handleCerrar}>
                 <ModalHeader>
-                    <Badge className='text-xl'>
-                        Órdenes de Compra - Cotización #{cotizacion?.numero_cotizacion}
-                    </Badge>
+                    <span className='text-lg font-semibold'>Crear OC Agrupada</span>
+                    {cotizacion && (
+                        <Badge color='sky' className='ml-2'>
+                            Cotizacion #{cotizacion.numero_cotizacion}
+                        </Badge>
+                    )}
                 </ModalHeader>
+
                 <ModalBody>
-                    <div className='flex flex-col gap-3'>
-                        {mostrarCrearTodas && (
-                            <div className='flex justify-end'>
+                    <div className='flex flex-col gap-5'>
+                        {/* Bloque 1: tipo de contraparte */}
+                        <div className='flex flex-col gap-2'>
+                            <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                                Tipo de contraparte
+                            </span>
+                            <div className='flex gap-2'>
                                 <Button
                                     size='sm'
-                                    variant='solid'
+                                    variant={tipoContraparte === 'cliente' ? 'solid' : 'outline'}
+                                    color='blue'
+                                    onClick={() => {
+                                        setTipoContraparte('cliente');
+                                        setClienteSeleccionadoId(null);
+                                        setCotizacionesSeleccionadas([]);
+                                    }}>
+                                    Cliente
+                                </Button>
+                                <Button
+                                    size='sm'
+                                    variant={tipoContraparte === 'prospecto' ? 'solid' : 'outline'}
                                     color='amber'
-                                    icon='HeroShoppingCart'
-                                    isLoading={creandoTodas}
-                                    onClick={handleCrearTodasOCs}>
-                                    Crear OCs
+                                    onClick={() => {
+                                        setTipoContraparte('prospecto');
+                                        setClienteSeleccionadoId(null);
+                                        setCotizacionesSeleccionadas([]);
+                                    }}>
+                                    Prospecto
                                 </Button>
                             </div>
-                        )}
-                        {proveedores.length === 0 ? (
-                            <div className='text-gray-600 dark:text-gray-400 dark:text-gray-300'>
-                                No hay proveedores con ítems en esta cotización.
-                            </div>
-                        ) : (
-                            proveedores.map((prov, index) => {
-                                const oc = listaOrdenesDeCompraCotizacion.find(
-                                    (oc) => oc.proveedor.toString() === prov.id,
-                                );
-                                return (
-                                    <div
-                                        key={index}
-                                        className='flex flex-row items-center justify-between gap-3 rounded border p-3 hover:bg-gray-50 dark:hover:bg-zinc-800'>
-                                        <div className='flex flex-col gap-1'>
-                                            <div className='flex items-center gap-2'>
-                                                <Badge color='sky'>{prov.nombre}</Badge>
-                                                <Badge
-                                                    variant='outline'
-                                                    className='border-gray-300 dark:border-zinc-700 text-gray-500 dark:text-gray-400 dark:text-gray-300'>
-                                                    {prov.moneda}
-                                                </Badge>
-                                                {oc && <Badge color='violet'>{oc.codigo}</Badge>}
-                                            </div>
-                                            {oc ? (
-                                                <div className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
-                                                    Estado: {oc.estado_label}
-                                                </div>
-                                            ) : (
-                                                <div className='text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
-                                                    Sin orden de compra
-                                                </div>
-                                            )}
-                                            <div className='mt-2 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
-                                                <strong>Items aprobados:</strong>
-                                                <ul className='mt-1 list-disc pl-4'>
-                                                    {items
-                                                        .filter(
-                                                            (item) =>
-                                                                item.proveedor_empresa?.toString() ===
-                                                                    prov.id && item.aprobado,
-                                                        )
-                                                        .map((item, idx) => (
-                                                            <li key={idx}>
-                                                                {item.cantidad}x{' '}
-                                                                {item.nombre_item ||
-                                                                    item.nombre ||
-                                                                    'Item sin nombre'}
-                                                            </li>
-                                                        ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                        {oc ? (
-                                            <Button
-                                                size='sm'
-                                                variant='solid'
-                                                color='violet'
-                                                icon='HeroEye'
+                        </div>
+
+                        {/* Bloque 2: selector de contraparte */}
+                        <div className='flex flex-col gap-2'>
+                            <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                                {tipoContraparte === 'cliente'
+                                    ? 'Seleccionar cliente'
+                                    : 'Seleccionar prospecto'}
+                            </span>
+                            {listaContraparte.length === 0 ? (
+                                <span className='text-sm text-gray-500 dark:text-gray-400'>
+                                    {tipoContraparte === 'cliente'
+                                        ? 'No hay clientes disponibles.'
+                                        : 'No hay prospectos disponibles.'}
+                                </span>
+                            ) : (
+                                <div className='flex flex-wrap gap-2'>
+                                    {listaContraparte.map((rel) => {
+                                        const clienteId = rel.cliente;
+                                        const nombre = rel.info_cliente?.nombre ?? String(clienteId);
+                                        const seleccionado = clienteSeleccionadoId === clienteId;
+                                        return (
+                                            <button
+                                                key={clienteId}
+                                                type='button'
                                                 onClick={() => {
-                                                    navigate(
-                                                        `/compras/detalle-orden-compra/${oc.id}`,
-                                                    );
-                                                    setIsOpen(false);
-                                                }}>
-                                                Ver OC
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size='sm'
-                                                variant='solid'
-                                                color='amber'
-                                                icon='HeroShoppingCart'
-                                                isLoading={
-                                                    creandoOCProveedor === prov.id || creandoTodas
-                                                }
-                                                onClick={() => handleCrearOCProveedor(prov.id)}>
-                                                Crear OC
-                                            </Button>
-                                        )}
+                                                    setClienteSeleccionadoId(clienteId);
+                                                    setCotizacionesSeleccionadas([]);
+                                                }}
+                                                className={`rounded border px-3 py-1.5 text-sm transition-colors ${
+                                                    seleccionado
+                                                        ? 'border-blue-500 bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700'
+                                                }`}>
+                                                {nombre}
+                                                {esProspecto && (
+                                                    <Badge
+                                                        color='amber'
+                                                        className='ml-1 text-xs'>
+                                                        Prospecto
+                                                    </Badge>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bloque 3: cotizaciones elegibles */}
+                        {clienteSeleccionadoId && (
+                            <div className='flex flex-col gap-2'>
+                                <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                                    Cotizaciones aprobadas disponibles
+                                </span>
+                                {cargandoCots ? (
+                                    <span className='text-sm text-gray-500'>Cargando...</span>
+                                ) : cotizacionesElegibles.length === 0 ? (
+                                    <span className='text-sm text-gray-500 dark:text-gray-400'>
+                                        No hay cotizaciones aprobadas con items elegibles para este{' '}
+                                        {tipoContraparte}.
+                                    </span>
+                                ) : (
+                                    <div className='flex flex-col gap-2'>
+                                        {cotizacionesElegibles.map((cot) => {
+                                            const seleccionada = cotizacionesSeleccionadas.includes(
+                                                cot.id,
+                                            );
+                                            return (
+                                                <label
+                                                    key={cot.id}
+                                                    className={`flex cursor-pointer items-start gap-3 rounded border p-3 transition-colors ${
+                                                        seleccionada
+                                                            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                                            : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
+                                                    } ${
+                                                        !cot.tiene_items_elegibles
+                                                            ? 'cursor-not-allowed opacity-50'
+                                                            : ''
+                                                    }`}>
+                                                    <Checkbox
+                                                        checked={seleccionada}
+                                                        onChange={() =>
+                                                            cot.tiene_items_elegibles &&
+                                                            handleToggleCotizacion(cot.id)
+                                                        }
+                                                        disabled={!cot.tiene_items_elegibles}
+                                                    />
+                                                    <div className='flex flex-col gap-1'>
+                                                        <div className='flex flex-wrap items-center gap-2'>
+                                                            <span className='font-medium'>
+                                                                #{cot.numero_cotizacion}
+                                                            </span>
+                                                            <span className='text-sm text-gray-600 dark:text-gray-400'>
+                                                                {cot.nombre}
+                                                            </span>
+                                                            <Badge color='emerald'>
+                                                                {cot.tipo_moneda === '1'
+                                                                    ? 'USD'
+                                                                    : cot.tipo_moneda === '3'
+                                                                      ? 'UF'
+                                                                      : 'CLP'}{' '}
+                                                                {Number(
+                                                                    cot.total_estimado,
+                                                                ).toLocaleString('es-CL')}
+                                                            </Badge>
+                                                            {cot.estado_oc_derivado === 'pendiente_oc' && (
+                                                                <Badge color='amber' variant='outline'>
+                                                                    Sin OC
+                                                                </Badge>
+                                                            )}
+                                                            {cot.estado_oc_derivado === 'en_oc' && (
+                                                                <Badge color='blue' variant='outline'>
+                                                                    En OC
+                                                                </Badge>
+                                                            )}
+                                                            {cot.estado_oc_derivado === 'cerrada_comercialmente' && (
+                                                                <Badge color='zinc' variant='outline'>
+                                                                    Cerrada comercialmente
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {cot.proveedores_involucrados.length > 0 && (
+                                                            <div className='flex flex-wrap gap-1'>
+                                                                {cot.proveedores_involucrados.map(
+                                                                    (prov, i) => (
+                                                                        <Badge
+                                                                            key={i}
+                                                                            color='sky'
+                                                                            variant='outline'
+                                                                            className='text-xs'>
+                                                                            {prov}
+                                                                        </Badge>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {!cot.tiene_items_elegibles && (
+                                                            <span className='text-xs text-amber-600 dark:text-amber-400'>
+                                                                Sin items elegibles para OC
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
                                     </div>
-                                );
-                            })
+                                )}
+                            </div>
                         )}
                     </div>
                 </ModalBody>
+
                 <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button color='red' onClick={() => setIsOpen(false)}>
-                            Cerrar
-                        </Button>
-                    </ModalFooterChild>
+                    <Button color='zinc' onClick={handleCerrar}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        variant='solid'
+                        color='amber'
+                        icon='HeroShoppingCart'
+                        isLoading={creando}
+                        isDisable={!puedeConfirmar}
+                        onClick={handleConfirmar}>
+                        Crear OC Agrupada ({cotizacionesSeleccionadas.length}{' '}
+                        cotizacion
+                        {cotizacionesSeleccionadas.length !== 1 ? 'es' : ''})
+                    </Button>
                 </ModalFooter>
             </Modal>
         </>

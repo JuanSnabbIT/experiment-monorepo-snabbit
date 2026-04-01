@@ -133,6 +133,26 @@ class Cotizacion(ModeloBase):
             return False
         return self.fecha_vencimiento >= date.today()
 
+    @property
+    def estado_oc_derivado(self):
+        """
+        Estado operativo de la cotización respecto al proceso de compras.
+        Solo aplica cuando la cotización está aceptada.
+        - 'pendiente_oc': aceptada pero sin OC Agrupada vinculada activa.
+        - 'en_oc': tiene al menos una OC Agrupada activa (no completada ni cancelada).
+        - 'cerrada_comercialmente': todas las OC Agrupadas vinculadas completadas o canceladas.
+        Retorna None si el estado de la cotización no es 'aceptada'.
+        """
+        if self.estado != "aceptada":
+            return None
+        oc_agrupadas = self.oc_agrupadas.all()
+        if not oc_agrupadas.exists():
+            return "pendiente_oc"
+        estados = {oc.estado_derivado for oc in oc_agrupadas}
+        if estados.issubset({"completada", "cancelada"}):
+            return "cerrada_comercialmente"
+        return "en_oc"
+
     def establecer_fecha_vencimiento(self):
         """Calcula la fecha de vencimiento 2 semanas después de la fecha de creación."""
         if not self.fecha_creacion:

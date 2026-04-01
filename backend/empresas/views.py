@@ -1,3 +1,4 @@
+from django.db import transaction
 from core.models import PersonalizacionUsuario
 from cuentas.functions import obtener_usuario_empresa
 from recursos.models import Equipo
@@ -43,17 +44,51 @@ class EmpresaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="mis-clientes")
     def mis_clientes(self, request, pk=None):
-        # user = request.user
-        # sucursal_principal = getattr(user.personalizacionusuario, 'sucursal_principal', None)
         empresa = self.get_object()
-
+        # Por defecto solo devuelve relaciones de tipo 'prestador-cliente'.
+        # Pasar ?tipo=prospecto para obtener prospectos.
+        tipo = request.query_params.get("tipo", "prestador-cliente")
         if empresa:
-            relaciones = RelacionEmpresa.objects.filter(prestador_servicios=empresa)
+            relaciones = RelacionEmpresa.objects.filter(
+                prestador_servicios=empresa, tipo_relacion=tipo
+            )
         else:
             relaciones = RelacionEmpresa.objects.none()
 
         serializer = RelacionEmpresaSerializer(relaciones, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="mis-prospectos")
+    def mis_prospectos(self, request, pk=None):
+        empresa = self.get_object()
+        relaciones = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa, tipo_relacion="prospecto"
+        )
+        serializer = RelacionEmpresaSerializer(relaciones, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="crear-prospecto")
+    def crear_prospecto(self, request, pk=None):
+        empresa = self.get_object()
+        serializer = CrearProspectoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        with transaction.atomic():
+            prospecto = Empresa.objects.create(
+                nombre=data["nombre"],
+                rut_empresa=data.get("rut_empresa") or None,
+                email=data.get("email") or None,
+                telefono=data.get("telefono") or None,
+                direccion_principal="",
+            )
+            relacion = RelacionEmpresa.objects.create(
+                prestador_servicios=empresa,
+                cliente=prospecto,
+                tipo_relacion="prospecto",
+            )
+
+        return Response(RelacionEmpresaSerializer(relacion).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="sucursales")
     def sucursales(self, request, pk=None):
@@ -373,3 +408,15 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
 class RelacionEmpresaViewSet(viewsets.ModelViewSet):
     queryset = RelacionEmpresa.objects.all()
     serializer_class = RelacionEmpresaSerializer
+
+    @action(detail=True, methods=["post"], url_path="promover-a-cliente")
+    def promover_a_cliente(self, request, pk=None):
+        relacion = self.get_object()
+        if relacion.tipo_relacion != "prospecto":
+            return Response(
+                {"detail": "Solo se pueden promover relaciones de tipo 'prospecto'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        relacion.tipo_relacion = "prestador-cliente"
+        relacion.save()
+        return Response(RelacionEmpresaSerializer(relacion).data)

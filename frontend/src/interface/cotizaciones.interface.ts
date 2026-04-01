@@ -36,6 +36,7 @@ export interface ICotizacion {
     total_pedido?: number;
     total_recibido?: number;
     fecha_facturacion_congelada?: boolean;
+    estado_oc_derivado?: 'pendiente_oc' | 'en_oc' | 'cerrada_comercialmente' | null;
 }
 
 export interface IItemCotizacion {

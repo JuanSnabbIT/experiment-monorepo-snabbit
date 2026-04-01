@@ -1,0 +1,231 @@
+import Container from '@/components/layouts/Container/Container';
+import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
+import { useGetDetalleOCAgrupadaQuery } from '@/store/slices/bodega/ordenCompraApi';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import { useNavigate, useParams } from 'react-router-dom';
+
+type TColorBadge = 'emerald' | 'amber' | 'red' | 'blue' | 'zinc';
+
+function colorEstadoGrupo(estado: string): TColorBadge {
+    if (estado === '5' || estado === '7') return 'emerald';
+    if (estado === '4') return 'amber';
+    if (estado === '1' || estado === '3') return 'blue';
+    if (estado === '2' || estado === '6') return 'red';
+    return 'zinc';
+}
+
+function colorEstadoAgrupada(estado: string): TColorBadge {
+    if (estado === 'completada') return 'emerald';
+    if (estado === 'en_proceso') return 'blue';
+    if (estado === 'parcialmente_completada') return 'amber';
+    if (estado === 'cancelada') return 'red';
+    return 'zinc';
+}
+
+function DetalleOCAgrupada() {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+
+    const { data: ocAgrupada, isLoading } = useGetDetalleOCAgrupadaQuery(id ?? '', {
+        skip: !id,
+    });
+
+    return (
+        <PageWrapper isProtectedRoute={true} name='Detalle OC Agrupada' title='Detalle OC Agrupada'>
+            <Subheader>
+                <SubheaderLeft>
+                    <Button icon='HeroArrowLeft' onClick={() => navigate(-1)}>
+                        Volver
+                    </Button>
+                    {ocAgrupada && (
+                        <div className='flex items-center gap-3'>
+                            <span className='text-lg font-bold text-gray-700 dark:text-gray-200'>
+                                OC Agrupada {ocAgrupada.codigo}
+                            </span>
+                            <Badge
+                                variant='solid'
+                                color={colorEstadoAgrupada(ocAgrupada.estado_derivado)}>
+                                {ocAgrupada.estado_derivado_label}
+                            </Badge>
+                            {ocAgrupada.es_prospecto && (
+                                <Badge color='amber' variant='outline'>
+                                    Prospecto
+                                </Badge>
+                            )}
+                        </div>
+                    )}
+                </SubheaderLeft>
+                <SubheaderRight>
+                    <Button
+                        icon='HeroArrowPath'
+                        onClick={() => navigate(0)}
+                        variant='outline'
+                        color='blue'>
+                        Actualizar
+                    </Button>
+                </SubheaderRight>
+            </Subheader>
+
+            <Container className='h-full w-full'>
+                {isLoading && (
+                    <div className='py-12 text-center text-gray-400'>Cargando...</div>
+                )}
+
+                {!isLoading && !ocAgrupada && (
+                    <div className='py-12 text-center text-gray-400'>
+                        No se encontró la OC Agrupada.
+                    </div>
+                )}
+
+                {!isLoading && ocAgrupada && (
+                    <div className='flex flex-col gap-4'>
+                        {/* Encabezado de la OC */}
+                        <Card>
+                            <CardHeader>
+                                <CardHeaderChild>Información General</CardHeaderChild>
+                            </CardHeader>
+                            <CardBody>
+                                <dl className='grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-4'>
+                                    <div>
+                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                            Cliente
+                                        </dt>
+                                        <dd className='flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-100'>
+                                            {ocAgrupada.nombre_cliente ?? '—'}
+                                            {ocAgrupada.es_prospecto && (
+                                                <Badge color='amber' variant='outline'>
+                                                    Prospecto
+                                                </Badge>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                            Empresa
+                                        </dt>
+                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                            {ocAgrupada.nombre_empresa ?? '—'}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                            Creada el
+                                        </dt>
+                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                            {dayjs(ocAgrupada.fecha_creacion).format('DD/MM/YYYY')}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                            Cotizaciones vinculadas
+                                        </dt>
+                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                            {ocAgrupada.cotizaciones_ids?.length ?? 0}
+                                        </dd>
+                                    </div>
+                                    {ocAgrupada.observaciones && (
+                                        <div className='col-span-2 md:col-span-4'>
+                                            <dt className='text-gray-500 dark:text-gray-400'>
+                                                Observaciones
+                                            </dt>
+                                            <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                {ocAgrupada.observaciones}
+                                            </dd>
+                                        </div>
+                                    )}
+                                </dl>
+                            </CardBody>
+                        </Card>
+
+                        {/* Grupos por proveedor */}
+                        <Card>
+                            <CardHeader>
+                                <CardHeaderChild>
+                                    Grupos por Proveedor ({ocAgrupada.grupos_proveedor?.length ?? 0})
+                                </CardHeaderChild>
+                            </CardHeader>
+                            <CardBody>
+                                {!ocAgrupada.grupos_proveedor?.length ? (
+                                    <div className='py-6 text-center text-gray-400'>
+                                        Sin grupos de proveedor creados.
+                                    </div>
+                                ) : (
+                                    <div className='overflow-auto'>
+                                        <Table className='min-w-[600px]'>
+                                            <THead>
+                                                <Tr>
+                                                    <Th>Código</Th>
+                                                    <Th>Proveedor</Th>
+                                                    <Th>Estado</Th>
+                                                    <Th>Fecha compra</Th>
+                                                    <Th>Acciones</Th>
+                                                </Tr>
+                                            </THead>
+                                            <TBody>
+                                                {ocAgrupada.grupos_proveedor.map((grupo) => (
+                                                    <Tr key={grupo.id}>
+                                                        <Td>
+                                                            <span className='font-mono text-sm text-gray-600 dark:text-gray-400'>
+                                                                {grupo.codigo}
+                                                            </span>
+                                                        </Td>
+                                                        <Td>
+                                                            <span className='font-semibold text-gray-700 dark:text-gray-300'>
+                                                                {grupo.nombre_proveedor}
+                                                            </span>
+                                                        </Td>
+                                                        <Td>
+                                                            <Badge
+                                                                variant='solid'
+                                                                color={colorEstadoGrupo(
+                                                                    grupo.estado,
+                                                                )}>
+                                                                {grupo.estado_label}
+                                                            </Badge>
+                                                        </Td>
+                                                        <Td>
+                                                            <span className='text-gray-500'>
+                                                                {grupo.fecha_compra
+                                                                    ? dayjs(
+                                                                          grupo.fecha_compra,
+                                                                      ).format('DD/MM/YYYY')
+                                                                    : '—'}
+                                                            </span>
+                                                        </Td>
+                                                        <Td>
+                                                            <Tooltip text='Ver OC de este proveedor'>
+                                                                <Button
+                                                                    variant='solid'
+                                                                    color='violet'
+                                                                    icon='HeroEye'
+                                                                    onClick={() =>
+                                                                        navigate(
+                                                                            `/compras/detalle-orden-compra/${grupo.id}`,
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </Tooltip>
+                                                        </Td>
+                                                    </Tr>
+                                                ))}
+                                            </TBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </CardBody>
+                        </Card>
+                    </div>
+                )}
+            </Container>
+        </PageWrapper>
+    );
+}
+
+export default DetalleOCAgrupada;

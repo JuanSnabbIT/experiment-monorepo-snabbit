@@ -170,10 +170,29 @@ const CotizacionesEmpresa = () => {
                 else if (estadoLower.includes('enviada')) color = 'blue';
                 else if (estadoLower.includes('borrador')) color = 'zinc';
 
+                const estadoOC = info.row.original.estado_oc_derivado;
+
                 return (
-                    <Badge variant='solid' color={color} className='capitalize shadow-sm'>
-                        {estado}
-                    </Badge>
+                    <div className='flex flex-col gap-1'>
+                        <Badge variant='solid' color={color} className='capitalize shadow-sm'>
+                            {estado}
+                        </Badge>
+                        {estadoOC === 'pendiente_oc' && (
+                            <Badge color='amber' variant='outline' className='text-xs'>
+                                Sin OC
+                            </Badge>
+                        )}
+                        {estadoOC === 'en_oc' && (
+                            <Badge color='blue' variant='outline' className='text-xs'>
+                                En OC
+                            </Badge>
+                        )}
+                        {estadoOC === 'cerrada_comercialmente' && (
+                            <Badge color='zinc' variant='outline' className='text-xs'>
+                                Cerrada comercialmente
+                            </Badge>
+                        )}
+                    </div>
                 );
             },
             header: 'Estado',

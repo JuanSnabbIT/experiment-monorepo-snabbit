@@ -58,6 +58,7 @@ from .models import (
     MovimientoEnVoucher,
     MovimientoStock,
     OrdenCompra,
+    OrdenCompraAgrupada,
     StockItemEnBodega,
     TomaInventario,
     VoucherDevolucion,
@@ -85,6 +86,8 @@ from .serializers import (
     MovimientoEnVoucherSerializer,
     MovimientoStockSerializer,
     MultipleImagenesSerializer,
+    OrdenCompraAgrupadaSerializer,
+    OrdenCompraAgrupadaCreateSerializer,
     OrdenCompraCreateSerializer,
     OrdenCompraSerializer,
     StockInicialSerializer,
@@ -3578,3 +3581,81 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
                 {"detail": f"Error al generar PDF: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class OrdenCompraAgrupadaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para la OC Agrupada (contenedor de OCs por proveedor).
+
+    Endpoints:
+    - GET  /api/oc-agrupadas/por-empresa/{empresa_id}/ → lista de OC agrupadas de una empresa
+    - GET  /api/oc-agrupadas/{id}/                      → detalle con grupos por proveedor
+    - POST /api/oc-agrupadas/crear/                     → crea OC agrupada desde cotizaciones
+    """
+
+    queryset = OrdenCompraAgrupada.objects.prefetch_related(
+        "ordenes_compra__proveedor",
+        "cotizaciones",
+    ).select_related("oc_empresa", "oc_cliente", "creado_por")
+    serializer_class = OrdenCompraAgrupadaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return self.queryset.none()
+        empresa = personalizacion.sucursal_principal.empresa
+        return self.queryset.filter(oc_empresa=empresa)
+
+    @action(detail=False, methods=["get"], url_path="por-empresa/(?P<empresa_id>[^/.]+)")
+    def por_empresa(self, request, empresa_id=None):
+        """
+        GET /api/oc-agrupadas/por-empresa/{empresa_id}/
+        Lista de OC agrupadas filtradas por empresa, con soporte ?oc_cliente=.
+        """
+        qs = self.get_queryset().filter(oc_empresa_id=empresa_id)
+        cliente_id = request.query_params.get("oc_cliente")
+        if cliente_id:
+            qs = qs.filter(oc_cliente_id=cliente_id)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="crear")
+    def crear(self, request):
+        """
+        POST /api/oc-agrupadas/crear/
+        Body: { oc_empresa, oc_cliente, cotizaciones_ids: [], observaciones? }
+        Crea la OC agrupada y sus OCs individuales por proveedor.
+        """
+        from cotizaciones.functions import crear_oc_agrupada
+        from empresas.models import Empresa, UsuarioEmpresa
+
+        create_serializer = OrdenCompraAgrupadaCreateSerializer(data=request.data)
+        create_serializer.is_valid(raise_exception=True)
+        data = create_serializer.validated_data
+
+        try:
+            oc_empresa = Empresa.objects.get(pk=data["oc_empresa"])
+        except Empresa.DoesNotExist:
+            return Response(
+                {"detail": "Empresa no encontrada."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        usuario_empresa = UsuarioEmpresa.objects.filter(
+            usuario=request.user
+        ).first()
+
+        try:
+            agrupada = crear_oc_agrupada(
+                cotizaciones_ids=data["cotizaciones_ids"],
+                oc_empresa=oc_empresa,
+                usuario_empresa=usuario_empresa,
+                observaciones=data.get("observaciones", ""),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(agrupada)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+

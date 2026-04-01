@@ -152,6 +152,9 @@ class CotizacionSerializer(serializers.ModelSerializer):
     total_estimado = serializers.SerializerMethodField()
     copias_count = serializers.SerializerMethodField()
     estado_tipo_cambio_label = serializers.SerializerMethodField()
+    es_prospecto = serializers.SerializerMethodField()
+    tipo_contraparte_label = serializers.SerializerMethodField()
+    estado_oc_derivado = serializers.SerializerMethodField()
 
     # Alias para el criterio "tipo_cambio_usado" (se persiste en dolar_observado).
     tipo_cambio_usado = serializers.DecimalField(
@@ -192,6 +195,20 @@ class CotizacionSerializer(serializers.ModelSerializer):
 
     def get_estado_tipo_cambio_label(self, obj):
         return obj.get_estado_tipo_cambio_display()
+
+    def get_es_prospecto(self, obj):
+        from empresas.models import RelacionEmpresa
+        return RelacionEmpresa.objects.filter(
+            prestador_servicios=obj.empresa,
+            cliente=obj.cliente,
+            tipo_relacion="prospecto",
+        ).exists()
+
+    def get_tipo_contraparte_label(self, obj):
+        return "Prospecto" if self.get_es_prospecto(obj) else "Cliente"
+
+    def get_estado_oc_derivado(self, obj):
+        return obj.estado_oc_derivado
 
     class Meta:
         model = Cotizacion

@@ -340,3 +340,46 @@ export interface IVoucherDevolucion {
     movimientos_agrupados: IMovimientoAgrupado[];
     movimientos_voucher?: IMovimientoEnVoucher[];
 }
+
+// ========== OC Agrupada ==========
+
+export interface IGrupoProveedor {
+    id: number;
+    codigo: string;
+    proveedor_id: number | null;
+    nombre_proveedor: string;
+    estado: string;
+    estado_label: string;
+    fecha_compra: string | null;
+}
+
+export interface IOrdenCompraAgrupada {
+    id: number;
+    codigo: string;
+    oc_empresa: number;
+    oc_cliente: number;
+    nombre_empresa: string | null;
+    nombre_cliente: string | null;
+    es_prospecto: boolean;
+    cotizaciones_ids: number[];
+    observaciones: string;
+    estado_derivado: string;
+    estado_derivado_label: string;
+    grupos_proveedor: IGrupoProveedor[];
+    creado_por: number | null;
+    fecha_creacion: string;
+    fecha_modificacion: string;
+}
+
+export interface ICotizacionAprobadaParaOC {
+    id: number;
+    numero_cotizacion: number;
+    nombre: string;
+    estado: string;
+    total_estimado: string;
+    tipo_moneda: string;
+    fecha_creacion: string;
+    proveedores_involucrados: string[];
+    tiene_items_elegibles: boolean;
+    estado_oc_derivado: 'pendiente_oc' | 'en_oc' | 'cerrada_comercialmente' | null;
+}

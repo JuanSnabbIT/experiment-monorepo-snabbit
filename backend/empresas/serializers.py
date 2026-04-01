@@ -48,10 +48,14 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
 class RelacionEmpresaSerializer(serializers.ModelSerializer):
     info_prestador_servicios = EmpresaSerializer(source="prestador_servicios", read_only=True)
     info_cliente = EmpresaSerializer(source="cliente", read_only=True)
+    tipo_relacion_label = serializers.SerializerMethodField()
 
     class Meta:
         model = RelacionEmpresa
         fields = '__all__'
+
+    def get_tipo_relacion_label(self, obj):
+        return obj.get_tipo_relacion_display()
 
     def validate(self, attrs):
         prestador = attrs.get("prestador_servicios") or getattr(self.instance, "prestador_servicios", None)
@@ -59,6 +63,13 @@ class RelacionEmpresaSerializer(serializers.ModelSerializer):
         if prestador and cliente and prestador == cliente:
             raise serializers.ValidationError("No se puede asignar la misma empresa como cliente de sí misma.")
         return attrs
+
+
+class CrearProspectoSerializer(serializers.Serializer):
+    nombre = serializers.CharField(max_length=255)
+    rut_empresa = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    telefono = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
 
 class EmpresaContratoSerializer(serializers.ModelSerializer):
     representantes_legales = serializers.SerializerMethodField()

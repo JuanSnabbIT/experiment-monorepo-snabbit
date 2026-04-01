@@ -23,6 +23,69 @@ def generate_random_code():
     return "".join(random.choice(characters) for _ in range(4))
 
 
+class OrdenCompraAgrupada(ModeloBase):
+    """
+    Contenedor de OCs agrupadas por cliente/prospecto y cotizaciones.
+    Cada OC individual dentro de ella corresponde a un proveedor distinto.
+    """
+    codigo = models.CharField(max_length=50, unique=True)
+    oc_empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="oc_agrupadas_empresa",
+    )
+    oc_cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="oc_agrupadas_cliente",
+    )
+    cotizaciones = models.ManyToManyField(
+        "cotizaciones.Cotizacion",
+        related_name="oc_agrupadas",
+        blank=True,
+    )
+    creado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa", on_delete=models.SET_NULL, null=True
+    )
+    observaciones = models.TextField(blank=True)
+
+    @property
+    def estado_derivado(self):
+        """Calcula el estado del contenedor a partir del estado de sus OCs."""
+        ocs = self.ordenes_compra.all()
+        if not ocs.exists():
+            return "borrador"
+        estados = set(oc.estado for oc in ocs)
+        # Todas canceladas
+        if estados == {"6"}:
+            return "cancelada"
+        # Todas completadas o cerradas (5 y 7)
+        if estados.issubset({"5", "7"}):
+            return "completada"
+        # Al menos una completada pero no todas
+        if {"5", "7"} & estados:
+            return "parcialmente_completada"
+        return "en_proceso"
+
+    @property
+    def estado_derivado_label(self):
+        mapa = dict(ESTADOS_OC_AGRUPADA)
+        return mapa.get(self.estado_derivado, self.estado_derivado)
+
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            self.codigo = generate_random_code()
+        return super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "OC Agrupada"
+        verbose_name_plural = "OCs Agrupadas"
+        ordering = ["-fecha_creacion"]
+
+    def __str__(self):
+        return f"OC Agrupada {self.codigo}"
+
+
 class Bodega(ModeloBase):
     nombre = models.CharField(max_length=250)
     sucursal = models.ForeignKey("empresas.SucursalEmpresa", on_delete=models.CASCADE)
@@ -139,6 +202,13 @@ class OrdenCompra(ModeloBaseHistorico):
     )
     relacion_cotizacion = models.ForeignKey(
         "cotizaciones.Cotizacion", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    oc_agrupada = models.ForeignKey(
+        "bodegas.OrdenCompraAgrupada",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ordenes_compra",
     )
     observaciones = models.TextField(blank=True)
     estado = models.CharField(max_length=2, choices=ESTADOS_OC, default="-")

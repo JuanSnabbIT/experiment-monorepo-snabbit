@@ -210,11 +210,64 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(cotizaciones, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="aprobadas-para-oc")
+    def aprobadas_para_oc(self, request):
+        """
+        GET /api/cotizaciones/aprobadas-para-oc/?cliente_id=
+        Devuelve cotizaciones aceptadas de la empresa del usuario filtradas por cliente,
+        con resumen de proveedores involucrados y disponibilidad para crear OC agrupada.
+        """
+        usuario = request.user
+        try:
+            personalizacion = PersonalizacionUsuario.objects.get(usuario=usuario)
+            empresa = personalizacion.sucursal_principal
+            if not empresa:
+                return Response({"detail": "Empresa principal no configurada."}, status=400)
+        except PersonalizacionUsuario.DoesNotExist:
+            return Response({"detail": "Personalizacion no encontrada."}, status=404)
+
+        cliente_id = request.query_params.get("cliente_id")
+        if not cliente_id:
+            return Response({"detail": "Debe indicar cliente_id."}, status=400)
+
+        cotizaciones = (
+            Cotizacion.objects
+            .filter(empresa=empresa.empresa, estado="aceptada", cliente_id=cliente_id)
+            .prefetch_related("items__proveedor_empresa")
+            .order_by("-numero_cotizacion")
+        )
+
+        resultado = []
+        for cot in cotizaciones:
+            items_elegibles = cot.items.filter(
+                proveedor_empresa__isnull=False,
+                item_empresa__isnull=False,
+                aprobado=True,
+            )
+            proveedores = list(
+                {it.proveedor_empresa_id: it.proveedor_empresa.nombre
+                 for it in items_elegibles if it.proveedor_empresa}.values()
+            )
+            resultado.append({
+                "id": cot.id,
+                "numero_cotizacion": cot.numero_cotizacion,
+                "nombre": cot.nombre,
+                "estado": cot.estado,
+                "total_estimado": cot.total_estimado,
+                "tipo_moneda": cot.tipo_moneda,
+                "fecha_creacion": cot.fecha_creacion,
+                "proveedores_involucrados": proveedores,
+                "tiene_items_elegibles": items_elegibles.exists(),
+                "estado_oc_derivado": cot.estado_oc_derivado,
+            })
+
+        return Response(resultado)
+
     @action(detail=True, methods=["post"], url_path="refrescar-tipo-cambio")
     def refrescar_tipo_cambio(self, request, pk=None):
         """
-        Actualiza manualmente el tipo de cambio (dolar/UF) de la cotización.
-        Ejecuta de forma asíncrona y retorna inmediatamente.
+        Actualiza manualmente el tipo de cambio (dolar/UF) de la cotizacion.
+        Ejecuta de forma asincrona y retorna inmediatamente.
         El frontend debe hacer polling o refetch para obtener los valores actualizados.
         """
         cotizacion = self.get_object()

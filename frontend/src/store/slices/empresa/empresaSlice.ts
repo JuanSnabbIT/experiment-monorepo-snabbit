@@ -18,6 +18,7 @@ export interface EmpresaState {
     selectEmpresas: IEmpresa[];
     detalleEmpresa: IEmpresa | undefined;
     listaMisClientes: IRelacionEmpresa[];
+    listaMisProspectos: IRelacionEmpresa[];
     detalleCliente: IRelacionEmpresa | undefined;
     listaUsuariosCliente: IUsuarioEmpresa[];
     listaMisSucursales: ISucursalEmpresa[];
@@ -39,6 +40,7 @@ const initialState: EmpresaState = {
     selectEmpresas: [],
     detalleEmpresa: undefined,
     listaMisClientes: [],
+    listaMisProspectos: [],
     detalleCliente: undefined,
     listaUsuariosCliente: [],
     listaMisSucursales: [],
@@ -172,6 +174,22 @@ export const listaMisClientesThunk = createAsyncThunk<
     try {
         const response = await ApiService.fetchData<IRelacionEmpresa[]>({
             url: `/api/empresas/${id_empresa}/mis-clientes`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
+    }
+});
+
+export const listaMisProspectosThunk = createAsyncThunk<
+    IRelacionEmpresa[],
+    { id_empresa: number | string | undefined | null },
+    { rejectValue: string }
+>('empresa/listaMisProspectosThunk', async ({ id_empresa }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRelacionEmpresa[]>({
+            url: `/api/empresas/${id_empresa}/mis-prospectos/`,
             method: 'get',
         });
         return response.data;
@@ -386,6 +404,17 @@ const empresaSlice = createSlice({
                 state.listaMisClientes = action.payload;
             })
             .addCase(listaMisClientesThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            .addCase(listaMisProspectosThunk.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(listaMisProspectosThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.listaMisProspectos = action.payload;
+            })
+            .addCase(listaMisProspectosThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })

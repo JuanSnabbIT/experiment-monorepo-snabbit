@@ -49,7 +49,11 @@ class RelacionEmpresa(ModeloBase):
     cliente = models.ForeignKey(
         Empresa, related_name="relaciones_como_cliente", on_delete=models.CASCADE
     )
-    tipo_relacion = models.CharField(max_length=50, default="prestador-cliente")
+    tipo_relacion = models.CharField(
+        max_length=50,
+        default="prestador-cliente",
+        choices=TIPOS_RELACION_EMPRESA,
+    )
 
     class Meta:
         verbose_name = "Relación entre Empresas"

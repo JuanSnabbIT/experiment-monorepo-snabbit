@@ -11,6 +11,15 @@ ESTADOS_OC = (
     ("7", "Cerrada"),
 )
 
+# Estados derivados de la OC Agrupada (calculado en base a sus grupos proveedor)
+ESTADOS_OC_AGRUPADA = (
+    ("borrador", "Borrador"),
+    ("en_proceso", "En proceso"),
+    ("parcialmente_completada", "Parcialmente completada"),
+    ("completada", "Completada"),
+    ("cancelada", "Cancelada"),
+)
+
 ESTADO_CR = (
     ("-", "Borrador"),
     ("P", "Pendiente de rendición"),

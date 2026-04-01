@@ -2,13 +2,14 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested.routers import NestedDefaultRouter
 from .views import (ArchivoCompraViewSet, BodegaViewSet, CompraViewSet, EstadoTomaInventarioViewSet, ImagenDeItemEnTomaInventarioViewSet, ItemEnCompraViewSet, ItemEnTomaInventarioViewSet, ItemsGuiaSalidaViewSet, GuiaSalidaViewSet, MovimientoStockViewSet, TomaInventarioViewSet, 
-                        OrdenCompraViewSet, ItemEnOrdenCompraViewSet, StockItemEnBodegaViewSet, ItemOrdenCompraEnStockViewSet, VoucherDevolucionViewSet)
+                        OrdenCompraViewSet, OrdenCompraAgrupadaViewSet, ItemEnOrdenCompraViewSet, StockItemEnBodegaViewSet, ItemOrdenCompraEnStockViewSet, VoucherDevolucionViewSet)
 
 router = DefaultRouter()
 router.register(r'bodegas', BodegaViewSet, basename='bodega')
 router.register(r'tomas-inventario', TomaInventarioViewSet, basename='toma-inventario')
 # router.register(r'imagenes-toma-inventario', ImagenesTomaInventarioViewSet, basename='imagenes-toma-inventario')
 router.register(r'ordenes-compra', OrdenCompraViewSet, basename='orden-compra')
+router.register(r'oc-agrupadas', OrdenCompraAgrupadaViewSet, basename='oc-agrupada')
 router.register(r'items-orden-compra-en-stock', ItemOrdenCompraEnStockViewSet, basename='item-orden-compra-en-stock')
 router.register(r'guia-salida', GuiaSalidaViewSet, basename='guia-salida')
 router.register(r'items-guia', ItemsGuiaSalidaViewSet, basename='items-guias')

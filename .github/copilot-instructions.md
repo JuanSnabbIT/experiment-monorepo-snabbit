@@ -251,10 +251,13 @@ Disponibles en `.vscode/tasks.json`:
 
 ## 11. Encoding
 
-- Archivos deben guardarse en **UTF-8**.
-- Si ves texto con caracteres corruptos, corrige y re-guarda en UTF-8.
+- Todos los archivos deben guardarse en **UTF-8 sin BOM**.
+- Si ves texto con caracteres corruptos (mojibake como `Ã³`, `Ã±`, `Ã©`, `â€"`), corrige y re-guarda en UTF-8 antes de continuar.
+- **Regla obligatoria al escribir archivos con la herramienta de terminal:** usar siempre `[System.IO.File]::WriteAllText(path, content, New-Object System.Text.UTF8Encoding $false)` en PowerShell, o `open(path, 'w', encoding='utf-8')` en Python. Nunca usar `Set-Content` ni `Out-File` sin `-Encoding UTF8` explícito.
+- **Regla obligatoria en cada fase de implementación:** después de crear o modificar cualquier archivo `.py`, `.ts` o `.tsx` que contenga texto en español, verificar ausencia de mojibake con: `if (Get-Content -Raw archivo) -match 'Ã|â€|Â°|ï¿½' { Write-Host 'ENCODING ERROR' }`.
+- La causa más frecuente de mojibake en este repo es `replace_string_in_file` sobre archivos que ya tienen caracteres no-ASCII cuando el contexto del agente no maneja correctamente la cadena. Alternativa segura: PowerShell con `[System.IO.File]::ReadAllBytes` + `GetString(UTF8)` + reemplazo + `WriteAllText`.
 
 ---
 
-Última actualización: 2026-02-05
+Última actualización: 2026-04-01
 ````

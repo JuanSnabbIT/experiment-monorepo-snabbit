@@ -748,6 +748,21 @@ const DetalleCotizacion = () => {
                                                         <div className='ml-4 font-medium text-zinc-900 dark:text-zinc-100'>
                                                             {detalleCotizacion?.estado_label}
                                                         </div>
+                                                        {detalleCotizacion?.estado_oc_derivado === 'pendiente_oc' && (
+                                                            <Badge color='amber' variant='outline' className='mt-1 text-xs'>
+                                                                Sin OC
+                                                            </Badge>
+                                                        )}
+                                                        {detalleCotizacion?.estado_oc_derivado === 'en_oc' && (
+                                                            <Badge color='blue' variant='outline' className='mt-1 text-xs'>
+                                                                En OC
+                                                            </Badge>
+                                                        )}
+                                                        {detalleCotizacion?.estado_oc_derivado === 'cerrada_comercialmente' && (
+                                                            <Badge color='zinc' variant='outline' className='mt-1 text-xs'>
+                                                                Cerrada comercialmente
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <div className='col-span-full'>
                                                         <Badge>Descripción</Badge>

@@ -123,3 +123,31 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
     if numero_serie and numero_serie.get("serie"):
         from bodegas.series import liberar_serie
         liberar_serie(stock_item, numero_serie["serie"], instance.id)
+
+
+@receiver(post_save, sender=OrdenCompra)
+def promover_prospecto_al_completar_oc_agrupada(sender, instance, **kwargs):
+    """
+    Cuando una OC individual pasa a Completada (5) o Cerrada (7), verifica si
+    su OC Agrupada quedó completamente cerrada comercialmente. Si el cliente de
+    esa OC Agrupada era prospecto, lo promueve a 'prestador-cliente'.
+    """
+    # Solo actuar en estados terminales
+    if instance.estado not in ("5", "7"):
+        return
+
+    oc_agrupada = instance.oc_agrupada
+    if not oc_agrupada:
+        return
+
+    # El estado_derivado es una property: refetch desde BD para calcular correctamente
+    oc_agrupada.refresh_from_db()
+    if oc_agrupada.estado_derivado != "completada":
+        return
+
+    from empresas.models import RelacionEmpresa
+    RelacionEmpresa.objects.filter(
+        prestador_servicios=oc_agrupada.oc_empresa,
+        cliente=oc_agrupada.oc_cliente,
+        tipo_relacion="prospecto",
+    ).update(tipo_relacion="prestador-cliente")
