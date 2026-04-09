@@ -430,6 +430,30 @@ export const Pages = {
         },
     },
 
+    ordenTrabajoV3: {
+        id: 'ordenTrabajoV3',
+        to: '/orden-trabajo-v3',
+        text: 'OT V3',
+        icon: 'HeroClipboardDocumentCheck',
+        authority: ['staff', 'superadmin'],
+        subPages: {
+            listaOrdenesTrabajoV3: {
+                id: 'listaOrdenesTrabajoV3',
+                to: '/orden-trabajo-v3/lista',
+                text: 'Lista OT V3',
+                icon: 'HeroClipboardDocumentCheck',
+                authority: ['staff', 'superadmin'],
+            },
+            detalleOrdenTrabajoV3: {
+                id: 'detalleOrdenTrabajoV3',
+                to: '/orden-trabajo-v3/:id',
+                text: 'Detalle OT V3',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
+        },
+    },
+
     registros: {
         id: 'registros',
         to: '/registros',

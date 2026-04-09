@@ -87,6 +87,13 @@ export const cotizacionApi = RtkQueryService.injectEndpoints({
                 data,
             }),
         }),
+        crearCopiaCotizacionRechazada: builder.mutation<ICotizacion, number>({
+            query: (id) => ({
+                url: `/api/cotizaciones/${id}/crear-copia-rechazada/`,
+                method: 'post',
+            }),
+            invalidatesTags: ['Cotizaciones'],
+        }),
     }),
     overrideExisting: false,
 });
@@ -100,4 +107,5 @@ export const {
     useCreateSolicitanteCotizacionMutation,
     useDeleteSolicitanteCotizacionMutation,
     useCreateSolicitanteExternoMutation,
+    useCrearCopiaCotizacionRechazadaMutation,
 } = cotizacionApi;

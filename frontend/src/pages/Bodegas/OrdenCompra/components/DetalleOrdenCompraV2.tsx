@@ -20,9 +20,11 @@ import {
     useGetDetalleOrdenCompraQuery,
     useGetItemsEnOrdenCompraQuery,
     useGetItemsOrdenCompraEnStockQuery,
+    useRecepcionarConsumoDirectoMutation,
 } from '@/store/slices/bodega/ordenCompraApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { formatPrice } from '@/utils/currency';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     createColumnHelper,
     flexRender,
@@ -97,6 +99,8 @@ function DetalleOrdenCompraV2() {
     const [valorTotal, setValorTotal] = useState<number>(0);
     const tieneCotizacion = Boolean(detalleOrdenCompra?.relacion_cotizacion);
     const isStaff = useAuthority(listaGrupos?.grupos, ['staff']);
+    const [recepcionarConsumoDirecto, { isLoading: isRecepcionandoDirecto }] =
+        useRecepcionarConsumoDirectoMutation();
 
     // Derived state instead of useEffect+useState to avoid loops
     const itemsARecibir = useMemo(() => {
@@ -366,24 +370,10 @@ function DetalleOrdenCompraV2() {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
-    const handleIrACotizacion = async () => {
-        try {
-            if (!detalleOrdenCompra?.relacion_cotizacion) {
-                toast.error('No se encontr cotizacin relacionada');
-                return;
-            }
-            const resp = await ApiService.fetchData<{ numero_cotizacion: number }>({
-                url: `/api/cotizaciones/${detalleOrdenCompra.relacion_cotizacion}/`,
-                method: 'get',
-            });
-            const num = resp.data?.numero_cotizacion;
-            if (num) {
-                navigate(`/cotizacion/detalle-cotizacion/${num}`);
-                return;
-            }
-            toast.error('No se pudo determinar la cotizacin relacionada');
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'No se pudo abrir la cotizacin previa');
+    const handleIrACotizacion = () => {
+        const num = detalleOrdenCompra?.relacion_cotizacion_numero;
+        if (num) {
+            navigate(`/cotizacion/detalle-cotizacion/${num}`);
         }
     };
 
@@ -411,7 +401,19 @@ function DetalleOrdenCompraV2() {
             name='Detalle Orden Compra'
             title='Detalle Orden Compra'>
             <Subheader>
-                <SubheaderLeft>{null}</SubheaderLeft>
+                <SubheaderLeft>
+                    {detalleOrdenCompra?.oc_agrupada && (
+                        <Tooltip text='Volver a OC Agrupada'>
+                            <Button
+                                icon='HeroArrowLeft'
+                                onClick={() =>
+                                    navigate(`/compras/oc-agrupada/${detalleOrdenCompra.oc_agrupada}`)
+                                }>
+                                OC Agrupada
+                            </Button>
+                        </Tooltip>
+                    )}
+                </SubheaderLeft>
                 <SubheaderRight>
                     <div className='flex flex-wrap gap-2'>
                         {/* Botones que NO aparecen en modo recepción */}
@@ -477,6 +479,34 @@ function DetalleOrdenCompraV2() {
                                         onSuccess={refrescarDetalle}
                                     />
                                 )}
+                                {/* Recepción directa para OCs de consumo directo */}
+                                {detalleOrdenCompra?.consumo_directo &&
+                                    detalleOrdenCompra.estado === '3' && (
+                                        <Tooltip text='Marcar como recibida (consumo directo — no ingresa a bodega)'>
+                                            <Button
+                                                variant='solid'
+                                                color='emerald'
+                                                icon='DuoBox2'
+                                                isLoading={isRecepcionandoDirecto}
+                                                onClick={async () => {
+                                                    try {
+                                                        await recepcionarConsumoDirecto({
+                                                            id: detalleOrdenCompra.id,
+                                                            oca_id:
+                                                                detalleOrdenCompra.oc_agrupada ??
+                                                                undefined,
+                                                        }).unwrap();
+                                                        toast.success(
+                                                            'OC recepcionada como consumo directo',
+                                                        );
+                                                    } catch (error: unknown) {
+                                                        toast.error(getErrorMessage(error));
+                                                    }
+                                                }}>
+                                                Marcar Recibida
+                                            </Button>
+                                        </Tooltip>
+                                    )}
                             </>
                         )}
                         {/* Botón de recepción (estados 1, 3, 4) */}
@@ -561,10 +591,31 @@ function DetalleOrdenCompraV2() {
                                     <Badge>Estado</Badge>
                                     <div className='ml-4'>{detalleOrdenCompra?.estado_label}</div>
                                 </div>
+                                {detalleOrdenCompra?.consumo_directo && (
+                                    <div className='w-full'>
+                                        <Badge color='amber'>Consumo Directo</Badge>
+                                        <div className='ml-4 text-sm text-amber-600 dark:text-amber-400'>
+                                            No ingresa a bodega
+                                        </div>
+                                    </div>
+                                )}
                                 <div className='w-full'>
                                     <Badge>Cliente</Badge>
                                     <div className='ml-4'>{detalleOrdenCompra?.nombre_cliente}</div>
                                 </div>
+                                {detalleOrdenCompra?.relacion_cotizacion_numero && (
+                                    <div className='w-full'>
+                                        <Badge>Cotización vinculada</Badge>
+                                        <div className='ml-4'>
+                                            <button
+                                                type='button'
+                                                onClick={handleIrACotizacion}
+                                                className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+                                                #{detalleOrdenCompra.relacion_cotizacion_numero}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className='w-full'>
                                     <Badge>Tipo Moneda</Badge>
                                     <div className='ml-4'>

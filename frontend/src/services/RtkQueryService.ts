@@ -107,6 +107,18 @@ const RtkQueryService = createApi({
         'SeccionesContratoGeneradas',
         'ContratoCotizaciones',
         'ContratosActivosCliente',
+        'CierreAdministrativoOT',
+        'CierreAdministrativoOTList',
+        // OT V3
+        'OrdenTrabajoV3',
+        'OrdenTrabajoV3List',
+        'TareaOTV3',
+        'AsignacionOTV3',
+        'ChecklistOTV3',
+        'SeguimientoOTV3',
+        'GastoOTV3',
+        'AdjuntoOTV3',
+        'HistorialOTV3',
     ] as const,
     endpoints: () => ({}),
 });

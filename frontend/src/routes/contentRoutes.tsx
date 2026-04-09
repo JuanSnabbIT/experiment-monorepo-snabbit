@@ -94,6 +94,8 @@ const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/Det
 const CotizacionesEmpresa = lazy(() => import('@/pages/Cotizaciones/CotizacionesEmpresa'));
 const ListaOT = lazy(() => import('@/pages/OrdenTrabajo/ListaOT'));
 const DetalleOT = lazy(() => import('@/pages/OrdenTrabajo/DetalleOT'));
+const ListaOTV3 = lazy(() => import('@/pages/OrdenTrabajoV3/ListaOTV3'));
+const DetalleOTV3 = lazy(() => import('@/pages/OrdenTrabajoV3/DetalleOTV3'));
 const ListaVisitas = lazy(() => import('@/pages/Visitas/ListaVisitas'));
 const DetalleVisita = lazy(() => import('@/pages/Visitas/DetalleVisita'));
 // const ListaEquiposDeMisClientes = lazy(() => import('@/pages/Recursos/Equipos/ListaEquiposDeMisClientes'))
@@ -516,6 +518,18 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.to,
         element: <DetalleRetroalimentacionOT />,
         authority: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.authority,
+    },
+
+    // Orden Trabajo V3
+    {
+        path: Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.to,
+        element: <ListaOTV3 />,
+        authority: Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.authority,
+    },
+    {
+        path: Pages.ordenTrabajoV3.subPages.detalleOrdenTrabajoV3.to,
+        element: <DetalleOTV3 />,
+        authority: Pages.ordenTrabajoV3.subPages.detalleOrdenTrabajoV3.authority,
     },
 
     // Visitas

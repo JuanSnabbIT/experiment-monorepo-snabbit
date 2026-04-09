@@ -6,10 +6,15 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
-import { useGetDetalleOCAgrupadaQuery } from '@/store/slices/bodega/ordenCompraApi';
+import {
+    useCambiarEstadoOrdenCompraMutation,
+    useGetDetalleOCAgrupadaQuery,
+} from '@/store/slices/bodega/ordenCompraApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 type TColorBadge = 'emerald' | 'amber' | 'red' | 'blue' | 'zinc';
 
@@ -29,6 +34,19 @@ function colorEstadoAgrupada(estado: string): TColorBadge {
     return 'zinc';
 }
 
+/** Acciones de transición simples disponibles por estado de grupo proveedor */
+const ACCIONES_POR_ESTADO: Record<string, { estado: string; label: string; color: TColorBadge }[]> =
+    {
+        '-': [{ estado: '0', label: 'Enviar a aprobación', color: 'blue' }],
+        '0': [
+            { estado: '1', label: 'Aprobar', color: 'emerald' },
+            { estado: '2', label: 'Rechazar', color: 'red' },
+        ],
+        '1': [{ estado: '2', label: 'Rechazar', color: 'red' }],
+        '2': [{ estado: '0', label: 'Reenviar a aprobación', color: 'blue' }],
+        '5': [{ estado: '7', label: 'Cerrar', color: 'zinc' }],
+    };
+
 function DetalleOCAgrupada() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
@@ -36,6 +54,16 @@ function DetalleOCAgrupada() {
     const { data: ocAgrupada, isLoading } = useGetDetalleOCAgrupadaQuery(id ?? '', {
         skip: !id,
     });
+
+    const [cambiarEstado, { isLoading: isCambiando }] = useCambiarEstadoOrdenCompraMutation();
+
+    const handleCambiarEstado = async (grupoId: number, estado: string) => {
+        try {
+            await cambiarEstado({ id: grupoId, estado }).unwrap();
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
 
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle OC Agrupada' title='Detalle OC Agrupada'>
@@ -126,8 +154,26 @@ function DetalleOCAgrupada() {
                                         <dt className='text-gray-500 dark:text-gray-400'>
                                             Cotizaciones vinculadas
                                         </dt>
-                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
-                                            {ocAgrupada.cotizaciones_ids?.length ?? 0}
+                                        <dd className='flex flex-wrap gap-1 pt-1'>
+                                            {ocAgrupada.cotizaciones_detalle?.length ? (
+                                                ocAgrupada.cotizaciones_detalle.map((cot) => (
+                                                    <button
+                                                        key={cot.id}
+                                                        type='button'
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/cotizacion/detalle-cotizacion/${cot.numero_cotizacion}`,
+                                                            )
+                                                        }
+                                                        className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50'>
+                                                        #{cot.numero_cotizacion} {cot.nombre}
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                    Sin cotizaciones
+                                                </span>
+                                            )}
                                         </dd>
                                     </div>
                                     {ocAgrupada.observaciones && (
@@ -158,63 +204,142 @@ function DetalleOCAgrupada() {
                                     </div>
                                 ) : (
                                     <div className='overflow-auto'>
-                                        <Table className='min-w-[600px]'>
+                                        <Table className='min-w-[700px]'>
                                             <THead>
                                                 <Tr>
                                                     <Th>Código</Th>
                                                     <Th>Proveedor</Th>
+                                                    <Th>Cotización</Th>
                                                     <Th>Estado</Th>
                                                     <Th>Fecha compra</Th>
                                                     <Th>Acciones</Th>
                                                 </Tr>
                                             </THead>
                                             <TBody>
-                                                {ocAgrupada.grupos_proveedor.map((grupo) => (
-                                                    <Tr key={grupo.id}>
-                                                        <Td>
-                                                            <span className='font-mono text-sm text-gray-600 dark:text-gray-400'>
-                                                                {grupo.codigo}
-                                                            </span>
-                                                        </Td>
-                                                        <Td>
-                                                            <span className='font-semibold text-gray-700 dark:text-gray-300'>
-                                                                {grupo.nombre_proveedor}
-                                                            </span>
-                                                        </Td>
-                                                        <Td>
-                                                            <Badge
-                                                                variant='solid'
-                                                                color={colorEstadoGrupo(
-                                                                    grupo.estado,
-                                                                )}>
-                                                                {grupo.estado_label}
-                                                            </Badge>
-                                                        </Td>
-                                                        <Td>
-                                                            <span className='text-gray-500'>
-                                                                {grupo.fecha_compra
-                                                                    ? dayjs(
-                                                                          grupo.fecha_compra,
-                                                                      ).format('DD/MM/YYYY')
-                                                                    : '—'}
-                                                            </span>
-                                                        </Td>
-                                                        <Td>
-                                                            <Tooltip text='Ver OC de este proveedor'>
-                                                                <Button
+                                                {ocAgrupada.grupos_proveedor.map((grupo) => {
+                                                    const acciones =
+                                                        ACCIONES_POR_ESTADO[grupo.estado] ?? [];
+                                                    return (
+                                                        <Tr key={grupo.id}>
+                                                            <Td>
+                                                                <span className='font-mono text-sm text-gray-600 dark:text-gray-400'>
+                                                                    {grupo.codigo}
+                                                                </span>
+                                                            </Td>
+                                                            <Td>
+                                                                <span className='font-semibold text-gray-700 dark:text-gray-300'>
+                                                                    {grupo.nombre_proveedor}
+                                                                </span>
+                                                            </Td>
+                                                            <Td>
+                                                                {grupo.relacion_cotizacion_numero ? (
+                                                                    <button
+                                                                        type='button'
+                                                                        onClick={() =>
+                                                                            navigate(
+                                                                                `/cotizacion/detalle-cotizacion/${grupo.relacion_cotizacion_numero}`,
+                                                                            )
+                                                                        }
+                                                                        className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+                                                                        #{grupo.relacion_cotizacion_numero}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className='text-gray-400'>—</span>
+                                                                )}
+                                                            </Td>
+                                                            <Td>
+                                                                <Badge
                                                                     variant='solid'
-                                                                    color='violet'
-                                                                    icon='HeroEye'
-                                                                    onClick={() =>
-                                                                        navigate(
-                                                                            `/compras/detalle-orden-compra/${grupo.id}`,
-                                                                        )
-                                                                    }
-                                                                />
-                                                            </Tooltip>
-                                                        </Td>
-                                                    </Tr>
-                                                ))}
+                                                                    color={colorEstadoGrupo(
+                                                                        grupo.estado,
+                                                                    )}>
+                                                                    {grupo.estado_label}
+                                                                </Badge>
+                                                            </Td>
+                                                            <Td>
+                                                                <span className='text-gray-500'>
+                                                                    {grupo.fecha_compra
+                                                                        ? dayjs(
+                                                                              grupo.fecha_compra,
+                                                                          ).format('DD/MM/YYYY')
+                                                                        : '—'}
+                                                                </span>
+                                                            </Td>
+                                                            <Td>
+                                                                <div className='flex items-center gap-1'>
+                                                                    {/* Botones de transición de estado */}
+                                                                    {acciones.map((accion) => (
+                                                                        <Tooltip
+                                                                            key={accion.estado}
+                                                                            text={accion.label}>
+                                                                            <Button
+                                                                                size='sm'
+                                                                                color={accion.color}
+                                                                                isLoading={
+                                                                                    isCambiando
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    handleCambiarEstado(
+                                                                                        grupo.id,
+                                                                                        accion.estado,
+                                                                                    )
+                                                                                }>
+                                                                                {accion.label}
+                                                                            </Button>
+                                                                        </Tooltip>
+                                                                    ))}
+                                                                    {/* Enviar al proveedor: requiere email, navega al detalle */}
+                                                                    {grupo.estado === '1' && (
+                                                                        <Tooltip text='Enviar al proveedor (requiere email)'>
+                                                                            <Button
+                                                                                size='sm'
+                                                                                color='blue'
+                                                                                icon='HeroEnvelope'
+                                                                                onClick={() =>
+                                                                                    navigate(
+                                                                                        `/compras/detalle-orden-compra/${grupo.id}`,
+                                                                                    )
+                                                                                }>
+                                                                                Enviar
+                                                                            </Button>
+                                                                        </Tooltip>
+                                                                    )}
+                                                                    {/* Recepcionar: estados '3' (enviada) y '4' (parcial), navega al detalle con modo recepción */}
+                                                                    {(grupo.estado === '3' ||
+                                                                        grupo.estado === '4') && (
+                                                                        <Tooltip text='Recepcionar ítems de esta OC'>
+                                                                            <Button
+                                                                                size='sm'
+                                                                                color='emerald'
+                                                                                icon='DuoBox2'
+                                                                                onClick={() =>
+                                                                                    navigate(
+                                                                                        `/compras/detalle-orden-compra/${grupo.id}`,
+                                                                                    )
+                                                                                }>
+                                                                                Recepcionar
+                                                                            </Button>
+                                                                        </Tooltip>
+                                                                    )}
+                                                                    {/* Ver detalle siempre disponible */}
+                                                                    <Tooltip text='Ver detalle de esta OC'>
+                                                                        <Button
+                                                                            variant='outline'
+                                                                            color='violet'
+                                                                            size='sm'
+                                                                            icon='HeroEye'
+                                                                            onClick={() =>
+                                                                                navigate(
+                                                                                    `/compras/detalle-orden-compra/${grupo.id}`,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </Tooltip>
+                                                                </div>
+                                                            </Td>
+                                                        </Tr>
+                                                    );
+                                                })}
                                             </TBody>
                                         </Table>
                                     </div>

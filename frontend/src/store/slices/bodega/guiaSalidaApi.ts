@@ -81,7 +81,14 @@ export const guiaSalidaApi = RtkQueryService.injectEndpoints({
         }),
         createGuiaSalida: builder.mutation<
             IGuiaSalida,
-            { bodega: number; cliente?: number; recibido_por?: number; motivo?: string }
+            {
+                bodega: number;
+                cliente?: number;
+                recibido_por?: number;
+                motivo?: string;
+                orden_trabajo?: number;
+                cotizacion_origen?: number;
+            }
         >({
             query: (body) => ({
                 url: `/api/guia-salida/`,

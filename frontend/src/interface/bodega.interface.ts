@@ -69,12 +69,15 @@ export interface IOrdenCompra {
     nombre_cliente: string;
     oc_cliente: number | null;
     oc_empresa: number | null;
+    oc_agrupada: number | null;
     relacion_cotizacion?: number | null;
+    relacion_cotizacion_numero?: number | null;
     dolar_observado: number | null;
     dolar_final: number | null;
     fecha_compra: string | null;
     tipo_moneda?: string;
     tipo_moneda_label?: string;
+    consumo_directo: boolean;
     proveedor_empresa?: { tipo_moneda?: string };
 }
 
@@ -96,6 +99,9 @@ export interface IGuiaSalida {
     nombre_recibido_por: string | null;
     firma_entrega?: string;
     orden_trabajo?: number | null;
+    cotizacion_origen?: number | null;
+    cotizacion_origen_id?: number | null;
+    cotizacion_origen_numero?: number | null;
     soporte_tecnico?: number | { falta_datos?: boolean } | null;
 }
 
@@ -343,6 +349,19 @@ export interface IVoucherDevolucion {
 
 // ========== OC Agrupada ==========
 
+export interface ICotizacionResumen {
+    id: number;
+    numero_cotizacion: number;
+    nombre: string;
+}
+
+export interface ICambiarEstadoOCResponse {
+    id: number;
+    estado: string;
+    estado_label: string;
+    oca_id: number | null;
+}
+
 export interface IGrupoProveedor {
     id: number;
     codigo: string;
@@ -351,6 +370,8 @@ export interface IGrupoProveedor {
     estado: string;
     estado_label: string;
     fecha_compra: string | null;
+    relacion_cotizacion_id: number | null;
+    relacion_cotizacion_numero: number | null;
 }
 
 export interface IOrdenCompraAgrupada {
@@ -362,6 +383,7 @@ export interface IOrdenCompraAgrupada {
     nombre_cliente: string | null;
     es_prospecto: boolean;
     cotizaciones_ids: number[];
+    cotizaciones_detalle: ICotizacionResumen[];
     observaciones: string;
     estado_derivado: string;
     estado_derivado_label: string;
@@ -381,5 +403,6 @@ export interface ICotizacionAprobadaParaOC {
     fecha_creacion: string;
     proveedores_involucrados: string[];
     tiene_items_elegibles: boolean;
+    items_elegibles_count: number;
     estado_oc_derivado: 'pendiente_oc' | 'en_oc' | 'cerrada_comercialmente' | null;
 }

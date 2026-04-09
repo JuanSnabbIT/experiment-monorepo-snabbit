@@ -6,6 +6,10 @@ import {
     IOrdenCompra,
 } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
+import {
+    useCompletarOrdenCompraMutation,
+    useCompletarYCrearGuiaMutation,
+} from '@/store/slices/bodega/ordenCompraApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -38,6 +42,8 @@ function ConfirmarRecibirOrden({
     detalleOrdenCompra: IOrdenCompra | undefined;
 }) {
     const navigate = useNavigate();
+    const [completarOrden] = useCompletarOrdenCompraMutation();
+    const [completarYCrearGuia] = useCompletarYCrearGuiaMutation();
 
     function verificarCondiciones() {
         const itemsConCantidadesDesiguales: {
@@ -218,16 +224,13 @@ function ConfirmarRecibirOrden({
             // Guardar sin guía
             try {
                 const data = buildPayload(resul);
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/completar_orden_compra/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    toast.success('Orden actualizada', { autoClose: 1000 });
-                    navigate('/compras/lista-ordenes-compra/');
-                }
+                await completarOrden({
+                    id: detalleOrdenCompra!.id,
+                    oca_id: detalleOrdenCompra?.oc_agrupada ?? undefined,
+                    ...data,
+                }).unwrap();
+                toast.success('Orden actualizada', { autoClose: 1000 });
+                navigate('/compras/lista-ordenes-compra/');
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
             }
@@ -235,19 +238,16 @@ function ConfirmarRecibirOrden({
             // Guardar y crear guía
             try {
                 const data = buildPayload(resul);
-                const response = await ApiService.fetchData({
-                    url: `/api/ordenes-compra/${detalleOrdenCompra?.id}/completar-y-crear-guia/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(data),
-                });
-                if (response.data) {
-                    const mensajeExito = guiaPendienteData.existe
-                        ? 'Orden actualizada y guía existente'
-                        : 'Orden actualizada y guía creada';
-                    toast.success(mensajeExito, { autoClose: 1000 });
-                    navigate('/compras/lista-ordenes-compra/');
-                }
+                await completarYCrearGuia({
+                    id: detalleOrdenCompra!.id,
+                    oca_id: detalleOrdenCompra?.oc_agrupada ?? undefined,
+                    ...data,
+                }).unwrap();
+                const mensajeExito = guiaPendienteData.existe
+                    ? 'Orden actualizada y guía existente'
+                    : 'Orden actualizada y guía creada';
+                toast.success(mensajeExito, { autoClose: 1000 });
+                navigate('/compras/lista-ordenes-compra/');
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
             }

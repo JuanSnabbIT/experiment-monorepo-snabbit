@@ -29,7 +29,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { IContratoMatching, IFacturaContrato } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import ApiService from '@/services/ApiService';
+import { ICierreAdministrativoOTDetail } from '@/interface/ordenTrabajo.interface';
 import { useAppSelector } from '@/store';
 import {
     useCreateFacturaContratoMutation,
@@ -38,6 +38,7 @@ import {
     useGetProximoPeriodoFacturaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetCierresAdministrativosOTQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
@@ -48,25 +49,11 @@ import {
     createPrefacturacionSearchParams,
     getPrefacturaEstadoColor,
     getPrefacturaEstadoLabel,
-    IPrefacturaListItemVM,
     IPrefacturacionRouteState,
+    IPrefacturaListItemVM,
     parsePrefacturacionSearchParams,
-    TPrefacturaEstado,
-    TPrefacturaTab,
+    TPrefacturaEstado
 } from './prefacturacion.shared';
-
-interface IPrefacturaOT {
-    id: number;
-    cliente: number | null;
-    cliente_nombre?: string | null;
-    estado_cierre: string;
-    resultado?: {
-        items?: unknown[];
-        ots_incluidas?: number[];
-        resumen?: { total_items?: number; total_facturar?: number };
-    };
-    fecha_creacion?: string;
-}
 
 const estadoOptions: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
@@ -89,7 +76,7 @@ const formatContratoTotal = (factura: IFacturaContrato) => {
     return `${factura.moneda_label || 'CLP'} ${monto.toLocaleString('es-CL')}`;
 };
 
-const formatOTTotal = (prefactura: IPrefacturaOT) => {
+const formatOTTotal = (prefactura: ICierreAdministrativoOTDetail) => {
     const monto = Number(prefactura.resultado?.resumen?.total_facturar ?? 0);
     return `$${Math.ceil(monto).toLocaleString('es-CL')}`;
 };
@@ -201,52 +188,17 @@ const ListaFacturasUnificada = () => {
         return facturasContrato.filter((factura) => filtroEstado.includes(factura.estado as never));
     }, [facturasContrato, filtroEstado]);
 
-    const [facturasOT, setFacturasOT] = useState<IPrefacturaOT[]>([]);
-    const [isLoadingOT, setIsLoadingOT] = useState(false);
-
-    const fetchFacturasOT = useCallback(async () => {
-        setIsLoadingOT(true);
-        try {
-            const params = new URLSearchParams();
-
-            if (filtroEstado.length === 1) {
-                params.set('estado', filtroEstado[0]);
-            }
-
-            if (verHistorico) {
-                params.set('historico', '1');
-            }
-
-            const queryString = params.toString();
-            const url = queryString
-                ? `/api/cierres-administrativos/?${queryString}`
-                : '/api/cierres-administrativos/';
-
-            const response = await ApiService.fetchData<
-                IPrefacturaOT[] | { results: IPrefacturaOT[] }
-            >({
-                url,
-                method: 'get',
-            });
-
-            if (Array.isArray(response.data)) {
-                setFacturasOT(response.data);
-                return;
-            }
-
-            setFacturasOT(response.data?.results ?? []);
-        } catch (error: unknown) {
-            toast.error(getErrorMessage(error));
-        } finally {
-            setIsLoadingOT(false);
-        }
-    }, [filtroEstado, verHistorico]);
-
-    useEffect(() => {
-        if (activeTab === 'ot') {
-            fetchFacturasOT();
-        }
-    }, [activeTab, fetchFacturasOT]);
+    const otQueryArgs = useMemo(
+        () => ({
+            estado: filtroEstado.length === 1 ? filtroEstado[0] : undefined,
+            historico: verHistorico || undefined,
+        }),
+        [filtroEstado, verHistorico],
+    );
+    const { data: facturasOT = [], isLoading: isLoadingOT } = useGetCierresAdministrativosOTQuery(
+        otQueryArgs,
+        { skip: activeTab !== 'ot' },
+    );
 
     const facturasOTFiltradas = useMemo(() => {
         if (filtroEstado.length <= 1) {

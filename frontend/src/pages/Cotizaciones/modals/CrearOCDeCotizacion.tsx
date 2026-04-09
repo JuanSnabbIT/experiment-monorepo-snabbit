@@ -102,12 +102,17 @@ function CrearOCDeCotizacion({ cotizacion }: Props) {
         setTipoContraparte('cliente');
     };
 
+    const esCotizacionBloqueada = (cot: { tiene_items_elegibles: boolean; estado_oc_derivado?: string | null }) =>
+        !cot.tiene_items_elegibles ||
+        cot.estado_oc_derivado === 'en_oc' ||
+        cot.estado_oc_derivado === 'cerrada_comercialmente';
+
     const puedeConfirmar =
         !!clienteSeleccionadoId &&
         cotizacionesSeleccionadas.length > 0 &&
         cotizacionesElegibles
             .filter((c) => cotizacionesSeleccionadas.includes(c.id))
-            .some((c) => c.tiene_items_elegibles);
+            .every((c) => !esCotizacionBloqueada(c));
 
     return (
         <>
@@ -237,17 +242,17 @@ function CrearOCDeCotizacion({ cotizacion }: Props) {
                                                             ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
                                                             : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
                                                     } ${
-                                                        !cot.tiene_items_elegibles
+                                                        esCotizacionBloqueada(cot)
                                                             ? 'cursor-not-allowed opacity-50'
                                                             : ''
                                                     }`}>
                                                     <Checkbox
                                                         checked={seleccionada}
                                                         onChange={() =>
-                                                            cot.tiene_items_elegibles &&
+                                                            !esCotizacionBloqueada(cot) &&
                                                             handleToggleCotizacion(cot.id)
                                                         }
-                                                        disabled={!cot.tiene_items_elegibles}
+                                                        disabled={esCotizacionBloqueada(cot)}
                                                     />
                                                     <div className='flex flex-col gap-1'>
                                                         <div className='flex flex-wrap items-center gap-2'>
@@ -266,6 +271,12 @@ function CrearOCDeCotizacion({ cotizacion }: Props) {
                                                                 {Number(
                                                                     cot.total_estimado,
                                                                 ).toLocaleString('es-CL')}
+                                                            </Badge>
+                                                            <Badge color='zinc' variant='outline'>
+                                                                {cot.items_elegibles_count}{' '}
+                                                                {cot.items_elegibles_count === 1
+                                                                    ? 'ítem'
+                                                                    : 'ítems'}
                                                             </Badge>
                                                             {cot.estado_oc_derivado === 'pendiente_oc' && (
                                                                 <Badge color='amber' variant='outline'>
@@ -301,6 +312,16 @@ function CrearOCDeCotizacion({ cotizacion }: Props) {
                                                         {!cot.tiene_items_elegibles && (
                                                             <span className='text-xs text-amber-600 dark:text-amber-400'>
                                                                 Sin items elegibles para OC
+                                                            </span>
+                                                        )}
+                                                        {cot.tiene_items_elegibles && cot.estado_oc_derivado === 'en_oc' && (
+                                                            <span className='text-xs text-blue-600 dark:text-blue-400'>
+                                                                Ya tiene una compra activa — no se puede reutilizar
+                                                            </span>
+                                                        )}
+                                                        {cot.tiene_items_elegibles && cot.estado_oc_derivado === 'cerrada_comercialmente' && (
+                                                            <span className='text-xs text-zinc-500 dark:text-zinc-400'>
+                                                                Compra ya completada — no se puede reutilizar
                                                             </span>
                                                         )}
                                                     </div>

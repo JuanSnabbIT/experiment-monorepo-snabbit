@@ -38,6 +38,11 @@ export function getErrorMessage(error: unknown): string {
             if (typeof data.detail === 'object' && data.detail !== null) {
                 return JSON.stringify(data.detail);
             }
+            // DRF field-level validation errors: { campo: ["msg1", ...], ... }
+            const fieldErrors = Object.entries(data)
+                .filter(([, v]) => Array.isArray(v))
+                .flatMap(([field, msgs]) => (msgs as string[]).map((m) => `${field}: ${m}`));
+            if (fieldErrors.length > 0) return fieldErrors.join(' | ');
         }
         // Fallback al mensaje del error de Axios
         return error.message;
@@ -50,6 +55,11 @@ export function getErrorMessage(error: unknown): string {
             if (typeof rtkError.data.detail === 'string') return rtkError.data.detail;
             if (typeof rtkError.data.message === 'string') return rtkError.data.message;
             if (typeof rtkError.data.error === 'string') return rtkError.data.error;
+            // DRF field-level validation errors: { campo: ["msg1", ...], ... }
+            const fieldErrors = Object.entries(rtkError.data)
+                .filter(([, v]) => Array.isArray(v))
+                .flatMap(([field, msgs]) => (msgs as string[]).map((m) => `${field}: ${m}`));
+            if (fieldErrors.length > 0) return fieldErrors.join(' | ');
         }
         if (typeof rtkError.error === 'string') return rtkError.error;
     }

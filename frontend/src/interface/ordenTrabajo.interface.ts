@@ -30,6 +30,9 @@ export interface IOrdenDeTrabajo {
     prefactura_asociada_id?: number | null;
     rendicion_asociada_id?: number | null;
     guias_salida?: Array<{ id: number; estado: string }>;
+    etapa_ui?: 'preparacion' | 'ejecucion' | 'cierre' | 'cerrada';
+    blocking_reasons_cierre?: string[];
+    required_actions?: string[];
     // Campos legacy (mantener para compatibilidad temporal)
     responsable_empresa?: null | number;
     solicitante_empresa?: number | null;
@@ -219,11 +222,22 @@ export interface IInsumo {
     } | null;
     estado_label: string;
     tipo?: 'soporte' | 'servicio' | 'guia_directa';
+    cotizacion_relacionada?: {
+        id: number;
+        numero: number;
+    } | null;
     items?: IItemGuiaSalida[];
 }
 
 export interface ICheckCompletibilidad {
     se_puede_completar: boolean;
+    razones: string[];
+}
+
+export interface ICheckBloqueadoresAvance {
+    estado_actual: string;
+    proximo_estado: string | null;
+    se_puede_avanzar: boolean;
     razones: string[];
 }
 
@@ -410,6 +424,33 @@ export interface ICierreAdministrativoOT {
     valido: boolean;
     resultado: Record<string, any>;
     comentario: string | null;
+    fecha_creacion: string;
+    fecha_modificacion: string;
+}
+
+export interface ICierreAdministrativoOTResultado {
+    cliente_id?: number | null;
+    ots_incluidas?: number[];
+    items?: Record<string, unknown>[];
+    resumen?: {
+        total_items?: number;
+        total_facturar?: number;
+        total_excluidos?: number;
+    };
+    visitas?: Record<string, unknown>;
+}
+
+export interface ICierreAdministrativoOTDetail {
+    id: number;
+    cliente: number | null;
+    cliente_nombre?: string | null;
+    estado_cierre: 'borrador' | 'por_facturar' | 'facturado';
+    creado_por?: number | null;
+    actualizado_por?: number | null;
+    resultado: ICierreAdministrativoOTResultado;
+    comentario?: string | null;
+    fecha_prefactura?: string | null;
+    documento_factura?: string | null;
     fecha_creacion: string;
     fecha_modificacion: string;
 }

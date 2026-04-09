@@ -9,7 +9,9 @@ import type {
 import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import type {
     IAdjuntoDeOrden,
+    ICheckBloqueadoresAvance,
     ICheckCompletibilidad,
+    ICierreAdministrativoOTDetail,
     IDetalleGastoRendicionOT,
     IDetalleOrdenDeTrabajo,
     IDetalleRetroalimentacionOT,
@@ -224,6 +226,13 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
         getCheckCompletibilidadOT: builder.query<ICheckCompletibilidad, number | string>({
             query: (id) => ({
                 url: `/api/ordenes-de-trabajo/${id}/check-completabilidad/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'OrdenTrabajo', id }],
+        }),
+        getCheckBloqueadoresAvanceOT: builder.query<ICheckBloqueadoresAvance, number | string>({
+            query: (id) => ({
+                url: `/api/ordenes-de-trabajo/${id}/check-bloqueadores-avance/`,
                 method: 'get',
             }),
             providesTags: (_result, _error, id) => [{ type: 'OrdenTrabajo', id }],
@@ -1242,6 +1251,101 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 data: { orden_trabajo: ordenId },
             }),
         }),
+
+        // ===== Cierres Administrativos (Prefacturas OT) =====
+        getCierresAdministrativosOT: builder.query<
+            ICierreAdministrativoOTDetail[],
+            { estado?: string; historico?: boolean } | void
+        >({
+            query: (params) => {
+                const qs = new URLSearchParams();
+                if (params?.estado) qs.set('estado', params.estado);
+                if (params?.historico) qs.set('historico', '1');
+                const qStr = qs.toString();
+                return {
+                    url: qStr
+                        ? `/api/cierres-administrativos/?${qStr}`
+                        : '/api/cierres-administrativos/',
+                    method: 'get',
+                };
+            },
+            transformResponse: (
+                response:
+                    | ICierreAdministrativoOTDetail[]
+                    | { results: ICierreAdministrativoOTDetail[] },
+            ) => (Array.isArray(response) ? response : (response.results ?? [])),
+            providesTags: ['CierreAdministrativoOTList'],
+        }),
+        getDetalleCierreAdministrativoOT: builder.query<
+            ICierreAdministrativoOTDetail,
+            number | string
+        >({
+            query: (id) => ({
+                url: `/api/cierres-administrativos/${id}/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'CierreAdministrativoOT', id }],
+        }),
+        createCierreAdministrativoOT: builder.mutation<
+            ICierreAdministrativoOTDetail,
+            Record<string, unknown>
+        >({
+            query: (data) => ({
+                url: '/api/cierres-administrativos/',
+                method: 'post',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify(data),
+            }),
+            invalidatesTags: ['CierreAdministrativoOTList'],
+        }),
+        updateCierreAdministrativoOT: builder.mutation<
+            ICierreAdministrativoOTDetail,
+            { id: number | string; data: Record<string, unknown> }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/cierres-administrativos/${id}/`,
+                method: 'patch',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify(data),
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'CierreAdministrativoOT', id },
+                'CierreAdministrativoOTList',
+            ],
+        }),
+        deleteCierreAdministrativoOT: builder.mutation<void, number | string>({
+            query: (id) => ({
+                url: `/api/cierres-administrativos/${id}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'CierreAdministrativoOT', id },
+                'CierreAdministrativoOTList',
+            ],
+        }),
+        finalizarCierreAdministrativoOT: builder.mutation<
+            ICierreAdministrativoOTDetail,
+            number | string
+        >({
+            query: (id) => ({
+                url: `/api/cierres-administrativos/${id}/finalizar/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'CierreAdministrativoOT', id },
+                'CierreAdministrativoOTList',
+            ],
+        }),
+        getOTsCompletadasSinPrefactura: builder.query<IOrdenDeTrabajo[], number | undefined>({
+            query: (clienteId) => {
+                const qs = clienteId ? `?cliente=${clienteId}` : '';
+                return {
+                    url: `/api/ordenes-de-trabajo/completadas-sin-prefactura/${qs}`,
+                    method: 'get',
+                };
+            },
+            providesTags: ['OrdenTrabajoList'],
+        }),
     }),
 });
 
@@ -1345,4 +1449,12 @@ export const {
     useVincularCotizacionesGenerarGuiasMutation,
     useDevolverCompraABodegaMutation,
     useCrearVoucherDevolucionMutation,
+    useGetCheckBloqueadoresAvanceOTQuery,
+    useGetCierresAdministrativosOTQuery,
+    useGetDetalleCierreAdministrativoOTQuery,
+    useCreateCierreAdministrativoOTMutation,
+    useUpdateCierreAdministrativoOTMutation,
+    useDeleteCierreAdministrativoOTMutation,
+    useFinalizarCierreAdministrativoOTMutation,
+    useGetOTsCompletadasSinPrefacturaQuery,
 } = ordenTrabajoApi;
