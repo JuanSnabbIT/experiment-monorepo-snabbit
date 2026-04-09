@@ -134,3 +134,50 @@ class FotoEquipo(ModeloBase):
 
     def __str__(self):
         return f'Foto de {self.usuario_equipo.equipo.numero_serie} - ID {self.id}'
+
+
+class ItemAsignadoUsuario(ModeloBaseHistorico):
+    """
+    Registra la asignacion de un item NO serializado a un usuario de empresa cliente.
+    La unica fuente valida es un ItemsGuiaSalida cuya guia este vinculada a una OT v3.
+    """
+    usuario = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.CASCADE,
+        related_name="items_asignados",
+        verbose_name="Usuario receptor",
+    )
+    stock_item = models.ForeignKey(
+        "bodegas.StockItemEnBodega",
+        on_delete=models.CASCADE,
+        related_name="asignaciones_usuario",
+        verbose_name="Item de inventario",
+    )
+    item_guia_origen = models.ForeignKey(
+        "bodegas.ItemsGuiaSalida",
+        on_delete=models.CASCADE,
+        related_name="asignaciones_usuario",
+        verbose_name="Item de guia de origen",
+        help_text="Obligatorio: unica fuente valida para asignar un item no serializado.",
+    )
+    cantidad = models.PositiveIntegerField(default=1)
+    estado = models.BooleanField(
+        default=True,
+        verbose_name="Asignacion activa",
+        help_text="True = actualmente asignado, False = devuelto",
+    )
+    fecha_devolucion = models.DateField("Fecha de devolucion", null=True, blank=True)
+    observaciones = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Item Asignado a Usuario"
+        verbose_name_plural = "Items Asignados a Usuarios"
+        ordering = ["-fecha_creacion"]
+
+    def __str__(self):
+        nombre = (
+            self.stock_item.item.nombre
+            if hasattr(self.stock_item, "item") and self.stock_item.item
+            else f"StockItem #{self.stock_item_id}"
+        )
+        return f"{nombre} x{self.cantidad} → {self.usuario}"

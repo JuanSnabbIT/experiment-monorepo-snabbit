@@ -39,6 +39,7 @@ urlpatterns = [
     path("api/", include("cotizaciones.urls")),
     # path('api/', include('ordentrabajo.urls')),  # V1 - DESACTIVADA - Usar ordentrabajov2
     path("api/", include("ordentrabajov2.urls")),
+    path("api/v3/", include("ordentrabajov3.urls")),
     path("api/", include("rendiciones.urls")),
     path("api/", include("visitas.urls")),
     path("api/", include("contratos.urls")),

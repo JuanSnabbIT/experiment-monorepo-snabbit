@@ -144,6 +144,7 @@ class OrdenCompraSerializer(serializers.ModelSerializer):
     tipo_moneda = serializers.SerializerMethodField()
     tipo_moneda_label = serializers.SerializerMethodField()
     dolar_final = serializers.SerializerMethodField()
+    relacion_cotizacion_numero = serializers.SerializerMethodField()
 
     class Meta:
         model = OrdenCompra
@@ -188,6 +189,11 @@ class OrdenCompraSerializer(serializers.ModelSerializer):
 
         return int(Decimal(obj.dolar_observado) + Decimal(recargo))
 
+    def get_relacion_cotizacion_numero(self, obj):
+        if obj.relacion_cotizacion:
+            return obj.relacion_cotizacion.numero_cotizacion
+        return None
+
 
 class OrdenCompraAgrupadaSerializer(serializers.ModelSerializer):
     """
@@ -203,13 +209,14 @@ class OrdenCompraAgrupadaSerializer(serializers.ModelSerializer):
     cotizaciones_ids = serializers.PrimaryKeyRelatedField(
         many=True, read_only=True, source="cotizaciones"
     )
+    cotizaciones_detalle = serializers.SerializerMethodField()
 
     class Meta:
         model = OrdenCompraAgrupada
         fields = [
             "id", "codigo", "oc_empresa", "oc_cliente",
             "nombre_empresa", "nombre_cliente", "es_prospecto",
-            "cotizaciones_ids", "observaciones",
+            "cotizaciones_ids", "cotizaciones_detalle", "observaciones",
             "estado_derivado", "estado_derivado_label",
             "grupos_proveedor",
             "creado_por", "fecha_creacion", "fecha_modificacion",
@@ -231,7 +238,7 @@ class OrdenCompraAgrupadaSerializer(serializers.ModelSerializer):
         ).exists()
 
     def get_grupos_proveedor(self, obj):
-        ocs = obj.ordenes_compra.select_related("proveedor").all()
+        ocs = obj.ordenes_compra.select_related("proveedor", "relacion_cotizacion").all()
         return [
             {
                 "id": oc.id,
@@ -241,8 +248,23 @@ class OrdenCompraAgrupadaSerializer(serializers.ModelSerializer):
                 "estado": oc.estado,
                 "estado_label": oc.get_estado_display(),
                 "fecha_compra": oc.fecha_compra,
+                "relacion_cotizacion_id": oc.relacion_cotizacion_id,
+                "relacion_cotizacion_numero": (
+                    oc.relacion_cotizacion.numero_cotizacion
+                    if oc.relacion_cotizacion else None
+                ),
             }
             for oc in ocs
+        ]
+
+    def get_cotizaciones_detalle(self, obj):
+        return [
+            {
+                "id": cot.id,
+                "numero_cotizacion": cot.numero_cotizacion,
+                "nombre": cot.nombre,
+            }
+            for cot in obj.cotizaciones.all()
         ]
 
 
@@ -352,6 +374,8 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
     nombre_creado_por = serializers.SerializerMethodField()
     nombre_recibido_por = serializers.SerializerMethodField()
     cliente_nombre = serializers.SerializerMethodField()
+    cotizacion_origen_id = serializers.SerializerMethodField()
+    cotizacion_origen_numero = serializers.SerializerMethodField()
     cantidad_items_total = serializers.SerializerMethodField()
     descripcion_items = serializers.SerializerMethodField()
 
@@ -378,6 +402,15 @@ class GuiaSalidaSerializer(serializers.ModelSerializer):
         if obj.cliente:
             return obj.cliente.nombre
         return "Sin Cliente"
+
+    def get_cotizacion_origen_id(self, obj):
+        return obj.cotizacion_origen_efectiva_id
+
+    def get_cotizacion_origen_numero(self, obj):
+        cotizacion = obj.cotizacion_origen_efectiva
+        if cotizacion:
+            return cotizacion.numero_cotizacion
+        return None
 
     def get_cantidad_items_total(self, obj):
         """

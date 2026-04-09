@@ -239,3 +239,38 @@ class SoftwareDeEmpresaSerializer(serializers.ModelSerializer):
 
     def get_nombre_empresa(self, obj):
         return obj.software.nombre
+
+
+class ItemAsignadoUsuarioSerializer(serializers.ModelSerializer):
+    nombre_item = serializers.SerializerMethodField()
+    nombre_usuario = serializers.SerializerMethodField()
+    nombre_item_guia = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemAsignadoUsuario
+        fields = [
+            'id', 'usuario', 'nombre_usuario',
+            'stock_item', 'nombre_item',
+            'item_guia_origen', 'nombre_item_guia',
+            'cantidad', 'estado', 'fecha_devolucion',
+            'observaciones', 'fecha_creacion', 'fecha_modificacion',
+        ]
+        read_only_fields = ['fecha_creacion', 'fecha_modificacion']
+
+    def get_nombre_item(self, obj):
+        try:
+            return obj.stock_item.item.nombre
+        except Exception:
+            return None
+
+    def get_nombre_usuario(self, obj):
+        try:
+            return str(obj.usuario)
+        except Exception:
+            return None
+
+    def get_nombre_item_guia(self, obj):
+        try:
+            return obj.stock_item.item.nombre
+        except Exception:
+            return None
