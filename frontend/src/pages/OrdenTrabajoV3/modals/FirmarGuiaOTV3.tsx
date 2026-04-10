@@ -15,10 +15,10 @@ interface IProps {
     setIsOpen: (v: boolean) => void;
     guia: IGuiaSalidaResumenOTV3 | null;
     ordenId: number;
-    receptoresOptions?: TSelectOption[];
+    firmantesOptions?: TSelectOption[];
 }
 
-const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, receptoresOptions = [] }: IProps) => {
+const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, firmantesOptions = [] }: IProps) => {
     const sigRef = useRef<SignatureCanvas>(null);
     const [firma, setFirma] = useState('');
     const [receptorSeleccionado, setReceptorSeleccionado] = useState<TSelectOption | null>(null);
@@ -33,7 +33,7 @@ const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, receptoresOptions = 
 
     const handleSubmit = async () => {
         if (!guia) return;
-        const nombreFirma = receptoresOptions.length > 0
+        const nombreFirma = firmantesOptions.length > 0
             ? receptorSeleccionado?.label ?? ''
             : firma.trim();
         if (!nombreFirma) {
@@ -81,13 +81,13 @@ const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, receptoresOptions = 
                             <Label htmlFor='firma_recibido_por' className='mb-1'>
                                 Quien recibe{' '}
                                 <span className='text-red-500'>*</span>
-                                <span className='ml-1 text-xs font-normal text-gray-400'>(usuario de la empresa cliente)</span>
+                                <span className='ml-1 text-xs font-normal text-gray-400'>(usuario de la empresa proveedora)</span>
                             </Label>
-                            {receptoresOptions.length > 0 ? (
+                            {firmantesOptions.length > 0 ? (
                                 <SelectReact
                                     id='firma_recibido_por'
                                     name='firma_recibido_por'
-                                    options={receptoresOptions}
+                                    options={firmantesOptions}
                                     isClearable
                                     placeholder='Selecciona el receptor...'
                                     value={receptorSeleccionado}

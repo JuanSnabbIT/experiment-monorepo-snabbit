@@ -297,6 +297,7 @@ function CrearCotizacion({
                                                 <div>
                                                     <Badge>Nombre o razón social *</Badge>
                                                     <Input
+                                                        name='prospecto_nombre'
                                                         value={prospectoInline.nombre}
                                                         onChange={(e) =>
                                                             setProspectoInline((prev) => ({
@@ -310,6 +311,7 @@ function CrearCotizacion({
                                                 <div>
                                                     <Badge>RUT / Identificador tributario</Badge>
                                                     <Input
+                                                        name='prospecto_rut_empresa'
                                                         value={prospectoInline.rut_empresa}
                                                         onChange={(e) =>
                                                             setProspectoInline((prev) => ({
@@ -323,6 +325,7 @@ function CrearCotizacion({
                                                 <div>
                                                     <Badge>Email comercial</Badge>
                                                     <Input
+                                                        name='prospecto_email'
                                                         type='email'
                                                         value={prospectoInline.email}
                                                         onChange={(e) =>
@@ -337,6 +340,7 @@ function CrearCotizacion({
                                                 <div>
                                                     <Badge>Teléfono</Badge>
                                                     <Input
+                                                        name='prospecto_telefono'
                                                         value={prospectoInline.telefono}
                                                         onChange={(e) =>
                                                             setProspectoInline((prev) => ({

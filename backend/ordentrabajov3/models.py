@@ -17,7 +17,7 @@ class OrdenDeTrabajoV3(ModeloBaseHistorico):
     """
     Orden de trabajo version 3.
     Clasificada por modalidad (presencial/remoto/hibrido) en lugar de tipo_servicio.
-    Flujo de estados: borrador -> preparacion -> en_ejecucion -> completada -> facturada -> cerrada
+    Flujo de estados: borrador -> preparacion -> en_ejecucion -> retroalimentacion -> por_facturar -> facturada -> cerrada
     """
     empresa = models.ForeignKey(
         "empresas.Empresa",
@@ -108,6 +108,7 @@ class OrdenDeTrabajoV3(ModeloBaseHistorico):
         verbose_name="Contacto solicitante en cliente",
     )
     fecha_programada = models.DateTimeField(null=True, blank=True, verbose_name="Fecha programada")
+    fecha_fin_estimada = models.DateField(null=True, blank=True, verbose_name="Fecha fin estimada")
     fecha_inicio_real = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de inicio real")
     fecha_finalizacion_real = models.DateTimeField(null=True, blank=True, verbose_name="Fecha finalizacion real")
     direccion = models.TextField(blank=True, default="", verbose_name="Direccion (trabajo presencial)")
@@ -447,3 +448,106 @@ class HistorialEstadoOTV3(ModeloBase):
 
     def __str__(self):
         return f"OT #{self.orden_id}: {self.estado_anterior} -> {self.estado_nuevo}"
+
+
+def documentos_factura_otv3(instance, filename):
+    return "prefacturas_otv3/{0}/documentos/{1}".format(instance.pk, filename)
+
+
+ESTADOS_CIERRE_OTV3 = [
+    ("borrador", "Borrador"),
+    ("por_facturar", "Por facturar"),
+    ("facturado", "Facturado"),
+]
+
+
+class PrefacturaOTV3(ModeloBaseHistorico):
+    """
+    Prefactura (cierre administrativo) para facturacion de una o varias OTs V3.
+    Flujo: borrador -> por_facturar -> facturado
+    """
+
+    ot = models.OneToOneField(
+        OrdenDeTrabajoV3,
+        on_delete=models.CASCADE,
+        related_name="prefactura",
+        verbose_name="Orden de trabajo V3 (legacy, usar ots)",
+        null=True,
+        blank=True,
+    )
+    ots = models.ManyToManyField(
+        OrdenDeTrabajoV3,
+        blank=True,
+        related_name="prefacturas",
+        verbose_name="Ordenes de trabajo V3 incluidas",
+    )
+    contratos = models.ManyToManyField(
+        "contratos.ContratoEmpresaCliente",
+        blank=True,
+        related_name="prefacturas_otv3",
+        verbose_name="Contratos vinculados",
+    )
+    cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.PROTECT,
+        related_name="prefacturas_otv3",
+        verbose_name="Cliente",
+    )
+    estado_cierre = models.CharField(
+        max_length=20,
+        choices=ESTADOS_CIERRE_OTV3,
+        default="borrador",
+        verbose_name="Estado de prefactura",
+    )
+    resultado = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Resultado prefactura",
+        help_text="Snapshot minimo util para facturacion (items/totales/referencias).",
+    )
+    fecha_prefactura = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha definida en prefactura",
+    )
+    documento_factura = models.FileField(
+        upload_to=documentos_factura_otv3,
+        null=True,
+        blank=True,
+        verbose_name="Documento de factura asociado",
+    )
+    comentario = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Comentario interno",
+    )
+    creado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prefacturas_otv3_creadas",
+        verbose_name="Creado por",
+    )
+    actualizado_por = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="prefacturas_otv3_actualizadas",
+        verbose_name="Actualizado por",
+    )
+
+    class Meta:
+        verbose_name = "Prefactura OT V3"
+        verbose_name_plural = "Prefacturas OT V3"
+        ordering = ["-fecha_creacion"]
+        indexes = [
+            models.Index(fields=["cliente", "estado_cierre"]),
+            models.Index(fields=["estado_cierre"]),
+            models.Index(fields=["-fecha_creacion"]),
+        ]
+
+    def __str__(self):
+        ot_ref = f"OT #{self.ot_id}" if self.ot_id else f"{self.ots.count()} OTs"
+        return f"Prefactura OTV3 #{self.pk} - {ot_ref} - {self.estado_cierre}"

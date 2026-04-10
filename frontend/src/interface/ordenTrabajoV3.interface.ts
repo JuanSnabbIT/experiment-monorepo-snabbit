@@ -4,6 +4,8 @@ export type TEstadoOTV3 =
     | 'borrador'
     | 'preparacion'
     | 'en_ejecucion'
+    | 'retroalimentacion'
+    | 'por_facturar'
     | 'completada'
     | 'facturada'
     | 'cerrada'
@@ -32,7 +34,79 @@ export type TTipoChecklistOTV3 = 'pre_trabajo' | 'post_trabajo';
 
 export type TTipoAdjuntoOTV3 = 'foto' | 'documento' | 'reporte' | 'otro';
 
-export type TEtapaUIOTV3 = 'preparacion' | 'ejecucion' | 'cierre' | 'cerrada' | 'cancelada';
+export type TEtapaUIOTV3 =
+    | 'preparacion'
+    | 'ejecucion'
+    | 'retroalimentacion'
+    | 'por_facturar'
+    | 'cierre'
+    | 'cerrada'
+    | 'cancelada';
+
+export type TEstadoPrefacturaOTV3 = 'borrador' | 'por_facturar' | 'facturado';
+
+export interface IPrefacturaOTV3 {
+    id: number;
+    /** @deprecated Usar `ots` (M2M). Se mantiene por compatibilidad con datos historicos. */
+    ot?: number;
+    ot_titulo?: string;
+    ots: number[];
+    ots_titulos?: string[];
+    contratos: number[];
+    contratos_nombres?: string[];
+    comentario?: string;
+    cliente: number;
+    cliente_nombre?: string;
+    estado_cierre: TEstadoPrefacturaOTV3;
+    resultado: Record<string, any>;
+    fecha_prefactura?: string | null;
+    documento_factura?: string | null;
+    fecha_creacion?: string;
+    fecha_modificacion?: string;
+}
+
+export interface ICreatePrefacturaV3Payload {
+    /** Lista de OT IDs a incluir (nuevo campo multi-OT). */
+    ot_ids?: number[];
+    /** @deprecated Compatibilidad legacy — usar ot_ids. */
+    ot_id?: number;
+    contrato_ids?: number[];
+    comentario?: string;
+    /** Resultado con matching manual (opcional). */
+    resultado?: IResultadoPrefacturaV3;
+    fecha_prefactura?: string;
+}
+
+export interface IComparativaV3Params {
+    ot_ids: number[];
+    contrato_ids?: number[];
+    fecha_prefactura?: string;
+    dolar?: number;
+    uf?: number;
+}
+
+export interface IComparativaItemV3 {
+    descripcion: string;
+    cantidad?: number;
+    precio_unitario?: number;
+    total: number;
+    moneda?: string;
+    fuente?: string;
+}
+
+export interface IComparativaV3Result {
+    pactado: { items: IComparativaItemV3[]; total: number; moneda: string };
+    ejecutado: {
+        items: IItemEjecutadoV3[];
+        total: number;
+        moneda: string;
+        resumen?: Record<string, number>;
+        cotizaciones?: Array<Record<string, unknown>>;
+    };
+    diferencia: number;
+    visitas_contrato: Record<string, any> | null;
+    ots_marcadas_visitas: number[];
+}
 
 export interface IChecklistItemOTV3 {
     id: number;
@@ -171,6 +245,7 @@ export interface IOrdenDeTrabajoV3List {
     tecnico_responsable: number | null;
     tecnico_responsable_nombre: string | null;
     fecha_programada: string | null;
+    fecha_fin_estimada: string | null;
     fecha_inicio_real: string | null;
     fecha_finalizacion_real: string | null;
     total_tareas: number;
@@ -201,11 +276,18 @@ export interface ICotizacionResumenOTV3 {
     items: ICotizacionItemResumenOTV3[];
 }
 
+export interface IClienteSolicitanteDetalleOTV3 {
+    id: number;
+    nombre: string;
+    email: string | null;
+}
+
 export interface IOrdenDeTrabajoV3 extends IOrdenDeTrabajoV3List {
     descripcion: string;
     contrato: number | null;
     sucursal: number | null;
     cliente_solicitante: number | null;
+    cliente_solicitante_detalle: IClienteSolicitanteDetalleOTV3 | null;
     direccion: string;
     notas_internas: string;
     tareas: ITareaOTV3[];
@@ -280,6 +362,7 @@ export interface IOrdenDeTrabajoV3Write {
     prioridad: TPrioridadOTV3;
     tecnico_responsable?: number | null;
     fecha_programada?: string | null;
+    fecha_fin_estimada?: string | null;
     direccion?: string;
     notas_internas?: string;
 }
@@ -310,4 +393,93 @@ export interface IMetricasDashboardOTV3 {
     total: number;
     por_estado: Record<TEstadoOTV3, number>;
     por_modalidad: Record<TModalidadOTV3, number>;
+}
+
+// ── Matching Manual (Prefactura) ──────────────────────────────────────
+
+export interface IItemEjecutadoV3 {
+    id: string | number;
+    nombre: string;
+    cantidad: number;
+    precio_unitario: number;
+    total: number;
+    tipo: string;
+    ot_id?: number;
+    estado?: string;
+    guia_id?: number;
+    compra_id?: number;
+    rendicion_id?: number;
+    item_rendicion_id?: number;
+    content_type?: string;
+    item_id?: number;
+    categoria_id?: number | null;
+    categoria_nombre?: string | null;
+    fecha_gasto?: string | null;
+    dolar_observado?: number | null;
+}
+
+export interface IItemPrefacturaV3 {
+    itemId: string;
+    facturar: boolean;
+    comentario: string;
+    precioAsignado: number | null;
+}
+
+export interface IVisitasContratoResumenV3 {
+    periodo: string;
+    incluidas_mes: number;
+    confirmadas_mes: number;
+}
+
+export interface IVisitasPrefacturaV3 extends IVisitasContratoResumenV3 {
+    marcadas_prefactura: number;
+    proyectadas_mes: number;
+    exceso_prefactura: number;
+    ots_marcadas: number[];
+    precio_unitario_exceso: number;
+    total_exceso: number;
+}
+
+export interface IResultadoPrefacturaV3 {
+    cliente_id?: number | null;
+    contrato_ids?: number[] | null;
+    ots_incluidas?: number[];
+    items?: IItemFacturableV3[];
+    resumen?: {
+        total_items?: number;
+        total_facturar?: number;
+        total_excluidos?: number;
+    };
+    visitas?: IVisitasPrefacturaV3;
+}
+
+export interface IItemFacturableV3 {
+    tipo: string;
+    id: string | number;
+    descripcion: string;
+    ot_id?: number;
+    cantidad: number;
+    precio_total: number;
+    precio_ajustado?: number | null;
+    facturar: boolean;
+    comentario?: string;
+    categoria_id?: number | null;
+    categoria_nombre?: string | null;
+    fecha_gasto?: string | null;
+    dolar_observado?: number | null;
+    parent_id?: number | null;
+    item_id?: string | number | null;
+    guia_id?: number | null;
+    compra_id?: number | null;
+    rendicion_id?: number | null;
+    item_rendicion_id?: number | null;
+    content_type?: string | null;
+}
+
+export interface ITipoCambioResponse {
+    fecha: string;
+    fecha_dolar: string | null;
+    fecha_uf: string | null;
+    dolar: number;
+    uf: number;
 }

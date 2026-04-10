@@ -3,6 +3,9 @@
 ESTADO_BORRADOR = "borrador"
 ESTADO_PREPARACION = "preparacion"
 ESTADO_EN_EJECUCION = "en_ejecucion"
+ESTADO_RETROALIMENTACION = "retroalimentacion"
+# Estado intermedio para facturacion (nuevo paso entre retroalimentacion y cierre)
+ESTADO_POR_FACTURAR = "por_facturar"
 ESTADO_COMPLETADA = "completada"
 ESTADO_FACTURADA = "facturada"
 ESTADO_CERRADA = "cerrada"
@@ -12,6 +15,9 @@ ESTADOS_OT_V3 = [
     (ESTADO_BORRADOR, "Borrador"),
     (ESTADO_PREPARACION, "En preparacion"),
     (ESTADO_EN_EJECUCION, "En ejecucion"),
+    (ESTADO_RETROALIMENTACION, "Retroalimentacion"),
+    (ESTADO_POR_FACTURAR, "Por facturar"),
+    # Legacy: se migra a por_facturar, pero se mantiene como choice por compatibilidad.
     (ESTADO_COMPLETADA, "Completada"),
     (ESTADO_FACTURADA, "Facturada"),
     (ESTADO_CERRADA, "Cerrada"),
@@ -21,8 +27,11 @@ ESTADOS_OT_V3 = [
 TRANSICIONES_VALIDAS_V3 = {
     ESTADO_BORRADOR: [ESTADO_PREPARACION, ESTADO_CANCELADA],
     ESTADO_PREPARACION: [ESTADO_EN_EJECUCION, ESTADO_CANCELADA],
-    ESTADO_EN_EJECUCION: [ESTADO_COMPLETADA, ESTADO_CANCELADA],
+    ESTADO_EN_EJECUCION: [ESTADO_RETROALIMENTACION, ESTADO_CANCELADA],
+    ESTADO_RETROALIMENTACION: [ESTADO_POR_FACTURAR],
+    # Legacy: si existiera alguna OT en completada, permitir seguir a facturada.
     ESTADO_COMPLETADA: [ESTADO_FACTURADA],
+    ESTADO_POR_FACTURAR: [ESTADO_FACTURADA],
     ESTADO_FACTURADA: [ESTADO_CERRADA],
     ESTADO_CERRADA: [],
     ESTADO_CANCELADA: [],
@@ -141,7 +150,9 @@ ETAPA_UI_MAP = {
     ESTADO_BORRADOR: "preparacion",
     ESTADO_PREPARACION: "preparacion",
     ESTADO_EN_EJECUCION: "ejecucion",
-    ESTADO_COMPLETADA: "cierre",
+    ESTADO_RETROALIMENTACION: "retroalimentacion",
+    ESTADO_POR_FACTURAR: "por_facturar",
+    ESTADO_COMPLETADA: "por_facturar",
     ESTADO_FACTURADA: "cierre",
     ESTADO_CERRADA: "cerrada",
     ESTADO_CANCELADA: "cancelada",

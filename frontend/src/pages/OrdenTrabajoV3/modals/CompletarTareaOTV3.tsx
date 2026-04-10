@@ -5,16 +5,14 @@ import Textarea from '@/components/form/Textarea';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
-import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { ITareaOTV3 } from '@/interface/ordenTrabajoV3.interface';
 import {
     useCambiarEstadoTareaV3Mutation,
     useCompletarTareaConFirmaV3Mutation,
-    useGetEquiposParaEntregaV3Query,
 } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
@@ -38,21 +36,7 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
     const [cambiarEstadoTarea, { isLoading: loadingEstado }] = useCambiarEstadoTareaV3Mutation();
     const isLoading = loadingFirma || loadingEstado;
 
-    // Equipos seleccionados para entrega (solo aplica a tipo_tarea=entrega_equipo)
-    const [equiposSeleccionados, setEquiposSeleccionados] = useState<number[]>([]);
-    const [cantidadAsignada, setCantidadAsignada] = useState(1);
     const esEntregaEquipo = tarea?.tipo_tarea === 'entrega_equipo';
-    const itemGuia = tarea?.item_guia_origen_detalle ?? null;
-    const esSerializado = itemGuia ? itemGuia.individualizado : true; // default: serializado
-    const { data: equiposDisponibles = [] } = useGetEquiposParaEntregaV3Query(ordenId, {
-        skip: !isOpen || !esEntregaEquipo || !esSerializado,
-    });
-
-    const toggleEquipo = (equipoId: number) => {
-        setEquiposSeleccionados((prev) =>
-            prev.includes(equipoId) ? prev.filter((id) => id !== equipoId) : [...prev, equipoId],
-        );
-    };
 
     const formik = useFormik({
         initialValues: {
@@ -63,8 +47,11 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
         onSubmit: async (values, { resetForm }) => {
             if (!tarea) return;
             try {
-                if (tarea.requiere_firma) {
-                    if (!values.nombre_firmante.trim()) {
+                if (tarea.requiere_firma || esEntregaEquipo) {
+                    const nombreFirmante = esEntregaEquipo
+                        ? (tarea.usuario_receptor_nombre ?? '')
+                        : values.nombre_firmante;
+                    if (!nombreFirmante.trim()) {
                         toast.error('El nombre del firmante es requerido');
                         return;
                     }
@@ -77,15 +64,9 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
                         tareaId: tarea.id,
                         notas_ejecucion: values.notas_ejecucion,
                         firma_datos: {
-                            nombre: values.nombre_firmante,
+                            nombre: nombreFirmante,
                             firma_base64: sigRef.current.toDataURL(),
                         },
-                        ...(esEntregaEquipo && esSerializado && equiposSeleccionados.length > 0
-                            ? { asignaciones_equipos: equiposSeleccionados.map((id) => ({ equipo_id: id })) }
-                            : {}),
-                        ...(esEntregaEquipo && !esSerializado
-                            ? { cantidad_asignada: cantidadAsignada }
-                            : {}),
                     }).unwrap();
                 } else {
                     await cambiarEstadoTarea({
@@ -98,8 +79,6 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
                 toast.success('Tarea completada');
                 resetForm();
                 sigRef.current?.clear();
-                setEquiposSeleccionados([]);
-                setCantidadAsignada(1);
                 setIsOpen(false);
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
@@ -110,8 +89,6 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
     const handleClose = () => {
         formik.resetForm();
         sigRef.current?.clear();
-        setEquiposSeleccionados([]);
-        setCantidadAsignada(1);
         setIsOpen(false);
     };
 
@@ -152,104 +129,24 @@ const CompletarTareaOTV3 = ({ isOpen, setIsOpen, tarea, ordenId, receptoresOptio
                         )}
                     </div>
 
-                    {/* Seleccion de equipos a entregar (item serializado) */}
-                    {esEntregaEquipo && esSerializado && (
-                        <div className='rounded-lg border border-violet-300 bg-violet-50 p-4 dark:border-violet-700 dark:bg-violet-900/20'>
-                            <p className='mb-2 text-sm font-semibold text-violet-800 dark:text-violet-300'>
-                                Equipos a entregar ({equiposSeleccionados.length} seleccionados)
-                            </p>
-                            {equiposDisponibles.length === 0 ? (
-                                <p className='text-xs text-violet-600'>No hay equipos disponibles registrados.</p>
-                            ) : (
-                                <Table>
-                                    <THead>
-                                        <Tr>
-                                            <Th>Serie</Th>
-                                            <Th>Tipo / Modelo</Th>
-                                            <Th>Estado</Th>
-                                            <Th>Sel.</Th>
-                                        </Tr>
-                                    </THead>
-                                    <TBody>
-                                        {equiposDisponibles.map((eq) => (
-                                            <Tr
-                                                key={eq.id}
-                                                className={`cursor-pointer transition-colors ${equiposSeleccionados.includes(eq.id) ? 'bg-violet-100 dark:bg-violet-900/40' : ''}`}
-                                                onClick={() => toggleEquipo(eq.id)}>
-                                                <Td className='font-mono text-xs'>{eq.numero_serie}</Td>
-                                                <Td className='text-xs'>
-                                                    {eq.tipo_equipo_label} {eq.modelo && `— ${eq.modelo}`}
-                                                </Td>
-                                                <Td>
-                                                    <Badge color={eq.estado ? 'emerald' : 'red'}>
-                                                        {eq.estado ? 'Activo' : 'Inactivo'}
-                                                    </Badge>
-                                                </Td>
-                                                <Td>
-                                                    {equiposSeleccionados.includes(eq.id) ? (
-                                                        <Badge color='violet'>✓</Badge>
-                                                    ) : (
-                                                        <span className='text-gray-400'>—</span>
-                                                    )}
-                                                </Td>
-                                            </Tr>
-                                        ))}
-                                    </TBody>
-                                </Table>
-                            )}
-                        </div>
-                    )}
 
-                    {/* Item no serializado: cantidad a asignar */}
-                    {esEntregaEquipo && !esSerializado && itemGuia && (
-                        <div className='rounded-lg border border-violet-300 bg-violet-50 p-4 dark:border-violet-700 dark:bg-violet-900/20'>
-                            <p className='mb-3 text-sm font-semibold text-violet-800 dark:text-violet-300'>
-                                Item a entregar
-                            </p>
-                            <p className='mb-3 text-sm text-violet-700 dark:text-violet-300'>
-                                <span className='font-medium'>{itemGuia.nombre_item}</span>
-                                <span className='ml-2 text-xs text-violet-500'>
-                                    (disponible: {itemGuia.cantidad_rebajada})
-                                </span>
-                            </p>
-                            <div className='flex items-center gap-3'>
-                                <Label htmlFor='cantidad_asignada' className='mb-0 whitespace-nowrap'>
-                                    Cantidad a asignar
-                                </Label>
-                                <Input
-                                    id='cantidad_asignada'
-                                    name='cantidad_asignada'
-                                    type='number'
-                                    min={1}
-                                    max={itemGuia.cantidad_rebajada}
-                                    value={cantidadAsignada}
-                                    onChange={(e) =>
-                                        setCantidadAsignada(
-                                            Math.min(
-                                                itemGuia.cantidad_rebajada,
-                                                Math.max(1, parseInt(e.target.value) || 1),
-                                            ),
-                                        )
-                                    }
-                                    className='w-24'
-                                />
-                            </div>
-                        </div>
-                    )}
 
-                    {tarea?.requiere_firma && (
+                    {(tarea?.requiere_firma || esEntregaEquipo) && (
                         <div className='grid grid-cols-1 gap-4 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20'>
                             <p className='text-sm font-semibold text-amber-800 dark:text-amber-300'>
-                                Esta tarea requiere firma del cliente
+                                {esEntregaEquipo ? 'Firma del receptor' : 'Esta tarea requiere firma del cliente'}
                             </p>
 
                             <div>
                                 <Label htmlFor='nombre_firmante' className='mb-1'>
                                     Usuario firmante{' '}
                                     <span className='text-red-500'>*</span>
-                                    <span className='ml-1 text-xs font-normal text-gray-400'>(usuario de la empresa cliente)</span>
                                 </Label>
-                                {receptoresOptions.length > 0 ? (
+                                {esEntregaEquipo ? (
+                                    <p className='rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800'>
+                                        {tarea?.usuario_receptor_nombre ?? '—'}
+                                    </p>
+                                ) : receptoresOptions.length > 0 ? (
                                     <SelectReact
                                         id='nombre_firmante'
                                         name='nombre_firmante'

@@ -10,7 +10,11 @@ from recursos.models import Equipo, UsuarioEquipo
 
 from .estados_modelo import (
     ESTADO_TAREA_COMPLETADA,
+    ESTADO_TAREA_EN_PROCESO,
     ESTADO_TAREA_NO_REALIZADA,
+    ESTADO_EN_EJECUCION,
+    ESTADO_RETROALIMENTACION,
+    ESTADO_POR_FACTURAR,
     TRANSICIONES_TAREA_V3,
     TRANSICIONES_VALIDAS_V3,
     ETAPA_UI_MAP,
@@ -23,6 +27,7 @@ from .models import (
     GastoOTV3,
     HistorialEstadoOTV3,
     OrdenDeTrabajoV3,
+    PrefacturaOTV3,
     SeguimientoOTV3,
     TareaOTV3,
 )
@@ -35,6 +40,8 @@ from .serializers import (
     OrdenDeTrabajoV3DetalleSerializer,
     OrdenDeTrabajoV3ListSerializer,
     OrdenDeTrabajoV3WriteSerializer,
+    PrefacturaOTV3Serializer,
+    PrefacturaOTV3WriteSerializer,
     SeguimientoOTV3Serializer,
     TareaOTV3Serializer,
 )
@@ -46,6 +53,10 @@ def _get_empresa_usuario(user):
     if personalizacion and personalizacion.sucursal_principal:
         return personalizacion.sucursal_principal.empresa
     return None
+
+
+# Estados de GuiaSalida que implican que ya fue firmada (incluyendo estados posteriores)
+ESTADOS_GUIA_FIRMADA = {"FR", "ET", "E", "T"}
 
 
 class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
@@ -110,6 +121,10 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Compat: "completada" es legacy. Si llega desde clientes antiguos, mapear a "por_facturar".
+        if nuevo_estado == "completada":
+            nuevo_estado = ESTADO_POR_FACTURAR
+
         estados_permitidos = TRANSICIONES_VALIDAS_V3.get(ot.estado, [])
         if nuevo_estado not in estados_permitidos:
             return Response(
@@ -135,10 +150,15 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
         # Fechas automaticas
         if nuevo_estado == "en_ejecucion" and not ot.fecha_inicio_real:
             ot.fecha_inicio_real = timezone.now()
-        if nuevo_estado == "completada" and not ot.fecha_finalizacion_real:
+        if nuevo_estado == ESTADO_RETROALIMENTACION and not ot.fecha_finalizacion_real:
             ot.fecha_finalizacion_real = timezone.now()
 
         ot.save()
+
+        # Disparar tarea de retroalimentacion V3 al entrar en ese estado
+        if nuevo_estado == ESTADO_RETROALIMENTACION and ot.cliente_solicitante_id:
+            from retroalimentacion.tasks import crear_y_enviar_retroalimentacion_v3
+            crear_y_enviar_retroalimentacion_v3.delay(ot.id)
 
         # Registrar historial con comentario personalizado (si se provee)
         if comentario:
@@ -160,7 +180,71 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
     def _validar_bloqueadores_transicion(self, ot, nuevo_estado):
         """Retorna lista de bloqueadores o lista vacia si puede avanzar."""
         bloqueadores = []
-        if nuevo_estado == "completada":
+
+        if nuevo_estado == ESTADO_EN_EJECUCION:
+            # Bloqueador 1: cotizaciones vinculadas sin guia de salida creada
+            cotizaciones_de_ot = list(ot.cotizaciones.all())
+            if cotizaciones_de_ot:
+                ids_cotizacion_con_guia = set(
+                    ot.guias_salida.exclude(cotizacion_origen__isnull=True)
+                    .values_list("cotizacion_origen_id", flat=True)
+                )
+                cotizaciones_sin_guia = [
+                    c for c in cotizaciones_de_ot if c.id not in ids_cotizacion_con_guia
+                ]
+                if cotizaciones_sin_guia:
+                    bloqueadores.append({
+                        "tipo": "cotizaciones_sin_guia",
+                        "mensaje": (
+                            f"Hay {len(cotizaciones_sin_guia)} cotizacion(es) vinculadas "
+                            "sin guia de salida creada."
+                        ),
+                        "detalle": [f"Cotizacion #{c.numero_cotizacion}" for c in cotizaciones_sin_guia],
+                    })
+
+            # Bloqueador 2: items serializados en guias sin usuario receptor asignado
+            from bodegas.models import ItemsGuiaSalida
+            guias_ids = set(ot.guias_salida.values_list("id", flat=True))
+            if guias_ids:
+                items_serializados = list(
+                    ItemsGuiaSalida.objects.filter(
+                        guia_id__in=guias_ids,
+                        individualizado=True,
+                    ).select_related("stock_item__item")
+                )
+                if items_serializados:
+                    ids_ya_asignados = set(
+                        TareaOTV3.objects.filter(
+                            orden=ot,
+                            item_guia_origen_id__in=[
+                                item.id for item in items_serializados
+                            ],
+                            usuario_receptor__isnull=False,
+                        ).values_list("item_guia_origen_id", flat=True)
+                    )
+                    items_sin_receptor = [
+                        item for item in items_serializados
+                        if item.id not in ids_ya_asignados
+                    ]
+                    if items_sin_receptor:
+                        detalles = []
+                        for item in items_sin_receptor[:5]:
+                            try:
+                                nombre = item.stock_item.item.nombre
+                                serie = (item.numero_serie or {}).get("serie", "sin serie")
+                                detalles.append(f"{nombre} (serie: {serie})")
+                            except Exception:
+                                detalles.append(f"Item #{item.id}")
+                        bloqueadores.append({
+                            "tipo": "items_sin_receptor",
+                            "mensaje": (
+                                f"Hay {len(items_sin_receptor)} item(s) serializado(s) "
+                                "sin usuario receptor asignado."
+                            ),
+                            "detalle": detalles,
+                        })
+
+        if nuevo_estado == ESTADO_RETROALIMENTACION:
             tareas_incompletas = ot.tareas.exclude(
                 estado__in=[ESTADO_TAREA_COMPLETADA, ESTADO_TAREA_NO_REALIZADA]
             )
@@ -188,6 +272,34 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                     })
 
         return bloqueadores
+
+    @action(detail=True, methods=["post"], url_path="solicitar-retroalimentacion")
+    def solicitar_retroalimentacion(self, request, pk=None):
+        """
+        Envia (o re-envia) el correo de retroalimentacion al cliente_solicitante de la OT.
+        Solo disponible cuando la OT esta en estado retroalimentacion.
+        """
+        ot = self.get_object()
+        if ot.estado != ESTADO_RETROALIMENTACION:
+            return Response(
+                {"detail": "La OT debe estar en estado 'retroalimentacion' para solicitar feedback."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not ot.cliente_solicitante_id:
+            return Response(
+                {"detail": "La OT no tiene cliente solicitante configurado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from retroalimentacion.models import Retroalimentacion
+        from retroalimentacion.tasks import (
+            crear_y_enviar_retroalimentacion_v3,
+            reenviar_correo_retroalimentacion_v3_task,
+        )
+        if Retroalimentacion.objects.filter(orden_trabajo_v3=ot).exists():
+            reenviar_correo_retroalimentacion_v3_task.delay(ot.id)
+        else:
+            crear_y_enviar_retroalimentacion_v3.delay(ot.id)
+        return Response({"detail": "Solicitud de retroalimentacion enviada."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="check-avance")
     def check_avance(self, request, pk=None):
@@ -439,11 +551,10 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="equipos-disponibles")
     def equipos_disponibles(self, request, pk=None):
         """
-        Retorna equipos disponibles para asignar en esta OT:
-        - Grupo A: equipos que provienen de guias de salida vinculadas a la OT
-          (identificados por numero_serie en los items de las guias).
-        - Grupo B: equipos del cliente de la OT sin asignacion activa.
-        La union de A y B es el conjunto disponible, sin duplicados.
+        Retorna equipos disponibles para asignar en esta OT.
+        Si se pasa ?tarea_id=X retorna SOLO el equipo cuya numero_serie coincide
+        con el item_guia_origen de esa tarea (uso desde CompletarTareaOTV3).
+        Sin tarea_id: Grupo A (series en guias de la OT) + Grupo B (equipos libres del cliente).
         """
         from recursos.models import Equipo
         from bodegas.models import ItemsGuiaSalida
@@ -453,6 +564,33 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
         if not empresa:
             return Response({"detail": "Sin empresa configurada."}, status=400)
 
+        from recursos.serializers import EquipoSerializer
+
+        # --- Filtro por tarea especifica ---
+        tarea_id = request.query_params.get("tarea_id")
+        if tarea_id:
+            try:
+                tarea = TareaOTV3.objects.select_related(
+                    "item_guia_origen"
+                ).get(pk=int(tarea_id), orden=ot)
+            except (TareaOTV3.DoesNotExist, ValueError):
+                return Response({"detail": "Tarea no encontrada."}, status=404)
+
+            serie_tarea = None
+            if tarea.item_guia_origen_id:
+                ns = tarea.item_guia_origen.numero_serie or {}
+                serie_tarea = ns.get("serie") if isinstance(ns, dict) else None
+
+            if serie_tarea:
+                qs = Equipo.objects.filter(
+                    empresa_propietaria=empresa,
+                    numero_serie=serie_tarea,
+                ).select_related("cliente")
+            else:
+                qs = Equipo.objects.none()
+            return Response(EquipoSerializer(qs, many=True).data)
+
+        # --- Comportamiento general (sin tarea_id) ---
         # Grupo A: series presentes en items de guias vinculadas
         series_en_guias = set()
         guia_ids = list(ot.guias_salida.values_list("id", flat=True))
@@ -465,7 +603,6 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                 if isinstance(ns, str) and ns.strip():
                     series_en_guias.add(ns.strip())
                 elif isinstance(ns, dict):
-                    # puede ser {"serie": "ABC"} o {"series": [...]}
                     serie_val = ns.get("serie") or ns.get("numero_serie")
                     if serie_val:
                         series_en_guias.add(str(serie_val))
@@ -492,8 +629,6 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
 
         ids_disponibles = equipos_guia_ids | equipos_libres_ids
         qs = Equipo.objects.filter(pk__in=ids_disponibles).select_related("cliente")
-
-        from recursos.serializers import EquipoSerializer
         return Response(EquipoSerializer(qs, many=True).data)
 
     @action(detail=True, methods=["post"], url_path="crear-tareas-entrega-guia")
@@ -734,7 +869,7 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
 
                 if ingresos_externos:
                     from items.models import ItemEmpresa
-                    from bodegas.models import Bodega
+                    from bodegas.models import Bodega, SerieItem
                     from bodegas.movimientos import registrar_entrada
                     bodega_obj = Bodega.objects.get(pk=bodega_id)
                     items_externos_para_despachar = []
@@ -742,8 +877,18 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                         item_id_ing = ing.get("item_id")
                         cantidad_ing = int(ing.get("cantidad", 1))
                         precio_ing = int(ing.get("precio", 0))
+                        es_serializado = bool(ing.get("es_serializado", False))
+                        serie_ing = (ing.get("numero_serie") or "").strip()
                         if not item_id_ing or cantidad_ing < 1:
                             raise ValueError("ingresos_externos: item_id y cantidad son requeridos.")
+                        if es_serializado and not serie_ing:
+                            raise ValueError(
+                                "ingresos_externos: numero_serie es requerido cuando es_serializado=true."
+                            )
+                        if es_serializado and cantidad_ing != 1:
+                            raise ValueError(
+                                "ingresos_externos: cantidad debe ser 1 para items serializados."
+                            )
                         try:
                             item_emp = ItemEmpresa.objects.get(pk=item_id_ing)
                         except ItemEmpresa.DoesNotExist:
@@ -774,10 +919,27 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             origen=None,
                             descripcion="Ingreso externo registrado al crear guia rapida en OTV3",
                         )
-                        items_externos_para_despachar.append({
-                            "stock_item_id": stock_ing.id,
-                            "cantidad_rebajada": cantidad_ing,
-                        })
+                        # Si el item es serializado, registrar la serie para que el flujo
+                        # de despacho la detecte en obtener_series_disponibles_para_stock()
+                        if es_serializado:
+                            SerieItem.objects.get_or_create(
+                                serie=serie_ing,
+                                empresa=ot.empresa,
+                                defaults={
+                                    "stock_item": stock_ing,
+                                    "estado": "disponible",
+                                },
+                            )
+                            items_externos_para_despachar.append({
+                                "stock_item_id": stock_ing.id,
+                                "cantidad_rebajada": 1,
+                                "numero_serie": serie_ing,
+                            })
+                        else:
+                            items_externos_para_despachar.append({
+                                "stock_item_id": stock_ing.id,
+                                "cantidad_rebajada": cantidad_ing,
+                            })
                     items_data = list(items_data) + items_externos_para_despachar
 
                 for item_d in items_data:
@@ -815,6 +977,15 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             individualizado=True,
                             numero_serie={"serie": numero_serie},
                         )
+                        # Completar el JSON con modelo y object_id (requiere el id del registro)
+                        ItemsGuiaSalida.objects.filter(pk=item_guia.pk).update(
+                            numero_serie={
+                                "serie": numero_serie,
+                                "modelo": "itemsguiasalida",
+                                "object_id": item_guia.id,
+                            }
+                        )
+                        item_guia.refresh_from_db()
                         StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
                             cantidad_no_disponible=F("cantidad_no_disponible") + 1
                         )
@@ -906,6 +1077,24 @@ class TareaOTV3ViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Bloquear inicio de tarea de entrega si la guia no esta firmada
+        if (
+            nuevo_estado == ESTADO_TAREA_EN_PROCESO
+            and tarea.tipo_tarea == "entrega_equipo"
+            and tarea.item_guia_origen_id
+        ):
+            guia_origen = tarea.item_guia_origen.guia
+            if guia_origen.estado not in ESTADOS_GUIA_FIRMADA:
+                return Response(
+                    {
+                        "detail": (
+                            "La guia de salida debe estar firmada antes de iniciar "
+                            "esta tarea de entrega."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         tarea.estado = nuevo_estado
         if nuevo_estado == ESTADO_TAREA_COMPLETADA:
             tarea.fecha_ejecutada = timezone.now()
@@ -937,10 +1126,10 @@ class TareaOTV3ViewSet(viewsets.ModelViewSet):
         if not firma_datos:
             return Response({"detail": 'Se requiere "firma_datos" para completar.'}, status=400)
 
-        # Bloquear si la guia de salida vinculada no ha sido firmada
+        # Bloquear si la guia de salida vinculada no ha sido firmada ni procesada
         if tarea.tipo_tarea == "entrega_equipo" and tarea.item_guia_origen_id:
             guia = tarea.item_guia_origen.guia
-            if guia.estado != "FR":
+            if guia.estado not in ESTADOS_GUIA_FIRMADA:
                 return Response(
                     {
                         "detail": (
@@ -1207,3 +1396,377 @@ class HistorialEstadoOTV3ViewSet(viewsets.ReadOnlyModelViewSet):
         return HistorialEstadoOTV3.objects.filter(
             orden__pk=orden_pk, orden__empresa=empresa
         ).select_related("usuario")
+
+
+class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
+    """
+    Prefacturacion OT V3 (flujo exclusivo V3, multi-OT, multi-contrato).
+
+    Endpoints:
+    - GET  /api/v3/prefacturas-otv3/
+    - GET  /api/v3/prefacturas-otv3/{id}/
+    - POST /api/v3/prefacturas-otv3/
+           body: { ot_ids: [int], contrato_ids?: [int], fecha_prefactura?, comentario? }
+           compat legacy: { ot_id: int } mapea a ot_ids=[ot_id]
+    - PATCH /api/v3/prefacturas-otv3/{id}/         (solo estado_cierre=borrador)
+    - POST /api/v3/prefacturas-otv3/{id}/finalizar/
+    - POST /api/v3/prefacturas-otv3/{id}/asociar-documento/ (multipart, file: documento)
+    - GET  /api/v3/prefacturas-otv3/ots-elegibles/?cliente_id=<int>
+    - POST /api/v3/prefacturas-otv3/comparativa/
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        empresa = _get_empresa_usuario(self.request.user)
+        if not empresa:
+            return PrefacturaOTV3.objects.none()
+        qs = (
+            PrefacturaOTV3.objects.filter(ots__empresa=empresa)
+            .distinct()
+            .select_related("ot", "cliente", "creado_por", "actualizado_por")
+            .prefetch_related("ots", "contratos")
+        )
+
+        estado = self.request.query_params.get("estado")
+        if estado:
+            qs = qs.filter(estado_cierre=estado)
+
+        cliente = self.request.query_params.get("cliente")
+        if cliente:
+            qs = qs.filter(cliente_id=cliente)
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.action in ("update", "partial_update"):
+            return PrefacturaOTV3WriteSerializer
+        return PrefacturaOTV3Serializer
+
+    def create(self, request, *args, **kwargs):
+        empresa = _get_empresa_usuario(request.user)
+        if not empresa:
+            return Response({"detail": "El usuario no tiene empresa configurada."}, status=400)
+
+        # Compat: acepta ot_id singular (legacy) o ot_ids (nuevo)
+        ot_id_legacy = request.data.get("ot_id") or request.data.get("ot")
+        ot_ids_raw = request.data.get("ot_ids")
+
+        if ot_ids_raw:
+            try:
+                ot_ids = [int(x) for x in ot_ids_raw]
+            except (TypeError, ValueError):
+                return Response({"detail": "ot_ids debe ser lista de enteros."}, status=400)
+        elif ot_id_legacy:
+            try:
+                ot_ids = [int(ot_id_legacy)]
+            except (TypeError, ValueError):
+                return Response({"detail": "ot_id invalido."}, status=400)
+        else:
+            return Response({"detail": 'Debe enviar "ot_ids" (lista) o "ot_id".'}, status=400)
+
+        contrato_ids_raw = request.data.get("contrato_ids") or []
+        try:
+            contrato_ids = [int(x) for x in contrato_ids_raw]
+        except (TypeError, ValueError):
+            return Response({"detail": "contrato_ids debe ser lista de enteros."}, status=400)
+
+        ots = list(
+            OrdenDeTrabajoV3.objects.filter(pk__in=ot_ids, empresa=empresa)
+            .select_related("cliente")
+        )
+        if len(ots) != len(ot_ids):
+            encontrados = {o.id for o in ots}
+            faltantes = [i for i in ot_ids if i not in encontrados]
+            return Response({"detail": f"OTs no encontradas o de otra empresa: {faltantes}."}, status=404)
+
+        # Validar que todas las OTs pertenezcan al mismo cliente
+        clientes_ids = {o.cliente_id for o in ots}
+        if len(clientes_ids) > 1:
+            return Response({"detail": "Todas las OTs deben pertenecer al mismo cliente."}, status=400)
+
+        # Validar estado de cada OT
+        for ot in ots:
+            if ot.estado not in (ESTADO_POR_FACTURAR, "completada"):
+                return Response(
+                    {
+                        "detail": f"La OT #{ot.id} debe estar en estado por_facturar. Estado actual: {ot.estado}",
+                    },
+                    status=400,
+                )
+
+        cliente_ot = ots[0].cliente
+
+        # Verificar contratos si se enviaron
+        contratos = []
+        if contrato_ids:
+            from contratos.models import ContratoEmpresaCliente
+            contratos = list(
+                ContratoEmpresaCliente.objects.filter(
+                    pk__in=contrato_ids, empresa_cliente=cliente_ot
+                )
+            )
+            if len(contratos) != len(contrato_ids):
+                encontrados_c = {c.id for c in contratos}
+                faltantes_c = [i for i in contrato_ids if i not in encontrados_c]
+                return Response(
+                    {"detail": f"Contratos no encontrados o de otro cliente: {faltantes_c}."},
+                    status=404,
+                )
+
+        from cuentas.functions import obtener_usuario_empresa
+
+        usuario_empresa = obtener_usuario_empresa(request.user)
+
+        # Para compat legacy: si es 1 sola OT y no tiene prefactura, usar get_or_create con ot=
+        ot_principal = ots[0]
+        if len(ots) == 1:
+            prefactura, created = PrefacturaOTV3.objects.get_or_create(
+                ot=ot_principal,
+                defaults={
+                    "cliente": cliente_ot,
+                    "creado_por": usuario_empresa,
+                    "fecha_prefactura": request.data.get("fecha_prefactura") or timezone.localdate(),
+                    "comentario": request.data.get("comentario", ""),
+                },
+            )
+        else:
+            # Multi-OT: siempre crear nueva
+            prefactura = PrefacturaOTV3.objects.create(
+                ot=ot_principal,
+                cliente=cliente_ot,
+                creado_por=usuario_empresa,
+                fecha_prefactura=request.data.get("fecha_prefactura") or timezone.localdate(),
+                comentario=request.data.get("comentario", ""),
+            )
+            created = True
+
+        # Asignar relaciones M2M
+        prefactura.ots.set(ots)
+        if contratos:
+            prefactura.contratos.set(contratos)
+        elif ot_principal.contrato_id:
+            prefactura.contratos.add(ot_principal.contrato)
+
+        # Guardar resultado si viene en el payload (matching manual)
+        resultado = request.data.get("resultado")
+        if resultado and isinstance(resultado, dict):
+            prefactura.resultado = resultado
+            prefactura.save(update_fields=["resultado"])
+
+        serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def perform_update(self, serializer):
+        instancia = self.get_object()
+        if instancia.estado_cierre != "borrador":
+            raise serializers.ValidationError(
+                f'Solo se puede editar en estado "borrador". Estado actual: {instancia.estado_cierre}'
+            )
+
+        from cuentas.functions import obtener_usuario_empresa
+
+        usuario_empresa = obtener_usuario_empresa(self.request.user)
+        serializer.save(actualizado_por=usuario_empresa)
+
+    def destroy(self, request, *args, **kwargs):
+        prefactura = self.get_object()
+        if prefactura.estado_cierre != "borrador":
+            return Response({"detail": "Solo se pueden eliminar prefacturas en borrador."}, status=400)
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="ots-elegibles")
+    def ots_elegibles(self, request):
+        """
+        Lista OTs V3 en estado por_facturar del cliente dado que no estan
+        en prefacturas activas (borrador o por_facturar) de la empresa del usuario.
+
+        Query param: ?cliente_id=<int>
+        """
+        empresa = _get_empresa_usuario(request.user)
+        if not empresa:
+            return Response({"detail": "Sin empresa configurada."}, status=400)
+
+        cliente_id = request.query_params.get("cliente_id")
+        if not cliente_id:
+            return Response({"detail": 'El parametro "cliente_id" es obligatorio.'}, status=400)
+
+        # OTs de la empresa+cliente en estado por_facturar
+        ots_base = OrdenDeTrabajoV3.objects.filter(
+            empresa=empresa,
+            cliente_id=cliente_id,
+            estado=ESTADO_POR_FACTURAR,
+        )
+
+        # Excluir OTs que ya estan en una prefactura activa (no facturada)
+        ots_en_prefactura_activa = (
+            PrefacturaOTV3.objects.filter(
+                estado_cierre__in=["borrador", "por_facturar"],
+            )
+            .values_list("ots__id", flat=True)
+        )
+        ots_elegibles = ots_base.exclude(id__in=ots_en_prefactura_activa)
+
+        data = list(
+            ots_elegibles.values("id", "titulo", "tipo_servicio", "modalidad", "fecha_creacion")
+        )
+        return Response(data, status=200)
+
+    @action(detail=False, methods=["post"], url_path="comparativa")
+    def comparativa(self, request):
+        """
+        Matching manual multi-OT vs multi-contrato.
+
+        Body: { ot_ids: [int], contrato_ids?: [int], fecha_prefactura?: string }
+
+        Returns: { pactado, ejecutado, diferencia, visitas_contrato, ots_marcadas_visitas }
+        """
+        from ordentrabajov3.helpers_prefactura import (
+            _build_visitas_v3,
+            _resolve_fecha_prefactura_v3,
+            calcular_ejecutado_de_ots_v3,
+            calcular_pactado_del_contrato_v3,
+            resolver_ots_marcadas_visitas,
+        )
+
+        empresa = _get_empresa_usuario(request.user)
+        if not empresa:
+            return Response({"detail": "Sin empresa configurada."}, status=400)
+
+        ot_ids_raw = request.data.get("ot_ids") or []
+        contrato_ids_raw = request.data.get("contrato_ids") or []
+
+        try:
+            ot_ids = [int(x) for x in ot_ids_raw]
+        except (TypeError, ValueError):
+            return Response({"detail": "ot_ids debe ser lista de enteros."}, status=400)
+
+        if not ot_ids:
+            return Response({"detail": "Debe enviar al menos una OT en ot_ids."}, status=400)
+
+        fecha_prefactura = _resolve_fecha_prefactura_v3(request.data.get("fecha_prefactura"))
+
+        ots = OrdenDeTrabajoV3.objects.filter(id__in=ot_ids, empresa=empresa)
+        if ots.count() != len(ot_ids):
+            return Response({"detail": "Una o mas OTs no encontradas o de otra empresa."}, status=404)
+
+        ejecutado = calcular_ejecutado_de_ots_v3(ot_ids, fecha_prefactura=fecha_prefactura)
+
+        pactado_combinado = {"items": [], "total": 0.0, "moneda": "CLP"}
+        visitas_contrato = None
+        contratos = []
+
+        if contrato_ids_raw:
+            from contratos.models import ContratoEmpresaCliente
+
+            try:
+                contrato_ids = [int(x) for x in contrato_ids_raw]
+            except (TypeError, ValueError):
+                return Response({"detail": "contrato_ids debe ser lista de enteros."}, status=400)
+
+            contratos = list(ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids))
+
+            for contrato in contratos:
+                parcial = calcular_pactado_del_contrato_v3(contrato)
+                pactado_combinado["items"].extend(parcial["items"])
+                pactado_combinado["total"] += parcial["total"]
+
+            if contratos:
+                from django.db.models import QuerySet
+                contratos_qs = ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids)
+                visitas_contrato = _build_visitas_v3(contratos_qs, ots, fecha_prefactura)
+
+        ots_marcadas_visitas = resolver_ots_marcadas_visitas(ots)
+        diferencia = round(pactado_combinado["total"] - ejecutado["total"], 2)
+
+        return Response({
+            "pactado": pactado_combinado,
+            "ejecutado": ejecutado,
+            "diferencia": diferencia,
+            "visitas_contrato": visitas_contrato,
+            "ots_marcadas_visitas": ots_marcadas_visitas,
+        }, status=200)
+
+    @action(detail=True, methods=["post"], url_path="finalizar")
+    def finalizar(self, request, pk=None):
+        prefactura = self.get_object()
+        if prefactura.estado_cierre != "borrador":
+            return Response(
+                {"detail": "Prefactura debe estar en estado borrador para finalizar."},
+                status=400,
+            )
+
+        if not prefactura.ots.exists():
+            return Response(
+                {"detail": "La prefactura debe tener al menos una OT vinculada."},
+                status=400,
+            )
+
+        # Validar items facturables en resultado (si existe matching manual)
+        resultado = prefactura.resultado or {}
+        items = resultado.get("items", [])
+        if items and not any(
+            item.get("facturar", False) for item in items if isinstance(item, dict)
+        ):
+            return Response(
+                {"detail": "Debe haber al menos un item marcado para facturar."},
+                status=400,
+            )
+
+        from cuentas.functions import obtener_usuario_empresa
+
+        usuario_empresa = obtener_usuario_empresa(request.user)
+        prefactura.estado_cierre = "por_facturar"
+        prefactura.actualizado_por = usuario_empresa
+        prefactura.save(update_fields=["estado_cierre", "actualizado_por"])
+
+        serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
+        return Response(serializer.data, status=200)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="asociar-documento",
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
+    def asociar_documento(self, request, pk=None):
+        prefactura = self.get_object()
+
+        if prefactura.estado_cierre == "borrador":
+            return Response(
+                {"detail": "Debe finalizar la prefactura antes de adjuntar el documento."},
+                status=400,
+            )
+
+        documento = request.FILES.get("documento")
+        if not documento:
+            return Response({"detail": "Debe enviar un archivo llamado 'documento'."}, status=400)
+
+        from cuentas.functions import obtener_usuario_empresa
+
+        usuario_empresa = obtener_usuario_empresa(request.user)
+
+        prefactura.documento_factura = documento
+        if prefactura.estado_cierre == "por_facturar":
+            prefactura.estado_cierre = "facturado"
+        prefactura.actualizado_por = usuario_empresa
+        prefactura.save(update_fields=["documento_factura", "estado_cierre", "actualizado_por"])
+
+        # Avance automatico de todas las OTs V3 incluidas a "facturada"
+        ots_a_facturar = prefactura.ots.exclude(estado="facturada")
+        for ot in ots_a_facturar:
+            ot.estado = "facturada"
+            ot.save(update_fields=["estado"])
+
+            # El signal crea el historial automaticamente; actualizamos comentario.
+            ultimo = HistorialEstadoOTV3.objects.filter(
+                orden=ot,
+                estado_nuevo="facturada",
+            ).order_by("-fecha_creacion").first()
+            if ultimo:
+                ultimo.comentario = "Facturacion completada (documento asociado en prefactura OTV3)"
+                ultimo.save(update_fields=["comentario"])
+
+        serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
+        return Response(serializer.data, status=200)

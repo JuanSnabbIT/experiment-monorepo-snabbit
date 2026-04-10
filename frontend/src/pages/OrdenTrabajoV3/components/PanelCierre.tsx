@@ -1,18 +1,14 @@
 import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { IHistorialEstadoOTV3, IOrdenDeTrabajoV3 } from '@/interface/ordenTrabajoV3.interface';
-import { buildPrefacturaOTCreatePath } from '@/pages/Facturacion/prefacturacion.shared';
 import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
 
 interface IProps {
     orden: IOrdenDeTrabajoV3;
 }
 
 const PanelCierre = ({ orden }: IProps) => {
-    const navigate = useNavigate();
     const tareasCompletadas = orden.tareas?.filter((t) => t.estado === 'completada') ?? [];
     const tareasNoRealizadas = orden.tareas?.filter((t) => t.estado === 'no_realizada') ?? [];
     const tareasPendientes = orden.tareas?.filter((t) =>
@@ -126,49 +122,8 @@ const PanelCierre = ({ orden }: IProps) => {
                 </CardBody>
             </Card>
 
-            {/* Pre-facturacion */}
-            {['completada', 'facturada'].includes(orden.estado) && (
-                <Card className='border-blue-200 dark:border-blue-700'>
-                    <CardHeader>
-                        <CardHeaderChild>Facturacion</CardHeaderChild>
-                    </CardHeader>
-                    <CardBody>
-                        {orden.estado === 'completada' ? (
-                            <div className='flex flex-col items-center gap-4 py-4'>
-                                <p className='text-sm text-gray-500'>
-                                    La OT esta completada. De forma opcional, puedes vincularla a
-                                    una pre-factura para iniciar el proceso de facturacion.
-                                </p>
-                                <Button
-                                    variant='outline'
-                                    color='blue'
-                                    icon='HeroDocumentText'
-                                    onClick={() =>
-                                        navigate(
-                                            buildPrefacturaOTCreatePath(
-                                                { tab: 'ot' },
-                                                {
-                                                    cliente_id: orden.cliente,
-                                                    ot_id: orden.id,
-                                                },
-                                            ),
-                                        )
-                                    }>
-                                    Ir a Pre-facturacion
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className='flex items-center gap-2 py-2 text-sm text-emerald-600 dark:text-emerald-400'>
-                                <span className='text-lg'>✓</span>
-                                Facturacion iniciada
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-            )}
-
             {/* Historial de estados */}
-            <Card className={['completada', 'facturada'].includes(orden.estado) ? '' : 'lg:col-span-2'}>
+            <Card className='lg:col-span-2'>
                 <CardHeader>
                     <CardHeaderChild>Historial de Estados</CardHeaderChild>
                 </CardHeader>

@@ -1,3 +1,4 @@
+import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -27,6 +28,8 @@ interface IIngresoExterno {
     item_id: number;
     item_nombre: string;
     cantidad: number;
+    es_serializado: boolean;
+    numero_serie: string;
 }
 
 interface IProps {
@@ -102,7 +105,13 @@ const CrearGuiaRapidaOTV3 = ({
         if (ingresosExternos.some((i) => i.item_id === stock.item_id)) return;
         setIngresosExternos((prev) => [
             ...prev,
-            { item_id: stock.item_id, item_nombre: stock.item_nombre, cantidad: 1 },
+            {
+                item_id: stock.item_id,
+                item_nombre: stock.item_nombre,
+                cantidad: 1,
+                es_serializado: false,
+                numero_serie: '',
+            },
         ]);
     };
 
@@ -116,10 +125,36 @@ const CrearGuiaRapidaOTV3 = ({
         );
     };
 
+    const handleToggleSerializado = (itemId: number, checked: boolean) => {
+        setIngresosExternos((prev) =>
+            prev.map((i) =>
+                i.item_id === itemId
+                    ? { ...i, es_serializado: checked, cantidad: 1, numero_serie: '' }
+                    : i,
+            ),
+        );
+    };
+
+    const handleCambiarSerieExterna = (itemId: number, serie: string) => {
+        setIngresosExternos((prev) =>
+            prev.map((i) => (i.item_id === itemId ? { ...i, numero_serie: serie } : i)),
+        );
+    };
+
     const handleConfirmar = async () => {
         if (!bodegaId) return;
         if (!itemsSeleccionados.length && !cotizacionId && !ingresosExternos.length) {
             toast.warning('Debe agregar al menos un item');
+            return;
+        }
+        // Validar que ingresos serializados tengan número de serie
+        const ingresoSinSerie = ingresosExternos.find(
+            (i) => i.es_serializado && !i.numero_serie.trim(),
+        );
+        if (ingresoSinSerie) {
+            toast.error(
+                `El item "${ingresoSinSerie.item_nombre}" está marcado como serializado pero no tiene número de serie.`,
+            );
             return;
         }
         try {
@@ -138,6 +173,9 @@ const CrearGuiaRapidaOTV3 = ({
                           ingresos_externos: ingresosExternos.map((i) => ({
                               item_id: i.item_id,
                               cantidad: i.cantidad,
+                              ...(i.es_serializado
+                                  ? { es_serializado: true, numero_serie: i.numero_serie }
+                                  : {}),
                           })),
                       }
                     : {}),
@@ -434,30 +472,67 @@ const CrearGuiaRapidaOTV3 = ({
                             {ingresosExternos.map((item) => (
                                 <div
                                     key={item.item_id}
-                                    className='flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/10'>
-                                    <span className='flex-1 text-sm font-medium'>
-                                        {item.item_nombre}
-                                    </span>
-                                    <div className='w-24'>
-                                        <Input
-                                            name={`ingreso_${item.item_id}`}
-                                            type='number'
-                                            min={1}
-                                            value={item.cantidad}
-                                            onChange={(e) =>
-                                                handleCambiarCantidadExterna(
-                                                    item.item_id,
-                                                    Number(e.target.value),
-                                                )
+                                    className='rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/10'>
+                                    <div className='flex flex-wrap items-center gap-3'>
+                                        <span className='flex-1 text-sm font-medium'>
+                                            {item.item_nombre}
+                                        </span>
+                                        {!item.es_serializado && (
+                                            <div className='w-24'>
+                                                <Input
+                                                    name={`ingreso_${item.item_id}`}
+                                                    type='number'
+                                                    min={1}
+                                                    value={item.cantidad}
+                                                    onChange={(e) =>
+                                                        handleCambiarCantidadExterna(
+                                                            item.item_id,
+                                                            Number(e.target.value),
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                        <Button
+                                            size='sm'
+                                            icon='HeroTrash'
+                                            color='red'
+                                            onClick={() =>
+                                                handleQuitarIngresoExterno(item.item_id)
                                             }
                                         />
                                     </div>
-                                    <Button
-                                        size='sm'
-                                        icon='HeroTrash'
-                                        color='red'
-                                        onClick={() => handleQuitarIngresoExterno(item.item_id)}
-                                    />
+                                    <div className='mt-2 flex flex-wrap items-center gap-3'>
+                                        <label className='flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-400'>
+                                            <Checkbox
+                                                id={`serializado_${item.item_id}`}
+                                                name={`serializado_${item.item_id}`}
+                                                checked={item.es_serializado}
+                                                onChange={(e) =>
+                                                    handleToggleSerializado(
+                                                        item.item_id,
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                            <span>Tiene número de serie</span>
+                                        </label>
+                                        {item.es_serializado && (
+                                            <div className='flex-1'>
+                                                <Input
+                                                    name={`serie_ext_${item.item_id}`}
+                                                    placeholder='Ingresar número de serie...'
+                                                    value={item.numero_serie}
+                                                    onChange={(e) =>
+                                                        handleCambiarSerieExterna(
+                                                            item.item_id,
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

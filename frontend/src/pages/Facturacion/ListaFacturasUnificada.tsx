@@ -13,6 +13,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+import Pages from '@/config/pages.config';
+
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -43,7 +45,6 @@ import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     buildPrefacturaContratoDetailPath,
-    buildPrefacturaOTCreatePath,
     buildPrefacturaOTDetailPath,
     calculatePrefacturaMetricas,
     createPrefacturacionSearchParams,
@@ -109,11 +110,12 @@ const ListaFacturasUnificada = () => {
     );
 
     useEffect(() => {
-        const normalizedParams = createPrefacturacionSearchParams(routeState);
+        const parsed = parsePrefacturacionSearchParams(searchParams);
+        const normalizedParams = createPrefacturacionSearchParams(parsed);
         if (normalizedParams.toString() !== searchParams.toString()) {
             setSearchParams(normalizedParams, { replace: true });
         }
-    }, [routeState, searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams]);
 
     const contratoQueryParams = useMemo(() => {
         const params: { estado?: string; historico?: boolean } = {};
@@ -418,21 +420,9 @@ const ListaFacturasUnificada = () => {
                     <h1 className='text-xl font-bold'>Prefacturacion</h1>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    {activeTab === 'contrato' && (
-                        <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
-                            Nueva Prefactura de Contrato
-                        </Button>
-                    )}
-                    {activeTab === 'ot' && (
-                        <Button
-                            variant='solid'
-                            icon='HeroPlus'
-                            onClick={() =>
-                                navigate(buildPrefacturaOTCreatePath(routeState))
-                            }>
-                            Nueva Prefactura de OT
-                        </Button>
-                    )}
+                    <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
+                        Nueva Prefactura de Contrato
+                    </Button>
                 </SubheaderRight>
             </Subheader>
 
@@ -447,11 +437,13 @@ const ListaFacturasUnificada = () => {
                             Contrato
                         </Button>
                         <Button
-                            variant={activeTab === 'ot' ? 'solid' : 'outline'}
-                            color={activeTab === 'ot' ? 'sky' : 'zinc'}
+                            variant='outline'
+                            color='sky'
                             icon='HeroWrenchScrewdriver'
-                            onClick={() => updateRouteState({ tab: 'ot' })}>
-                            Ordenes de Trabajo
+                            onClick={() =>
+                                navigate(Pages.facturacion.subPages.prefacturasOTV3.to)
+                            }>
+                            Ordenes de Trabajo V3
                         </Button>
                     </ButtonGroup>
                 </div>

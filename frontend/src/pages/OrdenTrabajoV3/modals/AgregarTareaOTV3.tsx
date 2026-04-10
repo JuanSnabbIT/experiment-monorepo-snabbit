@@ -34,7 +34,7 @@ const AgregarTareaOTV3 = ({ isOpen, setIsOpen, ordenId, tecnicosOptions }: IProp
             tecnico_asignado: null as string | null,
             fecha_programada: '',
             requiere_firma: false,
-            tipo_tarea: 'regular' as 'regular',
+            tipo_tarea: 'regular' as const,
             checklist_pre: [] as string[],
             checklist_post: [] as string[],
         },

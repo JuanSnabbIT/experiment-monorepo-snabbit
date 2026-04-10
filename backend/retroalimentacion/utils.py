@@ -1,6 +1,9 @@
 from retroalimentacion.models import Retroalimentacion, RetroalimentacionAplicada
 from ordentrabajov2.models import SoporteTecnico
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 from core.models import PreguntaEnRetroalimentacion
 from core.tasks import send_email_task
 import os
@@ -72,6 +75,145 @@ def crear_retroalimentacion_y_enviar_correo(orden):
     )
     titulo = f"Encuesta de Satisfacción - OT N°{orden.id}"
     subject = f"📋 {empresa_nombre} - Evalúe nuestro servicio (OT N°{orden.id})"
+
+    send_email_task.delay(
+        subject=subject,
+        recipient_list=[email],
+        html_body=html_body,
+        titulo=titulo,
+        url_boton=url,
+        text_boton="Evaluar Servicio",
+    )
+
+
+def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
+    """
+    Crea UNA retroalimentacion por OT V3 dirigida al cliente_solicitante.
+    Genera preguntas aplicadas por cada TareaOTV3 de la orden.
+    Envia email con enlace publico para que el cliente evalue el servicio.
+    Tiene vencimiento de 72 horas.
+    """
+    from ordentrabajov3.models import OrdenDeTrabajoV3, TareaOTV3  # evitar circular import
+
+    try:
+        otv3 = OrdenDeTrabajoV3.objects.select_related(
+            "cliente_solicitante__usuario",
+            "empresa",
+        ).get(pk=otv3_id)
+    except OrdenDeTrabajoV3.DoesNotExist:
+        return
+
+    # Determinar destinatario: cliente_solicitante de la OT V3
+    cliente_solicitante = otv3.cliente_solicitante
+    if not cliente_solicitante:
+        return
+
+    email = getattr(cliente_solicitante.usuario, "email", None)
+    if not email:
+        return
+
+    nombre_cliente = (
+        cliente_solicitante.usuario.get_nombre_completo()
+        if hasattr(cliente_solicitante.usuario, "get_nombre_completo")
+        else str(cliente_solicitante)
+    )
+
+    # Evitar duplicados
+    if Retroalimentacion.objects.filter(orden_trabajo_v3=otv3).exists():
+        return
+
+    retro = Retroalimentacion.objects.create(
+        orden_trabajo_v3=otv3,
+        usuario_empresa=cliente_solicitante,
+        correo_usuario_externo=email,
+        cantidad_visitas=0,
+        fecha_vencimiento=timezone.now() + timedelta(hours=72),
+    )
+
+    # Generar preguntas aplicadas por cada TareaOTV3
+    tareas = TareaOTV3.objects.filter(orden=otv3)
+    for tarea in tareas:
+        preguntas = PreguntaEnRetroalimentacion.objects.para_modelo(tarea)
+        ct = ContentType.objects.get_for_model(tarea)
+        for pregunta in preguntas:
+            RetroalimentacionAplicada.objects.get_or_create(
+                retroalimentacion=retro,
+                content_type=ct,
+                object_id=tarea.pk,
+                pregunta=pregunta,
+            )
+
+    # Construir URL publica
+    frontend_url = getattr(settings, "FRONTEND_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
+    url = f"{frontend_url}/retroalimentacion-orden-trabajo-v3/{retro.uuid}"
+
+    empresa_nombre = getattr(otv3.empresa, "nombre", "Nuestra empresa")
+    html_body = (
+        f"<p>Estimado/a <strong>{nombre_cliente}</strong>,</p>"
+        f"<p>La orden de trabajo <strong>\"{otv3.titulo}\"</strong> ha sido completada por "
+        f"<strong>{empresa_nombre}</strong>.</p>"
+        "<p>Nos gustaria conocer su opinion sobre el servicio recibido. "
+        "Su retroalimentacion nos ayuda a mejorar continuamente.</p>"
+        "<p>La encuesta toma menos de 2 minutos y expira en 72 horas.</p>"
+        f"<p style='font-size:12px;color:#888;word-break:break-all;'>Si el boton no funciona, copie este enlace en su navegador:<br>"
+        f"<a href='{url}'>{url}</a></p>"
+    )
+    titulo = f"Encuesta de Satisfaccion - {otv3.titulo}"
+    subject = f"Evalue nuestro servicio - {otv3.titulo}"
+
+    send_email_task.delay(
+        subject=subject,
+        recipient_list=[email],
+        html_body=html_body,
+        titulo=titulo,
+        url_boton=url,
+        text_boton="Evaluar Servicio",
+    )
+
+
+def reenviar_correo_retroalimentacion_v3(otv3):
+    """
+    Reenvía el correo de retroalimentación a la OT V3 cuya Retroalimentacion ya existe.
+    Llamado desde el botón 'Reenviar correo' en el panel interno.
+    """
+    from core.tasks import send_email_task
+    import os
+    from django.conf import settings
+
+    retro = Retroalimentacion.objects.filter(orden_trabajo_v3=otv3).first()
+    if not retro:
+        return
+
+    cliente_solicitante = otv3.cliente_solicitante
+    if not cliente_solicitante:
+        return
+
+    email = getattr(cliente_solicitante.usuario, "email", None)
+    if not email:
+        return
+
+    nombre_cliente = (
+        cliente_solicitante.usuario.get_nombre_completo()
+        if hasattr(cliente_solicitante.usuario, "get_nombre_completo")
+        else str(cliente_solicitante)
+    )
+
+    frontend_url = getattr(settings, "FRONTEND_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
+    url = f"{frontend_url}/retroalimentacion-orden-trabajo-v3/{retro.uuid}"
+
+    empresa_nombre = getattr(otv3.empresa, "nombre", "Nuestra empresa")
+    html_body = (
+        f"<p>Estimado/a <strong>{nombre_cliente}</strong>,</p>"
+        f"<p>Le recordamos que tiene pendiente evaluar el servicio de la orden "
+        f"<strong>\"{otv3.titulo}\"</strong> realizado por "
+        f"<strong>{empresa_nombre}</strong>.</p>"
+        "<p>Su retroalimentacion nos ayuda a mejorar continuamente. "
+        "La encuesta toma menos de 2 minutos.</p>"
+        f"<p style='font-size:12px;color:#888;word-break:break-all;'>Si el boton no funciona, copie este enlace en su navegador:<br>"
+        f"<a href='{url}'>{url}</a></p>"
+    )
+    titulo = f"Recordatorio: Encuesta de Satisfaccion - {otv3.titulo}"
+    subject = f"Recordatorio - Evalue nuestro servicio: {otv3.titulo}"
 
     send_email_task.delay(
         subject=subject,

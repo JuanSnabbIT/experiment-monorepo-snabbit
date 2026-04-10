@@ -24,7 +24,7 @@ import FirmarGuiaOTV3 from '../modals/FirmarGuiaOTV3';
 
 interface IProps {
     orden: IOrdenDeTrabajoV3;
-    tecnicosOptions?: TSelectOption[];
+    firmantesOptions?: TSelectOption[];
     receptoresOptions?: TSelectOption[];
 }
 
@@ -35,7 +35,7 @@ const ESTADO_TAREA_COLOR: Record<string, string> = {
     no_realizada: 'red',
 };
 
-const PanelEjecucion = ({ orden, receptoresOptions = [] }: IProps) => {
+const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }: IProps) => {
     const [deleteGasto] = useDeleteGastoV3Mutation();
     const [deleteAdjunto] = useDeleteAdjuntoV3Mutation();
     const [createSeguimiento, { isLoading: loadingSeguimiento }] = useCreateSeguimientoV3Mutation();
@@ -583,7 +583,7 @@ const PanelEjecucion = ({ orden, receptoresOptions = [] }: IProps) => {
                 setIsOpen={setModalFirma}
                 guia={guiaParaFirmar}
                 ordenId={orden.id}
-                receptoresOptions={receptoresOptions}
+                firmantesOptions={firmantesOptions}
             />
         </div>
     );

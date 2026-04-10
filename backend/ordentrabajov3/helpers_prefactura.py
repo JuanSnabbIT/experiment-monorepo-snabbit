@@ -1,0 +1,443 @@
+"""
+Helpers de prefacturacion para OT V3.
+Logica de matching pactado/ejecutado adaptada para los modelos de ordentrabajov3.
+
+Diferencias clave vs V2:
+- Gastos propios: GastoOTV3 (no GastoOperativoEnOt ni rendiciones)
+- Cotizaciones, guias y OC: M2M directos en OrdenDeTrabajoV3
+- Sin SoporteTecnico / ServicioEnOT — las tareas son TareaOTV3
+"""
+
+import logging
+from decimal import Decimal
+
+from django.utils import timezone
+
+logger = logging.getLogger("facturacion.debug")
+
+
+def _resolve_fecha_prefactura_v3(raw_fecha):
+    """
+    Convierte string ISO o date object a date.
+    Fallback: hoy (timezone.localdate()).
+    """
+    if raw_fecha is None:
+        return timezone.localdate()
+    if hasattr(raw_fecha, "year"):
+        return raw_fecha
+    try:
+        from datetime import date
+        if isinstance(raw_fecha, str):
+            return date.fromisoformat(raw_fecha[:10])
+    except (ValueError, TypeError):
+        pass
+    return timezone.localdate()
+
+
+def calcular_pactado_del_contrato_v3(contrato):
+    """
+    Extrae servicios y licencias pactadas de un ContratoEmpresaCliente.
+
+    Returns:
+        {
+            "items": [{"id", "nombre", "cantidad", "precio_unitario", "total", "tipo", "vinculado_a"}],
+            "total": float,
+            "moneda": "CLP"
+        }
+    """
+    items = []
+    total_pactado = Decimal("0.00")
+
+    # ContratoServicio
+    for cs in contrato.contrato_servicios.all():
+        nombre = (
+            cs.nombre
+            if hasattr(cs, "nombre") and cs.nombre
+            else cs.servicio_generico.nombre
+        )
+        cantidad = cs.cantidad
+        precio_unitario = Decimal(str(cs.precio_unitario))
+        total_item = Decimal(str(cantidad)) * precio_unitario
+
+        items.append({
+            "id": f"servicio_{cs.id}",
+            "nombre": nombre,
+            "cantidad": cantidad,
+            "precio_unitario": float(precio_unitario),
+            "total": float(total_item),
+            "tipo": "servicio",
+            "vinculado_a": None,
+        })
+        total_pactado += total_item
+
+    # ContratoLicencia
+    for cl in contrato.contrato_licencias.all():
+        nombre = cl.licencia.nombre
+        cantidad = cl.cantidad
+        precio_unitario = Decimal(str(cl.precio_unitario))
+        total_item = Decimal(str(cantidad)) * precio_unitario
+
+        items.append({
+            "id": f"licencia_{cl.id}",
+            "nombre": nombre,
+            "cantidad": cantidad,
+            "precio_unitario": float(precio_unitario),
+            "total": float(total_item),
+            "tipo": "licencia",
+            "vinculado_a": None,
+        })
+        total_pactado += total_item
+
+    return {"items": items, "total": float(total_pactado), "moneda": "CLP"}
+
+
+def _precio_unitario_cotizacion_clp(item_cot, dolar_override=None, uf_override=None):
+    """
+    Convierte precio de item de cotizacion a CLP segun la moneda de la cotizacion.
+    """
+    moneda_cot = item_cot.cotizacion.tipo_moneda
+    unit_base = Decimal(str(item_cot.precio_venta_neta_unitario_moneda_base or 0))
+
+    if moneda_cot == "1":  # USD
+        tasa_usd = Decimal(str(dolar_override or item_cot.cotizacion.dolar_observado or 0)) + Decimal("5")
+        return float((unit_base * tasa_usd if tasa_usd > 0 else Decimal("0")).quantize(Decimal("0.01")))
+
+    if moneda_cot == "3":  # UF
+        tasa_uf = Decimal(str(uf_override or item_cot.cotizacion.valor_uf or 0))
+        return float((unit_base * tasa_uf if tasa_uf > 0 else Decimal("0")).quantize(Decimal("0.01")))
+
+    # CLP
+    unit_clp = Decimal(str(item_cot.precio_unitario_backend.get("clp", 0)))
+    return float(unit_clp.quantize(Decimal("0.01")))
+
+
+def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
+    """
+    Extrae items ejecutados de un conjunto de OrdenDeTrabajoV3.
+
+    Fuentes:
+    - TareaOTV3 completadas (trabajo ejecutado)
+    - GastoOTV3 (gastos directos)
+    - Cotizaciones M2M vinculadas y sus ItemCotizacion
+    - GuiasSalida M2M vinculadas y sus ItemsGuiaSalida
+    - OrdenesCompra M2M vinculadas y sus ItemEnCompra
+
+    Returns:
+        {
+            "items": [...],
+            "total": float,
+            "moneda": "CLP",
+            "resumen": {"tareas", "guias", "compras", "gastos"},
+            "cotizaciones": [...]
+        }
+    """
+    from bodegas.models import GuiaSalida, ItemsGuiaSalida
+    from cotizaciones.models import Cotizacion, ItemCotizacion
+    from ordentrabajov3.models import GastoOTV3, OrdenDeTrabajoV3, TareaOTV3
+
+    try:
+        from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
+    except ImportError:
+        obtener_tipo_cambio_mindicador_con_fallback = None
+
+    dolar_override = None
+    uf_override = None
+
+    if fecha_prefactura and obtener_tipo_cambio_mindicador_con_fallback:
+        try:
+            dolar_override, _ = obtener_tipo_cambio_mindicador_con_fallback("dolar", fecha_prefactura)
+            uf_override, _ = obtener_tipo_cambio_mindicador_con_fallback("uf", fecha_prefactura)
+        except Exception as exc:
+            logger.warning("No se pudo obtener tipo de cambio para fecha=%s: %s", fecha_prefactura, exc)
+
+    items = []
+    total_ejecutado = Decimal("0.00")
+    count_tareas = 0
+    count_guias = 0
+    count_compras = 0
+    count_gastos = 0
+
+    ordenes = (
+        OrdenDeTrabajoV3.objects
+        .filter(id__in=ots_ids_v3)
+        .prefetch_related("tareas", "guias_salida", "cotizaciones", "ordenes_compra")
+    )
+
+    # Cotizaciones relacionadas a report en resumen
+    cotizaciones_ids = set()
+    for orden in ordenes:
+        cotizaciones_ids.update(orden.cotizaciones.values_list("id", flat=True))
+
+    cotizaciones_relacionadas = []
+    if cotizaciones_ids:
+        cotizaciones_relacionadas = [
+            {
+                "id": c.id,
+                "numero_cotizacion": c.numero_cotizacion,
+                "nombre": c.nombre,
+                "estado": c.estado,
+                "estado_label": c.get_estado_display(),
+                "cliente_id": c.cliente_id,
+                "cliente_nombre": getattr(c.cliente, "nombre", ""),
+                "total_estimado": float(c.total_estimado or 0),
+            }
+            for c in Cotizacion.objects.filter(id__in=cotizaciones_ids).select_related("cliente")
+        ]
+
+    precio_cot_cache = {}
+
+    for orden in ordenes:
+        # 1. TareaOTV3 completadas
+        for tarea in orden.tareas.filter(estado="completada"):
+            count_tareas += 1
+            items.append({
+                "id": tarea.id,
+                "item_id": tarea.id,
+                "nombre": tarea.titulo,
+                "cantidad": 1,
+                "precio_unitario": 0.0,
+                "total": 0.0,
+                "tipo": "tarea_ot",
+                "estado": tarea.estado,
+                "ot_id": orden.id,
+            })
+
+        # 2. Cotizaciones M2M y sus items
+        for cotizacion in orden.cotizaciones.prefetch_related("items"):
+            for item_cot in cotizacion.items.all():
+                precio_unitario = _precio_unitario_cotizacion_clp(
+                    item_cot, dolar_override, uf_override
+                )
+                cantidad = item_cot.cantidad or 1
+                total_item = float(cantidad * precio_unitario)
+                total_ejecutado += Decimal(str(total_item))
+
+                items.append({
+                    "id": f"cot_{cotizacion.id}_item_{item_cot.id}",
+                    "item_id": item_cot.id,
+                    "nombre": item_cot.nombre or "Item sin nombre",
+                    "cantidad": cantidad,
+                    "precio_unitario": precio_unitario,
+                    "total": total_item,
+                    "tipo": "cotizacion",
+                    "ot_id": orden.id,
+                    "cotizacion_id": cotizacion.id,
+                })
+
+        # 3. GuiasSalida M2M y sus items
+        for guia in orden.guias_salida.prefetch_related("itemsguiasalida_set__stock_item__item"):
+            tiene_items_facturables = False
+            for item_guia in guia.itemsguiasalida_set.all():
+                cantidad_entregada = max(
+                    (item_guia.cantidad_rebajada or 0) - (item_guia.cantidad_devuelta or 0),
+                    0,
+                )
+                if cantidad_entregada <= 0:
+                    continue
+                tiene_items_facturables = True
+
+                nombre_item = "Item sin nombre"
+                try:
+                    if item_guia.stock_item and item_guia.stock_item.item:
+                        nombre_item = item_guia.stock_item.item.nombre or f"Item #{item_guia.stock_item.item.id}"
+                except (AttributeError, ValueError) as exc:
+                    nombre_item = f"Guia #{guia.id} - Item #{item_guia.id}"
+                    logger.error("Error extrayendo nombre item_guia %s: %s", item_guia.id, exc)
+
+                precio_unitario = 0.0
+                if item_guia.source_item_id:
+                    oc = item_guia.source_item.orden_compra
+                    cotizacion_id = getattr(oc, "relacion_cotizacion_id", None)
+                    item_empresa_id = item_guia.source_item.item_id
+                    cache_key = (cotizacion_id, item_empresa_id, str(fecha_prefactura or ""))
+                    if cotizacion_id and item_empresa_id:
+                        if cache_key not in precio_cot_cache:
+                            item_cot = (
+                                ItemCotizacion.objects
+                                .filter(cotizacion_id=cotizacion_id, item_empresa_id=item_empresa_id)
+                                .select_related("cotizacion", "proveedor_empresa")
+                                .first()
+                            )
+                            precio_cot_cache[cache_key] = (
+                                _precio_unitario_cotizacion_clp(item_cot, dolar_override, uf_override)
+                                if item_cot else 0.0
+                            )
+                        precio_unitario = precio_cot_cache.get(cache_key, 0.0)
+
+                    if precio_unitario == 0.0:
+                        precio_unitario = float(item_guia.source_item.precio or 0)
+
+                total_item = float(cantidad_entregada * precio_unitario)
+                total_ejecutado += Decimal(str(total_item))
+
+                items.append({
+                    "id": item_guia.id,
+                    "item_id": item_guia.id,
+                    "nombre": nombre_item,
+                    "cantidad": cantidad_entregada,
+                    "precio_unitario": precio_unitario,
+                    "total": total_item,
+                    "tipo": "guia_salida",
+                    "estado": guia.estado,
+                    "ot_id": orden.id,
+                    "guia_id": guia.id,
+                })
+
+            if tiene_items_facturables:
+                count_guias += 1
+
+        # 4. OrdenesCompra M2M directas (items de compra)
+        for oc in orden.ordenes_compra.prefetch_related("itemencompra_set__item"):
+            for item_compra in oc.itemencompra_set.all():
+                cantidad = item_compra.cantidad or 0
+                precio_uc = float(item_compra.precio or 0)
+                monto_item = float(cantidad * precio_uc)
+                if monto_item <= 0:
+                    continue
+
+                nombre_item = (
+                    item_compra.item.nombre if item_compra.item else f"Item #{item_compra.id}"
+                )
+                total_ejecutado += Decimal(str(monto_item))
+                count_compras += 1
+
+                items.append({
+                    "id": f"oc_{oc.id}_item_{item_compra.id}",
+                    "item_id": item_compra.id,
+                    "nombre": nombre_item,
+                    "cantidad": cantidad,
+                    "precio_unitario": precio_uc,
+                    "total": monto_item,
+                    "tipo": "compra",
+                    "ot_id": orden.id,
+                    "oc_id": oc.id,
+                })
+
+        # 5. GastoOTV3 (gastos operativos directos de la OT)
+        for gasto in GastoOTV3.objects.filter(orden=orden):
+            monto = float(gasto.monto_total or 0)
+            if monto <= 0:
+                continue
+
+            nombre_gasto = gasto.detalle or f"Gasto #{gasto.id}"
+            total_ejecutado += Decimal(str(monto))
+            count_gastos += 1
+
+            items.append({
+                "id": f"gasto_{gasto.id}",
+                "item_id": gasto.id,
+                "nombre": f"Gasto - {nombre_gasto}",
+                "cantidad": gasto.cantidad,
+                "precio_unitario": float(gasto.monto_unitario or 0),
+                "total": monto,
+                "tipo": "gasto_operativo",
+                "ot_id": orden.id,
+            })
+
+    return {
+        "items": items,
+        "total": float(total_ejecutado),
+        "moneda": "CLP",
+        "resumen": {
+            "tareas": count_tareas,
+            "guias": count_guias,
+            "compras": count_compras,
+            "gastos": count_gastos,
+        },
+        "cotizaciones": cotizaciones_relacionadas,
+    }
+
+
+def resolver_ots_marcadas_visitas(ots_v3):
+    """
+    Retorna lista de IDs de OTs que deben marcar visita por defecto
+    (tipo_servicio == 'soporte_tecnico_presencial').
+    """
+    from ordentrabajov3.estados_modelo import TIPO_SERVICIO_SOPORTE_PRESENCIAL
+    return list(
+        ots_v3
+        .filter(tipo_servicio=TIPO_SERVICIO_SOPORTE_PRESENCIAL)
+        .values_list("id", flat=True)
+    )
+
+
+def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
+    """
+    Calcula resumen de visitas para la prefactura V3.
+
+    Para cada contrato calcula:
+    - incluidas_mes: visitas mensuales incluidas segun items_comerciales
+    - confirmadas_mes: visitas ya marcadas en prefacturas activas del mes
+    - ots_marcadas_por_defecto: OTs presenciales incluidas en ots_v3
+
+    Args:
+        contratos: QuerySet de ContratoEmpresaCliente
+        ots_v3: QuerySet de OrdenDeTrabajoV3
+        fecha_prefactura: date
+
+    Returns:
+        dict con resumen de visitas por contrato y totales
+    """
+    from ordentrabajov3.models import PrefacturaOTV3
+
+    periodo = fecha_prefactura.strftime("%Y-%m")
+    ots_marcadas_por_defecto = list(resolver_ots_marcadas_visitas(ots_v3))
+
+    resumen_por_contrato = []
+    total_incluidas = 0
+    total_confirmadas = 0
+
+    for contrato in contratos:
+        incluidas_mes = sum(
+            int(item.num_visitas_mensuales or 0)
+            for item in contrato.items_comerciales.all()
+            if item.num_visitas_mensuales
+        )
+
+        # Contar visitas ya marcadas en prefacturas activas del mismo mes para este contrato
+        prefacturas_mes = PrefacturaOTV3.objects.filter(
+            estado_cierre__in=["por_facturar", "facturado"],
+            fecha_prefactura__year=fecha_prefactura.year,
+            fecha_prefactura__month=fecha_prefactura.month,
+            contratos=contrato,
+        ).only("resultado")
+
+        confirmadas_mes = 0
+        for pf in prefacturas_mes:
+            visitas = (pf.resultado or {}).get("visitas") or {}
+            try:
+                confirmadas_mes += int(visitas.get("marcadas_prefactura") or 0)
+            except (TypeError, ValueError):
+                continue
+
+        total_incluidas += incluidas_mes
+        total_confirmadas += confirmadas_mes
+
+        resumen_por_contrato.append({
+            "contrato_id": contrato.id,
+            "contrato_nombre": str(contrato),
+            "incluidas_mes": incluidas_mes,
+            "confirmadas_mes": confirmadas_mes,
+        })
+
+    marcadas_esta_prefactura = len(ots_marcadas_por_defecto)
+    exceso = max(total_confirmadas + marcadas_esta_prefactura - total_incluidas, 0)
+
+    precio_exceso = 0.0
+    if contratos:
+        primer_contrato = list(contratos)[0]
+        precio_exceso = float(
+            getattr(primer_contrato, "precio_visita_adicional", 0) or 0
+        )
+
+    return {
+        "periodo": periodo,
+        "incluidas_total": total_incluidas,
+        "confirmadas_mes": total_confirmadas,
+        "ots_marcadas_por_defecto": ots_marcadas_por_defecto,
+        "marcadas_esta_prefactura": marcadas_esta_prefactura,
+        "exceso": exceso,
+        "precio_unitario_exceso": precio_exceso,
+        "total_exceso": float(exceso * precio_exceso),
+        "por_contrato": resumen_por_contrato,
+    }

@@ -8,6 +8,7 @@ from .models import (
     GastoOTV3,
     AdjuntoOTV3,
     HistorialEstadoOTV3,
+    PrefacturaOTV3,
 )
 
 
@@ -361,7 +362,8 @@ class OrdenDeTrabajoV3ListSerializer(serializers.ModelSerializer):
             "prioridad", "prioridad_display",
             "etapa_ui",
             "tecnico_responsable", "tecnico_responsable_nombre",
-            "fecha_programada", "fecha_inicio_real", "fecha_finalizacion_real",
+            "fecha_programada", "fecha_fin_estimada",
+            "fecha_inicio_real", "fecha_finalizacion_real",
             "total_tareas", "tareas_completadas",
             "fecha_creacion",
         ]
@@ -389,6 +391,25 @@ class OrdenDeTrabajoV3ListSerializer(serializers.ModelSerializer):
 
 # ---- Serializer de detalle (completo) ----
 
+class ClienteSolicitanteDetalleSerializer(serializers.Serializer):
+    """Serializer inline para el detalle del cliente solicitante en OTV3."""
+    id = serializers.IntegerField()
+    nombre = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    def get_nombre(self, obj):
+        if hasattr(obj, "usuario") and obj.usuario:
+            if hasattr(obj.usuario, "get_nombre_completo"):
+                return obj.usuario.get_nombre_completo()
+            return str(obj.usuario)
+        return str(obj)
+
+    def get_email(self, obj):
+        if hasattr(obj, "usuario") and obj.usuario:
+            return getattr(obj.usuario, "email", None)
+        return None
+
+
 class OrdenDeTrabajoV3DetalleSerializer(OrdenDeTrabajoV3ListSerializer):
     tareas = TareaOTV3Serializer(many=True, read_only=True)
     asignaciones = AsignacionTecnicoOTV3Serializer(many=True, read_only=True)
@@ -400,11 +421,13 @@ class OrdenDeTrabajoV3DetalleSerializer(OrdenDeTrabajoV3ListSerializer):
     guias_vinculadas = GuiaSalidaResumenOTV3Serializer(source="guias_salida", many=True, read_only=True)
     ordenes_compra_vinculadas = OrdenCompraResumenOTV3Serializer(source="ordenes_compra", many=True, read_only=True)
     cotizaciones_detalle = serializers.SerializerMethodField()
+    cliente_solicitante_detalle = ClienteSolicitanteDetalleSerializer(source="cliente_solicitante", read_only=True)
 
     class Meta(OrdenDeTrabajoV3ListSerializer.Meta):
         fields = OrdenDeTrabajoV3ListSerializer.Meta.fields + [
             "descripcion", "contrato", "sucursal",
             "cliente_solicitante",
+            "cliente_solicitante_detalle",
             "direccion", "notas_internas",
             "tareas", "asignaciones", "seguimientos",
             "gastos", "adjuntos", "historial_estados",
@@ -477,9 +500,77 @@ class OrdenDeTrabajoV3WriteSerializer(serializers.ModelSerializer):
             "tipo_servicio", "modalidad", "prioridad",
             "tecnico_responsable",
             "fecha_programada",
+            "fecha_fin_estimada",
             "direccion", "notas_internas",
         ]
         extra_kwargs = {
             "empresa": {"required": False},
             "modalidad": {"required": False},
         }
+
+
+class PrefacturaOTV3Serializer(serializers.ModelSerializer):
+    cliente_nombre = serializers.CharField(source="cliente.nombre", read_only=True)
+    ot_titulo = serializers.SerializerMethodField()
+    ots_ids = serializers.SerializerMethodField()
+    ots_titulos = serializers.SerializerMethodField()
+    contratos_ids = serializers.SerializerMethodField()
+    contratos_nombres = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PrefacturaOTV3
+        fields = [
+            "id",
+            "ot",
+            "ot_titulo",
+            "ots_ids",
+            "ots_titulos",
+            "contratos_ids",
+            "contratos_nombres",
+            "cliente",
+            "cliente_nombre",
+            "estado_cierre",
+            "resultado",
+            "fecha_prefactura",
+            "comentario",
+            "documento_factura",
+            "creado_por",
+            "actualizado_por",
+            "fecha_creacion",
+            "fecha_modificacion",
+        ]
+        read_only_fields = [
+            "cliente",
+            "estado_cierre",
+            "documento_factura",
+            "creado_por",
+            "actualizado_por",
+            "fecha_creacion",
+            "fecha_modificacion",
+        ]
+
+    def get_ot_titulo(self, obj):
+        ot = obj.ot
+        return ot.titulo if ot else None
+
+    def get_ots_ids(self, obj):
+        return list(obj.ots.values_list("id", flat=True))
+
+    def get_ots_titulos(self, obj):
+        return list(obj.ots.values_list("titulo", flat=True))
+
+    def get_contratos_ids(self, obj):
+        return list(obj.contratos.values_list("id", flat=True))
+
+    def get_contratos_nombres(self, obj):
+        return [str(c) for c in obj.contratos.all()]
+
+
+class PrefacturaOTV3WriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrefacturaOTV3
+        fields = [
+            "resultado",
+            "fecha_prefactura",
+            "comentario",
+        ]

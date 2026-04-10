@@ -5,9 +5,10 @@ import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import type { IOrdenDeTrabajoV3Write } from '@/interface/ordenTrabajoV3.interface';
 import { useAppSelector } from '@/store';
-import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetMisClientesQuery, useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useCreateOrdenV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
@@ -61,8 +62,10 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
             descripcion: '',
             tipo_servicio: 'soporte_tecnico_presencial',
             cliente: 0,
+            cliente_solicitante: 0,
             prioridad: 'normal',
             fecha_programada: '',
+            fecha_fin_estimada: '',
         },
         validationSchema,
         onSubmit: async (values, { resetForm }) => {
@@ -72,9 +75,10 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                     tipo_servicio: values.tipo_servicio as IOrdenDeTrabajoV3Write['tipo_servicio'],
                     cliente: values.cliente,
                     prioridad: values.prioridad as IOrdenDeTrabajoV3Write['prioridad'],
+                    ...(values.cliente_solicitante ? { cliente_solicitante: values.cliente_solicitante } : {}),
                     ...(values.descripcion ? { descripcion: values.descripcion } : {}),
                     ...(values.fecha_programada ? { fecha_programada: values.fecha_programada } : {}),
-                };
+                    ...(values.fecha_fin_estimada ? { fecha_fin_estimada: values.fecha_fin_estimada } : {}),                };
                 const created = await createOrden(payload).unwrap();
                 toast.success('Orden de trabajo creada');
                 resetForm();
@@ -85,6 +89,15 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
             }
         },
     });
+
+    const clienteSeleccionado = formik.values.cliente || 0;
+    const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(clienteSeleccionado, {
+        skip: !clienteSeleccionado,
+    });
+    const solicitantesOptions: TSelectOption[] = usuariosCliente.map((u: IUsuarioEmpresa) => ({
+        value: String(u.id),
+        label: u.nombre_usuario || u.email_usuario,
+    }));
 
     const handleClose = () => {
         formik.resetForm();
@@ -144,64 +157,105 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                         </Validation>
                     </div>
 
-                    {/* Cliente */}
-                    <div>
-                        <Label htmlFor='cliente' className='mb-1'>
-                            Cliente <span className='text-red-500'>*</span>
-                        </Label>
-                        <Validation
-                            isValid={formik.isValid}
-                            isTouched={formik.touched.cliente}
-                            invalidFeedback={formik.errors.cliente}>
+                    {/* Cliente + Solicitante */}
+                    <div className='grid grid-cols-2 gap-4'>
+                        <div>
+                            <Label htmlFor='cliente' className='mb-1'>
+                                Cliente <span className='text-red-500'>*</span>
+                            </Label>
+                            <Validation
+                                isValid={formik.isValid}
+                                isTouched={formik.touched.cliente}
+                                invalidFeedback={formik.errors.cliente}>
+                                <SelectReact
+                                    id='cliente'
+                                    name='cliente'
+                                    options={clientesOptions}
+                                    placeholder='Seleccionar cliente...'
+                                    value={
+                                        clientesOptions.find(
+                                            (o) => Number(o.value) === formik.values.cliente,
+                                        ) ?? null
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue(
+                                            'cliente',
+                                            opt ? Number((opt as TSelectOption).value) : 0,
+                                        )
+                                    }
+                                />
+                            </Validation>
+                        </div>
+                        <div>
+                            <Label htmlFor='cliente_solicitante' className='mb-1'>
+                                Solicitante
+                                <span className='ml-1 text-xs font-normal text-gray-400'>(opcional)</span>
+                            </Label>
                             <SelectReact
-                                id='cliente'
-                                name='cliente'
-                                options={clientesOptions}
-                                placeholder='Seleccionar cliente...'
+                                id='cliente_solicitante'
+                                name='cliente_solicitante'
+                                options={solicitantesOptions}
+                                isClearable
+                                isDisabled={clienteSeleccionado === 0}
+                                placeholder={clienteSeleccionado === 0 ? 'Seleccione cliente primero' : 'Seleccionar solicitante...'}
                                 value={
-                                    clientesOptions.find(
-                                        (o) => Number(o.value) === formik.values.cliente,
+                                    solicitantesOptions.find(
+                                        (o) => Number(o.value) === formik.values.cliente_solicitante,
                                     ) ?? null
                                 }
                                 onChange={(opt) =>
                                     formik.setFieldValue(
-                                        'cliente',
+                                        'cliente_solicitante',
                                         opt ? Number((opt as TSelectOption).value) : 0,
                                     )
                                 }
                             />
-                        </Validation>
+                        </div>
                     </div>
 
-                    {/* Prioridad y Fecha */}
+                    {/* Prioridad */}
+                    <div>
+                        <Label htmlFor='prioridad' className='mb-1'>
+                            Prioridad <span className='text-red-500'>*</span>
+                        </Label>
+                        <SelectReact
+                            id='prioridad'
+                            name='prioridad'
+                            options={PRIORIDAD_OPTIONS}
+                            value={
+                                PRIORIDAD_OPTIONS.find(
+                                    (o) => o.value === formik.values.prioridad,
+                                ) ?? null
+                            }
+                            onChange={(opt) =>
+                                formik.setFieldValue('prioridad', (opt as TSelectOption).value)
+                            }
+                        />
+                    </div>
+
+                    {/* Fecha inicio + Fecha fin estimada */}
                     <div className='grid grid-cols-2 gap-4'>
                         <div>
-                            <Label htmlFor='prioridad' className='mb-1'>
-                                Prioridad <span className='text-red-500'>*</span>
-                            </Label>
-                            <SelectReact
-                                id='prioridad'
-                                name='prioridad'
-                                options={PRIORIDAD_OPTIONS}
-                                value={
-                                    PRIORIDAD_OPTIONS.find(
-                                        (o) => o.value === formik.values.prioridad,
-                                    ) ?? null
-                                }
-                                onChange={(opt) =>
-                                    formik.setFieldValue('prioridad', (opt as TSelectOption).value)
-                                }
-                            />
-                        </div>
-                        <div>
                             <Label htmlFor='fecha_programada' className='mb-1'>
-                                Fecha programada
+                                Fecha inicio
                             </Label>
                             <Input
                                 id='fecha_programada'
                                 name='fecha_programada'
-                                type='datetime-local'
+                                type='date'
                                 value={formik.values.fecha_programada}
+                                onChange={formik.handleChange}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='fecha_fin_estimada' className='mb-1'>
+                                Fecha fin estimada
+                            </Label>
+                            <Input
+                                id='fecha_fin_estimada'
+                                name='fecha_fin_estimada'
+                                type='date'
+                                value={formik.values.fecha_fin_estimada}
                                 onChange={formik.handleChange}
                             />
                         </div>

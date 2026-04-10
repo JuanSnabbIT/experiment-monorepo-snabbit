@@ -4,6 +4,9 @@ import type {
     IAsignacionTecnicoOTV3,
     ICheckAvanceOTV3,
     IChecklistItemOTV3,
+    IComparativaV3Params,
+    IComparativaV3Result,
+    ICreatePrefacturaV3Payload,
     IGastoOTV3,
     IGuiaSalidaResumenOTV3,
     IHistorialEstadoOTV3,
@@ -12,11 +15,13 @@ import type {
     IOrdenDeTrabajoV3,
     IOrdenDeTrabajoV3List,
     IOrdenDeTrabajoV3Write,
+    IPrefacturaOTV3,
     ISeguimientoOTV3,
     IStockItemParaGuiaRapida,
     ITareaOTV3,
     ITareaOTV3Write,
     TEstadoOTV3,
+    TEstadoPrefacturaOTV3,
     TEstadoTareaOTV3,
     TTipoSeguimientoOTV3,
 } from '@/interface/ordenTrabajoV3.interface';
@@ -78,8 +83,96 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
             providesTags: (_result, _error, id) => [{ type: 'OrdenTrabajoV3', id }],
         }),
 
+        solicitarRetroalimentacionV3: builder.mutation<{ detail: string }, number>({
+            query: (id) => ({
+                url: `${BASE}/ordenes/${id}/solicitar-retroalimentacion/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'OrdenTrabajoV3', id },
+                { type: 'RetroalimentacionOTV3', id },
+            ],
+        }),
+
         getMetricasDashboardV3: builder.query<IMetricasDashboardOTV3, void>({
             query: () => ({ url: `${BASE}/ordenes/metricas-dashboard/`, method: 'get' }),
+        }),
+
+        // ---- PREFACTURAS OT V3 ----
+        getPrefacturasOTV3: builder.query<
+            IPrefacturaOTV3[],
+            { estado?: TEstadoPrefacturaOTV3; cliente?: number } | void
+        >({
+            query: (params) => ({
+                url: `${BASE}/prefacturas-otv3/`,
+                method: 'get',
+                params: params || {},
+            }),
+            providesTags: ['PrefacturasOTV3'],
+        }),
+
+        getPrefacturaOTV3: builder.query<IPrefacturaOTV3, number | string>({
+            query: (id) => ({ url: `${BASE}/prefacturas-otv3/${id}/`, method: 'get' }),
+            providesTags: (_result, _error, id) => [{ type: 'PrefacturaOTV3', id }],
+        }),
+
+        getOtsElegiblesV3: builder.query<IOrdenDeTrabajoV3[], { cliente_id: number }>({
+            query: (params) => ({ url: `${BASE}/prefacturas-otv3/ots-elegibles/`, method: 'get', params }),
+            providesTags: ['PrefacturasOTV3'],
+        }),
+
+        getComparativaV3: builder.mutation<IComparativaV3Result, IComparativaV3Params>({
+            query: (data) => ({ url: `${BASE}/prefacturas-otv3/comparativa/`, method: 'post', data }),
+        }),
+
+        createPrefacturaOTV3: builder.mutation<IPrefacturaOTV3, ICreatePrefacturaV3Payload>({
+            query: (data) => ({ url: `${BASE}/prefacturas-otv3/`, method: 'post', data }),
+            invalidatesTags: (result) => {
+                const tags: any[] = ['PrefacturasOTV3'];
+                if (result?.ots) {
+                    result.ots.forEach((otId) => tags.push({ type: 'OrdenTrabajoV3', id: otId }));
+                }
+                return tags;
+            },
+        }),
+
+        updatePrefacturaOTV3: builder.mutation<
+            IPrefacturaOTV3,
+            { id: number; data: Partial<Pick<IPrefacturaOTV3, 'resultado' | 'fecha_prefactura'>> }
+        >({
+            query: ({ id, data }) => ({ url: `${BASE}/prefacturas-otv3/${id}/`, method: 'patch', data }),
+            invalidatesTags: (_result, _error, { id }) => [
+                'PrefacturasOTV3',
+                { type: 'PrefacturaOTV3', id },
+            ],
+        }),
+
+        finalizarPrefacturaOTV3: builder.mutation<IPrefacturaOTV3, number | string>({
+            query: (id) => ({ url: `${BASE}/prefacturas-otv3/${id}/finalizar/`, method: 'post' }),
+            invalidatesTags: (_result, _error, id) => [
+                'PrefacturasOTV3',
+                { type: 'PrefacturaOTV3', id: Number(id) },
+            ],
+        }),
+
+        asociarDocumentoPrefacturaOTV3: builder.mutation<
+            IPrefacturaOTV3,
+            { id: number | string; documento: File; ot_id?: number }
+        >({
+            query: ({ id, documento }) => {
+                const formData = new FormData();
+                formData.append('documento', documento);
+                return {
+                    url: `${BASE}/prefacturas-otv3/${id}/asociar-documento/`,
+                    method: 'post',
+                    data: formData,
+                };
+            },
+            invalidatesTags: (_result, _error, { id, ot_id }) => [
+                'PrefacturasOTV3',
+                { type: 'PrefacturaOTV3', id: Number(id) },
+                ...(ot_id ? [{ type: 'OrdenTrabajoV3' as const, id: ot_id }] : []),
+            ],
         }),
 
         // ---- TAREAS ----
@@ -439,12 +532,12 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
         }),
 
         // ---- GUIA RAPIDA ----
-        getEquiposParaEntregaV3: builder.query<IEquipo[], number>({
-            query: (ordenId) => ({
-                url: `${BASE}/ordenes/${ordenId}/equipos-disponibles/`,
+        getEquiposParaEntregaV3: builder.query<IEquipo[], { ordenId: number; tareaId?: number }>({
+            query: ({ ordenId, tareaId }) => ({
+                url: `${BASE}/ordenes/${ordenId}/equipos-disponibles/${tareaId != null ? `?tarea_id=${tareaId}` : ''}`,
                 method: 'get',
             }),
-            providesTags: (_result, _error, ordenId) => [
+            providesTags: (_result, _error, { ordenId }) => [
                 { type: 'OrdenTrabajoV3', id: ordenId },
                 'UsuariosEmpresa',
             ],
@@ -479,7 +572,13 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
                 motivo?: string;
                 cotizacion_id?: number;
                 items: { stock_item_id: number; cantidad_rebajada: number; numero_serie?: string }[];
-                ingresos_externos?: { item_id: number; cantidad: number; precio?: number }[];
+                ingresos_externos?: {
+                    item_id: number;
+                    cantidad: number;
+                    precio?: number;
+                    es_serializado?: boolean;
+                    numero_serie?: string;
+                }[];
             }
         >({
             query: ({ ordenId, ...body }) => ({
@@ -521,6 +620,14 @@ export const {
     useCambiarEstadoV3Mutation,
     useGetCheckAvanceV3Query,
     useGetMetricasDashboardV3Query,
+    useGetPrefacturasOTV3Query,
+    useGetPrefacturaOTV3Query,
+    useGetOtsElegiblesV3Query,
+    useGetComparativaV3Mutation,
+    useCreatePrefacturaOTV3Mutation,
+    useUpdatePrefacturaOTV3Mutation,
+    useFinalizarPrefacturaOTV3Mutation,
+    useAsociarDocumentoPrefacturaOTV3Mutation,
     useGetTareasV3Query,
     useCreateTareaV3Mutation,
     useUpdateTareaV3Mutation,
@@ -558,6 +665,7 @@ export const {
     useDesvincularCotizacionV3Mutation,
     useCrearTareasEntregaGuiaV3Mutation,
     useAprobarGuiaV3Mutation,
+    useSolicitarRetroalimentacionV3Mutation,
 } = ordenTrabajoV3Api;
 
 export default ordenTrabajoV3Api;

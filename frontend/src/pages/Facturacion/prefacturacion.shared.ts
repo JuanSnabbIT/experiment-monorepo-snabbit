@@ -32,8 +32,8 @@ export interface IPrefacturaListItemVM {
 }
 
 const PREFAC_LIST_PATH = '/facturacion/facturas-contrato';
-const PREFAC_OT_DETAIL_BASE_PATH = '/facturacion/facturas';
-const PREFAC_OT_CREATE_PATH = '/facturacion/facturas/crear';
+const PREFAC_OT_DETAIL_BASE_PATH = '/facturacion/otv3/prefacturas';
+const PREFAC_OT_CREATE_PATH = '/facturacion/otv3/prefacturas/crear';
 const VALID_ESTADOS: TPrefacturaEstado[] = ['borrador', 'por_facturar', 'facturado'];
 
 const isValidEstado = (estado: string): estado is TPrefacturaEstado =>

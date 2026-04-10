@@ -263,6 +263,7 @@ export interface IRetroalimentacionOT {
 export interface IRetroalimentacionSinPermisosOT {
     uuid: string;
     orden_trabajo: number;
+    orden_trabajo_v3?: number | null;
     usuario_empresa: null | string;
     usuario_externo: string | null;
     correo_usuario_externo: string | null;
@@ -277,6 +278,9 @@ export interface IRetroalimentacionSinPermisosOT {
     fecha_inicio_ot: string | null;
     fecha_finalizacion_ot: string | null;
     ya_respondida: boolean;
+    vencida?: boolean;
+    fecha_vencimiento?: string | null;
+    recordatorios_enviados?: number;
 }
 
 export interface IRetroalimentacionAplicada {

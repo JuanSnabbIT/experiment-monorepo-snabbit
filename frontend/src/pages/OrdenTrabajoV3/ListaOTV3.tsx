@@ -30,6 +30,8 @@ const COLOR_ESTADO: Record<TEstadoOTV3, string> = {
     borrador: 'zinc',
     preparacion: 'blue',
     en_ejecucion: 'amber',
+    retroalimentacion: 'violet',
+    por_facturar: 'emerald',
     completada: 'emerald',
     facturada: 'violet',
     cerrada: 'zinc',

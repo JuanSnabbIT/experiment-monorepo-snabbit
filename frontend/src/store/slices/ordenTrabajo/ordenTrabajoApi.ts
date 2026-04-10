@@ -270,6 +270,16 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 isLoginRequest: true,
             }),
         }),
+        getDetalleRetroalimentacionOTV3Public: builder.query<
+            IRetroalimentacionSinPermisosOT,
+            string | undefined
+        >({
+            query: (uuid) => ({
+                url: `/api/public/retroalimentacion-otv3/${uuid}/`,
+                method: 'get',
+                isLoginRequest: true,
+            }),
+        }),
         bulkUpdateRetroalimentacionOT: builder.mutation<
             Record<string, unknown>,
             { items: { id: number; cantidad_estrellas: number; observaciones?: string }[] }
@@ -279,6 +289,19 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
                 method: 'patch',
                 headers: { 'Content-Type': 'application/json' },
                 data: JSON.stringify(data),
+                isLoginRequest: true,
+            }),
+            invalidatesTags: ['OrdenTrabajoRetroalimentaciones'],
+        }),
+        responderRetroalimentacionPublic: builder.mutation<
+            Record<string, unknown>,
+            { uuid: string; items: { id: number; cantidad_estrellas: number; observaciones?: string }[] }
+        >({
+            query: ({ uuid, items }) => ({
+                url: `/api/public/retroalimentacion-otv3/${uuid}/responder/`,
+                method: 'post',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({ items }),
                 isLoginRequest: true,
             }),
             invalidatesTags: ['OrdenTrabajoRetroalimentaciones'],
@@ -1371,7 +1394,9 @@ export const {
     useGetRetroalimentacionesOTQuery,
     useGetDetalleRetroalimentacionOTQuery,
     useGetDetalleRetroalimentacionOTPublicQuery,
+    useGetDetalleRetroalimentacionOTV3PublicQuery,
     useBulkUpdateRetroalimentacionOTMutation,
+    useResponderRetroalimentacionPublicMutation,
     useGetUsuariosVinculadosOTQuery,
     useGetTecnicosPorEmpresaQuery,
     useGetDetalleTrabajoQuery,

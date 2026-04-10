@@ -538,8 +538,11 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                 );
                                 const serieStr =
                                     item.numero_serie &&
-                                    Object.keys(item.numero_serie).length > 0
-                                        ? JSON.stringify(item.numero_serie)
+                                    typeof item.numero_serie === 'object' &&
+                                    (item.numero_serie as Record<string, unknown>).serie
+                                        ? String(
+                                              (item.numero_serie as Record<string, unknown>).serie,
+                                          )
                                         : null;
                                 return (
                                     <div

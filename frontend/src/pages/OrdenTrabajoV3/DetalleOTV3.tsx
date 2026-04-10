@@ -17,19 +17,23 @@ import {
     useGetDetalleOrdenV3Query,
 } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useState } from 'react';
+import { confirmAlert, showBlockersAlert } from '@/utils/sweetAlert';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import PanelBorrador from './components/PanelBorrador';
 import PanelCierre from './components/PanelCierre';
 import PanelEjecucion from './components/PanelEjecucion';
+import PanelPorFacturar from './components/PanelPorFacturar';
 import PanelPreparacion from './components/PanelPreparacion';
-import CheckBloqueadoresOTV3 from './modals/CheckBloqueadoresOTV3';
+import PanelRetroalimentacion from './components/PanelRetroalimentacion';
 
 // ---- ESTADO CONFIG ----
 const COLOR_ESTADO: Record<TEstadoOTV3, string> = {
     borrador: 'zinc',
     preparacion: 'blue',
     en_ejecucion: 'amber',
+    retroalimentacion: 'violet',
+    por_facturar: 'emerald',
     completada: 'emerald',
     facturada: 'violet',
     cerrada: 'zinc',
@@ -39,8 +43,10 @@ const COLOR_ESTADO: Record<TEstadoOTV3, string> = {
 const CTA_LABEL: Record<TEstadoOTV3, string | null> = {
     borrador: 'Confirmar OT',
     preparacion: 'Iniciar Ejecucion',
-    en_ejecucion: 'Completar OT',
-    completada: 'Cerrar OT',
+    en_ejecucion: 'Enviar a Retroalimentacion',
+    retroalimentacion: null,
+    por_facturar: null,
+    completada: null,
     facturada: 'Confirmar Cierre',
     cerrada: null,
     cancelada: null,
@@ -51,15 +57,61 @@ type TStepDef = { id: TEtapaUIOTV3 | 'cerrada' | 'cancelada'; label: string; des
 const STEPS: TStepDef[] = [
     { id: 'preparacion', label: 'Preparacion', desc: 'Equipo y tareas' },
     { id: 'ejecucion', label: 'Ejecucion', desc: 'Realizar el trabajo' },
+    { id: 'retroalimentacion', label: 'Retroalimentacion', desc: 'Feedback del cliente' },
+    { id: 'por_facturar', label: 'Por facturar', desc: 'Preparar facturacion' },
     { id: 'cierre', label: 'Cierre', desc: 'Documentar y cerrar' },
 ];
 
 const ETAPA_STEP_INDEX: Record<TEtapaUIOTV3, number> = {
     preparacion: 0,
     ejecucion: 1,
-    cierre: 2,
-    cerrada: 2,
+    retroalimentacion: 2,
+    por_facturar: 3,
+    cierre: 4,
+    cerrada: 4,
     cancelada: -1,
+};
+
+// Config de confirmación por estado destino
+const SWAL_CONFIRM: Record<
+    string,
+    { title: string; text: string; confirmText: string; confirmColor: string; successText: string }
+> = {
+    preparacion: {
+        title: '¿Confirmar Orden de Trabajo?',
+        text: 'La OT pasará a Preparación. El equipo podrá comenzar a planificar.',
+        confirmText: 'Sí, confirmar',
+        confirmColor: '#3085d6',
+        successText: 'La orden de trabajo está lista para preparar.',
+    },
+    en_ejecucion: {
+        title: '¿Iniciar Ejecución?',
+        text: 'El equipo comenzará a realizar el trabajo registrado.',
+        confirmText: 'Sí, iniciar',
+        confirmColor: '#f59e0b',
+        successText: 'La OT está en ejecución.',
+    },
+    retroalimentacion: {
+        title: '¿Enviar a Retroalimentación?',
+        text: 'Se notificará al cliente para que evalúe el servicio recibido.',
+        confirmText: 'Sí, enviar',
+        confirmColor: '#8b5cf6',
+        successText: 'El cliente recibirá un correo para evaluar el servicio.',
+    },
+    cerrada: {
+        title: '¿Confirmar cierre definitivo?',
+        text: 'La OT quedará cerrada permanentemente y no podrá modificarse.',
+        confirmText: 'Sí, cerrar definitivamente',
+        confirmColor: '#6b7280',
+        successText: 'La orden de trabajo ha sido cerrada.',
+    },
+    cancelada: {
+        title: '¿Cancelar la Orden de Trabajo?',
+        text: 'La OT será cancelada. Esta acción no se puede deshacer.',
+        confirmText: 'Sí, cancelar',
+        confirmColor: '#ef4444',
+        successText: 'La orden de trabajo fue cancelada.',
+    },
 };
 
 // ---- COMPONENT ----
@@ -84,8 +136,6 @@ const DetalleOTV3 = () => {
     });
     const [cambiarEstado, { isLoading: loadingEstado }] = useCambiarEstadoV3Mutation();
 
-    const [showCheckModal, setShowCheckModal] = useState(false);
-
     const etapaActual = orden?.etapa_ui ?? 'preparacion';
     const currentStepIndex = ETAPA_STEP_INDEX[etapaActual] ?? 0;
 
@@ -99,21 +149,50 @@ const DetalleOTV3 = () => {
         label: u.nombre_usuario || u.email_usuario,
     }));
 
-    const handleCTA = async () => {
-        if (!orden || !avance) return;
-        await refetchAvance();
-        setShowCheckModal(true);
-    };
+    const ejecutarCambioEstado = async (proximoEstado: string) => {
+        if (!orden) return;
 
-    const handleConfirmarCambioEstado = async () => {
-        if (!orden || !avance?.proximo_estado) return;
+        const swalConfig = SWAL_CONFIRM[proximoEstado];
+        if (swalConfig) {
+            const confirmado = await confirmAlert({
+                title: swalConfig.title,
+                text: swalConfig.text,
+                confirmText: swalConfig.confirmText,
+                cancelText: 'Cancelar',
+                confirmColor: swalConfig.confirmColor,
+                icon: 'question',
+            });
+            if (!confirmado) return;
+        }
+
         try {
-            await cambiarEstado({ id: orden.id, estado: avance.proximo_estado as TEstadoOTV3 }).unwrap();
-            toast.success('Estado actualizado correctamente');
-            setShowCheckModal(false);
+            await cambiarEstado({ id: orden.id, estado: proximoEstado as TEstadoOTV3 }).unwrap();
+            if (swalConfig) {
+                toast.success(swalConfig.successText);
+            }
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
+    };
+
+    const handleCTA = async () => {
+        if (!orden) return;
+        const result = await refetchAvance();
+        const freshAvance = result.data;
+        if (!freshAvance) return;
+
+        // Sin bloqueadores: ir directo al SweetAlert sin pasar por el modal
+        if (
+            freshAvance.puede_avanzar &&
+            freshAvance.bloqueadores.length === 0 &&
+            freshAvance.proximo_estado
+        ) {
+            await ejecutarCambioEstado(freshAvance.proximo_estado);
+            return;
+        }
+
+        // Con bloqueadores o sin permiso: mostrar SweetAlert con detalle
+        await showBlockersAlert(freshAvance.bloqueadores);
     };
 
     const { data: bodegas = [] } = useGetBodegasQuery();
@@ -285,7 +364,14 @@ const DetalleOTV3 = () => {
                 )}
 
                 {/* Panel dinamico segun etapa */}
-                {etapaActual === 'preparacion' && (
+                {orden.estado === 'borrador' && (
+                    <PanelBorrador
+                        orden={orden}
+                        tecnicosOptions={tecnicosOptions}
+                        solicitantesOptions={receptoresOptions}
+                    />
+                )}
+                {orden.estado !== 'borrador' && etapaActual === 'preparacion' && (
                     <PanelPreparacion
                         orden={orden}
                         tecnicosOptions={tecnicosOptions}
@@ -293,8 +379,14 @@ const DetalleOTV3 = () => {
                         bodegasOptions={bodegasOptions}
                     />
                 )}
-                {etapaActual === 'ejecucion' && (
-                    <PanelEjecucion orden={orden} tecnicosOptions={tecnicosOptions} receptoresOptions={receptoresOptions} />
+                {orden.estado !== 'borrador' && etapaActual === 'ejecucion' && (
+                    <PanelEjecucion orden={orden} firmantesOptions={tecnicosOptions} receptoresOptions={receptoresOptions} />
+                )}
+                {etapaActual === 'retroalimentacion' && (
+                    <PanelRetroalimentacion orden={orden} />
+                )}
+                {etapaActual === 'por_facturar' && (
+                    <PanelPorFacturar orden={orden} />
                 )}
                 {(etapaActual === 'cierre' || etapaActual === 'cerrada') && (
                     <PanelCierre orden={orden} />
@@ -302,14 +394,6 @@ const DetalleOTV3 = () => {
                 {etapaActual === 'cancelada' && <PanelCierre orden={orden} />}
             </Container>
 
-            {/* Modal de verificacion de bloqueadores */}
-            <CheckBloqueadoresOTV3
-                isOpen={showCheckModal}
-                setIsOpen={setShowCheckModal}
-                avance={avance ?? null}
-                onConfirmar={handleConfirmarCambioEstado}
-                isLoading={loadingEstado}
-            />
         </PageWrapper>
     );
 };

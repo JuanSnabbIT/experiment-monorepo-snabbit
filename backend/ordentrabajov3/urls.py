@@ -7,6 +7,7 @@ from .views import (
     GastoOTV3ViewSet,
     HistorialEstadoOTV3ViewSet,
     OrdenDeTrabajoV3ViewSet,
+    PrefacturaOTV3ViewSet,
     SeguimientoOTV3ViewSet,
     TareaOTV3ViewSet,
 )
@@ -14,6 +15,7 @@ from .views import (
 # Router principal: /api/v3/ordenes/
 router = routers.DefaultRouter()
 router.register(r"ordenes", OrdenDeTrabajoV3ViewSet, basename="ordentrabajov3")
+router.register(r"prefacturas-otv3", PrefacturaOTV3ViewSet, basename="prefacturas-otv3")
 
 # Nested: /api/v3/ordenes/{orden_pk}/tareas/
 orden_router = routers.NestedDefaultRouter(router, r"ordenes", lookup="orden")

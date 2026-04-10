@@ -94,6 +94,38 @@ export const confirmAlert = async ({
     return result.isConfirmed;
 };
 
+type BlockerItem = {
+    mensaje: string;
+    detalle?: string[];
+};
+
+export const showBlockersAlert = async (bloqueadores: BlockerItem[]): Promise<void> => {
+    const theme = getSweetAlertTheme();
+    const isDark =
+        typeof document !== 'undefined' &&
+        document.documentElement.classList.contains('dark');
+    const borderColor = isDark ? '#7f1d1d' : '#fca5a5';
+    const bgColor = isDark ? 'rgba(127,29,29,0.2)' : 'rgba(254,226,226,0.4)';
+    const textColor = isDark ? '#fca5a5' : '#b91c1c';
+
+    const htmlContent = bloqueadores
+        .map((b) => {
+            const detalleHtml = b.detalle?.length
+                ? `<ul style="margin-top:4px;padding-left:16px;font-size:12px;opacity:0.85;">${b.detalle.map((d) => `<li>${d}</li>`).join('')}</ul>`
+                : '';
+            return `<div style="margin-bottom:8px;padding:8px 10px;border-radius:6px;border:1px solid ${borderColor};background:${bgColor};text-align:left;font-size:13px;color:${textColor};">&#x2715; ${b.mensaje}${detalleHtml}</div>`;
+        })
+        .join('');
+
+    await Swal.fire({
+        title: 'Hay elementos pendientes',
+        html: htmlContent,
+        icon: 'error',
+        confirmButtonText: 'Entendido',
+        ...theme,
+    });
+};
+
 export const confirmCritical = async ({
     title,
     text,

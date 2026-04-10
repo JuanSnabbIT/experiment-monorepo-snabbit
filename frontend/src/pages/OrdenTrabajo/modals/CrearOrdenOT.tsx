@@ -500,6 +500,7 @@ function CrearOrdenOT() {
                                     <div className='flex flex-col gap-2'>
                                         <div className='grid grid-cols-2 gap-2'>
                                             <Input
+                                                name='contacto_nombre'
                                                 placeholder='Nombre'
                                                 value={contactoNombre}
                                                 onChange={(e) =>
@@ -507,6 +508,7 @@ function CrearOrdenOT() {
                                                 }
                                             />
                                             <Input
+                                                name='contacto_apellido'
                                                 placeholder='Apellido'
                                                 value={contactoApellido}
                                                 onChange={(e) =>
@@ -515,6 +517,7 @@ function CrearOrdenOT() {
                                             />
                                         </div>
                                         <Input
+                                            name='contacto_email'
                                             type='email'
                                             placeholder='Email del contacto'
                                             value={contactoEmail}
@@ -525,7 +528,7 @@ function CrearOrdenOT() {
                                                 size='sm'
                                                 color='amber'
                                                 variant='solid'
-                                                disabled={creandoContacto}
+                                                isDisable={creandoContacto}
                                                 onClick={handleCrearContacto}>
                                                 {creandoContacto ? 'Guardando...' : 'Guardar contacto'}
                                             </Button>
