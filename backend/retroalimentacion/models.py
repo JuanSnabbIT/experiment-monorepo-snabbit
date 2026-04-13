@@ -45,23 +45,20 @@ class Retroalimentacion(ModeloBase):
 
     def generar_preguntas_aplicables(self):
         if self.orden_trabajo_v3_id:
-            # V3: iterar TareaOTV3 de la orden
-            from ordentrabajov3.models import TareaOTV3  # evitar circular import
-
-            tareas = TareaOTV3.objects.filter(orden=self.orden_trabajo_v3)
-            for tarea in tareas:
-                content_type = ContentType.objects.get_for_model(tarea)
-                preguntas = PreguntaEnRetroalimentacion.objects.filter(
+            # V3: preguntas genericas asociadas a la OT (max 5)
+            otv3 = self.orden_trabajo_v3
+            content_type = ContentType.objects.get_for_model(otv3)
+            preguntas = (
+                PreguntaEnRetroalimentacion.objects.para_modelo(otv3)
+                .order_by("id")[:5]
+            )
+            for pregunta in preguntas:
+                RetroalimentacionAplicada.objects.get_or_create(
+                    retroalimentacion=self,
                     content_type=content_type,
-                    activo=True,
+                    object_id=otv3.pk,
+                    pregunta=pregunta,
                 )
-                for pregunta in preguntas:
-                    RetroalimentacionAplicada.objects.get_or_create(
-                        retroalimentacion=self,
-                        content_type=content_type,
-                        object_id=tarea.pk,
-                        pregunta=pregunta,
-                    )
         else:
             # V2: SoporteTecnico es el "trabajo" directamente
             from ordentrabajov2.models import SoporteTecnico  # evitar circular import

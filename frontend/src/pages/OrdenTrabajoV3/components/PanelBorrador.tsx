@@ -9,7 +9,9 @@ import { useUpdateOrdenV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTra
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
+import { useState } from 'react';
 import { toast } from 'react-toastify';
+import CrearSolicitanteProspectoOTV3 from '../modals/CrearSolicitanteProspectoOTV3';
 
 interface IProps {
     orden: IOrdenDeTrabajoV3;
@@ -19,6 +21,7 @@ interface IProps {
 
 const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) => {
     const [updateOrden, { isLoading }] = useUpdateOrdenV3Mutation();
+    const [crearSolicitanteOpen, setCrearSolicitanteOpen] = useState(false);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -51,6 +54,10 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
             }
         },
     });
+
+    const puedeCrearSolicitante =
+        orden.cliente_es_prospecto === true &&
+        (solicitantesOptions.length === 0 || !orden.cliente_solicitante);
 
     return (
         <Card>
@@ -136,7 +143,11 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             name='cliente_solicitante'
                             options={solicitantesOptions}
                             isClearable
-                            placeholder='Seleccionar solicitante...'
+                            placeholder={
+                                orden.cliente_es_prospecto && solicitantesOptions.length === 0
+                                    ? 'No hay solicitantes, crea uno'
+                                    : 'Seleccionar solicitante...'
+                            }
                             value={
                                 solicitantesOptions.find(
                                     (o) => Number(o.value) === formik.values.cliente_solicitante,
@@ -149,6 +160,18 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                                 )
                             }
                         />
+                        {puedeCrearSolicitante && (
+                            <div className='mt-2'>
+                                <Button
+                                    size='sm'
+                                    variant='outline'
+                                    color='amber'
+                                    icon='HeroPlus'
+                                    onClick={() => setCrearSolicitanteOpen(true)}>
+                                    Crear solicitante
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Descripcion */}
@@ -182,6 +205,15 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                     </div>
                 </div>
             </CardBody>
+
+            {crearSolicitanteOpen && (
+                <CrearSolicitanteProspectoOTV3
+                    isOpen={crearSolicitanteOpen}
+                    setIsOpen={setCrearSolicitanteOpen}
+                    ordenId={orden.id}
+                    clienteId={orden.cliente}
+                />
+            )}
         </Card>
     );
 };

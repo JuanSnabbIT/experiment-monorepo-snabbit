@@ -295,13 +295,17 @@ export const ordenTrabajoApi = RtkQueryService.injectEndpoints({
         }),
         responderRetroalimentacionPublic: builder.mutation<
             Record<string, unknown>,
-            { uuid: string; items: { id: number; cantidad_estrellas: number; observaciones?: string }[] }
+            {
+                uuid: string;
+                items: { id: number; cantidad_estrellas: number; observaciones?: string }[];
+                observacion_retroalimentacion?: string | null;
+            }
         >({
-            query: ({ uuid, items }) => ({
+            query: ({ uuid, items, observacion_retroalimentacion }) => ({
                 url: `/api/public/retroalimentacion-otv3/${uuid}/responder/`,
                 method: 'post',
                 headers: { 'Content-Type': 'application/json' },
-                data: JSON.stringify({ items }),
+                data: JSON.stringify({ items, observacion_retroalimentacion }),
                 isLoginRequest: true,
             }),
             invalidatesTags: ['OrdenTrabajoRetroalimentaciones'],

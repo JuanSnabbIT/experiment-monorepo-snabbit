@@ -327,6 +327,7 @@ export interface IGuardadoParcialRetroalimentacion {
         cantidad_estrellas: number;
         observaciones: string;
     }[];
+    observacion_retroalimentacion?: string;
 }
 
 export interface IDetalleRetroalimentacionOT {

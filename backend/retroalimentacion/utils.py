@@ -89,11 +89,11 @@ def crear_retroalimentacion_y_enviar_correo(orden):
 def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
     """
     Crea UNA retroalimentacion por OT V3 dirigida al cliente_solicitante.
-    Genera preguntas aplicadas por cada TareaOTV3 de la orden.
+    Genera preguntas genericas aplicadas por la OT (max 5).
     Envia email con enlace publico para que el cliente evalue el servicio.
     Tiene vencimiento de 72 horas.
     """
-    from ordentrabajov3.models import OrdenDeTrabajoV3, TareaOTV3  # evitar circular import
+    from ordentrabajov3.models import OrdenDeTrabajoV3  # evitar circular import
 
     try:
         otv3 = OrdenDeTrabajoV3.objects.select_related(
@@ -130,18 +130,19 @@ def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
         fecha_vencimiento=timezone.now() + timedelta(hours=72),
     )
 
-    # Generar preguntas aplicadas por cada TareaOTV3
-    tareas = TareaOTV3.objects.filter(orden=otv3)
-    for tarea in tareas:
-        preguntas = PreguntaEnRetroalimentacion.objects.para_modelo(tarea)
-        ct = ContentType.objects.get_for_model(tarea)
-        for pregunta in preguntas:
-            RetroalimentacionAplicada.objects.get_or_create(
-                retroalimentacion=retro,
-                content_type=ct,
-                object_id=tarea.pk,
-                pregunta=pregunta,
-            )
+    # Generar preguntas genericas aplicadas por la OT V3 (max 5)
+    preguntas = (
+        PreguntaEnRetroalimentacion.objects.para_modelo(otv3)
+        .order_by("id")[:5]
+    )
+    ct = ContentType.objects.get_for_model(otv3)
+    for pregunta in preguntas:
+        RetroalimentacionAplicada.objects.get_or_create(
+            retroalimentacion=retro,
+            content_type=ct,
+            object_id=otv3.pk,
+            pregunta=pregunta,
+        )
 
     # Construir URL publica
     frontend_url = getattr(settings, "FRONTEND_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
@@ -154,7 +155,7 @@ def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
         f"<strong>{empresa_nombre}</strong>.</p>"
         "<p>Nos gustaria conocer su opinion sobre el servicio recibido. "
         "Su retroalimentacion nos ayuda a mejorar continuamente.</p>"
-        "<p>La encuesta toma menos de 2 minutos y expira en 72 horas.</p>"
+        "<p>La encuesta es breve (5 preguntas) y expira en 72 horas.</p>"
         f"<p style='font-size:12px;color:#888;word-break:break-all;'>Si el boton no funciona, copie este enlace en su navegador:<br>"
         f"<a href='{url}'>{url}</a></p>"
     )

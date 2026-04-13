@@ -288,6 +288,7 @@ export interface IOrdenDeTrabajoV3 extends IOrdenDeTrabajoV3List {
     sucursal: number | null;
     cliente_solicitante: number | null;
     cliente_solicitante_detalle: IClienteSolicitanteDetalleOTV3 | null;
+    cliente_es_prospecto: boolean;
     direccion: string;
     notas_internas: string;
     tareas: ITareaOTV3[];

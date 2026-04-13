@@ -86,7 +86,8 @@ class PreguntaEnRetroalimentacion(ModeloBase):
             Q(app_label='visitas', model='asistenciausuario') |
             Q(app_label='visitas', model='entregadeequipo') |
             Q(app_label='ordentrabajov2', model='soportetecnico') |
-            Q(app_label='ordentrabajov3', model='tareaotv3')
+            Q(app_label='ordentrabajov3', model='tareaotv3') |
+            Q(app_label='ordentrabajov3', model='ordendetrabajov3')
         )
     )
     activo = models.BooleanField(default=True)

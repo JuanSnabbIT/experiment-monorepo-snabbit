@@ -89,7 +89,7 @@ const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, firmantesOptions = [
                                     name='firma_recibido_por'
                                     options={firmantesOptions}
                                     isClearable
-                                    placeholder='Selecciona el receptor...'
+                                    placeholder='Selecciona el tecnico...'
                                     value={receptorSeleccionado}
                                     onChange={(opt) =>
                                         setReceptorSeleccionado((opt as TSelectOption) ?? null)

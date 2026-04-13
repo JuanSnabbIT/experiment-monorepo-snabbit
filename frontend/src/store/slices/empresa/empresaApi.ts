@@ -155,6 +155,22 @@ export const empresaApi = RtkQueryService.injectEndpoints({
                       ]
                     : [{ type: 'Clientes' as const, id: id_empresa ?? 'LIST' }],
         }),
+        getMisProspectos: builder.query<IRelacionEmpresa[], number | string | undefined>({
+            query: (id_empresa) => ({
+                url: `/api/empresas/${id_empresa}/mis-prospectos/`,
+                method: 'get',
+            }),
+            providesTags: (result, _error, id_empresa) =>
+                result
+                    ? [
+                          { type: 'Clientes' as const, id: `PROSPECTOS-${id_empresa ?? 'LIST'}` },
+                          ...result.map((cliente) => ({
+                              type: 'Cliente' as const,
+                              id: cliente.id,
+                          })),
+                      ]
+                    : [{ type: 'Clientes' as const, id: `PROSPECTOS-${id_empresa ?? 'LIST'}` }],
+        }),
         getDetalleCliente: builder.query<IRelacionEmpresa, number | string>({
             query: (id_relacion) => ({
                 url: `/api/relaciones-empresa/${id_relacion}/`,
@@ -245,6 +261,7 @@ export const {
     useGetUltimasActividadesUsuarioQuery,
     useGetSelectEmpresasQuery,
     useGetMisClientesQuery,
+    useGetMisProspectosQuery,
     useGetDetalleClienteQuery,
     useGetUsuariosClienteQuery,
     useGetUsuariosTodaLaEmpresaQuery,

@@ -1,4 +1,6 @@
 from django.utils import timezone
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
@@ -6,6 +8,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from core.models import PersonalizacionUsuario
+from empresas.models import RelacionEmpresa, SucursalEmpresa, UsuarioEmpresa
 from recursos.models import Equipo, UsuarioEquipo
 
 from .estados_modelo import (
@@ -40,6 +43,7 @@ from .serializers import (
     OrdenDeTrabajoV3DetalleSerializer,
     OrdenDeTrabajoV3ListSerializer,
     OrdenDeTrabajoV3WriteSerializer,
+    CrearSolicitanteProspectoOTV3Serializer,
     PrefacturaOTV3Serializer,
     PrefacturaOTV3WriteSerializer,
     SeguimientoOTV3Serializer,
@@ -104,6 +108,69 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
         tipo_servicio = serializer.validated_data.get("tipo_servicio")
         modalidad = TIPO_SERVICIO_A_MODALIDAD.get(tipo_servicio, "presencial")
         serializer.save(empresa=empresa, modalidad=modalidad)
+
+    @action(detail=True, methods=["post"], url_path="crear-solicitante-prospecto")
+    def crear_solicitante_prospecto(self, request, pk=None):
+        ot = self.get_object()
+
+        if ot.estado != "borrador":
+            return Response(
+                {"detail": "Solo se puede crear solicitante cuando la OT está en borrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        es_prospecto = RelacionEmpresa.objects.filter(
+            prestador_servicios=ot.empresa,
+            cliente=ot.cliente,
+            tipo_relacion="prospecto",
+        ).exists()
+        if not es_prospecto:
+            return Response(
+                {"detail": "El cliente de esta OT no es un prospecto."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        input_serializer = CrearSolicitanteProspectoOTV3Serializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        data = input_serializer.validated_data
+
+        User = get_user_model()
+        email = data["email"].strip().lower()
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {"detail": "El usuario con este email ya existe."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        sucursal = (
+            SucursalEmpresa.objects.filter(empresa=ot.cliente, nombre__iexact="Casa Matriz").first()
+            or SucursalEmpresa.objects.filter(empresa=ot.cliente).order_by("id").first()
+        )
+        if not sucursal:
+            return Response(
+                {"detail": "El prospecto no tiene sucursales disponibles para asociar el solicitante."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        with transaction.atomic():
+            user = User.objects.create(
+                email=email,
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                is_active=False,
+                usuario_nuevo=True,
+                celular=(data.get("celular") or None),
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+
+            usuario_empresa = UsuarioEmpresa.objects.create(usuario=user, sucursal=sucursal)
+
+            ot.cliente_solicitante = usuario_empresa
+            ot.save(update_fields=["cliente_solicitante"])
+
+        serializer = OrdenDeTrabajoV3DetalleSerializer(ot, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
     def cambiar_estado(self, request, pk=None):

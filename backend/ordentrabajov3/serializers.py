@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from empresas.models import RelacionEmpresa
 from .models import (
     OrdenDeTrabajoV3,
     TareaOTV3,
@@ -422,12 +423,14 @@ class OrdenDeTrabajoV3DetalleSerializer(OrdenDeTrabajoV3ListSerializer):
     ordenes_compra_vinculadas = OrdenCompraResumenOTV3Serializer(source="ordenes_compra", many=True, read_only=True)
     cotizaciones_detalle = serializers.SerializerMethodField()
     cliente_solicitante_detalle = ClienteSolicitanteDetalleSerializer(source="cliente_solicitante", read_only=True)
+    cliente_es_prospecto = serializers.SerializerMethodField()
 
     class Meta(OrdenDeTrabajoV3ListSerializer.Meta):
         fields = OrdenDeTrabajoV3ListSerializer.Meta.fields + [
             "descripcion", "contrato", "sucursal",
             "cliente_solicitante",
             "cliente_solicitante_detalle",
+            "cliente_es_prospecto",
             "direccion", "notas_internas",
             "tareas", "asignaciones", "seguimientos",
             "gastos", "adjuntos", "historial_estados",
@@ -441,6 +444,13 @@ class OrdenDeTrabajoV3DetalleSerializer(OrdenDeTrabajoV3ListSerializer):
         from django.db.models import Sum
         result = obj.gastos.aggregate(total=Sum("monto_total"))
         return result["total"] or 0
+
+    def get_cliente_es_prospecto(self, obj):
+        return RelacionEmpresa.objects.filter(
+            prestador_servicios=obj.empresa,
+            cliente=obj.cliente,
+            tipo_relacion="prospecto",
+        ).exists()
 
     def get_cotizaciones_detalle(self, obj):
         MONEDA_LABEL = {"1": "USD", "2": "CLP", "3": "UF"}
@@ -507,6 +517,13 @@ class OrdenDeTrabajoV3WriteSerializer(serializers.ModelSerializer):
             "empresa": {"required": False},
             "modalidad": {"required": False},
         }
+
+
+class CrearSolicitanteProspectoOTV3Serializer(serializers.Serializer):
+    email = serializers.EmailField()
+    first_name = serializers.CharField(max_length=250)
+    last_name = serializers.CharField(max_length=250)
+    celular = serializers.CharField(max_length=17, required=False, allow_blank=True, allow_null=True)
 
 
 class PrefacturaOTV3Serializer(serializers.ModelSerializer):
