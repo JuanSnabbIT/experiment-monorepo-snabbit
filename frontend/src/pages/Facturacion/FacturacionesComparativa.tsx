@@ -202,10 +202,6 @@ const FacturacionesComparativa = () => {
                 toast.warning('Debes seleccionar una empresa cliente.');
                 return;
             }
-            if (!selectedContratoId) {
-                toast.warning('Debes seleccionar un contrato.');
-                return;
-            }
             if (visitasPrefactura.exceso_prefactura > 0 && precioVisitaAdicional <= 0) {
                 toast.warning(
                     'Debes indicar un precio mayor a 0 para las visitas adicionales antes de crear la prefactura.',
@@ -265,7 +261,7 @@ const FacturacionesComparativa = () => {
 
             const itemsJsonPayload = {
                 cliente_id: selectedEmpresaClienteId,
-                contrato_id: selectedContratoId,
+                contrato_id: selectedContratoId || null,
                 ots_incluidas: selectedOts,
                 items: itemsFacturables,
                 resumen: {
@@ -1051,7 +1047,7 @@ const FacturacionesComparativa = () => {
                     {/* DROPDOWN CONTRATOS */}
                     <div className='flex flex-col gap-2'>
                         <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                            Selecciona Contrato
+                            Contrato <span className='font-normal text-gray-400'>(opcional)</span>
                         </label>
                         <select
                             value={selectedContratoId}
@@ -1062,7 +1058,7 @@ const FacturacionesComparativa = () => {
                                     ? 'cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                                     : 'bg-white dark:bg-gray-900 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
                             }`}>
-                            <option value=''>-- Selecciona un contrato --</option>
+                            <option value=''>-- Sin contrato --</option>
                             {contratosActivosCliente.map((contrato) => (
                                 <option key={contrato.id} value={contrato.id}>
                                     #{contrato.id} - {contrato.nombre}

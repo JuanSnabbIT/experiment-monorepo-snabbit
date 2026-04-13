@@ -20,6 +20,7 @@ from items.serializers import ImagenItemSerializer, ItemEmpresaSerializer
 from ordentrabajov2.models import OrdenDeTrabajo, SoporteTecnico
 from recursos.models import Equipo
 from recursos.serializers import EquipoSerializer
+from cotizaciones.models import Cotizacion
 from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -1341,6 +1342,99 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         })
 
 
+    # Transiciones válidas para cambiar estado de una OC (grupo proveedor).
+    # Quedan excluidas las transiciones que requieren acción adicional:
+    #   1 → 3: usa pasar_enviado_proveedor (requiere email al proveedor)
+    #   3/4 → 4/5: usa completar-y-crear-guia (afecta inventario)
+    _TRANSICIONES_VALIDAS_OC = {
+        "-": ["0"],       # Borrador → Pendiente de aprobación
+        "0": ["1", "2", "6"],  # Pendiente → Aprobada / Rechazada / Cancelada
+        "1": ["2", "6"],  # Aprobada → Rechazada / Cancelada
+        "2": ["0", "6"],  # Rechazada → Pendiente de aprobación / Cancelada
+        "5": ["7"],       # Completada → Cerrada
+    }
+
+    @action(detail=True, methods=["post"], url_path="cambiar-estado")
+    def cambiar_estado(self, request, pk=None):
+        """
+        Cambia el estado administrativo de una OC (grupo proveedor) con transiciones validadas.
+        No afecta inventario ni envía emails. Para esas operaciones usar los endpoints
+        especializados: pasar_enviado_proveedor y completar-y-crear-guia.
+        """
+        orden = self.get_object()
+        nuevo_estado = request.data.get("estado")
+        observacion = request.data.get("observacion", "")
+
+        if not nuevo_estado:
+            return Response(
+                {"detail": 'El campo "estado" es obligatorio.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        estados_permitidos = self._TRANSICIONES_VALIDAS_OC.get(orden.estado, [])
+        if nuevo_estado not in estados_permitidos:
+            mapa = dict(ESTADOS_OC)
+            estado_actual_label = mapa.get(orden.estado, orden.estado)
+            nuevo_estado_label = mapa.get(nuevo_estado, nuevo_estado)
+            permitidos_labels = [mapa.get(e, e) for e in estados_permitidos] or ["ninguna"]
+            return Response(
+                {
+                    "detail": (
+                        f"No se puede pasar de '{estado_actual_label}' a '{nuevo_estado_label}'. "
+                        f"Transiciones permitidas desde este estado: {', '.join(permitidos_labels)}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        orden.estado = nuevo_estado
+        if observacion:
+            orden._change_reason = observacion
+        orden.save()
+
+        return Response(
+            {
+                "id": orden.id,
+                "estado": orden.estado,
+                "estado_label": orden.get_estado_display(),
+                "oca_id": orden.oc_agrupada_id,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="recepcionar-consumo-directo")
+    def recepcionar_consumo_directo(self, request, pk=None):
+        """
+        Marca como completada (estado=5) una OC de consumo directo.
+        No requiere ItemOrdenCompraEnStock ni genera guía de salida.
+        Solo válido cuando consumo_directo=True y estado es '3' o '4'.
+        """
+        orden = self.get_object()
+        if not orden.consumo_directo:
+            return Response(
+                {"detail": "Esta OC no está marcada como consumo directo."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if orden.estado not in ["3", "4"]:
+            mapa = dict(ESTADOS_OC)
+            return Response(
+                {"detail": f"No se puede recepcionar desde el estado '{mapa.get(orden.estado, orden.estado)}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        orden.estado = "5"
+        orden._change_reason = "Recepcionado como consumo directo"
+        orden.save(update_fields=["estado"])
+        return Response(
+            {
+                "id": orden.id,
+                "estado": orden.estado,
+                "estado_label": orden.get_estado_display(),
+                "oca_id": orden.oc_agrupada_id,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class ItemEnOrdenCompraViewSet(viewsets.ModelViewSet):
     queryset = ItemEnOrdenCompra.objects.all()
     serializer_class = ItemEnOrdenCompraSerializer
@@ -1661,18 +1755,64 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         return response
 
     def create(self, request, *args, **kwargs):
-        cliente_id = request.data.get("cliente")
+        payload = request.data.copy()
+        cliente_id = payload.get("cliente")
         if not cliente_id:
-            return Response(
-                {"detail": "Debes seleccionar una empresa cliente."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            cliente_id = None
 
         usuario = obtener_usuario_empresa(request.user)
         if not usuario or not usuario.sucursal_id:
             return Response(
                 {"detail": "No tienes una sucursal principal asignada."},
                 status=status.HTTP_403_FORBIDDEN,
+            )
+
+        orden_trabajo = None
+        orden_trabajo_id = payload.get("orden_trabajo")
+        if orden_trabajo_id not in (None, ""):
+            try:
+                orden_trabajo_id = int(orden_trabajo_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "La OT debe ser un ID valido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            orden_trabajo = OrdenDeTrabajo.objects.select_related("cliente", "empresa").filter(
+                pk=orden_trabajo_id
+            ).first()
+            if not orden_trabajo:
+                return Response(
+                    {"detail": "La OT indicada no existe."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            payload["cliente"] = orden_trabajo.cliente_id
+            cliente_id = orden_trabajo.cliente_id
+
+        cotizacion_origen = None
+        cotizacion_origen_id = payload.get("cotizacion_origen")
+        if cotizacion_origen_id not in (None, ""):
+            try:
+                cotizacion_origen_id = int(cotizacion_origen_id)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "La cotizacion de origen debe ser un ID valido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            cotizacion_origen = Cotizacion.objects.select_related("cliente", "empresa").filter(
+                pk=cotizacion_origen_id
+            ).first()
+            if not cotizacion_origen:
+                return Response(
+                    {"detail": "La cotizacion de origen indicada no existe."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            payload["cliente"] = cotizacion_origen.cliente_id
+            cliente_id = cotizacion_origen.cliente_id
+
+        if not cliente_id:
+            return Response(
+                {"detail": "Debes seleccionar una empresa cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -1703,7 +1843,36 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        entregado_a_id = request.data.get("entregado_a")
+        if cotizacion_origen:
+            if cotizacion_origen.cliente_id != empresa_cliente.id:
+                return Response(
+                    {"detail": "La cotizacion de origen no pertenece al cliente seleccionado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if cotizacion_origen.empresa_id != empresa_prestador.id:
+                return Response(
+                    {"detail": "La cotizacion de origen no pertenece a tu empresa."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if orden_trabajo:
+            if orden_trabajo.cliente_id != empresa_cliente.id:
+                return Response(
+                    {"detail": "La OT no pertenece al cliente seleccionado."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if orden_trabajo.empresa_id != empresa_prestador.id:
+                return Response(
+                    {"detail": "La OT no pertenece a tu empresa."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if cotizacion_origen and cotizacion_origen.cliente_id != orden_trabajo.cliente_id:
+                return Response(
+                    {"detail": "La cotizacion de origen no pertenece al cliente de la OT."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        entregado_a_id = payload.get("entregado_a")
         if entregado_a_id:
             try:
                 entregado_a_id = int(entregado_a_id)
@@ -1731,9 +1900,12 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 )
 
         # Establecer creado_por antes de crear
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        guia = serializer.instance
+        if guia and guia.orden_trabajo_id and guia.cotizacion_origen_id:
+            guia.orden_trabajo.cotizaciones.add(guia.cotizacion_origen)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -1872,6 +2044,30 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+                # 0) Validar que los items serializados tengan número de serie asignado
+                items_sin_serie = []
+                for item_guia in ItemsGuiaSalida.objects.filter(
+                    guia=guia_salida, individualizado=True
+                ).select_related("stock_item__item"):
+                    numero_serie = item_guia.numero_serie or {}
+                    if not (
+                        numero_serie.get("serie")
+                        and numero_serie.get("modelo")
+                        and numero_serie.get("object_id")
+                    ):
+                        items_sin_serie.append(str(item_guia.stock_item.item))
+                if items_sin_serie:
+                    nombres = ", ".join(items_sin_serie)
+                    return Response(
+                        {
+                            "detail": (
+                                f"Los siguientes items serializados no tienen número de serie asignado: "
+                                f"{nombres}. Asigna la serie antes de aprobar la guía."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 # 1) Validar cantidades
                 for item_guia in ItemsGuiaSalida.objects.filter(
                     guia=guia_salida
@@ -1908,6 +2104,10 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 guia_salida.estado = "FR"
                 guia_salida.firma_recibido_por = firma_recibido_por
                 guia_salida.fecha_firma_recibido_por = timezone.now()
+                firma_base64 = request.data.get("firma_base64", "").strip()
+                if firma_base64:
+                    guia_salida.firma_entrega = firma_base64
+                    guia_salida.fecha_firma_entrega = timezone.now()
                 if recibido_por:
                     user_recibido = UsuarioEmpresa.objects.get(pk=recibido_por)
                     guia_salida.recibido_por = user_recibido
@@ -2739,12 +2939,28 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         stock_item = item_guia.stock_item
 
         # Lock: Bloquear registros de OC para evitar race condition
-        ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
+        qs_oc = ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
+        if not qs_oc.exists():
+            return Response(
+                {"detail": "No existen registros de compra asociados a este stock item."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        from bodegas.series import liberar_series_por_item_guia, reservar_serie
+        from bodegas.series import (
+            agregar_serie_a_stock,
+            liberar_series_por_item_guia,
+            reservar_serie,
+            serie_existe_en_stock,
+        )
 
         # Primero: Liberar cualquier serie previamente asignada a este item_guia
         liberar_series_por_item_guia(stock_item, item_guia.id)
+
+        # Si la serie no está registrada en stock, registrarla automáticamente.
+        # Ocurre cuando el item fue recepcionado sin asignarle series previas
+        # y el usuario ingresa el número de serie directamente al crear la guía.
+        if not serie_existe_en_stock(stock_item, serie):
+            agregar_serie_a_stock(qs_oc.first(), serie)
 
         # Segundo: Reservar la nueva serie
         reservada, motivo = reservar_serie(stock_item, serie, item_guia.id)
@@ -3658,4 +3874,3 @@ class OrdenCompraAgrupadaViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(agrupada)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-

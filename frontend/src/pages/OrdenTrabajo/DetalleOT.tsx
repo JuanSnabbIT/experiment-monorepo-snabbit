@@ -21,6 +21,7 @@ import {
     useAppSelector,
     usuarioEmpresaLogeadoThunk,
 } from '@/store';
+import { useGetContratosActivosClienteQuery } from '@/store/slices/contratos/contratoApi';
 import { selectEmpresasThunk } from '@/store/slices/empresa/empresaSlice';
 import {
     useCreateHistorialCambioMutation,
@@ -30,7 +31,6 @@ import {
     useGetHistorialSimpleQuery,
     useUpdateOrdenTrabajoMutation,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
-import { useGetContratosActivosClienteQuery } from '@/store/slices/contratos/contratoApi';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
@@ -46,6 +46,10 @@ import ListaServiciosOT from './components/ListaServiciosOT';
 import ListaSoportesTecnicosOT from './components/ListaSoportesTecnicosOT';
 import SeguimientosOT from './components/SeguimientosOT';
 
+import {
+    buildPrefacturaOTCreatePath,
+    buildPrefacturaOTDetailPath,
+} from '@/pages/Facturacion/prefacturacion.shared';
 import MarqueeCompletibilidad from './components/MarqueeCompletibilidad';
 import RendicionesOT from './components/RendicionesOT';
 import RetroalimentacionesOT from './components/RetroalimentacionesOT';
@@ -53,10 +57,29 @@ import SeguimientoOTDropdown from './components/SeguimientoOTDropdown';
 import UsuariosVinculadosOT from './components/UsuariosVinculadosOT';
 import CerrarOT from './modals/CerrarOT';
 import CompletarOT from './modals/CompletarOT';
-import {
-    buildPrefacturaOTCreatePath,
-    buildPrefacturaOTDetailPath,
-} from '@/pages/Facturacion/prefacturacion.shared';
+
+type TabDef = { id: string; label: string };
+
+const ALL_TAB_DEFS: TabDef[] = [
+    { id: 'Trabajos en OT', label: 'Trabajos en OT' },
+    { id: 'Servicios Generales', label: 'Servicios Generales' },
+    { id: 'Compras', label: 'Compras' },
+    { id: 'Adjuntos', label: 'Adjuntos' },
+    { id: 'Historial de cambios', label: 'Historial de cambios' },
+    { id: 'Insumos', label: 'Insumos' },
+    { id: 'Comentarios', label: 'Comentarios' },
+    { id: 'Fotos', label: 'Fotos' },
+    { id: 'Usuarios', label: 'Usuarios' },
+    { id: 'Retroalimentaciones', label: 'Retroalimentaciones' },
+    { id: 'GastosOperativos', label: 'Gastos Operativos' },
+];
+
+const ETAPA_PRIMARY_TABS: Record<string, string[]> = {
+    preparacion: ['Usuarios', 'Compras', 'Insumos', 'Adjuntos'],
+    ejecucion: ['Trabajos en OT', 'Servicios Generales', 'Comentarios', 'Fotos', 'Compras'],
+    cierre: ['Retroalimentaciones', 'GastosOperativos', 'Historial de cambios'],
+    cerrada: ['Historial de cambios', 'Retroalimentaciones'],
+};
 
 const DetalleOT = () => {
     const dispatch = useAppDispatch();
@@ -146,10 +169,22 @@ const DetalleOT = () => {
 
             if (tabParam && tabMap[tabParam]) {
                 setActiveComponent(tabMap[tabParam]);
-            } else if (detalleOrdenTrabajo.tipo_servicio === 'general') {
-                setActiveComponent('Servicios Generales');
             } else {
-                setActiveComponent('Trabajos en OT');
+                // Tab por defecto según etapa_ui; dentro de each etapa respeta tipo_servicio
+                const etapa = detalleOrdenTrabajo.etapa_ui;
+                const isGeneral = detalleOrdenTrabajo.tipo_servicio === 'general';
+                if (etapa === 'preparacion') {
+                    setActiveComponent('Usuarios');
+                } else if (etapa === 'ejecucion') {
+                    setActiveComponent(isGeneral ? 'Servicios Generales' : 'Trabajos en OT');
+                } else if (etapa === 'cierre') {
+                    setActiveComponent('Retroalimentaciones');
+                } else if (etapa === 'cerrada') {
+                    setActiveComponent('Historial de cambios');
+                } else {
+                    // Fallback si etapa_ui no está disponible todavía
+                    setActiveComponent(isGeneral ? 'Servicios Generales' : 'Trabajos en OT');
+                }
             }
 
             if (detalleOrdenTrabajo.tipo_servicio !== 'general') {
@@ -414,9 +449,11 @@ const DetalleOT = () => {
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='grid grid-cols-1 gap-4'>
-                    {detalleOrdenTrabajo && detalleOrdenTrabajo.estado === 'en_proceso' && (
-                        <MarqueeCompletibilidad />
-                    )}
+                    {detalleOrdenTrabajo &&
+                        (detalleOrdenTrabajo.estado === 'en_proceso' ||
+                            detalleOrdenTrabajo.estado === 'facturada') && (
+                            <MarqueeCompletibilidad />
+                        )}
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
@@ -717,8 +754,29 @@ const DetalleOT = () => {
                                         </div>
                                         <div className='w-full'>
                                             <Badge>Estado</Badge>
-                                            <div className='ml-4'>
-                                                {detalleOrdenTrabajo?.estado_label}
+                                            <div className='ml-4 flex flex-wrap items-center gap-2'>
+                                                <span>{detalleOrdenTrabajo?.estado_label}</span>
+                                                {detalleOrdenTrabajo?.etapa_ui && (
+                                                    <Badge
+                                                        color={
+                                                            detalleOrdenTrabajo.etapa_ui === 'preparacion'
+                                                                ? 'amber'
+                                                                : detalleOrdenTrabajo.etapa_ui === 'ejecucion'
+                                                                  ? 'blue'
+                                                                  : detalleOrdenTrabajo.etapa_ui === 'cierre'
+                                                                    ? 'violet'
+                                                                    : 'zinc'
+                                                        }
+                                                        className='text-xs'>
+                                                        {detalleOrdenTrabajo.etapa_ui === 'preparacion'
+                                                            ? 'Preparación'
+                                                            : detalleOrdenTrabajo.etapa_ui === 'ejecucion'
+                                                              ? 'Ejecución'
+                                                              : detalleOrdenTrabajo.etapa_ui === 'cierre'
+                                                                ? 'Cierre'
+                                                                : 'Cerrada'}
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
                                         <div className='w-full'>
@@ -889,253 +947,60 @@ const DetalleOT = () => {
                     )}
                     <Card>
                         <CardBody>
-                            <div className='flex flex-row gap-4 overflow-auto'>
-                                {detalleOrdenTrabajo?.tipo_servicio === 'general' ? (
-                                    <Button
-                                        {...(activeComponent === 'Servicios Generales'
-                                            ? {
-                                                  size: 'sm',
-                                                  rounded: 'rounded-full',
-                                                  className: 'border',
-                                                  isActive: true,
-                                                  color: 'blue',
-                                                  colorIntensity: '500',
-                                                  variant: 'solid',
-                                              }
-                                            : {
-                                                  size: 'sm',
-                                                  color: 'zinc',
-                                                  rounded: 'rounded-full',
-                                                  className: 'border',
-                                              })}
-                                        onClick={() => {
-                                            setActiveComponent('Servicios Generales');
-                                        }}>
-                                        Servicios Generales
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        {...(activeComponent === 'Trabajos en OT'
-                                            ? {
-                                                  size: 'sm',
-                                                  rounded: 'rounded-full',
-                                                  className: 'border',
-                                                  isActive: true,
-                                                  color: 'blue',
-                                                  colorIntensity: '500',
-                                                  variant: 'solid',
-                                              }
-                                            : {
-                                                  size: 'sm',
-                                                  color: 'zinc',
-                                                  rounded: 'rounded-full',
-                                                  className: 'border',
-                                              })}
-                                        onClick={() => {
-                                            setActiveComponent('Trabajos en OT');
-                                        }}>
-                                        Trabajos en OT
-                                    </Button>
-                                )}
-                                <Button
-                                    {...(activeComponent === 'Compras'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Compras');
-                                    }}>
-                                    Compras
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Adjuntos'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Adjuntos');
-                                    }}>
-                                    Adjuntos
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Historial de cambios'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Historial de cambios');
-                                    }}>
-                                    Historial de cambios
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Insumos'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Insumos');
-                                    }}>
-                                    Insumos
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Comentarios'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Comentarios');
-                                    }}>
-                                    Comentarios
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Fotos'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Fotos');
-                                    }}>
-                                    Fotos
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Usuarios'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Usuarios');
-                                    }}>
-                                    Usuarios
-                                </Button>
-                                <Button
-                                    {...(activeComponent === 'Retroalimentaciones'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('Retroalimentaciones');
-                                    }}>
-                                    Retroalimentaciones
-                                </Button>
-
-                                <Button
-                                    {...(activeComponent === 'GastosOperativos'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveComponent('GastosOperativos');
-                                    }}>
-                                    Gastos Operativos
-                                </Button>
+                            <div className='flex flex-row flex-wrap items-center gap-2 overflow-auto'>
+                                {(() => {
+                                    const etapa = detalleOrdenTrabajo?.etapa_ui;
+                                    const isGeneral =
+                                        detalleOrdenTrabajo?.tipo_servicio === 'general';
+                                    const primaryTabIds = etapa
+                                        ? (ETAPA_PRIMARY_TABS[etapa] ?? [])
+                                        : [];
+                                    const allTabs = ALL_TAB_DEFS.filter((t) =>
+                                        isGeneral
+                                            ? t.id !== 'Trabajos en OT'
+                                            : t.id !== 'Servicios Generales',
+                                    );
+                                    const primary = allTabs.filter((t) =>
+                                        primaryTabIds.includes(t.id),
+                                    );
+                                    const secondary = allTabs.filter(
+                                        (t) => !primaryTabIds.includes(t.id),
+                                    );
+                                    const orderedTabs: (TabDef | null)[] =
+                                        primary.length > 0 && secondary.length > 0
+                                            ? [...primary, null, ...secondary]
+                                            : allTabs;
+                                    return orderedTabs.map((tab) => {
+                                        if (tab === null) {
+                                            return (
+                                                <span
+                                                    key='divider'
+                                                    className='select-none self-center text-zinc-300 dark:text-zinc-600'>
+                                                    |
+                                                </span>
+                                            );
+                                        }
+                                        const isActive = activeComponent === tab.id;
+                                        return (
+                                            <Button
+                                                key={tab.id}
+                                                size='sm'
+                                                rounded='rounded-full'
+                                                className='border'
+                                                {...(isActive
+                                                    ? {
+                                                          isActive: true,
+                                                          color: 'blue',
+                                                          colorIntensity: '500',
+                                                          variant: 'solid',
+                                                      }
+                                                    : { color: 'zinc' })}
+                                                onClick={() => setActiveComponent(tab.id)}>
+                                                {tab.label}
+                                            </Button>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </CardBody>
                     </Card>

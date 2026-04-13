@@ -8,7 +8,24 @@ from core.models import PreguntaEnRetroalimentacion
 
 
 class Retroalimentacion(ModeloBase):
-    orden_trabajo = models.ForeignKey(OrdenDeTrabajo, on_delete=models.CASCADE, verbose_name="Orden de Trabajo", related_name="retroalimentacion")
+    # V2: relacion con OT clasica (nullable para soportar V3)
+    orden_trabajo = models.ForeignKey(
+        OrdenDeTrabajo,
+        on_delete=models.CASCADE,
+        verbose_name="Orden de Trabajo",
+        related_name="retroalimentacion",
+        null=True,
+        blank=True,
+    )
+    # V3: relacion con OT V3 (one-to-one)
+    orden_trabajo_v3 = models.OneToOneField(
+        "ordentrabajov3.OrdenDeTrabajoV3",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="retroalimentacion",
+        verbose_name="Orden de Trabajo V3",
+    )
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="Token")
     cantidad_visitas = models.PositiveIntegerField(default=0, verbose_name="Cantidad de visitas")
     preguntas = models.ManyToManyField('core.PreguntaEnRetroalimentacion', through="retroalimentacion.RetroalimentacionAplicada", verbose_name="Preguntas de retroalimentación")
@@ -17,31 +34,52 @@ class Retroalimentacion(ModeloBase):
     correo_usuario_externo = models.EmailField(blank=True, null=True)
     observacion_retroalimentacion = models.TextField(null=True, blank=True)
     fecha_retroalimentacion = models.DateTimeField(null=True, blank=True)
+    # Control de recordatorios (V3)
+    recordatorios_enviados = models.PositiveIntegerField(default=0)
+    fecha_ultimo_recordatorio = models.DateTimeField(null=True, blank=True)
+    fecha_vencimiento = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name="Retroalimentacion de OT"
         verbose_name_plural="Retroalimentaciones de OT"
 
     def generar_preguntas_aplicables(self):
-        from ordentrabajov2.models import SoporteTecnico  # evitar circular import
+        if self.orden_trabajo_v3_id:
+            # V3: iterar TareaOTV3 de la orden
+            from ordentrabajov3.models import TareaOTV3  # evitar circular import
 
-        # En v2, SoporteTecnico es el "trabajo" directamente
-        soportes = SoporteTecnico.objects.filter(orden=self.orden_trabajo)
-
-        for soporte in soportes:
-            content_type = ContentType.objects.get_for_model(soporte)
-            preguntas = PreguntaEnRetroalimentacion.objects.filter(
-                content_type=content_type,
-                activo=True
-            )
-
-            for pregunta in preguntas:
-                RetroalimentacionAplicada.objects.get_or_create(
-                    retroalimentacion=self,
+            tareas = TareaOTV3.objects.filter(orden=self.orden_trabajo_v3)
+            for tarea in tareas:
+                content_type = ContentType.objects.get_for_model(tarea)
+                preguntas = PreguntaEnRetroalimentacion.objects.filter(
                     content_type=content_type,
-                    object_id=soporte.pk,
-                    pregunta=pregunta
+                    activo=True,
                 )
+                for pregunta in preguntas:
+                    RetroalimentacionAplicada.objects.get_or_create(
+                        retroalimentacion=self,
+                        content_type=content_type,
+                        object_id=tarea.pk,
+                        pregunta=pregunta,
+                    )
+        else:
+            # V2: SoporteTecnico es el "trabajo" directamente
+            from ordentrabajov2.models import SoporteTecnico  # evitar circular import
+
+            soportes = SoporteTecnico.objects.filter(orden=self.orden_trabajo)
+            for soporte in soportes:
+                content_type = ContentType.objects.get_for_model(soporte)
+                preguntas = PreguntaEnRetroalimentacion.objects.filter(
+                    content_type=content_type,
+                    activo=True,
+                )
+                for pregunta in preguntas:
+                    RetroalimentacionAplicada.objects.get_or_create(
+                        retroalimentacion=self,
+                        content_type=content_type,
+                        object_id=soporte.pk,
+                        pregunta=pregunta,
+                    )
 
     def __str__(self):
         if self.usuario_empresa:
@@ -51,7 +89,14 @@ class Retroalimentacion(ModeloBase):
         else:
             usuario = "Sin usuario asignado"
 
-        return f"Retroalimentación OT N°{self.orden_trabajo.id} por {usuario} ({self.fecha_retroalimentacion or 'Sin fecha'})"
+        if self.orden_trabajo_v3_id:
+            ot_ref = f"OT V3 N°{self.orden_trabajo_v3_id}"
+        elif self.orden_trabajo_id:
+            ot_ref = f"OT N°{self.orden_trabajo_id}"
+        else:
+            ot_ref = "OT sin asignar"
+
+        return f"Retroalimentacion {ot_ref} por {usuario} ({self.fecha_retroalimentacion or 'Sin fecha'})"
 
 class RetroalimentacionAplicada(ModeloBase):
     retroalimentacion = models.ForeignKey(Retroalimentacion, on_delete=models.CASCADE, related_name="retroalimentacion_aplicada")

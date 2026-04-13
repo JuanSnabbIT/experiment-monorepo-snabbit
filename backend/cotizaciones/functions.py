@@ -235,6 +235,20 @@ def crear_oc_agrupada(cotizaciones_ids, oc_empresa, usuario_empresa, observacion
     if not cotizaciones:
         raise ValueError("No se encontraron cotizaciones aceptadas con los IDs indicados.")
 
+    # Validar que ninguna cotizacion ya este en uso en otra OC activa
+    for cot in cotizaciones:
+        estado_oc = cot.estado_oc_derivado
+        if estado_oc == "en_oc":
+            raise ValueError(
+                f"La cotizacion #{cot.numero_cotizacion} ya tiene una compra activa en curso "
+                f"y no puede usarse en una nueva OC."
+            )
+        if estado_oc == "cerrada_comercialmente":
+            raise ValueError(
+                f"La cotizacion #{cot.numero_cotizacion} ya tiene una compra completada "
+                f"y no puede reutilizarse."
+            )
+
     # Validar que todas las cotizaciones son del mismo empresa y mismo cliente
     clientes = set(c.cliente_id for c in cotizaciones)
     empresas = set(c.empresa_id for c in cotizaciones)

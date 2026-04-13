@@ -33,6 +33,7 @@ from .functions import (
     calcular_pactado_del_contrato,
     guardar_firma_asignacion_pendiente,
     generar_pdf_orden_trabajo,
+    _obtener_cotizaciones_por_guias,
     obtener_cotizaciones_elegibles_para_ot,
     vincular_cotizaciones_a_ot,
     vincular_cotizaciones_generar_guias,
@@ -218,6 +219,16 @@ def obtener_detalles_guia(guia: GuiaSalida) -> dict:
         "cantidad_items": items.count(),
         "nombre_usuario_creador": nombre_usuario,
         "cliente_nombre": cliente_nombre,
+    }
+
+
+def obtener_cotizacion_relacionada_guia(guia: GuiaSalida) -> dict | None:
+    cotizacion = guia.cotizacion_origen_efectiva
+    if not cotizacion:
+        return None
+    return {
+        "id": cotizacion.id,
+        "numero": cotizacion.numero_cotizacion,
     }
 
 
@@ -410,6 +421,114 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
 
         se_puede_completar = len(razones) == 0
         return Response({"se_puede_completar": se_puede_completar, "razones": razones})
+
+    @action(detail=True, methods=["get"], url_path="check-bloqueadores-avance")
+    def check_bloqueadores_avance(self, request, pk=None):
+        """
+        Devuelve los bloqueadores para la PRÓXIMA transición de estado.
+        Permite al frontend mostrar los bloqueadores ANTES de intentar el cambio,
+        evitando errores sorpresivos al usuario.
+
+        Respuesta:
+        {
+          "estado_actual": "completada",
+          "proximo_estado": "facturada",
+          "se_puede_avanzar": false,
+          "razones": ["No existe una prefactura ..."]
+        }
+        """
+        orden = self.get_object()
+        estado_actual = orden.estado
+        proximo_estado_map = {
+            "pendiente": "en_proceso",
+            "en_proceso": "completada",
+            "completada": "facturada",
+            "facturada": "cerrada",
+        }
+        proximo_estado = proximo_estado_map.get(estado_actual)
+
+        if not proximo_estado:
+            return Response({
+                "estado_actual": estado_actual,
+                "proximo_estado": None,
+                "se_puede_avanzar": False,
+                "razones": ["La OT está en un estado final o no tiene transición definida."],
+            })
+
+        razones = []
+
+        if proximo_estado == "completada":
+            # Reutilizar check de completabilidad
+            soportes = orden.soportetecnico_set.all()
+            for soporte in soportes:
+                if soporte.estado not in ["medianamente_completado", "completado", "no_realizado"]:
+                    razones.append(
+                        f"Soporte '{soporte.nombre}': estado '{soporte.get_estado_display()}' no permite completar"
+                    )
+            servicios = orden.servicioenot_set.all()
+            for servicio in servicios:
+                if servicio.estado not in ["medianamente_completado", "completado", "no_realizado"]:
+                    razones.append(
+                        f"Servicio '{servicio.nombre}': estado '{servicio.get_estado_display()}' no permite completar"
+                    )
+            guias_ok, error_guias = validar_guias_ot_terminales(orden)
+            if not guias_ok and error_guias:
+                razones.append(error_guias)
+
+        elif proximo_estado == "cerrada":
+            try:
+                razones = validar_requisitos_cierre_ot(orden)
+            except Exception as exc:
+                razones = [f"Error al validar requisitos de cierre: {str(exc)}"]
+
+        return Response({
+            "estado_actual": estado_actual,
+            "proximo_estado": proximo_estado,
+            "se_puede_avanzar": len(razones) == 0,
+            "razones": razones,
+        })
+
+    @action(detail=False, methods=["get"], url_path="completadas-sin-prefactura")
+    def completadas_sin_prefactura(self, request):
+        """
+        Retorna OTs completadas que no están incluidas en ninguna prefactura,
+        filtradas opcionalmente por cliente (query param `cliente`).
+        Útil para la selección de prefactura múltiple.
+        """
+        from core.models import PersonalizacionUsuario
+
+        user = request.user
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return Response([], status=status.HTTP_200_OK)
+
+        empresa = personalizacion.sucursal_principal.empresa
+        qs = OrdenDeTrabajo.objects.filter(
+            empresa=empresa,
+            estado="completada",
+        ).order_by("-fecha_creacion")
+
+        cliente_id = request.query_params.get("cliente")
+        if cliente_id:
+            qs = qs.filter(cliente_id=cliente_id)
+
+        # Obtener IDs de OTs ya incluidas en alguna prefactura activa del cliente
+        ots_en_prefactura: set[int] = set()
+        prefacturas_qs = CierreAdministrativoOT.objects.filter(
+            cliente__in=qs.values("cliente_id").distinct(),
+            estado_cierre__in=["borrador", "por_facturar", "facturado"],
+        ).only("resultado")
+        for pf in prefacturas_qs:
+            resultado = pf.resultado or {}
+            for ot_id in resultado.get("ots_incluidas", []):
+                if isinstance(ot_id, int):
+                    ots_en_prefactura.add(ot_id)
+                elif isinstance(ot_id, str) and ot_id.isdigit():
+                    ots_en_prefactura.add(int(ot_id))
+
+        qs = qs.exclude(id__in=ots_en_prefactura)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="history")
     def history(self, request, pk=None):
@@ -607,10 +726,11 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         cotizaciones_ids = request.data.get("cotizaciones_ids") or request.data.get(
             "cotizacion_id"
         )
+        bodega_id = request.data.get("bodega_id")
         usuario = obtener_usuario_empresa(request.user)
         try:
             resultado = vincular_cotizaciones_generar_guias(
-                orden, cotizaciones_ids, usuario=usuario
+                orden, cotizaciones_ids, usuario=usuario, bodega_id=bodega_id
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -986,6 +1106,7 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         for s in servicios:
             g = s.guia_salida
             detalles = obtener_detalles_guia(g)
+            cotizacion_relacionada = obtener_cotizacion_relacionada_guia(g)
             out.append(
                 {
                     "id": s.id,
@@ -1005,6 +1126,7 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                     },
                     "estado_label": s.get_estado_display(),
                     "tipo": "servicio",
+                    "cotizacion_relacionada": cotizacion_relacionada,
                     "items": items_por_guia.get(g.id, []),
                 }
             )
@@ -1012,6 +1134,7 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
         for s in soportes:
             g = s.guia_salida
             detalles = obtener_detalles_guia(g)
+            cotizacion_relacionada = obtener_cotizacion_relacionada_guia(g)
             out.append(
                 {
                     "id": s.id,
@@ -1031,29 +1154,14 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                     },
                     "estado_label": s.get_estado_display(),
                     "tipo": "soporte",
+                    "cotizacion_relacionada": cotizacion_relacionada,
                     "items": items_por_guia.get(g.id, []),
                 }
             )
 
         for g in guias_directas:
             detalles = obtener_detalles_guia(g)
-            # Detectar si la guía viene de una cotización verificando la cadena de relaciones
-            # Guía → Items → source_item (ItemEnOrdenCompra) → orden_compra → relacion_cotizacion
-            cotizacion_relacionada = None
-            try:
-                items_guia = ItemsGuiaSalida.objects.filter(guia=g).select_related(
-                    "source_item__orden_compra__relacion_cotizacion"
-                )
-                for item in items_guia:
-                    if (
-                        item.source_item
-                        and item.source_item.orden_compra
-                        and item.source_item.orden_compra.relacion_cotizacion
-                    ):
-                        cotizacion_relacionada = item.source_item.orden_compra.relacion_cotizacion
-                        break
-            except Exception:
-                pass
+            cotizacion_relacionada = obtener_cotizacion_relacionada_guia(g)
             
             out.append(
                 {
@@ -1074,10 +1182,7 @@ class OrdenDeTrabajoViewSet(BaseWriteViewSet):
                     },
                     "estado_label": "Directo OT",
                     "tipo": "guia_directa",
-                    "cotizacion_relacionada": {
-                        "id": cotizacion_relacionada.id,
-                        "numero": cotizacion_relacionada.numero_cotizacion,
-                    } if cotizacion_relacionada else None,
+                    "cotizacion_relacionada": cotizacion_relacionada,
                     "items": items_por_guia.get(g.id, []),
                 }
             )
@@ -2693,17 +2798,7 @@ class InsumoViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        cotizaciones_ids = list(
-            ItemsGuiaSalida.objects.filter(
-                guia=guia,
-                source_item__orden_compra__relacion_cotizacion__isnull=False,
-            )
-            .values_list(
-                "source_item__orden_compra__relacion_cotizacion_id",
-                flat=True,
-            )
-            .distinct()
-        )
+        cotizaciones_ids = list(_obtener_cotizaciones_por_guias([guia.id]).get(guia.id, set()))
 
         # Desvincular la guía de la OT
         guia.orden_trabajo = None
@@ -2713,7 +2808,12 @@ class InsumoViewSet(viewsets.ViewSet):
             for cot_id in cotizaciones_ids:
                 if not GuiaSalida.objects.filter(
                     orden_trabajo=orden,
-                    itemsguiasalida__source_item__orden_compra__relacion_cotizacion_id=cot_id,
+                ).filter(
+                    Q(cotizacion_origen_id=cot_id)
+                    | Q(
+                        cotizacion_origen__isnull=True,
+                        itemsguiasalida__source_item__orden_compra__relacion_cotizacion_id=cot_id,
+                    )
                 ).exists():
                     orden.cotizaciones.remove(cot_id)
 

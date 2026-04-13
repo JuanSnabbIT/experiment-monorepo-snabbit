@@ -77,6 +77,19 @@ class EquipoViewSet(viewsets.ModelViewSet):
         serializer = FotoEquipoSerializer(fotos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'], url_path='disponibles-para-entrega')
+    def disponibles_para_entrega(self, request):
+        """
+        Devuelve equipos activos de la empresa del usuario que NO tienen
+        un UsuarioEquipo activo (estado=True), es decir, estan libres para asignar.
+        """
+        from django.db.models import Q
+        qs = self.get_queryset().filter(estado=True).exclude(
+            usuario_equipo__estado=True
+        ).distinct()
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class SoftwareInstaladoViewSet(viewsets.ModelViewSet):
     queryset = SoftwareInstalado.objects.all()
     serializer_class = SoftwareInstaladoSerializer

@@ -258,6 +258,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 "fecha_creacion": cot.fecha_creacion,
                 "proveedores_involucrados": proveedores,
                 "tiene_items_elegibles": items_elegibles.exists(),
+                "items_elegibles_count": items_elegibles.count(),
                 "estado_oc_derivado": cot.estado_oc_derivado,
             })
 
@@ -364,12 +365,24 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 )
 
             usuario_empresa = UsuarioEmpresa.objects.get(usuario=self.request.user)
+
+            # Recopilar motivos de rechazo de los solicitantes para incluirlos en el seguimiento
+            motivos = [
+                s.motivo_rechazo.strip()
+                for s in cotizacion.solicitantes.all()
+                if s.motivo_rechazo and s.motivo_rechazo.strip()
+            ]
+            motivos_texto = ""
+            if motivos:
+                motivos_texto = " Motivos de rechazo: " + " | ".join(motivos)
+
             crear_seguimiento_cotizacion(
                 cotizacion_id=nueva_cotizacion.id,
                 usuario_id=usuario_empresa.id,
                 comentario=(
-                    f"Copia {nueva_cotizacion.numero_cotizacion} creada "
-                    f"desde cotizacion rechazada {cotizacion.numero_cotizacion}."
+                    f"Cotizacion #{nueva_cotizacion.numero_cotizacion} creada "
+                    f"como reformulacion de la cotizacion rechazada #{cotizacion.numero_cotizacion}."
+                    f"{motivos_texto}"
                 ),
             )
 

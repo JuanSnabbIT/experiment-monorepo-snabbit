@@ -1,4 +1,5 @@
 import {
+    ICambiarEstadoOCResponse,
     ICotizacionAprobadaParaOC,
     IItemEnOrdenCompra,
     IItemOrdenCompraEnStock,
@@ -85,6 +86,79 @@ export const ordenCompraApi = RtkQueryService.injectEndpoints({
             invalidatesTags: ['OrdenCompraList', 'MisOrdenesCompraList'],
         }),
 
+        cambiarEstadoOrdenCompra: builder.mutation<
+            ICambiarEstadoOCResponse,
+            { id: number; estado: string; observacion?: string }
+        >({
+            query: ({ id, estado, observacion }) => ({
+                url: `/api/ordenes-compra/${id}/cambiar-estado/`,
+                method: 'post',
+                data: { estado, ...(observacion ? { observacion } : {}) },
+            }),
+            invalidatesTags: (result, _error, { id }) => [
+                { type: 'OrdenCompra' as const, id },
+                'OrdenCompraList',
+                ...(result?.oca_id
+                    ? [{ type: 'OrdenCompra' as const, id: `agrupada-${result.oca_id}` }]
+                    : []),
+            ],
+        }),
+
+        completarOrdenCompra: builder.mutation<
+            { message: string; estado: string },
+            { id: number; estado: string; items?: { item_oc_id: number; cantidad: number }[]; oca_id?: number | null }
+        >({
+            query: ({ id, estado, items }) => ({
+                url: `/api/ordenes-compra/${id}/completar_orden_compra/`,
+                method: 'post',
+                data: { estado, ...(items ? { items } : {}) },
+            }),
+            invalidatesTags: (_result, _error, { id, oca_id }) => [
+                { type: 'OrdenCompra' as const, id },
+                'OrdenCompraList',
+                'MisOrdenesCompraList',
+                ...(oca_id ? [{ type: 'OrdenCompra' as const, id: `agrupada-${oca_id}` }] : []),
+            ],
+        }),
+
+        completarYCrearGuia: builder.mutation<
+            { message: string; estado: string; guia_id: number },
+            { id: number; estado: string; items?: { item_oc_id: number; cantidad: number }[]; oca_id?: number | null }
+        >({
+            query: ({ id, estado, items }) => ({
+                url: `/api/ordenes-compra/${id}/completar-y-crear-guia/`,
+                method: 'post',
+                data: { estado, ...(items ? { items } : {}) },
+            }),
+            invalidatesTags: (_result, _error, { id, oca_id }) => [
+                { type: 'OrdenCompra' as const, id },
+                'OrdenCompraList',
+                'MisOrdenesCompraList',
+                ...(oca_id ? [{ type: 'OrdenCompra' as const, id: `agrupada-${oca_id}` }] : []),
+            ],
+        }),
+
+        recepcionarConsumoDirecto: builder.mutation<
+            ICambiarEstadoOCResponse,
+            { id: number; oca_id?: number | null }
+        >({
+            query: ({ id }) => ({
+                url: `/api/ordenes-compra/${id}/recepcionar-consumo-directo/`,
+                method: 'post',
+                data: {},
+            }),
+            invalidatesTags: (result, _error, { id, oca_id }) => [
+                { type: 'OrdenCompra' as const, id },
+                'OrdenCompraList',
+                'MisOrdenesCompraList',
+                ...(oca_id
+                    ? [{ type: 'OrdenCompra' as const, id: `agrupada-${oca_id}` }]
+                    : result?.oca_id
+                    ? [{ type: 'OrdenCompra' as const, id: `agrupada-${result.oca_id}` }]
+                    : []),
+            ],
+        }),
+
         // ── Cotizaciones aprobadas para OC ───────────────────────────────────
         getCotizacionesAprobadasParaOC: builder.query<
             ICotizacionAprobadaParaOC[],
@@ -110,5 +184,9 @@ export const {
     useGetOCsAgrupadasPorEmpresaQuery,
     useGetDetalleOCAgrupadaQuery,
     useCrearOCAgrupadaMutation,
+    useCambiarEstadoOrdenCompraMutation,
+    useCompletarOrdenCompraMutation,
+    useCompletarYCrearGuiaMutation,
+    useRecepcionarConsumoDirectoMutation,
     useGetCotizacionesAprobadasParaOCQuery,
 } = ordenCompraApi;

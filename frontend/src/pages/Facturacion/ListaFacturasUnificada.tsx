@@ -13,6 +13,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+import Pages from '@/config/pages.config';
+
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -29,7 +31,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { IContratoMatching, IFacturaContrato } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import ApiService from '@/services/ApiService';
+import { ICierreAdministrativoOTDetail } from '@/interface/ordenTrabajo.interface';
 import { useAppSelector } from '@/store';
 import {
     useCreateFacturaContratoMutation,
@@ -38,35 +40,21 @@ import {
     useGetProximoPeriodoFacturaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetCierresAdministrativosOTQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     buildPrefacturaContratoDetailPath,
-    buildPrefacturaOTCreatePath,
     buildPrefacturaOTDetailPath,
     calculatePrefacturaMetricas,
     createPrefacturacionSearchParams,
     getPrefacturaEstadoColor,
     getPrefacturaEstadoLabel,
-    IPrefacturaListItemVM,
     IPrefacturacionRouteState,
+    IPrefacturaListItemVM,
     parsePrefacturacionSearchParams,
-    TPrefacturaEstado,
-    TPrefacturaTab,
+    TPrefacturaEstado
 } from './prefacturacion.shared';
-
-interface IPrefacturaOT {
-    id: number;
-    cliente: number | null;
-    cliente_nombre?: string | null;
-    estado_cierre: string;
-    resultado?: {
-        items?: unknown[];
-        ots_incluidas?: number[];
-        resumen?: { total_items?: number; total_facturar?: number };
-    };
-    fecha_creacion?: string;
-}
 
 const estadoOptions: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
@@ -89,7 +77,7 @@ const formatContratoTotal = (factura: IFacturaContrato) => {
     return `${factura.moneda_label || 'CLP'} ${monto.toLocaleString('es-CL')}`;
 };
 
-const formatOTTotal = (prefactura: IPrefacturaOT) => {
+const formatOTTotal = (prefactura: ICierreAdministrativoOTDetail) => {
     const monto = Number(prefactura.resultado?.resumen?.total_facturar ?? 0);
     return `$${Math.ceil(monto).toLocaleString('es-CL')}`;
 };
@@ -122,11 +110,12 @@ const ListaFacturasUnificada = () => {
     );
 
     useEffect(() => {
-        const normalizedParams = createPrefacturacionSearchParams(routeState);
+        const parsed = parsePrefacturacionSearchParams(searchParams);
+        const normalizedParams = createPrefacturacionSearchParams(parsed);
         if (normalizedParams.toString() !== searchParams.toString()) {
             setSearchParams(normalizedParams, { replace: true });
         }
-    }, [routeState, searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams]);
 
     const contratoQueryParams = useMemo(() => {
         const params: { estado?: string; historico?: boolean } = {};
@@ -201,52 +190,17 @@ const ListaFacturasUnificada = () => {
         return facturasContrato.filter((factura) => filtroEstado.includes(factura.estado as never));
     }, [facturasContrato, filtroEstado]);
 
-    const [facturasOT, setFacturasOT] = useState<IPrefacturaOT[]>([]);
-    const [isLoadingOT, setIsLoadingOT] = useState(false);
-
-    const fetchFacturasOT = useCallback(async () => {
-        setIsLoadingOT(true);
-        try {
-            const params = new URLSearchParams();
-
-            if (filtroEstado.length === 1) {
-                params.set('estado', filtroEstado[0]);
-            }
-
-            if (verHistorico) {
-                params.set('historico', '1');
-            }
-
-            const queryString = params.toString();
-            const url = queryString
-                ? `/api/cierres-administrativos/?${queryString}`
-                : '/api/cierres-administrativos/';
-
-            const response = await ApiService.fetchData<
-                IPrefacturaOT[] | { results: IPrefacturaOT[] }
-            >({
-                url,
-                method: 'get',
-            });
-
-            if (Array.isArray(response.data)) {
-                setFacturasOT(response.data);
-                return;
-            }
-
-            setFacturasOT(response.data?.results ?? []);
-        } catch (error: unknown) {
-            toast.error(getErrorMessage(error));
-        } finally {
-            setIsLoadingOT(false);
-        }
-    }, [filtroEstado, verHistorico]);
-
-    useEffect(() => {
-        if (activeTab === 'ot') {
-            fetchFacturasOT();
-        }
-    }, [activeTab, fetchFacturasOT]);
+    const otQueryArgs = useMemo(
+        () => ({
+            estado: filtroEstado.length === 1 ? filtroEstado[0] : undefined,
+            historico: verHistorico || undefined,
+        }),
+        [filtroEstado, verHistorico],
+    );
+    const { data: facturasOT = [], isLoading: isLoadingOT } = useGetCierresAdministrativosOTQuery(
+        otQueryArgs,
+        { skip: activeTab !== 'ot' },
+    );
 
     const facturasOTFiltradas = useMemo(() => {
         if (filtroEstado.length <= 1) {
@@ -466,21 +420,9 @@ const ListaFacturasUnificada = () => {
                     <h1 className='text-xl font-bold'>Prefacturacion</h1>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    {activeTab === 'contrato' && (
-                        <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
-                            Nueva Prefactura de Contrato
-                        </Button>
-                    )}
-                    {activeTab === 'ot' && (
-                        <Button
-                            variant='solid'
-                            icon='HeroPlus'
-                            onClick={() =>
-                                navigate(buildPrefacturaOTCreatePath(routeState))
-                            }>
-                            Nueva Prefactura de OT
-                        </Button>
-                    )}
+                    <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
+                        Nueva Prefactura de Contrato
+                    </Button>
                 </SubheaderRight>
             </Subheader>
 
@@ -495,11 +437,13 @@ const ListaFacturasUnificada = () => {
                             Contrato
                         </Button>
                         <Button
-                            variant={activeTab === 'ot' ? 'solid' : 'outline'}
-                            color={activeTab === 'ot' ? 'sky' : 'zinc'}
+                            variant='outline'
+                            color='sky'
                             icon='HeroWrenchScrewdriver'
-                            onClick={() => updateRouteState({ tab: 'ot' })}>
-                            Ordenes de Trabajo
+                            onClick={() =>
+                                navigate(Pages.facturacion.subPages.prefacturasOTV3.to)
+                            }>
+                            Ordenes de Trabajo V3
                         </Button>
                     </ButtonGroup>
                 </div>

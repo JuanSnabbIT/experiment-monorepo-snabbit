@@ -1,6 +1,6 @@
 import { RouteProps } from 'react-router-dom';
-import DefaultHeaderTemplate from '../templates/layouts/Headers/DefaultHeader.template';
 import { authPages, Pages } from '../config/pages.config';
+import DefaultHeaderTemplate from '../templates/layouts/Headers/DefaultHeader.template';
 
 const headerRoutes: RouteProps[] = [
     { path: authPages.aceptarInvitacionEmpresa.to, element: null },
@@ -9,6 +9,7 @@ const headerRoutes: RouteProps[] = [
     { path: authPages.ConfirmarNuevaPass.to, element: null },
     { path: authPages.pdfContrato.to, element: null },
     { path: authPages.retroalimentacionOT.to, element: null },
+    { path: authPages.retroalimentacionOTV3.to, element: null },
     { path: authPages.responderCotizacionPublica.to, element: null },
     { path: authPages.responderContratoPublico.to, element: null },
     { path: '/404', element: null },

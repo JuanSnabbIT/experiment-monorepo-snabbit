@@ -20,6 +20,7 @@ import { IItemCotizacion } from '@/interface/cotizaciones.interface';
 import ApiService from '@/services/ApiService';
 import { listaContentTypeThunk, useAppDispatch, useAppSelector } from '@/store';
 import {
+    useCrearCopiaCotizacionRechazadaMutation,
     useDeleteSolicitanteCotizacionMutation,
     useGetDetalleCotizacionPorNumeroQuery,
     useGetItemsEnCotizacionQuery,
@@ -44,7 +45,7 @@ import classNames from 'classnames';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import AgregarSolicitanteCotizacion from '../modals/AgregarSolicitanteCotizacion';
@@ -72,6 +73,7 @@ type UsoInternoField =
 
 const DetalleCotizacion = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const { numero_cotizacion } = useParams();
     const numeroKey = numero_cotizacion ? String(numero_cotizacion) : '';
 
@@ -113,6 +115,8 @@ const DetalleCotizacion = () => {
     const { listaContentType } = useAppSelector((state) => state.core);
 
     const [deleteSolicitanteCotizacion] = useDeleteSolicitanteCotizacionMutation();
+    const [crearCopiaCotizacionRechazada, { isLoading: reformulando }] =
+        useCrearCopiaCotizacionRechazadaMutation();
 
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -379,6 +383,24 @@ const DetalleCotizacion = () => {
         refetchItems();
     };
 
+    const handleReformular = async () => {
+        if (!detalleCotizacion) return;
+        const confirmed = await confirmAlert({
+            title: 'Reformular cotizaci\u00f3n',
+            text: 'Se crear\u00e1 una nueva versi\u00f3n de esta cotizaci\u00f3n en estado pendiente para que puedas editarla y reenviarla. \u00bfContinuar?',
+            confirmText: 'Reformular',
+            cancelText: 'Cancelar',
+        });
+        if (!confirmed) return;
+        try {
+            const nueva = await crearCopiaCotizacionRechazada(detalleCotizacion.id).unwrap();
+            toast.success(`Cotizaci\u00f3n #${nueva.numero_cotizacion} creada. Redirigiendo...`, { autoClose: 2000 });
+            navigate(`/cotizacion/detalle-cotizacion/${nueva.numero_cotizacion}`);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
     const isFutureDate =
         detalleCotizacion?.fecha_facturacion &&
         dayjs(detalleCotizacion.fecha_facturacion).isAfter(dayjs(), 'day');
@@ -624,6 +646,18 @@ const DetalleCotizacion = () => {
                                         onRechazarChange={handleStateChange}
                                     />
                                 </>
+                            )}
+                            {detalleCotizacion.estado === 'rechazada' && (
+                                <Tooltip text='Crear nueva versi\u00f3n para corregir y reenviar'>
+                                    <Button
+                                        variant='solid'
+                                        color='violet'
+                                        icon='HeroArrowPath'
+                                        isLoading={reformulando}
+                                        onClick={handleReformular}>
+                                        Reformular
+                                    </Button>
+                                </Tooltip>
                             )}
                             {detalleCotizacion.estado === 'aceptada' && (
                                 <>
@@ -1304,6 +1338,11 @@ const DetalleCotizacion = () => {
                                                         {solicitante.aprobo && solicitante.fecha_aprobacion && (
                                                             <span className='text-xs text-emerald-600 dark:text-emerald-400'>
                                                                 Aprobado el {dayjs(solicitante.fecha_aprobacion).format('DD/MM/YYYY HH:mm')}
+                                                            </span>
+                                                        )}
+                                                        {!solicitante.aprobo && solicitante.motivo_rechazo && (
+                                                            <span className='text-xs text-red-500 dark:text-red-400'>
+                                                                Motivo de rechazo: {solicitante.motivo_rechazo}
                                                             </span>
                                                         )}
                                                     </div>

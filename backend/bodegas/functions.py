@@ -5,6 +5,7 @@ import os
 import base64
 from textwrap import wrap
 
+from django.db.models import Q
 from django.utils import timezone
 from empresas.models import UsuarioEmpresa
 from recursos.models import Equipo
@@ -902,7 +903,13 @@ def obtener_guia_pendiente_por_cotizacion(cotizacion, bodega, cliente=None):
     return (
         GuiaSalida.objects.filter(
             **filtros,
-            itemsguiasalida__source_item__orden_compra__relacion_cotizacion=cotizacion,
+        )
+        .filter(
+            Q(cotizacion_origen=cotizacion)
+            | Q(
+                cotizacion_origen__isnull=True,
+                itemsguiasalida__source_item__orden_compra__relacion_cotizacion=cotizacion,
+            )
         )
         .distinct()
         .order_by("-fecha_creacion")

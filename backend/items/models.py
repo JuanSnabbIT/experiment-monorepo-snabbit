@@ -111,6 +111,11 @@ class ItemEmpresa(ModeloBase):
     campos_adicionales = models.ManyToManyField(
         CampoAdicionalProveedor, through=CampoAdicionalItem, blank=True
     )
+    es_equipo = models.BooleanField(
+        default=False,
+        verbose_name="Es equipo",
+        help_text="Indica si este item representa un equipo que se asigna a un usuario",
+    )
 
     def __str__(self):
         return "%s de %s" % (self.nombre, self.empresa.nombre)

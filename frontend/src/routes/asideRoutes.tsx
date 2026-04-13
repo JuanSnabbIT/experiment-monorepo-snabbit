@@ -1,6 +1,6 @@
 import { RouteProps } from 'react-router-dom';
-import DefaultAsideTemplate from '../templates/layouts/Asides/DefaultAside.template';
 import { authPages, Pages } from '../config/pages.config';
+import DefaultAsideTemplate from '../templates/layouts/Asides/DefaultAside.template';
 
 const asideRoutes: RouteProps[] = [
     { path: authPages.loginPage.to, element: null },
@@ -9,6 +9,7 @@ const asideRoutes: RouteProps[] = [
     { path: authPages.ConfirmarNuevaPass.to, element: null },
     { path: authPages.pdfContrato.to, element: null },
     { path: authPages.retroalimentacionOT.to, element: null },
+    { path: authPages.retroalimentacionOTV3.to, element: null },
     { path: authPages.responderCotizacionPublica.to, element: null },
     { path: authPages.responderContratoPublico.to, element: null },
     { path: '/404', element: null },

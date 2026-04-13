@@ -212,6 +212,10 @@ class OrdenCompra(ModeloBaseHistorico):
     )
     observaciones = models.TextField(blank=True)
     estado = models.CharField(max_length=2, choices=ESTADOS_OC, default="-")
+    consumo_directo = models.BooleanField(
+        default=False,
+        help_text="Los ítems de esta OC se consumen directamente y no ingresan a bodega.",
+    )
     items = models.ManyToManyField(
         "items.ItemEmpresa", through="bodegas.ItemEnOrdenCompra"
     )
@@ -439,6 +443,14 @@ class GuiaSalida(ModeloBaseHistorico):
         blank=True,
         related_name="guias_salida_cliente",
     )
+    cotizacion_origen = models.ForeignKey(
+        "cotizaciones.Cotizacion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="guias_salida",
+        help_text="Cotizacion de origen usada como fuente de verdad para el flujo de OT.",
+    )
     recibido_por = models.ForeignKey(
         "empresas.UsuarioEmpresa", on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -476,6 +488,38 @@ class GuiaSalida(ModeloBaseHistorico):
 
     def __str__(self):
         return f"Guia de Salida {self.pk} - Bodega: {self.bodega.nombre}"
+
+    def obtener_cotizacion_origen_legacy_id(self):
+        cotizaciones_ids = list(
+            self.itemsguiasalida_set.filter(
+                source_item__orden_compra__relacion_cotizacion__isnull=False,
+            )
+            .values_list(
+                "source_item__orden_compra__relacion_cotizacion_id",
+                flat=True,
+            )
+            .distinct()[:2]
+        )
+        if len(cotizaciones_ids) == 1:
+            return cotizaciones_ids[0]
+        return None
+
+    @property
+    def cotizacion_origen_efectiva_id(self):
+        return self.cotizacion_origen_id or self.obtener_cotizacion_origen_legacy_id()
+
+    @property
+    def cotizacion_origen_efectiva(self):
+        if self.cotizacion_origen_id:
+            return self.cotizacion_origen
+
+        cotizacion_id = self.obtener_cotizacion_origen_legacy_id()
+        if not cotizacion_id:
+            return None
+
+        from cotizaciones.models import Cotizacion
+
+        return Cotizacion.objects.filter(pk=cotizacion_id).first()
 
     class Meta:
         verbose_name = "Guia de Salida"

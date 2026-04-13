@@ -16,6 +16,8 @@ from bodegas.models import (
     OrdenCompra,
     StockItemEnBodega,
 )
+from bodegas.serializers import GuiaSalidaSerializer
+from cotizaciones.models import Cotizacion
 from empresas.models import Empresa, SucursalEmpresa, RelacionEmpresa, UsuarioEmpresa
 from items.models import ItemEmpresa, Categoria
 from core.models import PersonalizacionUsuario
@@ -658,6 +660,57 @@ class GuiaSerializacionUnitariaTest(TransactionTestCase):
         self.assertTrue(all(item.individualizado for item in items))
         self.assertTrue(all(item.cantidad_rebajada == 1 for item in items))
         self.assertEqual(self.stock.cantidad, 7)
+
+
+class GuiaCotizacionOrigenTest(TransactionTestCase):
+    def setUp(self):
+        self.empresa = Empresa.objects.create(
+            nombre="Empresa Guia Cot", rut_empresa="93939393-3", direccion_principal="Dir"
+        )
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Sucursal Guia Cot", empresa=self.empresa
+        )
+        self.user = User.objects.create_user(email="cot-guia@test.com", password="test1234")
+        self.usuario = UsuarioEmpresa.objects.create(usuario=self.user, sucursal=self.sucursal)
+        PersonalizacionUsuario.objects.update_or_create(
+            usuario=self.user,
+            defaults={"sucursal_principal": self.sucursal},
+        )
+
+        self.cliente = Empresa.objects.create(
+            nombre="Cliente Guia Cot", rut_empresa="94949494-4", direccion_principal="Dir"
+        )
+        RelacionEmpresa.objects.create(
+            prestador_servicios=self.empresa, cliente=self.cliente
+        )
+        self.categoria = Categoria.objects.create(nombre="Categoria Guia Cot")
+        self.item = ItemEmpresa.objects.create(
+            nombre="Item Guia Cot", categoria=self.categoria, empresa=self.empresa
+        )
+        self.bodega = Bodega.objects.create(nombre="Bodega Guia Cot", sucursal=self.sucursal)
+        self.stock = StockItemEnBodega.objects.create(
+            bodega=self.bodega, item=self.item, cantidad=5, cantidad_no_disponible=0
+        )
+        self.cotizacion = Cotizacion.objects.create(
+            empresa=self.empresa,
+            cliente=self.cliente,
+            nombre="Cotizacion explicita",
+            estado="aceptada",
+        )
+
+    def test_serializer_expone_cotizacion_origen_explicita(self):
+        guia = GuiaSalida.objects.create(
+            bodega=self.bodega,
+            cliente=self.cliente,
+            creado_por=self.usuario,
+            cotizacion_origen=self.cotizacion,
+            estado="P",
+        )
+
+        data = GuiaSalidaSerializer(instance=guia).data
+
+        self.assertEqual(data["cotizacion_origen_id"], self.cotizacion.id)
+        self.assertEqual(data["cotizacion_origen_numero"], self.cotizacion.numero_cotizacion)
         self.assertEqual(self.stock.cantidad_no_disponible, 3)
 
     def test_agregar_item_manual_serializable_crea_filas_unitarias(self):

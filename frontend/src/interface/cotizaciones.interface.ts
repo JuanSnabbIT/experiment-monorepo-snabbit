@@ -100,6 +100,7 @@ export interface ISolicitanteCotizacion {
     fecha_aprobacion: null | string;
     cotizacion: number;
     content_type: number;
+    motivo_rechazo?: string | null;
 }
 
 export interface IEmpresaPublicaCotizacion {

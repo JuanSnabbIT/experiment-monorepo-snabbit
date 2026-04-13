@@ -16,6 +16,7 @@ import CrearProspectoModal from '@/pages/OrdenTrabajo/modals/CrearProspectoModal
 import ApiService from '@/services/ApiService';
 import {
     listaMisClientesThunk,
+    listaMisProspectosThunk,
     listaUsuariosTodaLaEmpresaThunk,
     listaUsuariosTodoElClienteThunk,
     useAppDispatch,
@@ -31,15 +32,21 @@ function CrearOrdenOT() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
-    const { listaMisClientes, listaUsuariosTodaLaEmpresa, listaUsuariosTodoElCliente } =
+    const { listaMisClientes, listaMisProspectos, listaUsuariosTodaLaEmpresa, listaUsuariosTodoElCliente } =
         useAppSelector((state) => state.empresa);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const [isProspectoModalOpen, setIsProspectoModalOpen] = useState<boolean>(false);
     const [nombreProspectoSugerido, setNombreProspectoSugerido] = useState<string>('');
+    const [isCrearContactoOpen, setIsCrearContactoOpen] = useState(false);
+    const [contactoNombre, setContactoNombre] = useState('');
+    const [contactoApellido, setContactoApellido] = useState('');
+    const [contactoEmail, setContactoEmail] = useState('');
+    const [creandoContacto, setCreandoContacto] = useState(false);
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.empresa && isOpen) {
             dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
+            dispatch(listaMisProspectosThunk({ id_empresa: personalizacionUsuario.empresa }));
             dispatch(
                 listaUsuariosTodaLaEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
             );
@@ -49,6 +56,10 @@ function CrearOrdenOT() {
     useEffect(() => {
         if (!isOpen) {
             formik.resetForm();
+            setIsCrearContactoOpen(false);
+            setContactoNombre('');
+            setContactoApellido('');
+            setContactoEmail('');
         }
     }, [isOpen]);
 
@@ -94,9 +105,7 @@ function CrearOrdenOT() {
             prioridad: Yup.string().required('Requerido').nonNullable('Requerido'),
             notas_internas: Yup.string().notRequired().nullable(),
             responsable_empresa: Yup.string().notRequired().nullable(),
-            solicitante_empresa: Yup.string()
-                .required('El solicitante es obligatorio')
-                .nonNullable('Requerido'),
+            solicitante_empresa: Yup.string().notRequired().nullable(),
         }),
         onSubmit: async (values) => {
             try {
@@ -106,7 +115,6 @@ function CrearOrdenOT() {
                     cliente: values.cliente,
                     tipo_servicio: values.tipo_servicio,
                     prioridad: values.prioridad,
-                    solicitante_empresa: values.solicitante_empresa,
                     empresa: personalizacionUsuario?.empresa,
                 };
 
@@ -116,6 +124,8 @@ function CrearOrdenOT() {
                     cleanValues.fecha_finalizacion_ot = values.fecha_finalizacion_ot;
                 if (values.responsable_empresa)
                     cleanValues.responsable_empresa = values.responsable_empresa;
+                if (values.solicitante_empresa)
+                    cleanValues.solicitante_empresa = values.solicitante_empresa;
                 if (values.notas_internas) cleanValues.notas_internas = values.notas_internas;
 
 
@@ -158,8 +168,72 @@ function CrearOrdenOT() {
     useEffect(() => {
         if (formik.values.cliente) {
             dispatch(listaUsuariosTodoElClienteThunk({ id_empresa: formik.values.cliente }));
+            setIsCrearContactoOpen(false);
         }
     }, [formik.values.cliente]);
+
+    const esProspecto = listaMisProspectos.some(
+        (p) => p.info_cliente.id.toString() === formik.values.cliente,
+    );
+    const esProspectoSinContactos = esProspecto && listaUsuariosTodoElCliente.length === 0;
+
+    const handleCrearContacto = async () => {
+        if (!contactoNombre.trim() || !contactoApellido.trim() || !contactoEmail.trim()) {
+            toast.error('Nombre, apellido y email son obligatorios');
+            return;
+        }
+        setCreandoContacto(true);
+        try {
+            const sucursalesResp = await ApiService.fetchData<Array<{ id: number; nombre: string }>>(
+                {
+                    url: `/api/empresas/${formik.values.cliente}/sucursales-empresa/`,
+                    method: 'GET',
+                },
+            );
+            const casaMatriz =
+                (sucursalesResp.data as Array<{ id: number; nombre: string }>).find(
+                    (s) => s.nombre === 'Casa Matriz',
+                ) || (sucursalesResp.data as Array<{ id: number; nombre: string }>)[0];
+            if (!casaMatriz) throw new Error('No se encontró la sucursal de la empresa.');
+
+            await ApiService.fetchData({
+                url: '/api/invitaciones-empresa/',
+                method: 'POST',
+                data: {
+                    email: contactoEmail.trim(),
+                    first_name: contactoNombre.trim(),
+                    last_name: contactoApellido.trim(),
+                    sucursal: casaMatriz.id,
+                },
+            });
+
+            const result = await dispatch(
+                listaUsuariosTodoElClienteThunk({ id_empresa: formik.values.cliente }),
+            );
+            const usuarios = (result.payload as any[]) || [];
+            const nuevo = usuarios.find(
+                (u: any) =>
+                    u.email_usuario?.toLowerCase() === contactoEmail.trim().toLowerCase(),
+            );
+            if (nuevo) {
+                formik.setFieldValue('solicitante_empresa', nuevo.id.toString());
+            }
+
+            toast.success(
+                `Contacto "${contactoNombre.trim()} ${contactoApellido.trim()}" creado correctamente`,
+            );
+            setIsCrearContactoOpen(false);
+            setContactoNombre('');
+            setContactoApellido('');
+            setContactoEmail('');
+        } catch (error: any) {
+            const errorMsg =
+                error.response?.data?.detail || error.message || 'Error desconocido';
+            toast.error(`Error: ${errorMsg}`);
+        } finally {
+            setCreandoContacto(false);
+        }
+    };
 
     return (
         <>
@@ -229,7 +303,7 @@ function CrearOrdenOT() {
                                 <SelectReact
                                     name='cliente'
                                     id='cliente'
-                                    placeholder='Buscar cliente o crear prospecto...'
+                                    placeholder='Buscar cliente o prospecto...'
                                     isCreatable={true}
                                     noOptionsMessage={(e) => {
                                         if (e.inputValue) {
@@ -240,17 +314,31 @@ function CrearOrdenOT() {
                                     formatCreateLabel={(inputValue) =>
                                         `Crear prospecto: "${inputValue}"`
                                     }
-                                    options={listaMisClientes.map((cliente) => ({
-                                        value: cliente.info_cliente.id.toString(),
-                                        label: cliente.info_cliente.nombre,
-                                    }))}
+                                    options={[
+                                        {
+                                            label: 'Clientes',
+                                            options: listaMisClientes.map((c) => ({
+                                                value: c.info_cliente.id.toString(),
+                                                label: c.info_cliente.nombre,
+                                            })),
+                                        },
+                                        {
+                                            label: 'Prospectos',
+                                            options: listaMisProspectos.map((p) => ({
+                                                value: p.info_cliente.id.toString(),
+                                                label: p.info_cliente.nombre,
+                                            })),
+                                        },
+                                    ]}
                                     onBlur={formik.handleBlur}
-                                    value={listaMisClientes
-                                        .map((cliente) => ({
-                                            value: cliente.info_cliente.id.toString(),
-                                            label: cliente.info_cliente.nombre,
-                                        }))
-                                        .find((option) => option.value === formik.values.cliente)}
+                                    value={
+                                        [...listaMisClientes, ...listaMisProspectos]
+                                            .map((r) => ({
+                                                value: r.info_cliente.id.toString(),
+                                                label: r.info_cliente.nombre,
+                                            }))
+                                            .find((option) => option.value === formik.values.cliente) ?? null
+                                    }
                                     onChange={(option: any) => {
                                         formik.setFieldValue('cliente', option?.value);
                                     }}
@@ -354,7 +442,7 @@ function CrearOrdenOT() {
                                 </Validation>
                             </div>
                             <div>
-                                <Badge>Solicitante *</Badge>
+                                <Badge>Solicitante</Badge>
                                 <Validation
                                     isValid={formik.isValid}
                                     isTouched={formik.touched.solicitante_empresa}
@@ -393,6 +481,67 @@ function CrearOrdenOT() {
                                 </Validation>
                             </div>
                         </div>
+
+                        {/* Crear contacto para prospecto sin usuarios */}
+                        {esProspectoSinContactos && (
+                            <div className='rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20'>
+                                <p className='mb-2 text-xs text-amber-700 dark:text-amber-300'>
+                                    Este prospecto no tiene contactos registrados.
+                                </p>
+                                {!isCrearContactoOpen ? (
+                                    <Button
+                                        size='sm'
+                                        color='amber'
+                                        icon='HeroPlus'
+                                        onClick={() => setIsCrearContactoOpen(true)}>
+                                        Crear contacto
+                                    </Button>
+                                ) : (
+                                    <div className='flex flex-col gap-2'>
+                                        <div className='grid grid-cols-2 gap-2'>
+                                            <Input
+                                                name='contacto_nombre'
+                                                placeholder='Nombre'
+                                                value={contactoNombre}
+                                                onChange={(e) =>
+                                                    setContactoNombre(e.target.value)
+                                                }
+                                            />
+                                            <Input
+                                                name='contacto_apellido'
+                                                placeholder='Apellido'
+                                                value={contactoApellido}
+                                                onChange={(e) =>
+                                                    setContactoApellido(e.target.value)
+                                                }
+                                            />
+                                        </div>
+                                        <Input
+                                            name='contacto_email'
+                                            type='email'
+                                            placeholder='Email del contacto'
+                                            value={contactoEmail}
+                                            onChange={(e) => setContactoEmail(e.target.value)}
+                                        />
+                                        <div className='flex gap-2'>
+                                            <Button
+                                                size='sm'
+                                                color='amber'
+                                                variant='solid'
+                                                isDisable={creandoContacto}
+                                                onClick={handleCrearContacto}>
+                                                {creandoContacto ? 'Guardando...' : 'Guardar contacto'}
+                                            </Button>
+                                            <Button
+                                                size='sm'
+                                                onClick={() => setIsCrearContactoOpen(false)}>
+                                                Cancelar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Notas internas opcionales */}
                         <div>

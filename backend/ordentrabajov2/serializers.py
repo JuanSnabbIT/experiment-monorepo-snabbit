@@ -251,6 +251,78 @@ class OrdenDeTrabajoSerializer(serializers.ModelSerializer):
             return obj.contrato.nombre
         return None
 
+    etapa_ui = serializers.SerializerMethodField()
+    blocking_reasons_cierre = serializers.SerializerMethodField()
+    required_actions = serializers.SerializerMethodField()
+
+    def get_etapa_ui(self, obj):
+        """
+        Etapa de interacción UI derivada del estado de negocio.
+        - preparacion: pendiente
+        - ejecucion: en_proceso
+        - cierre: completada, facturada
+        - cerrada: cerrada, cancelada
+        """
+        estado = obj.estado
+        if estado == "pendiente":
+            return "preparacion"
+        elif estado == "en_proceso":
+            return "ejecucion"
+        elif estado in ("completada", "facturada"):
+            return "cierre"
+        else:
+            return "cerrada"
+
+    def get_blocking_reasons_cierre(self, obj):
+        """
+        Retorna los bloqueadores administrativos para pasar a 'cerrada'.
+        Solo aplica cuando la OT está en estado 'facturada'.
+        """
+        if obj.estado != "facturada":
+            return []
+        from .cierre_validaciones import validar_requisitos_cierre_ot
+        try:
+            return validar_requisitos_cierre_ot(obj)
+        except Exception:
+            return []
+
+    def get_required_actions(self, obj):
+        """
+        Acciones pendientes para avanzar en la etapa actual.
+        Retorna lista de strings con tareas pendientes segun la etapa.
+        """
+        etapa = self.get_etapa_ui(obj)
+        actions = []
+        if etapa == "preparacion":
+            if not obj.tecnico_responsable_ot:
+                actions.append("Asignar tecnico responsable")
+            if not obj.fecha_inicio_ot:
+                actions.append("Definir fecha de inicio")
+            if not obj.fecha_finalizacion_ot:
+                actions.append("Definir fecha de finalizacion")
+        elif etapa == "ejecucion":
+            from .models import SoporteTecnico, ServicioEnOT
+            if obj.tipo_servicio == "general":
+                pendientes = ServicioEnOT.objects.filter(orden=obj, resuelto=False).count()
+                if pendientes:
+                    actions.append(f"Completar {pendientes} servicio(s) pendiente(s)")
+            else:
+                pendientes = SoporteTecnico.objects.filter(
+                    orden=obj, estado__in=["pendiente", "en_proceso"]
+                ).count()
+                if pendientes:
+                    actions.append(f"Resolver {pendientes} soporte(s) tecnico(s) pendiente(s)")
+        elif etapa == "cierre":
+            if obj.estado == "completada":
+                actions.append("Crear prefactura para avanzar a facturacion")
+            elif obj.estado == "facturada":
+                from .cierre_validaciones import validar_requisitos_cierre_ot
+                try:
+                    actions.extend(validar_requisitos_cierre_ot(obj))
+                except Exception:
+                    pass
+        return actions
+
     class Meta:
         model = OrdenDeTrabajo
         fields = "__all__"

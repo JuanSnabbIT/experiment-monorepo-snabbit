@@ -110,10 +110,22 @@ Estado: canonical
 **Detalles:** Ver [analisis.md#BLOQUE-6](analisis.md) y [changelog.md#2026-01-05](changelog.md)
 
 ## Módulo: facturacion
-### B. Sistema de Facturación Manual (Próximo)
+### B. Sistema de Facturación Manual (Prefacturas OT)
 **Objetivo:** Panel selección OTs → Contraste pactado vs ejecutado → Generación factura  
 **Referencia:** Ver [analisis.md](analisis.md) (sección "Matching Manual para Facturación")  
-**Timeline:** 1-2 semanas (MVP)
+**Estado:** 🟡 EN PROGRESO
+
+**Completado:**
+- ✅ Backend: `CierreAdministrativoOT` (modelo, serializer, ViewSet, acciones `finalizar` y `asociar_documento`)
+- ✅ Backend: endpoint `completadas-sin-prefactura` en `OrdenDeTrabajoViewSet`
+- ✅ Frontend: páginas `FacturacionesComparativa.tsx`, `DetalleFactura.tsx`, `ListaFacturasUnificada.tsx`
+- ✅ RTK Query: 7 endpoints en `ordenTrabajoApi.ts` + tags en `RtkQueryService.ts`
+- ✅ `ListaFacturasUnificada.tsx` migrada de `ApiService` a RTK Query
+
+**Pendiente:**
+- ⬜ Migrar `FacturacionesComparativa.tsx` de `ApiService` a RTK (12 usos)
+- ⬜ Migrar `DetalleFactura.tsx` de `ApiService` a RTK
+- ⬜ Corregir filtro de listas de prefacturas (ver backlog)
 
 ### C. Automatización Celery Tasks
 **Objetivo:** Tareas automáticas (expiración cotizaciones, recordatorios OT, etc.)
@@ -152,6 +164,7 @@ Estado: canonical
 ### Módulo: facturación manual
 - Botones para navegar a vistas de items (no solo OTs).
 - Filtro de listas de prefacturas no funciona: corregir.
+- Migrar `FacturacionesComparativa.tsx` y `DetalleFactura.tsx` de ApiService a RTK.
 
 ### Módulo: rendiciones
 - Revisar modelos con campos desactualizados/no usados.

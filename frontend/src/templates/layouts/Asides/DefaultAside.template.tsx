@@ -364,6 +364,30 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    {/* OT V3 */}
+                    <AuthorityCheckNav
+                        authority={Pages.ordenTrabajoV3.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavCollapse
+                            text={Pages.ordenTrabajoV3.text}
+                            icon={Pages.ordenTrabajoV3.icon}
+                            to={Pages.ordenTrabajoV3.to}>
+                            <AuthorityCheckNav
+                                authority={
+                                    Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.authority
+                                }
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.text}
+                                    to={Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.to}
+                                    icon={Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.icon}
+                                    id={
+                                        Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                        </NavCollapse>
+                    </AuthorityCheckNav>
+
                     <NavSeparator />
                     <NavTitle>Gestión Financiera</NavTitle>
 

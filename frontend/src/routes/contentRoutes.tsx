@@ -1,4 +1,5 @@
 import RetroalimentacionOT from '@/pages/OrdenTrabajo/components/RetroalimentacionOT';
+import RetroalimentacionOTV3 from '@/pages/OrdenTrabajoV3/components/RetroalimentacionOTV3';
 import { lazy } from 'react';
 import { Navigate, RouteProps } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
@@ -88,12 +89,18 @@ const FacturacionesComparativa = lazy(() => import('@/pages/Facturacion/Facturac
 const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
 const ListaFacturasUnificada = lazy(() => import('@/pages/Facturacion/ListaFacturasUnificada'));
 const DetalleFacturaContrato = lazy(() => import('@/pages/Facturacion/DetalleFacturaContrato'));
+const ListaPrefacturasOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/ListaPrefacturasOTV3'));
+const CrearPrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/CrearPrefacturaOTV3'));
+const MatchingManualOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/MatchingManualOTV3'));
+const DetallePrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/DetallePrefacturaOTV3'));
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
 // const ListaCotizaciones = lazy(() => import('@/pages/Cotizaciones/ListaCotizaciones'))
 const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/DetalleCotizacion'));
 const CotizacionesEmpresa = lazy(() => import('@/pages/Cotizaciones/CotizacionesEmpresa'));
 const ListaOT = lazy(() => import('@/pages/OrdenTrabajo/ListaOT'));
 const DetalleOT = lazy(() => import('@/pages/OrdenTrabajo/DetalleOT'));
+const ListaOTV3 = lazy(() => import('@/pages/OrdenTrabajoV3/ListaOTV3'));
+const DetalleOTV3 = lazy(() => import('@/pages/OrdenTrabajoV3/DetalleOTV3'));
 const ListaVisitas = lazy(() => import('@/pages/Visitas/ListaVisitas'));
 const DetalleVisita = lazy(() => import('@/pages/Visitas/DetalleVisita'));
 // const ListaEquiposDeMisClientes = lazy(() => import('@/pages/Recursos/Equipos/ListaEquiposDeMisClientes'))
@@ -471,6 +478,26 @@ const contentRoutes: IRoutePersonalizadas[] = [
         element: <DetalleFacturaContrato />,
         authority: Pages.facturacion.subPages.detalleFacturaContrato.authority,
     },
+    {
+        path: Pages.facturacion.subPages.prefacturasOTV3.to,
+        element: <ListaPrefacturasOTV3 />,
+        authority: Pages.facturacion.subPages.prefacturasOTV3.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.crearPrefacturaOTV3.to,
+        element: <CrearPrefacturaOTV3 />,
+        authority: Pages.facturacion.subPages.crearPrefacturaOTV3.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.matchingManualOTV3.to,
+        element: <MatchingManualOTV3 />,
+        authority: Pages.facturacion.subPages.matchingManualOTV3.authority,
+    },
+    {
+        path: Pages.facturacion.subPages.detallePrefacturaOTV3.to,
+        element: <DetallePrefacturaOTV3 />,
+        authority: Pages.facturacion.subPages.detallePrefacturaOTV3.authority,
+    },
     // { path: Pages.empresa.subPages.listaRendicionesSucursal.to, element: <ListaRendicionesSucursales />, authority: Pages.empresa.subPages.listaRendicionesSucursal.authority },
 
     // Cotizaciones
@@ -513,9 +540,26 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: authPages.retroalimentacionOT.authority,
     },
     {
+        path: authPages.retroalimentacionOTV3.to,
+        element: <RetroalimentacionOTV3 />,
+        authority: authPages.retroalimentacionOTV3.authority,
+    },
+    {
         path: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.to,
         element: <DetalleRetroalimentacionOT />,
         authority: Pages.ordenTrabajo.subPages.detalleRetroalimentacionOT.authority,
+    },
+
+    // Orden Trabajo V3
+    {
+        path: Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.to,
+        element: <ListaOTV3 />,
+        authority: Pages.ordenTrabajoV3.subPages.listaOrdenesTrabajoV3.authority,
+    },
+    {
+        path: Pages.ordenTrabajoV3.subPages.detalleOrdenTrabajoV3.to,
+        element: <DetalleOTV3 />,
+        authority: Pages.ordenTrabajoV3.subPages.detalleOrdenTrabajoV3.authority,
     },
 
     // Visitas

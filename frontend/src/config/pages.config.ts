@@ -48,6 +48,13 @@ export const authPages = {
         icon: 'HeroStar',
         authority: [],
     },
+    retroalimentacionOTV3: {
+        id: 'retroalimentacionOTV3',
+        to: '/retroalimentacion-orden-trabajo-v3/:uuid',
+        text: 'Retroalimentaci\u00f3n OT V3',
+        icon: 'HeroStar',
+        authority: [],
+    },
     firmarContratoYAcuerdo: {
         id: 'firmarContratoYAcuerdo',
         to: '/firmar-contrato/:uuid',
@@ -430,6 +437,30 @@ export const Pages = {
         },
     },
 
+    ordenTrabajoV3: {
+        id: 'ordenTrabajoV3',
+        to: '/orden-trabajo-v3',
+        text: 'OT V3',
+        icon: 'HeroClipboardDocumentCheck',
+        authority: ['staff', 'superadmin'],
+        subPages: {
+            listaOrdenesTrabajoV3: {
+                id: 'listaOrdenesTrabajoV3',
+                to: '/orden-trabajo-v3/lista',
+                text: 'Lista OT V3',
+                icon: 'HeroClipboardDocumentCheck',
+                authority: ['staff', 'superadmin'],
+            },
+            detalleOrdenTrabajoV3: {
+                id: 'detalleOrdenTrabajoV3',
+                to: '/orden-trabajo-v3/:id',
+                text: 'Detalle OT V3',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
+        },
+    },
+
     registros: {
         id: 'registros',
         to: '/registros',
@@ -677,6 +708,34 @@ export const Pages = {
                 id: 'detalleFacturaContrato',
                 to: '/facturacion/facturas-contrato/:id',
                 text: 'Detalle Prefactura Contrato',
+                icon: 'HeroDocumentMagnifyingGlass',
+                authority: ['staff', 'superadmin'],
+            },
+            prefacturasOTV3: {
+                id: 'prefacturasOTV3',
+                to: '/facturacion/otv3/prefacturas',
+                text: 'Prefacturas OT V3',
+                icon: 'HeroClipboardDocumentList',
+                authority: ['staff', 'superadmin'],
+            },
+            crearPrefacturaOTV3: {
+                id: 'crearPrefacturaOTV3',
+                to: '/facturacion/otv3/prefacturas/crear',
+                text: 'Nueva Prefactura OT V3',
+                icon: 'HeroDocumentPlus',
+                authority: ['staff', 'superadmin'],
+            },
+            matchingManualOTV3: {
+                id: 'matchingManualOTV3',
+                to: '/facturacion/otv3/prefacturas/crear-matching',
+                text: 'Matching Manual OT V3',
+                icon: 'HeroAdjustmentsHorizontal',
+                authority: ['staff', 'superadmin'],
+            },
+            detallePrefacturaOTV3: {
+                id: 'detallePrefacturaOTV3',
+                to: '/facturacion/otv3/prefacturas/:id',
+                text: 'Detalle Prefactura OT V3',
                 icon: 'HeroDocumentMagnifyingGlass',
                 authority: ['staff', 'superadmin'],
             },

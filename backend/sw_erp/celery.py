@@ -39,4 +39,8 @@ app.conf.beat_schedule = {
         'task': 'contratos.tareas_2do_plano.notificar_ventana_edicion_licencias',
         'schedule': crontab(hour=8, minute=15),
     },
+    'verificar_retroalimentaciones_v3': {
+        'task': 'retroalimentacion.tasks.verificar_retroalimentaciones_v3_pendientes',
+        'schedule': crontab(minute=0),  # Cada hora
+    },
 }

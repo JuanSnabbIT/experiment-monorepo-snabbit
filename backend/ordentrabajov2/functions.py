@@ -165,14 +165,25 @@ def _validar_ot_pendiente(orden) -> None:
 
 
 def _obtener_cotizaciones_por_guias(guias_ids: list[int]) -> dict[int, set[int]]:
-    from bodegas.models import ItemsGuiaSalida
+    from bodegas.models import GuiaSalida, ItemsGuiaSalida
 
     if not guias_ids:
         return {}
 
     mapping: dict[int, set[int]] = {}
+    for guia_id, cotizacion_id in GuiaSalida.objects.filter(id__in=guias_ids).values_list(
+        "id", "cotizacion_origen_id"
+    ):
+        if not cotizacion_id:
+            continue
+        mapping.setdefault(int(guia_id), set()).add(int(cotizacion_id))
+
+    guias_sin_cotizacion = [guia_id for guia_id in guias_ids if guia_id not in mapping]
+    if not guias_sin_cotizacion:
+        return mapping
+
     rows = ItemsGuiaSalida.objects.filter(
-        guia_id__in=guias_ids,
+        guia_id__in=guias_sin_cotizacion,
         source_item__isnull=False,
         source_item__orden_compra__relacion_cotizacion__isnull=False,
     ).values_list("guia_id", "source_item__orden_compra__relacion_cotizacion_id")
@@ -191,6 +202,7 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     - No están vinculadas a otra OT (M2M o guías).
     """
     from bodegas.models import (
+        GuiaSalida,
         ItemEnOrdenCompra,
         ItemOrdenCompraEnStock,
         ItemsGuiaSalida,
@@ -210,12 +222,10 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
 
     cot_ids = [c.id for c in cotizaciones]
     ocs = list(
-        OrdenCompra.objects.filter(relacion_cotizacion_id__in=cot_ids).select_related(
-            "relacion_cotizacion"
-        )
+        OrdenCompra.objects.filter(relacion_cotizacion_id__in=cot_ids)
+        .exclude(estado="-")
+        .select_related("relacion_cotizacion")
     )
-    if not ocs:
-        return [], {}
 
     ocs_por_cotizacion: dict[int, list] = {}
     for oc in ocs:
@@ -228,6 +238,7 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     for cotizacion in cotizaciones:
         cot_ocs = ocs_por_cotizacion.get(cotizacion.id, [])
         if not cot_ocs:
+            elegibles_ids.append(cotizacion.id)
             continue
         if any(oc.estado not in estados_validos for oc in cot_ocs):
             continue
@@ -258,12 +269,21 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
             if cot_id not in cotizaciones_con_guias_faltantes:
                 excluidas_ids.add(cot_id)
 
-    relaciones_guias = ItemsGuiaSalida.objects.filter(
-        source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids,
-        guia__orden_trabajo__isnull=False,
-    ).values_list(
-        "source_item__orden_compra__relacion_cotizacion_id",
-        "guia__orden_trabajo_id",
+    relaciones_guias = list(
+        GuiaSalida.objects.filter(
+            cotizacion_origen_id__in=elegibles_ids,
+            orden_trabajo__isnull=False,
+        ).values_list("cotizacion_origen_id", "orden_trabajo_id")
+    )
+    relaciones_guias.extend(
+        ItemsGuiaSalida.objects.filter(
+            guia__cotizacion_origen__isnull=True,
+            source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids,
+            guia__orden_trabajo__isnull=False,
+        ).values_list(
+            "source_item__orden_compra__relacion_cotizacion_id",
+            "guia__orden_trabajo_id",
+        )
     )
     for cot_id, ot_id in relaciones_guias:
         if ot_id != orden.id:
@@ -284,17 +304,25 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     )
     resumen_ocs_map = {row["relacion_cotizacion_id"]: row for row in resumen_ocs}
 
-    resumen_guias = (
+    resumen_guias_map = {cid: 0 for cid in elegibles_ids}
+    for row in (
+        GuiaSalida.objects.filter(cotizacion_origen_id__in=elegibles_ids)
+        .values("cotizacion_origen_id")
+        .annotate(guias_count=Count("id", distinct=True))
+    ):
+        resumen_guias_map[row["cotizacion_origen_id"]] = row["guias_count"]
+    for row in (
         ItemsGuiaSalida.objects.filter(
-            source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids
+            guia__cotizacion_origen__isnull=True,
+            source_item__orden_compra__relacion_cotizacion_id__in=elegibles_ids,
         )
         .values("source_item__orden_compra__relacion_cotizacion_id")
         .annotate(guias_count=Count("guia_id", distinct=True))
-    )
-    resumen_guias_map = {
-        row["source_item__orden_compra__relacion_cotizacion_id"]: row["guias_count"]
-        for row in resumen_guias
-    }
+    ):
+        cotizacion_id = row["source_item__orden_compra__relacion_cotizacion_id"]
+        resumen_guias_map[cotizacion_id] = (
+            resumen_guias_map.get(cotizacion_id, 0) + row["guias_count"]
+        )
 
     pedido_rows = (
         ItemCotizacion.objects.filter(cotizacion_id__in=elegibles_ids)
@@ -355,7 +383,9 @@ def obtener_cotizaciones_elegibles_para_ot(orden):
     return [c for c in cotizaciones if c.id in elegibles_ids], resumen
 
 
-def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
+def vincular_cotizaciones_generar_guias(
+    orden, cotizaciones_ids, usuario=None, bodega_id=None
+):
     """
     Vincula cotizaciones a una OT y genera guías de salida automáticamente
     con los items recepcionados (agrupadas por bodega).
@@ -365,6 +395,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         obtener_guia_pendiente_por_cotizacion,
     )
     from bodegas.models import (
+        Bodega,
         GuiaSalida,
         ItemEnOrdenCompra,
         ItemOrdenCompraEnStock,
@@ -401,12 +432,10 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
             )
 
     ocs = list(
-        OrdenCompra.objects.filter(relacion_cotizacion__in=cotizaciones).select_related(
-            "relacion_cotizacion", "creado_por"
-        )
+        OrdenCompra.objects.filter(relacion_cotizacion__in=cotizaciones)
+        .exclude(estado="-")
+        .select_related("relacion_cotizacion", "creado_por")
     )
-    if not ocs:
-        raise ValueError("Las cotizaciones seleccionadas no tienen órdenes de compra.")
 
     ocs_por_cotizacion: dict[int, list[OrdenCompra]] = {}
     for oc in ocs:
@@ -418,9 +447,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
     for cotizacion in cotizaciones:
         cot_ocs = ocs_por_cotizacion.get(cotizacion.id, [])
         if not cot_ocs:
-            raise ValueError(
-                f"La cotización #{cotizacion.numero_cotizacion} no tiene OC asociadas."
-            )
+            continue
         if any(oc.estado not in estados_validos for oc in cot_ocs):
             raise ValueError(
                 f"La cotización #{cotizacion.numero_cotizacion} tiene OCs sin recepción completa."
@@ -430,8 +457,6 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         "orden_compra", "item"
     )
     item_oc_ids = [item.id for item in item_oc_qs]
-    if not item_oc_ids:
-        raise ValueError("No hay items asociados en las OCs seleccionadas.")
 
     content_type_item_oc = ContentType.objects.get_for_model(ItemEnOrdenCompra)
     content_type_oc_stock = ContentType.objects.get_for_model(ItemOrdenCompraEnStock)
@@ -440,7 +465,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
         content_type=content_type_item_oc, item_oc_id__in=item_oc_ids
     ).select_related("stock_item__bodega", "bodega_temporal")
     oc_stock_map = {oc_stock.item_oc_id: oc_stock for oc_stock in oc_stock_qs}
-    if len(oc_stock_map) < len(item_oc_ids):
+    if item_oc_ids and len(oc_stock_map) < len(item_oc_ids):
         faltantes_stock = [
             str(item_id) for item_id in item_oc_ids if item_id not in oc_stock_map
         ]
@@ -472,10 +497,18 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
 
     guias_creadas: list[int] = []
     guias_vinculadas: set[int] = set()
+    detalle_resultado = []
 
     item_oc_por_oc: dict[int, list[ItemEnOrdenCompra]] = {}
     for item_oc in item_oc_qs:
         item_oc_por_oc.setdefault(item_oc.orden_compra_id, []).append(item_oc)
+
+    bodega_manual = None
+    if bodega_id not in (None, ""):
+        try:
+            bodega_manual = Bodega.objects.get(pk=int(bodega_id))
+        except (TypeError, ValueError, Bodega.DoesNotExist) as exc:
+            raise ValueError("La bodega indicada para la guía manual no existe.") from exc
 
     with transaction.atomic():
         for cotizacion in cotizaciones:
@@ -486,6 +519,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
             bodegas_lookup = {}
             creador_por_bodega: dict[int, object] = {}
             total_pendiente = 0
+            guias_cotizacion: set[int] = set()
 
             for oc in cot_ocs:
                 for item_oc in item_oc_por_oc.get(oc.id, []):
@@ -514,11 +548,61 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
 
             guias_existentes = (
                 GuiaSalida.objects.filter(
-                    itemsguiasalida__source_item__orden_compra__relacion_cotizacion=cotizacion
+                    Q(cotizacion_origen=cotizacion)
+                    | Q(
+                        cotizacion_origen__isnull=True,
+                        itemsguiasalida__source_item__orden_compra__relacion_cotizacion=cotizacion,
+                    )
                 )
                 .distinct()
-                .select_related("cliente")
+                .select_related("cliente", "cotizacion_origen")
             )
+
+            if not cot_ocs:
+                if not bodega_manual:
+                    raise ValueError(
+                        f"La cotización #{cotizacion.numero_cotizacion} no tiene OCs. Debes indicar una bodega para crear la guía manual."
+                    )
+                guia = obtener_guia_pendiente_por_cotizacion(
+                    cotizacion, bodega_manual, cotizacion.cliente
+                )
+                if not guia:
+                    motivo = cotizacion.descripcion or f"Cotización #{cotizacion.numero_cotizacion}"
+                    guia = GuiaSalida.objects.create(
+                        bodega=bodega_manual,
+                        cliente=orden.cliente,
+                        cotizacion_origen=cotizacion,
+                        creado_por=usuario,
+                        recibido_por=orden.tecnico_responsable_ot,
+                        entregado_a=orden.tecnico_responsable_ot,
+                        motivo=motivo,
+                        estado="P",
+                        orden_trabajo=orden,
+                    )
+                    guias_creadas.append(guia.id)
+                else:
+                    if guia.orden_trabajo_id and guia.orden_trabajo_id != orden.id:
+                        raise ValueError(f"La guía #{guia.id} está vinculada a otra OT.")
+                    update_fields = []
+                    if guia.orden_trabajo_id != orden.id:
+                        guia.orden_trabajo = orden
+                        update_fields.append("orden_trabajo")
+                    if not guia.cotizacion_origen_id:
+                        guia.cotizacion_origen = cotizacion
+                        update_fields.append("cotizacion_origen")
+                    if update_fields:
+                        guia.save(update_fields=update_fields)
+                guias_vinculadas.add(guia.id)
+                guias_cotizacion.add(guia.id)
+                detalle_resultado.append(
+                    {
+                        "cotizacion_id": cotizacion.id,
+                        "numero_cotizacion": cotizacion.numero_cotizacion,
+                        "modo": "manual_sin_oc",
+                        "guias_ids": sorted(guias_cotizacion),
+                    }
+                )
+                continue
 
             if total_pendiente <= 0 and not guias_existentes:
                 raise ValueError(
@@ -538,6 +622,7 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
                     guia = GuiaSalida.objects.create(
                         bodega=bodega,
                         cliente=orden.cliente,
+                        cotizacion_origen=cotizacion,
                         creado_por=creador_por_bodega.get(bodega_id) or usuario,
                         recibido_por=orden.tecnico_responsable_ot,
                         entregado_a=orden.tecnico_responsable_ot,
@@ -559,10 +644,17 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
 
                 if guia.orden_trabajo_id and guia.orden_trabajo_id != orden.id:
                     raise ValueError(f"La guía #{guia.id} está vinculada a otra OT.")
+                update_fields = []
                 if guia.orden_trabajo_id != orden.id:
                     guia.orden_trabajo = orden
-                    guia.save(update_fields=["orden_trabajo"])
+                    update_fields.append("orden_trabajo")
+                if not guia.cotizacion_origen_id:
+                    guia.cotizacion_origen = cotizacion
+                    update_fields.append("cotizacion_origen")
+                if update_fields:
+                    guia.save(update_fields=update_fields)
                 guias_vinculadas.add(guia.id)
+                guias_cotizacion.add(guia.id)
 
             for guia in guias_existentes:
                 if guia.orden_trabajo_id and guia.orden_trabajo_id != orden.id:
@@ -571,14 +663,30 @@ def vincular_cotizaciones_generar_guias(orden, cotizaciones_ids, usuario=None):
                     raise ValueError(
                         f"La guía #{guia.id} no pertenece al cliente de la OT."
                     )
+                update_fields = []
                 if guia.orden_trabajo_id != orden.id:
                     guia.orden_trabajo = orden
-                    guia.save(update_fields=["orden_trabajo"])
+                    update_fields.append("orden_trabajo")
+                if not guia.cotizacion_origen_id:
+                    guia.cotizacion_origen = cotizacion
+                    update_fields.append("cotizacion_origen")
+                if update_fields:
+                    guia.save(update_fields=update_fields)
                 guias_vinculadas.add(guia.id)
+                guias_cotizacion.add(guia.id)
+            detalle_resultado.append(
+                {
+                    "cotizacion_id": cotizacion.id,
+                    "numero_cotizacion": cotizacion.numero_cotizacion,
+                    "modo": "automatica_desde_oc",
+                    "guias_ids": sorted(guias_cotizacion),
+                }
+            )
     return {
         "cotizaciones_vinculadas": list({c.id for c in cotizaciones}),
         "guias_vinculadas": sorted(guias_vinculadas),
         "guias_creadas": guias_creadas,
+        "detalle": detalle_resultado,
     }
 
 
@@ -648,9 +756,16 @@ def vincular_guias_a_ot(orden, guias_ids):
 
     with transaction.atomic():
         for guia in guias:
+            cotizaciones_guia = cotizaciones_por_guia.get(guia.id, set())
+            update_fields = []
             if guia.orden_trabajo_id != orden.id:
                 guia.orden_trabajo = orden
-                guia.save(update_fields=["orden_trabajo"])
+                update_fields.append("orden_trabajo")
+            if not guia.cotizacion_origen_id and len(cotizaciones_guia) == 1:
+                guia.cotizacion_origen_id = next(iter(cotizaciones_guia))
+                update_fields.append("cotizacion_origen")
+            if update_fields:
+                guia.save(update_fields=update_fields)
         if cotizaciones:
             orden.cotizaciones.add(*cotizaciones)
 
@@ -695,9 +810,15 @@ def vincular_cotizaciones_a_ot(orden, cotizaciones_ids):
                 f"La cotización #{cotizacion.numero_cotizacion} no pertenece al cliente de la OT."
             )
 
-    guias_ids = list(
+    guias_ids = set(
+        GuiaSalida.objects.filter(cotizacion_origen_id__in=cotizaciones_ids).values_list(
+            "id", flat=True
+        )
+    )
+    guias_ids.update(
         ItemsGuiaSalida.objects.filter(
-            source_item__orden_compra__relacion_cotizacion_id__in=cotizaciones_ids
+            guia__cotizacion_origen__isnull=True,
+            source_item__orden_compra__relacion_cotizacion_id__in=cotizaciones_ids,
         )
         .values_list("guia_id", flat=True)
         .distinct()
@@ -705,7 +826,7 @@ def vincular_cotizaciones_a_ot(orden, cotizaciones_ids):
 
     guias = list(
         GuiaSalida.objects.filter(
-            id__in=guias_ids, estado__in=["ER", "FR"]
+            id__in=guias_ids, estado__in=["ER", "FR", "P"]
         ).select_related("cliente")
     )
     for guia in guias:
@@ -722,9 +843,16 @@ def vincular_cotizaciones_a_ot(orden, cotizaciones_ids):
     with transaction.atomic():
         orden.cotizaciones.add(*cotizaciones)
         for guia in guias:
+            cotizaciones_guia = _obtener_cotizaciones_por_guias([guia.id]).get(guia.id, set())
+            update_fields = []
             if guia.orden_trabajo_id != orden.id:
                 guia.orden_trabajo = orden
-                guia.save(update_fields=["orden_trabajo"])
+                update_fields.append("orden_trabajo")
+            if not guia.cotizacion_origen_id and len(cotizaciones_guia) == 1:
+                guia.cotizacion_origen_id = next(iter(cotizaciones_guia))
+                update_fields.append("cotizacion_origen")
+            if update_fields:
+                guia.save(update_fields=update_fields)
 
     nuevas_cotizaciones = [
         c.id for c in cotizaciones if c.id not in cotizaciones_previas
