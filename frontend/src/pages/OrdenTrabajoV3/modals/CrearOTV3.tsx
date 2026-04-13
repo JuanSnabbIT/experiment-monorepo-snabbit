@@ -1,6 +1,6 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import SelectReact, { TSelectGroups, TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
@@ -8,7 +8,7 @@ import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Moda
 import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import type { IOrdenDeTrabajoV3Write } from '@/interface/ordenTrabajoV3.interface';
 import { useAppSelector } from '@/store';
-import { useGetMisClientesQuery, useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetMisClientesQuery, useGetMisProspectosQuery, useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useCreateOrdenV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
@@ -37,7 +37,7 @@ const PRIORIDAD_OPTIONS: TSelectOption[] = [
 const validationSchema = Yup.object({
     titulo: Yup.string().required('El titulo es requerido'),
     tipo_servicio: Yup.string().required('El tipo de servicio es requerido'),
-    cliente: Yup.number().required('El cliente es requerido').min(1, 'Seleccione un cliente'),
+    cliente: Yup.number().required('El cliente es requerido').min(1, 'Seleccione un cliente o prospecto'),
     prioridad: Yup.string().required('La prioridad es requerida'),
 });
 
@@ -51,10 +51,38 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
         skip: !empresaId,
     });
 
-    const clientesOptions: TSelectOption[] = relacionesClientes.map((r) => ({
+    const { data: relacionesProspectos = [] } = useGetMisProspectosQuery(empresaId, {
+        skip: !empresaId,
+    });
+
+    const clientesOrdenados = [...relacionesClientes].sort((a, b) =>
+        a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+    );
+    const prospectosOrdenados = [...relacionesProspectos].sort((a, b) =>
+        a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+    );
+
+    const clientesIds = new Set(clientesOrdenados.map((r) => r.cliente));
+    const prospectosIds = new Set(prospectosOrdenados.map((r) => r.cliente));
+
+    const clientesOptions: TSelectOption[] = clientesOrdenados.map((r) => ({
         value: String(r.cliente),
         label: r.info_cliente.nombre,
     }));
+    const prospectosOptions: TSelectOption[] = prospectosOrdenados
+        .filter((r) => !clientesIds.has(r.cliente))
+        .map((r) => ({
+            value: String(r.cliente),
+            label: r.info_cliente.nombre,
+        }));
+
+    const clienteOptionsAgrupadas: TSelectGroups =
+        prospectosOptions.length > 0
+            ? [
+                  { label: 'Clientes', options: clientesOptions },
+                  { label: 'Prospectos', options: prospectosOptions },
+              ]
+            : [{ label: 'Clientes', options: clientesOptions }];
 
     const formik = useFormik({
         initialValues: {
@@ -78,7 +106,8 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                     ...(values.cliente_solicitante ? { cliente_solicitante: values.cliente_solicitante } : {}),
                     ...(values.descripcion ? { descripcion: values.descripcion } : {}),
                     ...(values.fecha_programada ? { fecha_programada: values.fecha_programada } : {}),
-                    ...(values.fecha_fin_estimada ? { fecha_fin_estimada: values.fecha_fin_estimada } : {}),                };
+                    ...(values.fecha_fin_estimada ? { fecha_fin_estimada: values.fecha_fin_estimada } : {}),
+                };
                 const created = await createOrden(payload).unwrap();
                 toast.success('Orden de trabajo creada');
                 resetForm();
@@ -91,8 +120,12 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
     });
 
     const clienteSeleccionado = formik.values.cliente || 0;
+    const isProspectoSeleccionado =
+        clienteSeleccionado !== 0 &&
+        prospectosIds.has(clienteSeleccionado) &&
+        !clientesIds.has(clienteSeleccionado);
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(clienteSeleccionado, {
-        skip: !clienteSeleccionado,
+        skip: !clienteSeleccionado || isProspectoSeleccionado,
     });
     const solicitantesOptions: TSelectOption[] = usuariosCliente.map((u: IUsuarioEmpresa) => ({
         value: String(u.id),
@@ -158,7 +191,7 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                     </div>
 
                     {/* Cliente + Solicitante */}
-                    <div className='grid grid-cols-2 gap-4'>
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                         <div>
                             <Label htmlFor='cliente' className='mb-1'>
                                 Cliente <span className='text-red-500'>*</span>
@@ -170,19 +203,19 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                                 <SelectReact
                                     id='cliente'
                                     name='cliente'
-                                    options={clientesOptions}
-                                    placeholder='Seleccionar cliente...'
+                                    options={clienteOptionsAgrupadas}
+                                    placeholder='Seleccionar cliente o prospecto...'
+                                    noOptionsMessage={(e) => `No existe "${e.inputValue}"`}
                                     value={
-                                        clientesOptions.find(
+                                        [...clientesOptions, ...prospectosOptions].find(
                                             (o) => Number(o.value) === formik.values.cliente,
                                         ) ?? null
                                     }
-                                    onChange={(opt) =>
-                                        formik.setFieldValue(
-                                            'cliente',
-                                            opt ? Number((opt as TSelectOption).value) : 0,
-                                        )
-                                    }
+                                    onChange={(opt) => {
+                                        const nextCliente = opt ? Number((opt as TSelectOption).value) : 0;
+                                        formik.setFieldValue('cliente', nextCliente);
+                                        formik.setFieldValue('cliente_solicitante', 0);
+                                    }}
                                 />
                             </Validation>
                         </div>
@@ -196,8 +229,14 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                                 name='cliente_solicitante'
                                 options={solicitantesOptions}
                                 isClearable
-                                isDisabled={clienteSeleccionado === 0}
-                                placeholder={clienteSeleccionado === 0 ? 'Seleccione cliente primero' : 'Seleccionar solicitante...'}
+                                isDisabled={clienteSeleccionado === 0 || isProspectoSeleccionado}
+                                placeholder={
+                                    clienteSeleccionado === 0
+                                        ? 'Seleccione cliente o prospecto primero'
+                                        : isProspectoSeleccionado
+                                            ? 'No disponible para prospectos'
+                                            : 'Seleccionar solicitante...'
+                                }
                                 value={
                                     solicitantesOptions.find(
                                         (o) => Number(o.value) === formik.values.cliente_solicitante,
@@ -218,23 +257,28 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
                         <Label htmlFor='prioridad' className='mb-1'>
                             Prioridad <span className='text-red-500'>*</span>
                         </Label>
-                        <SelectReact
-                            id='prioridad'
-                            name='prioridad'
-                            options={PRIORIDAD_OPTIONS}
-                            value={
-                                PRIORIDAD_OPTIONS.find(
-                                    (o) => o.value === formik.values.prioridad,
-                                ) ?? null
-                            }
-                            onChange={(opt) =>
-                                formik.setFieldValue('prioridad', (opt as TSelectOption).value)
-                            }
-                        />
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.prioridad}
+                            invalidFeedback={formik.errors.prioridad}>
+                            <SelectReact
+                                id='prioridad'
+                                name='prioridad'
+                                options={PRIORIDAD_OPTIONS}
+                                value={
+                                    PRIORIDAD_OPTIONS.find(
+                                        (o) => o.value === formik.values.prioridad,
+                                    ) ?? null
+                                }
+                                onChange={(opt) =>
+                                    formik.setFieldValue('prioridad', (opt as TSelectOption).value)
+                                }
+                            />
+                        </Validation>
                     </div>
 
                     {/* Fecha inicio + Fecha fin estimada */}
-                    <div className='grid grid-cols-2 gap-4'>
+                    <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                         <div>
                             <Label htmlFor='fecha_programada' className='mb-1'>
                                 Fecha inicio

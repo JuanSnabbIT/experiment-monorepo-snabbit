@@ -60,6 +60,27 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
             ],
         }),
 
+        crearSolicitanteProspectoOTV3: builder.mutation<
+            IOrdenDeTrabajoV3,
+            {
+                id: number | string;
+                clienteId: number;
+                data: { email: string; first_name: string; last_name: string; celular?: string | null };
+            }
+        >({
+            query: ({ id, data }) => ({
+                url: `${BASE}/ordenes/${id}/crear-solicitante-prospecto/`,
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { id, clienteId }) => [
+                { type: 'OrdenTrabajoV3', id },
+                { type: 'OrdenTrabajoV3', id: String(id) },
+                'OrdenTrabajoV3List',
+                { type: 'ClienteUsuarios' as const, id: clienteId },
+            ],
+        }),
+
         deleteOrdenV3: builder.mutation<void, number>({
             query: (id) => ({ url: `${BASE}/ordenes/${id}/`, method: 'delete' }),
             invalidatesTags: ['OrdenTrabajoV3List'],
@@ -616,6 +637,7 @@ export const {
     useGetDetalleOrdenV3Query,
     useCreateOrdenV3Mutation,
     useUpdateOrdenV3Mutation,
+    useCrearSolicitanteProspectoOTV3Mutation,
     useDeleteOrdenV3Mutation,
     useCambiarEstadoV3Mutation,
     useGetCheckAvanceV3Query,

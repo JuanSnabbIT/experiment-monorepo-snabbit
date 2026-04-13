@@ -9,7 +9,7 @@ from cuentas.models import User
 from core.models import PreguntaEnRetroalimentacion
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from ordentrabajov3.estados_modelo import ESTADO_POR_FACTURAR, ESTADO_RETROALIMENTACION
-from ordentrabajov3.models import OrdenDeTrabajoV3, TareaOTV3
+from ordentrabajov3.models import OrdenDeTrabajoV3
 from retroalimentacion.models import (
     LogDeAccesoRetroalimentacion,
     Retroalimentacion,
@@ -64,18 +64,15 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
             fecha_finalizacion_real=timezone.now(),
         )
 
-        self.tarea = TareaOTV3.objects.create(
-            orden=self.otv3,
-            titulo="Tarea 1",
-            descripcion="",
-        )
-
-        ct = ContentType.objects.get_for_model(TareaOTV3)
-        self.pregunta = PreguntaEnRetroalimentacion.objects.create(
-            texto="Como evaluaria el servicio?",
-            content_type=ct,
-            activo=True,
-        )
+        ct = ContentType.objects.get_for_model(OrdenDeTrabajoV3)
+        self.preguntas = [
+            PreguntaEnRetroalimentacion.objects.create(
+                texto=f"Pregunta {idx + 1}",
+                content_type=ct,
+                activo=True,
+            )
+            for idx in range(5)
+        ]
 
         self.retro = Retroalimentacion.objects.create(
             orden_trabajo_v3=self.otv3,
@@ -85,12 +82,15 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
             fecha_vencimiento=timezone.now() + timedelta(hours=72),
         )
 
-        self.aplicada = RetroalimentacionAplicada.objects.create(
-            retroalimentacion=self.retro,
-            content_type=ct,
-            object_id=self.tarea.pk,
-            pregunta=self.pregunta,
-        )
+        self.aplicadas = [
+            RetroalimentacionAplicada.objects.create(
+                retroalimentacion=self.retro,
+                content_type=ct,
+                object_id=self.otv3.pk,
+                pregunta=pregunta,
+            )
+            for pregunta in self.preguntas
+        ]
 
     def test_get_publico_ok_incrementa_visitas_y_log(self):
         response = self.client.get(f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/")
@@ -132,11 +132,8 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
     def test_post_responder_ok_marcar_respondida_y_avanzar_ot(self):
         payload = {
             "items": [
-                {
-                    "id": self.aplicada.id,
-                    "cantidad_estrellas": 5,
-                    "observaciones": "Excelente",
-                }
+                {"id": aplic.id, "cantidad_estrellas": 5, "observaciones": ""}
+                for aplic in self.aplicadas
             ]
         }
 
@@ -152,6 +149,51 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
         self.assertIsNotNone(self.retro.fecha_retroalimentacion)
         self.assertEqual(self.otv3.estado, ESTADO_POR_FACTURAR)
 
+    def test_post_responder_ok_con_4_estrellas_sin_comentario_global(self):
+        payload = {
+            "items": [
+                {"id": aplic.id, "cantidad_estrellas": 4, "observaciones": ""}
+                for aplic in self.aplicadas
+            ]
+        }
+
+        response = self.client.post(
+            f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_post_responder_falla_si_2_estrellas_sin_comentario_global(self):
+        payload = {
+            "items": [
+                {
+                    "id": self.aplicadas[0].id,
+                    "cantidad_estrellas": 2,
+                    "observaciones": "",
+                },
+                *[
+                    {"id": aplic.id, "cantidad_estrellas": 5, "observaciones": ""}
+                    for aplic in self.aplicadas[1:]
+                ],
+            ],
+            # observacion_retroalimentacion omitida a proposito
+        }
+
+        response = self.client.post(
+            f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # No debe guardar parcialmente
+        self.retro.refresh_from_db()
+        self.assertIsNone(self.retro.fecha_retroalimentacion)
+        self.aplicadas[0].refresh_from_db()
+        self.assertIsNone(self.aplicadas[0].cantidad_estrellas)
+
     def test_post_responder_falla_si_item_no_pertenece(self):
         payload = {"items": [{"id": 999999, "cantidad_estrellas": 5, "observaciones": ""}]}
 
@@ -163,11 +205,55 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_post_responder_falla_si_payload_incompleto_en_formato_estandar(self):
+        payload = {
+            "items": [
+                {"id": self.aplicadas[0].id, "cantidad_estrellas": 5, "observaciones": ""}
+            ]
+        }
+
+        response = self.client.post(
+            f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_post_responder_falla_y_no_guarda_parcial_si_rating_fuera_de_rango(self):
+        payload = {
+            "items": [
+                {"id": self.aplicadas[0].id, "cantidad_estrellas": 6, "observaciones": ""},
+                *[
+                    {"id": aplic.id, "cantidad_estrellas": 5, "observaciones": ""}
+                    for aplic in self.aplicadas[1:]
+                ],
+            ]
+        }
+
+        response = self.client.post(
+            f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.retro.refresh_from_db()
+        self.assertIsNone(self.retro.fecha_retroalimentacion)
+        for aplic in self.aplicadas:
+            aplic.refresh_from_db()
+            self.assertIsNone(aplic.cantidad_estrellas)
+
     def test_post_responder_falla_si_vencida(self):
         self.retro.fecha_vencimiento = timezone.now() - timedelta(hours=1)
         self.retro.save(update_fields=["fecha_vencimiento"])
 
-        payload = {"items": [{"id": self.aplicada.id, "cantidad_estrellas": 5, "observaciones": ""}]}
+        payload = {
+            "items": [
+                {"id": aplic.id, "cantidad_estrellas": 5, "observaciones": ""}
+                for aplic in self.aplicadas
+            ]
+        }
         response = self.client.post(
             f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
             payload,
@@ -180,7 +266,12 @@ class PublicRetroalimentacionOTV3Test(APITestCase):
         self.otv3.estado = ESTADO_POR_FACTURAR
         self.otv3.save(update_fields=["estado"])
 
-        payload = {"items": [{"id": self.aplicada.id, "cantidad_estrellas": 5, "observaciones": ""}]}
+        payload = {
+            "items": [
+                {"id": aplic.id, "cantidad_estrellas": 5, "observaciones": ""}
+                for aplic in self.aplicadas
+            ]
+        }
         response = self.client.post(
             f"/api/public/retroalimentacion-otv3/{self.retro.uuid}/responder/",
             payload,
