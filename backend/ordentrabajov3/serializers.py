@@ -518,6 +518,31 @@ class OrdenDeTrabajoV3WriteSerializer(serializers.ModelSerializer):
             "modalidad": {"required": False},
         }
 
+    def create(self, validated_data):
+        # E1: manejar M2M cotizaciones manualmente y propagar OCs + guias derivadas
+        cotizaciones = validated_data.pop("cotizaciones", [])
+        ot = super().create(validated_data)
+        if cotizaciones:
+            from bodegas.models import GuiaSalida, OrdenCompra
+            from django.db.models import Q
+            for cotizacion in cotizaciones:
+                ot.cotizaciones.add(cotizacion)
+                ocs = OrdenCompra.objects.filter(
+                    relacion_cotizacion=cotizacion, oc_empresa=ot.empresa
+                )
+                if ocs.exists():
+                    ot.ordenes_compra.add(*ocs)
+                guias = GuiaSalida.objects.filter(
+                    Q(cotizacion_origen=cotizacion)
+                    | Q(
+                        cotizacion_origen__isnull=True,
+                        itemsguiasalida__source_item__orden_compra__in=ocs,
+                    )
+                ).distinct()
+                if guias.exists():
+                    ot.guias_salida.add(*guias)
+        return ot
+
 
 class CrearSolicitanteProspectoOTV3Serializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -550,6 +575,9 @@ class PrefacturaOTV3Serializer(serializers.ModelSerializer):
             "resultado",
             "fecha_prefactura",
             "comentario",
+            "tasa_dolar_usada",
+            "tasa_uf_usada",
+            "fecha_tasa_cambio",
             "documento_factura",
             "creado_por",
             "actualizado_por",

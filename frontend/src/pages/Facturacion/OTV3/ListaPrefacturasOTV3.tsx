@@ -31,17 +31,10 @@ const ListaPrefacturasOTV3 = () => {
                 </SubheaderLeft>
                 <SubheaderRight>
                     <Button
-                        variant='outline'
-                        color='blue'
-                        icon='HeroAdjustmentsHorizontal'
-                        onClick={() => navigate('/facturacion/otv3/prefacturas/crear-matching')}>
-                        Matching manual
-                    </Button>
-                    <Button
                         variant='solid'
                         color='blue'
                         icon='HeroDocumentPlus'
-                        onClick={() => navigate('/facturacion/otv3/prefacturas/crear')}>
+                        onClick={() => navigate('/facturacion/otv3/prefacturas/crear-matching')}>
                         Nueva prefactura
                     </Button>
                 </SubheaderRight>

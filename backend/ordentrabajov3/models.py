@@ -80,7 +80,7 @@ class OrdenDeTrabajoV3(ModeloBaseHistorico):
         verbose_name="Modalidad",
     )
     estado = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=ESTADOS_OT_V3,
         default=ESTADO_BORRADOR,
         verbose_name="Estado",
@@ -429,8 +429,8 @@ class HistorialEstadoOTV3(ModeloBase):
         related_name="historial_estados",
         verbose_name="Orden de trabajo",
     )
-    estado_anterior = models.CharField(max_length=20, blank=True, default="", verbose_name="Estado anterior")
-    estado_nuevo = models.CharField(max_length=20, verbose_name="Estado nuevo")
+    estado_anterior = models.CharField(max_length=30, blank=True, default="", verbose_name="Estado anterior")
+    estado_nuevo = models.CharField(max_length=30, verbose_name="Estado nuevo")
     comentario = models.TextField(blank=True, default="", verbose_name="Comentario")
     usuario = models.ForeignKey(
         "cuentas.User",
@@ -520,6 +520,25 @@ class PrefacturaOTV3(ModeloBaseHistorico):
         blank=True,
         default="",
         verbose_name="Comentario interno",
+    )
+    tasa_dolar_usada = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Tasa dólar usada en prefactura",
+    )
+    tasa_uf_usada = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Tasa UF usada en prefactura",
+    )
+    fecha_tasa_cambio = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de la tasa de cambio aplicada",
     )
     creado_por = models.ForeignKey(
         "empresas.UsuarioEmpresa",

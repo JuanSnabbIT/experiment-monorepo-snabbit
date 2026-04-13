@@ -7,6 +7,7 @@ export type TEstadoOTV3 =
     | 'retroalimentacion'
     | 'por_facturar'
     | 'completada'
+    | 'parcialmente_facturada'
     | 'facturada'
     | 'cerrada'
     | 'cancelada';
@@ -101,11 +102,22 @@ export interface IComparativaV3Result {
         total: number;
         moneda: string;
         resumen?: Record<string, number>;
-        cotizaciones?: Array<Record<string, unknown>>;
+        cotizaciones?: ICotizacionComparativaV3[];
     };
     diferencia: number;
     visitas_contrato: Record<string, any> | null;
     ots_marcadas_visitas: number[];
+}
+
+export interface ICotizacionComparativaV3 {
+    id: number;
+    numero_cotizacion: number | null;
+    nombre: string;
+    estado: string;
+    estado_label?: string;
+    cliente_id?: number;
+    cliente_nombre?: string;
+    total_estimado?: number;
 }
 
 export interface IChecklistItemOTV3 {
@@ -406,8 +418,10 @@ export interface IItemEjecutadoV3 {
     total: number;
     tipo: string;
     ot_id?: number;
+    cotizacion_id?: number;
     estado?: string;
     guia_id?: number;
+    oc_id?: number;
     compra_id?: number;
     rendicion_id?: number;
     item_rendicion_id?: number;

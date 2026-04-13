@@ -33,6 +33,7 @@ const COLOR_ESTADO: Record<TEstadoOTV3, string> = {
     retroalimentacion: 'violet',
     por_facturar: 'emerald',
     completada: 'emerald',
+    parcialmente_facturada: 'sky',
     facturada: 'violet',
     cerrada: 'zinc',
     cancelada: 'red',

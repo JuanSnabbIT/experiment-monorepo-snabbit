@@ -1,7 +1,7 @@
 import RetroalimentacionOT from '@/pages/OrdenTrabajo/components/RetroalimentacionOT';
 import RetroalimentacionOTV3 from '@/pages/OrdenTrabajoV3/components/RetroalimentacionOTV3';
 import { lazy } from 'react';
-import { Navigate, RouteProps } from 'react-router-dom';
+import { Navigate, RouteProps, useLocation } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
 
 export type IRoutePersonalizadas = RouteProps & {
@@ -90,7 +90,6 @@ const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
 const ListaFacturasUnificada = lazy(() => import('@/pages/Facturacion/ListaFacturasUnificada'));
 const DetalleFacturaContrato = lazy(() => import('@/pages/Facturacion/DetalleFacturaContrato'));
 const ListaPrefacturasOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/ListaPrefacturasOTV3'));
-const CrearPrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/CrearPrefacturaOTV3'));
 const MatchingManualOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/MatchingManualOTV3'));
 const DetallePrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/DetallePrefacturaOTV3'));
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
@@ -115,6 +114,12 @@ const VistaPreviaFirmaContrato = lazy(
 const PlanesYServicios = lazy(
     () => import('@/pages/Contratos/Registro/PlanesYServicios'),
 );
+
+const RedirectCrearPrefacturaOTV3Legacy = () => {
+    const { search } = useLocation();
+    const target = `${Pages.facturacion.subPages.matchingManualOTV3.to}${search || ''}`;
+    return <Navigate to={target} replace />;
+};
 const ListaPlantillasContrato = lazy(
     () => import('@/pages/Contratos/PlantillasContrato/ListaPlantillas'),
 );
@@ -485,7 +490,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.crearPrefacturaOTV3.to,
-        element: <CrearPrefacturaOTV3 />,
+        element: <RedirectCrearPrefacturaOTV3Legacy />,
         authority: Pages.facturacion.subPages.crearPrefacturaOTV3.authority,
     },
     {

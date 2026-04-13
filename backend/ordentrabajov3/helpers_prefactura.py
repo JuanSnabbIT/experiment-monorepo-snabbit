@@ -34,9 +34,45 @@ def _resolve_fecha_prefactura_v3(raw_fecha):
     return timezone.localdate()
 
 
+def _coerce_non_negative_int(value):
+    """Convierte un valor a int >= 0. Si no se puede, retorna None."""
+    if value is None:
+        return None
+    try:
+        coerced = int(value)
+    except (TypeError, ValueError):
+        return None
+    if coerced < 0:
+        return None
+    return coerced
+
+
+def _resolve_visitas_mensuales_item(item):
+    """
+    Resuelve visitas mensuales incluidas para un item comercial con prioridad:
+    1) num_visitas_mensuales
+    2) snapshot_num_visitas_mensuales
+    3) valor en referencia (plan/servicio) si existe
+    """
+    referencia = getattr(item, "plan_version", None) or getattr(item, "servicio_version", None)
+    candidatos = [
+        getattr(item, "num_visitas_mensuales", None),
+        getattr(item, "snapshot_num_visitas_mensuales", None),
+        getattr(referencia, "num_visitas_mensuales", None) if referencia else None,
+    ]
+
+    for candidato in candidatos:
+        visitas = _coerce_non_negative_int(candidato)
+        if visitas is not None:
+            return visitas
+    return 0
+
+
 def calcular_pactado_del_contrato_v3(contrato):
     """
-    Extrae servicios y licencias pactadas de un ContratoEmpresaCliente.
+    Extrae items pactados de un ContratoEmpresaCliente.
+    Fuente primaria: ContratoItemComercial (modelo vigente).
+    Fallback: ContratoServicio + ContratoLicencia (legacy) si no hay items_comerciales.
 
     Returns:
         {
@@ -48,7 +84,29 @@ def calcular_pactado_del_contrato_v3(contrato):
     items = []
     total_pactado = Decimal("0.00")
 
-    # ContratoServicio
+    # Fuente primaria: ContratoItemComercial (modelo vigente)
+    items_comerciales = list(contrato.items_comerciales.all())
+    if items_comerciales:
+        for ic in items_comerciales:
+            nombre = ic.snapshot_nombre or f"Item #{ic.id}"
+            cantidad = ic.cantidad or 1
+            precio_unitario = Decimal(str(ic.precio_unitario_contratado or 0))
+            total_item = Decimal(str(cantidad)) * precio_unitario
+
+            items.append({
+                "id": f"comercial_{ic.id}",
+                "nombre": nombre,
+                "cantidad": cantidad,
+                "precio_unitario": float(precio_unitario),
+                "total": float(total_item),
+                "tipo": ic.tipo_origen,
+                "vinculado_a": None,
+            })
+            total_pactado += total_item
+
+        return {"items": items, "total": float(total_pactado), "moneda": "CLP"}
+
+    # Fallback: modelos legacy ContratoServicio + ContratoLicencia
     for cs in contrato.contrato_servicios.all():
         nombre = (
             cs.nombre
@@ -70,7 +128,6 @@ def calcular_pactado_del_contrato_v3(contrato):
         })
         total_pactado += total_item
 
-    # ContratoLicencia
     for cl in contrato.contrato_licencias.all():
         nombre = cl.licencia.nombre
         cantidad = cl.cantidad
@@ -89,6 +146,7 @@ def calcular_pactado_del_contrato_v3(contrato):
         total_pactado += total_item
 
     return {"items": items, "total": float(total_pactado), "moneda": "CLP"}
+
 
 
 def _precio_unitario_cotizacion_clp(item_cot, dolar_override=None, uf_override=None):
@@ -287,8 +345,8 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                 count_guias += 1
 
         # 4. OrdenesCompra M2M directas (items de compra)
-        for oc in orden.ordenes_compra.prefetch_related("itemencompra_set__item"):
-            for item_compra in oc.itemencompra_set.all():
+        for oc in orden.ordenes_compra.prefetch_related("itemenordencompra_set__item"):
+            for item_compra in oc.itemenordencompra_set.all():
                 cantidad = item_compra.cantidad or 0
                 precio_uc = float(item_compra.precio or 0)
                 monto_item = float(cantidad * precio_uc)
@@ -389,9 +447,8 @@ def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
 
     for contrato in contratos:
         incluidas_mes = sum(
-            int(item.num_visitas_mensuales or 0)
+            _resolve_visitas_mensuales_item(item)
             for item in contrato.items_comerciales.all()
-            if item.num_visitas_mensuales
         )
 
         # Contar visitas ya marcadas en prefacturas activas del mismo mes para este contrato
@@ -432,6 +489,7 @@ def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
 
     return {
         "periodo": periodo,
+        "incluidas_mes": total_incluidas,
         "incluidas_total": total_incluidas,
         "confirmadas_mes": total_confirmadas,
         "ots_marcadas_por_defecto": ots_marcadas_por_defecto,

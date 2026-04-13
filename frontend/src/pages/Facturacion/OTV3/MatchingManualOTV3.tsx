@@ -10,27 +10,29 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import type { IContratoMatching } from '@/interface/contrato.interface';
 import type { IRelacionEmpresa } from '@/interface/empresas.interface';
 import type {
-  IComparativaV3Params,
-  IComparativaV3Result,
-  IItemEjecutadoV3,
-  IItemFacturableV3,
-  IItemPrefacturaV3,
-  IOrdenDeTrabajoV3,
-  IResultadoPrefacturaV3,
-  ITipoCambioResponse,
-  IVisitasContratoResumenV3,
-  IVisitasPrefacturaV3,
+    ICotizacionComparativaV3,
+    IComparativaV3Params,
+    IComparativaV3Result,
+    IItemEjecutadoV3,
+    IItemFacturableV3,
+    IItemPrefacturaV3,
+    IOrdenDeTrabajoV3,
+    IResultadoPrefacturaV3,
+    ITipoCambioResponse,
+    IVisitasContratoResumenV3,
+    IVisitasPrefacturaV3,
 } from '@/interface/ordenTrabajoV3.interface';
 import ApiService from '@/services/ApiService';
 import { useAppSelector } from '@/store/hook';
 import { useGetContratosActivosClienteQuery } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
 import {
-  useCreatePrefacturaOTV3Mutation,
-  useGetComparativaV3Mutation,
-  useGetOtsElegiblesV3Query,
+    useCreatePrefacturaOTV3Mutation,
+    useGetComparativaV3Mutation,
+    useGetOtsElegiblesV3Query,
 } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -39,8 +41,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  buildPrefacturaOTDetailPath,
-  parsePrefacturacionSearchParams,
+    buildPrefacturaOTDetailPath,
+    parsePrefacturacionSearchParams,
 } from '../prefacturacion.shared';
 
 // ── Helpers locales ──────────────────────────────────────────────────
@@ -57,12 +59,45 @@ const tipoBadge = (tipo: string): { color: string; label: string } => {
     return map[tipo] ?? { color: 'zinc', label: tipo };
 };
 
+type TContratoCardVM = {
+    id: number;
+    nombre: string;
+    estadoLabel: string;
+    moneda: string;
+    diaFacturacion: number | null;
+};
+
+type TCotizacionCardVM = {
+    id: number;
+    numeroCotizacion: number | null;
+    nombre: string;
+    estadoLabel: string;
+    totalAsociado: number;
+    cantidadItems: number;
+};
+
+type TOrdenCompraCardVM = {
+    id: number;
+    totalAsociado: number;
+    cantidadItems: number;
+};
+
+const toPositiveIntOrNull = (value: unknown): number | null => {
+    if (value === null || value === undefined) return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    const normalized = Math.trunc(parsed);
+    return normalized > 0 ? normalized : null;
+};
+
 // ── Componente principal ─────────────────────────────────────────────
 
 const MatchingManualOTV3 = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const routeState = parsePrefacturacionSearchParams(searchParams, 'ot');
+    const otPreseleccionadaRaw =
+        searchParams.get('ot_preseleccionada') ?? searchParams.get('ot_id');
 
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const empresaId = personalizacionUsuario?.empresa ?? undefined;
@@ -72,8 +107,9 @@ const MatchingManualOTV3 = () => {
         searchParams.get('cliente_id') ? Number(searchParams.get('cliente_id')) : null,
     );
     const [otIdsSeleccionadas, setOtIdsSeleccionadas] = useState<number[]>(() => {
-        const presel = searchParams.get('ot_preseleccionada');
-        return presel ? [Number(presel)] : [];
+        if (!otPreseleccionadaRaw) return [];
+        const otId = Number(otPreseleccionadaRaw);
+        return Number.isFinite(otId) ? [otId] : [];
     });
     const [contratoIds, setContratoIds] = useState<number[]>([]);
     const [comentario, setComentario] = useState('');
@@ -114,7 +150,7 @@ const MatchingManualOTV3 = () => {
 
     // ── Efectos de reset ─────────────────────────────────────────────
     useEffect(() => {
-        if (!searchParams.get('ot_preseleccionada')) {
+        if (!otPreseleccionadaRaw) {
             setOtIdsSeleccionadas([]);
         }
         setContratoIds([]);
@@ -122,7 +158,7 @@ const MatchingManualOTV3 = () => {
         setComparativaCargada(false);
         setItemsConfig(new Map());
         setVisitasMarcadasPorOt({});
-    }, [clienteId]);
+    }, [clienteId, otPreseleccionadaRaw]);
 
     useEffect(() => {
         setComparativa(null);
@@ -195,7 +231,7 @@ const MatchingManualOTV3 = () => {
         const vc = comparativa?.visitas_contrato;
         return {
             periodo: (vc?.periodo as string) ?? periodo,
-            incluidas_mes: Number(vc?.incluidas_mes ?? 0),
+            incluidas_mes: Number(vc?.incluidas_mes ?? vc?.incluidas_total ?? 0),
             confirmadas_mes: Number(vc?.confirmadas_mes ?? 0),
         };
     }, [comparativa?.visitas_contrato, fechaPrefactura]);
@@ -246,6 +282,116 @@ const MatchingManualOTV3 = () => {
             ...(syntheticVisitaItem ? [syntheticVisitaItem] : []),
         ],
         [comparativa?.ejecutado?.items, syntheticVisitaItem],
+    );
+
+    const contractCardsVM = useMemo<TContratoCardVM[]>(() => {
+        if (!contratoIds.length) return [];
+        const contratosMap = new Map<number, IContratoMatching>(
+            contratosActivosCliente.map((contrato) => [contrato.id, contrato]),
+        );
+        return contratoIds
+            .map((id) => {
+                const contrato = contratosMap.get(id);
+                if (!contrato) return null;
+                return {
+                    id: contrato.id,
+                    nombre: contrato.nombre || `Contrato #${contrato.id}`,
+                    estadoLabel: contrato.estado_label || contrato.estado,
+                    moneda: contrato.moneda_cobro,
+                    diaFacturacion: contrato.dia_facturacion ?? null,
+                };
+            })
+            .filter((item): item is TContratoCardVM => item !== null);
+    }, [contratoIds, contratosActivosCliente]);
+
+    const cotizacionCardsVM = useMemo<TCotizacionCardVM[]>(() => {
+        if (!comparativaCargada) return [];
+
+        const cotizacionesMeta = new Map<number, ICotizacionComparativaV3>();
+        (comparativa?.ejecutado?.cotizaciones ?? []).forEach((cotizacion) => {
+            const cotizacionId = toPositiveIntOrNull(cotizacion?.id);
+            if (!cotizacionId) return;
+            cotizacionesMeta.set(cotizacionId, cotizacion);
+        });
+
+        const agregados = new Map<number, { total: number; keys: Set<string> }>();
+        allItems.forEach((item) => {
+            const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
+            if (!cotizacionId) return;
+            const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
+            const actual = agregados.get(cotizacionId) ?? { total: 0, keys: new Set<string>() };
+            if (!actual.keys.has(key)) {
+                actual.keys.add(key);
+                actual.total += Number(item.total || 0);
+            }
+            agregados.set(cotizacionId, actual);
+        });
+
+        return Array.from(agregados.entries())
+            .map(([cotizacionId, agregado]) => {
+                const meta = cotizacionesMeta.get(cotizacionId);
+                return {
+                    id: cotizacionId,
+                    numeroCotizacion: meta?.numero_cotizacion ?? null,
+                    nombre: meta?.nombre ?? `Cotizacion #${cotizacionId}`,
+                    estadoLabel: meta?.estado_label ?? meta?.estado ?? 'Sin estado',
+                    totalAsociado: agregado.total,
+                    cantidadItems: agregado.keys.size,
+                };
+            })
+            .filter((item) => item.cantidadItems > 0)
+            .sort((a, b) => b.totalAsociado - a.totalAsociado);
+    }, [allItems, comparativa?.ejecutado?.cotizaciones, comparativaCargada]);
+
+    const ordenCompraCardsVM = useMemo<TOrdenCompraCardVM[]>(() => {
+        if (!comparativaCargada) return [];
+        const agregados = new Map<number, { total: number; keys: Set<string> }>();
+        allItems.forEach((item) => {
+            const ordenCompraId = toPositiveIntOrNull(item.oc_id ?? item.compra_id);
+            if (!ordenCompraId) return;
+            const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
+            const actual = agregados.get(ordenCompraId) ?? { total: 0, keys: new Set<string>() };
+            if (!actual.keys.has(key)) {
+                actual.keys.add(key);
+                actual.total += Number(item.total || 0);
+            }
+            agregados.set(ordenCompraId, actual);
+        });
+
+        return Array.from(agregados.entries())
+            .map(([id, agregado]) => ({
+                id,
+                totalAsociado: agregado.total,
+                cantidadItems: agregado.keys.size,
+            }))
+            .filter((item) => item.cantidadItems > 0)
+            .sort((a, b) => b.totalAsociado - a.totalAsociado);
+    }, [allItems, comparativaCargada]);
+
+    const visitasPorContrato = useMemo(() => {
+        const visitasRaw = comparativa?.visitas_contrato;
+        const porContratoRaw = Array.isArray(visitasRaw?.por_contrato)
+            ? visitasRaw.por_contrato
+            : [];
+        const resumen = new Map<number, { incluidasMes: number; confirmadasMes: number }>();
+
+        porContratoRaw.forEach((item: any) => {
+            const contratoId = toPositiveIntOrNull(item?.contrato_id);
+            if (!contratoId) return;
+            resumen.set(contratoId, {
+                incluidasMes: Number(item?.incluidas_mes ?? 0),
+                confirmadasMes: Number(item?.confirmadas_mes ?? 0),
+            });
+        });
+        return resumen;
+    }, [comparativa?.visitas_contrato]);
+
+    const hasVisualCards = useMemo(
+        () =>
+            contractCardsVM.length > 0 ||
+            cotizacionCardsVM.length > 0 ||
+            ordenCompraCardsVM.length > 0,
+        [contractCardsVM.length, cotizacionCardsVM.length, ordenCompraCardsVM.length],
     );
 
     // ── Totales ──────────────────────────────────────────────────────
@@ -645,7 +791,103 @@ const MatchingManualOTV3 = () => {
 
                                         {/* Tabla de items con matching */}
                                         {allItems.length > 0 && (
-                                            <div className='overflow-x-auto'>
+                                            <div
+                                                className={
+                                                    hasVisualCards
+                                                        ? 'grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)]'
+                                                        : ''
+                                                }>
+                                                {hasVisualCards && (
+                                                    <div className='space-y-3'>
+                                                        {contractCardsVM.length > 0 && (
+                                                            <Card className='border border-gray-200 dark:border-gray-700'>
+                                                                <CardHeader>
+                                                                    <CardHeaderChild>
+                                                                        Contratos
+                                                                    </CardHeaderChild>
+                                                                </CardHeader>
+                                                                <CardBody className='space-y-2 text-xs'>
+                                                                    {contractCardsVM.map((contrato) => {
+                                                                        const base = visitasPorContrato.get(contrato.id);
+                                                                        return (
+                                                                            <div key={contrato.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                                <div className='mb-1 flex items-center justify-between gap-2'>
+                                                                                    <p className='truncate font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                        {contrato.nombre}
+                                                                                    </p>
+                                                                                    <Badge color='zinc'>
+                                                                                        {contrato.estadoLabel}
+                                                                                    </Badge>
+                                                                                </div>
+                                                                                <p className='text-gray-500'>{`Moneda: ${contrato.moneda}`}</p>
+                                                                                <p className='text-gray-500'>{`Dia facturacion: ${contrato.diaFacturacion ?? '-'}`}</p>
+                                                                                <p className='text-gray-500'>{`Visitas base: ${base?.confirmadasMes ?? 0}/${base?.incluidasMes ?? 0}`}</p>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                    <div className='rounded border border-blue-200 bg-blue-50 p-2 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300'>
+                                                                        <p className='font-semibold'>Visitas proyectadas</p>
+                                                                        <p>{`${visitasPrefactura.proyectadas_mes}/${visitasPrefactura.incluidas_mes}`}</p>
+                                                                        {visitasPrefactura.exceso_prefactura > 0 && (
+                                                                            <p>{`Exceso: ${visitasPrefactura.exceso_prefactura}`}</p>
+                                                                        )}
+                                                                    </div>
+                                                                </CardBody>
+                                                            </Card>
+                                                        )}
+
+                                                        {cotizacionCardsVM.length > 0 && (
+                                                            <Card className='border border-gray-200 dark:border-gray-700'>
+                                                                <CardHeader>
+                                                                    <CardHeaderChild>
+                                                                        Cotizaciones
+                                                                    </CardHeaderChild>
+                                                                </CardHeader>
+                                                                <CardBody className='space-y-2 text-xs'>
+                                                                    {cotizacionCardsVM.map((cotizacion) => (
+                                                                        <div key={cotizacion.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                            <div className='mb-1 flex items-center justify-between gap-2'>
+                                                                                <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                    {cotizacion.numeroCotizacion ? `#${cotizacion.numeroCotizacion}` : `#${cotizacion.id}`}
+                                                                                </p>
+                                                                                <Badge color='zinc'>
+                                                                                    {cotizacion.estadoLabel}
+                                                                                </Badge>
+                                                                            </div>
+                                                                            <p className='truncate text-gray-500'>{cotizacion.nombre}</p>
+                                                                            <p className='text-gray-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
+                                                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                {formatCurrency(cotizacion.totalAsociado, 'CLP')}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </CardBody>
+                                                            </Card>
+                                                        )}
+
+                                                        {ordenCompraCardsVM.length > 0 && (
+                                                            <Card className='border border-gray-200 dark:border-gray-700'>
+                                                                <CardHeader>
+                                                                    <CardHeaderChild>
+                                                                        Ordenes de compra
+                                                                    </CardHeaderChild>
+                                                                </CardHeader>
+                                                                <CardBody className='space-y-2 text-xs'>
+                                                                    {ordenCompraCardsVM.map((ordenCompra) => (
+                                                                        <div key={ordenCompra.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                            <p className='mb-1 font-semibold text-gray-700 dark:text-gray-100'>{`OC #${ordenCompra.id}`}</p>
+                                                                            <p className='text-gray-500'>{`Items: ${ordenCompra.cantidadItems}`}</p>
+                                                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                {formatCurrency(ordenCompra.totalAsociado, 'CLP')}
+                                                                            </p>
+                                                                        </div>
+                                                                    ))}
+                                                                </CardBody>
+                                                            </Card>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className='overflow-x-auto'>
                                                 <Table>
                                                     <THead>
                                                         <Tr>
@@ -817,6 +1059,7 @@ const MatchingManualOTV3 = () => {
                                                     </TBody>
                                                 </Table>
                                             </div>
+                                            </div>
                                         )}
                                     </>
                                 )}
@@ -845,9 +1088,11 @@ const MatchingManualOTV3 = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <p className='text-xs text-gray-500'>Confirmadas previas</p>
+                                        <p className='text-xs text-gray-500'>
+                                            Visitas usadas/incluidas
+                                        </p>
                                         <p className='font-semibold'>
-                                            {visitasPrefactura.confirmadas_mes}
+                                            {`${visitasPrefactura.proyectadas_mes}/${visitasPrefactura.incluidas_mes}`}
                                         </p>
                                     </div>
                                     <div>

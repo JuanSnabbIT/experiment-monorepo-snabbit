@@ -15,9 +15,14 @@ from .estados_modelo import (
     ESTADO_TAREA_COMPLETADA,
     ESTADO_TAREA_EN_PROCESO,
     ESTADO_TAREA_NO_REALIZADA,
+    ESTADO_BORRADOR,
+    ESTADO_PREPARACION,
     ESTADO_EN_EJECUCION,
     ESTADO_RETROALIMENTACION,
     ESTADO_POR_FACTURAR,
+    ESTADO_FACTURADA,
+    ESTADO_PARCIALMENTE_FACTURADA,
+    ESTADO_CANCELADA,
     TRANSICIONES_TAREA_V3,
     TRANSICIONES_VALIDAS_V3,
     ETAPA_UI_MAP,
@@ -222,6 +227,30 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
 
         ot.save()
 
+        # B1: Cleanup al cancelar OT
+        if nuevo_estado == ESTADO_CANCELADA:
+            with transaction.atomic():
+                # Prefacturas en borrador: eliminar si esta OT es la unica, sino solo removerla
+                for pref in PrefacturaOTV3.objects.filter(ots__id=ot.id, estado_cierre="borrador"):
+                    if pref.ots.count() == 1:
+                        pref.delete()
+                    else:
+                        pref.ots.remove(ot)
+
+                # Liberar series reservadas de las guias vinculadas antes de limpiar M2M
+                from bodegas.models import ItemsGuiaSalida
+                from bodegas.series import liberar_series_por_item_guia
+                guia_ids = list(ot.guias_salida.values_list("id", flat=True))
+                for item_guia in ItemsGuiaSalida.objects.filter(
+                    guia_id__in=guia_ids, individualizado=True
+                ).select_related("stock_item"):
+                    liberar_series_por_item_guia(item_guia.stock_item, item_guia.id)
+
+                # Limpiar relaciones M2M de la OT cancelada
+                ot.cotizaciones.clear()
+                ot.guias_salida.clear()
+                ot.ordenes_compra.clear()
+
         # Disparar tarea de retroalimentacion V3 al entrar en ese estado
         if nuevo_estado == ESTADO_RETROALIMENTACION and ot.cliente_solicitante_id:
             from retroalimentacion.tasks import crear_y_enviar_retroalimentacion_v3
@@ -248,7 +277,28 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
         """Retorna lista de bloqueadores o lista vacia si puede avanzar."""
         bloqueadores = []
 
+        # A1: al pasar a preparacion debe haber un tecnico responsable o lider asignado
+        if nuevo_estado == ESTADO_PREPARACION:
+            tiene_tecnico = (
+                ot.tecnico_responsable_id is not None
+                or ot.asignaciones.filter(rol="lider").exists()
+            )
+            if not tiene_tecnico:
+                bloqueadores.append({
+                    "tipo": "sin_tecnico_responsable",
+                    "mensaje": "La OT debe tener un técnico responsable o un técnico líder asignado antes de pasar a preparación.",
+                    "detalle": [],
+                })
+
         if nuevo_estado == ESTADO_EN_EJECUCION:
+            # A2: debe tener al menos una cotizacion vinculada o una descripcion de trabajo
+            if not ot.cotizaciones.exists() and not (ot.descripcion and ot.descripcion.strip()):
+                bloqueadores.append({
+                    "tipo": "sin_alcance_definido",
+                    "mensaje": "La OT debe tener al menos una cotización vinculada o una descripción de trabajo antes de iniciar ejecución.",
+                    "detalle": [],
+                })
+
             # Bloqueador 1: cotizaciones vinculadas sin guia de salida creada
             cotizaciones_de_ot = list(ot.cotizaciones.all())
             if cotizaciones_de_ot:
@@ -310,6 +360,19 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             ),
                             "detalle": detalles,
                         })
+
+        # A3: para facturar manualmente debe existir una prefactura aprobada
+        if nuevo_estado == ESTADO_FACTURADA:
+            tiene_prefactura = PrefacturaOTV3.objects.filter(
+                ots__id=ot.id,
+                estado_cierre__in=["por_facturar", "facturado"],
+            ).exists()
+            if not tiene_prefactura:
+                bloqueadores.append({
+                    "tipo": "sin_prefactura_aprobada",
+                    "mensaje": "La OT solo puede facturarse a través de una prefactura aprobada.",
+                    "detalle": [],
+                })
 
         if nuevo_estado == ESTADO_RETROALIMENTACION:
             tareas_incompletas = ot.tareas.exclude(
@@ -1585,45 +1648,81 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         from cuentas.functions import obtener_usuario_empresa
 
         usuario_empresa = obtener_usuario_empresa(request.user)
+        fecha_pref = request.data.get("fecha_prefactura") or timezone.localdate()
 
-        # Para compat legacy: si es 1 sola OT y no tiene prefactura, usar get_or_create con ot=
-        ot_principal = ots[0]
-        if len(ots) == 1:
-            prefactura, created = PrefacturaOTV3.objects.get_or_create(
-                ot=ot_principal,
-                defaults={
-                    "cliente": cliente_ot,
-                    "creado_por": usuario_empresa,
-                    "fecha_prefactura": request.data.get("fecha_prefactura") or timezone.localdate(),
-                    "comentario": request.data.get("comentario", ""),
-                },
+        # C1: Bloque atomico con select_for_update para evitar prefacturas duplicadas concurrentes
+        with transaction.atomic():
+            ots_locked = list(
+                OrdenDeTrabajoV3.objects.select_for_update().filter(id__in=[o.id for o in ots])
             )
-        else:
-            # Multi-OT: siempre crear nueva
-            prefactura = PrefacturaOTV3.objects.create(
-                ot=ot_principal,
-                cliente=cliente_ot,
-                creado_por=usuario_empresa,
-                fecha_prefactura=request.data.get("fecha_prefactura") or timezone.localdate(),
-                comentario=request.data.get("comentario", ""),
+            # Re-verificar que ninguna OT ya este en prefactura activa (dentro del lock)
+            ot_conflictivas_ids = list(
+                PrefacturaOTV3.objects.filter(
+                    ots__in=ots_locked,
+                    estado_cierre__in=["borrador", "por_facturar"],
+                )
+                .values_list("ots__id", flat=True)
+                .distinct()
             )
-            created = True
+            if ot_conflictivas_ids:
+                return Response(
+                    {
+                        "detail": f"La(s) OT(s) {ot_conflictivas_ids} ya están incluidas en una prefactura activa.",
+                        "ot_ids_conflicto": ot_conflictivas_ids,
+                    },
+                    status=400,
+                )
 
-        # Asignar relaciones M2M
-        prefactura.ots.set(ots)
-        if contratos:
-            prefactura.contratos.set(contratos)
-        elif ot_principal.contrato_id:
-            prefactura.contratos.add(ot_principal.contrato)
+            # Para compat legacy: si es 1 sola OT usar get_or_create con ot=
+            ot_principal = ots_locked[0]
+            if len(ots_locked) == 1:
+                prefactura, created = PrefacturaOTV3.objects.get_or_create(
+                    ot=ot_principal,
+                    defaults={
+                        "cliente": cliente_ot,
+                        "creado_por": usuario_empresa,
+                        "fecha_prefactura": fecha_pref,
+                        "comentario": request.data.get("comentario", ""),
+                    },
+                )
+            else:
+                # Multi-OT: siempre crear nueva
+                prefactura = PrefacturaOTV3.objects.create(
+                    ot=ot_principal,
+                    cliente=cliente_ot,
+                    creado_por=usuario_empresa,
+                    fecha_prefactura=fecha_pref,
+                    comentario=request.data.get("comentario", ""),
+                )
+                created = True
 
-        # Guardar resultado si viene en el payload (matching manual)
-        resultado = request.data.get("resultado")
-        if resultado and isinstance(resultado, dict):
-            prefactura.resultado = resultado
-            prefactura.save(update_fields=["resultado"])
+            # Asignar relaciones M2M
+            prefactura.ots.set(ots_locked)
+            if contratos:
+                prefactura.contratos.set(contratos)
+            elif ot_principal.contrato_id:
+                prefactura.contratos.add(ot_principal.contrato)
 
-        serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+            # Guardar resultado si viene en el payload (matching manual)
+            resultado = request.data.get("resultado")
+            if resultado and isinstance(resultado, dict):
+                prefactura.resultado = resultado
+                prefactura.save(update_fields=["resultado"])
+
+            # C2: Persistir tasas de cambio usadas en el calculo de ejecutado
+            try:
+                from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
+                tasa_dolar, _ = obtener_tipo_cambio_mindicador_con_fallback("dolar", fecha_pref)
+                tasa_uf, _ = obtener_tipo_cambio_mindicador_con_fallback("uf", fecha_pref)
+                prefactura.tasa_dolar_usada = tasa_dolar
+                prefactura.tasa_uf_usada = tasa_uf
+                prefactura.fecha_tasa_cambio = fecha_pref
+                prefactura.save(update_fields=["tasa_dolar_usada", "tasa_uf_usada", "fecha_tasa_cambio"])
+            except Exception:
+                pass  # Tasas son informativas, no bloquean la creacion
+
+            serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def perform_update(self, serializer):
         instancia = self.get_object()
@@ -1659,11 +1758,11 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         if not cliente_id:
             return Response({"detail": 'El parametro "cliente_id" es obligatorio.'}, status=400)
 
-        # OTs de la empresa+cliente en estado por_facturar
+        # OTs de la empresa+cliente en estado por_facturar o parcialmente_facturada
         ots_base = OrdenDeTrabajoV3.objects.filter(
             empresa=empresa,
             cliente_id=cliente_id,
-            estado=ESTADO_POR_FACTURAR,
+            estado__in=[ESTADO_POR_FACTURAR, ESTADO_PARCIALMENTE_FACTURADA],
         )
 
         # Excluir OTs que ya estan en una prefactura activa (no facturada)
@@ -1732,7 +1831,13 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
             except (TypeError, ValueError):
                 return Response({"detail": "contrato_ids debe ser lista de enteros."}, status=400)
 
-            contratos = list(ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids))
+            contratos = list(
+                ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids).prefetch_related(
+                    "items_comerciales",
+                    "items_comerciales__plan_version",
+                    "items_comerciales__servicio_version",
+                )
+            )
 
             for contrato in contratos:
                 parcial = calcular_pactado_del_contrato_v3(contrato)
@@ -1740,9 +1845,7 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
                 pactado_combinado["total"] += parcial["total"]
 
             if contratos:
-                from django.db.models import QuerySet
-                contratos_qs = ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids)
-                visitas_contrato = _build_visitas_v3(contratos_qs, ots, fecha_prefactura)
+                visitas_contrato = _build_visitas_v3(contratos, ots, fecha_prefactura)
 
         ots_marcadas_visitas = resolver_ots_marcadas_visitas(ots)
         diferencia = round(pactado_combinado["total"] - ejecutado["total"], 2)
@@ -1820,19 +1923,35 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         prefactura.actualizado_por = usuario_empresa
         prefactura.save(update_fields=["documento_factura", "estado_cierre", "actualizado_por"])
 
-        # Avance automatico de todas las OTs V3 incluidas a "facturada"
-        ots_a_facturar = prefactura.ots.exclude(estado="facturada")
+        # Avance automatico de las OTs incluidas: parcial o total segun items excluidos en resultado
+        resultado_pref = prefactura.resultado or {}
+        items_resultado = resultado_pref.get("items", [])
+        ots_a_facturar = prefactura.ots.exclude(estado__in=["facturada", "cerrada"])
         for ot in ots_a_facturar:
-            ot.estado = "facturada"
+            # Si hay resultado manual, verificar si se excluyeron items de esta OT
+            if items_resultado:
+                items_de_esta_ot = [it for it in items_resultado if it.get("ot_id") == ot.id]
+                excluidos = any(it.get("facturar") is False for it in items_de_esta_ot)
+                incluidos = any(it.get("facturar") is not False for it in items_de_esta_ot)
+                nuevo_estado_ot = ESTADO_PARCIALMENTE_FACTURADA if (excluidos and incluidos) else ESTADO_FACTURADA
+            else:
+                nuevo_estado_ot = ESTADO_FACTURADA
+
+            ot.estado = nuevo_estado_ot
             ot.save(update_fields=["estado"])
 
             # El signal crea el historial automaticamente; actualizamos comentario.
             ultimo = HistorialEstadoOTV3.objects.filter(
                 orden=ot,
-                estado_nuevo="facturada",
+                estado_nuevo=nuevo_estado_ot,
             ).order_by("-fecha_creacion").first()
             if ultimo:
-                ultimo.comentario = "Facturacion completada (documento asociado en prefactura OTV3)"
+                comentario_hist = (
+                    "Facturación parcial (quedan ítems pendientes)"
+                    if nuevo_estado_ot == ESTADO_PARCIALMENTE_FACTURADA
+                    else "Facturación completada (documento asociado en prefactura OTV3)"
+                )
+                ultimo.comentario = comentario_hist
                 ultimo.save(update_fields=["comentario"])
 
         serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})

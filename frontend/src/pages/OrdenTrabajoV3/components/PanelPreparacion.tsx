@@ -1,4 +1,6 @@
+import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -17,10 +19,11 @@ import {
     useDeleteTareaV3Mutation,
     useDesvincularCotizacionV3Mutation,
     useDesvincularGuiaV3Mutation,
+    useUpdateOrdenV3Mutation,
 } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import AgregarTareaOTV3 from '../modals/AgregarTareaOTV3';
 import AsignarTecnicoOTV3 from '../modals/AsignarTecnicoOTV3';
@@ -48,6 +51,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
     const [desvincularCotizacion] = useDesvincularCotizacionV3Mutation();
     const [desvincularGuia] = useDesvincularGuiaV3Mutation();
     const [crearTareasEntrega, { isLoading: isCreandoTareas }] = useCrearTareasEntregaGuiaV3Mutation();
+    const [updateOrden, { isLoading: isSavingDescripcion }] = useUpdateOrdenV3Mutation();
 
     const [modalTarea, setModalTarea] = useState(false);
     const [modalTecnico, setModalTecnico] = useState(false);
@@ -58,9 +62,16 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
     );
     const [receptorPorItem, setReceptorPorItem] = useState<Record<number, number | null>>({});
     const [expandedCot, setExpandedCot] = useState<Set<number>>(new Set());
+    const [descripcionEditing, setDescripcionEditing] = useState(false);
+    const [descripcionDraft, setDescripcionDraft] = useState(orden.descripcion ?? '');
 
     const cotizaciones = orden.cotizaciones_detalle ?? [];
     const guiasDeOT = orden.guias_vinculadas ?? [];
+
+    useEffect(() => {
+        setDescripcionDraft(orden.descripcion ?? '');
+        setDescripcionEditing(false);
+    }, [orden.id]);
 
     // Items de todas las guias vinculadas para asignacion de equipos
     const itemsConEntrega: (IItemGuiaSalidaResumenOTV3 & { guia_id: number })[] = guiasDeOT.flatMap(
@@ -125,6 +136,22 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
         }
     };
 
+    const handleSaveDescripcion = async () => {
+        try {
+            const updated = await updateOrden({
+                id: orden.id,
+                data: { descripcion: descripcionDraft },
+            }).unwrap();
+            setDescripcionDraft(updated.descripcion ?? '');
+            setDescripcionEditing(false);
+            toast.success('Descripcion actualizada');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const alcanceBloqueado = cotizaciones.length === 0 && !descripcionDraft.trim();
+
     return (
         <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
             {/* Informacion principal */}
@@ -154,14 +181,6 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                     : '-'}
                             </dd>
                         </div>
-                        {orden.descripcion && (
-                            <div className='flex flex-col gap-1'>
-                                <dt className='text-gray-500'>Descripcion:</dt>
-                                <dd className='whitespace-pre-wrap rounded-md bg-gray-50 p-2 dark:bg-gray-800'>
-                                    {orden.descripcion}
-                                </dd>
-                            </div>
-                        )}
                     </dl>
                 </CardBody>
             </Card>
@@ -211,6 +230,67 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                         </Table>
                     ) : (
                         <p className='text-sm text-gray-400'>Sin tecnicos asignados aun.</p>
+                    )}
+                </CardBody>
+            </Card>
+
+            {/* Descripcion / alcance */}
+            <Card className='lg:col-span-2'>
+                <CardHeader>
+                    <CardHeaderChild>Descripcion de trabajo</CardHeaderChild>
+                    <CardHeaderChild>
+                        {descripcionEditing ? (
+                            <div className='flex gap-2'>
+                                <Button
+                                    size='sm'
+                                    variant='outline'
+                                    onClick={() => {
+                                        setDescripcionDraft(orden.descripcion ?? '');
+                                        setDescripcionEditing(false);
+                                    }}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    size='sm'
+                                    variant='solid'
+                                    icon='HeroCheck'
+                                    isLoading={isSavingDescripcion}
+                                    onClick={() => void handleSaveDescripcion()}>
+                                    Guardar
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                size='sm'
+                                variant='outline'
+                                icon='HeroPencil'
+                                onClick={() => setDescripcionEditing(true)}>
+                                {descripcionDraft.trim() ? 'Editar' : 'Agregar'}
+                            </Button>
+                        )}
+                    </CardHeaderChild>
+                </CardHeader>
+                <CardBody>
+                    {descripcionEditing ? (
+                        <div>
+                            <Label htmlFor='descripcion_otv3' className='mb-1'>
+                                Descripcion
+                            </Label>
+                            <Textarea
+                                id='descripcion_otv3'
+                                name='descripcion_otv3'
+                                value={descripcionDraft}
+                                onChange={(e) => setDescripcionDraft(e.target.value)}
+                                rows={4}
+                                placeholder='Descripcion del trabajo a realizar...'
+                            />
+                        </div>
+                    ) : descripcionDraft.trim() ? (
+                        <div className='whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200'>
+                            {descripcionDraft}
+                        </div>
+                    ) : (
+                        <p className='text-sm text-gray-400'>Sin descripcion registrada.</p>
                     )}
                 </CardBody>
             </Card>

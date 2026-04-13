@@ -15,7 +15,7 @@ const PanelPorFacturar = ({ orden }: IProps) => {
             ot_preseleccionada: String(orden.id),
             ...(orden.cliente ? { cliente_id: String(orden.cliente) } : {}),
         });
-        navigate(`/facturacion/otv3/prefacturas/crear?${params.toString()}`);
+        navigate(`/facturacion/otv3/prefacturas/crear-matching?${params.toString()}`);
     };
 
     return (
@@ -77,4 +77,3 @@ const PanelPorFacturar = ({ orden }: IProps) => {
 };
 
 export default PanelPorFacturar;
-

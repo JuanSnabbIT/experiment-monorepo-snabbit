@@ -1,7 +1,10 @@
+from datetime import date, timedelta
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from contratos.models import ContratoEmpresaCliente, ContratoItemComercial, PlanServicio
 from cuentas.models import User
 from core.models import PersonalizacionUsuario
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
@@ -68,6 +71,43 @@ class PrefacturaOTV3ApiTest(APITestCase):
         )
         pref.ots.set(ots)
         return pref
+
+    def _crear_contrato_activo_con_item(
+        self,
+        *,
+        num_visitas_mensuales=None,
+        snapshot_num_visitas_mensuales=None,
+        plan_num_visitas_mensuales=None,
+    ):
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today() - timedelta(days=1),
+            nombre="Contrato Test OTV3",
+            estado="activo",
+            tipo="servicios",
+            moneda_cobro="CLP",
+            forma_pago_contractual="mensual",
+        )
+        plan = PlanServicio.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            nombre="Plan Test OTV3",
+            num_visitas_mensuales=plan_num_visitas_mensuales,
+            precio_clp=1000,
+        )
+        ContratoItemComercial.objects.create(
+            contrato=contrato,
+            tipo_origen="plan",
+            plan_version=plan,
+            snapshot_nombre=plan.nombre,
+            cantidad=1,
+            veces_por_mes=1,
+            moneda="CLP",
+            precio_unitario_contratado=1000,
+            num_visitas_mensuales=num_visitas_mensuales,
+            snapshot_num_visitas_mensuales=snapshot_num_visitas_mensuales,
+        )
+        return contrato
 
     # ------------------------------------------------------------------ #
     # Tests originales actualizados
@@ -282,6 +322,43 @@ class PrefacturaOTV3ApiTest(APITestCase):
         self.assertIn("diferencia", data)
         self.assertIn("ots_marcadas_visitas", data)
 
+    def test_comparativa_contrato_reporta_visitas_incluidas_mes(self):
+        """Comparativa incluye visitas pactadas por contrato y mantiene alias temporal."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=4,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=2,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        self.assertEqual(visitas.get("incluidas_mes"), 4)
+        self.assertEqual(visitas.get("incluidas_total"), 4)
+        self.assertIn("incluidas_mes", visitas)
+        self.assertIn("incluidas_total", visitas)
+
+    def test_comparativa_visitas_fallback_a_snapshot_num_visitas(self):
+        """Si num_visitas_mensuales es null, usa snapshot_num_visitas_mensuales."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=None,
+            snapshot_num_visitas_mensuales=3,
+            plan_num_visitas_mensuales=None,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        self.assertEqual(visitas.get("incluidas_mes"), 3)
+
     def test_comparativa_falla_sin_ots(self):
         """Comparativa sin ot_ids retorna 400."""
         resp = self.client.post(
@@ -359,4 +436,3 @@ class PrefacturaOTV3ApiTest(APITestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-
