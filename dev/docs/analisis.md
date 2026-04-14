@@ -64,8 +64,9 @@ Las cards laterales de "Contratos", "Cotizaciones" y "Órdenes de Compra" aparec
    - Dentro del nuevo card, crear tabs o sub-secciones (preferible tabs si el espacio lo permite, colapsables si no).
    
 2. **Componente "Resumen Asociados"**
-   - Crear componente separado si la lógica crece (`frontend/src/pages/Facturacion/OTV3/components/ResumenAsociados.tsx`).
-   - Mover ahí la lógica de mapping y rendering de cada segmento (contratos, cotizaciones, OCs).
+   - Si la lógica crece, extraer un componente separado y crear explícitamente la carpeta `frontend/src/pages/Facturacion/OTV3/components/`, dejando el archivo en `frontend/src/pages/Facturacion/OTV3/components/ResumenAsociados.tsx`.
+   - Si la extracción todavía no se justifica, mantener temporalmente el bloque en `frontend/src/pages/Facturacion/OTV3/MatchingManualOTV3.tsx` para evitar mover código de forma prematura.
+   - Mover al componente extraído la lógica de mapping y rendering de cada segmento (contratos, cotizaciones, OCs) cuando se adopte esa estructura.
    
 3. **Prop drilling/props**
    - Pasar los VMs ya existentes (`contractCardsVM`, `cotizacionCardsVM`, `ordenCompraCardsVM` y helpers) al nuevo componente.
