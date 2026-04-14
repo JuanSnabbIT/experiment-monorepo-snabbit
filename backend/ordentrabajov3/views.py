@@ -1575,6 +1575,13 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         return PrefacturaOTV3Serializer
 
     def create(self, request, *args, **kwargs):
+        from ordentrabajov3.helpers_prefactura import (
+            DECIMALES_POR_MONEDA_PREF,
+            _resolve_fecha_prefactura_v3,
+            normalizar_moneda_prefactura,
+            resolver_tasas_cambio_prefactura,
+        )
+
         empresa = _get_empresa_usuario(request.user)
         if not empresa:
             return Response({"detail": "El usuario no tiene empresa configurada."}, status=400)
@@ -1601,6 +1608,14 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
             contrato_ids = [int(x) for x in contrato_ids_raw]
         except (TypeError, ValueError):
             return Response({"detail": "contrato_ids debe ser lista de enteros."}, status=400)
+
+        try:
+            moneda_prefactura = normalizar_moneda_prefactura(
+                request.data.get("moneda_prefactura"),
+                default="CLP",
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
 
         ots = list(
             OrdenDeTrabajoV3.objects.filter(pk__in=ot_ids, empresa=empresa)
@@ -1648,7 +1663,7 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         from cuentas.functions import obtener_usuario_empresa
 
         usuario_empresa = obtener_usuario_empresa(request.user)
-        fecha_pref = request.data.get("fecha_prefactura") or timezone.localdate()
+        fecha_pref = _resolve_fecha_prefactura_v3(request.data.get("fecha_prefactura"))
 
         # C1: Bloque atomico con select_for_update para evitar prefacturas duplicadas concurrentes
         with transaction.atomic():
@@ -1683,6 +1698,7 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
                         "creado_por": usuario_empresa,
                         "fecha_prefactura": fecha_pref,
                         "comentario": request.data.get("comentario", ""),
+                        "moneda_prefactura": moneda_prefactura,
                     },
                 )
             else:
@@ -1693,8 +1709,13 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
                     creado_por=usuario_empresa,
                     fecha_prefactura=fecha_pref,
                     comentario=request.data.get("comentario", ""),
+                    moneda_prefactura=moneda_prefactura,
                 )
                 created = True
+
+            if prefactura.moneda_prefactura != moneda_prefactura:
+                prefactura.moneda_prefactura = moneda_prefactura
+                prefactura.save(update_fields=["moneda_prefactura"])
 
             # Asignar relaciones M2M
             prefactura.ots.set(ots_locked)
@@ -1705,21 +1726,79 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
 
             # Guardar resultado si viene en el payload (matching manual)
             resultado = request.data.get("resultado")
+            tasa_dolar_snapshot = None
+            tasa_uf_snapshot = None
             if resultado and isinstance(resultado, dict):
+                meta_monedas = resultado.get("meta_monedas") or {}
+                if not isinstance(meta_monedas, dict):
+                    return Response(
+                        {"detail": "resultado.meta_monedas debe ser un objeto."},
+                        status=400,
+                    )
+                moneda_meta_raw = meta_monedas.get("moneda_objetivo")
+                if moneda_meta_raw:
+                    try:
+                        moneda_meta = normalizar_moneda_prefactura(moneda_meta_raw)
+                    except ValueError as exc:
+                        return Response({"detail": str(exc)}, status=400)
+                    if moneda_meta != moneda_prefactura:
+                        return Response(
+                            {"detail": "moneda_prefactura no coincide con resultado.meta_monedas.moneda_objetivo."},
+                            status=400,
+                        )
+
+                tipo_cambio_aplicado = meta_monedas.get("tipo_cambio_aplicado") or {}
+                if not isinstance(tipo_cambio_aplicado, dict):
+                    tipo_cambio_aplicado = {}
+                try:
+                    tasas = resolver_tasas_cambio_prefactura(
+                        fecha_prefactura=fecha_pref,
+                        dolar_override=tipo_cambio_aplicado.get("dolar"),
+                        uf_override=tipo_cambio_aplicado.get("uf"),
+                        monedas_requeridas=[moneda_prefactura],
+                    )
+                except ValueError as exc:
+                    return Response({"detail": str(exc)}, status=400)
+
+                tasa_dolar_snapshot = tasas.get("dolar")
+                tasa_uf_snapshot = tasas.get("uf")
+                resultado["meta_monedas"] = {
+                    "moneda_objetivo": moneda_prefactura,
+                    "precision_aplicada": DECIMALES_POR_MONEDA_PREF.get(moneda_prefactura, 0),
+                    "tipo_cambio_aplicado": {
+                        "dolar": float(tasa_dolar_snapshot) if tasa_dolar_snapshot is not None else None,
+                        "uf": float(tasa_uf_snapshot) if tasa_uf_snapshot is not None else None,
+                        "fecha": fecha_pref.isoformat() if fecha_pref else None,
+                    },
+                }
                 prefactura.resultado = resultado
                 prefactura.save(update_fields=["resultado"])
 
             # C2: Persistir tasas de cambio usadas en el calculo de ejecutado
-            try:
-                from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
-                tasa_dolar, _ = obtener_tipo_cambio_mindicador_con_fallback("dolar", fecha_pref)
-                tasa_uf, _ = obtener_tipo_cambio_mindicador_con_fallback("uf", fecha_pref)
-                prefactura.tasa_dolar_usada = tasa_dolar
-                prefactura.tasa_uf_usada = tasa_uf
+            if tasa_dolar_snapshot is None and tasa_uf_snapshot is None:
+                try:
+                    tasas_info = resolver_tasas_cambio_prefactura(
+                        fecha_prefactura=fecha_pref,
+                        monedas_requeridas=[],
+                        fetch_missing=True,
+                    )
+                    tasa_dolar_snapshot = tasas_info.get("dolar")
+                    tasa_uf_snapshot = tasas_info.get("uf")
+                except ValueError:
+                    tasa_dolar_snapshot = None
+                    tasa_uf_snapshot = None
+
+            update_fields = []
+            if tasa_dolar_snapshot is not None:
+                prefactura.tasa_dolar_usada = tasa_dolar_snapshot
+                update_fields.append("tasa_dolar_usada")
+            if tasa_uf_snapshot is not None:
+                prefactura.tasa_uf_usada = tasa_uf_snapshot
+                update_fields.append("tasa_uf_usada")
+            if update_fields:
                 prefactura.fecha_tasa_cambio = fecha_pref
-                prefactura.save(update_fields=["tasa_dolar_usada", "tasa_uf_usada", "fecha_tasa_cambio"])
-            except Exception:
-                pass  # Tasas son informativas, no bloquean la creacion
+                update_fields.append("fecha_tasa_cambio")
+                prefactura.save(update_fields=update_fields)
 
             serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
             return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -1789,10 +1868,14 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         Returns: { pactado, ejecutado, diferencia, visitas_contrato, ots_marcadas_visitas }
         """
         from ordentrabajov3.helpers_prefactura import (
+            DECIMALES_POR_MONEDA_PREF,
             _build_visitas_v3,
             _resolve_fecha_prefactura_v3,
             calcular_ejecutado_de_ots_v3,
             calcular_pactado_del_contrato_v3,
+            cuantizar_monto_prefactura,
+            normalizar_moneda_prefactura,
+            resolver_tasas_cambio_prefactura,
             resolver_ots_marcadas_visitas,
         )
 
@@ -1812,14 +1895,42 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Debe enviar al menos una OT en ot_ids."}, status=400)
 
         fecha_prefactura = _resolve_fecha_prefactura_v3(request.data.get("fecha_prefactura"))
+        try:
+            moneda_objetivo = normalizar_moneda_prefactura(
+                request.data.get("moneda_objetivo"),
+                default="CLP",
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        try:
+            tasas = resolver_tasas_cambio_prefactura(
+                fecha_prefactura=fecha_prefactura,
+                dolar_override=request.data.get("dolar"),
+                uf_override=request.data.get("uf"),
+                monedas_requeridas=[moneda_objetivo],
+                fetch_missing=True,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        tasa_dolar = tasas.get("dolar")
+        tasa_uf = tasas.get("uf")
 
         ots = OrdenDeTrabajoV3.objects.filter(id__in=ot_ids, empresa=empresa)
         if ots.count() != len(ot_ids):
             return Response({"detail": "Una o mas OTs no encontradas o de otra empresa."}, status=404)
 
-        ejecutado = calcular_ejecutado_de_ots_v3(ot_ids, fecha_prefactura=fecha_prefactura)
+        try:
+            ejecutado = calcular_ejecutado_de_ots_v3(
+                ot_ids,
+                fecha_prefactura=fecha_prefactura,
+                moneda_objetivo=moneda_objetivo,
+                tasa_dolar=tasa_dolar,
+                tasa_uf=tasa_uf,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
 
-        pactado_combinado = {"items": [], "total": 0.0, "moneda": "CLP"}
+        pactado_combinado = {"items": [], "total": 0.0, "moneda": moneda_objetivo}
         visitas_contrato = None
         contratos = []
 
@@ -1840,7 +1951,15 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
             )
 
             for contrato in contratos:
-                parcial = calcular_pactado_del_contrato_v3(contrato)
+                try:
+                    parcial = calcular_pactado_del_contrato_v3(
+                        contrato,
+                        moneda_objetivo=moneda_objetivo,
+                        tasa_dolar=tasa_dolar,
+                        tasa_uf=tasa_uf,
+                    )
+                except ValueError as exc:
+                    return Response({"detail": str(exc)}, status=400)
                 pactado_combinado["items"].extend(parcial["items"])
                 pactado_combinado["total"] += parcial["total"]
 
@@ -1848,7 +1967,12 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
                 visitas_contrato = _build_visitas_v3(contratos, ots, fecha_prefactura)
 
         ots_marcadas_visitas = resolver_ots_marcadas_visitas(ots)
-        diferencia = round(pactado_combinado["total"] - ejecutado["total"], 2)
+        diferencia = float(
+            cuantizar_monto_prefactura(
+                pactado_combinado["total"] - ejecutado["total"],
+                moneda_objetivo,
+            )
+        )
 
         return Response({
             "pactado": pactado_combinado,
@@ -1856,6 +1980,15 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
             "diferencia": diferencia,
             "visitas_contrato": visitas_contrato,
             "ots_marcadas_visitas": ots_marcadas_visitas,
+            "meta_monedas": {
+                "moneda_objetivo": moneda_objetivo,
+                "precision_aplicada": DECIMALES_POR_MONEDA_PREF.get(moneda_objetivo, 0),
+                "tipo_cambio_aplicado": {
+                    "dolar": float(tasa_dolar) if tasa_dolar is not None else None,
+                    "uf": float(tasa_uf) if tasa_uf is not None else None,
+                    "fecha": fecha_prefactura.isoformat() if fecha_prefactura else None,
+                },
+            },
         }, status=200)
 
     @action(detail=True, methods=["post"], url_path="finalizar")

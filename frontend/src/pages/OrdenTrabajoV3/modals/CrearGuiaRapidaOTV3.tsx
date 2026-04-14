@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 
 interface IItemSeleccionado {
+    uid: string;
     stock_item_id: number;
     item_nombre: string;
     cantidad_rebajada: number;
@@ -66,38 +67,61 @@ const CrearGuiaRapidaOTV3 = ({
 
     const handleAgregarItem = (stock: IStockItemParaGuiaRapida) => {
         if (!stock.stock_item_id) return;
-        if (itemsSeleccionados.some((i) => i.stock_item_id === stock.stock_item_id)) return;
+
+        if (!stock.requiere_serie) {
+            // Items sin serie: solo una fila por stock_item_id
+            if (itemsSeleccionados.some((i) => i.stock_item_id === stock.stock_item_id)) return;
+            setItemsSeleccionados((prev) => [
+                ...prev,
+                {
+                    uid: crypto.randomUUID(),
+                    stock_item_id: stock.stock_item_id as number,
+                    item_nombre: stock.item_nombre,
+                    cantidad_rebajada: 1,
+                    numero_serie: '',
+                    requiere_serie: false,
+                    series_disponibles: [],
+                },
+            ]);
+            return;
+        }
+
+        // Items serializados: una fila por serie, auto-seleccionar la primera libre
+        const seriesYaUsadas = itemsSeleccionados
+            .filter((i) => i.stock_item_id === stock.stock_item_id)
+            .map((i) => i.numero_serie);
+        const primeraSerieLibre = stock.series_disponibles.find(
+            (s) => !seriesYaUsadas.includes(s),
+        );
+        if (!primeraSerieLibre) return; // Todas las series ya están en la lista
+
         setItemsSeleccionados((prev) => [
             ...prev,
             {
+                uid: crypto.randomUUID(),
                 stock_item_id: stock.stock_item_id as number,
                 item_nombre: stock.item_nombre,
                 cantidad_rebajada: 1,
-                numero_serie:
-                    stock.requiere_serie && stock.series_disponibles.length > 0
-                        ? stock.series_disponibles[0]
-                        : '',
-                requiere_serie: stock.requiere_serie,
+                numero_serie: primeraSerieLibre,
+                requiere_serie: true,
                 series_disponibles: stock.series_disponibles,
             },
         ]);
     };
 
-    const handleQuitarItem = (stockItemId: number) => {
-        setItemsSeleccionados((prev) => prev.filter((i) => i.stock_item_id !== stockItemId));
+    const handleQuitarItem = (uid: string) => {
+        setItemsSeleccionados((prev) => prev.filter((i) => i.uid !== uid));
     };
 
-    const handleCambiarCantidad = (stockItemId: number, cantidad: number) => {
+    const handleCambiarCantidad = (uid: string, cantidad: number) => {
         setItemsSeleccionados((prev) =>
-            prev.map((i) =>
-                i.stock_item_id === stockItemId ? { ...i, cantidad_rebajada: cantidad } : i,
-            ),
+            prev.map((i) => (i.uid === uid ? { ...i, cantidad_rebajada: cantidad } : i)),
         );
     };
 
-    const handleCambiarSerie = (stockItemId: number, serie: string) => {
+    const handleCambiarSerie = (uid: string, serie: string) => {
         setItemsSeleccionados((prev) =>
-            prev.map((i) => (i.stock_item_id === stockItemId ? { ...i, numero_serie: serie } : i)),
+            prev.map((i) => (i.uid === uid ? { ...i, numero_serie: serie } : i)),
         );
     };
 
@@ -268,9 +292,23 @@ const CrearGuiaRapidaOTV3 = ({
                                                 </THead>
                                                 <TBody>
                                                     {itemsConStock.map((s) => {
-                                                        const yaAgregado = itemsSeleccionados.some(
-                                                            (i) => i.stock_item_id === s.stock_item_id,
-                                                        );
+                                                        const seriesUsadas = s.requiere_serie
+                                                            ? itemsSeleccionados
+                                                                  .filter(
+                                                                      (i) =>
+                                                                          i.stock_item_id ===
+                                                                          s.stock_item_id,
+                                                                  )
+                                                                  .map((i) => i.numero_serie)
+                                                            : [];
+                                                        const yaAgregado = s.requiere_serie
+                                                            ? seriesUsadas.length >=
+                                                              s.series_disponibles.length
+                                                            : itemsSeleccionados.some(
+                                                                  (i) =>
+                                                                      i.stock_item_id ===
+                                                                      s.stock_item_id,
+                                                              );
                                                         return (
                                                             <Tr key={s.stock_item_id ?? s.item_id}>
                                                                 <Td>
@@ -289,7 +327,9 @@ const CrearGuiaRapidaOTV3 = ({
                                                                     )}
                                                                 </Td>
                                                                 <Td className='text-right'>
-                                                                    {s.cantidad_disponible}
+                                                                    {s.requiere_serie
+                                                                        ? `${s.series_disponibles.length - seriesUsadas.length} / ${s.series_disponibles.length}`
+                                                                        : s.cantidad_disponible}
                                                                 </Td>
                                                                 <Td className='text-center'>
                                                                     <Button
@@ -300,7 +340,9 @@ const CrearGuiaRapidaOTV3 = ({
                                                                             handleAgregarItem(s)
                                                                         }>
                                                                         {yaAgregado
-                                                                            ? 'Agregado'
+                                                                            ? s.requiere_serie
+                                                                                ? 'Completo'
+                                                                                : 'Agregado'
                                                                             : 'Agregar'}
                                                                     </Button>
                                                                 </Td>
@@ -398,13 +440,20 @@ const CrearGuiaRapidaOTV3 = ({
                         </p>
                         <div className='space-y-2'>
                             {itemsSeleccionados.map((item) => {
-                                const serieOpts: TSelectOption[] = item.series_disponibles.map((s) => ({
-                                    value: s,
-                                    label: s,
-                                }));
+                                // Series ocupadas por otras filas del mismo stock_item
+                                const seriesOcupadas = itemsSeleccionados
+                                    .filter(
+                                        (i) =>
+                                            i.uid !== item.uid &&
+                                            i.stock_item_id === item.stock_item_id,
+                                    )
+                                    .map((i) => i.numero_serie);
+                                const serieOpts: TSelectOption[] = item.series_disponibles
+                                    .filter((s) => !seriesOcupadas.includes(s))
+                                    .map((s) => ({ value: s, label: s }));
                                 return (
                                     <div
-                                        key={item.stock_item_id}
+                                        key={item.uid}
                                         className='flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50'>
                                         <span className='flex-1 text-sm font-medium'>
                                             {item.item_nombre}
@@ -412,7 +461,7 @@ const CrearGuiaRapidaOTV3 = ({
                                         {item.requiere_serie ? (
                                             <div className='w-44'>
                                                 <SelectReact
-                                                    name={`serie_${item.stock_item_id}`}
+                                                    name={`serie_${item.uid}`}
                                                     options={serieOpts}
                                                     value={
                                                         serieOpts.find(
@@ -421,7 +470,7 @@ const CrearGuiaRapidaOTV3 = ({
                                                     }
                                                     onChange={(opt) =>
                                                         handleCambiarSerie(
-                                                            item.stock_item_id,
+                                                            item.uid,
                                                             opt
                                                                 ? (opt as TSelectOption).value
                                                                 : '',
@@ -433,13 +482,13 @@ const CrearGuiaRapidaOTV3 = ({
                                         ) : (
                                             <div className='w-24'>
                                                 <Input
-                                                    name={`cantidad_${item.stock_item_id}`}
+                                                    name={`cantidad_${item.uid}`}
                                                     type='number'
                                                     min={1}
                                                     value={item.cantidad_rebajada}
                                                     onChange={(e) =>
                                                         handleCambiarCantidad(
-                                                            item.stock_item_id,
+                                                            item.uid,
                                                             Number(e.target.value),
                                                         )
                                                     }
@@ -450,7 +499,7 @@ const CrearGuiaRapidaOTV3 = ({
                                             size='sm'
                                             icon='HeroTrash'
                                             color='red'
-                                            onClick={() => handleQuitarItem(item.stock_item_id)}
+                                            onClick={() => handleQuitarItem(item.uid)}
                                         />
                                     </div>
                                 );

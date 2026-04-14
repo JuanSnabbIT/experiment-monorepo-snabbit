@@ -460,6 +460,12 @@ ESTADOS_CIERRE_OTV3 = [
     ("facturado", "Facturado"),
 ]
 
+MONEDAS_PREFACTURA_OTV3 = [
+    ("CLP", "Pesos chilenos"),
+    ("USD", "Dolar estadounidense"),
+    ("UF", "Unidad de fomento"),
+]
+
 
 class PrefacturaOTV3(ModeloBaseHistorico):
     """
@@ -498,6 +504,12 @@ class PrefacturaOTV3(ModeloBaseHistorico):
         choices=ESTADOS_CIERRE_OTV3,
         default="borrador",
         verbose_name="Estado de prefactura",
+    )
+    moneda_prefactura = models.CharField(
+        max_length=3,
+        choices=MONEDAS_PREFACTURA_OTV3,
+        default="CLP",
+        verbose_name="Moneda de emision de prefactura",
     )
     resultado = models.JSONField(
         default=dict,

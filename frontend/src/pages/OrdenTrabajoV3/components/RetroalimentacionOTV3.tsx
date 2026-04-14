@@ -382,7 +382,7 @@ function SurveyComment({
                 </CardHeaderChild>
                 <CardHeaderChild>
                     <Badge color={required ? 'red' : 'amber'}>
-                        {required ? 'Comentario obligatorio' : 'Comentario opcional'}
+                        {required ? 'Comentario requerido' : 'Comentario opcional'}
                     </Badge>
                 </CardHeaderChild>
             </CardHeader>

@@ -21,15 +21,12 @@ export const formatCurrency = (
     currency?: string | null,
 ): string => {
     if (currency === '1' || currency === 'USD') {
-        // USD: max 2 decimals, shown only if exists
-        return `${formatPrice(value, 2, 0)} USD`;
+        return `${formatPrice(value, 1, 1)} USD`;
     }
     if (currency === '3' || currency === 'UF') {
-        // UF: fixed 4 decimals
         return `${formatPrice(value, 4, 4)} UF`;
     }
-    // Default CLP: max 3 decimals, shown only if exists
-    return `$ ${formatPrice(value, 3, 0)}`;
+    return `$ ${formatPrice(value, 0, 0)}`;
 };
 
 export const parseLocaleNumber = (

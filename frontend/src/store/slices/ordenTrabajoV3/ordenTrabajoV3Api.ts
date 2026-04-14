@@ -30,6 +30,35 @@ import RtkQueryService from '@/services/RtkQueryService';
 
 const BASE = '/api/v3';
 
+const toNumberArray = (value: unknown): number[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item));
+};
+
+const normalizePrefacturaOTV3 = (raw: unknown): IPrefacturaOTV3 => {
+    const source = (raw ?? {}) as Record<string, unknown>;
+    const ots = toNumberArray(source.ots ?? source.ots_ids);
+    const contratos = toNumberArray(source.contratos ?? source.contratos_ids);
+
+    return {
+        ...(source as unknown as IPrefacturaOTV3),
+        ots,
+        contratos,
+        ots_titulos: Array.isArray(source.ots_titulos) ? (source.ots_titulos as string[]) : [],
+        contratos_nombres: Array.isArray(source.contratos_nombres)
+            ? (source.contratos_nombres as string[])
+            : [],
+        moneda_prefactura: (source.moneda_prefactura as IPrefacturaOTV3['moneda_prefactura']) ?? 'CLP',
+    };
+};
+
+const normalizePrefacturasOTV3 = (raw: unknown): IPrefacturaOTV3[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) => normalizePrefacturaOTV3(item));
+};
+
 const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
     endpoints: (builder) => ({
         // ---- ORDENES ----
@@ -129,11 +158,13 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
                 method: 'get',
                 params: params || {},
             }),
+            transformResponse: (response) => normalizePrefacturasOTV3(response),
             providesTags: ['PrefacturasOTV3'],
         }),
 
         getPrefacturaOTV3: builder.query<IPrefacturaOTV3, number | string>({
             query: (id) => ({ url: `${BASE}/prefacturas-otv3/${id}/`, method: 'get' }),
+            transformResponse: (response) => normalizePrefacturaOTV3(response),
             providesTags: (_result, _error, id) => [{ type: 'PrefacturaOTV3', id }],
         }),
 
@@ -148,6 +179,7 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
 
         createPrefacturaOTV3: builder.mutation<IPrefacturaOTV3, ICreatePrefacturaV3Payload>({
             query: (data) => ({ url: `${BASE}/prefacturas-otv3/`, method: 'post', data }),
+            transformResponse: (response) => normalizePrefacturaOTV3(response),
             invalidatesTags: (result) => {
                 const tags: any[] = ['PrefacturasOTV3'];
                 if (result?.ots) {
@@ -162,6 +194,7 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
             { id: number; data: Partial<Pick<IPrefacturaOTV3, 'resultado' | 'fecha_prefactura'>> }
         >({
             query: ({ id, data }) => ({ url: `${BASE}/prefacturas-otv3/${id}/`, method: 'patch', data }),
+            transformResponse: (response) => normalizePrefacturaOTV3(response),
             invalidatesTags: (_result, _error, { id }) => [
                 'PrefacturasOTV3',
                 { type: 'PrefacturaOTV3', id },
@@ -170,6 +203,7 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
 
         finalizarPrefacturaOTV3: builder.mutation<IPrefacturaOTV3, number | string>({
             query: (id) => ({ url: `${BASE}/prefacturas-otv3/${id}/finalizar/`, method: 'post' }),
+            transformResponse: (response) => normalizePrefacturaOTV3(response),
             invalidatesTags: (_result, _error, id) => [
                 'PrefacturasOTV3',
                 { type: 'PrefacturaOTV3', id: Number(id) },
@@ -189,6 +223,7 @@ const ordenTrabajoV3Api = RtkQueryService.injectEndpoints({
                     data: formData,
                 };
             },
+            transformResponse: (response) => normalizePrefacturaOTV3(response),
             invalidatesTags: (_result, _error, { id, ot_id }) => [
                 'PrefacturasOTV3',
                 { type: 'PrefacturaOTV3', id: Number(id) },

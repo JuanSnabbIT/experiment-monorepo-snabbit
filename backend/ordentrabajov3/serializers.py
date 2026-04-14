@@ -572,6 +572,7 @@ class PrefacturaOTV3Serializer(serializers.ModelSerializer):
             "cliente",
             "cliente_nombre",
             "estado_cierre",
+            "moneda_prefactura",
             "resultado",
             "fecha_prefactura",
             "comentario",

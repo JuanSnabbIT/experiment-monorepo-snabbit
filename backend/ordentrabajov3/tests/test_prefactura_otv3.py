@@ -322,6 +322,44 @@ class PrefacturaOTV3ApiTest(APITestCase):
         self.assertIn("diferencia", data)
         self.assertIn("ots_marcadas_visitas", data)
 
+    def test_comparativa_moneda_usd_retorna_meta_monedas(self):
+        """Comparativa en USD retorna moneda consistente y metadata de precision/tasas."""
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {
+                "ot_ids": [self.otv3.id],
+                "moneda_objetivo": "USD",
+                "dolar": 950.0,
+                "uf": 38000.0,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["pactado"]["moneda"], "USD")
+        self.assertEqual(data["ejecutado"]["moneda"], "USD")
+        self.assertEqual(data["meta_monedas"]["moneda_objetivo"], "USD")
+        self.assertEqual(data["meta_monedas"]["precision_aplicada"], 1)
+        self.assertEqual(data["meta_monedas"]["tipo_cambio_aplicado"]["dolar"], 950.0)
+
+    def test_comparativa_moneda_uf_retorna_meta_monedas(self):
+        """Comparativa en UF retorna precision de 4 decimales."""
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {
+                "ot_ids": [self.otv3.id],
+                "moneda_objetivo": "UF",
+                "dolar": 950.0,
+                "uf": 38000.0,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertEqual(data["pactado"]["moneda"], "UF")
+        self.assertEqual(data["ejecutado"]["moneda"], "UF")
+        self.assertEqual(data["meta_monedas"]["precision_aplicada"], 4)
+
     def test_comparativa_contrato_reporta_visitas_incluidas_mes(self):
         """Comparativa incluye visitas pactadas por contrato y mantiene alias temporal."""
         contrato = self._crear_contrato_activo_con_item(
@@ -383,6 +421,33 @@ class PrefacturaOTV3ApiTest(APITestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_crear_prefactura_persiste_moneda_y_tasas_desde_meta(self):
+        """Create persiste moneda_prefactura y snapshot de tasas enviadas en resultado.meta_monedas."""
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/",
+            {
+                "ot_ids": [self.otv3.id],
+                "moneda_prefactura": "USD",
+                "resultado": {
+                    "items": [],
+                    "meta_monedas": {
+                        "moneda_objetivo": "USD",
+                        "tipo_cambio_aplicado": {
+                            "dolar": 955.5,
+                            "uf": 38123.4,
+                        },
+                    },
+                },
+            },
+            format="json",
+        )
+
+        self.assertIn(resp.status_code, (status.HTTP_200_OK, status.HTTP_201_CREATED))
+        pref = PrefacturaOTV3.objects.get(id=resp.json()["id"])
+        self.assertEqual(pref.moneda_prefactura, "USD")
+        self.assertEqual(float(pref.tasa_dolar_usada), 955.5)
+        self.assertEqual(float(pref.tasa_uf_usada), 38123.4)
 
     # ------------------------------------------------------------------ #
     # Tests nuevos: asociar-documento multi-OT

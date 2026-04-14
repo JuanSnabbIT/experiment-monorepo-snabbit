@@ -9,11 +9,173 @@ Diferencias clave vs V2:
 """
 
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.utils import timezone
 
 logger = logging.getLogger("facturacion.debug")
+
+MONEDA_CODIGO_MAP = {
+    "1": "USD",
+    "2": "CLP",
+    "3": "UF",
+}
+MONEDAS_PERMITIDAS_PREF = {"CLP", "USD", "UF"}
+DECIMALES_POR_MONEDA_PREF = {
+    "CLP": 0,
+    "USD": 1,
+    "UF": 4,
+}
+CUANTIZACION_POR_MONEDA_PREF = {
+    "CLP": Decimal("1"),
+    "USD": Decimal("0.1"),
+    "UF": Decimal("0.0001"),
+}
+
+
+def _to_decimal(value, default=Decimal("0")):
+    if isinstance(value, Decimal):
+        return value
+    if value in (None, ""):
+        return default
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return default
+
+
+def _to_positive_decimal_or_none(value):
+    if value in (None, ""):
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if parsed <= 0:
+        return None
+    return parsed
+
+
+def normalizar_moneda_prefactura(moneda, default="CLP"):
+    if moneda in (None, ""):
+        return default
+    normalized = str(moneda).strip().upper()
+    normalized = MONEDA_CODIGO_MAP.get(normalized, normalized)
+    if normalized not in MONEDAS_PERMITIDAS_PREF:
+        raise ValueError(
+            f"Moneda no soportada: {moneda}. Debe ser una de {sorted(MONEDAS_PERMITIDAS_PREF)}."
+        )
+    return normalized
+
+
+def cuantizar_monto_prefactura(value, moneda):
+    moneda_norm = normalizar_moneda_prefactura(moneda)
+    monto = _to_decimal(value)
+    quantum = CUANTIZACION_POR_MONEDA_PREF[moneda_norm]
+    return monto.quantize(quantum, rounding=ROUND_HALF_UP)
+
+
+def resolver_tasas_cambio_prefactura(
+    *,
+    fecha_prefactura,
+    dolar_override=None,
+    uf_override=None,
+    monedas_requeridas=None,
+    fetch_missing=False,
+):
+    try:
+        from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
+    except ImportError:
+        obtener_tipo_cambio_mindicador_con_fallback = None
+
+    requeridas = {normalizar_moneda_prefactura(m) for m in (monedas_requeridas or [])}
+    tasa_dolar = _to_positive_decimal_or_none(dolar_override)
+    tasa_uf = _to_positive_decimal_or_none(uf_override)
+
+    necesita_dolar = "USD" in requeridas
+    necesita_uf = "UF" in requeridas
+
+    debe_buscar_dolar = tasa_dolar is None and (necesita_dolar or fetch_missing)
+    debe_buscar_uf = tasa_uf is None and (necesita_uf or fetch_missing)
+
+    if debe_buscar_dolar or debe_buscar_uf:
+        if not obtener_tipo_cambio_mindicador_con_fallback:
+            raise ValueError(
+                "No hay proveedor de tipo de cambio disponible para completar conversion de moneda."
+            )
+        if fecha_prefactura is None:
+            raise ValueError("Se requiere fecha_prefactura para resolver tipo de cambio.")
+        try:
+            if debe_buscar_dolar:
+                tasa_dolar_raw, _ = obtener_tipo_cambio_mindicador_con_fallback(
+                    "dolar",
+                    fecha_prefactura,
+                )
+                tasa_dolar = _to_positive_decimal_or_none(tasa_dolar_raw)
+            if debe_buscar_uf:
+                tasa_uf_raw, _ = obtener_tipo_cambio_mindicador_con_fallback(
+                    "uf",
+                    fecha_prefactura,
+                )
+                tasa_uf = _to_positive_decimal_or_none(tasa_uf_raw)
+        except Exception as exc:
+            if necesita_dolar or necesita_uf:
+                raise ValueError(
+                    f"No fue posible obtener tipos de cambio para {fecha_prefactura}: {exc}"
+                ) from exc
+            logger.warning(
+                "No fue posible obtener tipos de cambio informativos para fecha=%s: %s",
+                fecha_prefactura,
+                exc,
+            )
+
+    if necesita_dolar and tasa_dolar is None:
+        raise ValueError("No existe tasa de dolar valida para la conversion solicitada.")
+    if necesita_uf and tasa_uf is None:
+        raise ValueError("No existe tasa de UF valida para la conversion solicitada.")
+
+    return {
+        "dolar": tasa_dolar,
+        "uf": tasa_uf,
+    }
+
+
+def convertir_monto_a_clp(monto, moneda_origen, *, tasa_dolar=None, tasa_uf=None):
+    moneda_norm = normalizar_moneda_prefactura(moneda_origen)
+    monto_dec = _to_decimal(monto)
+    if moneda_norm == "CLP":
+        return monto_dec
+    if moneda_norm == "USD":
+        if tasa_dolar is None:
+            raise ValueError("Falta tasa de dolar para convertir USD a CLP.")
+        return monto_dec * _to_decimal(tasa_dolar)
+    if moneda_norm == "UF":
+        if tasa_uf is None:
+            raise ValueError("Falta tasa de UF para convertir UF a CLP.")
+        return monto_dec * _to_decimal(tasa_uf)
+    raise ValueError(f"Moneda origen no soportada: {moneda_norm}")
+
+
+def convertir_monto_desde_clp(monto_clp, moneda_destino, *, tasa_dolar=None, tasa_uf=None):
+    moneda_norm = normalizar_moneda_prefactura(moneda_destino)
+    monto_clp_dec = _to_decimal(monto_clp)
+    if moneda_norm == "CLP":
+        return cuantizar_monto_prefactura(monto_clp_dec, "CLP")
+    if moneda_norm == "USD":
+        if tasa_dolar is None:
+            raise ValueError("Falta tasa de dolar para convertir CLP a USD.")
+        return cuantizar_monto_prefactura(
+            monto_clp_dec / _to_decimal(tasa_dolar),
+            "USD",
+        )
+    if moneda_norm == "UF":
+        if tasa_uf is None:
+            raise ValueError("Falta tasa de UF para convertir CLP a UF.")
+        return cuantizar_monto_prefactura(
+            monto_clp_dec / _to_decimal(tasa_uf),
+            "UF",
+        )
+    raise ValueError(f"Moneda destino no soportada: {moneda_norm}")
 
 
 def _resolve_fecha_prefactura_v3(raw_fecha):
@@ -68,7 +230,13 @@ def _resolve_visitas_mensuales_item(item):
     return 0
 
 
-def calcular_pactado_del_contrato_v3(contrato):
+def calcular_pactado_del_contrato_v3(
+    contrato,
+    *,
+    moneda_objetivo="CLP",
+    tasa_dolar=None,
+    tasa_uf=None,
+):
     """
     Extrae items pactados de un ContratoEmpresaCliente.
     Fuente primaria: ContratoItemComercial (modelo vigente).
@@ -78,11 +246,12 @@ def calcular_pactado_del_contrato_v3(contrato):
         {
             "items": [{"id", "nombre", "cantidad", "precio_unitario", "total", "tipo", "vinculado_a"}],
             "total": float,
-            "moneda": "CLP"
+            "moneda": moneda_objetivo
         }
     """
+    moneda_objetivo = normalizar_moneda_prefactura(moneda_objetivo)
     items = []
-    total_pactado = Decimal("0.00")
+    total_pactado = Decimal("0")
 
     # Fuente primaria: ContratoItemComercial (modelo vigente)
     items_comerciales = list(contrato.items_comerciales.all())
@@ -90,8 +259,29 @@ def calcular_pactado_del_contrato_v3(contrato):
         for ic in items_comerciales:
             nombre = ic.snapshot_nombre or f"Item #{ic.id}"
             cantidad = ic.cantidad or 1
-            precio_unitario = Decimal(str(ic.precio_unitario_contratado or 0))
-            total_item = Decimal(str(cantidad)) * precio_unitario
+            moneda_item = normalizar_moneda_prefactura(
+                getattr(ic, "moneda", None) or getattr(contrato, "moneda_cobro", "CLP")
+            )
+            precio_unitario_origen = _to_decimal(ic.precio_unitario_contratado)
+            precio_unitario_clp = convertir_monto_a_clp(
+                precio_unitario_origen,
+                moneda_item,
+                tasa_dolar=tasa_dolar,
+                tasa_uf=tasa_uf,
+            )
+            total_item_clp = precio_unitario_clp * _to_decimal(cantidad)
+            precio_unitario = convertir_monto_desde_clp(
+                precio_unitario_clp,
+                moneda_objetivo,
+                tasa_dolar=tasa_dolar,
+                tasa_uf=tasa_uf,
+            )
+            total_item = convertir_monto_desde_clp(
+                total_item_clp,
+                moneda_objetivo,
+                tasa_dolar=tasa_dolar,
+                tasa_uf=tasa_uf,
+            )
 
             items.append({
                 "id": f"comercial_{ic.id}",
@@ -99,12 +289,14 @@ def calcular_pactado_del_contrato_v3(contrato):
                 "cantidad": cantidad,
                 "precio_unitario": float(precio_unitario),
                 "total": float(total_item),
+                "moneda": moneda_objetivo,
+                "moneda_origen": moneda_item,
                 "tipo": ic.tipo_origen,
                 "vinculado_a": None,
             })
             total_pactado += total_item
 
-        return {"items": items, "total": float(total_pactado), "moneda": "CLP"}
+        return {"items": items, "total": float(total_pactado), "moneda": moneda_objetivo}
 
     # Fallback: modelos legacy ContratoServicio + ContratoLicencia
     for cs in contrato.contrato_servicios.all():
@@ -114,8 +306,29 @@ def calcular_pactado_del_contrato_v3(contrato):
             else cs.servicio_generico.nombre
         )
         cantidad = cs.cantidad
-        precio_unitario = Decimal(str(cs.precio_unitario))
-        total_item = Decimal(str(cantidad)) * precio_unitario
+        moneda_item = normalizar_moneda_prefactura(
+            getattr(cs, "tipo_moneda", None) or getattr(contrato, "moneda_cobro", "CLP")
+        )
+        precio_unitario_origen = _to_decimal(cs.precio_unitario)
+        precio_unitario_clp = convertir_monto_a_clp(
+            precio_unitario_origen,
+            moneda_item,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
+        total_item_clp = precio_unitario_clp * _to_decimal(cantidad)
+        precio_unitario = convertir_monto_desde_clp(
+            precio_unitario_clp,
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
+        total_item = convertir_monto_desde_clp(
+            total_item_clp,
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
 
         items.append({
             "id": f"servicio_{cs.id}",
@@ -123,6 +336,8 @@ def calcular_pactado_del_contrato_v3(contrato):
             "cantidad": cantidad,
             "precio_unitario": float(precio_unitario),
             "total": float(total_item),
+            "moneda": moneda_objetivo,
+            "moneda_origen": moneda_item,
             "tipo": "servicio",
             "vinculado_a": None,
         })
@@ -131,8 +346,29 @@ def calcular_pactado_del_contrato_v3(contrato):
     for cl in contrato.contrato_licencias.all():
         nombre = cl.licencia.nombre
         cantidad = cl.cantidad
-        precio_unitario = Decimal(str(cl.precio_unitario))
-        total_item = Decimal(str(cantidad)) * precio_unitario
+        moneda_item = normalizar_moneda_prefactura(
+            getattr(cl, "tipo_moneda", None) or getattr(contrato, "moneda_cobro", "CLP")
+        )
+        precio_unitario_origen = _to_decimal(cl.precio_unitario)
+        precio_unitario_clp = convertir_monto_a_clp(
+            precio_unitario_origen,
+            moneda_item,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
+        total_item_clp = precio_unitario_clp * _to_decimal(cantidad)
+        precio_unitario = convertir_monto_desde_clp(
+            precio_unitario_clp,
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
+        total_item = convertir_monto_desde_clp(
+            total_item_clp,
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar,
+            tasa_uf=tasa_uf,
+        )
 
         items.append({
             "id": f"licencia_{cl.id}",
@@ -140,12 +376,14 @@ def calcular_pactado_del_contrato_v3(contrato):
             "cantidad": cantidad,
             "precio_unitario": float(precio_unitario),
             "total": float(total_item),
+            "moneda": moneda_objetivo,
+            "moneda_origen": moneda_item,
             "tipo": "licencia",
             "vinculado_a": None,
         })
         total_pactado += total_item
 
-    return {"items": items, "total": float(total_pactado), "moneda": "CLP"}
+    return {"items": items, "total": float(total_pactado), "moneda": moneda_objetivo}
 
 
 
@@ -169,7 +407,14 @@ def _precio_unitario_cotizacion_clp(item_cot, dolar_override=None, uf_override=N
     return float(unit_clp.quantize(Decimal("0.01")))
 
 
-def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
+def calcular_ejecutado_de_ots_v3(
+    ots_ids_v3,
+    fecha_prefactura=None,
+    *,
+    moneda_objetivo="CLP",
+    tasa_dolar=None,
+    tasa_uf=None,
+):
     """
     Extrae items ejecutados de un conjunto de OrdenDeTrabajoV3.
 
@@ -184,7 +429,7 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
         {
             "items": [...],
             "total": float,
-            "moneda": "CLP",
+            "moneda": moneda_objetivo,
             "resumen": {"tareas", "guias", "compras", "gastos"},
             "cotizaciones": [...]
         }
@@ -193,23 +438,18 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
     from cotizaciones.models import Cotizacion, ItemCotizacion
     from ordentrabajov3.models import GastoOTV3, OrdenDeTrabajoV3, TareaOTV3
 
-    try:
-        from cotizaciones.tasks import obtener_tipo_cambio_mindicador_con_fallback
-    except ImportError:
-        obtener_tipo_cambio_mindicador_con_fallback = None
-
-    dolar_override = None
-    uf_override = None
-
-    if fecha_prefactura and obtener_tipo_cambio_mindicador_con_fallback:
-        try:
-            dolar_override, _ = obtener_tipo_cambio_mindicador_con_fallback("dolar", fecha_prefactura)
-            uf_override, _ = obtener_tipo_cambio_mindicador_con_fallback("uf", fecha_prefactura)
-        except Exception as exc:
-            logger.warning("No se pudo obtener tipo de cambio para fecha=%s: %s", fecha_prefactura, exc)
+    moneda_objetivo = normalizar_moneda_prefactura(moneda_objetivo)
+    tasas = resolver_tasas_cambio_prefactura(
+        fecha_prefactura=fecha_prefactura,
+        dolar_override=tasa_dolar,
+        uf_override=tasa_uf,
+        monedas_requeridas=[moneda_objetivo],
+    )
+    tasa_dolar_resuelta = tasas["dolar"]
+    tasa_uf_resuelta = tasas["uf"]
 
     items = []
-    total_ejecutado = Decimal("0.00")
+    total_ejecutado_clp = Decimal("0")
     count_tareas = 0
     count_guias = 0
     count_compras = 0
@@ -264,11 +504,13 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
         for cotizacion in orden.cotizaciones.prefetch_related("items"):
             for item_cot in cotizacion.items.all():
                 precio_unitario = _precio_unitario_cotizacion_clp(
-                    item_cot, dolar_override, uf_override
+                    item_cot,
+                    float(tasa_dolar_resuelta) if tasa_dolar_resuelta is not None else None,
+                    float(tasa_uf_resuelta) if tasa_uf_resuelta is not None else None,
                 )
                 cantidad = item_cot.cantidad or 1
                 total_item = float(cantidad * precio_unitario)
-                total_ejecutado += Decimal(str(total_item))
+                total_ejecutado_clp += Decimal(str(total_item))
 
                 items.append({
                     "id": f"cot_{cotizacion.id}_item_{item_cot.id}",
@@ -317,7 +559,11 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                                 .first()
                             )
                             precio_cot_cache[cache_key] = (
-                                _precio_unitario_cotizacion_clp(item_cot, dolar_override, uf_override)
+                                _precio_unitario_cotizacion_clp(
+                                    item_cot,
+                                    float(tasa_dolar_resuelta) if tasa_dolar_resuelta is not None else None,
+                                    float(tasa_uf_resuelta) if tasa_uf_resuelta is not None else None,
+                                )
                                 if item_cot else 0.0
                             )
                         precio_unitario = precio_cot_cache.get(cache_key, 0.0)
@@ -326,7 +572,7 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                         precio_unitario = float(item_guia.source_item.precio or 0)
 
                 total_item = float(cantidad_entregada * precio_unitario)
-                total_ejecutado += Decimal(str(total_item))
+                total_ejecutado_clp += Decimal(str(total_item))
 
                 items.append({
                     "id": item_guia.id,
@@ -356,7 +602,7 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                 nombre_item = (
                     item_compra.item.nombre if item_compra.item else f"Item #{item_compra.id}"
                 )
-                total_ejecutado += Decimal(str(monto_item))
+                total_ejecutado_clp += Decimal(str(monto_item))
                 count_compras += 1
 
                 items.append({
@@ -378,7 +624,7 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                 continue
 
             nombre_gasto = gasto.detalle or f"Gasto #{gasto.id}"
-            total_ejecutado += Decimal(str(monto))
+            total_ejecutado_clp += Decimal(str(monto))
             count_gastos += 1
 
             items.append({
@@ -392,10 +638,38 @@ def calcular_ejecutado_de_ots_v3(ots_ids_v3, fecha_prefactura=None):
                 "ot_id": orden.id,
             })
 
+    items_normalizados = []
+    for item in items:
+        precio_unitario_obj = convertir_monto_desde_clp(
+            _to_decimal(item.get("precio_unitario")),
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar_resuelta,
+            tasa_uf=tasa_uf_resuelta,
+        )
+        total_obj = convertir_monto_desde_clp(
+            _to_decimal(item.get("total")),
+            moneda_objetivo,
+            tasa_dolar=tasa_dolar_resuelta,
+            tasa_uf=tasa_uf_resuelta,
+        )
+        items_normalizados.append({
+            **item,
+            "precio_unitario": float(precio_unitario_obj),
+            "total": float(total_obj),
+            "moneda": moneda_objetivo,
+        })
+
+    total_ejecutado = convertir_monto_desde_clp(
+        total_ejecutado_clp,
+        moneda_objetivo,
+        tasa_dolar=tasa_dolar_resuelta,
+        tasa_uf=tasa_uf_resuelta,
+    )
+
     return {
-        "items": items,
+        "items": items_normalizados,
         "total": float(total_ejecutado),
-        "moneda": "CLP",
+        "moneda": moneda_objetivo,
         "resumen": {
             "tareas": count_tareas,
             "guias": count_guias,

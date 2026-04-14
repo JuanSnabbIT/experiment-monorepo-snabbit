@@ -45,6 +45,7 @@ export type TEtapaUIOTV3 =
     | 'cancelada';
 
 export type TEstadoPrefacturaOTV3 = 'borrador' | 'por_facturar' | 'facturado';
+export type TMonedaPrefacturaOTV3 = 'CLP' | 'USD' | 'UF';
 
 export interface IPrefacturaOTV3 {
     id: number;
@@ -59,6 +60,7 @@ export interface IPrefacturaOTV3 {
     cliente: number;
     cliente_nombre?: string;
     estado_cierre: TEstadoPrefacturaOTV3;
+    moneda_prefactura: TMonedaPrefacturaOTV3;
     resultado: Record<string, any>;
     fecha_prefactura?: string | null;
     documento_factura?: string | null;
@@ -73,6 +75,7 @@ export interface ICreatePrefacturaV3Payload {
     ot_id?: number;
     contrato_ids?: number[];
     comentario?: string;
+    moneda_prefactura?: TMonedaPrefacturaOTV3;
     /** Resultado con matching manual (opcional). */
     resultado?: IResultadoPrefacturaV3;
     fecha_prefactura?: string;
@@ -82,6 +85,7 @@ export interface IComparativaV3Params {
     ot_ids: number[];
     contrato_ids?: number[];
     fecha_prefactura?: string;
+    moneda_objetivo?: TMonedaPrefacturaOTV3;
     dolar?: number;
     uf?: number;
 }
@@ -105,6 +109,15 @@ export interface IComparativaV3Result {
         cotizaciones?: ICotizacionComparativaV3[];
     };
     diferencia: number;
+    meta_monedas?: {
+        moneda_objetivo: TMonedaPrefacturaOTV3;
+        precision_aplicada: number;
+        tipo_cambio_aplicado: {
+            dolar: number | null;
+            uf: number | null;
+            fecha: string | null;
+        };
+    };
     visitas_contrato: Record<string, any> | null;
     ots_marcadas_visitas: number[];
 }
@@ -416,6 +429,7 @@ export interface IItemEjecutadoV3 {
     cantidad: number;
     precio_unitario: number;
     total: number;
+    moneda?: TMonedaPrefacturaOTV3;
     tipo: string;
     ot_id?: number;
     cotizacion_id?: number;
@@ -465,6 +479,15 @@ export interface IResultadoPrefacturaV3 {
         total_facturar?: number;
         total_excluidos?: number;
     };
+    meta_monedas?: {
+        moneda_objetivo: TMonedaPrefacturaOTV3;
+        precision_aplicada: number;
+        tipo_cambio_aplicado: {
+            dolar: number | null;
+            uf: number | null;
+            fecha: string | null;
+        };
+    };
     visitas?: IVisitasPrefacturaV3;
 }
 
@@ -475,6 +498,7 @@ export interface IItemFacturableV3 {
     ot_id?: number;
     cantidad: number;
     precio_total: number;
+    moneda?: TMonedaPrefacturaOTV3;
     precio_ajustado?: number | null;
     facturar: boolean;
     comentario?: string;

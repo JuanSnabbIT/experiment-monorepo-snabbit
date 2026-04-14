@@ -21,6 +21,7 @@ import type {
     IItemPrefacturaV3,
     IOrdenDeTrabajoV3,
     IResultadoPrefacturaV3,
+    TMonedaPrefacturaOTV3,
     ITipoCambioResponse,
     IVisitasContratoResumenV3,
     IVisitasPrefacturaV3,
@@ -90,6 +91,12 @@ const toPositiveIntOrNull = (value: unknown): number | null => {
     return normalized > 0 ? normalized : null;
 };
 
+const monedaPrefacturaOptions: TSelectOption[] = [
+    { value: 'CLP', label: 'CLP' },
+    { value: 'USD', label: 'USD' },
+    { value: 'UF', label: 'UF' },
+];
+
 // ── Componente principal ─────────────────────────────────────────────
 
 const MatchingManualOTV3 = () => {
@@ -114,6 +121,7 @@ const MatchingManualOTV3 = () => {
     const [contratoIds, setContratoIds] = useState<number[]>([]);
     const [comentario, setComentario] = useState('');
     const [fechaPrefactura, setFechaPrefactura] = useState(dayjs().format('YYYY-MM-DD'));
+    const [monedaPrefactura, setMonedaPrefactura] = useState<TMonedaPrefacturaOTV3>('CLP');
 
     // Comparativa
     const [comparativa, setComparativa] = useState<IComparativaV3Result | null>(null);
@@ -163,7 +171,8 @@ const MatchingManualOTV3 = () => {
     useEffect(() => {
         setComparativa(null);
         setComparativaCargada(false);
-    }, [otIdsSeleccionadas, contratoIds, fechaPrefactura]);
+        setPrecioVisitaAdicional(0);
+    }, [otIdsSeleccionadas, contratoIds, fechaPrefactura, monedaPrefactura]);
 
     // ── Tipo de cambio ───────────────────────────────────────────────
     useEffect(() => {
@@ -272,8 +281,9 @@ const MatchingManualOTV3 = () => {
             cantidad: visitasPrefactura.exceso_prefactura,
             precio_unitario: precioVisitaAdicional,
             total: visitasPrefactura.total_exceso,
+            moneda: monedaPrefactura,
         } as IItemEjecutadoV3;
-    }, [contratoIds.length, precioVisitaAdicional, visitasPrefactura]);
+    }, [contratoIds.length, monedaPrefactura, precioVisitaAdicional, visitasPrefactura]);
 
     // ── Items combinados para render ─────────────────────────────────
     const allItems = useMemo(
@@ -283,6 +293,8 @@ const MatchingManualOTV3 = () => {
         ],
         [comparativa?.ejecutado?.items, syntheticVisitaItem],
     );
+
+    const monedaRender = comparativa?.meta_monedas?.moneda_objetivo ?? monedaPrefactura;
 
     const contractCardsVM = useMemo<TContratoCardVM[]>(() => {
         if (!contratoIds.length) return [];
@@ -441,6 +453,7 @@ const MatchingManualOTV3 = () => {
                 ot_ids: otIdsSeleccionadas,
                 contrato_ids: contratoIds.length > 0 ? contratoIds : undefined,
                 fecha_prefactura: fechaPrefactura || undefined,
+                moneda_objetivo: monedaPrefactura,
                 dolar: tipoCambio?.dolar ?? undefined,
                 uf: tipoCambio?.uf ?? undefined,
             };
@@ -501,6 +514,7 @@ const MatchingManualOTV3 = () => {
                     ot_id: item.ot_id,
                     cantidad: item.cantidad || 1,
                     precio_total: Number(item.precio_unitario || 0) * (item.cantidad || 1),
+                    moneda: (item.moneda as TMonedaPrefacturaOTV3) ?? monedaPrefactura,
                     precio_ajustado: config?.precioAsignado ?? null,
                     facturar: isSynthetic ? true : (config?.facturar ?? true),
                     comentario: isSynthetic
@@ -535,6 +549,15 @@ const MatchingManualOTV3 = () => {
                     total_facturar: totales.totalFacturar,
                     total_excluidos: totales.totalExcluido,
                 },
+                meta_monedas: comparativa?.meta_monedas ?? {
+                    moneda_objetivo: monedaPrefactura,
+                    precision_aplicada: monedaPrefactura === 'CLP' ? 0 : monedaPrefactura === 'USD' ? 1 : 4,
+                    tipo_cambio_aplicado: {
+                        dolar: tipoCambio?.dolar ?? null,
+                        uf: tipoCambio?.uf ?? null,
+                        fecha: fechaPrefactura || null,
+                    },
+                },
                 visitas: visitasPrefactura,
             };
 
@@ -542,6 +565,7 @@ const MatchingManualOTV3 = () => {
                 ot_ids: otIdsSeleccionadas,
                 contrato_ids: contratoIds.length > 0 ? contratoIds : undefined,
                 comentario: comentario || undefined,
+                moneda_prefactura: monedaPrefactura,
                 resultado,
                 fecha_prefactura: fechaPrefactura || undefined,
             }).unwrap();
@@ -691,6 +715,24 @@ const MatchingManualOTV3 = () => {
                                     }
                                 />
                             </div>
+                            <div>
+                                <Label htmlFor='monedaPrefactura'>Moneda de prefactura</Label>
+                                <SelectReact
+                                    id='monedaPrefactura'
+                                    name='monedaPrefactura'
+                                    options={monedaPrefacturaOptions}
+                                    value={
+                                        monedaPrefacturaOptions.find(
+                                            (option) => option.value === monedaPrefactura,
+                                        ) ?? null
+                                    }
+                                    onChange={(opt) => {
+                                        const selected = (opt as TSelectOption | null)?.value;
+                                        if (!selected) return;
+                                        setMonedaPrefactura(selected as TMonedaPrefacturaOTV3);
+                                    }}
+                                />
+                            </div>
                             <div className='text-xs text-gray-500 dark:text-gray-400'>
                                 {cargandoTipoCambio && <span>Cargando dolar/UF...</span>}
                                 {!cargandoTipoCambio && tipoCambio && (
@@ -755,10 +797,10 @@ const MatchingManualOTV3 = () => {
                                                     Pactado
                                                 </p>
                                                 <p className='text-lg font-bold'>
-                                                    {comparativa.pactado.moneda}{' '}
-                                                    {Number(
+                                                    {formatCurrency(
                                                         comparativa.pactado.total,
-                                                    ).toLocaleString('es-CL')}
+                                                        comparativa.pactado.moneda || monedaRender,
+                                                    )}
                                                 </p>
                                             </div>
                                             <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
@@ -766,10 +808,10 @@ const MatchingManualOTV3 = () => {
                                                     Ejecutado
                                                 </p>
                                                 <p className='text-lg font-bold'>
-                                                    {comparativa.ejecutado.moneda}{' '}
-                                                    {Number(
+                                                    {formatCurrency(
                                                         comparativa.ejecutado.total,
-                                                    ).toLocaleString('es-CL')}
+                                                        comparativa.ejecutado.moneda || monedaRender,
+                                                    )}
                                                 </p>
                                             </div>
                                             <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
@@ -782,9 +824,10 @@ const MatchingManualOTV3 = () => {
                                                             ? 'text-emerald-600'
                                                             : 'text-red-500'
                                                     }`}>
-                                                    {Number(
+                                                    {formatCurrency(
                                                         comparativa.diferencia,
-                                                    ).toLocaleString('es-CL')}
+                                                        monedaRender,
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>
@@ -857,7 +900,10 @@ const MatchingManualOTV3 = () => {
                                                                             <p className='truncate text-gray-500'>{cotizacion.nombre}</p>
                                                                             <p className='text-gray-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
                                                                             <p className='font-semibold text-gray-700 dark:text-gray-100'>
-                                                                                {formatCurrency(cotizacion.totalAsociado, 'CLP')}
+                                                                                {formatCurrency(
+                                                                                    cotizacion.totalAsociado,
+                                                                                    monedaRender,
+                                                                                )}
                                                                             </p>
                                                                         </div>
                                                                     ))}
@@ -878,7 +924,10 @@ const MatchingManualOTV3 = () => {
                                                                             <p className='mb-1 font-semibold text-gray-700 dark:text-gray-100'>{`OC #${ordenCompra.id}`}</p>
                                                                             <p className='text-gray-500'>{`Items: ${ordenCompra.cantidadItems}`}</p>
                                                                             <p className='font-semibold text-gray-700 dark:text-gray-100'>
-                                                                                {formatCurrency(ordenCompra.totalAsociado, 'CLP')}
+                                                                                {formatCurrency(
+                                                                                    ordenCompra.totalAsociado,
+                                                                                    monedaRender,
+                                                                                )}
                                                                             </p>
                                                                         </div>
                                                                     ))}
@@ -947,13 +996,13 @@ const MatchingManualOTV3 = () => {
                                                                     <Td className='text-right text-xs'>
                                                                         {formatCurrency(
                                                                             item.precio_unitario,
-                                                                            'CLP',
+                                                                            item.moneda ?? monedaRender,
                                                                         )}
                                                                     </Td>
                                                                     <Td className='text-right text-xs'>
                                                                         {formatCurrency(
                                                                             item.total,
-                                                                            'CLP',
+                                                                            item.moneda ?? monedaRender,
                                                                         )}
                                                                     </Td>
                                                                     {/* Matching columns */}
@@ -991,13 +1040,17 @@ const MatchingManualOTV3 = () => {
                                                                             <div className='text-right text-xs font-semibold text-red-600 dark:text-red-400'>
                                                                                 {formatCurrency(
                                                                                     visitasPrefactura.total_exceso,
-                                                                                    'CLP',
+                                                                                    monedaRender,
                                                                                 )}
                                                                             </div>
                                                                         ) : (
                                                                             <input
                                                                                 type='number'
-                                                                                placeholder='$'
+                                                                                placeholder={
+                                                                                    monedaRender === 'CLP'
+                                                                                        ? '$'
+                                                                                        : monedaRender
+                                                                                }
                                                                                 value={
                                                                                     config?.precioAsignado ??
                                                                                     ''
@@ -1152,13 +1205,13 @@ const MatchingManualOTV3 = () => {
                                                     Number(e.target.value) || 0,
                                                 )
                                             }
-                                            placeholder='$0'
+                                            placeholder={monedaRender === 'CLP' ? '$0' : `0 ${monedaRender}`}
                                         />
                                         <p className='mt-1 text-xs text-gray-400'>
                                             Total exceso:{' '}
                                             {formatCurrency(
                                                 visitasPrefactura.total_exceso,
-                                                'CLP',
+                                                monedaRender,
                                             )}{' '}
                                             ({visitasPrefactura.exceso_prefactura} visita
                                             {visitasPrefactura.exceso_prefactura > 1 ? 's' : ''})
@@ -1183,7 +1236,7 @@ const MatchingManualOTV3 = () => {
                                             Total a facturar
                                         </p>
                                         <p className='text-lg font-bold text-emerald-700 dark:text-emerald-300'>
-                                            {formatCurrency(totales.totalFacturar, 'CLP')}
+                                            {formatCurrency(totales.totalFacturar, monedaRender)}
                                         </p>
                                     </div>
                                     <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
@@ -1191,7 +1244,7 @@ const MatchingManualOTV3 = () => {
                                             Total excluido
                                         </p>
                                         <p className='text-lg font-bold text-gray-400'>
-                                            {formatCurrency(totales.totalExcluido, 'CLP')}
+                                            {formatCurrency(totales.totalExcluido, monedaRender)}
                                         </p>
                                     </div>
                                     {visitasPrefactura.total_exceso > 0 && (
@@ -1202,7 +1255,7 @@ const MatchingManualOTV3 = () => {
                                             <p className='text-lg font-bold text-red-600 dark:text-red-400'>
                                                 {formatCurrency(
                                                     visitasPrefactura.total_exceso,
-                                                    'CLP',
+                                                    monedaRender,
                                                 )}
                                             </p>
                                         </div>
