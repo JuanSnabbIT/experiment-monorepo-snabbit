@@ -24,8 +24,8 @@ Regla de negocio:
   - Toda acción relacionada con la OC actualmente se restringe al ámbito de la gestión interna, operando de soporte a la Orden de Trabajo para autorizaciones y adquisiciones.
   - No se utilizan datos de la OC para definir, modificar o documentar condiciones del acuerdo comercial con el cliente.
 - **Interfaz de Usuario:**
-  - En las secciones de cliente (front y back-office), la OC no es visible como parte de las condiciones, entregables, precios o documentos de respaldo.
-  - La interfaz de usuario y los reportes orientados a clientes no mezclan OC con contratos, cotizaciones, pre-facturas o facturas.
+  - En las interfaces visibles para el cliente (por ejemplo, portal público, vistas compartidas o documentos/reportes entregados al cliente), la OC no aparece como parte de las condiciones, entregables, precios ni documentos de respaldo.
+  - El panel administrativo interno puede gestionar OCs como parte de la operación, pero esa información no se mezcla con contratos, cotizaciones, pre-facturas ni facturas visibles para el cliente.
 
 ---
 
