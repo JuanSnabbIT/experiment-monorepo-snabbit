@@ -16,7 +16,7 @@ Este archivo no debe conservar contenido analítico duplicado. La fuente de verd
 ## 3. Cambios/retoques necesarios
 ### Backend
 - Verificar que endpoints existentes soporten filtros compuestos (ej: buscar OTs por cliente, contratos por varias OTs)
-- Crear/ajustar endpoint de recepción final para registrar la "prefactura en armado" (cliente, OTs, contratos, fecha, tipo cambio)
+- El endpoint de confirmación final ya existe: `POST /api/v3/prefacturas-otv3/` acepta `ot_ids`, `contrato_ids` (opcional), `fecha_prefactura`, `moneda_prefactura` y resuelve automáticamente las tasas de cambio (tasa_dolar_usada / tasa_uf_usada) a partir de la fecha indicada. **Gap concreto identificado:** el frontend debe asegurarse de enviar explícitamente `moneda_prefactura` y `fecha_prefactura`; si se omiten, el backend usa valores por defecto que podrían no coincidir con lo mostrado al usuario en el flujo unificado.
 - Validar reglas de negocio integradas (relación contratos/OTs, disponibilidad de datos, validaciones cruzadas)
 
 ### Frontend
@@ -45,9 +45,10 @@ Este archivo no debe conservar contenido analítico duplicado. La fuente de verd
 - Estado global del flujo en slices de Redux Toolkit; evitar proponer Context API, Recoil, Zustand o React Query, ya que no corresponden a la base actual.
 
 ### Backend
-- Un endpoint POST/PUT para la "prefactura en armado" que reciba el payload completo unificado (cliente, OTs, contratos, fecha, tipo de cambio).
-- Posible consolidación de endpoints de obtención de contratos para multiples OTs/cliente en uno único optimizado.
-- Validación de consistencia y reglas de negocio en una sola transacción backend.
+- El endpoint de confirmación final ya existe: `POST /api/v3/prefacturas-otv3/` recibe `{ ot_ids: [int], contrato_ids?: [int], fecha_prefactura?, moneda_prefactura?, comentario? }`. No es necesario crear uno nuevo; el cliente se infiere y valida desde las OTs.
+- Para obtener OTs elegibles por cliente, usar `GET /api/v3/prefacturas-otv3/ots-elegibles/?cliente_id=<int>`.
+- Para obtener contratos disponibles, usar `GET /api/contratos/contratos/?cliente_id=<int>` (filtro existente en ContratoEmpresaClienteViewSet).
+- Validación de consistencia y reglas de negocio (OTs del mismo cliente, sin prefactura activa duplicada, tasas de cambio) ya están implementadas en una transacción atómica en el endpoint existente.
 
 ---
 
