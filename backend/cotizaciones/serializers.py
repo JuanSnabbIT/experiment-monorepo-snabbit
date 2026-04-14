@@ -27,6 +27,14 @@ def _resolve_item_currency(attrs, instance=None):
         attrs["tipo_moneda"] = proveedor.tipo_moneda
         return proveedor.tipo_moneda
 
+    # Heredar la moneda de la cotizacion antes de caer en CLP por defecto
+    cotizacion = attrs.get("cotizacion")
+    if cotizacion is None and instance:
+        cotizacion = getattr(instance, "cotizacion", None)
+    if cotizacion and getattr(cotizacion, "tipo_moneda", None):
+        attrs["tipo_moneda"] = cotizacion.tipo_moneda
+        return cotizacion.tipo_moneda
+
     attrs["tipo_moneda"] = "2"
     return "2"
 

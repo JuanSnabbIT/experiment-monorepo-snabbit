@@ -445,6 +445,9 @@ export interface IItemEjecutadoV3 {
     categoria_nombre?: string | null;
     fecha_gasto?: string | null;
     dolar_observado?: number | null;
+    // Metadata de conversión monetaria (solo ítems tipo cotizacion)
+    moneda_cotizacion?: string;
+    precio_unitario_original?: number;
 }
 
 export interface IItemPrefacturaV3 {

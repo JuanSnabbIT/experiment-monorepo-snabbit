@@ -13,18 +13,18 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { IContratoMatching } from '@/interface/contrato.interface';
 import type { IRelacionEmpresa } from '@/interface/empresas.interface';
 import type {
-    ICotizacionComparativaV3,
     IComparativaV3Params,
     IComparativaV3Result,
+    ICotizacionComparativaV3,
     IItemEjecutadoV3,
     IItemFacturableV3,
     IItemPrefacturaV3,
     IOrdenDeTrabajoV3,
     IResultadoPrefacturaV3,
-    TMonedaPrefacturaOTV3,
     ITipoCambioResponse,
     IVisitasContratoResumenV3,
     IVisitasPrefacturaV3,
+    TMonedaPrefacturaOTV3,
 } from '@/interface/ordenTrabajoV3.interface';
 import ApiService from '@/services/ApiService';
 import { useAppSelector } from '@/store/hook';
@@ -53,7 +53,6 @@ const tipoBadge = (tipo: string): { color: string; label: string } => {
         tarea_ot: { color: 'blue', label: 'Tarea' },
         cotizacion: { color: 'violet', label: 'Cotizacion' },
         guia_salida: { color: 'emerald', label: 'Material' },
-        compra: { color: 'amber', label: 'Compra' },
         gasto_operativo: { color: 'red', label: 'Gasto' },
         visita_adicional_contrato: { color: 'red', label: 'Visita Extra' },
     };
@@ -73,12 +72,6 @@ type TCotizacionCardVM = {
     numeroCotizacion: number | null;
     nombre: string;
     estadoLabel: string;
-    totalAsociado: number;
-    cantidadItems: number;
-};
-
-type TOrdenCompraCardVM = {
-    id: number;
     totalAsociado: number;
     cantidadItems: number;
 };
@@ -288,7 +281,7 @@ const MatchingManualOTV3 = () => {
     // ── Items combinados para render ─────────────────────────────────
     const allItems = useMemo(
         () => [
-            ...(comparativa?.ejecutado?.items ?? []),
+            ...(comparativa?.ejecutado?.items ?? []).filter((item) => item.tipo !== 'compra'),
             ...(syntheticVisitaItem ? [syntheticVisitaItem] : []),
         ],
         [comparativa?.ejecutado?.items, syntheticVisitaItem],
@@ -355,31 +348,6 @@ const MatchingManualOTV3 = () => {
             .sort((a, b) => b.totalAsociado - a.totalAsociado);
     }, [allItems, comparativa?.ejecutado?.cotizaciones, comparativaCargada]);
 
-    const ordenCompraCardsVM = useMemo<TOrdenCompraCardVM[]>(() => {
-        if (!comparativaCargada) return [];
-        const agregados = new Map<number, { total: number; keys: Set<string> }>();
-        allItems.forEach((item) => {
-            const ordenCompraId = toPositiveIntOrNull(item.oc_id ?? item.compra_id);
-            if (!ordenCompraId) return;
-            const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
-            const actual = agregados.get(ordenCompraId) ?? { total: 0, keys: new Set<string>() };
-            if (!actual.keys.has(key)) {
-                actual.keys.add(key);
-                actual.total += Number(item.total || 0);
-            }
-            agregados.set(ordenCompraId, actual);
-        });
-
-        return Array.from(agregados.entries())
-            .map(([id, agregado]) => ({
-                id,
-                totalAsociado: agregado.total,
-                cantidadItems: agregado.keys.size,
-            }))
-            .filter((item) => item.cantidadItems > 0)
-            .sort((a, b) => b.totalAsociado - a.totalAsociado);
-    }, [allItems, comparativaCargada]);
-
     const visitasPorContrato = useMemo(() => {
         const visitasRaw = comparativa?.visitas_contrato;
         const porContratoRaw = Array.isArray(visitasRaw?.por_contrato)
@@ -399,11 +367,8 @@ const MatchingManualOTV3 = () => {
     }, [comparativa?.visitas_contrato]);
 
     const hasVisualCards = useMemo(
-        () =>
-            contractCardsVM.length > 0 ||
-            cotizacionCardsVM.length > 0 ||
-            ordenCompraCardsVM.length > 0,
-        [contractCardsVM.length, cotizacionCardsVM.length, ordenCompraCardsVM.length],
+        () => contractCardsVM.length > 0 || cotizacionCardsVM.length > 0,
+        [contractCardsVM.length, cotizacionCardsVM.length],
     );
 
     // ── Totales ──────────────────────────────────────────────────────
@@ -606,151 +571,159 @@ const MatchingManualOTV3 = () => {
 
             <Container>
                 <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
-                    {/* ── 1. Cliente ──────────────────────────────── */}
-                    <Card>
+                    <Card className='lg:col-span-2'>
                         <CardHeader>
-                            <CardHeaderChild>1. Seleccionar cliente</CardHeaderChild>
+                            <CardHeaderChild>Configuracion de prefactura</CardHeaderChild>
                         </CardHeader>
-                        <CardBody>
-                            <Label htmlFor='cliente'>Cliente</Label>
-                            <SelectReact
-                                id='cliente'
-                                name='cliente'
-                                options={clienteOptions}
-                                isLoading={cargandoClientes}
-                                placeholder='Selecciona un cliente...'
-                                value={
-                                    clienteId
-                                        ? clienteOptions.find((o) => o.value === String(clienteId))
-                                        : null
-                                }
-                                onChange={(opt) =>
-                                    setClienteId(opt ? Number((opt as TSelectOption).value) : null)
-                                }
-                            />
-                        </CardBody>
-                    </Card>
-
-                    {/* ── 2. OTs elegibles ────────────────────────── */}
-                    <Card>
-                        <CardHeader>
-                            <CardHeaderChild>2. Seleccionar OTs</CardHeaderChild>
-                        </CardHeader>
-                        <CardBody>
-                            {!clienteId ? (
-                                <p className='text-sm text-gray-400'>
-                                    Selecciona primero un cliente.
-                                </p>
-                            ) : (
-                                <>
-                                    <Label htmlFor='ots'>OTs por facturar</Label>
+                        <CardBody className='space-y-4'>
+                            <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
+                                <div>
+                                    <Label htmlFor='cliente'>Cliente</Label>
                                     <SelectReact
-                                        id='ots'
-                                        name='ots'
-                                        options={otOptions}
-                                        isMulti
-                                        isLoading={cargandoOts}
-                                        placeholder='Selecciona OTs...'
-                                        value={otOptions.filter((o) =>
-                                            otIdsSeleccionadas.includes(Number(o.value)),
-                                        )}
-                                        onChange={(opts) =>
-                                            setOtIdsSeleccionadas(
-                                                (opts as TSelectOption[]).map((o) => Number(o.value)),
+                                        id='cliente'
+                                        name='cliente'
+                                        options={clienteOptions}
+                                        isLoading={cargandoClientes}
+                                        placeholder='Selecciona un cliente...'
+                                        value={
+                                            clienteId
+                                                ? clienteOptions.find(
+                                                      (o) => o.value === String(clienteId),
+                                                  )
+                                                : null
+                                        }
+                                        onChange={(opt) =>
+                                            setClienteId(
+                                                opt ? Number((opt as TSelectOption).value) : null,
                                             )
                                         }
                                     />
-                                    {otOptions.length === 0 && !cargandoOts && (
-                                        <p className='mt-2 text-xs text-gray-400'>
-                                            No hay OTs elegibles para este cliente.
+                                </div>
+                                <div>
+                                    <Label htmlFor='ots'>OTs por facturar</Label>
+                                    {!clienteId ? (
+                                        <p className='mt-2 text-sm text-gray-400'>
+                                            Selecciona primero un cliente.
                                         </p>
+                                    ) : (
+                                        <>
+                                            <SelectReact
+                                                id='ots'
+                                                name='ots'
+                                                options={otOptions}
+                                                isMulti
+                                                isLoading={cargandoOts}
+                                                placeholder='Selecciona OTs...'
+                                                value={otOptions.filter((o) =>
+                                                    otIdsSeleccionadas.includes(Number(o.value)),
+                                                )}
+                                                onChange={(opts) =>
+                                                    setOtIdsSeleccionadas(
+                                                        (opts as TSelectOption[]).map((o) =>
+                                                            Number(o.value),
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                            {otOptions.length === 0 && !cargandoOts && (
+                                                <p className='mt-2 text-xs text-gray-400'>
+                                                    No hay OTs elegibles para este cliente.
+                                                </p>
+                                            )}
+                                        </>
                                     )}
-                                </>
-                            )}
+                                </div>
+                            </div>
+                            <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
+                                <div>
+                                    <Label htmlFor='contratos'>Contratos (opcional)</Label>
+                                    {!clienteId ? (
+                                        <p className='mt-2 text-sm text-gray-400'>
+                                            Selecciona un cliente para cargar contratos.
+                                        </p>
+                                    ) : contratoOptions.length === 0 ? (
+                                        <p className='mt-2 text-sm text-gray-400'>
+                                            Este cliente no tiene contratos activos.
+                                        </p>
+                                    ) : (
+                                        <SelectReact
+                                            id='contratos'
+                                            name='contratos'
+                                            options={contratoOptions}
+                                            isMulti
+                                            placeholder='Selecciona contratos...'
+                                            value={contratoOptions.filter((o) =>
+                                                contratoIds.includes(Number(o.value)),
+                                            )}
+                                            onChange={(opts) =>
+                                                setContratoIds(
+                                                    (opts as TSelectOption[]).map((o) =>
+                                                        Number(o.value),
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                    )}
+                                </div>
+                                <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
+                                    <div>
+                                        <Label htmlFor='fechaPrefactura'>Fecha prefactura</Label>
+                                        <Input
+                                            id='fechaPrefactura'
+                                            name='fechaPrefactura'
+                                            type='date'
+                                            value={fechaPrefactura}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                setFechaPrefactura(e.target.value)
+                                            }
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor='monedaPrefactura'>
+                                            Moneda de prefactura
+                                        </Label>
+                                        <SelectReact
+                                            id='monedaPrefactura'
+                                            name='monedaPrefactura'
+                                            options={monedaPrefacturaOptions}
+                                            value={
+                                                monedaPrefacturaOptions.find(
+                                                    (option) => option.value === monedaPrefactura,
+                                                ) ?? null
+                                            }
+                                            onChange={(opt) => {
+                                                const selected = (opt as TSelectOption | null)
+                                                    ?.value;
+                                                if (!selected) return;
+                                                setMonedaPrefactura(
+                                                    selected as TMonedaPrefacturaOTV3,
+                                                );
+                                            }}
+                                        />
+                                    </div>
+                                    <div className='text-xs text-gray-500 dark:text-gray-400'>
+                                        {cargandoTipoCambio && (
+                                            <span>Cargando dolar/UF...</span>
+                                        )}
+                                        {!cargandoTipoCambio && tipoCambio && (
+                                            <span>
+                                                Dolar:{' '}
+                                                {formatCurrency(tipoCambio.dolar ?? 0, 'CLP')} | UF:{' '}
+                                                {formatCurrency(tipoCambio.uf ?? 0, 'CLP')}
+                                            </span>
+                                        )}
+                                        {!cargandoTipoCambio && !tipoCambio && fechaPrefactura && (
+                                            <span className='text-amber-500'>
+                                                No se pudo obtener tipo de cambio
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </CardBody>
                     </Card>
 
-                    {/* ── 3. Contratos (opcional) ─────────────────── */}
-                    {clienteId && contratoOptions.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardHeaderChild>3. Contratos (opcional)</CardHeaderChild>
-                            </CardHeader>
-                            <CardBody>
-                                <Label htmlFor='contratos'>Contratos activos del cliente</Label>
-                                <SelectReact
-                                    id='contratos'
-                                    name='contratos'
-                                    options={contratoOptions}
-                                    isMulti
-                                    placeholder='Selecciona contratos...'
-                                    value={contratoOptions.filter((o) =>
-                                        contratoIds.includes(Number(o.value)),
-                                    )}
-                                    onChange={(opts) =>
-                                        setContratoIds(
-                                            (opts as TSelectOption[]).map((o) => Number(o.value)),
-                                        )
-                                    }
-                                />
-                            </CardBody>
-                        </Card>
-                    )}
-
-                    {/* ── 4. Fecha y Tipo de Cambio ──────────────── */}
-                    <Card>
-                        <CardHeader>
-                            <CardHeaderChild>Fecha prefactura y tipo de cambio</CardHeaderChild>
-                        </CardHeader>
-                        <CardBody className='space-y-3'>
-                            <div>
-                                <Label htmlFor='fechaPrefactura'>Fecha prefactura</Label>
-                                <Input
-                                    id='fechaPrefactura'
-                                    name='fechaPrefactura'
-                                    type='date'
-                                    value={fechaPrefactura}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                        setFechaPrefactura(e.target.value)
-                                    }
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor='monedaPrefactura'>Moneda de prefactura</Label>
-                                <SelectReact
-                                    id='monedaPrefactura'
-                                    name='monedaPrefactura'
-                                    options={monedaPrefacturaOptions}
-                                    value={
-                                        monedaPrefacturaOptions.find(
-                                            (option) => option.value === monedaPrefactura,
-                                        ) ?? null
-                                    }
-                                    onChange={(opt) => {
-                                        const selected = (opt as TSelectOption | null)?.value;
-                                        if (!selected) return;
-                                        setMonedaPrefactura(selected as TMonedaPrefacturaOTV3);
-                                    }}
-                                />
-                            </div>
-                            <div className='text-xs text-gray-500 dark:text-gray-400'>
-                                {cargandoTipoCambio && <span>Cargando dolar/UF...</span>}
-                                {!cargandoTipoCambio && tipoCambio && (
-                                    <span>
-                                        Dolar: {formatCurrency(tipoCambio.dolar ?? 0, 'CLP')} | UF:{' '}
-                                        {formatCurrency(tipoCambio.uf ?? 0, 'CLP')}
-                                    </span>
-                                )}
-                                {!cargandoTipoCambio && !tipoCambio && fechaPrefactura && (
-                                    <span className='text-amber-500'>
-                                        No se pudo obtener tipo de cambio
-                                    </span>
-                                )}
-                            </div>
-                        </CardBody>
-                    </Card>
-
-                    {/* ── 5. Comparativa + Matching Manual ─────────── */}
+                    {/* Step 5: Comparativa + Matching Manual */}
                     {otIdsSeleccionadas.length > 0 && (
                         <Card className='lg:col-span-2'>
                             <CardHeader>
@@ -841,19 +814,19 @@ const MatchingManualOTV3 = () => {
                                                         : ''
                                                 }>
                                                 {hasVisualCards && (
-                                                    <div className='space-y-3'>
+                                                    <div className='space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
                                                         {contractCardsVM.length > 0 && (
-                                                            <Card className='border border-gray-200 dark:border-gray-700'>
-                                                                <CardHeader>
-                                                                    <CardHeaderChild>
-                                                                        Contratos
-                                                                    </CardHeaderChild>
-                                                                </CardHeader>
-                                                                <CardBody className='space-y-2 text-xs'>
+                                                            <div>
+                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                                                                    Contratos
+                                                                </p>
+                                                                <div className='space-y-2 text-xs'>
                                                                     {contractCardsVM.map((contrato) => {
                                                                         const base = visitasPorContrato.get(contrato.id);
                                                                         return (
-                                                                            <div key={contrato.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                            <div
+                                                                                key={contrato.id}
+                                                                                className='rounded border border-gray-200 p-2 dark:border-gray-700'>
                                                                                 <div className='mb-1 flex items-center justify-between gap-2'>
                                                                                     <p className='truncate font-semibold text-gray-700 dark:text-gray-100'>
                                                                                         {contrato.nombre}
@@ -875,29 +848,33 @@ const MatchingManualOTV3 = () => {
                                                                             <p>{`Exceso: ${visitasPrefactura.exceso_prefactura}`}</p>
                                                                         )}
                                                                     </div>
-                                                                </CardBody>
-                                                            </Card>
+                                                                </div>
+                                                            </div>
                                                         )}
 
                                                         {cotizacionCardsVM.length > 0 && (
-                                                            <Card className='border border-gray-200 dark:border-gray-700'>
-                                                                <CardHeader>
-                                                                    <CardHeaderChild>
-                                                                        Cotizaciones
-                                                                    </CardHeaderChild>
-                                                                </CardHeader>
-                                                                <CardBody className='space-y-2 text-xs'>
+                                                            <div>
+                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                                                                    Cotizaciones
+                                                                </p>
+                                                                <div className='space-y-2 text-xs'>
                                                                     {cotizacionCardsVM.map((cotizacion) => (
-                                                                        <div key={cotizacion.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                        <div
+                                                                            key={cotizacion.id}
+                                                                            className='rounded border border-gray-200 p-2 dark:border-gray-700'>
                                                                             <div className='mb-1 flex items-center justify-between gap-2'>
                                                                                 <p className='font-semibold text-gray-700 dark:text-gray-100'>
-                                                                                    {cotizacion.numeroCotizacion ? `#${cotizacion.numeroCotizacion}` : `#${cotizacion.id}`}
+                                                                                    {cotizacion.numeroCotizacion
+                                                                                        ? `#${cotizacion.numeroCotizacion}`
+                                                                                        : `#${cotizacion.id}`}
                                                                                 </p>
                                                                                 <Badge color='zinc'>
                                                                                     {cotizacion.estadoLabel}
                                                                                 </Badge>
                                                                             </div>
-                                                                            <p className='truncate text-gray-500'>{cotizacion.nombre}</p>
+                                                                            <p className='truncate text-gray-500'>
+                                                                                {cotizacion.nombre}
+                                                                            </p>
                                                                             <p className='text-gray-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
                                                                             <p className='font-semibold text-gray-700 dark:text-gray-100'>
                                                                                 {formatCurrency(
@@ -907,33 +884,10 @@ const MatchingManualOTV3 = () => {
                                                                             </p>
                                                                         </div>
                                                                     ))}
-                                                                </CardBody>
-                                                            </Card>
+                                                                </div>
+                                                            </div>
                                                         )}
 
-                                                        {ordenCompraCardsVM.length > 0 && (
-                                                            <Card className='border border-gray-200 dark:border-gray-700'>
-                                                                <CardHeader>
-                                                                    <CardHeaderChild>
-                                                                        Ordenes de compra
-                                                                    </CardHeaderChild>
-                                                                </CardHeader>
-                                                                <CardBody className='space-y-2 text-xs'>
-                                                                    {ordenCompraCardsVM.map((ordenCompra) => (
-                                                                        <div key={ordenCompra.id} className='rounded border border-gray-200 p-2 dark:border-gray-700'>
-                                                                            <p className='mb-1 font-semibold text-gray-700 dark:text-gray-100'>{`OC #${ordenCompra.id}`}</p>
-                                                                            <p className='text-gray-500'>{`Items: ${ordenCompra.cantidadItems}`}</p>
-                                                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
-                                                                                {formatCurrency(
-                                                                                    ordenCompra.totalAsociado,
-                                                                                    monedaRender,
-                                                                                )}
-                                                                            </p>
-                                                                        </div>
-                                                                    ))}
-                                                                </CardBody>
-                                                            </Card>
-                                                        )}
                                                     </div>
                                                 )}
                                                 <div className='overflow-x-auto'>

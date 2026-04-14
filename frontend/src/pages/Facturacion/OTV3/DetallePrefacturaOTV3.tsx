@@ -61,7 +61,6 @@ const itemTipoMeta = (
             tarea_ot: { label: 'Tarea', color: 'blue' },
             cotizacion: { label: 'Cotización', color: 'violet' },
             guia_salida: { label: 'Material', color: 'emerald' },
-            compra: { label: 'Compra', color: 'amber' },
             gasto_operativo: { label: 'Gasto', color: 'red' },
             visita_adicional_contrato: { label: 'Visita extra', color: 'red' },
         };
@@ -147,7 +146,8 @@ const DetallePrefacturaOTV3 = () => {
                 moneda: toMoneda(item.moneda, monedaPrefactura),
                 facturar: item.facturar !== false,
             };
-        });
+        })
+        .filter((item) => item.tipo !== 'compra');
     }, [monedaPrefactura, prefactura?.resultado?.items]);
 
     const resumenFinanciero = useMemo(() => {

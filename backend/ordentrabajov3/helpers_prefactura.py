@@ -395,7 +395,7 @@ def _precio_unitario_cotizacion_clp(item_cot, dolar_override=None, uf_override=N
     unit_base = Decimal(str(item_cot.precio_venta_neta_unitario_moneda_base or 0))
 
     if moneda_cot == "1":  # USD
-        tasa_usd = Decimal(str(dolar_override or item_cot.cotizacion.dolar_observado or 0)) + Decimal("5")
+        tasa_usd = Decimal(str(dolar_override or item_cot.cotizacion.dolar_observado or 0))
         return float((unit_base * tasa_usd if tasa_usd > 0 else Decimal("0")).quantize(Decimal("0.01")))
 
     if moneda_cot == "3":  # UF
@@ -512,6 +512,10 @@ def calcular_ejecutado_de_ots_v3(
                 total_item = float(cantidad * precio_unitario)
                 total_ejecutado_clp += Decimal(str(total_item))
 
+                # Tipo de moneda de la cotización ("1"=USD, "2"=CLP, "3"=UF)
+                moneda_cot_codigo = cotizacion.tipo_moneda or "2"
+                moneda_cot_label = {"1": "USD", "2": "CLP", "3": "UF"}.get(moneda_cot_codigo, "CLP")
+
                 items.append({
                     "id": f"cot_{cotizacion.id}_item_{item_cot.id}",
                     "item_id": item_cot.id,
@@ -522,6 +526,9 @@ def calcular_ejecutado_de_ots_v3(
                     "tipo": "cotizacion",
                     "ot_id": orden.id,
                     "cotizacion_id": cotizacion.id,
+                    # Metadata de conversión para trazabilidad
+                    "moneda_cotizacion": moneda_cot_label,
+                    "precio_unitario_original": float(item_cot.precio_venta_neta_unitario_moneda_base or 0),
                 })
 
         # 3. GuiasSalida M2M y sus items

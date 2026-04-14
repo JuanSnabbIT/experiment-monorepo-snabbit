@@ -116,7 +116,7 @@ function CrearItemCotizacion({
             descripcion: '',
             cantidad: 1,
             precio_unitario: '',
-            tipo_moneda: '2',
+            tipo_moneda: cotizacion?.tipo_moneda || '2',
             recargo_dolar: 0,
             porcentaje_recargo: cotizacion?.porcentaje_recargo || 0,
             categoria: '',
