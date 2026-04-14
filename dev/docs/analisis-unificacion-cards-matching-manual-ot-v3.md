@@ -1,53 +1,12 @@
 # Análisis técnico: Unificación simplificada de cards en Matching Manual OT V3
 
-## Objetivo
-Uniformar la experiencia de usuario y lógica técnica al fusionar los siguientes pasos (cards) en un solo flujo en el módulo Matching Manual OT V3:
-- Seleccionar cliente
-- Seleccionar OTs
-- Contratos
-- Fecha prefactura y tipo de cambio
+> Documento consolidado.
+>
+> Para cumplir la política de documentación del repositorio, este análisis debe mantenerse dentro de:
+> - `dev/docs/analisis-matching-manual-ot-v3.md`
+> - o, si corresponde por alcance, `dev/docs/analisis.md`
 
-Este análisis contrasta el impacto y necesidades en backend y frontend para orientar su desarrollo y validación.
-
----
-
-## 1. Flujo propuesto unificado
-### Descripción
-El usuario, desde un único entrypoint, podrá:
-1. Seleccionar un cliente (empresa/pagador).
-2. Visualizar y seleccionar OTs (órdenes de trabajo) activas pendientes de pre-facturación asociadas a ese cliente.
-3. Vincular/seleccionar contratos aplicables a la selección de OTs.
-4. Definir la fecha de pre-factura y el tipo de cambio relevante.
-
-El objetivo es minimizar pantallas y pases de datos intermedios, consolidando en un solo formulario/stepper.
-
-### Entrada esperada
-- ID de usuario autenticado
-- Cliente seleccionado
-- (Una vez cliente seleccionado) OTs cargadas desde backend
-- (Opcional) Contratos disponibles tras elegir OTs
-- Fecha propuesta (sugerida: hoy) y tipo de cambio (puede precargarse consultando API)
-
-### Salida esperada
-- Objeto resumen con cliente, OTs seleccionadas, contratos, fecha, tipo de cambio
-
----
-
-## 2. Interacción frontend <-> backend
-### Backend
-- Endpoints para:
-    - Buscar OTs filtradas por cliente
-    - Buscar contratos filtrados por OTs
-    - Sugerir fecha y obtener tipo de cambio
-    - Recibir/salvar la selección final unificada
-
-### Frontend
-- Stepper/formulario reactivo, modular, que solicita información necesaria progresivamente
-- Sincronización/validación de estados (cliente → OTs → contratos → fecha/tipo cambio)
-- Refrescos automáticos ante cambios arriba
-
-### Secuencia de llamadas
-1. Usuario elige cliente ⇒ frontend llama a `/ots?clienteId=...` ⇒ muestra OTs
+Este archivo no debe conservar contenido analítico duplicado. La fuente de verdad para este tema es `dev/docs/analisis-matching-manual-ot-v3.md`.
 2. OTs seleccionadas ⇒ frontend llama a `/contratos?otIds=...` (o `/contratos?clienteId=...`)
 3. Opcional: setea valor por defecto de fecha y tipo de cambio (ej: `/tipo-cambio?fecha=...`)
 4. Al confirmar ⇒ request final al backend con el payload unificado
