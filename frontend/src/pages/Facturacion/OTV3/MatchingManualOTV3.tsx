@@ -287,7 +287,14 @@ const MatchingManualOTV3 = () => {
         [comparativa?.ejecutado?.items, syntheticVisitaItem],
     );
 
-    const monedaRender = comparativa?.meta_monedas?.moneda_objetivo ?? monedaPrefactura;
+    // Mostrar total de cotización en la moneda de origen de la cotización, si está disponible
+    const monedaRender = ((cotizacionCardsVM.length === 1 && cotizacionCardsVM[0].numeroCotizacion !== null)
+        ? (
+            comparativa?.ejecutado?.cotizaciones?.find(c => c.id === cotizacionCardsVM[0].id)?.estado_label ??
+            comparativa?.ejecutado?.cotizaciones?.find(c => c.id === cotizacionCardsVM[0].id)?.moneda ??
+            comparativa?.meta_monedas?.moneda_objetivo
+        )
+        : (comparativa?.meta_monedas?.moneda_objetivo)) ?? monedaPrefactura;
 
     const contractCardsVM = useMemo<TContratoCardVM[]>(() => {
         if (!contratoIds.length) return [];
@@ -310,43 +317,55 @@ const MatchingManualOTV3 = () => {
     }, [contratoIds, contratosActivosCliente]);
 
     const cotizacionCardsVM = useMemo<TCotizacionCardVM[]>(() => {
-        if (!comparativaCargada) return [];
+    if (!comparativaCargada) return [];
 
-        const cotizacionesMeta = new Map<number, ICotizacionComparativaV3>();
-        (comparativa?.ejecutado?.cotizaciones ?? []).forEach((cotizacion) => {
-            const cotizacionId = toPositiveIntOrNull(cotizacion?.id);
-            if (!cotizacionId) return;
-            cotizacionesMeta.set(cotizacionId, cotizacion);
-        });
+    const cotizacionesMeta = new Map<number, ICotizacionComparativaV3>();
+    (comparativa?.ejecutado?.cotizaciones ?? []).forEach((cotizacion) => {
+        const cotizacionId = toPositiveIntOrNull(cotizacion?.id);
+        if (!cotizacionId) return;
+        cotizacionesMeta.set(cotizacionId, cotizacion);
+    });
 
-        const agregados = new Map<number, { total: number; keys: Set<string> }>();
-        allItems.forEach((item) => {
-            const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
-            if (!cotizacionId) return;
-            const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
-            const actual = agregados.get(cotizacionId) ?? { total: 0, keys: new Set<string>() };
-            if (!actual.keys.has(key)) {
-                actual.keys.add(key);
-                actual.total += Number(item.total || 0);
-            }
-            agregados.set(cotizacionId, actual);
-        });
+    // Mapear items verdaderos (aquellos de tipo 'cotizacion')
+    // para contar realmente los ítems por cotización, no los visibles en la tabla.
+    const realItemCount = new Map<number, number>();
+    (comparativa?.ejecutado?.items ?? []).forEach((item) => {
+        const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
+        if (!cotizacionId) return;
+        if (item.tipo !== 'cotizacion') return;
+        const prev = realItemCount.get(cotizacionId) ?? 0;
+        realItemCount.set(cotizacionId, prev + 1);
+    });
 
-        return Array.from(agregados.entries())
-            .map(([cotizacionId, agregado]) => {
-                const meta = cotizacionesMeta.get(cotizacionId);
-                return {
-                    id: cotizacionId,
-                    numeroCotizacion: meta?.numero_cotizacion ?? null,
-                    nombre: meta?.nombre ?? `Cotizacion #${cotizacionId}`,
-                    estadoLabel: meta?.estado_label ?? meta?.estado ?? 'Sin estado',
-                    totalAsociado: agregado.total,
-                    cantidadItems: agregado.keys.size,
-                };
-            })
-            .filter((item) => item.cantidadItems > 0)
-            .sort((a, b) => b.totalAsociado - a.totalAsociado);
-    }, [allItems, comparativa?.ejecutado?.cotizaciones, comparativaCargada]);
+    const agregados = new Map<number, { total: number; keys: Set<string> }>();
+    allItems.forEach((item) => {
+        const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
+        if (!cotizacionId) return;
+        const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
+        const actual = agregados.get(cotizacionId) ?? { total: 0, keys: new Set<string>() };
+        if (!actual.keys.has(key)) {
+            actual.keys.add(key);
+            actual.total += Number(item.total || 0);
+        }
+        agregados.set(cotizacionId, actual);
+    });
+
+    return Array.from(agregados.entries())
+        .map(([cotizacionId, agregado]) => {
+            const meta = cotizacionesMeta.get(cotizacionId);
+            return {
+                id: cotizacionId,
+                numeroCotizacion: meta?.numero_cotizacion ?? null,
+                nombre: meta?.nombre ?? `Cotizacion #${cotizacionId}`,
+                estadoLabel: meta?.estado_label ?? meta?.estado ?? 'Sin estado',
+                totalAsociado: agregado.total,
+                // Use realItemCount if exists, otherwise fallback to keys.size
+                cantidadItems: realItemCount.get(cotizacionId) ?? agregado.keys.size,
+            };
+        })
+        .filter((item) => item.cantidadItems > 0)
+        .sort((a, b) => b.totalAsociado - a.totalAsociado);
+}, [allItems, comparativa?.ejecutado?.cotizaciones, comparativa?.ejecutado?.items, comparativaCargada]);
 
     const visitasPorContrato = useMemo(() => {
         const visitasRaw = comparativa?.visitas_contrato;
