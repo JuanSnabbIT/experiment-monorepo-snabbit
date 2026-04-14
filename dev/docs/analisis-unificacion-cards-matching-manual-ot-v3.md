@@ -39,9 +39,10 @@ Este archivo no debe conservar contenido analítico duplicado. La fuente de verd
 ## 5. Sugerencias de componentes/lógica
 ### Frontend
 - Stepper unificado (`ClientStepper`) que orquesta ClientSelector, OTSelector, ContractSelector, DateAndFXSelector.
-- Hooks de efecto para limpiar/resetear datos en cascada (useEffect/observer/react-query custom hooks).
-- Validaciones instantáneas, visual feedback claro (deshabilitar avance si falta info esencial).
-- Estado global/local en contexto (Context API/recoil/zustand según base del proyecto).
+- Uso de lógica de efecto controlada para limpiar/resetear datos en cascada cuando cambia el cliente o la selección base, coordinando estado local del flujo con Redux Toolkit.
+- Consultas y mutaciones remotas implementadas con RTK Query, reutilizando la configuración existente del proyecto en `frontend/src/services/RtkQueryService.ts`.
+- Validaciones instantáneas y feedback visual claro (deshabilitar avance si falta información esencial).
+- Estado global del flujo en slices de Redux Toolkit; evitar proponer Context API, Recoil, Zustand o React Query, ya que no corresponden a la base actual.
 
 ### Backend
 - Un endpoint POST/PUT para la "prefactura en armado" que reciba el payload completo unificado (cliente, OTs, contratos, fecha, tipo de cambio).
