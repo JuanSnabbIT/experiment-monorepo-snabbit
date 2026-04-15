@@ -310,6 +310,7 @@ export interface IContratoVisita {
     frecuencia: string;
     cantidad: number;
     visitas_usadas: number;
+    precio_visita_adicional: string | null;
     visita: number;
     descripcion_visita: string;
     frecuencia_label: string;

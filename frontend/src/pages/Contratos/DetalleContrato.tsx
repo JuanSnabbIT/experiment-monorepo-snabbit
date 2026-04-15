@@ -1,3 +1,4 @@
+import Icon from '@/components/icon/Icon';
 import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
@@ -26,6 +27,7 @@ import {
     useGetDetalleContratoQuery,
     useGetLicenciasCatalogoQuery,
     useGetPreviewFirmaContratoQuery,
+    useGetVisitasCatalogoQuery,
     useReenviarAFirmaContratoMutation,
     useReenviarAprobacionContratoMutation,
     useRenovarContratoMutation,
@@ -47,6 +49,7 @@ import TabHistorial from './components/TabHistorial';
 import TabLicencias from './components/TabLicencias';
 import TabServicios from './components/TabServicios';
 import TabUsuarios from './components/TabUsuarios';
+import TabVisitas from './components/TabVisitas';
 import DetalleConfidencialidadContrato from './modals/DetalleConfidencialidadContrato';
 import ModalEditarDatosGenerales from './modals/ModalEditarDatosGenerales';
 
@@ -66,6 +69,7 @@ const DetalleContrato = () => {
     } = useGetDetalleContratoQuery(contratoId!, { skip: !contratoId });
 
     const { data: listaLicencias = [] } = useGetLicenciasCatalogoQuery();
+    const { data: listaVisitas = [] } = useGetVisitasCatalogoQuery();
 
     const [cambiarEstado] = useCambiarEstadoContratoMutation();
     const [renovarContrato] = useRenovarContratoMutation();
@@ -241,6 +245,21 @@ const DetalleContrato = () => {
         );
     }
 
+    // ── Acciones pendientes por estado ──
+    const pendientes: { label: string; cumplido: boolean }[] = [];
+    if (['borrador', 'cambios_solicitados'].includes(contrato.estado)) {
+        pendientes.push({
+            label: 'Destinatario principal definido',
+            cumplido: Boolean(contrato.destinatario_principal),
+        });
+    }
+    if (contrato.estado === 'aprobado_cliente') {
+        pendientes.push({
+            label: 'Firma de la empresa configurada',
+            cumplido: firmaPrestadoraDisponible,
+        });
+    }
+
     return (
         <PageWrapper isProtectedRoute title={`Contrato: ${contrato.nombre}`}>
             {/* ── Subheader ── */}
@@ -298,6 +317,29 @@ const DetalleContrato = () => {
                                         Confidencialidad:{' '}
                                         {tieneConfidencialidad ? 'asociada' : 'sin acuerdos'}
                                     </span>
+                                </div>
+                            )}
+                            {pendientes.length > 0 && (
+                                <div className='mt-3 flex flex-col gap-1'>
+                                    <span className='text-xs font-semibold text-zinc-500 dark:text-zinc-400'>
+                                        Pendiente para avanzar:
+                                    </span>
+                                    {pendientes.map((p) => (
+                                        <span key={p.label} className='flex items-center gap-1 text-xs'>
+                                            <Icon
+                                                icon={p.cumplido ? 'HeroCheckCircle' : 'HeroExclamationCircle'}
+                                                className={p.cumplido ? 'text-emerald-500' : 'text-amber-500'}
+                                            />
+                                            <span
+                                                className={
+                                                    p.cumplido
+                                                        ? 'text-zinc-400 line-through'
+                                                        : 'text-zinc-700 dark:text-zinc-300'
+                                                }>
+                                                {p.label}
+                                            </span>
+                                        </span>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -609,35 +651,37 @@ const DetalleContrato = () => {
                         </CardFooter>
                     </Card>
 
-                    {/* ── Columna izquierda (8/12): Servicios, Condiciones, Usuarios ── */}
-                    <div className='col-span-full flex flex-col gap-4 lg:col-span-8'>
-                        <TabServicios
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                            listaContentType={listaContentType}
-                        />
-                        <TabCondiciones
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabUsuarios
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabDocumento
-                            contrato={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                    </div>
-
-                    {/* ── Columna derecha (4/12): Licencias, Historial ── */}
-                    <div className='col-span-full flex flex-col gap-4 lg:col-span-4'>
+                    {/* ── Secciones del contrato — orden canónico ── */}
+                    {/* Tipo-específicos primero, comunes al final */}
+                    <div className='col-span-full flex flex-col gap-4'>
                         <TabLicencias
                             detalleContratoEmpresaCliente={contrato}
                             puedeEditar={puedeEditar}
                             listaLicencias={listaLicencias}
                         />
                         <TabCotizaciones
+                            detalleContratoEmpresaCliente={contrato}
+                            puedeEditar={puedeEditar}
+                        />
+                        <TabServicios
+                            detalleContratoEmpresaCliente={contrato}
+                            puedeEditar={puedeEditar}
+                            listaContentType={listaContentType}
+                        />
+                        <TabVisitas
+                            detalleContratoEmpresaCliente={contrato}
+                            puedeEditar={puedeEditar}
+                            listaVisitas={listaVisitas}
+                        />
+                        <TabDocumento
+                            contrato={contrato}
+                            puedeEditar={puedeEditar}
+                        />
+                        <TabCondiciones
+                            detalleContratoEmpresaCliente={contrato}
+                            puedeEditar={puedeEditar}
+                        />
+                        <TabUsuarios
                             detalleContratoEmpresaCliente={contrato}
                             puedeEditar={puedeEditar}
                         />

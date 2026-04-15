@@ -3,6 +3,7 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -783,6 +784,31 @@ function CrearContratoDelCliente({
                                         />
                                     </Validation>
                                 )}
+                                {formik.values.tipo && !tipoFijo && (
+                                    <div className='mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500'>
+                                        <span className='font-semibold text-zinc-600 dark:text-zinc-300'>
+                                            Pasos incluidos:
+                                        </span>
+                                        {[
+                                            'Config. b\u00e1sica',
+                                            'Conf. comercial',
+                                            'Destinatario',
+                                            ...(esServicios || esLicencia ? ['Plan/Servicios'] : []),
+                                            ...(esLicencia ? ['Licencias'] : []),
+                                            ...(esVenta ? ['Cotizaciones'] : []),
+                                            'Revisi\u00f3n',
+                                        ].map((paso, i, arr) => (
+                                            <span key={i} className='flex items-center gap-1'>
+                                                <span className='rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-800'>
+                                                    {paso}
+                                                </span>
+                                                {i < arr.length - 1 && (
+                                                    <span className='text-zinc-300'>&rsaquo;</span>
+                                                )}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <Label htmlFor='fecha_inicio'>Fecha de inicio</Label>
@@ -858,7 +884,10 @@ function CrearContratoDelCliente({
                             </div>
                             <div>
                                 <Label htmlFor={esVenta ? 'forma_pago_venta' : 'forma_pago_contractual'}>
-                                    Forma de pago
+                                    Forma de pago{' '}
+                                    <Tooltip text='Periodicidad de facturaci\u00f3n: mensual genera una prefactura por mes, anual genera una al a\u00f1o, pago \u00fanico genera una sola al activarse el contrato.'>
+                                        <Icon icon='HeroInformationCircle' className='inline-block h-4 w-4 cursor-help text-zinc-400' />
+                                    </Tooltip>
                                 </Label>
                                 <SelectReact
                                     name={esVenta ? 'forma_pago_venta' : 'forma_pago_contractual'}
@@ -888,7 +917,12 @@ function CrearContratoDelCliente({
                                 )}
                             </div>
                             <div>
-                                <Label htmlFor='dias_aviso_termino'>Días de aviso previo</Label>
+                                <Label htmlFor='dias_aviso_termino'>
+                                    Días de aviso previo{' '}
+                                    <Tooltip text='Días antes del vencimiento en que el sistema enviará notificaciones automáticas al cliente y al equipo interno.'>
+                                        <Icon icon='HeroInformationCircle' className='inline-block h-4 w-4 cursor-help text-zinc-400' />
+                                    </Tooltip>
+                                </Label>
                                 <Validation
                                     isValid={formik.isValid}
                                     isTouched={formik.touched.dias_aviso_termino}
@@ -974,7 +1008,10 @@ function CrearContratoDelCliente({
                                                 </div>
                                                 <div>
                                                     <Label htmlFor={`cuotas_venta.${index}.hito_pago_tipo`}>
-                                                        Cuando se paga
+                                                        Cuando se paga{' '}
+                                                        <Tooltip text="Define qu\u00e9 evento activa el cobro de esta cuota. 'Inicio' = al firmar el contrato. 'Fin' = al entregar. 'Personalizado' = fecha o hito manual.">
+                                                            <Icon icon='HeroInformationCircle' className='inline-block h-4 w-4 cursor-help text-zinc-400' />
+                                                        </Tooltip>
                                                     </Label>
                                                     <SelectReact
                                                         name={`cuotas_venta.${index}.hito_pago_tipo`}

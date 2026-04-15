@@ -319,6 +319,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 visita=visita,
                 frecuencia=item.get("frecuencia", "mensual"),
                 cantidad=item.get("cantidad", 1),
+                precio_visita_adicional=item.get("precio_visita_adicional") or None,
             )
 
     def _normalizar_fecha_licencia(self, value, field_name):

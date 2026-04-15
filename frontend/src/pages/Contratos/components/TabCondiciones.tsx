@@ -43,6 +43,7 @@ const TabCondiciones = ({
 }: ITabCondicionesProps) => {
     const [agregando, setAgregando] = useState(false);
     const [nuevaCondicion, setNuevaCondicion] = useState<INuevaCondicionState>(INITIAL_STATE);
+    const [confirmEliminarId, setConfirmEliminarId] = useState<number | null>(null);
     const monedaContrato = detalleContratoEmpresaCliente.moneda_cobro ?? 'CLP';
     const [updateContrato, { isLoading: guardando }] = useUpdateContratoMutation();
 
@@ -99,6 +100,7 @@ const TabCondiciones = ({
                 id: detalleContratoEmpresaCliente.id,
                 data: payload,
             }).unwrap();
+            setConfirmEliminarId(null);
             toast.success('Condicion eliminada', { autoClose: 1000 });
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
@@ -227,16 +229,41 @@ const TabCondiciones = ({
                                                 </p>
                                             </div>
                                             {puedeEditar && (
-                                                <Tooltip text='Eliminar condicion'>
-                                                    <Button
-                                                        color='red'
-                                                        icon='HeroTrash'
-                                                        size='sm'
-                                                        onClick={() =>
-                                                            handleEliminar(condicion.id)
-                                                        }
-                                                    />
-                                                </Tooltip>
+                                                confirmEliminarId === condicion.id ? (
+                                                    <div className='flex items-center gap-1'>
+                                                        <span className='whitespace-nowrap text-xs text-red-600'>
+                                                            ¿Eliminar?
+                                                        </span>
+                                                        <Button
+                                                            color='red'
+                                                            variant='solid'
+                                                            size='sm'
+                                                            isLoading={guardando}
+                                                            onClick={() =>
+                                                                handleEliminar(condicion.id)
+                                                            }>
+                                                            Sí
+                                                        </Button>
+                                                        <Button
+                                                            size='sm'
+                                                            onClick={() =>
+                                                                setConfirmEliminarId(null)
+                                                            }>
+                                                            No
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Tooltip text='Eliminar condicion'>
+                                                        <Button
+                                                            color='red'
+                                                            icon='HeroTrash'
+                                                            size='sm'
+                                                            onClick={() =>
+                                                                setConfirmEliminarId(condicion.id)
+                                                            }
+                                                        />
+                                                    </Tooltip>
+                                                )
                                             )}
                                         </div>
                                     </div>

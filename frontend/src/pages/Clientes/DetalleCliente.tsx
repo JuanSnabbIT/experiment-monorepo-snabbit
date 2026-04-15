@@ -98,10 +98,6 @@ const DetalleCliente = () => {
                                 <div className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
                                     Navegacion del cliente
                                 </div>
-                                <div className='text-xs text-zinc-500'>
-                                    La seccion activa queda guardada en la URL para volver al mismo
-                                    punto o compartir el enlace.
-                                </div>
                             </div>
                             <div className='flex flex-row gap-4 overflow-auto'>
                                 <Button

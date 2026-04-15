@@ -1060,6 +1060,14 @@ class ContratoVisita(ModeloBaseHistorico):
     visitas_usadas = models.PositiveIntegerField(
         default=0, verbose_name="Visitas Usadas"
     )
+    precio_visita_adicional = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Precio por visita adicional",
+        help_text="Precio cobrado al cliente por cada visita que exceda la cantidad acordada. Si es null, se usa el precio general del contrato.",
+    )
 
     class Meta:
         verbose_name = "Visita del Contrato"

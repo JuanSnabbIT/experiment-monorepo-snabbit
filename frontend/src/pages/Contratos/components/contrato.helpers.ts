@@ -1,5 +1,5 @@
-import type { TColors } from '@/types/colors.type';
 import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
+import type { TColors } from '@/types/colors.type';
 import type { IContratoEdicion } from './contrato.types';
 
 /**
@@ -84,6 +84,9 @@ export function buildUpdatePayload(
                 id: v.id,
                 cantidad: v.cantidad,
                 frecuencia: v.frecuencia,
+                precio_visita_adicional: v.precio_visita_adicional
+                    ? Number(v.precio_visita_adicional)
+                    : null,
             })),
         eliminar_visitas: overrides?.eliminar_visitas ?? [],
         licencias:

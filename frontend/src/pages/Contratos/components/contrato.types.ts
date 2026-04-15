@@ -50,6 +50,7 @@ export interface IContratoEdicion {
         visita_id?: number;
         frecuencia: string;
         cantidad: number;
+        precio_visita_adicional?: number | null;
     }[];
     // CONTRATO LICENCIAS
     eliminar_licencias: number[];

@@ -148,7 +148,7 @@ const TabVisitas = ({
                                                 }}
                                             />
                                         </div>
-                                        <div className='grid grid-cols-2 gap-2'>
+                            <div className='grid grid-cols-2 gap-2'>
                                             <div>
                                                 <Badge>Frecuencia</Badge>
                                                 <SelectReact
@@ -183,6 +183,27 @@ const TabVisitas = ({
                                                         nuevas[index] = {
                                                             ...nuevas[index],
                                                             cantidad: Number(e.target.value),
+                                                        };
+                                                        setVisitas(nuevas);
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='col-span-2'>
+                                                <Tooltip text='Precio cobrado al cliente por cada visita que exceda la cantidad acordada. Si se deja vacío, se usa el precio general del contrato.'>
+                                                    <Badge className='cursor-help'>Tarifa excedente (opcional)</Badge>
+                                                </Tooltip>
+                                                <Input
+                                                    name={`visitas_excedente_${index}`}
+                                                    type='number'
+                                                    placeholder='Sin tarifa específica'
+                                                    value={visita.precio_visita_adicional ?? ''}
+                                                    onChange={(e) => {
+                                                        const nuevas = [...visitas];
+                                                        nuevas[index] = {
+                                                            ...nuevas[index],
+                                                            precio_visita_adicional: e.target.value
+                                                                ? Number(e.target.value)
+                                                                : null,
                                                         };
                                                         setVisitas(nuevas);
                                                     }}
@@ -275,6 +296,7 @@ const TabVisitas = ({
                                                     visita_id: Number(nuevaVisita),
                                                     cantidad: 1,
                                                     frecuencia: 'mensual',
+                                                    precio_visita_adicional: null,
                                                 },
                                             ]);
                                             setNuevaVisita('');
@@ -303,9 +325,29 @@ const TabVisitas = ({
                                                 <div className='text-sm font-light'>
                                                     Frecuencia: {visita.frecuencia_label}
                                                 </div>
+                                                {visita.precio_visita_adicional && (
+                                                    <div className='text-xs text-zinc-500'>
+                                                        Tarifa excedente:{' '}
+                                                        {visita.precio_visita_adicional}{' '}
+                                                        {detalleContratoEmpresaCliente.moneda_cobro ?? 'CLP'}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <Badge variant='solid'>{visita.cantidad}</Badge>
+                                            <div className='flex flex-col items-end gap-1'>
+                                                <Badge
+                                                    variant='solid'
+                                                    color={
+                                                        visita.visitas_usadas >= visita.cantidad
+                                                            ? 'red'
+                                                            : 'emerald'
+                                                    }>
+                                                    {visita.visitas_usadas}/{visita.cantidad}
+                                                </Badge>
+                                                {visita.visitas_usadas >= visita.cantidad && (
+                                                    <Badge variant='outline' color='amber'>
+                                                        Lleno
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
                                     ),

@@ -9,6 +9,7 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import {
     useGetDetalleContratoLicenciaQuery,
+    useGetDetalleContratoQuery,
     useGetHistorialContratoLicenciaQuery,
     useGetUsuariosVinculadosLicenciaQuery,
 } from '@/store/slices/contratos/contratoApi';
@@ -18,6 +19,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ItemsTablaDeUsuariosVinculadosLicencias from '../Clientes/components/ItemsTablaDeUsuariosVinculadosLicencias';
 import CrearUsuarioVinculadoLicencia from '../Clientes/modals/CrearUsuarioVinculadoLicencia';
 import MarqueeEstadoLicencia from './components/MarqueeEstadoLicencia';
+import { colorEstadoContrato } from './components/contrato.helpers';
 import ModalCambiarEstadoLicencia from './modals/ModalCambiarEstadoLicencia';
 import ModalEditarCuposLicencia from './modals/ModalEditarCuposLicencia';
 
@@ -46,6 +48,11 @@ const DetalleLicencia = () => {
 
     const { data: historial = [], isLoading: loadingHistorial, isError: errorHistorial } =
         useGetHistorialContratoLicenciaQuery(licenciaId ?? '', { skip: !licenciaId });
+
+    // Contrato padre — para mostrar su estado en contexto
+    const { data: contratoPadre } = useGetDetalleContratoQuery(contratoId ?? '', {
+        skip: !contratoId,
+    });
 
     if (loadingLicencia) {
         return (
@@ -99,6 +106,17 @@ const DetalleLicencia = () => {
                         </Button>
                         <h1 className='text-xl font-bold'>{licencia.nombre_licencia}</h1>
                         <Badge color={licencia.color_estado}>{licencia.estado_label}</Badge>
+                        {contratoPadre && (
+                            <span className='flex items-center gap-1 rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
+                                Contrato:{' '}
+                                <Badge
+                                    variant='outline'
+                                    color={colorEstadoContrato(contratoPadre.estado)}
+                                    className='text-xs'>
+                                    {contratoPadre.estado_label}
+                                </Badge>
+                            </span>
+                        )}
                     </SubheaderLeft>
                     <SubheaderRight>
                         <Button
