@@ -79,6 +79,14 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
         return listaUsuariosCliente.filter((u) => u.estado !== '2');
     }, [listaUsuariosCliente, mostrarInactivos]);
 
+    // Métricas calculadas
+    const metricas = useMemo(() => {
+        const total = listaUsuariosCliente.length;
+        const activos = listaUsuariosCliente.filter((u) => u.estado === '1').length;
+        const inactivos = listaUsuariosCliente.filter((u) => u.estado === '2').length;
+        return { total, activos, inactivos };
+    }, [listaUsuariosCliente]);
+
     const columns = [
         columnHelper.accessor('nombre_usuario', {
             cell: (info) => info.getValue(),
@@ -148,114 +156,165 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
     });
 
     return (
-        <Card>
-            <CardHeader>
-                <CardHeaderChild>
-                    <Badge className='text-xl'>Usuarios</Badge>
-                </CardHeaderChild>
-            </CardHeader>
-            <CardBody className='z-0'>
-                <div className='mb-4 flex w-full flex-col justify-between gap-4 md:flex-row md:items-end'>
-                    <div className='w-full md:w-1/3'>
-                        <SelectReact
-                            placeholder='Sucursal...'
-                            name='sucursal'
-                            options={optionSucursal}
-                            value={sucursalSelected}
-                            onChange={(e) => {
-                                setSucursalSelected(e as { value: string; label: string });
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <Input
-                            name='globalFilter'
-                            placeholder='Buscar...'
-                            value={globalFilter}
-                            onChange={(e) => {
-                                setGlobalFilter(e.target.value);
-                            }}
-                        />
-                    </div>
-                    <div className='flex items-center gap-2'>
-                        <Checkbox
-                            id='mostrarInactivos'
-                            checked={mostrarInactivos}
-                            onChange={() => setMostrarInactivos(!mostrarInactivos)}
-                        />
-                        <label htmlFor='mostrarInactivos' className='cursor-pointer text-sm'>
-                            Mostrar inactivos
-                        </label>
-                    </div>
+        <div className='flex flex-col gap-4'>
+            {/* ── Métricas ── */}
+            {listaUsuariosCliente.length > 0 && (
+                <div className='grid grid-cols-3 gap-3'>
+                    <Card>
+                        <CardBody className='flex items-center gap-3 py-3'>
+                            <Icon
+                                icon='HeroUserGroup'
+                                size='text-2xl'
+                                className='text-blue-500'
+                            />
+                            <div>
+                                <p className='text-xs text-zinc-500'>Total</p>
+                                <p className='text-xl font-bold'>{metricas.total}</p>
+                            </div>
+                        </CardBody>
+                    </Card>
+                    <Card>
+                        <CardBody className='flex items-center gap-3 py-3'>
+                            <Icon
+                                icon='HeroCheckCircle'
+                                size='text-2xl'
+                                className='text-emerald-500'
+                            />
+                            <div>
+                                <p className='text-xs text-zinc-500'>Activos</p>
+                                <p className='text-xl font-bold'>{metricas.activos}</p>
+                            </div>
+                        </CardBody>
+                    </Card>
+                    <Card>
+                        <CardBody className='flex items-center gap-3 py-3'>
+                            <Icon
+                                icon='HeroXCircle'
+                                size='text-2xl'
+                                className='text-red-500'
+                            />
+                            <div>
+                                <p className='text-xs text-zinc-500'>Inactivos</p>
+                                <p className='text-xl font-bold'>{metricas.inactivos}</p>
+                            </div>
+                        </CardBody>
+                    </Card>
                 </div>
-                <div className='overflow-auto'>
-                    <Table className='min-w-[600px] table-fixed'>
-                        <THead>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <Tr key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <Th
-                                            key={header.id}
-                                            isColumnBorder={false}
-                                            className='text-left'>
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    key={header.id}
-                                                    aria-hidden='true'
-                                                    {...{
-                                                        className: header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none flex items-center'
-                                                            : '',
-                                                        onClick:
-                                                            header.column.getToggleSortingHandler(),
-                                                    }}>
-                                                    {flexRender(
-                                                        header.column.columnDef.header,
-                                                        header.getContext(),
-                                                    )}
-                                                    {{
-                                                        asc: (
-                                                            <Icon
-                                                                icon='HeroChevronUp'
-                                                                className='ltr:ml-1.5 rtl:mr-1.5'
-                                                            />
-                                                        ),
-                                                        desc: (
-                                                            <Icon
-                                                                icon='HeroChevronDown'
-                                                                className='ltr:ml-1.5 rtl:mr-1.5'
-                                                            />
-                                                        ),
-                                                    }[header.column.getIsSorted() as string] ??
-                                                        null}
-                                                </div>
-                                            )}
-                                        </Th>
-                                    ))}
-                                </Tr>
-                            ))}
-                        </THead>
-                        <TBody>
-                            {table.getRowModel().rows.map((row) => (
-                                <Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => (
-                                        <Td key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext(),
-                                            )}
-                                        </Td>
-                                    ))}
-                                </Tr>
-                            ))}
-                        </TBody>
-                    </Table>
-                    <div className='mt-2 min-w-[600px]'>
-                        <TableCardFooterTemplateV2 table={table} />
+            )}
+
+            {/* ── Tabla principal ── */}
+            <Card>
+                <CardHeader>
+                    <CardHeaderChild>
+                        <Badge className='text-xl'>Usuarios</Badge>
+                    </CardHeaderChild>
+                    <CardHeaderChild>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <div className='min-w-[160px]'>
+                                <SelectReact
+                                    placeholder='Sucursal...'
+                                    name='sucursal'
+                                    options={optionSucursal}
+                                    value={sucursalSelected}
+                                    onChange={(e) => {
+                                        setSucursalSelected(e as { value: string; label: string });
+                                    }}
+                                />
+                            </div>
+                            <Input
+                                name='globalFilter'
+                                placeholder='Buscar...'
+                                value={globalFilter}
+                                onChange={(e) => {
+                                    setGlobalFilter(e.target.value);
+                                }}
+                                className='max-w-[150px]'
+                            />
+                            <div className='flex items-center gap-2'>
+                                <Checkbox
+                                    id='mostrarInactivos'
+                                    checked={mostrarInactivos}
+                                    onChange={() => setMostrarInactivos(!mostrarInactivos)}
+                                />
+                                <label
+                                    htmlFor='mostrarInactivos'
+                                    className='cursor-pointer text-sm'>
+                                    Inactivos
+                                </label>
+                            </div>
+                        </div>
+                    </CardHeaderChild>
+                </CardHeader>
+                <CardBody className='z-0'>
+                    <div className='overflow-auto'>
+                        <Table className='min-w-[600px] table-fixed'>
+                            <THead>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th
+                                                key={header.id}
+                                                isColumnBorder={false}
+                                                className='text-left'>
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        key={header.id}
+                                                        aria-hidden='true'
+                                                        {...{
+                                                            className: header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none flex items-center'
+                                                                : '',
+                                                            onClick:
+                                                                header.column.getToggleSortingHandler(),
+                                                        }}>
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext(),
+                                                        )}
+                                                        {{
+                                                            asc: (
+                                                                <Icon
+                                                                    icon='HeroChevronUp'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                            desc: (
+                                                                <Icon
+                                                                    icon='HeroChevronDown'
+                                                                    className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                />
+                                                            ),
+                                                        }[header.column.getIsSorted() as string] ??
+                                                            null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </THead>
+                            <TBody>
+                                {table.getRowModel().rows.map((row) => (
+                                    <Tr key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <Td key={cell.id}>
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
+                                            </Td>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </TBody>
+                        </Table>
+                        <div className='mt-2 min-w-[600px]'>
+                            <TableCardFooterTemplateV2 table={table} />
+                        </div>
                     </div>
-                </div>
-            </CardBody>
-        </Card>
+                </CardBody>
+            </Card>
+        </div>
     );
 }
 

@@ -52,20 +52,26 @@ function ItemsTablaDeUsuariosVinculadosLicencias({ user }: { user: IUsuarioVincu
                     {dayjs(user.fecha_asignacion).locale('es').format('DD/MM/YYYY')}
                 </Td>
                 <Td>
-                    <Tooltip
-                        text={
-                            detalleContratoLicencia?.se_puede_desvincular
-                                ? 'Desvincular'
-                                : 'Disponible solo dentro de la ventana de 7 días'
-                        }>
-                        <Button
-                            variant='solid'
-                            color='red'
-                            icon='HeroTrash'
-                            onClick={() => setConfirmDeleteOpen(true)}
-                            isDisable={!detalleContratoLicencia?.se_puede_desvincular}
-                        />
-                    </Tooltip>
+                    <div className='flex flex-col gap-1'>
+                        <Tooltip
+                            text={
+                                detalleContratoLicencia?.se_puede_desvincular
+                                    ? 'Desvincular'
+                                    : 'Disponible solo dentro de la ventana de 7 días'
+                            }>
+                            <Button
+                                variant='solid'
+                                color='red'
+                                icon='HeroTrash'
+                                size='sm'
+                                onClick={() => setConfirmDeleteOpen(true)}
+                                isDisable={!detalleContratoLicencia?.se_puede_desvincular}
+                            />
+                        </Tooltip>
+                        {!detalleContratoLicencia?.se_puede_desvincular && (
+                            <span className='text-xs text-zinc-400'>Solo en ventana de 7d</span>
+                        )}
+                    </div>
                 </Td>
             </Tr>
 

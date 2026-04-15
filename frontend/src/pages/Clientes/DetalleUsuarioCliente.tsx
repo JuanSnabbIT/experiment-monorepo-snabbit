@@ -1,3 +1,5 @@
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
@@ -5,16 +7,23 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import { IUsuarioEquipo } from '@/interface/recursos.interface';
 import {
+    useDesvincularEquipoDesdeDetalleMutation,
+    useGetBodegasPorEmpresaClienteQuery,
     useGetContratosPorUsuarioEmpresaQuery,
     useGetEquiposPorUsuarioEmpresaQuery,
     useGetLicenciasPorUsuarioEmpresaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import { useGetDetalleUsuarioClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 const DetalleUsuarioCliente = () => {
     const navigate = useNavigate();
@@ -23,7 +32,6 @@ const DetalleUsuarioCliente = () => {
         usuarioId: string;
     }>();
 
-    // ─── Queries ───
     const {
         data: usuario,
         isLoading: loadingUsuario,
@@ -39,7 +47,82 @@ const DetalleUsuarioCliente = () => {
     const { data: contratos = [], isLoading: loadingContratos } =
         useGetContratosPorUsuarioEmpresaQuery(usuarioId ?? '', { skip: !usuarioId });
 
-    // ─── Loading / Error / Not found ───
+    const [modalDesvincularOpen, setModalDesvincularOpen] = useState(false);
+    const [equipoSeleccionado, setEquipoSeleccionado] = useState<IUsuarioEquipo | null>(null);
+    const [bodegaSeleccionadaId, setBodegaSeleccionadaId] = useState<number | null>(null);
+    const [motivoDesvinculacion, setMotivoDesvinculacion] = useState('');
+    const [errorDesvinculacion, setErrorDesvinculacion] = useState<string | null>(null);
+
+    const [desvincularEquipoDesdeDetalle, { isLoading: isDesvinculando }] =
+        useDesvincularEquipoDesdeDetalleMutation();
+
+    const empresaClienteIdSeleccionada = useMemo(
+        () => equipoSeleccionado?.datos_equipo?.cliente ?? null,
+        [equipoSeleccionado],
+    );
+
+    const { data: bodegasCliente = [], isLoading: loadingBodegasCliente } =
+        useGetBodegasPorEmpresaClienteQuery(empresaClienteIdSeleccionada ?? '', {
+            skip: !modalDesvincularOpen || !empresaClienteIdSeleccionada,
+        });
+
+    const opcionesBodegas = useMemo<TSelectOption[]>(
+        () =>
+            bodegasCliente.map((bodega) => ({
+                value: bodega.id.toString(),
+                label: bodega.nombre,
+            })),
+        [bodegasCliente],
+    );
+
+    const bodegaSeleccionadaOption = useMemo(
+        () =>
+            opcionesBodegas.find((option) => Number(option.value) === bodegaSeleccionadaId) ??
+            null,
+        [opcionesBodegas, bodegaSeleccionadaId],
+    );
+
+    const abrirModalDesvincular = (usuarioEquipo: IUsuarioEquipo) => {
+        setEquipoSeleccionado(usuarioEquipo);
+        setBodegaSeleccionadaId(null);
+        setMotivoDesvinculacion('');
+        setErrorDesvinculacion(null);
+        setModalDesvincularOpen(true);
+    };
+
+    const cerrarModalDesvincular = () => {
+        setModalDesvincularOpen(false);
+        setEquipoSeleccionado(null);
+        setBodegaSeleccionadaId(null);
+        setMotivoDesvinculacion('');
+        setErrorDesvinculacion(null);
+    };
+
+    const confirmarDesvinculacion = async () => {
+        if (!equipoSeleccionado) return;
+
+        if (!bodegaSeleccionadaId) {
+            setErrorDesvinculacion('Debe seleccionar una bodega destino.');
+            return;
+        }
+
+        try {
+            const response = await desvincularEquipoDesdeDetalle({
+                usuarioEquipoId: equipoSeleccionado.id,
+                data: {
+                    bodega_destino_id: bodegaSeleccionadaId,
+                    motivo: motivoDesvinculacion.trim() || undefined,
+                },
+            }).unwrap();
+            toast.success(response.detail || 'Equipo desvinculado correctamente.');
+            cerrarModalDesvincular();
+        } catch (error: unknown) {
+            const mensaje = getErrorMessage(error);
+            setErrorDesvinculacion(mensaje);
+            toast.error(mensaje);
+        }
+    };
+
     if (loadingUsuario) {
         return (
             <PageWrapper>
@@ -55,7 +138,7 @@ const DetalleUsuarioCliente = () => {
             <PageWrapper>
                 <Container>
                     <Alert color='red'>
-                        No se pudo cargar el usuario. Verifique su conexión e intente nuevamente.
+                        No se pudo cargar el usuario. Verifique su conexion e intente nuevamente.
                     </Alert>
                 </Container>
             </PageWrapper>
@@ -83,59 +166,46 @@ const DetalleUsuarioCliente = () => {
                     <Badge color={usuario.estado === '1' ? 'emerald' : 'red'}>
                         {usuario.estado_label}
                     </Badge>
-                    {!usuario.is_active && (
-                        <Badge color='zinc'>Cuenta deshabilitada</Badge>
-                    )}
+                    {!usuario.is_active && <Badge color='zinc'>Cuenta deshabilitada</Badge>}
                 </SubheaderLeft>
             </Subheader>
 
             <Container>
                 <div className='grid grid-cols-1 gap-4 lg:grid-cols-3'>
-                    {/* ── Información Personal ── */}
                     <Card className='lg:col-span-1'>
                         <CardHeader>
                             <CardHeaderChild>
-                                <span className='font-semibold'>Información Personal</span>
+                                <span className='font-semibold'>Informacion Personal</span>
                             </CardHeaderChild>
                         </CardHeader>
                         <CardBody>
                             <dl className='space-y-3 text-sm'>
                                 <div>
                                     <dt className='text-zinc-500'>Nombre</dt>
-                                    <dd className='font-medium'>
-                                        {usuario.nombre_usuario || '—'}
-                                    </dd>
+                                    <dd className='font-medium'>{usuario.nombre_usuario || '-'}</dd>
                                 </div>
                                 <div>
                                     <dt className='text-zinc-500'>Email</dt>
-                                    <dd className='font-medium'>
-                                        {usuario.email_usuario || '—'}
-                                    </dd>
+                                    <dd className='font-medium'>{usuario.email_usuario || '-'}</dd>
                                 </div>
                                 <div>
                                     <dt className='text-zinc-500'>RUT</dt>
-                                    <dd className='font-medium'>
-                                        {usuario.papeleta?.rut || 'Sin RUT'}
-                                    </dd>
+                                    <dd className='font-medium'>{usuario.papeleta?.rut || 'Sin RUT'}</dd>
                                 </div>
                                 <div>
                                     <dt className='text-zinc-500'>Cargo</dt>
-                                    <dd className='font-medium'>
-                                        {usuario.cargo || '—'}
-                                    </dd>
+                                    <dd className='font-medium'>{usuario.cargo || '-'}</dd>
                                 </div>
                                 <div>
                                     <dt className='text-zinc-500'>Sucursal</dt>
-                                    <dd className='font-medium'>
-                                        {usuario.nombre_sucursal || '—'}
-                                    </dd>
+                                    <dd className='font-medium'>{usuario.nombre_sucursal || '-'}</dd>
                                 </div>
                                 <div>
                                     <dt className='text-zinc-500'>Fecha Ingreso</dt>
                                     <dd className='font-medium'>
                                         {usuario.fecha_ingreso
                                             ? dayjs(usuario.fecha_ingreso).format('DD/MM/YYYY')
-                                            : '—'}
+                                            : '-'}
                                     </dd>
                                 </div>
                                 <div>
@@ -143,16 +213,14 @@ const DetalleUsuarioCliente = () => {
                                     <dd className='font-medium'>
                                         {usuario.fecha_contrato
                                             ? dayjs(usuario.fecha_contrato).format('DD/MM/YYYY')
-                                            : '—'}
+                                            : '-'}
                                     </dd>
                                 </div>
                             </dl>
                         </CardBody>
                     </Card>
 
-                    {/* ── Columna derecha: Equipos + Licencias + Contratos ── */}
                     <div className='flex flex-col gap-4 lg:col-span-2'>
-                        {/* ── Equipos Asignados ── */}
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
@@ -163,57 +231,64 @@ const DetalleUsuarioCliente = () => {
                                 {loadingEquipos ? (
                                     <p className='p-4 text-sm text-zinc-500'>Cargando...</p>
                                 ) : equipos.length === 0 ? (
-                                    <p className='p-4 text-sm text-zinc-500'>
-                                        Sin equipos asignados
-                                    </p>
+                                    <p className='p-4 text-sm text-zinc-500'>Sin equipos asignados</p>
                                 ) : (
-                                    <Table>
-                                        <THead>
-                                            <Tr>
-                                                <Th>Tipo</Th>
-                                                <Th>Marca / Modelo</Th>
-                                                <Th>N° Serie</Th>
-                                                <Th>Fecha Asignación</Th>
-                                                <Th>Estado</Th>
-                                            </Tr>
-                                        </THead>
-                                        <TBody>
-                                            {equipos.map((ue) => (
-                                                <Tr key={ue.id}>
-                                                    <Td>
-                                                        {ue.datos_equipo?.tipo_equipo_label || '—'}
-                                                    </Td>
-                                                    <Td>
-                                                        {ue.datos_equipo?.marca_label || '—'} /{' '}
-                                                        {ue.datos_equipo?.modelo || '—'}
-                                                    </Td>
-                                                    <Td>
-                                                        {ue.datos_equipo?.numero_serie || '—'}
-                                                    </Td>
-                                                    <Td>
-                                                        {ue.fecha_asignacion
-                                                            ? dayjs(ue.fecha_asignacion).format(
-                                                                  'DD/MM/YYYY',
-                                                              )
-                                                            : '—'}
-                                                    </Td>
-                                                    <Td>
-                                                        <Badge
-                                                            color={
-                                                                ue.estado ? 'emerald' : 'zinc'
-                                                            }>
-                                                            {ue.estado ? 'Asignado' : 'Devuelto'}
-                                                        </Badge>
-                                                    </Td>
+                                    <div className='overflow-x-auto'>
+                                        <Table className='min-w-[860px]'>
+                                            <THead>
+                                                <Tr>
+                                                    <Th>Tipo</Th>
+                                                    <Th>Marca / Modelo</Th>
+                                                    <Th>Nro Serie</Th>
+                                                    <Th>Fecha Asignacion</Th>
+                                                    <Th>Estado</Th>
+                                                    <Th>Acciones</Th>
                                                 </Tr>
-                                            ))}
-                                        </TBody>
-                                    </Table>
+                                            </THead>
+                                            <TBody>
+                                                {equipos.map((ue) => (
+                                                    <Tr key={ue.id}>
+                                                        <Td>{ue.datos_equipo?.tipo_equipo_label || '-'}</Td>
+                                                        <Td>
+                                                            {ue.datos_equipo?.marca_label || '-'} /{' '}
+                                                            {ue.datos_equipo?.modelo || '-'}
+                                                        </Td>
+                                                        <Td>{ue.datos_equipo?.numero_serie || '-'}</Td>
+                                                        <Td>
+                                                            {ue.fecha_asignacion
+                                                                ? dayjs(ue.fecha_asignacion).format(
+                                                                      'DD/MM/YYYY',
+                                                                  )
+                                                                : '-'}
+                                                        </Td>
+                                                        <Td>
+                                                            <Badge
+                                                                color={ue.estado ? 'emerald' : 'zinc'}>
+                                                                {ue.estado ? 'Asignado' : 'Devuelto'}
+                                                            </Badge>
+                                                        </Td>
+                                                        <Td>
+                                                            {ue.estado ? (
+                                                                <Button
+                                                                    size='sm'
+                                                                    color='red'
+                                                                    variant='solid'
+                                                                    onClick={() => abrirModalDesvincular(ue)}>
+                                                                    Desvincular
+                                                                </Button>
+                                                            ) : (
+                                                                <span className='text-sm text-zinc-500'>-</span>
+                                                            )}
+                                                        </Td>
+                                                    </Tr>
+                                                ))}
+                                            </TBody>
+                                        </Table>
+                                    </div>
                                 )}
                             </CardBody>
                         </Card>
 
-                        {/* ── Licencias Vinculadas ── */}
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
@@ -224,9 +299,7 @@ const DetalleUsuarioCliente = () => {
                                 {loadingLicencias ? (
                                     <p className='p-4 text-sm text-zinc-500'>Cargando...</p>
                                 ) : licencias.length === 0 ? (
-                                    <p className='p-4 text-sm text-zinc-500'>
-                                        Sin licencias vinculadas
-                                    </p>
+                                    <p className='p-4 text-sm text-zinc-500'>Sin licencias vinculadas</p>
                                 ) : (
                                     <Table>
                                         <THead>
@@ -234,7 +307,7 @@ const DetalleUsuarioCliente = () => {
                                                 <Th>Licencia</Th>
                                                 <Th>Proveedor</Th>
                                                 <Th>Estado</Th>
-                                                <Th>Fecha Asignación</Th>
+                                                <Th>Fecha Asignacion</Th>
                                                 <Th>Contrato</Th>
                                                 <Th>Acciones</Th>
                                             </Tr>
@@ -243,7 +316,7 @@ const DetalleUsuarioCliente = () => {
                                             {licencias.map((lic) => (
                                                 <Tr key={lic.id}>
                                                     <Td>{lic.nombre_licencia}</Td>
-                                                    <Td>{lic.proveedor_licencia || '—'}</Td>
+                                                    <Td>{lic.proveedor_licencia || '-'}</Td>
                                                     <Td>
                                                         <Badge color={lic.color_estado}>
                                                             {lic.estado_licencia_label}
@@ -254,7 +327,7 @@ const DetalleUsuarioCliente = () => {
                                                             ? dayjs(lic.fecha_asignacion).format(
                                                                   'DD/MM/YYYY',
                                                               )
-                                                            : '—'}
+                                                            : '-'}
                                                     </Td>
                                                     <Td>{lic.nombre_contrato}</Td>
                                                     <Td>
@@ -280,7 +353,6 @@ const DetalleUsuarioCliente = () => {
                             </CardBody>
                         </Card>
 
-                        {/* ── Contratos Asociados ── */}
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
@@ -291,9 +363,7 @@ const DetalleUsuarioCliente = () => {
                                 {loadingContratos ? (
                                     <p className='p-4 text-sm text-zinc-500'>Cargando...</p>
                                 ) : contratos.length === 0 ? (
-                                    <p className='p-4 text-sm text-zinc-500'>
-                                        Sin contratos asociados
-                                    </p>
+                                    <p className='p-4 text-sm text-zinc-500'>Sin contratos asociados</p>
                                 ) : (
                                     <Table>
                                         <THead>
@@ -307,39 +377,39 @@ const DetalleUsuarioCliente = () => {
                                             </Tr>
                                         </THead>
                                         <TBody>
-                                            {contratos.map((c) => (
-                                                <Tr key={c.id}>
-                                                    <Td>{c.nombre_contrato}</Td>
+                                            {contratos.map((contrato) => (
+                                                <Tr key={contrato.id}>
+                                                    <Td>{contrato.nombre_contrato}</Td>
                                                     <Td>
                                                         <Badge color='blue'>
-                                                            {c.tipo_contrato_label}
+                                                            {contrato.tipo_contrato_label}
                                                         </Badge>
                                                     </Td>
                                                     <Td>
                                                         <Badge
                                                             color={
-                                                                c.estado_contrato === 'activo'
+                                                                contrato.estado_contrato === 'activo'
                                                                     ? 'emerald'
-                                                                    : c.estado_contrato ===
+                                                                    : contrato.estado_contrato ===
                                                                         'borrador'
                                                                       ? 'amber'
-                                                                      : c.estado_contrato ===
+                                                                      : contrato.estado_contrato ===
                                                                             'suspendido'
                                                                         ? 'red'
                                                                         : 'zinc'
                                                             }>
-                                                            {c.estado_contrato_label}
+                                                            {contrato.estado_contrato_label}
                                                         </Badge>
                                                     </Td>
-                                                    <Td>{c.tipo_usuario_label}</Td>
+                                                    <Td>{contrato.tipo_usuario_label}</Td>
                                                     <Td>
-                                                        {dayjs(c.fecha_inicio_contrato).format(
+                                                        {dayjs(contrato.fecha_inicio_contrato).format(
                                                             'DD/MM/YYYY',
                                                         )}{' '}
-                                                        →{' '}
-                                                        {c.fecha_fin_contrato
+                                                        {'->'}{' '}
+                                                        {contrato.fecha_fin_contrato
                                                             ? dayjs(
-                                                                  c.fecha_fin_contrato,
+                                                                  contrato.fecha_fin_contrato,
                                                               ).format('DD/MM/YYYY')
                                                             : 'Indefinido'}
                                                     </Td>
@@ -352,7 +422,7 @@ const DetalleUsuarioCliente = () => {
                                                                 size='sm'
                                                                 onClick={() =>
                                                                     navigate(
-                                                                        `/empresa/detalle-cliente/${clienteId}/contrato/${c.contrato_id}`,
+                                                                        `/empresa/detalle-cliente/${clienteId}/contrato/${contrato.contrato_id}`,
                                                                     )
                                                                 }
                                                             />
@@ -368,6 +438,99 @@ const DetalleUsuarioCliente = () => {
                     </div>
                 </div>
             </Container>
+
+            <Modal isOpen={modalDesvincularOpen} setIsOpen={cerrarModalDesvincular}>
+                <ModalHeader>Desvincular equipo</ModalHeader>
+                <ModalBody>
+                    {equipoSeleccionado ? (
+                        <div className='space-y-4'>
+                            <Alert color='blue'>
+                                Esta accion desvincula el equipo del usuario y lo ingresa a una bodega
+                                de la empresa cliente.
+                            </Alert>
+
+                            <div className='rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700'>
+                                <p>
+                                    <span className='font-semibold'>Equipo:</span>{' '}
+                                    {equipoSeleccionado.datos_equipo?.tipo_equipo_label || '-'}
+                                </p>
+                                <p>
+                                    <span className='font-semibold'>Marca / Modelo:</span>{' '}
+                                    {equipoSeleccionado.datos_equipo?.marca_label || '-'} /{' '}
+                                    {equipoSeleccionado.datos_equipo?.modelo || '-'}
+                                </p>
+                                <p>
+                                    <span className='font-semibold'>Serie:</span>{' '}
+                                    {equipoSeleccionado.datos_equipo?.numero_serie || '-'}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className='mb-2 text-sm font-semibold'>Bodega destino *</p>
+                                {!empresaClienteIdSeleccionada ? (
+                                    <Alert color='red'>
+                                        No se pudo determinar la empresa cliente para este equipo.
+                                    </Alert>
+                                ) : (
+                                    <SelectReact
+                                        name='bodega_destino'
+                                        placeholder='Seleccione bodega'
+                                        value={bodegaSeleccionadaOption}
+                                        options={opcionesBodegas}
+                                        isLoading={loadingBodegasCliente}
+                                        onChange={(option) => {
+                                            const selectedValue = (
+                                                option as TSelectOption | null
+                                            )?.value;
+                                            setBodegaSeleccionadaId(
+                                                selectedValue ? Number(selectedValue) : null,
+                                            );
+                                            setErrorDesvinculacion(null);
+                                        }}
+                                    />
+                                )}
+                            </div>
+
+                            <div>
+                                <p className='mb-2 text-sm font-semibold'>Motivo (opcional)</p>
+                                <Textarea
+                                    name='motivo_desvinculacion'
+                                    rows={3}
+                                    value={motivoDesvinculacion}
+                                    onChange={(event) =>
+                                        setMotivoDesvinculacion(event.target.value)
+                                    }
+                                    placeholder='Ej: recambio por mantencion preventiva'
+                                />
+                            </div>
+
+                            {errorDesvinculacion && (
+                                <Alert color='red'>{errorDesvinculacion}</Alert>
+                            )}
+                        </div>
+                    ) : (
+                        <p className='text-sm text-zinc-500'>No hay equipo seleccionado.</p>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button onClick={cerrarModalDesvincular} isDisable={isDesvinculando}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        color='red'
+                        variant='solid'
+                        onClick={confirmarDesvinculacion}
+                        isLoading={isDesvinculando}
+                        isDisable={
+                            isDesvinculando ||
+                            !equipoSeleccionado ||
+                            !empresaClienteIdSeleccionada ||
+                            !bodegaSeleccionadaId
+                        }>
+                        Confirmar desvinculacion
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </PageWrapper>
     );
 };

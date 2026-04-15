@@ -50,6 +50,7 @@ const RtkQueryService = createApi({
         'GuiaSalida',
         'GuiaSalidaItems',
         'StockItems',
+        'Bodegas',
         'OrdenTrabajo',
         'OrdenTrabajoList',
         'OrdenTrabajoAdjuntos',

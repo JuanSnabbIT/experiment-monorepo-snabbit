@@ -1,3 +1,5 @@
+import logging
+
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -54,6 +56,8 @@ from .serializers import (
     SeguimientoOTV3Serializer,
     TareaOTV3Serializer,
 )
+
+logger = logging.getLogger("facturacion.debug")
 
 
 def _get_empresa_usuario(user):
@@ -1918,6 +1922,13 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         ots = OrdenDeTrabajoV3.objects.filter(id__in=ot_ids, empresa=empresa)
         if ots.count() != len(ot_ids):
             return Response({"detail": "Una o mas OTs no encontradas o de otra empresa."}, status=404)
+        cliente_ids = set(ots.values_list("cliente_id", flat=True))
+        if len(cliente_ids) > 1:
+            return Response(
+                {"detail": "Todas las OTs deben pertenecer al mismo cliente."},
+                status=400,
+            )
+        cliente_ot_id = next(iter(cliente_ids), None)
 
         try:
             ejecutado = calcular_ejecutado_de_ots_v3(
@@ -1943,12 +1954,23 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "contrato_ids debe ser lista de enteros."}, status=400)
 
             contratos = list(
-                ContratoEmpresaCliente.objects.filter(pk__in=contrato_ids).prefetch_related(
+                ContratoEmpresaCliente.objects.filter(
+                    pk__in=contrato_ids,
+                    empresa_cliente_id=cliente_ot_id,
+                ).prefetch_related(
                     "items_comerciales",
                     "items_comerciales__plan_version",
                     "items_comerciales__servicio_version",
+                    "contrato_visitas",
                 )
             )
+            if len(contratos) != len(contrato_ids):
+                encontrados_c = {c.id for c in contratos}
+                faltantes_c = [i for i in contrato_ids if i not in encontrados_c]
+                return Response(
+                    {"detail": f"Contratos no encontrados o de otro cliente: {faltantes_c}."},
+                    status=404,
+                )
 
             for contrato in contratos:
                 try:
@@ -1965,6 +1987,36 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
 
             if contratos:
                 visitas_contrato = _build_visitas_v3(contratos, ots, fecha_prefactura)
+                consistencia_global = (visitas_contrato or {}).get("consistencia_visitas") or {}
+                if consistencia_global.get("estado") == "warning":
+                    logger.warning(
+                        "otv3_visitas_consistencia_warning",
+                        extra={
+                            "scope": "global",
+                            "contrato_id": None,
+                            "periodo": (visitas_contrato or {}).get("periodo"),
+                            "delta": consistencia_global.get("delta"),
+                            "usuario_id": request.user.id,
+                            "ot_ids": ot_ids,
+                            "cliente_id": cliente_ot_id,
+                        },
+                    )
+                for detalle in (visitas_contrato or {}).get("por_contrato") or []:
+                    consistencia_por_contrato = (detalle or {}).get("consistencia_visitas") or {}
+                    if consistencia_por_contrato.get("estado") != "warning":
+                        continue
+                    logger.warning(
+                        "otv3_visitas_consistencia_warning",
+                        extra={
+                            "scope": "contrato",
+                            "contrato_id": detalle.get("contrato_id"),
+                            "periodo": (visitas_contrato or {}).get("periodo"),
+                            "delta": consistencia_por_contrato.get("delta"),
+                            "usuario_id": request.user.id,
+                            "ot_ids": ot_ids,
+                            "cliente_id": cliente_ot_id,
+                        },
+                    )
 
         ots_marcadas_visitas = resolver_ots_marcadas_visitas(ots)
         diferencia = float(

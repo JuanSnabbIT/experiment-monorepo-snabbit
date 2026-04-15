@@ -4,7 +4,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from contratos.models import ContratoEmpresaCliente, ContratoItemComercial, PlanServicio
+from contratos.models import (
+    ContratoEmpresaCliente,
+    ContratoItemComercial,
+    ContratoVisita,
+    PlanServicio,
+    Visita,
+)
 from cotizaciones.models import Cotizacion, ItemCotizacion
 from cuentas.models import User
 from core.models import PersonalizacionUsuario
@@ -54,6 +60,7 @@ class PrefacturaOTV3ApiTest(APITestCase):
             titulo="OT V3 Test",
             estado=ESTADO_POR_FACTURAR,
         )
+        self.visita_catalogo = Visita.objects.create(descripcion="Visita OTV3 Test")
 
         self.client.force_authenticate(user=self.user)
 
@@ -79,6 +86,7 @@ class PrefacturaOTV3ApiTest(APITestCase):
         num_visitas_mensuales=None,
         snapshot_num_visitas_mensuales=None,
         plan_num_visitas_mensuales=None,
+        precio_visita_adicional=0,
     ):
         contrato = ContratoEmpresaCliente.objects.create(
             empresa_prestadora=self.empresa_prestadora,
@@ -89,6 +97,7 @@ class PrefacturaOTV3ApiTest(APITestCase):
             tipo="servicios",
             moneda_cobro="CLP",
             forma_pago_contractual="mensual",
+            precio_visita_adicional=precio_visita_adicional,
         )
         plan = PlanServicio.objects.create(
             empresa_prestadora=self.empresa_prestadora,
@@ -109,6 +118,14 @@ class PrefacturaOTV3ApiTest(APITestCase):
             snapshot_num_visitas_mensuales=snapshot_num_visitas_mensuales,
         )
         return contrato
+
+    def _agregar_contrato_visita(self, contrato, *, frecuencia="mensual", cantidad=1):
+        return ContratoVisita.objects.create(
+            contrato=contrato,
+            visita=self.visita_catalogo,
+            frecuencia=frecuencia,
+            cantidad=cantidad,
+        )
 
     # ------------------------------------------------------------------ #
     # Tests originales actualizados
@@ -463,6 +480,173 @@ class PrefacturaOTV3ApiTest(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         visitas = resp.json().get("visitas_contrato") or {}
         self.assertEqual(visitas.get("incluidas_mes"), 3)
+
+    def test_comparativa_visitas_exceso_total_difiere_de_exceso_prefactura(self):
+        """Si ya habia exceso confirmado, exceso_total_mes puede diferir de exceso_prefactura."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=2,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+        )
+        pref_previa = self._hacer_prefactura_con_ots(
+            [self.otv3],
+            estado="por_facturar",
+            fecha_prefactura=date.today(),
+            resultado={"visitas": {"marcadas_prefactura": 3}},
+        )
+        pref_previa.contratos.set([contrato])
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        exceso_total_mes = visitas.get("exceso_total_mes")
+        exceso_ya_confirmado = visitas.get("exceso_ya_confirmado")
+        exceso_prefactura = visitas.get("exceso_prefactura")
+        self.assertEqual(exceso_total_mes, visitas.get("exceso"))
+        self.assertEqual(
+            exceso_total_mes,
+            max(
+                (visitas.get("confirmadas_mes") or 0)
+                + (visitas.get("marcadas_esta_prefactura") or 0)
+                - (visitas.get("incluidas_mes") or 0),
+                0,
+            ),
+        )
+        self.assertEqual(exceso_prefactura, max(exceso_total_mes - exceso_ya_confirmado, 0))
+        self.assertGreater(exceso_total_mes, exceso_prefactura)
+
+    def test_comparativa_contrato_fuera_de_cliente_retorna_404(self):
+        """Comparativa rechaza contrato de otro cliente."""
+        otro_cliente = Empresa.objects.create(nombre="Cliente Ajeno", direccion_principal="X")
+        contrato_otro_cliente = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=otro_cliente,
+            fecha_inicio=date.today() - timedelta(days=1),
+            nombre="Contrato Ajeno",
+            estado="activo",
+            tipo="servicios",
+            moneda_cobro="CLP",
+            forma_pago_contractual="mensual",
+            precio_visita_adicional=12000,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato_otro_cliente.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_comparativa_un_contrato_retorna_precio_unitario_exceso(self):
+        """Comparativa usa precio de visita adicional cuando hay un contrato seleccionado."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=1,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+            precio_visita_adicional=17500,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        self.assertEqual(visitas.get("precio_unitario_exceso"), 17500.0)
+        self.assertFalse(visitas.get("requiere_precio_manual"))
+
+    def test_comparativa_multi_contrato_requiere_precio_manual(self):
+        """Con multiples contratos, comparativa exige precio manual de exceso."""
+        contrato_a = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=2,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+            precio_visita_adicional=10000,
+        )
+        contrato_b = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=2,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+            precio_visita_adicional=20000,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato_a.id, contrato_b.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        self.assertEqual(visitas.get("precio_unitario_exceso"), 0.0)
+        self.assertTrue(visitas.get("requiere_precio_manual"))
+
+    def test_comparativa_consistencia_visitas_normaliza_frecuencias(self):
+        """Consistencia considera ContratoVisita normalizado a equivalente mensual."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=5,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+        )
+        self._agregar_contrato_visita(contrato, frecuencia="mensual", cantidad=2)
+        self._agregar_contrato_visita(contrato, frecuencia="trimestral", cantidad=3)
+        self._agregar_contrato_visita(contrato, frecuencia="semestral", cantidad=6)
+        self._agregar_contrato_visita(contrato, frecuencia="anual", cantidad=12)
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        consistencia_global = visitas.get("consistencia_visitas") or {}
+        consistencia_contrato = ((visitas.get("por_contrato") or [{}])[0]).get(
+            "consistencia_visitas"
+        ) or {}
+        self.assertEqual(consistencia_global.get("estado"), "ok")
+        self.assertAlmostEqual(consistencia_global.get("items_comerciales_total"), 5.0, places=2)
+        self.assertAlmostEqual(
+            consistencia_global.get("contrato_visitas_total_mensual"),
+            5.0,
+            places=2,
+        )
+        self.assertAlmostEqual(consistencia_global.get("delta"), 0.0, places=2)
+        self.assertEqual(consistencia_contrato.get("estado"), "ok")
+
+    def test_comparativa_consistencia_visitas_warning_sin_contrato_visita(self):
+        """Contrato sin ContratoVisita sigue respondiendo, pero marca warning."""
+        contrato = self._crear_contrato_activo_con_item(
+            num_visitas_mensuales=2,
+            snapshot_num_visitas_mensuales=None,
+            plan_num_visitas_mensuales=None,
+        )
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "contrato_ids": [contrato.id]},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        visitas = resp.json().get("visitas_contrato") or {}
+        consistencia_global = visitas.get("consistencia_visitas") or {}
+        consistencia_contrato = ((visitas.get("por_contrato") or [{}])[0]).get(
+            "consistencia_visitas"
+        ) or {}
+        self.assertEqual(consistencia_global.get("estado"), "warning")
+        self.assertGreaterEqual(abs(consistencia_global.get("delta") or 0), 0.01)
+        self.assertAlmostEqual(
+            consistencia_global.get("contrato_visitas_total_mensual"),
+            0.0,
+            places=2,
+        )
+        self.assertEqual(consistencia_contrato.get("estado"), "warning")
 
     def test_comparativa_falla_sin_ots(self):
         """Comparativa sin ot_ids retorna 400."""

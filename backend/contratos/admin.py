@@ -8,6 +8,7 @@ from contratos.models import (
     UsuarioVinculadoContrato,
     PlanServicioDetalle,
     ContratoServicio,
+    ContratoItemComercial,
     ContratoVisita,
     ContratoLicencia,
     UsuarioVinculadoLicencia,
@@ -65,6 +66,19 @@ class ContratoVisitaInline(admin.TabularInline):
     fields = ['visita', 'frecuencia', 'cantidad']
 
 
+class ContratoItemComercialInline(admin.TabularInline):
+    model = ContratoItemComercial
+    extra = 0
+    fields = [
+        'tipo_origen',
+        'snapshot_nombre',
+        'cantidad',
+        'num_visitas_mensuales',
+        'snapshot_num_visitas_mensuales',
+    ]
+    readonly_fields = ['snapshot_nombre']
+
+
 class ContratoLicenciaInline(admin.TabularInline):
     model = ContratoLicencia
     extra = 1
@@ -115,6 +129,7 @@ class ContratoEmpresaClienteAdmin(admin.ModelAdmin):
     inlines = [
         UsuarioVinculadoContratoInline,
         ContratoServicioInline,
+        ContratoItemComercialInline,
         ContratoVisitaInline,
         ContratoLicenciaInline,
         ContratoCondicionEspecialInline,
@@ -198,6 +213,31 @@ class ContratoServicioAdmin(admin.ModelAdmin):
     list_filter = ('content_type',)
     search_fields = ('contrato__nombre',)
     raw_id_fields = ['content_type']
+
+
+@admin.register(ContratoItemComercial)
+class ContratoItemComercialAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'contrato',
+        'tipo_origen',
+        'snapshot_nombre',
+        'cantidad',
+        'num_visitas_mensuales',
+        'snapshot_num_visitas_mensuales',
+    )
+    list_filter = (
+        'tipo_origen',
+        'contrato__estado',
+        'contrato__empresa_cliente',
+        'contrato__empresa_prestadora',
+    )
+    search_fields = (
+        'contrato__nombre',
+        'contrato__empresa_cliente__nombre',
+        'snapshot_nombre',
+    )
+    raw_id_fields = ('contrato', 'plan_version', 'servicio_version')
 
 
 @admin.register(ContratoVisita)

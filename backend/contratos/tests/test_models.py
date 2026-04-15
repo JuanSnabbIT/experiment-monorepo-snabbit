@@ -348,6 +348,44 @@ class ContratoLicenciaModelTest(TestCase):
         self.assertEqual(vinculo.usuario_id, self.usuario_empresa.id)
         self.assertEqual(vinculo.correo_asignado, "licencias+alt@test.com")
 
+    def test_mismo_correo_puede_vincularse_a_licencias_distintas(self):
+        licencia_catalogo_adicional = Licencia.objects.create(
+            nombre="Google Workspace",
+            proveedor="Google",
+        )
+        contrato_licencia_uno = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=3,
+            fecha_inicio=date.today(),
+        )
+        contrato_licencia_dos = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=licencia_catalogo_adicional,
+            tipo_modalidad="anual",
+            cantidad=3,
+            fecha_inicio=date.today(),
+        )
+
+        vinculo_uno = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia_uno,
+            usuario=self.usuario_empresa,
+        )
+        vinculo_dos = UsuarioVinculadoLicencia.objects.create(
+            licencia=contrato_licencia_dos,
+            correo_persona=vinculo_uno.correo_persona,
+        )
+
+        self.assertEqual(vinculo_uno.correo_asignado, vinculo_dos.correo_asignado)
+        self.assertEqual(vinculo_uno.correo_persona_id, vinculo_dos.correo_persona_id)
+        self.assertEqual(
+            UsuarioVinculadoLicencia.objects.filter(
+                correo_persona=vinculo_uno.correo_persona
+            ).count(),
+            2,
+        )
+
 
 class NotificacionVentanaLicenciaTaskTest(TestCase):
     def setUp(self):

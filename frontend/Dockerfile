@@ -14,7 +14,7 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 # Etapa de producción
 FROM nginx:stable-alpine

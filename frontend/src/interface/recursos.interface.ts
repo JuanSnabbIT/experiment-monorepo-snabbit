@@ -53,6 +53,25 @@ export interface IUsuarioEquipo {
     foto_usuario: string | null;
 }
 
+export interface IDesvincularEquipoRequest {
+    bodega_destino_id: number;
+    motivo?: string;
+}
+
+export interface IDesvincularEquipoResponse {
+    detail: string;
+    usuario_equipo: IUsuarioEquipo;
+    ingreso_bodega: {
+        bodega_id: number;
+        stock_item_id: number;
+        item_id: number;
+        serie: string;
+        autocreado: boolean;
+        movimiento_stock_id: number | null;
+        cantidad_ingresada: number;
+    };
+}
+
 export interface ISoftware {
     id: number;
     nombre: string;

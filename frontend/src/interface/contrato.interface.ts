@@ -644,6 +644,7 @@ export interface IContratoMatching {
     empresa_cliente: number;
     moneda_cobro: string;
     dia_facturacion?: number | null;
+    precio_visita_adicional?: string | number;
     fecha_inicio?: string;
     fecha_fin?: string | null;
     visitas: IContratoVisitaMatching[];

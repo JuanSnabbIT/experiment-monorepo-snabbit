@@ -232,12 +232,45 @@ const MatchingManualOTV3 = () => {
     const visitasContratoBase = useMemo<IVisitasContratoResumenV3>(() => {
         const periodo = dayjs(fechaPrefactura).format('YYYY-MM');
         const vc = comparativa?.visitas_contrato;
+        const incluidasMes = Number(vc?.incluidas_mes ?? vc?.incluidas_total ?? 0);
+        const confirmadasMes = Number(vc?.confirmadas_mes ?? 0);
+        const excesoTotalMesRaw = Number(vc?.exceso_total_mes ?? vc?.exceso ?? 0);
+        const excesoYaConfirmadoRaw = Number(vc?.exceso_ya_confirmado ?? NaN);
+        const excesoYaConfirmado = Number.isFinite(excesoYaConfirmadoRaw)
+            ? Math.max(excesoYaConfirmadoRaw, 0)
+            : Math.max(confirmadasMes - incluidasMes, 0);
+        const excesoPrefacturaRaw = Number(vc?.exceso_prefactura ?? NaN);
+        const excesoPrefactura = Number.isFinite(excesoPrefacturaRaw)
+            ? Math.max(excesoPrefacturaRaw, 0)
+            : Math.max(Math.max(excesoTotalMesRaw, 0) - excesoYaConfirmado, 0);
+        const precioUnitarioExceso = Number(vc?.precio_unitario_exceso ?? 0);
         return {
             periodo: (vc?.periodo as string) ?? periodo,
-            incluidas_mes: Number(vc?.incluidas_mes ?? vc?.incluidas_total ?? 0),
-            confirmadas_mes: Number(vc?.confirmadas_mes ?? 0),
+            incluidas_mes: Number.isFinite(incluidasMes) ? incluidasMes : 0,
+            confirmadas_mes: Number.isFinite(confirmadasMes) ? confirmadasMes : 0,
+            exceso_total_mes: Number.isFinite(excesoTotalMesRaw)
+                ? Math.max(excesoTotalMesRaw, 0)
+                : 0,
+            exceso_ya_confirmado: excesoYaConfirmado,
+            exceso_prefactura: excesoPrefactura,
+            precio_unitario_exceso: Number.isFinite(precioUnitarioExceso)
+                ? Math.max(precioUnitarioExceso, 0)
+                : 0,
+            requiere_precio_manual: Boolean(vc?.requiere_precio_manual),
         };
     }, [comparativa?.visitas_contrato, fechaPrefactura]);
+
+    useEffect(() => {
+        const vc = comparativa?.visitas_contrato;
+        if (!vc) return;
+        const requierePrecioManual = Boolean(vc?.requiere_precio_manual);
+        const precioBackend = Number(vc?.precio_unitario_exceso ?? 0);
+        if (requierePrecioManual || !Number.isFinite(precioBackend) || precioBackend <= 0) {
+            setPrecioVisitaAdicional(0);
+            return;
+        }
+        setPrecioVisitaAdicional(precioBackend);
+    }, [comparativa?.visitas_contrato]);
 
     const otsMarcadasVisita = useMemo(
         () => otIdsSeleccionadas.filter((otId) => Boolean(visitasMarcadasPorOt[otId])),
@@ -246,25 +279,42 @@ const MatchingManualOTV3 = () => {
 
     const visitasPrefactura = useMemo<IVisitasPrefacturaV3>(() => {
         const proyectadasMes = visitasContratoBase.confirmadas_mes + otsMarcadasVisita.length;
-        const excesoTotalProyectado = Math.max(
+        const excesoTotalMesLocal = Math.max(
             proyectadasMes - visitasContratoBase.incluidas_mes,
             0,
         );
-        const excesoYaConfirmado = Math.max(
-            visitasContratoBase.confirmadas_mes - visitasContratoBase.incluidas_mes,
-            0,
+        const excesoYaConfirmado = visitasContratoBase.exceso_ya_confirmado;
+        const excesoPrefacturaLocal = Math.max(excesoTotalMesLocal - excesoYaConfirmado, 0);
+        const visitasRaw = comparativa?.visitas_contrato;
+        const marcadasBackendRaw = Number(
+            visitasRaw?.marcadas_esta_prefactura ??
+                (Array.isArray(visitasRaw?.ots_marcadas_por_defecto)
+                    ? visitasRaw?.ots_marcadas_por_defecto.length
+                    : NaN),
         );
-        const excesoPrefactura = Math.max(excesoTotalProyectado - excesoYaConfirmado, 0);
+        const marcadasBackend = Number.isFinite(marcadasBackendRaw)
+            ? Math.max(marcadasBackendRaw, 0)
+            : otsMarcadasVisita.length;
+        const usarExcesoBackend =
+            Number.isFinite(Number(visitasRaw?.exceso_prefactura ?? NaN)) &&
+            otsMarcadasVisita.length === marcadasBackend;
+        const excesoPrefactura = usarExcesoBackend
+            ? visitasContratoBase.exceso_prefactura
+            : excesoPrefacturaLocal;
+        const excesoTotalMes = Math.max(excesoYaConfirmado + excesoPrefactura, 0);
         return {
             ...visitasContratoBase,
             marcadas_prefactura: otsMarcadasVisita.length,
             proyectadas_mes: proyectadasMes,
+            exceso_total_mes: excesoTotalMes,
+            exceso_ya_confirmado: excesoYaConfirmado,
             exceso_prefactura: excesoPrefactura,
             ots_marcadas: otsMarcadasVisita,
             precio_unitario_exceso: precioVisitaAdicional,
+            requiere_precio_manual: visitasContratoBase.requiere_precio_manual,
             total_exceso: excesoPrefactura * precioVisitaAdicional,
         };
-    }, [otsMarcadasVisita, precioVisitaAdicional, visitasContratoBase]);
+    }, [comparativa?.visitas_contrato, otsMarcadasVisita, precioVisitaAdicional, visitasContratoBase]);
 
     const syntheticVisitaItem = useMemo(() => {
         if (contratoIds.length === 0 || visitasPrefactura.exceso_prefactura <= 0) return null;
@@ -273,11 +323,11 @@ const MatchingManualOTV3 = () => {
             id: `visita-extra-${visitasPrefactura.periodo}`,
             nombre: `Visita adicional contrato - ${visitasPrefactura.periodo}`,
             cantidad: visitasPrefactura.exceso_prefactura,
-            precio_unitario: precioVisitaAdicional,
+            precio_unitario: visitasPrefactura.precio_unitario_exceso,
             total: visitasPrefactura.total_exceso,
             moneda: monedaPrefactura,
         } as IItemEjecutadoV3;
-    }, [contratoIds.length, monedaPrefactura, precioVisitaAdicional, visitasPrefactura]);
+    }, [contratoIds.length, monedaPrefactura, visitasPrefactura]);
 
     // ── Items combinados para render ─────────────────────────────────
     const allItems = useMemo(
@@ -398,7 +448,7 @@ const MatchingManualOTV3 = () => {
             : [];
         const resumen = new Map<number, { incluidasMes: number; confirmadasMes: number }>();
 
-        porContratoRaw.forEach((item: any) => {
+        porContratoRaw.forEach((item) => {
             const contratoId = toPositiveIntOrNull(item?.contrato_id);
             if (!contratoId) return;
             resumen.set(contratoId, {
@@ -506,8 +556,15 @@ const MatchingManualOTV3 = () => {
             return;
         }
 
-        if (visitasPrefactura.exceso_prefactura > 0 && precioVisitaAdicional <= 0) {
-            toast.warn('Debes indicar un precio mayor a 0 para las visitas adicionales.');
+        if (
+            visitasPrefactura.exceso_prefactura > 0 &&
+            (!Number.isFinite(precioVisitaAdicional) || precioVisitaAdicional <= 0)
+        ) {
+            toast.warn(
+                visitasPrefactura.requiere_precio_manual
+                    ? 'Debes ingresar manualmente el precio de visita adicional para continuar.'
+                    : 'Debes indicar un precio mayor a 0 para las visitas adicionales.',
+            );
             return;
         }
 
@@ -956,9 +1013,8 @@ const MatchingManualOTV3 = () => {
                                                                 Facturar
                                                             </Th>
                                                             <Th className='text-right'>
-                                                                Precio Ajust. (Total)
+                                                                Precio Ajust.
                                                             </Th>
-                                                            <Th>Comentario</Th>
                                                         </Tr>
                                                     </THead>
                                                     <TBody>
@@ -1076,36 +1132,6 @@ const MatchingManualOTV3 = () => {
                                                                             />
                                                                         )}
                                                                     </Td>
-                                                                    <Td>
-                                                                        {isSynthetic ? (
-                                                                            <span className='text-xs text-gray-500'>
-                                                                                Cobro por exceso de
-                                                                                visitas del
-                                                                                contrato.
-                                                                            </span>
-                                                                        ) : (
-                                                                            <input
-                                                                                type='text'
-                                                                                placeholder='Comentario...'
-                                                                                value={
-                                                                                    config?.comentario ??
-                                                                                    ''
-                                                                                }
-                                                                                onChange={(e) =>
-                                                                                    updateItemConfig(
-                                                                                        key,
-                                                                                        {
-                                                                                            comentario:
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .value,
-                                                                                        },
-                                                                                    )
-                                                                                }
-                                                                                className='w-full rounded border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
-                                                                            />
-                                                                        )}
-                                                                    </Td>
                                                                 </Tr>
                                                             );
                                                         })}
@@ -1193,6 +1219,11 @@ const MatchingManualOTV3 = () => {
                                         <Label htmlFor='precioVisita'>
                                             Precio unitario visita adicional
                                         </Label>
+                                        {visitasPrefactura.requiere_precio_manual && (
+                                            <p className='mb-1 text-xs text-amber-600 dark:text-amber-300'>
+                                                Seleccionaste multiples contratos. Debes ingresar el precio manualmente.
+                                            </p>
+                                        )}
                                         <Input
                                             id='precioVisita'
                                             name='precioVisita'

@@ -1,7 +1,7 @@
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
-import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -183,7 +183,10 @@ const DetalleCliente = () => {
                     )}
 
                     {activeTab === 'asignaciones' && (
-                        <TablaDeUsuariosVinculadosLicencias detalleCliente={detalleCliente} />
+                        <TablaDeUsuariosVinculadosLicencias
+                            detalleCliente={detalleCliente}
+                            onIrAContratos={() => setActiveTab('contratos')}
+                        />
                     )}
                 </div>
             </Container>

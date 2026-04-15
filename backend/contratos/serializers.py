@@ -1457,7 +1457,7 @@ class ContratoMatchingSerializer(serializers.ModelSerializer):
         fields = [
             "id", "nombre", "estado", "estado_label",
             "empresa_cliente",
-            "moneda_cobro", "dia_facturacion",
+            "moneda_cobro", "dia_facturacion", "precio_visita_adicional",
             "fecha_inicio", "fecha_fin",
             "visitas", "items_comerciales",
         ]

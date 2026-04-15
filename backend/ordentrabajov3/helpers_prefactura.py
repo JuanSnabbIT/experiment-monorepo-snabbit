@@ -15,6 +15,15 @@ from django.utils import timezone
 
 logger = logging.getLogger("facturacion.debug")
 
+VISITAS_CONSISTENCIA_WARNING_THRESHOLD = Decimal("0.01")
+FRECUENCIA_VISITA_A_DIVISOR_MENSUAL = {
+    "mensual": Decimal("1"),
+    "trimestral": Decimal("3"),
+    "semestral": Decimal("6"),
+    "anual": Decimal("12"),
+}
+MENSAJE_CONSISTENCIA_CANONICO = "dato canonico de cobro = items comerciales"
+
 MONEDA_CODIGO_MAP = {
     "1": "USD",
     "2": "CLP",
@@ -207,6 +216,36 @@ def _coerce_non_negative_int(value):
     if coerced < 0:
         return None
     return coerced
+
+
+def _normalizar_visitas_contrato_visita_mensual(cantidad, frecuencia):
+    divisor = FRECUENCIA_VISITA_A_DIVISOR_MENSUAL.get(
+        str(frecuencia or "").strip().lower(),
+        Decimal("1"),
+    )
+    return _to_decimal(cantidad) / divisor
+
+
+def _build_consistencia_visitas(items_comerciales_total, contrato_visitas_total_mensual):
+    items_total = _to_decimal(items_comerciales_total)
+    visitas_total = _to_decimal(contrato_visitas_total_mensual)
+    delta = items_total - visitas_total
+    estado = "ok" if abs(delta) < VISITAS_CONSISTENCIA_WARNING_THRESHOLD else "warning"
+    if estado == "warning":
+        mensaje = (
+            "Se detecto diferencia entre visitas de items comerciales y ContratoVisita; "
+            f"{MENSAJE_CONSISTENCIA_CANONICO}."
+        )
+    else:
+        mensaje = f"Consistencia de visitas validada; {MENSAJE_CONSISTENCIA_CANONICO}."
+
+    return {
+        "items_comerciales_total": float(items_total),
+        "contrato_visitas_total_mensual": float(visitas_total),
+        "delta": float(delta),
+        "estado": estado,
+        "mensaje": mensaje,
+    }
 
 
 def _resolve_visitas_mensuales_item(item):
@@ -726,17 +765,28 @@ def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
     """
     from ordentrabajov3.models import PrefacturaOTV3
 
+    contratos_list = list(contratos)
     periodo = fecha_prefactura.strftime("%Y-%m")
     ots_marcadas_por_defecto = list(resolver_ots_marcadas_visitas(ots_v3))
 
     resumen_por_contrato = []
     total_incluidas = 0
     total_confirmadas = 0
+    total_items_comerciales = Decimal("0")
+    total_contrato_visitas = Decimal("0")
 
-    for contrato in contratos:
+    for contrato in contratos_list:
         incluidas_mes = sum(
             _resolve_visitas_mensuales_item(item)
             for item in contrato.items_comerciales.all()
+        )
+        contrato_visitas_total_mensual = sum(
+            _normalizar_visitas_contrato_visita_mensual(cv.cantidad, cv.frecuencia)
+            for cv in contrato.contrato_visitas.all()
+        )
+        consistencia_por_contrato = _build_consistencia_visitas(
+            incluidas_mes,
+            contrato_visitas_total_mensual,
         )
 
         # Contar visitas ya marcadas en prefacturas activas del mismo mes para este contrato
@@ -757,23 +807,31 @@ def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
 
         total_incluidas += incluidas_mes
         total_confirmadas += confirmadas_mes
+        total_items_comerciales += _to_decimal(incluidas_mes)
+        total_contrato_visitas += _to_decimal(contrato_visitas_total_mensual)
 
         resumen_por_contrato.append({
             "contrato_id": contrato.id,
             "contrato_nombre": str(contrato),
             "incluidas_mes": incluidas_mes,
             "confirmadas_mes": confirmadas_mes,
+            "consistencia_visitas": consistencia_por_contrato,
         })
 
     marcadas_esta_prefactura = len(ots_marcadas_por_defecto)
-    exceso = max(total_confirmadas + marcadas_esta_prefactura - total_incluidas, 0)
+    exceso_total_mes = max(total_confirmadas + marcadas_esta_prefactura - total_incluidas, 0)
+    exceso_ya_confirmado = max(total_confirmadas - total_incluidas, 0)
+    exceso_prefactura = max(exceso_total_mes - exceso_ya_confirmado, 0)
 
+    requiere_precio_manual = len(contratos_list) > 1
     precio_exceso = 0.0
-    if contratos:
-        primer_contrato = list(contratos)[0]
-        precio_exceso = float(
-            getattr(primer_contrato, "precio_visita_adicional", 0) or 0
-        )
+    if len(contratos_list) == 1:
+        primer_contrato = contratos_list[0]
+        precio_exceso = float(getattr(primer_contrato, "precio_visita_adicional", 0) or 0)
+    consistencia_global = _build_consistencia_visitas(
+        total_items_comerciales,
+        total_contrato_visitas,
+    )
 
     return {
         "periodo": periodo,
@@ -782,8 +840,13 @@ def _build_visitas_v3(contratos, ots_v3, fecha_prefactura):
         "confirmadas_mes": total_confirmadas,
         "ots_marcadas_por_defecto": ots_marcadas_por_defecto,
         "marcadas_esta_prefactura": marcadas_esta_prefactura,
-        "exceso": exceso,
+        "exceso_total_mes": exceso_total_mes,
+        "exceso_ya_confirmado": exceso_ya_confirmado,
+        "exceso_prefactura": exceso_prefactura,
+        "exceso": exceso_total_mes,
+        "requiere_precio_manual": requiere_precio_manual,
         "precio_unitario_exceso": precio_exceso,
-        "total_exceso": float(exceso * precio_exceso),
+        "total_exceso": float(exceso_prefactura * precio_exceso),
+        "consistencia_visitas": consistencia_global,
         "por_contrato": resumen_por_contrato,
     }

@@ -28,7 +28,12 @@ import {
     IVisita,
     IVolverContratoBorradorResponse
 } from '@/interface/contrato.interface';
-import { IUsuarioEquipo } from '@/interface/recursos.interface';
+import { IBodega } from '@/interface/bodega.interface';
+import {
+    IDesvincularEquipoRequest,
+    IDesvincularEquipoResponse,
+    IUsuarioEquipo,
+} from '@/interface/recursos.interface';
 import RtkQueryService from '@/services/RtkQueryService';
 
 // ── Tipos auxiliares ──
@@ -672,6 +677,50 @@ const contratoApi = RtkQueryService.injectEndpoints({
             providesTags: ['EquiposUsuario'],
         }),
 
+        getBodegasPorEmpresaCliente: builder.query<IBodega[], number | string>({
+            query: (empresaClienteId) => ({
+                url: `/api/bodegas/por-empresa/${empresaClienteId}/`,
+                method: 'get',
+            }),
+            providesTags: (result, _error, empresaClienteId) =>
+                result
+                    ? [
+                          { type: 'Bodegas' as const, id: empresaClienteId },
+                          ...result.map((bodega) => ({
+                              type: 'Bodegas' as const,
+                              id: bodega.id,
+                          })),
+                      ]
+                    : [{ type: 'Bodegas' as const, id: empresaClienteId }],
+        }),
+
+        desvincularEquipoDesdeDetalle: builder.mutation<
+            IDesvincularEquipoResponse,
+            { usuarioEquipoId: number | string; data: IDesvincularEquipoRequest }
+        >({
+            query: ({ usuarioEquipoId, data }) => ({
+                url: `/api/usuarios-equipo/${usuarioEquipoId}/desvincular-desde-detalle/`,
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: (result) => {
+                const tags: Array<
+                    | 'EquiposUsuario'
+                    | 'ClienteUsuarios'
+                    | { type: 'Bodegas'; id: number | string }
+                > = ['EquiposUsuario', 'ClienteUsuarios'];
+
+                if (result?.ingreso_bodega?.bodega_id) {
+                    tags.push({
+                        type: 'Bodegas',
+                        id: result.ingreso_bodega.bodega_id,
+                    });
+                }
+
+                return tags;
+            },
+        }),
+
         // ═══════════════════════════════════════════════════════
         //  Facturas de Contrato (Prefacturación)
         // ═══════════════════════════════════════════════════════
@@ -963,6 +1012,8 @@ export const {
     useGetLicenciasPorUsuarioEmpresaQuery,
     useGetContratosPorUsuarioEmpresaQuery,
     useGetEquiposPorUsuarioEmpresaQuery,
+    useGetBodegasPorEmpresaClienteQuery,
+    useDesvincularEquipoDesdeDetalleMutation,
     // Facturas de contrato
     useGetFacturasContratoQuery,
     useGetDetalleFacturaContratoQuery,

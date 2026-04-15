@@ -45,6 +45,13 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
     )
     cuotas_venta = models.JSONField(default=list, blank=True)
     dia_facturacion = models.PositiveSmallIntegerField(blank=True, null=True)
+    precio_visita_adicional = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name="Precio visita adicional",
+        help_text="Precio unitario de la visita adicional en el contexto de prefacturacion.",
+    )
 
     contrato_anterior = models.ForeignKey(
         "self",

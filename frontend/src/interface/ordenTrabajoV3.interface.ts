@@ -118,7 +118,7 @@ export interface IComparativaV3Result {
             fecha: string | null;
         };
     };
-    visitas_contrato: Record<string, any> | null;
+    visitas_contrato: IVisitasContratoComparativaV3 | null;
     ots_marcadas_visitas: number[];
 }
 
@@ -461,6 +461,37 @@ export interface IVisitasContratoResumenV3 {
     periodo: string;
     incluidas_mes: number;
     confirmadas_mes: number;
+    exceso_total_mes: number;
+    exceso_ya_confirmado: number;
+    exceso_prefactura: number;
+    precio_unitario_exceso: number;
+    requiere_precio_manual: boolean;
+}
+
+export interface IConsistenciaVisitasV3 {
+    items_comerciales_total: number;
+    contrato_visitas_total_mensual: number;
+    delta: number;
+    estado: 'ok' | 'warning';
+    mensaje: string;
+}
+
+export interface IVisitasContratoPorContratoV3 {
+    contrato_id: number;
+    contrato_nombre: string;
+    incluidas_mes: number;
+    confirmadas_mes: number;
+    consistencia_visitas?: IConsistenciaVisitasV3;
+}
+
+export interface IVisitasContratoComparativaV3 extends IVisitasContratoResumenV3 {
+    incluidas_total?: number;
+    ots_marcadas_por_defecto?: number[];
+    marcadas_esta_prefactura?: number;
+    exceso?: number;
+    total_exceso?: number;
+    por_contrato?: IVisitasContratoPorContratoV3[];
+    consistencia_visitas?: IConsistenciaVisitasV3;
 }
 
 export interface IVisitasPrefacturaV3 extends IVisitasContratoResumenV3 {

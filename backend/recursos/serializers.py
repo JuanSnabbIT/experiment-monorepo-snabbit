@@ -129,12 +129,14 @@ class UsuarioEquipoListSerializer(serializers.ModelSerializer):
     tipo_equipo = serializers.CharField(source='equipo.get_tipo_equipo_display', read_only=True)
     marca_equipo = serializers.CharField(source='equipo.marca', read_only=True)
     foto_usuario = serializers.SerializerMethodField()
+    datos_equipo = EquipoSerializer(source="equipo", read_only=True)
 
     class Meta:
         model = UsuarioEquipo
         fields = [
             'id', 'nombre_usuario', 'rut_usuario', 'email_usuario', 'cargo_usuario',
-            'equipo', 'numero_serie_equipo', 'tipo_equipo', 'marca_equipo',
+            'equipo', 'usuario', 'numero_serie_equipo', 'tipo_equipo', 'marca_equipo',
+            'datos_equipo',
             'fecha_asignacion', 'fecha_devolucion', 'estado', 'observaciones',
             'foto_usuario', 'fecha_creacion', 'fecha_modificacion'
         ]

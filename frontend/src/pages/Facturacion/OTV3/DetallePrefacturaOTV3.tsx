@@ -105,7 +105,6 @@ const DetallePrefacturaOTV3 = () => {
 
     const [fechaPrefactura, setFechaPrefactura] = useState<string>('');
     const [archivo, setArchivo] = useState<File | null>(null);
-    const [isAutoAdvancing, setIsAutoAdvancing] = useState(false);
 
     const prefactura = data as IPrefacturaOTV3 | undefined;
     const monedaPrefactura: TMonedaPrefacturaOTV3 = prefactura?.moneda_prefactura ?? 'CLP';
@@ -241,7 +240,7 @@ const DetallePrefacturaOTV3 = () => {
 
     const nextStepMessage = useMemo(() => {
         if (prefactura?.estado_cierre === 'borrador') {
-            return 'Selecciona la fecha para dejarla en Por facturar.';
+            return 'Selecciona la fecha y luego usa el boton "Pasar a por facturar".';
         }
         if (prefactura?.estado_cierre === 'por_facturar') {
             return 'Adjunta el documento de factura para cerrar la prefactura como facturada.';
@@ -257,7 +256,7 @@ const DetallePrefacturaOTV3 = () => {
 
         if (!prefactura || prefactura.estado_cierre !== 'borrador') return;
         if (!value || !dayjs(value, 'YYYY-MM-DD', true).isValid()) return;
-        if (isAutoAdvancing || saving || finalizando) return;
+        if (saving || finalizando) return;
 
         const fechaActual = prefactura.fecha_prefactura
             ? dayjs(prefactura.fecha_prefactura).format('YYYY-MM-DD')
@@ -265,17 +264,41 @@ const DetallePrefacturaOTV3 = () => {
         if (value === fechaActual) return;
 
         try {
-            setIsAutoAdvancing(true);
             await updatePrefactura({
                 id: prefactura.id,
                 data: { fecha_prefactura: value } as any,
             }).unwrap();
-            await finalizarPrefactura(prefactura.id).unwrap();
-            toast.success('Prefactura lista para Por facturar');
+            toast.success('Fecha de prefactura actualizada');
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
-        } finally {
-            setIsAutoAdvancing(false);
+        }
+    };
+
+    const handlePasarAPorFacturar = async () => {
+        if (!prefactura || prefactura.estado_cierre !== 'borrador') return;
+
+        if (!fechaPrefactura || !dayjs(fechaPrefactura, 'YYYY-MM-DD', true).isValid()) {
+            toast.warning('Debes indicar una fecha prefactura valida antes de finalizar.');
+            return;
+        }
+
+        if (saving || finalizando) return;
+
+        const fechaActual = prefactura.fecha_prefactura
+            ? dayjs(prefactura.fecha_prefactura).format('YYYY-MM-DD')
+            : '';
+
+        try {
+            if (fechaPrefactura !== fechaActual) {
+                await updatePrefactura({
+                    id: prefactura.id,
+                    data: { fecha_prefactura: fechaPrefactura } as any,
+                }).unwrap();
+            }
+            await finalizarPrefactura(prefactura.id).unwrap();
+            toast.success('Prefactura pasada a Por facturar');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
         }
     };
 
@@ -337,16 +360,30 @@ const DetallePrefacturaOTV3 = () => {
                                     </div>
 
                                     <p className='text-xs text-gray-500'>{nextStepMessage}</p>
-
-                                    <div>
-                                        <p className='mb-1 text-xs text-gray-500'>Fecha prefactura</p>
-                                        <Input
-                                            name='fecha_prefactura'
-                                            type='date'
-                                            value={fechaPrefactura}
-                                            onChange={(e: any) => handleFechaPrefacturaChange(e.target.value)}
-                                            disabled={!canEditar || isAutoAdvancing || saving || finalizando}
-                                        />
+                                    <p className='mb-1 text-xs text-gray-500'>Fecha prefactura</p>
+                                    <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
+                                        <div>
+                                            <Input
+                                                name='fecha_prefactura'
+                                                type='date'
+                                                value={fechaPrefactura}
+                                                onChange={(e: any) => handleFechaPrefacturaChange(e.target.value)}
+                                                disabled={!canEditar || saving || finalizando}
+                                            />
+                                        </div>
+                                        <div>
+                                            {canEditar && (
+                                        <Button
+                                            variant='solid'
+                                            color='amber'
+                                            icon='HeroCheckCircle'
+                                            isLoading={saving || finalizando}
+                                            isDisable={!fechaPrefactura || !dayjs(fechaPrefactura, 'YYYY-MM-DD', true).isValid()}
+                                            onClick={handlePasarAPorFacturar}>
+                                            Pasar a por facturar
+                                        </Button>
+                                        )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -371,7 +408,7 @@ const DetallePrefacturaOTV3 = () => {
                                     </Button>
                                     {!canSubirDocumento && (
                                         <p className='text-xs text-gray-400'>
-                                            Selecciona fecha para habilitar carga de documento.
+                                            Debes pasar la prefactura a "Por facturar" antes de subir documento.
                                         </p>
                                     )}
                                 </div>
