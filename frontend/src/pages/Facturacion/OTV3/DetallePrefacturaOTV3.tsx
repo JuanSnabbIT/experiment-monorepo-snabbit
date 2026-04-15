@@ -147,7 +147,7 @@ const DetallePrefacturaOTV3 = () => {
                 facturar: item.facturar !== false,
             };
         })
-        .filter((item) => item.tipo !== 'compra');
+        .filter((item) => item.tipo !== 'compra' && item.tipo !== 'guia_salida');
     }, [monedaPrefactura, prefactura?.resultado?.items]);
 
     const resumenFinanciero = useMemo(() => {

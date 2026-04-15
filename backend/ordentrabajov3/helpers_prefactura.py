@@ -501,7 +501,7 @@ def calcular_ejecutado_de_ots_v3(
             })
 
         # 2. Cotizaciones M2M y sus items
-        for cotizacion in orden.cotizaciones.prefetch_related("items"):
+        for cotizacion in orden.cotizaciones.prefetch_related("items__item_empresa"):
             for item_cot in cotizacion.items.all():
                 precio_unitario = _precio_unitario_cotizacion_clp(
                     item_cot,
@@ -515,11 +515,18 @@ def calcular_ejecutado_de_ots_v3(
                 # Tipo de moneda de la cotización ("1"=USD, "2"=CLP, "3"=UF)
                 moneda_cot_codigo = cotizacion.tipo_moneda or "2"
                 moneda_cot_label = {"1": "USD", "2": "CLP", "3": "UF"}.get(moneda_cot_codigo, "CLP")
+                nombre_item = (item_cot.nombre or "").strip()
+                if not nombre_item:
+                    nombre_item = (getattr(item_cot.item_empresa, "nombre", "") or "").strip()
+                if not nombre_item:
+                    nombre_item = (item_cot.descripcion or "").strip()
+                if not nombre_item:
+                    nombre_item = f"Item cotizacion #{item_cot.id}"
 
                 items.append({
                     "id": f"cot_{cotizacion.id}_item_{item_cot.id}",
                     "item_id": item_cot.id,
-                    "nombre": item_cot.nombre or "Item sin nombre",
+                    "nombre": nombre_item,
                     "cantidad": cantidad,
                     "precio_unitario": precio_unitario,
                     "total": total_item,

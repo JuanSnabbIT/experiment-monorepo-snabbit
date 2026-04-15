@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from contratos.models import ContratoEmpresaCliente, ContratoItemComercial, PlanServicio
+from cotizaciones.models import Cotizacion, ItemCotizacion
 from cuentas.models import User
 from core.models import PersonalizacionUsuario
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
@@ -321,6 +322,72 @@ class PrefacturaOTV3ApiTest(APITestCase):
         self.assertIn("ejecutado", data)
         self.assertIn("diferencia", data)
         self.assertIn("ots_marcadas_visitas", data)
+
+    def test_comparativa_cotizacion_respeta_cantidad_mayor_a_uno(self):
+        """Cuando cantidad > 1 en ItemCotizacion, comparativa refleja total de linea."""
+        cotizacion = Cotizacion.objects.create(
+            nombre="Cotizacion cantidad",
+            empresa=self.empresa_prestadora,
+            cliente=self.empresa_cliente,
+            estado="aceptada",
+            tipo_moneda="2",
+        )
+        item = ItemCotizacion.objects.create(
+            cotizacion=cotizacion,
+            cantidad=3,
+            precio_unitario=100,
+            nombre="Switch 24 puertos",
+        )
+        self.otv3.cotizaciones.add(cotizacion)
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id], "moneda_objetivo": "CLP"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        cot_items = [
+            it
+            for it in (data.get("ejecutado", {}).get("items", []) or [])
+            if it.get("tipo") == "cotizacion" and it.get("item_id") == item.id
+        ]
+        self.assertTrue(cot_items)
+        self.assertEqual(cot_items[0].get("cantidad"), 3)
+        self.assertEqual(cot_items[0].get("total"), 300.0)
+
+    def test_comparativa_cotizacion_fallback_nombre_desde_descripcion(self):
+        """Si nombre viene vacio, usa descripcion como nombre del item de cotizacion."""
+        cotizacion = Cotizacion.objects.create(
+            nombre="Cotizacion fallback",
+            empresa=self.empresa_prestadora,
+            cliente=self.empresa_cliente,
+            estado="aceptada",
+            tipo_moneda="2",
+        )
+        item = ItemCotizacion.objects.create(
+            cotizacion=cotizacion,
+            cantidad=2,
+            precio_unitario=50,
+            nombre="",
+            descripcion="Router de respaldo",
+        )
+        self.otv3.cotizaciones.add(cotizacion)
+
+        resp = self.client.post(
+            "/api/v3/prefacturas-otv3/comparativa/",
+            {"ot_ids": [self.otv3.id]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        cot_items = [
+            it
+            for it in (data.get("ejecutado", {}).get("items", []) or [])
+            if it.get("tipo") == "cotizacion" and it.get("item_id") == item.id
+        ]
+        self.assertTrue(cot_items)
+        self.assertEqual(cot_items[0].get("nombre"), "Router de respaldo")
 
     def test_comparativa_moneda_usd_retorna_meta_monedas(self):
         """Comparativa en USD retorna moneda consistente y metadata de precision/tasas."""

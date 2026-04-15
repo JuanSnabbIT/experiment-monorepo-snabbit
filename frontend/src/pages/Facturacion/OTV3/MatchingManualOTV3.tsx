@@ -74,6 +74,7 @@ type TCotizacionCardVM = {
     estadoLabel: string;
     totalAsociado: number;
     cantidadItems: number;
+    cantidadTotal: number;
 };
 
 const toPositiveIntOrNull = (value: unknown): number | null => {
@@ -287,14 +288,10 @@ const MatchingManualOTV3 = () => {
         [comparativa?.ejecutado?.items, syntheticVisitaItem],
     );
 
-    // Mostrar total de cotización en la moneda de origen de la cotización, si está disponible
-    const monedaRender = ((cotizacionCardsVM.length === 1 && cotizacionCardsVM[0].numeroCotizacion !== null)
-        ? (
-            comparativa?.ejecutado?.cotizaciones?.find(c => c.id === cotizacionCardsVM[0].id)?.estado_label ??
-            comparativa?.ejecutado?.cotizaciones?.find(c => c.id === cotizacionCardsVM[0].id)?.moneda ??
-            comparativa?.meta_monedas?.moneda_objetivo
-        )
-        : (comparativa?.meta_monedas?.moneda_objetivo)) ?? monedaPrefactura;
+    const visibleItems = useMemo(
+        () => allItems.filter((item) => item.tipo !== 'guia_salida'),
+        [allItems],
+    );
 
     const contractCardsVM = useMemo<TContratoCardVM[]>(() => {
         if (!contratoIds.length) return [];
@@ -317,55 +314,82 @@ const MatchingManualOTV3 = () => {
     }, [contratoIds, contratosActivosCliente]);
 
     const cotizacionCardsVM = useMemo<TCotizacionCardVM[]>(() => {
-    if (!comparativaCargada) return [];
+        if (!comparativaCargada) return [];
 
-    const cotizacionesMeta = new Map<number, ICotizacionComparativaV3>();
-    (comparativa?.ejecutado?.cotizaciones ?? []).forEach((cotizacion) => {
-        const cotizacionId = toPositiveIntOrNull(cotizacion?.id);
-        if (!cotizacionId) return;
-        cotizacionesMeta.set(cotizacionId, cotizacion);
-    });
+        const cotizacionesMeta = new Map<number, ICotizacionComparativaV3>();
+        (comparativa?.ejecutado?.cotizaciones ?? []).forEach((cotizacion) => {
+            const cotizacionId = toPositiveIntOrNull(cotizacion?.id);
+            if (!cotizacionId) return;
+            cotizacionesMeta.set(cotizacionId, cotizacion);
+        });
 
-    // Mapear items verdaderos (aquellos de tipo 'cotizacion')
-    // para contar realmente los ítems por cotización, no los visibles en la tabla.
-    const realItemCount = new Map<number, number>();
-    (comparativa?.ejecutado?.items ?? []).forEach((item) => {
-        const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
-        if (!cotizacionId) return;
-        if (item.tipo !== 'cotizacion') return;
-        const prev = realItemCount.get(cotizacionId) ?? 0;
-        realItemCount.set(cotizacionId, prev + 1);
-    });
+        const lineasPorCotizacion = new Map<number, number>();
+        const cantidadTotalPorCotizacion = new Map<number, number>();
+        (comparativa?.ejecutado?.items ?? []).forEach((item) => {
+            const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
+            if (!cotizacionId || item.tipo !== 'cotizacion') return;
+            lineasPorCotizacion.set(cotizacionId, (lineasPorCotizacion.get(cotizacionId) ?? 0) + 1);
+            cantidadTotalPorCotizacion.set(
+                cotizacionId,
+                (cantidadTotalPorCotizacion.get(cotizacionId) ?? 0) + Number(item.cantidad || 0),
+            );
+        });
 
-    const agregados = new Map<number, { total: number; keys: Set<string> }>();
-    allItems.forEach((item) => {
-        const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
-        if (!cotizacionId) return;
-        const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
-        const actual = agregados.get(cotizacionId) ?? { total: 0, keys: new Set<string>() };
-        if (!actual.keys.has(key)) {
-            actual.keys.add(key);
-            actual.total += Number(item.total || 0);
-        }
-        agregados.set(cotizacionId, actual);
-    });
-
-    return Array.from(agregados.entries())
-        .map(([cotizacionId, agregado]) => {
-            const meta = cotizacionesMeta.get(cotizacionId);
-            return {
-                id: cotizacionId,
-                numeroCotizacion: meta?.numero_cotizacion ?? null,
-                nombre: meta?.nombre ?? `Cotizacion #${cotizacionId}`,
-                estadoLabel: meta?.estado_label ?? meta?.estado ?? 'Sin estado',
-                totalAsociado: agregado.total,
-                // Use realItemCount if exists, otherwise fallback to keys.size
-                cantidadItems: realItemCount.get(cotizacionId) ?? agregado.keys.size,
+        const agregados = new Map<number, { total: number; cantidadTotal: number; keys: Set<string> }>();
+        visibleItems.forEach((item) => {
+            const cotizacionId = toPositiveIntOrNull(item.cotizacion_id);
+            if (!cotizacionId) return;
+            const key = `${item.tipo}_${item.id}_${item.ot_id ?? 'sin_ot'}`;
+            const actual = agregados.get(cotizacionId) ?? {
+                total: 0,
+                cantidadTotal: 0,
+                keys: new Set<string>(),
             };
-        })
-        .filter((item) => item.cantidadItems > 0)
-        .sort((a, b) => b.totalAsociado - a.totalAsociado);
-}, [allItems, comparativa?.ejecutado?.cotizaciones, comparativa?.ejecutado?.items, comparativaCargada]);
+            if (!actual.keys.has(key)) {
+                actual.keys.add(key);
+                actual.total += Number(item.total || 0);
+                actual.cantidadTotal += Number(item.cantidad || 0);
+            }
+            agregados.set(cotizacionId, actual);
+        });
+
+        return Array.from(agregados.entries())
+            .map(([cotizacionId, agregado]) => {
+                const meta = cotizacionesMeta.get(cotizacionId);
+                return {
+                    id: cotizacionId,
+                    numeroCotizacion: meta?.numero_cotizacion ?? null,
+                    nombre: meta?.nombre ?? `Cotizacion #${cotizacionId}`,
+                    estadoLabel: meta?.estado_label ?? meta?.estado ?? 'Sin estado',
+                    totalAsociado: agregado.total,
+                    cantidadItems: lineasPorCotizacion.get(cotizacionId) ?? agregado.keys.size,
+                    cantidadTotal:
+                        cantidadTotalPorCotizacion.get(cotizacionId) ?? agregado.cantidadTotal,
+                };
+            })
+            .filter((item) => item.cantidadItems > 0)
+            .sort((a, b) => b.totalAsociado - a.totalAsociado);
+    }, [
+        comparativa?.ejecutado?.cotizaciones,
+        comparativa?.ejecutado?.items,
+        comparativaCargada,
+        visibleItems,
+    ]);
+
+    // Mostrar total de cotización en la moneda de origen de la cotización, si está disponible
+    const monedaRender = comparativa?.meta_monedas?.moneda_objetivo ?? monedaPrefactura;
+    const totalEjecutadoVisible = useMemo(
+        () =>
+            visibleItems.reduce(
+                (acumulado, item) => acumulado + Number(item.total || 0),
+                0,
+            ),
+        [visibleItems],
+    );
+    const diferenciaVisible = useMemo(() => {
+        if (!comparativa) return 0;
+        return Number(comparativa.pactado.total || 0) - totalEjecutadoVisible;
+    }, [comparativa, totalEjecutadoVisible]);
 
     const visitasPorContrato = useMemo(() => {
         const visitasRaw = comparativa?.visitas_contrato;
@@ -394,14 +418,14 @@ const MatchingManualOTV3 = () => {
     const totales = useMemo(() => {
         let totalFacturar = 0;
         let totalExcluido = 0;
-        allItems.forEach((item) => {
+        visibleItems.forEach((item) => {
             const key = `${item.tipo}_${item.id}`;
             const config = itemsConfig.get(key);
             const facturar = config?.facturar ?? true;
             const precio =
                 config?.precioAsignado != null
-                    ? config.precioAsignado * (item.cantidad || 1)
-                    : item.total;
+                    ? config.precioAsignado
+                    : Number(item.total || 0);
             if (facturar) {
                 totalFacturar += precio;
             } else {
@@ -409,7 +433,7 @@ const MatchingManualOTV3 = () => {
             }
         });
         return { totalFacturar, totalExcluido };
-    }, [allItems, itemsConfig]);
+    }, [itemsConfig, visibleItems]);
 
     // ── Helpers ──────────────────────────────────────────────────────
     const updateItemConfig = (itemId: string, updates: Partial<IItemPrefacturaV3>) => {
@@ -448,15 +472,17 @@ const MatchingManualOTV3 = () => {
             // Inicializar itemsConfig
             if (resultado.ejecutado?.items) {
                 const newConfig = new Map<string, IItemPrefacturaV3>();
-                resultado.ejecutado.items.forEach((item: IItemEjecutadoV3) => {
-                    const key = `${item.tipo}_${item.id}`;
-                    newConfig.set(key, {
-                        itemId: key,
-                        facturar: true,
-                        comentario: '',
-                        precioAsignado: item.precio_unitario > 0 ? item.precio_unitario : null,
+                resultado.ejecutado.items
+                    .filter((item: IItemEjecutadoV3) => item.tipo !== 'compra' && item.tipo !== 'guia_salida')
+                    .forEach((item: IItemEjecutadoV3) => {
+                        const key = `${item.tipo}_${item.id}`;
+                        newConfig.set(key, {
+                            itemId: key,
+                            facturar: true,
+                            comentario: '',
+                            precioAsignado: Number(item.total || 0),
+                        });
                     });
-                });
                 setItemsConfig(newConfig);
             }
 
@@ -487,7 +513,7 @@ const MatchingManualOTV3 = () => {
 
         try {
             // Construir items facturables
-            const itemsFacturables: IItemFacturableV3[] = allItems.map((item) => {
+            const itemsFacturables: IItemFacturableV3[] = visibleItems.map((item) => {
                 const key = `${item.tipo}_${item.id}`;
                 const config = itemsConfig.get(key);
                 const isSynthetic = item.tipo === 'visita_adicional_contrato';
@@ -497,7 +523,7 @@ const MatchingManualOTV3 = () => {
                     descripcion: String((item as any).descripcion || item.nombre || ''),
                     ot_id: item.ot_id,
                     cantidad: item.cantidad || 1,
-                    precio_total: Number(item.precio_unitario || 0) * (item.cantidad || 1),
+                    precio_total: Number(item.total || 0),
                     moneda: (item.moneda as TMonedaPrefacturaOTV3) ?? monedaPrefactura,
                     precio_ajustado: config?.precioAsignado ?? null,
                     facturar: isSynthetic ? true : (config?.facturar ?? true),
@@ -801,7 +827,7 @@ const MatchingManualOTV3 = () => {
                                                 </p>
                                                 <p className='text-lg font-bold'>
                                                     {formatCurrency(
-                                                        comparativa.ejecutado.total,
+                                                        totalEjecutadoVisible,
                                                         comparativa.ejecutado.moneda || monedaRender,
                                                     )}
                                                 </p>
@@ -812,12 +838,12 @@ const MatchingManualOTV3 = () => {
                                                 </p>
                                                 <p
                                                     className={`text-lg font-bold ${
-                                                        comparativa.diferencia >= 0
+                                                        diferenciaVisible >= 0
                                                             ? 'text-emerald-600'
                                                             : 'text-red-500'
                                                     }`}>
                                                     {formatCurrency(
-                                                        comparativa.diferencia,
+                                                        diferenciaVisible,
                                                         monedaRender,
                                                     )}
                                                 </p>
@@ -825,7 +851,7 @@ const MatchingManualOTV3 = () => {
                                         </div>
 
                                         {/* Tabla de items con matching */}
-                                        {allItems.length > 0 && (
+                                        {visibleItems.length > 0 && (
                                             <div
                                                 className={
                                                     hasVisualCards
@@ -895,6 +921,7 @@ const MatchingManualOTV3 = () => {
                                                                                 {cotizacion.nombre}
                                                                             </p>
                                                                             <p className='text-gray-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
+                                                                            <p className='text-gray-500'>{`Cantidad: ${cotizacion.cantidadTotal}`}</p>
                                                                             <p className='font-semibold text-gray-700 dark:text-gray-100'>
                                                                                 {formatCurrency(
                                                                                     cotizacion.totalAsociado,
@@ -929,13 +956,13 @@ const MatchingManualOTV3 = () => {
                                                                 Facturar
                                                             </Th>
                                                             <Th className='text-right'>
-                                                                Precio Ajust.
+                                                                Precio Ajust. (Total)
                                                             </Th>
                                                             <Th>Comentario</Th>
                                                         </Tr>
                                                     </THead>
                                                     <TBody>
-                                                        {allItems.map((item) => {
+                                                        {visibleItems.map((item) => {
                                                             const key = `${item.tipo}_${item.id}`;
                                                             const config = itemsConfig.get(key);
                                                             const badge = tipoBadge(item.tipo);
@@ -1196,7 +1223,7 @@ const MatchingManualOTV3 = () => {
                     )}
 
                     {/* ── 7. Resumen y comentario ─────────────────── */}
-                    {comparativaCargada && allItems.length > 0 && (
+                    {comparativaCargada && visibleItems.length > 0 && (
                         <Card className='lg:col-span-2'>
                             <CardHeader>
                                 <CardHeaderChild>Resumen y comentario</CardHeaderChild>
