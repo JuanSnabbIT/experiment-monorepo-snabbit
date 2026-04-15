@@ -210,9 +210,19 @@ Dentro de `resultado.visitas`, lo que hoy aparece o se usa con mayor relevancia 
 ## 3.3 Tablas / consultas de referencia
 A nivel SQL/ORM, el análisis operativo debe partir al menos de:
 - `contratos_contratoitemcomercial`
+- `contratos_planservicio`
+- `contratos_servicio`
 - `ordentrabajov3_prefacturaotv3`
-- tabla M2M `PrefacturaOTV3 <-> contratos`
-- tabla M2M `PrefacturaOTV3 <-> ots`
+- tabla M2M `PrefacturaOTV3 <-> contratos` (esperable: `ordentrabajov3_prefacturaotv3_contratos`)
+- tabla M2M `PrefacturaOTV3 <-> ots` (esperable: `ordentrabajov3_prefacturaotv3_ots`)
+
+Cruces mínimos que conviene verificar en DB:
+- `contratos_contratoitemcomercial.contrato_id`
+- `contratos_contratoitemcomercial.plan_version_id`
+- `contratos_contratoitemcomercial.servicio_version_id`
+- `ordentrabajov3_prefacturaotv3.resultado`
+- `ordentrabajov3_prefacturaotv3.estado_cierre`
+- `ordentrabajov3_prefacturaotv3.fecha_prefactura`
 
 > Los nombres físicos de tablas intermedias M2M pueden variar según migración/DB, por lo que conviene confirmarlos en el ambiente antes de automatizar queries operativas.
 
@@ -474,22 +484,77 @@ Campos mínimos que desarrollo y QA deberían tratar como vigentes hoy:
 ## 8. Consultas SQL/ORM sugeridas para detectar discrepancias
 
 ## 8.1 Query de referencia para incluidas por contrato
-Ejemplo SQL orientativo:
+### ORM equivalente al helper actual
+Snippet orientativo para reproducir el comportamiento de `_resolve_visitas_mensuales_item` y `_build_visitas_v3` desde shell Django o test de soporte:
+
+```python
+from ordentrabajov3.helpers_prefactura import _resolve_visitas_mensuales_item
+from contratos.models import ContratoEmpresaCliente
+
+contrato = (
+    ContratoEmpresaCliente.objects
+    .prefetch_related(
+        "items_comerciales",
+        "items_comerciales__plan_version",
+        "items_comerciales__servicio_version",
+    )
+    .get(pk=CONTRATO_ID)
+)
+
+incluidas_mes = sum(
+    _resolve_visitas_mensuales_item(item)
+    for item in contrato.items_comerciales.all()
+)
+```
+
+### SQL de aproximación alta fidelidad
+Ejemplo SQL orientativo, reproduciendo la prioridad actual `num_visitas_mensuales > snapshot_num_visitas_mensuales > plan/servicio`:
 
 ```sql
 SELECT
-  c.contrato_id,
+  cic.contrato_id,
   SUM(
-    COALESCE(c.num_visitas_mensuales, c.snapshot_num_visitas_mensuales, 0)
+    COALESCE(
+      cic.num_visitas_mensuales,
+      cic.snapshot_num_visitas_mensuales,
+      ps.num_visitas_mensuales,
+      s.num_visitas_mensuales,
+      0
+    )
   ) AS incluidas_mes_calculadas
-FROM contratos_contratoitemcomercial c
-GROUP BY c.contrato_id;
+FROM contratos_contratoitemcomercial cic
+LEFT JOIN contratos_planservicio ps
+  ON ps.id = cic.plan_version_id
+LEFT JOIN contratos_servicio s
+  ON s.id = cic.servicio_version_id
+GROUP BY cic.contrato_id;
 ```
 
-Si se quiere reproducir fielmente el fallback a plan/servicio, el check SQL debe extenderse con `JOIN` a esas tablas; si no, el control será aproximado.
+Notas para desarrollo/QA:
+- Si `tipo_origen = 'plan'`, el valor de `servicio_version_id` normalmente será `NULL`.
+- Si `tipo_origen = 'servicio'`, el valor de `plan_version_id` normalmente será `NULL`.
+- Este SQL reproduce mejor la lógica vigente que una suma basada solo en snapshot.
 
 ## 8.2 Query de confirmadas por mes/contrato
-Ejemplo orientativo, asumiendo acceso a JSON en PostgreSQL y tabla M2M confirmada:
+### ORM equivalente al helper actual
+```python
+from ordentrabajov3.models import PrefacturaOTV3
+
+prefacturas_mes = PrefacturaOTV3.objects.filter(
+    estado_cierre__in=["por_facturar", "facturado"],
+    fecha_prefactura__year=ANIO,
+    fecha_prefactura__month=MES,
+    contratos=contrato,
+).only("resultado")
+
+confirmadas_mes = 0
+for pf in prefacturas_mes:
+    visitas = (pf.resultado or {}).get("visitas") or {}
+    confirmadas_mes += int(visitas.get("marcadas_prefactura") or 0)
+```
+
+### SQL equivalente aproximado
+Ejemplo orientativo, asumiendo PostgreSQL y tabla M2M confirmada:
 
 ```sql
 SELECT
@@ -503,9 +568,14 @@ WHERE p.estado_cierre IN ('por_facturar', 'facturado')
 GROUP BY 1, 2;
 ```
 
+Checks mínimos sobre esta consulta:
+- no debe incluir prefacturas `borrador`;
+- debe agrupar por período calendario de `fecha_prefactura`;
+- debe sumar `marcadas_prefactura`, no `proyectadas_mes` ni `exceso_prefactura`.
+
 ## 8.3 Check automático diario recomendado
 **Propuesta / mejora futura**: job diario con estas reglas:
-- frecuencia: 1 vez al día, idealmente madrugada
+- frecuencia: 1 vez al día, idealmente madrugada (por ejemplo 03:00 UTC o equivalente negocio)
 - ventana: mes actual y mes anterior
 - agrupación: por contrato y período
 - condición base de alerta: diferencia distinta de 0
@@ -523,6 +593,54 @@ Checks recomendados:
 3. Contratos con items comerciales duplicados o todos nulos en visitas.
 4. Prefacturas con `marcadas_prefactura > 0` pero sin OTs presenciales asociadas.
 5. Prefacturas con `exceso > 0` y `precio_unitario_exceso = 0`.
+
+### Query consolidada sugerida para el job
+```sql
+WITH incluidas AS (
+  SELECT
+    cic.contrato_id,
+    SUM(
+      COALESCE(
+        cic.num_visitas_mensuales,
+        cic.snapshot_num_visitas_mensuales,
+        ps.num_visitas_mensuales,
+        s.num_visitas_mensuales,
+        0
+      )
+    ) AS incluidas_mes_calculadas
+  FROM contratos_contratoitemcomercial cic
+  LEFT JOIN contratos_planservicio ps
+    ON ps.id = cic.plan_version_id
+  LEFT JOIN contratos_servicio s
+    ON s.id = cic.servicio_version_id
+  GROUP BY cic.contrato_id
+),
+confirmadas AS (
+  SELECT
+    pc.contratoempresacliente_id AS contrato_id,
+    DATE_TRUNC('month', p.fecha_prefactura)::date AS periodo,
+    SUM(COALESCE((p.resultado->'visitas'->>'marcadas_prefactura')::int, 0)) AS confirmadas_mes
+  FROM ordentrabajov3_prefacturaotv3 p
+  JOIN ordentrabajov3_prefacturaotv3_contratos pc
+    ON pc.prefacturaotv3_id = p.id
+  WHERE p.estado_cierre IN ('por_facturar', 'facturado')
+  GROUP BY 1, 2
+)
+SELECT
+  c.contrato_id,
+  c.periodo,
+  i.incluidas_mes_calculadas,
+  c.confirmadas_mes,
+  (c.confirmadas_mes - i.incluidas_mes_calculadas) AS diff_confirmadas_vs_incluidas
+FROM confirmadas c
+JOIN incluidas i
+  ON i.contrato_id = c.contrato_id
+WHERE (c.confirmadas_mes - i.incluidas_mes_calculadas) <> 0;
+```
+
+Lectura operacional del resultado:
+- `diff_confirmadas_vs_incluidas > 0`: ya hay más visitas confirmadas que incluidas para ese contrato/mes.
+- `diff_confirmadas_vs_incluidas < 0`: todavía hay remanente, pero conviene revisar si el valor persistido en prefacturas coincide con el vigente contractual.
 
 ## 8.4 Umbrales y alertas sugeridos
 - **Severidad alta:** `diff != 0` en contratos facturados.
