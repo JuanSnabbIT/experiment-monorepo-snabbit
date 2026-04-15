@@ -148,6 +148,7 @@ Luego el frontend recalcula en la sesión actual:
 Conclusión práctica del **estado actual**:
 - **`incluidas_mes` y `confirmadas_mes` vienen del backend**.
 - **`marcadas_prefactura`, `proyectadas_mes` y `exceso_prefactura` se recalculan en frontend para la sesión actual**.
+- El contraste funcional correcto en OTV3 debe hacerse contra **`incluidas_mes` / `confirmadas_mes` / `ots_marcadas_por_defecto` / `exceso`** del backend, y luego contra el recálculo local de la sesión (`marcadas_prefactura`, `proyectadas_mes`, `exceso_prefactura`).
 - Para validar la UI hay que contrastar tanto el payload backend como las reglas locales del componente.
 
 ---
@@ -243,6 +244,16 @@ Por tanto, la pregunta correcta no es solo “¿coincide con lo firmado?”, sin
 ## 4.2 Qué significa hoy “visitas usadas/confirmadas”
 **Estado actual:** en OTV3, `confirmadas_mes` significa:
 - suma de `resultado.visitas.marcadas_prefactura` en prefacturas del mismo mes ya cerradas como `por_facturar` o `facturado`.
+
+**Estado actual:** el “uso” que la comparativa proyecta para la pantalla sale de dos fuentes distintas y complementarias:
+1. `confirmadas_mes`: lo ya persistido en prefacturas activas del mes (`resultado.visitas.marcadas_prefactura`).
+2. `ots_marcadas_por_defecto` / `marcadas_esta_prefactura`: OTs presenciales de la sesión actual, detectadas por `resolver_ots_marcadas_visitas`.
+
+Por eso, el contraste funcional correcto para la pantalla no es solo “visitas contratadas vs visitas usadas”, sino:
+- `incluidas_mes`: capacidad mensual resuelta desde `ContratoItemComercial`;
+- `confirmadas_mes`: visitas ya comprometidas en prefacturas del período;
+- `ots_marcadas_por_defecto`: visitas que el backend propone marcar en la sesión actual;
+- `exceso`: proyección de sobreuso considerando `confirmadas_mes + marcadas_esta_prefactura`.
 
 No equivale exactamente a:
 - OTs ejecutadas del mes,
@@ -415,6 +426,15 @@ Debe probarse que:
 }
 ```
 
+Interpretación operativa del payload vigente:
+- `incluidas_mes`: total mensual resuelto por backend desde `ContratoItemComercial`.
+- `confirmadas_mes`: total ya comprometido en prefacturas activas del mes.
+- `ots_marcadas_por_defecto`: IDs de OTs presenciales detectadas por backend para la sesión.
+- `marcadas_esta_prefactura`: conteo base de esas OTs presenciales.
+- `exceso`: cálculo backend con la fórmula vigente `max(confirmadas_mes + marcadas_esta_prefactura - incluidas_mes, 0)`.
+
+> **Importante para QA/dev:** este es el contrato observable hoy. Si un campo adicional no aparece en la API o en `resultado.visitas`, debe tratarse como mejora futura y no como incumplimiento del comportamiento actual.
+
 Campos mínimos que desarrollo y QA deberían tratar como vigentes hoy:
 - `incluidas_mes`
 - `incluidas_total` (alias/compatibilidad)
@@ -443,6 +463,12 @@ Campos mínimos que desarrollo y QA deberían tratar como vigentes hoy:
   }
 }
 ```
+
+Diferencia importante entre comparativa y persistencia:
+- en **comparativa** el backend devuelve `ots_marcadas_por_defecto`, `marcadas_esta_prefactura` y `exceso`;
+- en **resultado.visitas** la UI persiste `marcadas_prefactura`, `proyectadas_mes`, `ots_marcadas` y `exceso_prefactura`.
+
+Esa diferencia de nombres es **estado actual**, no necesariamente un bug. QA debe validar cada contrato JSON en su contexto y no asumir simetría 1:1 entre la respuesta de comparativa y el snapshot final guardado.
 
 ## 7.3 Propuesta de mejora futura del contrato JSON
 **Propuesta / mejora futura**: para trazabilidad y debugging sería útil evolucionar el payload persistido a algo como:
@@ -706,9 +732,10 @@ El mayor riesgo no es una fórmula aislada, sino la combinación de:
 ## 10.2 Acciones recomendadas
 ### Prioridad alta
 1. **Dejar documentado en el PR y en este análisis** que OTV3 usa `ContratoItemComercial`, no `ContratoVisita`, como fuente actual.
-2. **Agregar tests backend** para multi-item, multi-contrato, cambio de mes y exclusión de prefacturas `borrador`.
-3. **Implementar o diseñar trazabilidad adicional en `resultado.visitas`** para identificar el origen por item.
-4. **Implementar job diario de discrepancias** por contrato/mes.
+2. **Agregar tests backend** para multi-item, multi-contrato, cambio de mes, exclusión de prefacturas `borrador` y contraste explícito entre `incluidas_mes`, `confirmadas_mes`, `ots_marcadas_por_defecto` y `exceso`.
+3. **Agregar tests de integración frontend/backend** para asegurar que `MatchingManualOTV3` interpreta correctamente el payload vigente de comparativa y el snapshot persistido en `resultado.visitas`.
+4. **Implementar o diseñar trazabilidad adicional en `resultado.visitas`** para identificar el origen por item.
+5. **Implementar job diario de discrepancias** por contrato/mes.
 
 ### Prioridad media
 5. Evaluar si `contrato.items_comerciales.all()` debe filtrar vigencia/estado o si se requiere normalizar datos legacy.
@@ -720,11 +747,12 @@ El mayor riesgo no es una fórmula aislada, sino la combinación de:
 9. Exponer en UI un tooltip o detalle de origen de visitas por contrato/item para soporte y QA.
 
 ## 10.3 Backlog sugerido de tickets
-- **DEV:** centralizar y tipar contrato JSON de `visitas_contrato` / `resultado.visitas`.
+- **DEV:** centralizar y tipar contrato JSON de `visitas_contrato` / `resultado.visitas`, dejando explícito qué campos son de comparativa y cuáles son del snapshot persistido.
 - **DEV:** agregar `origenes` y `campo_resuelto` al snapshot de visitas.
 - **DEV:** job diario de validación de discrepancias contrato vs prefacturas.
 - **DEV:** validación de integridad OT/contrato en comparativa y creación de prefactura.
-- **QA:** matriz de pruebas con escenarios de fallback, cambio de mes, exceso y contratos múltiples.
+- **DEV:** pruebas automáticas sobre prioridad `num_visitas_mensuales > snapshot_num_visitas_mensuales > plan/servicio`.
+- **QA:** matriz de pruebas con escenarios de fallback, cambio de mes, exceso, items duplicados, contratos múltiples y OTs reasignadas.
 - **QA:** casos de regresión sobre `MatchingManualOTV3` y `DetallePrefacturaOTV3`.
 
 ---
