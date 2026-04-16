@@ -1,3 +1,4 @@
+import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -313,6 +314,7 @@ function CrearContratoDelCliente({
             cuotas_venta: [] as ICuotaVenta[],
             plantilla: '',
             dias_aviso_termino: 60,
+            requiere_nda: false,
             destinatario_modo: 'interno',
             destinatario_interno_id: '',
             destinatario_nombre: '',
@@ -438,6 +440,7 @@ function CrearContratoDelCliente({
                             : [],
                     plantilla: Number(values.plantilla),
                     dias_aviso_termino: values.dias_aviso_termino,
+                    requiere_nda: values.requiere_nda,
                 };
 
                 const destinatarioPrincipal =
@@ -939,6 +942,22 @@ function CrearContratoDelCliente({
                                 <p className='mt-1 text-xs text-zinc-500'>
                                     Días de anticipación para notificar el término del contrato.
                                 </p>
+                            </div>
+                            <div className='flex items-start gap-3 md:col-span-2'>
+                                <Checkbox
+                                    id='requiere_nda'
+                                    name='requiere_nda'
+                                    checked={formik.values.requiere_nda}
+                                    onChange={formik.handleChange}
+                                />
+                                <div>
+                                    <Label htmlFor='requiere_nda' className='cursor-pointer'>
+                                        Requiere acuerdo de confidencialidad (NDA)
+                                    </Label>
+                                    <p className='mt-0.5 text-xs text-zinc-500'>
+                                        Si activas esta opción, no se podrá enviar el contrato a aprobación del cliente sin un NDA firmado previamente.
+                                    </p>
+                                </div>
                             </div>
                             {esVenta && formik.values.forma_pago_venta === 'cuotas' && (
                                 <div className='rounded-lg border border-zinc-200 p-4 md:col-span-2 dark:border-zinc-700'>

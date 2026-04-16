@@ -2,6 +2,7 @@ import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -10,6 +11,7 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
 import { ICaracteristicaServicio } from '@/interface/contrato.interface';
 import {
     useCreateCaracteristicaServicioMutation,
@@ -89,6 +91,16 @@ const ModalCaracteristicaServicio = ({
             </ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-4'>
+                    <div className='flex items-center gap-2'>
+                        <Tooltip
+                            text='Las características definen qué incluye o no un servicio. Ej: Soporte remoto, Backup diario, Tiempo de respuesta 4h, Instalación de parches de seguridad.'
+                            placement='bottom'>
+                            <span className='inline-flex cursor-help items-center text-blue-400'>
+                                <Icon icon='HeroInformationCircle' className='text-lg' />
+                            </span>
+                        </Tooltip>
+                        <span className='text-xs text-zinc-400'>¿Qué es una característica?</span>
+                    </div>
                     <div>
                         <Label htmlFor='nombre'>Nombre</Label>
                         <Validation

@@ -36,17 +36,20 @@ const ModalEditarSeccionPlantilla = ({
     const [updateSeccion, { isLoading }] = useUpdateSeccionPlantillaMutation();
     const { data: plantilla } = useGetDetallePlantillaQuery(String(plantillaId));
     const [previewOpen, setPreviewOpen] = useState(false);
+    const getFormValuesFromSeccion = (
+        seccionValue: ISeccionPlantilla | null,
+    ): ISeccionFormValues => ({
+        titulo: seccionValue?.titulo || '',
+        tipo: seccionValue?.tipo || 'clausula',
+        contenido_template: seccionValue?.contenido_template || '',
+        es_editable_en_contrato: seccionValue?.es_editable_en_contrato ?? true,
+        es_obligatoria: seccionValue?.es_obligatoria ?? false,
+        orden: seccionValue?.orden ?? 1,
+    });
 
     const formik = useFormik<ISeccionFormValues>({
         enableReinitialize: true,
-        initialValues: {
-            titulo: seccion?.titulo || '',
-            tipo: seccion?.tipo || 'clausula',
-            contenido_template: seccion?.contenido_template || '',
-            es_editable_en_contrato: seccion?.es_editable_en_contrato ?? true,
-            es_obligatoria: seccion?.es_obligatoria ?? false,
-            orden: seccion?.orden ?? 1,
-        },
+        initialValues: getFormValuesFromSeccion(seccion),
         validationSchema,
         onSubmit: async (values) => {
             if (!seccion) return;
@@ -73,6 +76,14 @@ const ModalEditarSeccionPlantilla = ({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        formik.resetForm({
+            values: getFormValuesFromSeccion(seccion),
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, seccion?.id]);
 
     const handleClose = () => {
         formik.resetForm();

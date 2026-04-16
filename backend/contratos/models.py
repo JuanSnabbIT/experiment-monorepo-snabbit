@@ -68,6 +68,12 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
     dias_aviso_termino = models.PositiveIntegerField(default=60, verbose_name="Días de aviso previo para término")
     documento_final_url = models.TextField(blank=True, null=True, verbose_name="URL del documento final firmado")
 
+    requiere_nda = models.BooleanField(
+        default=False,
+        verbose_name="Requiere acuerdo de confidencialidad",
+        help_text="Si se activa, no se puede enviar a aprobacion del cliente sin tener al menos un NDA firmado.",
+    )
+
     plantilla = models.ForeignKey(
         "contratos.PlantillaContrato",
         on_delete=models.SET_NULL,
@@ -962,6 +968,9 @@ class ContratoItemComercial(ModeloBaseHistorico):
         return f"{self.snapshot_nombre} en {self.contrato}"
 
 
+# DEPRECATED: usar ContratoItemComercial para contratos nuevos.
+# Este modelo existe por compatibilidad con contratos creados antes de la migracion a items_comerciales.
+# No agregar nuevas instancias directamente — los PDFs y renderers ya usan items_comerciales con fallback.
 class ContratoServicio(ModeloBaseHistorico):
     contrato = models.ForeignKey(
         "contratos.ContratoEmpresaCliente",
@@ -1605,6 +1614,12 @@ class PlantillaContrato(ModeloBase):
     es_default = models.BooleanField(
         default=False,
         verbose_name="Plantilla del sistema (no editable)",
+    )
+
+    requiere_nda = models.BooleanField(
+        default=False,
+        verbose_name="Requiere acuerdo de confidencialidad",
+        help_text="Si se activa, el contrato derivado de esta plantilla exigira NDA antes de enviar a aprobacion.",
     )
 
     # ── Posición de bloques demo en el documento ──

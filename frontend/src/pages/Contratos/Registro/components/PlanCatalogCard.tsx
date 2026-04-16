@@ -2,6 +2,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardFooter, CardFooterChild } from '@/components/ui/Card';
 import { IPlanServicio } from '@/interface/contrato.interface';
+import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import ScopeSummary from '../../components/ScopeSummary';
 
 interface IPlanCatalogCardProps {
@@ -58,8 +59,38 @@ const getPrimaryPrice = (plan: IPlanServicio) => {
     };
 };
 
+const TODAY = new Date().toISOString().slice(0, 10);
+
+type TCambioData = { dolar: number; uf: number };
+
+const computeEquiv = (
+    from: 'CLP' | 'UF' | 'USD',
+    amount: number,
+    to: 'CLP' | 'UF' | 'USD',
+    tc: TCambioData | undefined,
+): string | null => {
+    if (!tc || amount <= 0 || !tc.uf || !tc.dolar || from === to) return null;
+    let clp: number;
+    if (from === 'CLP') clp = amount;
+    else if (from === 'UF') clp = amount * tc.uf;
+    else clp = amount * tc.dolar;
+    if (to === 'CLP') return `≈ $${formatNumber(Math.round(clp))}`;
+    if (to === 'UF') return `≈ ${formatNumber(clp / tc.uf, 2)} UF`;
+    return `≈ ${formatNumber(clp / tc.dolar, 2)} USD`;
+};
+
 const PlanCatalogCard = ({ plan, onDelete, onEdit }: IPlanCatalogCardProps) => {
     const primaryPrice = getPrimaryPrice(plan);
+    const { data: tc } = useGetTipoCambioQuery(TODAY, { skip: !primaryPrice });
+    const primaryAmount = primaryPrice
+        ? Number(
+              primaryPrice.currency === 'CLP'
+                  ? plan.precio_clp
+                  : primaryPrice.currency === 'UF'
+                    ? plan.precio_uf
+                    : plan.precio_usd || 0,
+          )
+        : 0;
     const visibleServices = plan.servicios.slice(0, VISIBLE_SERVICES_COUNT);
     const hiddenServicesCount = Math.max(plan.servicios.length - VISIBLE_SERVICES_COUNT, 0);
     const scopeCount = (plan.alcance_heredado?.length || 0) + (plan.alcance_conflictos?.length || 0);
@@ -117,9 +148,28 @@ const PlanCatalogCard = ({ plan, onDelete, onEdit }: IPlanCatalogCardProps) => {
                     )}
 
                     <div className='mt-4 space-y-2'>
-                        <PriceRow label='CLP' value={formatPriceLabel('CLP', plan.precio_clp)} />
-                        <PriceRow label='UF' value={formatPriceLabel('UF', plan.precio_uf)} />
-                        <PriceRow label='USD' value={formatPriceLabel('USD', plan.precio_usd)} />
+                        {(['CLP', 'UF', 'USD'] as const).map((curr) => {
+                            const stored = Number(
+                                curr === 'CLP'
+                                    ? plan.precio_clp
+                                    : curr === 'UF'
+                                      ? plan.precio_uf
+                                      : plan.precio_usd || 0,
+                            );
+                            const equiv =
+                                stored <= 0 && primaryPrice
+                                    ? (computeEquiv(primaryPrice.currency, primaryAmount, curr, tc) ?? '-')
+                                    : '-';
+                            const val = stored > 0 ? formatPriceLabel(curr, stored) : equiv;
+                            return (
+                                <PriceRow
+                                    key={curr}
+                                    label={curr}
+                                    value={val}
+                                    isEquivalent={stored <= 0 && val !== '-'}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -233,10 +283,25 @@ const PlanCatalogCard = ({ plan, onDelete, onEdit }: IPlanCatalogCardProps) => {
     );
 };
 
-const PriceRow = ({ label, value }: { label: string; value: string }) => (
+const PriceRow = ({
+    label,
+    value,
+    isEquivalent = false,
+}: {
+    label: string;
+    value: string;
+    isEquivalent?: boolean;
+}) => (
     <div className='flex items-center justify-between gap-3 rounded-xl bg-white/80 px-3 py-2 text-sm dark:bg-zinc-900/60'>
         <span className='text-zinc-500 dark:text-zinc-400'>{label}</span>
-        <span className='font-medium text-zinc-900 dark:text-zinc-100'>{value}</span>
+        <span
+            className={
+                isEquivalent
+                    ? 'italic text-zinc-400 dark:text-zinc-500'
+                    : 'font-medium text-zinc-900 dark:text-zinc-100'
+            }>
+            {value}
+        </span>
     </div>
 );
 

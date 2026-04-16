@@ -3,11 +3,12 @@ import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Badge from '@/components/ui/Badge';
+import Tooltip from '@/components/ui/Tooltip';
 import { CATEGORIAS_SERVICIO } from '@/constants/contrato.constant';
 import { IPlanServicio, IServicio } from '@/interface/contrato.interface';
 import { useGetPlanesServicioQuery, useGetServiciosQuery } from '@/store/slices/contratos/contratoApi';
 import classNames from 'classnames';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ISelectorPlanServiciosProps, IServicioSeleccionado } from './contrato.types';
 
 // ── Opción especial para modo personalizado ──
@@ -16,6 +17,7 @@ const PERSONALIZADO_VALUE = '__personalizado__';
 const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps) => {
     const { data: planes = [] } = useGetPlanesServicioQuery();
     const { data: servicios = [] } = useGetServiciosQuery();
+    const [categoriasColapsadas, setCategoriasColapsadas] = useState<Set<string>>(new Set());
 
     // ── Opciones del select de plan ──
     const opcionesPlan: TSelectOption[] = useMemo(
@@ -144,6 +146,27 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
 
     return (
         <div className='flex flex-col gap-4'>
+            {/* ── Leyenda de estados ── */}
+            <div className='flex flex-wrap gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                <span className='text-xs font-semibold text-zinc-500'>Leyenda:</span>
+                <span className='flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400'>
+                    <Badge color='blue' variant='outline'>Incluido</Badge>
+                    Obligatorio del plan
+                </span>
+                <span className='flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400'>
+                    <Badge color='amber' variant='outline'>Addon</Badge>
+                    Extra añadido
+                </span>
+                <span className='flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400'>
+                    <Badge color='emerald' variant='outline'>Seleccionado</Badge>
+                    Incluido en modo personalizado
+                </span>
+                <span className='flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400'>
+                    <Badge color='zinc' variant='outline'>Disponible</Badge>
+                    No seleccionado
+                </span>
+            </div>
+
             {/* ── Zona A: Selector de Plan ── */}
             <div>
                 <Label htmlFor='plan_selector'>Plan de servicio</Label>
@@ -229,11 +252,42 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
                             ? 'Servicios adicionales (add-ons)'
                             : 'Servicios'}
                     </h3>
-                    {serviciosPorCategoria.map((grupo) => (
+                    {serviciosPorCategoria.map((grupo) => {
+                        const estaColapsada = categoriasColapsadas.has(grupo.categoria);
+                        const toggleCollapse = () => {
+                            setCategoriasColapsadas((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(grupo.categoria)) next.delete(grupo.categoria);
+                                else next.add(grupo.categoria);
+                                return next;
+                            });
+                        };
+                        const seleccionadosEnGrupo = grupo.items.filter((s) => {
+                            const est = getEstadoServicio(s.id);
+                            return est === 'incluido' || est === 'addon' || est === 'disponible';
+                        }).length;
+
+                        return (
                         <div key={grupo.categoria}>
-                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500'>
-                                {grupo.label}
-                            </h4>
+                            <button
+                                type='button'
+                                onClick={toggleCollapse}
+                                className='mb-2 flex w-full items-center justify-between rounded px-1 py-1 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800'>
+                                <span className='text-xs font-semibold uppercase tracking-wider text-zinc-500'>
+                                    {grupo.label}
+                                </span>
+                                <span className='flex items-center gap-2'>
+                                    {seleccionadosEnGrupo > 0 && (
+                                        <Badge color='blue' variant='outline'>
+                                            {seleccionadosEnGrupo} seleccionado{seleccionadosEnGrupo > 1 ? 's' : ''}
+                                        </Badge>
+                                    )}
+                                    <span className='text-xs text-zinc-400'>
+                                        {estaColapsada ? '▼' : '▲'}
+                                    </span>
+                                </span>
+                            </button>
+                            {!estaColapsada && (
                             <div className='flex flex-col gap-2'>
                                 {grupo.items.map((servicio) => {
                                     const estado = getEstadoServicio(servicio.id);
@@ -261,8 +315,10 @@ const SelectorPlanServicios = ({ value, onChange }: ISelectorPlanServiciosProps)
                                     );
                                 })}
                             </div>
+                            )}
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
@@ -337,12 +393,16 @@ const FilaServicio = ({
         <div
             className={classNames(
                 'rounded-lg border p-3 transition-all duration-200',
-                {// Incluido (plan) o Seleccionado (personalizado): azul
+                {
+                    // Incluido (obligatorio del plan): azul
                     'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-900/20':
-                        estado === 'incluido' || estado === 'disponible',
+                        estado === 'incluido',
                     // Addon: ámbar
                     'border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20':
                         estado === 'addon',
+                    // Seleccionado en modo personalizado: emerald
+                    'border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20':
+                        estado === 'disponible',
                     // No incluido / gris
                     'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50':
                         estado === 'no-incluido',
@@ -376,30 +436,38 @@ const FilaServicio = ({
                 </div>
                 <div>
                     {estado === 'incluido' && (
-                        <Badge color='blue' variant='outline'>
-                            Incluido
-                        </Badge>
+                        <Tooltip text='Servicio obligatorio incluido en el plan. No se puede deseleccionar.'>
+                            <Badge color='blue' variant='outline'>
+                                Incluido
+                            </Badge>
+                        </Tooltip>
                     )}
                     {estado === 'addon' && (
-                        <Badge color='amber' variant='outline'>
-                            Addon
-                        </Badge>
+                        <Tooltip text='Servicio extra añadido al plan base.'>
+                            <Badge color='amber' variant='outline'>
+                                Addon
+                            </Badge>
+                        </Tooltip>
                     )}
                     {estado === 'disponible' && (
-                        <Badge color='blue' variant='outline'>
-                            Seleccionado
-                        </Badge>
+                        <Tooltip text='Servicio seleccionado en modo personalizado.'>
+                            <Badge color='emerald' variant='outline'>
+                                Seleccionado
+                            </Badge>
+                        </Tooltip>
                     )}
                     {estado === 'no-incluido' && (
-                        <Badge color='zinc' variant='outline'>
-                            {modo === 'plan' ? 'No incluido' : 'Disponible'}
-                        </Badge>
+                        <Tooltip text={modo === 'plan' ? 'No incluido en el plan. Puede añadirse como addon.' : 'Haz clic para incluir este servicio.'}>
+                            <Badge color='zinc' variant='outline'>
+                                {modo === 'plan' ? 'No incluido' : 'Disponible'}
+                            </Badge>
+                        </Tooltip>
                     )}
                 </div>
             </div>
 
-            {/* Inputs de cantidad y precio para addons / servicios personalizados */}
-            {esEditable && datos && (
+            {/* Inputs de cantidad y precio — visibles siempre cuando el servicio está seleccionado */}
+            {esSeleccionado && (
                 <div className='mt-2 grid grid-cols-2 gap-3'>
                     <div>
                         <Label htmlFor={`cant-${servicio.id}`} className='text-xs'>Cantidad</Label>
@@ -408,8 +476,9 @@ const FilaServicio = ({
                             name={`cant-${servicio.id}`}
                             type='number'
                             min={1}
-                            value={datos.cantidad}
-                            onChange={(e) => onCantidadChange(Number(e.target.value) || 1)}
+                            value={datos?.cantidad ?? 1}
+                            disabled={!esEditable}
+                            onChange={(e) => esEditable && onCantidadChange(Number(e.target.value) || 1)}
                         />
                     </div>
                     <div>
@@ -419,8 +488,9 @@ const FilaServicio = ({
                             name={`precio-${servicio.id}`}
                             type='number'
                             min={0}
-                            value={datos.precio_unitario}
-                            onChange={(e) => onPrecioChange(Number(e.target.value) || 0)}
+                            value={datos?.precio_unitario ?? 0}
+                            disabled={!esEditable}
+                            onChange={(e) => esEditable && onPrecioChange(Number(e.target.value) || 0)}
                         />
                     </div>
                 </div>

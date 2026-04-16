@@ -11,6 +11,7 @@ import {
 } from '@/store/slices/contratos/contratoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import {
     createColumnHelper,
     flexRender,
@@ -47,7 +48,12 @@ const TabCaracteristicas = () => {
     };
 
     const handleDelete = async (item: ICaracteristicaServicio) => {
-        if (!window.confirm(`¿Eliminar la característica "${item.nombre}"?`)) return;
+        const confirmado = await confirmAlert({
+            title: 'Eliminar característica',
+            text: `Se eliminará "${item.nombre}" del catálogo.`,
+            confirmText: 'Eliminar',
+        });
+        if (!confirmado) return;
         try {
             await deleteCaracteristica(item.id).unwrap();
             toast.success('Característica eliminada');

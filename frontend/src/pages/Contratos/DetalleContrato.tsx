@@ -278,6 +278,11 @@ const DetalleContrato = () => {
                     <Badge variant='solid' color={colorEstadoContrato(contrato.estado)}>
                         {contrato.estado_label}
                     </Badge>
+                    {contrato.requiere_nda && (
+                        <Badge variant='outline' color='amber'>
+                            Requiere NDA
+                        </Badge>
+                    )}
                 </SubheaderLeft>
                 <SubheaderRight>{null}</SubheaderRight>
             </Subheader>

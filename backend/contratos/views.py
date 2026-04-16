@@ -1448,6 +1448,12 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if contrato.requiere_nda and not contrato.firmas_confidencialidad.filter(firmado=True).exists():
+            return Response(
+                {"detail": "Este contrato requiere un acuerdo de confidencialidad firmado antes de enviarlo a aprobacion del cliente."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         destinatario = obtener_destinatario_principal(contrato)
         if not destinatario:
             return Response(
@@ -3136,9 +3142,13 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
-        if empresa:
-            return PlantillaContrato.objects.filter(empresa_prestadora=empresa)
-        return PlantillaContrato.objects.none()
+        if not empresa:
+            return PlantillaContrato.objects.none()
+        qs = PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+        tipo = self.request.query_params.get("tipo_contrato")
+        if tipo:
+            qs = qs.filter(tipo_contrato=tipo)
+        return qs
 
     def _serialize_plantilla(self, plantilla):
         return PlantillaContratoSerializer(plantilla).data
@@ -3167,11 +3177,6 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        if instance.es_default:
-            return Response(
-                {"detail": "Las plantillas del sistema no se pueden modificar."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -3182,12 +3187,6 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
         return self.update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance.es_default:
-            return Response(
-                {"detail": "Las plantillas del sistema no se pueden eliminar."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"], url_path="duplicar")
@@ -3228,42 +3227,6 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         plantilla_id = self.kwargs.get("plantilla_pk")
         return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id)
-
-    def _plantilla_es_default(self):
-        plantilla_id = self.kwargs.get("plantilla_pk")
-        return PlantillaContrato.objects.filter(id=plantilla_id, es_default=True).exists()
-
-    def create(self, request, *args, **kwargs):
-        if self._plantilla_es_default():
-            return Response(
-                {"detail": "No se pueden agregar secciones a plantillas del sistema."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().create(request, *args, **kwargs)
-
-    def update(self, request, *args, **kwargs):
-        if self._plantilla_es_default():
-            return Response(
-                {"detail": "No se pueden modificar secciones de plantillas del sistema."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().update(request, *args, **kwargs)
-
-    def partial_update(self, request, *args, **kwargs):
-        if self._plantilla_es_default():
-            return Response(
-                {"detail": "No se pueden modificar secciones de plantillas del sistema."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().partial_update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        if self._plantilla_es_default():
-            return Response(
-                {"detail": "No se pueden eliminar secciones de plantillas del sistema."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().destroy(request, *args, **kwargs)
 
     def _normalizar_firmas(self, serializer):
         """Si la sección es tipo firmas, fuerza contenido canónico y flags."""
@@ -3307,11 +3270,6 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
             "bloques": { "alcance": 3, "operacion": 5, "condiciones": 7 }
         }
         """
-        if self._plantilla_es_default():
-            return Response(
-                {"detail": "No se pueden reordenar secciones de plantillas del sistema."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         secciones_data = request.data.get("secciones", [])
         bloques_data = request.data.get("bloques", {})
 

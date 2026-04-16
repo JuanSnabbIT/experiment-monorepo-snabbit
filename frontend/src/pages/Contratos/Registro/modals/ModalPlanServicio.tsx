@@ -3,6 +3,7 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -11,12 +12,14 @@ import Modal, {
     ModalFooterChild,
     ModalHeader,
 } from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
 import { ICaracteristicaServicio, IPlanServicio, IServicio } from '@/interface/contrato.interface';
 import {
     useCreatePlanServicioMutation,
     useGetServiciosQuery,
     useUpdatePlanServicioMutation,
 } from '@/store/slices/contratos/contratoApi';
+import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useMemo } from 'react';
@@ -34,9 +37,8 @@ interface IFormularioPlan {
     nombre: string;
     descripcion: string;
     servicios_ids: number[];
-    precio_clp: string;
-    precio_uf: string;
-    precio_usd: string;
+    moneda: string;
+    precio: string;
     num_visitas_mensuales: string;
     clausulas_especiales: string;
 }
@@ -48,9 +50,8 @@ const validationSchema = Yup.object({
         .required('El nombre es requerido'),
     descripcion: Yup.string().max(1000, 'Maximo 1000 caracteres').nullable(),
     servicios_ids: Yup.array().of(Yup.number()).min(1, 'Debe incluir al menos un servicio'),
-    precio_clp: Yup.number().nullable().typeError('Debe ser un numero'),
-    precio_uf: Yup.number().nullable().typeError('Debe ser un numero'),
-    precio_usd: Yup.number().nullable().typeError('Debe ser un numero'),
+    moneda: Yup.string().required(),
+    precio: Yup.number().nullable().typeError('Debe ser un numero'),
     num_visitas_mensuales: Yup.number()
         .nullable()
         .min(0, 'Debe ser mayor o igual a 0')
@@ -58,6 +59,12 @@ const validationSchema = Yup.object({
         .typeError('Debe ser un numero'),
     clausulas_especiales: Yup.string().max(2000, 'Maximo 2000 caracteres').nullable(),
 });
+
+const MONEDA_OPTIONS: TSelectOption[] = [
+    { value: 'clp', label: 'CLP' },
+    { value: 'uf', label: 'UF' },
+    { value: 'usd', label: 'USD' },
+];
 
 const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps) => {
     const isEditing = !!plan;
@@ -76,9 +83,8 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
             nombre: plan?.nombre || '',
             descripcion: plan?.descripcion || '',
             servicios_ids: plan?.servicios?.map((s) => s.id) || [],
-            precio_clp: plan?.precio_clp || '',
-            precio_uf: plan?.precio_uf || '',
-            precio_usd: plan?.precio_usd || '',
+            moneda: plan?.precio_uf ? 'uf' : plan?.precio_usd ? 'usd' : 'clp',
+            precio: plan?.precio_uf || plan?.precio_usd || plan?.precio_clp || '',
             num_visitas_mensuales: plan?.num_visitas_mensuales != null ? String(plan.num_visitas_mensuales) : '',
             clausulas_especiales: plan?.clausulas_especiales || '',
         },
@@ -89,9 +95,9 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                     nombre: values.nombre,
                     descripcion: values.descripcion,
                     servicios_ids: values.servicios_ids,
-                    precio_clp: values.precio_clp || undefined,
-                    precio_uf: values.precio_uf || undefined,
-                    precio_usd: values.precio_usd || undefined,
+                    precio_clp: values.moneda === 'clp' ? values.precio || undefined : undefined,
+                    precio_uf: values.moneda === 'uf' ? values.precio || undefined : undefined,
+                    precio_usd: values.moneda === 'usd' ? values.precio || undefined : undefined,
                     num_visitas_mensuales:
                         values.num_visitas_mensuales !== ''
                             ? Number(values.num_visitas_mensuales)
@@ -138,19 +144,19 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
         return { clp, uf, usd };
     }, [selectedServicios]);
 
-    // Autocompletar precios al seleccionar servicios (solo en creacion, si estan vacios)
+    // Autocompletar precio al seleccionar servicios (solo en creacion, si esta vacio)
     useEffect(() => {
         if (!isOpen || isEditing) return;
-        const currentClp = Number(formik.values.precio_clp || 0);
-        const currentUf = Number(formik.values.precio_uf || 0);
-        const currentUsd = Number(formik.values.precio_usd || 0);
-        if (currentClp === 0 && currentUf === 0 && currentUsd === 0) {
-            if (precioSugerido.clp > 0)
-                formik.setFieldValue('precio_clp', String(precioSugerido.clp));
-            if (precioSugerido.uf > 0)
-                formik.setFieldValue('precio_uf', String(precioSugerido.uf));
-            if (precioSugerido.usd > 0)
-                formik.setFieldValue('precio_usd', String(precioSugerido.usd));
+        const currentPrecio = Number(formik.values.precio || 0);
+        if (currentPrecio === 0) {
+            const moneda = formik.values.moneda;
+            const sugerido =
+                moneda === 'uf'
+                    ? precioSugerido.uf
+                    : moneda === 'usd'
+                      ? precioSugerido.usd
+                      : precioSugerido.clp;
+            if (sugerido > 0) formik.setFieldValue('precio', String(sugerido));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formik.values.servicios_ids, isOpen]);
@@ -208,10 +214,40 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
     }, [selectedServicios]);
 
     const handleApplyPrecioSugerido = () => {
-        formik.setFieldValue('precio_clp', String(precioSugerido.clp));
-        formik.setFieldValue('precio_uf', String(precioSugerido.uf));
-        formik.setFieldValue('precio_usd', String(precioSugerido.usd));
+        const moneda = formik.values.moneda;
+        const val =
+            moneda === 'uf'
+                ? String(precioSugerido.uf)
+                : moneda === 'usd'
+                  ? String(precioSugerido.usd)
+                  : String(precioSugerido.clp);
+        formik.setFieldValue('precio', val);
     };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: tc } = useGetTipoCambioQuery(today);
+
+    const precioEquivs = useMemo(() => {
+        const amount = Number(formik.values.precio || 0);
+        if (!tc || amount <= 0) return null;
+        const { uf, dolar } = tc;
+        let clp: number;
+        if (formik.values.moneda === 'clp') clp = amount;
+        else if (formik.values.moneda === 'uf') clp = amount * uf;
+        else clp = amount * dolar;
+        const fmt = (v: number, decimals: number) =>
+            new Intl.NumberFormat('es-CL', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals,
+            }).format(v);
+        return [
+            formik.values.moneda !== 'clp' ? `$${fmt(Math.round(clp), 0)} CLP` : null,
+            formik.values.moneda !== 'uf' ? `${fmt(clp / uf, 2)} UF` : null,
+            formik.values.moneda !== 'usd' ? `${fmt(clp / dolar, 2)} USD` : null,
+        ]
+            .filter(Boolean)
+            .join(' · ≈ ');
+    }, [formik.values.precio, formik.values.moneda, tc]);
 
     return (
         <Modal isStaticBackdrop isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
@@ -222,6 +258,16 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
             </ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-4'>
+                    <div className='flex items-center gap-2'>
+                        <Tooltip
+                            text='Un plan agrupa varios servicios bajo un precio único. Ej: Plan Básico TI (Helpdesk + Backup), Plan Enterprise 24/7 (Soporte + Mantención + Monitoreo), Pack Startup.'
+                            placement='bottom'>
+                            <span className='inline-flex cursor-help items-center text-blue-400'>
+                                <Icon icon='HeroInformationCircle' className='text-lg' />
+                            </span>
+                        </Tooltip>
+                        <span className='text-xs text-zinc-400'>¿Qué es un plan?</span>
+                    </div>
                     <div>
                         <Label htmlFor='nombre'>Nombre</Label>
                         <Validation
@@ -287,7 +333,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                     {/* Precio del plan con sugerido */}
                     <div>
                         <div className='mb-2 flex items-center justify-between'>
-                            <Label htmlFor='precio_clp'>Precio del plan</Label>
+                            <Label htmlFor='precio'>Precio del plan</Label>
                             {selectedServicios.length > 0 && (
                                 <Button
                                     size='xs'
@@ -301,70 +347,58 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                         </div>
                         {selectedServicios.length > 0 && (
                             <div className='mb-2 text-xs text-zinc-500'>
-                                Sugerido (suma de servicios): CLP{' '}
-                                {precioSugerido.clp.toLocaleString('es-CL')} · UF{' '}
-                                {precioSugerido.uf.toLocaleString('es-CL', {
-                                    minimumFractionDigits: 2,
-                                })}{' '}
-                                · USD{' '}
-                                {precioSugerido.usd.toLocaleString('es-CL', {
-                                    minimumFractionDigits: 2,
-                                })}
+                                Sugerido ({formik.values.moneda.toUpperCase()}):{' '}
+                                {formik.values.moneda === 'uf'
+                                    ? precioSugerido.uf.toLocaleString('es-CL', {
+                                          minimumFractionDigits: 2,
+                                      })
+                                    : formik.values.moneda === 'usd'
+                                      ? precioSugerido.usd.toLocaleString('es-CL', {
+                                            minimumFractionDigits: 2,
+                                        })
+                                      : precioSugerido.clp.toLocaleString('es-CL')}
                             </div>
                         )}
-                        <div className='grid grid-cols-3 gap-4'>
-                            <div>
-                                <Label htmlFor='precio_clp'>CLP</Label>
-                                <Validation
-                                    isValid={formik.isValid}
-                                    isTouched={formik.touched.precio_clp}
-                                    invalidFeedback={formik.errors.precio_clp}>
-                                    <Input
-                                        id='precio_clp'
-                                        name='precio_clp'
-                                        type='number'
-                                        placeholder='0'
-                                        value={formik.values.precio_clp}
-                                        onChange={formik.handleChange}
-                                        onBlur={formik.handleBlur}
-                                    />
-                                </Validation>
+                        <div className='flex gap-2'>
+                            <div className='w-28 shrink-0'>
+                                <SelectReact
+                                    options={MONEDA_OPTIONS}
+                                    value={
+                                        MONEDA_OPTIONS.find(
+                                            (o) => o.value === formik.values.moneda,
+                                        ) ?? MONEDA_OPTIONS[0]
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue(
+                                            'moneda',
+                                            (opt as TSelectOption).value,
+                                        )
+                                    }
+                                    name='moneda'
+                                />
                             </div>
-                            <div>
-                                <Label htmlFor='precio_uf'>UF</Label>
+                            <div className='flex-1'>
                                 <Validation
                                     isValid={formik.isValid}
-                                    isTouched={formik.touched.precio_uf}
-                                    invalidFeedback={formik.errors.precio_uf}>
+                                    isTouched={formik.touched.precio}
+                                    invalidFeedback={formik.errors.precio}>
                                     <Input
-                                        id='precio_uf'
-                                        name='precio_uf'
+                                        id='precio'
+                                        name='precio'
                                         type='number'
                                         placeholder='0'
-                                        value={formik.values.precio_uf}
-                                        onChange={formik.handleChange}
-                                        onBlur={formik.handleBlur}
-                                    />
-                                </Validation>
-                            </div>
-                            <div>
-                                <Label htmlFor='precio_usd'>USD</Label>
-                                <Validation
-                                    isValid={formik.isValid}
-                                    isTouched={formik.touched.precio_usd}
-                                    invalidFeedback={formik.errors.precio_usd}>
-                                    <Input
-                                        id='precio_usd'
-                                        name='precio_usd'
-                                        type='number'
-                                        placeholder='0'
-                                        value={formik.values.precio_usd}
+                                        value={formik.values.precio}
                                         onChange={formik.handleChange}
                                         onBlur={formik.handleBlur}
                                     />
                                 </Validation>
                             </div>
                         </div>
+                        {precioEquivs && (
+                            <div className='mt-2 text-xs text-zinc-400'>
+                                Equiv. referencial: ≈ {precioEquivs}
+                            </div>
+                        )}
                     </div>
 
                     {/* Alcance heredado de servicios (read-only) */}

@@ -30,6 +30,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
     const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
     const [previewOpen, setPreviewOpen] = useState(false);
     const [haVistoPreview, setHaVistoPreview] = useState(false);
+    const [hasSignature, setHasSignature] = useState(false);
 
     const pdfEndpoint = useMemo(
         () => (uuid ? `/api/public/contrato-firma/${uuid}/pdf/` : null),
@@ -145,10 +146,16 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
 
         let firma: string | null = null;
         if (signatureMode === 'upload') {
-            if (!uploadedSignature) return;
+            if (!uploadedSignature) {
+                toast.error('Sube una imagen de tu firma antes de continuar.');
+                return;
+            }
             firma = uploadedSignature;
         } else {
-            if (!sigCanvas.current || sigCanvas.current.isEmpty()) return;
+            if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
+                toast.error('Dibuja tu firma en el recuadro antes de continuar.');
+                return;
+            }
             firma = sigCanvas.current.toDataURL('image/png');
         }
 
@@ -350,12 +357,20 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                                         </Button>
                                     </div>
                                     {signatureMode === 'draw' ? (
-                                        <div className='overflow-hidden rounded-md border border-gray-200 bg-white dark:border-zinc-700'>
+                                        <div className='relative overflow-hidden rounded-md border border-gray-200 bg-white dark:border-zinc-700'>
+                                            {!hasSignature && (
+                                                <div className='pointer-events-none absolute inset-0 flex items-center justify-center'>
+                                                    <span className='select-none text-sm text-gray-300 dark:text-zinc-600'>
+                                                        Dibuje su firma aquí
+                                                    </span>
+                                                </div>
+                                            )}
                                             <SignatureCanvas
                                                 ref={(ref) => {
                                                     sigCanvas.current = ref;
                                                 }}
                                                 penColor='black'
+                                                onBegin={() => setHasSignature(true)}
                                                 canvasProps={{
                                                     height: 220,
                                                     className: 'w-full bg-white',
@@ -393,7 +408,10 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                                     <div className='flex flex-wrap gap-3'>
                                         {signatureMode === 'draw' ? (
                                             <Button
-                                                onClick={() => sigCanvas.current?.clear()}>
+                                                onClick={() => {
+                                                    sigCanvas.current?.clear();
+                                                    setHasSignature(false);
+                                                }}>
                                                 Limpiar
                                             </Button>
                                         ) : (

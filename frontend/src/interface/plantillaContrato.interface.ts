@@ -16,6 +16,7 @@ export interface IPlantillaContrato {
     orden_bloque_condiciones: number;
     // Labels de display
     tipo_contrato_label?: string;
+    requiere_nda?: boolean;
 }
 
 export interface ISeccionPlantilla {

@@ -380,14 +380,17 @@ const ResponderContratoPublico = () => {
                                     <div className='flex flex-wrap gap-3'>
                                         <Button
                                             variant='solid'
+                                            color='emerald'
                                             icon='HeroCheck'
                                             isLoading={submitting}
+                                            isDisable={!haVistoPreview}
                                             onClick={() => responder('aprobar')}>
                                             Aprobar contrato
                                         </Button>
                                         <Button
-                                            color='red'
-                                            icon='HeroXMark'
+                                            color='amber'
+                                            variant='outline'
+                                            icon='HeroArrowPath'
                                             isLoading={submitting}
                                             onClick={() => responder('rechazar')}>
                                             Solicitar cambios
@@ -401,6 +404,15 @@ const ResponderContratoPublico = () => {
                                             Rechazar definitivamente
                                         </Button>
                                     </div>
+                                    {!haVistoPreview && (
+                                        <p className='mt-1 text-xs text-amber-700 dark:text-amber-400'>
+                                            <Icon
+                                                icon='HeroEye'
+                                                className='mr-1 inline h-3.5 w-3.5'
+                                            />
+                                            Debes revisar el documento completo para poder aprobar.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

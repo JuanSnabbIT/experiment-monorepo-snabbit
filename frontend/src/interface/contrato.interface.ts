@@ -93,6 +93,7 @@ export interface IContratoEmpresaCliente {
     renovaciones_detalle?: IContratoRenovacionRef[];
     plantilla?: number | null;
     dias_aviso_termino?: number;
+    requiere_nda?: boolean;
 }
 
 export interface IEmpresaContrato {

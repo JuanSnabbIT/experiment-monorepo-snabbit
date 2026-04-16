@@ -51,7 +51,7 @@ const ModalEditarPlantilla = ({
         },
         validationSchema,
         onSubmit: async (values) => {
-            if (!plantilla || esDefault) return;
+            if (!plantilla) return;
             try {
                 await updatePlantilla({
                     id: plantilla.id,
@@ -82,8 +82,8 @@ const ModalEditarPlantilla = ({
                 <div className='flex flex-col gap-4'>
                     {esDefault && (
                         <Alert color='blue' icon='HeroInformationCircle' variant='outline'>
-                            Esta es una plantilla del sistema y no se puede modificar. Puedes
-                            duplicarla para crear una versión personalizada.
+                            Esta plantilla del sistema es editable. Puedes actualizarla directamente
+                            o duplicarla para crear una variante.
                         </Alert>
                     )}
                     <div>
@@ -98,7 +98,6 @@ const ModalEditarPlantilla = ({
                                 value={formik.values.titulo}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
-                                disabled={esDefault}
                             />
                         </Validation>
                     </div>
@@ -121,7 +120,6 @@ const ModalEditarPlantilla = ({
                                         (option as TSelectOption)?.value || '',
                                     )
                                 }
-                                isDisabled={esDefault}
                             />
                         </Validation>
                     </div>
@@ -133,7 +131,6 @@ const ModalEditarPlantilla = ({
                             value={formik.values.descripcion}
                             onChange={formik.handleChange}
                             rows={3}
-                            disabled={esDefault}
                         />
                     </div>
                     <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
@@ -143,7 +140,6 @@ const ModalEditarPlantilla = ({
                             checked={formik.values.activa}
                             onChange={formik.handleChange}
                             label='Plantilla activa'
-                            disabled={esDefault}
                         />
                     </div>
                     <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
@@ -162,18 +158,16 @@ const ModalEditarPlantilla = ({
                         formik.resetForm();
                         setIsOpen(false);
                     }}>
-                    {esDefault ? 'Cerrar' : 'Cancelar'}
+                    Cancelar
                 </Button>
-                {!esDefault && (
-                    <Button
-                        variant='solid'
-                        icon='HeroCheck'
-                        onClick={() => formik.handleSubmit()}
-                        isLoading={isLoading}
-                        isDisable={isLoading}>
-                        Guardar configuración
-                    </Button>
-                )}
+                <Button
+                    variant='solid'
+                    icon='HeroCheck'
+                    onClick={() => formik.handleSubmit()}
+                    isLoading={isLoading}
+                    isDisable={isLoading}>
+                    Guardar configuración
+                </Button>
             </ModalFooter>
         </Modal>
     );

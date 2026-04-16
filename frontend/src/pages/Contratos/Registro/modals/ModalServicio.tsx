@@ -7,18 +7,18 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
-  ModalBody,
-  ModalFooter,
-  ModalFooterChild,
-  ModalHeader,
+    ModalBody,
+    ModalFooter,
+    ModalFooterChild,
+    ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { CATEGORIAS_SERVICIO } from '@/constants/contrato.constant';
 import { ICaracteristicaServicio, IServicio } from '@/interface/contrato.interface';
 import {
-  useCreateServicioMutation,
-  useGetCaracteristicasServicioQuery,
-  useUpdateServicioMutation,
+    useCreateServicioMutation,
+    useGetCaracteristicasServicioQuery,
+    useUpdateServicioMutation,
 } from '@/store/slices/contratos/contratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
@@ -210,6 +210,16 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
                 </ModalHeader>
                 <ModalBody>
                     <div className='flex flex-col gap-4'>
+                        <div className='flex items-center gap-2'>
+                            <Tooltip
+                                text='Un servicio es una unidad de trabajo que ofreces: Soporte Helpdesk, Mantención Preventiva, Backup en Nube, Desarrollo a Medida. Asignále características para definir su alcance.'
+                                placement='bottom'>
+                                <span className='inline-flex cursor-help items-center text-blue-400'>
+                                    <Icon icon='HeroInformationCircle' className='text-lg' />
+                                </span>
+                            </Tooltip>
+                            <span className='text-xs text-zinc-400'>¿Qué es un servicio?</span>
+                        </div>
                         <div>
                             <Label htmlFor='nombre'>Nombre</Label>
                             <Validation

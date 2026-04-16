@@ -2,6 +2,7 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -36,10 +37,9 @@ interface ISeccionCardProps {
     onEdit: (seccion: ISeccionPlantilla) => void;
     onDeleted: () => void;
     onPreviewSection: (seccion: ISeccionPlantilla) => void;
-    esDefault?: boolean;
 }
 
-const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection, esDefault }: ISeccionCardProps) => (
+const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection }: ISeccionCardProps) => (
     <div className='rounded-xl border border-zinc-200 p-4 transition-all hover:border-blue-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900'>
         <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
@@ -59,21 +59,17 @@ const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection
                     icon='HeroEye'
                     onClick={() => onPreviewSection(seccion)}
                 />
-                {!esDefault && (
-                    <Button
-                        size='sm'
-                        icon='HeroPencil'
-                        onClick={() => onEdit(seccion)}
-                    />
-                )}
-                {!esDefault && (
-                    <ConfirmarEliminar
-                        peticionUrl={`/api/plantillas-contrato/${plantillaId}/secciones/${seccion.id}/`}
-                        onDispatch={onDeleted}
-                        nombre={seccion.titulo}
-                        buttonSize='sm'
-                    />
-                )}
+                <Button
+                    size='sm'
+                    icon='HeroPencil'
+                    onClick={() => onEdit(seccion)}
+                />
+                <ConfirmarEliminar
+                    peticionUrl={`/api/plantillas-contrato/${plantillaId}/secciones/${seccion.id}/`}
+                    onDispatch={onDeleted}
+                    nombre={seccion.titulo}
+                    buttonSize='sm'
+                />
             </div>
         </div>
     </div>
@@ -185,6 +181,16 @@ const DetallePlantilla = () => {
                 </SubheaderRight>
             </Subheader>
             <Container className='flex flex-col gap-4'>
+                {plantilla.es_default && (
+                    <Alert color='blue' icon='HeroInformationCircle' variant='outline'>
+                        Esta es una plantilla del sistema. Puedes editar sus secciones y configuracion
+                        directamente. Si necesitas una variante para otro flujo, usa{' '}
+                        <strong>Duplicar</strong> para crear una version alternativa.
+                        Tambien puedes usar etiquetas como{' '}
+                        <code className='rounded bg-blue-100 px-1 text-xs dark:bg-blue-900'>[nombre_proveedor]</code>{' '}
+                        para insertar datos reales del contrato.
+                    </Alert>
+                )}
                 <div className='sticky top-0 z-10 rounded-xl border border-zinc-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95'>
                     <div className='flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between'>
                         <div className='max-w-2xl'>
@@ -201,22 +207,18 @@ const DetallePlantilla = () => {
                             <Button icon='HeroEye' onClick={handlePreview}>
                                 Validar borrador
                             </Button>
-                            {!plantilla.es_default && (
-                                <Button icon='HeroBars3BottomLeft' onClick={handleReorder}>
-                                    Ordenar secciones
-                                </Button>
-                            )}
+                            <Button icon='HeroBars3BottomLeft' onClick={handleReorder}>
+                                Ordenar secciones
+                            </Button>
                             <Button icon='HeroDocumentDuplicate' onClick={handleDuplicar}>
                                 Duplicar
                             </Button>
-                            {!plantilla.es_default && (
-                                <Button
-                                    variant='solid'
-                                    icon='HeroPlus'
-                                    onClick={() => setCreateSectionModalOpen(true)}>
-                                    Nueva seccion
-                                </Button>
-                            )}
+                            <Button
+                                variant='solid'
+                                icon='HeroPlus'
+                                onClick={() => setCreateSectionModalOpen(true)}>
+                                Nueva seccion
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -244,7 +246,6 @@ const DetallePlantilla = () => {
                                         onEdit={handleOpenEditSeccion}
                                         onDeleted={handleSeccionDeleted}
                                         onPreviewSection={handlePreviewSection}
-                                        esDefault={plantilla.es_default}
                                     />
                                 ))}
                             </div>

@@ -2,7 +2,7 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import OffCanvas, { OffCanvasBody, OffCanvasHeader } from '@/components/ui/OffCanvas';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
@@ -82,14 +82,28 @@ const TabServicios = () => {
 
     const columns = [
         columnHelper.accessor('nombre', {
-            cell: (info) => (
-                <div className='space-y-1'>
-                    <div className='font-medium'>{info.getValue()}</div>
-                    <div className='text-sm text-zinc-500'>
-                        {truncateText(info.row.original.descripcion)}
+            cell: (info) => {
+                const descripcionCompleta = info.row.original.descripcion;
+                const descripcionTruncada = truncateText(descripcionCompleta);
+                const estaTruncada = (descripcionCompleta?.length ?? 0) > 120;
+
+                return (
+                    <div className='space-y-1'>
+                        <div className='font-medium'>{info.getValue()}</div>
+                        {estaTruncada ? (
+                            <Tooltip text={descripcionCompleta ?? ''}>
+                                <div className='cursor-help text-sm text-zinc-500'>
+                                    {descripcionTruncada}
+                                </div>
+                            </Tooltip>
+                        ) : (
+                            <div className='text-sm text-zinc-500'>
+                                {descripcionTruncada}
+                            </div>
+                        )}
                     </div>
-                </div>
-            ),
+                );
+            },
             header: 'Servicio',
             size: 280,
         }),
@@ -284,12 +298,12 @@ const TabServicios = () => {
                 servicio={selectedItem}
             />
 
-            <OffCanvas isOpen={offCanvasOpen} setIsOpen={setOffCanvasOpen} isStaticBackdrop>
-                <OffCanvasHeader>Caracteristicas del catalogo</OffCanvasHeader>
-                <OffCanvasBody>
+            <Modal isOpen={offCanvasOpen} setIsOpen={setOffCanvasOpen} isStaticBackdrop size='lg'>
+                <ModalHeader>Características del catálogo</ModalHeader>
+                <ModalBody>
                     <TabCaracteristicas />
-                </OffCanvasBody>
-            </OffCanvas>
+                </ModalBody>
+            </Modal>
         </>
     );
 };

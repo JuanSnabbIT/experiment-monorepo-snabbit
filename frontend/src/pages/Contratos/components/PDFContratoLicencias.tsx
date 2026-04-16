@@ -1,7 +1,6 @@
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
-import classNames from 'classnames';
 import dayjs from 'dayjs';
-import { useRef, Fragment, RefObject } from 'react';
+import { Fragment, RefObject } from 'react';
 
 function PDFContratoLicencias({
     contrato,
@@ -74,9 +73,26 @@ function PDFContratoLicencias({
                         </>
                     )}
                 </div>
-                <div className='text-xl font-bold md:text-2xl'>2.- SERVICIO</div>
+                <div className='text-xl font-bold md:text-2xl'>2.- SERVICIOS Y PLANES</div>
                 <div className='flex flex-col'>
-                    {contrato.contrato_servicios.length > 0 ? (
+                    {contrato.items_comerciales.length > 0 ? (
+                        contrato.items_comerciales.map((item, index) => (
+                            <Fragment key={index}>
+                                <div className='flex items-center gap-4 text-lg font-semibold'>
+                                    <div className='h-2 w-2 rounded-full bg-black'></div>
+                                    {item.snapshot_nombre}
+                                </div>
+                                {item.snapshot_descripcion && (
+                                    <div className='ml-8'>{item.snapshot_descripcion}</div>
+                                )}
+                                <div className='ml-8'>
+                                    Valor: {item.moneda === 'CLP' && '$'}
+                                    {(Number(item.precio_unitario_contratado) * item.cantidad).toLocaleString('es-ES')}
+                                    {item.moneda !== 'CLP' && ` ${item.moneda}`}
+                                </div>
+                            </Fragment>
+                        ))
+                    ) : contrato.contrato_servicios.length > 0 ? (
                         contrato.contrato_servicios.map((servicio, index) => (
                             <Fragment key={index}>
                                 <div className='flex items-center gap-4 text-lg font-semibold'>
@@ -97,7 +113,7 @@ function PDFContratoLicencias({
                             </Fragment>
                         ))
                     ) : (
-                        <div>Sin Planes o Servicios</div>
+                        <div>Sin Servicios o Planes</div>
                     )}
                 </div>
                 <div className='text-xl font-bold md:text-2xl'>3.- LICENCIAS</div>

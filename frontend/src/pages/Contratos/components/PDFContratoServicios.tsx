@@ -1,7 +1,7 @@
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
-import { useRef, Fragment, RefObject } from 'react';
+import { Fragment, RefObject } from 'react';
 
 function PDFContratoServicios({
     contrato,
@@ -76,7 +76,22 @@ function PDFContratoServicios({
                 </div>
                 <div className='text-xl font-bold md:text-2xl'>2.- TIPO DE PLAN Y SERVICIOS</div>
                 <div className='flex flex-col'>
-                    {contrato.contrato_servicios.length > 0 ? (
+                    {contrato.items_comerciales.length > 0 ? (
+                        contrato.items_comerciales.map((item, index) => (
+                            <Fragment key={index}>
+                                <div className='flex items-center gap-4 text-lg font-semibold'>
+                                    <div className='h-2 w-2 rounded-full bg-black'></div>
+                                    {item.snapshot_nombre}
+                                </div>
+                                <div className='ml-8'>{item.snapshot_descripcion}</div>
+                                <div className='ml-8'>
+                                    Valor: {item.moneda === 'CLP' && '$'}
+                                    {(Number(item.precio_unitario_contratado) * item.cantidad).toLocaleString('es-ES')}
+                                    {item.moneda !== 'CLP' && ` ${item.moneda}`}
+                                </div>
+                            </Fragment>
+                        ))
+                    ) : contrato.contrato_servicios.length > 0 ? (
                         contrato.contrato_servicios.map((servicio, index) => (
                             <Fragment key={index}>
                                 <div className='flex items-center gap-4 text-lg font-semibold'>
@@ -98,7 +113,45 @@ function PDFContratoServicios({
                     3.- DESCRIPCION DETALLADA DE PLANES Y SERVICIOS
                 </div>
                 <div className='flex flex-col'>
-                    {contrato.contrato_servicios.length > 0 ? (
+                    {contrato.items_comerciales.length > 0 ? (
+                        contrato.items_comerciales.map((item, index) => (
+                            <div
+                                key={index}
+                                className={classNames(
+                                    index > 0
+                                        ? 'border border-x-black border-b-black p-1'
+                                        : 'border border-black p-1',
+                                )}>
+                                <div>
+                                    <strong>{item.snapshot_nombre}</strong>
+                                    {item.tipo_origen === 'plan' && (
+                                        <span className='ml-1 text-xs text-gray-500'>(Plan)</span>
+                                    )}
+                                </div>
+                                {item.snapshot_descripcion && (
+                                    <div className='ml-4'>{item.snapshot_descripcion}</div>
+                                )}
+                                {item.snapshot_incluye && (
+                                    <div className='ml-4'>
+                                        <strong>Incluye: </strong>{item.snapshot_incluye}
+                                    </div>
+                                )}
+                                {item.snapshot_no_incluye && (
+                                    <div className='ml-4'>
+                                        <strong>No incluye: </strong>{item.snapshot_no_incluye}
+                                    </div>
+                                )}
+                                {item.snapshot_componentes_plan.length > 0 && (
+                                    <div className='ml-4'>
+                                        <strong>Componentes: </strong>
+                                        {item.snapshot_componentes_plan.map((c, ci) => (
+                                            <div key={ci} className='ml-4'>{c.nombre || String(c)}</div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    ) : contrato.contrato_servicios.length > 0 ? (
                         contrato.contrato_servicios.map((servicio, index) => (
                             <Fragment key={index}>
                                 {'servicios' in servicio.servicio_generico ? (

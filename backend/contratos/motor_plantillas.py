@@ -10,7 +10,7 @@ from contratos.models import (
 )
 from contratos.venta_helpers import construir_resumen_venta_contrato
 
-PATRON_ETIQUETA = re.compile(r'\[([a-z_]+)\]')
+PATRON_ETIQUETA = re.compile(r'\[([a-z_.]+)\]')
 
 
 def resolver_valor_etiqueta(clave, contrato, etiquetas_map):
@@ -38,6 +38,10 @@ def resolver_valor_etiqueta(clave, contrato, etiquetas_map):
 
     etiqueta = etiquetas_map.get(clave)
     if not etiqueta or not etiqueta.origen_dato:
+        # Fallback: si la clave contiene punto es una ruta directa (ej: empresa_prestadora.nombre)
+        # usada en plantillas default. Intentar resolverla antes de devolver el literal.
+        if '.' in clave:
+            return _resolver_ruta(contrato, clave)
         return etiqueta.valor_default if etiqueta else f"[{clave}]"
 
     return _resolver_ruta(contrato, etiqueta.origen_dato, etiqueta.valor_default)

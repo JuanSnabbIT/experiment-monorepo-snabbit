@@ -81,12 +81,22 @@ const TabHistorial = ({ contratoId }: ITabHistorialProps) => {
                                         setEventoSeleccionado(evento);
                                         setModalOpen(true);
                                     }}>
-                                    <Badge
-                                        variant='outline'
-                                        color={colorTipo(evento.tipo)}
-                                        className='mt-0.5 shrink-0 text-[10px]'>
-                                        {evento.tipo}
-                                    </Badge>
+                                    <div className='mt-0.5 flex shrink-0 flex-col gap-1'>
+                                        <Badge
+                                            variant='outline'
+                                            color={colorTipo(evento.tipo)}
+                                            className='text-[10px]'>
+                                            {evento.tipo}
+                                        </Badge>
+                                        {evento.solicitado_por_cliente && (
+                                            <Badge
+                                                variant='outline'
+                                                color='amber'
+                                                className='text-[10px]'>
+                                                Cliente
+                                            </Badge>
+                                        )}
+                                    </div>
                                     <div className='min-w-0 flex-1'>
                                         <p className='truncate text-sm font-medium text-zinc-800 dark:text-zinc-200'>
                                             {evento.detalle}

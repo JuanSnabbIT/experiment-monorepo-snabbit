@@ -94,6 +94,21 @@ export const cotizacionApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: ['Cotizaciones'],
         }),
+        getTipoCambio: builder.query<
+            {
+                fecha: string;
+                fecha_dolar: string | null;
+                fecha_uf: string | null;
+                dolar: number;
+                uf: number;
+            },
+            string
+        >({
+            query: (fecha) => ({
+                url: `/api/cotizaciones/tipo-cambio/?fecha=${fecha}`,
+                method: 'get',
+            }),
+        }),
     }),
     overrideExisting: false,
 });
@@ -108,4 +123,5 @@ export const {
     useDeleteSolicitanteCotizacionMutation,
     useCreateSolicitanteExternoMutation,
     useCrearCopiaCotizacionRechazadaMutation,
+    useGetTipoCambioQuery,
 } = cotizacionApi;

@@ -305,6 +305,91 @@ class PlantillaContratoReordenarTest(ContratoAPITestBase):
         self.assertEqual(len(response.data), 0)
 
 
+class PlantillaContratoDefaultEditableTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.plantilla_default = PlantillaContrato.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            titulo="Plantilla Sistema Editable",
+            version=1,
+            activa=True,
+            tipo_contrato="servicios",
+            es_default=True,
+        )
+        self.seccion_a = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla_default,
+            titulo="Seccion A",
+            tipo="clausula",
+            contenido_template="Contenido A",
+            orden=1,
+        )
+        self.seccion_b = SeccionPlantilla.objects.create(
+            plantilla=self.plantilla_default,
+            titulo="Seccion B",
+            tipo="clausula",
+            contenido_template="Contenido B",
+            orden=2,
+        )
+
+    def test_default_permite_editar_plantilla(self):
+        response = self.client.patch(
+            f"/api/plantillas-contrato/{self.plantilla_default.id}/",
+            {"titulo": "Plantilla Sistema Actualizada"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.plantilla_default.refresh_from_db()
+        self.assertEqual(self.plantilla_default.titulo, "Plantilla Sistema Actualizada")
+
+    def test_default_permite_crear_y_editar_seccion(self):
+        crear_response = self.client.post(
+            f"/api/plantillas-contrato/{self.plantilla_default.id}/secciones/",
+            {
+                "titulo": "Seccion Nueva",
+                "tipo": "clausula",
+                "contenido_template": "Texto de prueba",
+                "orden": 3,
+                "es_editable_en_contrato": True,
+                "es_obligatoria": False,
+            },
+            format="json",
+        )
+        self.assertEqual(crear_response.status_code, status.HTTP_201_CREATED)
+
+        seccion_id = crear_response.data["id"]
+        editar_response = self.client.patch(
+            f"/api/plantillas-contrato/{self.plantilla_default.id}/secciones/{seccion_id}/",
+            {"titulo": "Seccion Nueva Editada"},
+            format="json",
+        )
+        self.assertEqual(editar_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(editar_response.data["titulo"], "Seccion Nueva Editada")
+
+    def test_default_permite_eliminar_seccion(self):
+        eliminar_response = self.client.delete(
+            f"/api/plantillas-contrato/{self.plantilla_default.id}/secciones/{self.seccion_a.id}/",
+        )
+        self.assertEqual(eliminar_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(SeccionPlantilla.objects.filter(id=self.seccion_a.id).exists())
+
+    def test_default_permite_reordenar_secciones(self):
+        response = self.client.post(
+            f"/api/plantillas-contrato/{self.plantilla_default.id}/secciones/reordenar/",
+            {
+                "secciones": [
+                    {"id": self.seccion_a.id, "orden": 2},
+                    {"id": self.seccion_b.id, "orden": 1},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.seccion_a.refresh_from_db()
+        self.seccion_b.refresh_from_db()
+        self.assertEqual(self.seccion_a.orden, 2)
+        self.assertEqual(self.seccion_b.orden, 1)
+
+
 class ContratoCRUDTest(ContratoAPITestBase):
     """Tests CRUD básicos."""
 

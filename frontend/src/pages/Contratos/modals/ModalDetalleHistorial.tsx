@@ -35,13 +35,18 @@ const ModalDetalleHistorial = ({
             <ModalHeader>Detalle del evento</ModalHeader>
             <ModalBody>
                 <div className='space-y-3'>
-                    <div className='flex items-center gap-2'>
+                    <div className='flex flex-wrap items-center gap-2'>
                         <Badge variant='outline' color='blue'>
                             {evento.tipo}
                         </Badge>
                         <span className='text-sm text-zinc-500'>
                             {origenLabel(evento.origen)}
                         </span>
+                        {evento.solicitado_por_cliente && (
+                            <Badge variant='outline' color='amber'>
+                                Solicitado por el cliente
+                            </Badge>
+                        )}
                     </div>
 
                     <div>
