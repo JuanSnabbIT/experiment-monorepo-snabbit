@@ -4,11 +4,13 @@ ENV/
 *.sqlite3
 *.sqlite3-journal
 
-**/__pycache__/**
+# Ignorar carpetas de migraciones de Django (excepto archivos versionados)
+**/migrations/
+**/migrations/**
+
 
 **/__pycache__/
-
-**.pyc
+**/*.pyc
 
 /media
 /static
