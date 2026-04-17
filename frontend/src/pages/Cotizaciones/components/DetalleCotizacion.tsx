@@ -490,7 +490,7 @@ const DetalleCotizacion = () => {
             cell: (info) => (
                 <div>
                     <div>{info.row.original.nombre_proveedor || 'Sin Proveedor'}</div>
-                    <div className='text-xs text-gray-500'>
+                    <div className='text-xs text-zinc-500'>
                         Item: {info.row.original.tipo_moneda_label || 'CLP'}
                         {info.row.original.tipo_moneda_proveedor_label
                             ? ` | Proveedor: ${info.row.original.tipo_moneda_proveedor_label}`
@@ -515,7 +515,7 @@ const DetalleCotizacion = () => {
                             info.row.original.precio_unitario,
                             monedaItem,
                         )}
-                        <div className='text-xs text-gray-500'>
+                        <div className='text-xs text-zinc-500'>
                             Venta cotización:{' '}
                             {formatCurrency(
                                 info.row.original.precio_venta_neta_unitario_moneda_base,
@@ -549,7 +549,7 @@ const DetalleCotizacion = () => {
                         info.row.original.costo_total,
                         info.row.original.tipo_moneda || '2',
                     )}
-                    <div className='text-xs text-gray-500'>
+                    <div className='text-xs text-zinc-500'>
                         Total cotización:{' '}
                         {formatCurrency(
                             info.row.original.precio_venta_neta_total_moneda_base,
@@ -987,7 +987,7 @@ const DetalleCotizacion = () => {
                                                                                 .dolar_observado
                                                                         }
                                                                     />
-                                                                    <div className='absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1'>
+                                                                    <div className='absolute right-2 top-1/2 flex -tranzinc-y-1/2 items-center gap-1'>
                                                                         <Tooltip text='Refrescar Dólar ahora'>
                                                                             <Button
                                                                                 variant='default'
@@ -1090,7 +1090,7 @@ const DetalleCotizacion = () => {
                                                                             formik.values.valor_uf
                                                                         }
                                                                     />
-                                                                    <div className='absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1'>
+                                                                    <div className='absolute right-2 top-1/2 flex -tranzinc-y-1/2 items-center gap-1'>
                                                                         <Tooltip text='Refrescar UF ahora'>
                                                                             <Button
                                                                                 variant='default'

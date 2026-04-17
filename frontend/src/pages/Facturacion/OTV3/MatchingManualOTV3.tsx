@@ -654,7 +654,7 @@ const MatchingManualOTV3 = () => {
                     <Button icon='HeroArrowLeft' onClick={() => navigate(-1)}>
                         Volver
                     </Button>
-                    <h1 className='ml-2 text-lg font-bold text-gray-800 dark:text-gray-100'>
+                    <h1 className='ml-2 text-lg font-bold text-zinc-800 dark:text-zinc-100'>
                         Matching Manual - Prefactura OT V3
                     </h1>
                 </SubheaderLeft>
@@ -704,7 +704,7 @@ const MatchingManualOTV3 = () => {
                                 <div>
                                     <Label htmlFor='ots'>OTs por facturar</Label>
                                     {!clienteId ? (
-                                        <p className='mt-2 text-sm text-gray-400'>
+                                        <p className='mt-2 text-sm text-zinc-400'>
                                             Selecciona primero un cliente.
                                         </p>
                                     ) : (
@@ -728,7 +728,7 @@ const MatchingManualOTV3 = () => {
                                                 }
                                             />
                                             {otOptions.length === 0 && !cargandoOts && (
-                                                <p className='mt-2 text-xs text-gray-400'>
+                                                <p className='mt-2 text-xs text-zinc-400'>
                                                     No hay OTs elegibles para este cliente.
                                                 </p>
                                             )}
@@ -740,11 +740,11 @@ const MatchingManualOTV3 = () => {
                                 <div>
                                     <Label htmlFor='contratos'>Contratos (opcional)</Label>
                                     {!clienteId ? (
-                                        <p className='mt-2 text-sm text-gray-400'>
+                                        <p className='mt-2 text-sm text-zinc-400'>
                                             Selecciona un cliente para cargar contratos.
                                         </p>
                                     ) : contratoOptions.length === 0 ? (
-                                        <p className='mt-2 text-sm text-gray-400'>
+                                        <p className='mt-2 text-sm text-zinc-400'>
                                             Este cliente no tiene contratos activos.
                                         </p>
                                     ) : (
@@ -803,7 +803,7 @@ const MatchingManualOTV3 = () => {
                                             }}
                                         />
                                     </div>
-                                    <div className='text-xs text-gray-500 dark:text-gray-400'>
+                                    <div className='text-xs text-zinc-500 dark:text-zinc-400'>
                                         {cargandoTipoCambio && (
                                             <span>Cargando dolar/UF...</span>
                                         )}
@@ -857,7 +857,7 @@ const MatchingManualOTV3 = () => {
                             </CardHeader>
                             <CardBody>
                                 {!comparativaCargada && !cargandoComparativa && (
-                                    <p className='text-sm text-gray-400'>
+                                    <p className='text-sm text-zinc-400'>
                                         Presiona &quot;Calcular&quot; para cargar
                                         la comparativa y los items ejecutados.
                                     </p>
@@ -867,8 +867,8 @@ const MatchingManualOTV3 = () => {
                                     <>
                                         {/* Resumen totales pactado/ejecutado/diferencia */}
                                         <div className='mb-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3'>
-                                            <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
-                                                <p className='mb-1 font-semibold text-gray-500'>
+                                            <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                                                <p className='mb-1 font-semibold text-zinc-500'>
                                                     Pactado
                                                 </p>
                                                 <p className='text-lg font-bold'>
@@ -878,8 +878,8 @@ const MatchingManualOTV3 = () => {
                                                     )}
                                                 </p>
                                             </div>
-                                            <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
-                                                <p className='mb-1 font-semibold text-gray-500'>
+                                            <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                                                <p className='mb-1 font-semibold text-zinc-500'>
                                                     Ejecutado
                                                 </p>
                                                 <p className='text-lg font-bold'>
@@ -889,8 +889,8 @@ const MatchingManualOTV3 = () => {
                                                     )}
                                                 </p>
                                             </div>
-                                            <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
-                                                <p className='mb-1 font-semibold text-gray-500'>
+                                            <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                                                <p className='mb-1 font-semibold text-zinc-500'>
                                                     Diferencia
                                                 </p>
                                                 <p
@@ -916,10 +916,10 @@ const MatchingManualOTV3 = () => {
                                                         : ''
                                                 }>
                                                 {hasVisualCards && (
-                                                    <div className='space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
+                                                    <div className='space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                                         {contractCardsVM.length > 0 && (
                                                             <div>
-                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
                                                                     Contratos
                                                                 </p>
                                                                 <div className='space-y-2 text-xs'>
@@ -928,18 +928,18 @@ const MatchingManualOTV3 = () => {
                                                                         return (
                                                                             <div
                                                                                 key={contrato.id}
-                                                                                className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                                className='rounded border border-zinc-200 p-2 dark:border-zinc-700'>
                                                                                 <div className='mb-1 flex items-center justify-between gap-2'>
-                                                                                    <p className='truncate font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                    <p className='truncate font-semibold text-zinc-700 dark:text-zinc-100'>
                                                                                         {contrato.nombre}
                                                                                     </p>
                                                                                     <Badge color='zinc'>
                                                                                         {contrato.estadoLabel}
                                                                                     </Badge>
                                                                                 </div>
-                                                                                <p className='text-gray-500'>{`Moneda: ${contrato.moneda}`}</p>
-                                                                                <p className='text-gray-500'>{`Dia facturacion: ${contrato.diaFacturacion ?? '-'}`}</p>
-                                                                                <p className='text-gray-500'>{`Visitas base: ${base?.confirmadasMes ?? 0}/${base?.incluidasMes ?? 0}`}</p>
+                                                                                <p className='text-zinc-500'>{`Moneda: ${contrato.moneda}`}</p>
+                                                                                <p className='text-zinc-500'>{`Dia facturacion: ${contrato.diaFacturacion ?? '-'}`}</p>
+                                                                                <p className='text-zinc-500'>{`Visitas base: ${base?.confirmadasMes ?? 0}/${base?.incluidasMes ?? 0}`}</p>
                                                                             </div>
                                                                         );
                                                                     })}
@@ -956,16 +956,16 @@ const MatchingManualOTV3 = () => {
 
                                                         {cotizacionCardsVM.length > 0 && (
                                                             <div>
-                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                                                                <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
                                                                     Cotizaciones
                                                                 </p>
                                                                 <div className='space-y-2 text-xs'>
                                                                     {cotizacionCardsVM.map((cotizacion) => (
                                                                         <div
                                                                             key={cotizacion.id}
-                                                                            className='rounded border border-gray-200 p-2 dark:border-gray-700'>
+                                                                            className='rounded border border-zinc-200 p-2 dark:border-zinc-700'>
                                                                             <div className='mb-1 flex items-center justify-between gap-2'>
-                                                                                <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                                                                <p className='font-semibold text-zinc-700 dark:text-zinc-100'>
                                                                                     {cotizacion.numeroCotizacion
                                                                                         ? `#${cotizacion.numeroCotizacion}`
                                                                                         : `#${cotizacion.id}`}
@@ -974,12 +974,12 @@ const MatchingManualOTV3 = () => {
                                                                                     {cotizacion.estadoLabel}
                                                                                 </Badge>
                                                                             </div>
-                                                                            <p className='truncate text-gray-500'>
+                                                                            <p className='truncate text-zinc-500'>
                                                                                 {cotizacion.nombre}
                                                                             </p>
-                                                                            <p className='text-gray-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
-                                                                            <p className='text-gray-500'>{`Cantidad: ${cotizacion.cantidadTotal}`}</p>
-                                                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                                                            <p className='text-zinc-500'>{`Items: ${cotizacion.cantidadItems}`}</p>
+                                                                            <p className='text-zinc-500'>{`Cantidad: ${cotizacion.cantidadTotal}`}</p>
+                                                                            <p className='font-semibold text-zinc-700 dark:text-zinc-100'>
                                                                                 {formatCurrency(
                                                                                     cotizacion.totalAsociado,
                                                                                     monedaRender,
@@ -1009,7 +1009,7 @@ const MatchingManualOTV3 = () => {
                                                             <Th className='text-right'>
                                                                 Total
                                                             </Th>
-                                                            <Th className='border-l-2 border-gray-300 text-center dark:border-gray-700'>
+                                                            <Th className='border-l-2 border-zinc-300 text-center dark:border-zinc-700'>
                                                                 Facturar
                                                             </Th>
                                                             <Th className='text-right'>
@@ -1062,7 +1062,7 @@ const MatchingManualOTV3 = () => {
                                                                         )}
                                                                     </Td>
                                                                     {/* Matching columns */}
-                                                                    <Td className='border-l-2 border-gray-300 text-center dark:border-gray-700'>
+                                                                    <Td className='border-l-2 border-zinc-300 text-center dark:border-zinc-700'>
                                                                         {isSynthetic ? (
                                                                             <Badge
                                                                                 variant='solid'
@@ -1070,8 +1070,9 @@ const MatchingManualOTV3 = () => {
                                                                                 Exceso
                                                                             </Badge>
                                                                         ) : (
-                                                                            <input
-                                                                                type='checkbox'
+                                                                            <Checkbox
+                                                                                id={`facturar-${key}`}
+                                                                                name={`facturar-${key}`}
                                                                                 checked={
                                                                                     config?.facturar ??
                                                                                     true
@@ -1087,7 +1088,8 @@ const MatchingManualOTV3 = () => {
                                                                                         },
                                                                                     )
                                                                                 }
-                                                                                className='h-4 w-4 cursor-pointer'
+                                                                                className='py-0'
+                                                                                inputClassName='h-4 w-4 cursor-pointer'
                                                                             />
                                                                         )}
                                                                     </Td>
@@ -1100,7 +1102,8 @@ const MatchingManualOTV3 = () => {
                                                                                 )}
                                                                             </div>
                                                                         ) : (
-                                                                            <input
+                                                                            <Input
+                                                                                name={`precio-${key}`}
                                                                                 type='number'
                                                                                 placeholder={
                                                                                     monedaRender === 'CLP'
@@ -1128,7 +1131,7 @@ const MatchingManualOTV3 = () => {
                                                                                         },
                                                                                     )
                                                                                 }
-                                                                                className='w-24 rounded border border-gray-300 px-2 py-1 text-right text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100'
+                                                                                className='w-24 px-2 py-1 text-right text-xs'
                                                                             />
                                                                         )}
                                                                     </Td>
@@ -1155,19 +1158,19 @@ const MatchingManualOTV3 = () => {
                             <CardBody className='space-y-4'>
                                 <div className='grid grid-cols-2 gap-4 text-sm md:grid-cols-4'>
                                     <div>
-                                        <p className='text-xs text-gray-500'>Periodo</p>
+                                        <p className='text-xs text-zinc-500'>Periodo</p>
                                         <p className='font-semibold'>
                                             {visitasPrefactura.periodo}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className='text-xs text-gray-500'>Incluidas/mes</p>
+                                        <p className='text-xs text-zinc-500'>Incluidas/mes</p>
                                         <p className='font-semibold'>
                                             {visitasPrefactura.incluidas_mes}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className='text-xs text-gray-500'>
+                                        <p className='text-xs text-zinc-500'>
                                             Visitas usadas/incluidas
                                         </p>
                                         <p className='font-semibold'>
@@ -1175,7 +1178,7 @@ const MatchingManualOTV3 = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <p className='text-xs text-gray-500'>
+                                        <p className='text-xs text-zinc-500'>
                                             Exceso esta prefactura
                                         </p>
                                         <p
@@ -1187,7 +1190,7 @@ const MatchingManualOTV3 = () => {
 
                                 {/* Marcar OTs con visita */}
                                 <div>
-                                    <p className='mb-2 text-xs font-semibold text-gray-500'>
+                                    <p className='mb-2 text-xs font-semibold text-zinc-500'>
                                         Marcar OTs con visita presencial:
                                     </p>
                                     <div className='flex flex-wrap gap-3'>
@@ -1238,7 +1241,7 @@ const MatchingManualOTV3 = () => {
                                             }
                                             placeholder={monedaRender === 'CLP' ? '$0' : `0 ${monedaRender}`}
                                         />
-                                        <p className='mt-1 text-xs text-gray-400'>
+                                        <p className='mt-1 text-xs text-zinc-400'>
                                             Total exceso:{' '}
                                             {formatCurrency(
                                                 visitasPrefactura.total_exceso,
@@ -1270,11 +1273,11 @@ const MatchingManualOTV3 = () => {
                                             {formatCurrency(totales.totalFacturar, monedaRender)}
                                         </p>
                                     </div>
-                                    <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
-                                        <p className='text-xs font-semibold text-gray-500'>
+                                    <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                                        <p className='text-xs font-semibold text-zinc-500'>
                                             Total excluido
                                         </p>
-                                        <p className='text-lg font-bold text-gray-400'>
+                                        <p className='text-lg font-bold text-zinc-400'>
                                             {formatCurrency(totales.totalExcluido, monedaRender)}
                                         </p>
                                     </div>
@@ -1295,7 +1298,7 @@ const MatchingManualOTV3 = () => {
 
                                 {/* OTs incluidas */}
                                 <div>
-                                    <p className='mb-1 text-xs font-semibold text-gray-500'>
+                                    <p className='mb-1 text-xs font-semibold text-zinc-500'>
                                         OTs incluidas
                                     </p>
                                     <div className='flex flex-wrap gap-1'>

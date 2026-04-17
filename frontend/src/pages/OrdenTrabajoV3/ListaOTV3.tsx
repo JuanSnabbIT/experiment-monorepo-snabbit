@@ -70,13 +70,13 @@ const ListaOTV3 = () => {
             header: 'N°',
             size: 60,
             cell: (info) => (
-                <span className='font-bold text-gray-500 dark:text-gray-400'>#{info.getValue()}</span>
+                <span className='font-bold text-zinc-500 dark:text-zinc-400'>#{info.getValue()}</span>
             ),
         }),
         columnHelper.accessor('titulo', {
             header: 'Titulo',
             cell: (info) => (
-                <span className='font-semibold text-gray-800 dark:text-gray-200'>{info.getValue()}</span>
+                <span className='font-semibold text-zinc-800 dark:text-zinc-200'>{info.getValue()}</span>
             ),
         }),
         columnHelper.accessor('cliente_nombre', {
@@ -120,7 +120,7 @@ const ListaOTV3 = () => {
             id: 'progreso',
             header: 'Tareas',
             cell: ({ row }) => (
-                <span className='text-sm text-gray-500'>
+                <span className='text-sm text-zinc-500'>
                     {row.original.tareas_completadas}/{row.original.total_tareas}
                 </span>
             ),
@@ -178,7 +178,7 @@ const ListaOTV3 = () => {
                 <Card>
                     <CardBody className='overflow-auto'>
                         {isLoading ? (
-                            <div className='py-10 text-center text-gray-400'>Cargando...</div>
+                            <div className='py-10 text-center text-zinc-400'>Cargando...</div>
                         ) : (
                             <Table>
                                 <THead>
@@ -202,7 +202,7 @@ const ListaOTV3 = () => {
                                 <TBody>
                                     {table.getRowModel().rows.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={columns.length} className='py-8 text-center text-gray-400'>
+                                            <Td colSpan={columns.length} className='py-8 text-center text-zinc-400'>
                                                 No hay ordenes de trabajo registradas.
                                             </Td>
                                         </Tr>
@@ -210,7 +210,7 @@ const ListaOTV3 = () => {
                                         table.getRowModel().rows.map((row) => (
                                             <Tr
                                                 key={row.id}
-                                                className='cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                                className='cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
                                                 onClick={() => navigate(`/orden-trabajo-v3/${row.original.id}`)}
                                             >
                                                 {row.getVisibleCells().map((cell) => (

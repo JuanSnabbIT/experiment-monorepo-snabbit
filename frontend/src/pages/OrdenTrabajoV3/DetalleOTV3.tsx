@@ -209,7 +209,7 @@ const DetalleOTV3 = () => {
         return (
             <PageWrapper>
                 <Container>
-                    <div className='flex items-center justify-center py-20 text-gray-400'>
+                    <div className='flex items-center justify-center py-20 text-zinc-400'>
                         Cargando detalle...
                     </div>
                 </Container>
@@ -221,7 +221,7 @@ const DetalleOTV3 = () => {
         return (
             <PageWrapper>
                 <Container>
-                    <div className='flex items-center justify-center py-20 text-gray-400'>
+                    <div className='flex items-center justify-center py-20 text-zinc-400'>
                         Orden no encontrada.
                     </div>
                 </Container>
@@ -246,7 +246,7 @@ const DetalleOTV3 = () => {
                         onClick={() => navigate('/orden-trabajo-v3/lista')}>
                         Volver
                     </Button>
-                    <h1 className='ml-2 text-lg font-bold text-gray-800 dark:text-gray-100'>
+                    <h1 className='ml-2 text-lg font-bold text-zinc-800 dark:text-zinc-100'>
                         {orden.titulo}
                     </h1>
                     <Badge color={COLOR_ESTADO[orden.estado] as any} className='ml-2'>
@@ -275,7 +275,7 @@ const DetalleOTV3 = () => {
                     <Card className='mb-6'>
                         <CardHeader>
                             <CardHeaderChild>
-                                <span className='font-semibold text-gray-700 dark:text-gray-200'>
+                                <span className='font-semibold text-zinc-700 dark:text-zinc-200'>
                                     Progreso
                                 </span>
                             </CardHeaderChild>
@@ -290,7 +290,7 @@ const DetalleOTV3 = () => {
                                 {/* Fila de circulos + linea de progreso */}
                                 <div className='relative isolate flex items-center justify-between'>
                                     {/* Linea base (gris) */}
-                                    <div className='absolute left-0 right-0 top-5 h-0.5 bg-gray-200 dark:bg-gray-700' />
+                                    <div className='absolute left-0 right-0 top-5 h-0.5 bg-zinc-200 dark:bg-zinc-700' />
                                     {/* Linea de progreso (animada) */}
                                     <div
                                         className='absolute left-0 top-5 h-0.5 bg-emerald-400 transition-all duration-500 dark:bg-emerald-500'
@@ -311,7 +311,7 @@ const DetalleOTV3 = () => {
                                                             ? 'bg-emerald-500 text-white ring-emerald-300 dark:ring-emerald-700'
                                                             : isActive
                                                               ? 'bg-blue-600 text-white ring-blue-300 dark:ring-blue-800'
-                                                              : 'bg-white text-gray-400 ring-gray-200 dark:bg-gray-900 dark:text-gray-500 dark:ring-gray-700',
+                                                              : 'bg-white text-zinc-400 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-500 dark:ring-zinc-700',
                                                     ].join(' ')}>
                                                     {isDone ? (
                                                         <svg
@@ -337,11 +337,11 @@ const DetalleOTV3 = () => {
                                                             ? 'text-blue-600 dark:text-blue-400'
                                                             : isDone
                                                               ? 'text-emerald-600 dark:text-emerald-400'
-                                                              : 'text-gray-400 dark:text-gray-500',
+                                                              : 'text-zinc-400 dark:text-zinc-500',
                                                     ].join(' ')}>
                                                     {step.label}
                                                 </span>
-                                                <span className='mt-0.5 text-xs text-gray-400 dark:text-gray-500'>
+                                                <span className='mt-0.5 text-xs text-zinc-400 dark:text-zinc-500'>
                                                     {step.desc}
                                                 </span>
                                             </div>

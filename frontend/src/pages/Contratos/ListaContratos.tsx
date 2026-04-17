@@ -339,10 +339,11 @@ const ListaContratos = () => {
                             <CardBody>
                                 <div className='flex flex-wrap gap-3'>
                                     {metricas.contratos_por_vencer.map((c) => (
-                                        <button
+                                        <Button
                                             key={c.id}
-                                            type='button'
-                                            className='cursor-pointer'
+                                            variant='default'
+                                            size='xs'
+                                            className='!px-0 cursor-pointer'
                                             onClick={() =>
                                                 navigate(
                                                     Pages.empresa.subPages.detalleContrato.to
@@ -353,7 +354,7 @@ const ListaContratos = () => {
                                             <Badge color='red' variant='outline'>
                                                 {c.nombre} — {c.cliente} ({c.dias_restantes}d)
                                             </Badge>
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </CardBody>

@@ -121,7 +121,7 @@ const DetalleOT = () => {
         emptyLabel: string = 'Sin informacion',
     ) => {
         if (!detalle) {
-            return <p className='text-sm text-gray-500 dark:text-gray-400'>{emptyLabel}</p>;
+            return <p className='text-sm text-zinc-500 dark:text-zinc-400'>{emptyLabel}</p>;
         }
 
         const partes = detalle
@@ -130,7 +130,7 @@ const DetalleOT = () => {
             .filter(Boolean);
 
         if (partes.length === 0) {
-            return <p className='text-sm text-gray-500 dark:text-gray-400'>{emptyLabel}</p>;
+            return <p className='text-sm text-zinc-500 dark:text-zinc-400'>{emptyLabel}</p>;
         }
 
         return (
@@ -788,7 +788,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Fecha de Inicio</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_inicio_ot ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_inicio_ot ? 'italic text-zinc-400 dark:text-zinc-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.fecha_inicio_ot
                                                     ? dayjs(
                                                           detalleOrdenTrabajo?.fecha_inicio_ot,
@@ -799,7 +799,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Fecha de Finalización</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_finalizacion_ot ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.fecha_finalizacion_ot ? 'italic text-zinc-400 dark:text-zinc-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.fecha_finalizacion_ot
                                                     ? dayjs(
                                                           detalleOrdenTrabajo?.fecha_finalizacion_ot,
@@ -816,7 +816,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Responsable</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_responsable ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_responsable ? 'italic text-zinc-400 dark:text-zinc-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.nombre_responsable ||
                                                     'Por confirmar'}
                                             </div>
@@ -824,7 +824,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Solicitante</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_solicitante ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.nombre_solicitante ? 'italic text-zinc-400 dark:text-zinc-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.nombre_solicitante ||
                                                     'Por confirmar'}
                                             </div>
@@ -832,7 +832,7 @@ const DetalleOT = () => {
                                         <div className='w-full'>
                                             <Badge>Contrato</Badge>
                                             <div
-                                                className={`ml-4 ${!detalleOrdenTrabajo?.contrato_nombre ? 'italic text-gray-400 dark:text-gray-400' : ''}`}>
+                                                className={`ml-4 ${!detalleOrdenTrabajo?.contrato_nombre ? 'italic text-zinc-400 dark:text-zinc-400' : ''}`}>
                                                 {detalleOrdenTrabajo?.contrato_nombre ||
                                                     'Sin contrato'}
                                             </div>

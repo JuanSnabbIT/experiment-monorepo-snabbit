@@ -74,7 +74,7 @@ function DetalleOCAgrupada() {
                     </Button>
                     {ocAgrupada && (
                         <div className='flex items-center gap-3'>
-                            <span className='text-lg font-bold text-gray-700 dark:text-gray-200'>
+                            <span className='text-lg font-bold text-zinc-700 dark:text-zinc-200'>
                                 OC Agrupada {ocAgrupada.codigo}
                             </span>
                             <Badge
@@ -103,11 +103,11 @@ function DetalleOCAgrupada() {
 
             <Container className='h-full w-full'>
                 {isLoading && (
-                    <div className='py-12 text-center text-gray-400'>Cargando...</div>
+                    <div className='py-12 text-center text-zinc-400'>Cargando...</div>
                 )}
 
                 {!isLoading && !ocAgrupada && (
-                    <div className='py-12 text-center text-gray-400'>
+                    <div className='py-12 text-center text-zinc-400'>
                         No se encontró la OC Agrupada.
                     </div>
                 )}
@@ -122,10 +122,10 @@ function DetalleOCAgrupada() {
                             <CardBody>
                                 <dl className='grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-4'>
                                     <div>
-                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                        <dt className='text-zinc-500 dark:text-zinc-400'>
                                             Cliente
                                         </dt>
-                                        <dd className='flex items-center gap-2 font-semibold text-gray-800 dark:text-gray-100'>
+                                        <dd className='flex items-center gap-2 font-semibold text-zinc-800 dark:text-zinc-100'>
                                             {ocAgrupada.nombre_cliente ?? '—'}
                                             {ocAgrupada.es_prospecto && (
                                                 <Badge color='amber' variant='outline'>
@@ -135,42 +135,43 @@ function DetalleOCAgrupada() {
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                        <dt className='text-zinc-500 dark:text-zinc-400'>
                                             Empresa
                                         </dt>
-                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                        <dd className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                             {ocAgrupada.nombre_empresa ?? '—'}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                        <dt className='text-zinc-500 dark:text-zinc-400'>
                                             Creada el
                                         </dt>
-                                        <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                        <dd className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                             {dayjs(ocAgrupada.fecha_creacion).format('DD/MM/YYYY')}
                                         </dd>
                                     </div>
                                     <div>
-                                        <dt className='text-gray-500 dark:text-gray-400'>
+                                        <dt className='text-zinc-500 dark:text-zinc-400'>
                                             Cotizaciones vinculadas
                                         </dt>
                                         <dd className='flex flex-wrap gap-1 pt-1'>
                                             {ocAgrupada.cotizaciones_detalle?.length ? (
                                                 ocAgrupada.cotizaciones_detalle.map((cot) => (
-                                                    <button
+                                                    <Button
                                                         key={cot.id}
-                                                        type='button'
+                                                        size='xs'
+                                                        variant='outline'
                                                         onClick={() =>
                                                             navigate(
                                                                 `/cotizacion/detalle-cotizacion/${cot.numero_cotizacion}`,
                                                             )
                                                         }
-                                                        className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50'>
+                                                        className='font-medium text-blue-700 dark:text-blue-300'>
                                                         #{cot.numero_cotizacion} {cot.nombre}
-                                                    </button>
+                                                    </Button>
                                                 ))
                                             ) : (
-                                                <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                <span className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                                     Sin cotizaciones
                                                 </span>
                                             )}
@@ -178,10 +179,10 @@ function DetalleOCAgrupada() {
                                     </div>
                                     {ocAgrupada.observaciones && (
                                         <div className='col-span-2 md:col-span-4'>
-                                            <dt className='text-gray-500 dark:text-gray-400'>
+                                            <dt className='text-zinc-500 dark:text-zinc-400'>
                                                 Observaciones
                                             </dt>
-                                            <dd className='font-semibold text-gray-800 dark:text-gray-100'>
+                                            <dd className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                                 {ocAgrupada.observaciones}
                                             </dd>
                                         </div>
@@ -199,7 +200,7 @@ function DetalleOCAgrupada() {
                             </CardHeader>
                             <CardBody>
                                 {!ocAgrupada.grupos_proveedor?.length ? (
-                                    <div className='py-6 text-center text-gray-400'>
+                                    <div className='py-6 text-center text-zinc-400'>
                                         Sin grupos de proveedor creados.
                                     </div>
                                 ) : (
@@ -222,29 +223,30 @@ function DetalleOCAgrupada() {
                                                     return (
                                                         <Tr key={grupo.id}>
                                                             <Td>
-                                                                <span className='font-mono text-sm text-gray-600 dark:text-gray-400'>
+                                                                <span className='font-mono text-sm text-zinc-600 dark:text-zinc-400'>
                                                                     {grupo.codigo}
                                                                 </span>
                                                             </Td>
                                                             <Td>
-                                                                <span className='font-semibold text-gray-700 dark:text-gray-300'>
+                                                                <span className='font-semibold text-zinc-700 dark:text-zinc-300'>
                                                                     {grupo.nombre_proveedor}
                                                                 </span>
                                                             </Td>
                                                             <Td>
                                                                 {grupo.relacion_cotizacion_numero ? (
-                                                                    <button
-                                                                        type='button'
+                                                                    <Button
+                                                                        size='xs'
+                                                                        variant='outline'
                                                                         onClick={() =>
                                                                             navigate(
                                                                                 `/cotizacion/detalle-cotizacion/${grupo.relacion_cotizacion_numero}`,
                                                                             )
                                                                         }
-                                                                        className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+                                                                        className='font-medium text-blue-700 dark:text-blue-300'>
                                                                         #{grupo.relacion_cotizacion_numero}
-                                                                    </button>
+                                                                    </Button>
                                                                 ) : (
-                                                                    <span className='text-gray-400'>—</span>
+                                                                    <span className='text-zinc-400'>—</span>
                                                                 )}
                                                             </Td>
                                                             <Td>
@@ -257,7 +259,7 @@ function DetalleOCAgrupada() {
                                                                 </Badge>
                                                             </Td>
                                                             <Td>
-                                                                <span className='text-gray-500'>
+                                                                <span className='text-zinc-500'>
                                                                     {grupo.fecha_compra
                                                                         ? dayjs(
                                                                               grupo.fecha_compra,

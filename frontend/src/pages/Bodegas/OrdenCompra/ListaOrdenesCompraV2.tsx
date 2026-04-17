@@ -107,13 +107,13 @@ function ListaOrdenesCompraV2() {
     const columns = [
         columnHelper.accessor('codigo', {
             cell: (info) => (
-                <div className='font-bold text-gray-600 dark:text-gray-400'>{info.getValue()}</div>
+                <div className='font-bold text-zinc-600 dark:text-zinc-400'>{info.getValue()}</div>
             ),
             header: 'Codigo',
         }),
         columnHelper.accessor('nombre_proveedor', {
             cell: (info) => (
-                <div className='font-semibold text-gray-700 dark:text-gray-300'>
+                <div className='font-semibold text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -121,7 +121,7 @@ function ListaOrdenesCompraV2() {
         }),
         columnHelper.accessor('nombre_cliente', {
             cell: (info) => (
-                <div className='font-semibold text-gray-700 dark:text-gray-300'>
+                <div className='font-semibold text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -129,7 +129,7 @@ function ListaOrdenesCompraV2() {
         }),
         columnHelper.accessor('fecha_creacion', {
             cell: (info) => (
-                <div className='text-gray-500'>
+                <div className='text-zinc-500'>
                     {dayjs(info.row.original.fecha_creacion).format('DD/MM/YYYY')}
                 </div>
             ),

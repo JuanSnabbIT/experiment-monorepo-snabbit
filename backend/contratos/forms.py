@@ -1,6 +1,74 @@
 from django import forms
 from django.contrib.contenttypes.models import ContentType
-from contratos.models import ContratoServicio, Servicio, PlanServicio
+from contratos.models import (
+    ContratoServicio,
+    Servicio,
+    PlanServicio,
+    ContratoLicencia,
+    UsuarioVinculadoLicencia,
+)
+from empresas.models import UsuarioEmpresa
+from contratos.models import CorreoPersonaLicenciataria
+
+
+class UsuarioVinculadoLicenciaForm(forms.ModelForm):
+    class Meta:
+        model = UsuarioVinculadoLicencia
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        licencia_id = None
+        if self.instance and self.instance.pk:
+            licencia_id = self.instance.licencia_id
+        elif 'licencia' in self.data:
+            licencia_id = self.data.get('licencia')
+        elif 'licencia' in self.initial:
+            licencia_id = self.initial.get('licencia')
+
+        if licencia_id:
+            try:
+                licencia_id = int(licencia_id)
+            except (TypeError, ValueError):
+                licencia_id = None
+
+        if licencia_id:
+            licencia = ContratoLicencia.objects.filter(pk=licencia_id).select_related(
+                'contrato__empresa_cliente'
+            ).first()
+            if licencia and licencia.contrato and licencia.contrato.empresa_cliente_id:
+                empresa = licencia.contrato.empresa_cliente
+                self.fields['usuario'].queryset = UsuarioEmpresa.objects.filter(
+                    sucursal__empresa=empresa
+                )
+                self.fields['correo_persona'].queryset = CorreoPersonaLicenciataria.objects.filter(
+                    empresa=empresa
+                )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        licencia = cleaned_data.get('licencia')
+        usuario = cleaned_data.get('usuario')
+        correo_persona = cleaned_data.get('correo_persona')
+
+        if licencia and licencia.contrato and licencia.contrato.empresa_cliente_id:
+            empresa = licencia.contrato.empresa_cliente
+
+            if usuario and usuario.sucursal.empresa_id != empresa.id:
+                self.add_error(
+                    'usuario',
+                    'El usuario debe pertenecer a la empresa cliente de la licencia.'
+                )
+
+            if correo_persona and correo_persona.empresa_id != empresa.id:
+                self.add_error(
+                    'correo_persona',
+                    'El correo asignado debe pertenecer a la empresa cliente de la licencia.'
+                )
+
+        return cleaned_data
+
 
 class ContratoServicioForm(forms.ModelForm):
     """

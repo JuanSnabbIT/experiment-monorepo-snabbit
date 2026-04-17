@@ -3,6 +3,7 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Card, { CardBody } from '@/components/ui/Card';
 import { useGetAdjuntosQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -28,15 +29,16 @@ function VistaPreviaAdjunto() {
                 </SubheaderLeft>
             </Subheader>
             <Container className='h-full w-full'>
-                <div className='h-full w-full'>
-                    {detalleAdjunto && (
-                        <iframe
-                            src={detalleAdjunto.archivo.replaceAll('http://', 'https://')}
-                            // src={detalleAdjunto.archivo}
-                            className='h-full w-full'
-                        />
-                    )}
-                </div>
+                <Card className='h-full w-full'>
+                    <CardBody className='h-full w-full'>
+                        {detalleAdjunto && (
+                            <iframe
+                                src={detalleAdjunto.archivo.replaceAll('http://', 'https://')}
+                                className='h-full w-full'
+                            />
+                        )}
+                    </CardBody>
+                </Card>
             </Container>
         </PageWrapper>
     );

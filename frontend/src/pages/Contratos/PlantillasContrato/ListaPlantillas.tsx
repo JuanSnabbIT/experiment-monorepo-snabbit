@@ -116,16 +116,17 @@ const ListaPlantillas = () => {
                                                 <Tr key={plantilla.id}>
                                                     <Td>
                                                         <div className='flex flex-col gap-1'>
-                                                            <button
-                                                                type='button'
-                                                                className='text-left font-semibold text-blue-600 hover:underline dark:text-blue-300'
+                                                            <Button
+                                                                size='xs'
+                                                                variant='default'
+                                                                className='!px-0 text-left font-semibold text-blue-600 hover:underline dark:text-blue-300'
                                                                 onClick={() =>
                                                                     navigate(
                                                                         `/registros/plantillas-contrato/${plantilla.id}`,
                                                                     )
                                                                 }>
                                                                 {plantilla.titulo}
-                                                            </button>
+                                                            </Button>
                                                             <span className='text-xs text-zinc-500'>
                                                                 {plantilla.descripcion ||
                                                                     'Sin descripcion.'}

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 from unittest.mock import patch
 from cuentas.models import User
+from contratos.forms import UsuarioVinculadoLicenciaForm
 from contratos.models import (
     ContratoEmpresaCliente,
     ContratoVisita,
@@ -385,6 +386,47 @@ class ContratoLicenciaModelTest(TestCase):
             ).count(),
             2,
         )
+
+    def test_form_filtra_usuario_y_correo_por_empresa_de_licencia(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia_catalogo,
+            tipo_modalidad="anual",
+            cantidad=2,
+            fecha_inicio=date.today(),
+        )
+
+        otra_empresa = Empresa.objects.create(nombre="Otra Empresa")
+        otra_sucursal = SucursalEmpresa.objects.create(
+            nombre="Otra Sucursal",
+            empresa=otra_empresa,
+        )
+        otro_usuario = User.objects.create_user(
+            email="otro@test.com",
+            password="testpass123",
+            first_name="Otro",
+            last_name="Usuario",
+        )
+        usuario_empresa_otro = UsuarioEmpresa.objects.create(
+            usuario=otro_usuario,
+            sucursal=otra_sucursal,
+        )
+        correo_otro = CorreoPersonaLicenciataria.objects.create(
+            empresa=otra_empresa,
+            correo="otro@empresa.com",
+        )
+
+        form = UsuarioVinculadoLicenciaForm(
+            data={
+                'licencia': contrato_licencia.pk,
+                'usuario': usuario_empresa_otro.pk,
+                'correo_persona': correo_otro.pk,
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('usuario', form.errors)
+        self.assertIn('correo_persona', form.errors)
 
 
 class NotificacionVentanaLicenciaTaskTest(TestCase):

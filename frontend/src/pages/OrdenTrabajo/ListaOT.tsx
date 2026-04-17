@@ -49,14 +49,14 @@ const ListaOT = () => {
     const columns = [
         columnHelper.accessor('id', {
             cell: (info) => (
-                <div className='font-bold text-gray-600 dark:text-gray-400'>{info.getValue()}</div>
+                <div className='font-bold text-zinc-600 dark:text-zinc-400'>{info.getValue()}</div>
             ),
             header: 'N°',
             size: 20,
         }),
         columnHelper.accessor('tipo_servicio_label', {
             cell: (info) => (
-                <div className='font-semibold text-gray-700 dark:text-gray-300'>
+                <div className='font-semibold text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -64,7 +64,7 @@ const ListaOT = () => {
         }),
         columnHelper.accessor('empresa_nombre', {
             cell: (info) => (
-                <div className='font-medium text-gray-700 dark:text-gray-300'>
+                <div className='font-medium text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -72,7 +72,7 @@ const ListaOT = () => {
         }),
         columnHelper.accessor('cliente_nombre', {
             cell: (info) => (
-                <div className='font-medium text-gray-700 dark:text-gray-300'>
+                <div className='font-medium text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -83,8 +83,8 @@ const ListaOT = () => {
                 <div
                     className={
                         !info.row.original.fecha_inicio_ot
-                            ? 'italic text-gray-400'
-                            : 'text-gray-500'
+                            ? 'italic text-zinc-400'
+                            : 'text-zinc-500'
                     }>
                     {info.row.original.fecha_inicio_ot
                         ? dayjs(info.row.original.fecha_inicio_ot).format('DD/MM/YYYY')
@@ -98,8 +98,8 @@ const ListaOT = () => {
                 <div
                     className={
                         !info.row.original.fecha_finalizacion_ot
-                            ? 'italic text-gray-400'
-                            : 'text-gray-500'
+                            ? 'italic text-zinc-400'
+                            : 'text-zinc-500'
                     }>
                     {info.row.original.fecha_finalizacion_ot
                         ? dayjs(info.row.original.fecha_finalizacion_ot).format('DD/MM/YYYY')

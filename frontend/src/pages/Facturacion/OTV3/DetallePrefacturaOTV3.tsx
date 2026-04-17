@@ -324,7 +324,7 @@ const DetallePrefacturaOTV3 = () => {
                     <Button icon='HeroArrowLeft' onClick={() => navigate(-1)}>
                         Volver
                     </Button>
-                    <h1 className='ml-2 text-lg font-bold text-gray-800 dark:text-gray-100'>
+                    <h1 className='ml-2 text-lg font-bold text-zinc-800 dark:text-zinc-100'>
                         Detalle Prefactura OT V3 #{prefacturaId}
                     </h1>
                 </SubheaderLeft>
@@ -339,9 +339,9 @@ const DetallePrefacturaOTV3 = () => {
 
             <Container>
                 {isLoading ? (
-                    <div className='py-20 text-center text-sm text-gray-400'>Cargando detalle...</div>
+                    <div className='py-20 text-center text-sm text-zinc-400'>Cargando detalle...</div>
                 ) : !prefactura ? (
-                    <div className='py-20 text-center text-sm text-gray-400'>No se encontró la prefactura.</div>
+                    <div className='py-20 text-center text-sm text-zinc-400'>No se encontró la prefactura.</div>
                 ) : (
                     <div className='space-y-6'>
                         <Card className='border-blue-200 dark:border-blue-700'>
@@ -359,8 +359,8 @@ const DetallePrefacturaOTV3 = () => {
                                         </Badge>
                                     </div>
 
-                                    <p className='text-xs text-gray-500'>{nextStepMessage}</p>
-                                    <p className='mb-1 text-xs text-gray-500'>Fecha prefactura</p>
+                                    <p className='text-xs text-zinc-500'>{nextStepMessage}</p>
+                                    <p className='mb-1 text-xs text-zinc-500'>Fecha prefactura</p>
                                     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
                                         <div>
                                             <Input
@@ -388,8 +388,9 @@ const DetallePrefacturaOTV3 = () => {
                                 </div>
 
                                 <div className='space-y-2'>
-                                    <p className='text-xs text-gray-500'>Documento de factura</p>
-                                    <input
+                                    <p className='text-xs text-zinc-500'>Documento de factura</p>
+                                    <Input
+                                        name='documento_factura_otv3'
                                         type='file'
                                         accept='application/pdf,image/*'
                                         onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
@@ -407,7 +408,7 @@ const DetallePrefacturaOTV3 = () => {
                                             : 'Adjuntar documento y facturar'}
                                     </Button>
                                     {!canSubirDocumento && (
-                                        <p className='text-xs text-gray-400'>
+                                        <p className='text-xs text-zinc-400'>
                                             Debes pasar la prefactura a "Por facturar" antes de subir documento.
                                         </p>
                                     )}
@@ -423,26 +424,26 @@ const DetallePrefacturaOTV3 = () => {
                                 </CardHeader>
                                 <CardBody className='space-y-4'>
                                     {visitasInfo && (
-                                        <div className='rounded-lg border border-gray-200 p-3 dark:border-gray-700'>
+                                        <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                             <div className='grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4'>
                                                 <div>
-                                                    <p className='text-xs text-gray-500'>Periodo visitas</p>
+                                                    <p className='text-xs text-zinc-500'>Periodo visitas</p>
                                                     <p className='font-semibold'>{visitasInfo.periodo}</p>
                                                 </div>
                                                 <div>
-                                                    <p className='text-xs text-gray-500'>Usadas / incluidas</p>
+                                                    <p className='text-xs text-zinc-500'>Usadas / incluidas</p>
                                                     <p className='font-semibold'>
                                                         {visitasInfo.proyectadasMes}/{visitasInfo.incluidasMes}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className='text-xs text-gray-500'>Visitas cobrables</p>
+                                                    <p className='text-xs text-zinc-500'>Visitas cobrables</p>
                                                     <p className='font-semibold text-red-600 dark:text-red-400'>
                                                         {visitasInfo.excesoCobrable}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className='text-xs text-gray-500'>Monto exceso</p>
+                                                    <p className='text-xs text-zinc-500'>Monto exceso</p>
                                                     <p className='font-semibold text-red-600 dark:text-red-400'>
                                                         {formatCurrency(visitasInfo.totalExceso, monedaPrefactura)}
                                                     </p>
@@ -466,7 +467,7 @@ const DetallePrefacturaOTV3 = () => {
                                     )}
 
                                     {itemsFacturables.length === 0 ? (
-                                        <p className='text-sm text-gray-400'>No hay ítems en esta prefactura.</p>
+                                        <p className='text-sm text-zinc-400'>No hay ítems en esta prefactura.</p>
                                     ) : (
                                         <Table>
                                             <THead>
@@ -519,20 +520,20 @@ const DetallePrefacturaOTV3 = () => {
                                 <CardBody className='space-y-4'>
                                     <div className='grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 xl:grid-cols-1'>
                                         <div>
-                                            <p className='text-xs text-gray-500'>Cliente</p>
-                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                            <p className='text-xs text-zinc-500'>Cliente</p>
+                                            <p className='font-semibold text-zinc-700 dark:text-zinc-100'>
                                                 {prefactura.cliente_nombre ?? `Cliente #${prefactura.cliente}`}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className='text-xs text-gray-500'>Moneda</p>
-                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                            <p className='text-xs text-zinc-500'>Moneda</p>
+                                            <p className='font-semibold text-zinc-700 dark:text-zinc-100'>
                                                 {monedaPrefactura}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className='text-xs text-gray-500'>Creación</p>
-                                            <p className='font-semibold text-gray-700 dark:text-gray-100'>
+                                            <p className='text-xs text-zinc-500'>Creación</p>
+                                            <p className='font-semibold text-zinc-700 dark:text-zinc-100'>
                                                 {prefactura.fecha_creacion
                                                     ? dayjs(prefactura.fecha_creacion).format('DD/MM/YYYY HH:mm')
                                                     : '-'}
@@ -541,26 +542,26 @@ const DetallePrefacturaOTV3 = () => {
                                     </div>
 
                                     <div className='grid grid-cols-1 gap-3 text-sm sm:grid-cols-3 xl:grid-cols-1'>
-                                        <div className='rounded-md bg-gray-50 p-2 dark:bg-gray-800/60'>
-                                            <p className='text-xs text-gray-500'>Total ítems</p>
+                                        <div className='rounded-md bg-zinc-50 p-2 dark:bg-zinc-800/60'>
+                                            <p className='text-xs text-zinc-500'>Total ítems</p>
                                             <p className='font-semibold'>{resumenFinanciero.totalItems}</p>
                                         </div>
                                         <div className='rounded-md bg-emerald-50 p-2 dark:bg-emerald-900/20'>
-                                            <p className='text-xs text-gray-500'>Total a facturar</p>
+                                            <p className='text-xs text-zinc-500'>Total a facturar</p>
                                             <p className='font-semibold text-emerald-600 dark:text-emerald-400'>
                                                 {formatCurrency(resumenFinanciero.totalFacturar, monedaPrefactura)}
                                             </p>
                                         </div>
-                                        <div className='rounded-md bg-gray-50 p-2 dark:bg-gray-800/60'>
-                                            <p className='text-xs text-gray-500'>Total excluido</p>
-                                            <p className='font-semibold text-gray-600 dark:text-gray-300'>
+                                        <div className='rounded-md bg-zinc-50 p-2 dark:bg-zinc-800/60'>
+                                            <p className='text-xs text-zinc-500'>Total excluido</p>
+                                            <p className='font-semibold text-zinc-600 dark:text-zinc-300'>
                                                 {formatCurrency(resumenFinanciero.totalExcluidos, monedaPrefactura)}
                                             </p>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <p className='mb-2 text-xs font-semibold text-gray-500'>OTs vinculadas</p>
+                                        <p className='mb-2 text-xs font-semibold text-zinc-500'>OTs vinculadas</p>
                                         {otsVinculadas.length > 0 ? (
                                             <div className='flex flex-wrap gap-2'>
                                                 {otsVinculadas.map((ot) => (
@@ -570,12 +571,12 @@ const DetallePrefacturaOTV3 = () => {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className='text-sm text-gray-400'>Sin OTs vinculadas.</p>
+                                            <p className='text-sm text-zinc-400'>Sin OTs vinculadas.</p>
                                         )}
                                     </div>
 
                                     <div>
-                                        <p className='mb-2 text-xs font-semibold text-gray-500'>Contratos vinculados</p>
+                                        <p className='mb-2 text-xs font-semibold text-zinc-500'>Contratos vinculados</p>
                                         {contratosVinculados.length > 0 ? (
                                             <div className='flex flex-wrap gap-2'>
                                                 {contratosVinculados.map((contrato) => (
@@ -585,14 +586,14 @@ const DetallePrefacturaOTV3 = () => {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className='text-sm text-gray-400'>Sin contratos vinculados.</p>
+                                            <p className='text-sm text-zinc-400'>Sin contratos vinculados.</p>
                                         )}
                                     </div>
 
                                     {prefactura.comentario && (
                                         <div>
-                                            <p className='mb-1 text-xs font-semibold text-gray-500'>Comentario interno</p>
-                                            <p className='text-sm text-gray-600 dark:text-gray-200'>
+                                            <p className='mb-1 text-xs font-semibold text-zinc-500'>Comentario interno</p>
+                                            <p className='text-sm text-zinc-600 dark:text-zinc-200'>
                                                 {prefactura.comentario}
                                             </p>
                                         </div>

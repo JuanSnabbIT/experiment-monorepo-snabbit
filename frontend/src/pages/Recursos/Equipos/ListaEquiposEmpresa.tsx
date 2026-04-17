@@ -307,7 +307,7 @@ function ListaEquiposEmpresa() {
                                         //     <Tr>
                                         //         <Td colSpan={columns.length} className="text-center">
                                         //             <div className="flex flex-col items-center justify-center">
-                                        //                 <Icon icon="HeroFaceSmile" className="mb-2 text-green-800" size="text-6xl"/>
+                                        //                 <Icon icon="HeroFaceSmile" className="mb-2 text-emerald-800" size="text-6xl"/>
                                         //                 <Badge className="text-xl">Primero debe seleccionar un cliente para ver los equipos.</Badge>
                                         //             </div>
                                         //         </Td>

@@ -597,16 +597,17 @@ const DetalleContrato = () => {
                                             <span className='font-bold text-blue-500'>
                                                 Renovación de:{' '}
                                             </span>
-                                            <button
-                                                type='button'
-                                                className='text-blue-600 underline hover:text-blue-800'
+                                            <Button
+                                                variant='default'
+                                                size='xs'
+                                                className='!px-0 text-blue-600 underline hover:text-blue-800'
                                                 onClick={() =>
                                                     navigate(
                                                         `/empresa/detalle-cliente/${clienteId}/contrato/${contrato.contrato_anterior_detalle!.id}`,
                                                     )
                                                 }>
                                                 {contrato.contrato_anterior_detalle.nombre} #{contrato.contrato_anterior_detalle.id}
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
 
@@ -618,16 +619,17 @@ const DetalleContrato = () => {
                                             {contrato.renovaciones_detalle.map((r, idx) => (
                                                 <span key={r.id}>
                                                     {idx > 0 && ', '}
-                                                    <button
-                                                        type='button'
-                                                        className='text-blue-600 underline hover:text-blue-800'
+                                                    <Button
+                                                        variant='default'
+                                                        size='xs'
+                                                        className='!px-0 text-blue-600 underline hover:text-blue-800'
                                                         onClick={() =>
                                                             navigate(
                                                                 `/empresa/detalle-cliente/${clienteId}/contrato/${r.id}`,
                                                             )
                                                         }>
                                                         {r.nombre} #{r.id}
-                                                    </button>
+                                                    </Button>
                                                 </span>
                                             ))}
                                         </div>

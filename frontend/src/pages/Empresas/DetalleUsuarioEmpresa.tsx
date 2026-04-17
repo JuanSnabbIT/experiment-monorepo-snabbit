@@ -1,6 +1,7 @@
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
+import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -74,6 +75,11 @@ function DetalleUsuarioEmpresa() {
 
     return (
         <PageWrapper isProtectedRoute={true} name='Detalle Usuario' title='Detalle Usuario'>
+            <Subheader>
+                <SubheaderLeft>
+                    <h2 className='text-xl font-semibold'>Detalle de usuario</h2>
+                </SubheaderLeft>
+            </Subheader>
             <Container className='flex h-full w-full flex-col gap-4'>
                 <div className='w-full'>
                     <Card>

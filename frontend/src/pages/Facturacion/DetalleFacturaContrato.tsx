@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+import Input from '@/components/form/Input';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -314,7 +315,8 @@ const DetalleFacturaContrato = () => {
                         Selecciona el archivo de factura emitido externamente. Al confirmar, la
                         prefactura pasará automáticamente al estado <strong>Facturado</strong>.
                     </p>
-                    <input
+                    <Input
+                        name='documento_factura'
                         type='file'
                         accept='.pdf,.xml,.jpg,.jpeg,.png'
                         onChange={(e) => setArchivoSeleccionado(e.target.files?.[0] ?? null)}

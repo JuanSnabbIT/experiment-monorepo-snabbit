@@ -141,7 +141,7 @@ const DetalleRendicion = () => {
         onSubmit: async (values) => {
             try {
                 if (!detalleRendicion?.id) {
-                    toast.error('No se encontró la rendición');
+                    toast.error('No se encontrÃ³ la rendiciÃ³n');
                     return;
                 }
                 await updateRendicion({
@@ -151,13 +151,13 @@ const DetalleRendicion = () => {
                         observaciones: values.observaciones,
                     },
                 }).unwrap();
-                toast.success('Rendición editada', { autoClose: 1000 });
+                toast.success('RendiciÃ³n editada', { autoClose: 1000 });
                 formik.resetForm();
                 setEditando(false);
             } catch (error: unknown) {
                 const mensajesError = getErrorMessage(error);
-                toast.error(mensajesError || 'Error al editar la rendición', {
-                    toastId: 'Error al editar la rendición',
+                toast.error(mensajesError || 'Error al editar la rendiciÃ³n', {
+                    toastId: 'Error al editar la rendiciÃ³n',
                 });
             }
         },
@@ -226,7 +226,7 @@ const DetalleRendicion = () => {
                 }
                 return info.getValue();
             },
-            header: 'N°',
+            header: 'NÂ°',
             size: 20,
         }),
         columnHelper.display({
@@ -264,7 +264,7 @@ const DetalleRendicion = () => {
                 const detObj = original.detalle_data;
                 
                 if (original.is_subitem) {
-                    // Para sub-items (items de compra), mostrar la categoría del item
+                    // Para sub-items (items de compra), mostrar la categorÃ­a del item
                     return <div>{detObj?.nombre_categoria || '-'}</div>;
                 }
                 
@@ -393,8 +393,8 @@ const DetalleRendicion = () => {
                                 onClick={async () => {
                                     if (!detalleRendicion?.id) return;
                                     const isConfirmed = await confirmAlert({
-                                        title: '¿Eliminar item?',
-                                        text: 'Esta acción no se puede deshacer',
+                                        title: 'Â¿Eliminar item?',
+                                        text: 'Esta acciÃ³n no se puede deshacer',
                                         icon: 'warning',
                                         confirmText: 'Eliminar',
                                     });
@@ -445,7 +445,7 @@ const DetalleRendicion = () => {
     }, [detalleRendicion]);
 
     return (
-        <PageWrapper isProtectedRoute={true} name='Detalle Rendición' title='Detalle Rendición'>
+        <PageWrapper isProtectedRoute={true} name='Detalle RendiciÃ³n' title='Detalle RendiciÃ³n'>
             <Subheader>
                 <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
@@ -565,7 +565,7 @@ const DetalleRendicion = () => {
                                 {editando ? (
                                     <>
                                         <div>
-                                            <Badge className='text-zinc-700 dark:text-zinc-300'>Fecha de la Rendición</Badge>
+                                            <Badge className='text-zinc-700 dark:text-zinc-300'>Fecha de la RendiciÃ³n</Badge>
                                             <Validation
                                                 isValid={formik.isValid}
                                                 isTouched={formik.touched.fecha_rendicion}
@@ -600,7 +600,7 @@ const DetalleRendicion = () => {
                                 ) : (
                                     <>
                                         <div className='w-full'>
-                                            <Badge>Fecha de la Rendición</Badge>
+                                            <Badge>Fecha de la RendiciÃ³n</Badge>
                                             <div className='ml-4'>
                                                 {detalleRendicion?.fecha_rendicion
                                                     ? dayjs(
@@ -638,7 +638,7 @@ const DetalleRendicion = () => {
                                         <div className='w-full'>
                                             <Badge>Orden de Trabajo</Badge>
                                             <div className='ml-4 flex items-center gap-2'>
-                                                <span className='font-semibold text-slate-700'>
+                                                <span className='font-semibold text-zinc-700'>
                                                     {detalleRendicion?.orden_trabajo
                                                         ? `OT #${detalleRendicion.orden_trabajo}`
                                                         : 'Sin OT asociada'}
@@ -665,19 +665,19 @@ const DetalleRendicion = () => {
                         </CardBody>
                     </Card>
 
-                    {/* FASE 2: Card de Revisión (Aprobación/Rechazo) */}
+                    {/* FASE 2: Card de RevisiÃ³n (AprobaciÃ³n/Rechazo) */}
                     {(detalleRendicion?.estado === '2' || detalleRendicion?.estado === '3' || detalleRendicion?.estado === '4') && (
                         <Card>
                             <CardHeader>
                                 <CardHeaderChild>
                                     <Badge className='text-xl'>
-                                        {detalleRendicion?.estado === '3' ? 'Información de Rechazo' : 'Información de Revisión'}
+                                        {detalleRendicion?.estado === '3' ? 'InformaciÃ³n de Rechazo' : 'InformaciÃ³n de RevisiÃ³n'}
                                     </Badge>
                                 </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
                                 <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                                    {/* Revisado por - aplica para aprobación (2, 4) y rechazo (3) */}
+                                    {/* Revisado por - aplica para aprobaciÃ³n (2, 4) y rechazo (3) */}
                                     <div className='w-full'>
                                         <Badge>{detalleRendicion?.estado === '3' ? 'Rechazada Por' : 'Aprobada Por'}</Badge>
                                         <div className='ml-4'>
@@ -686,7 +686,7 @@ const DetalleRendicion = () => {
                                     </div>
 
                                     <div className='w-full'>
-                                        <Badge>{detalleRendicion?.estado === '3' ? 'Fecha de Rechazo' : 'Fecha de Aprobación'}</Badge>
+                                        <Badge>{detalleRendicion?.estado === '3' ? 'Fecha de Rechazo' : 'Fecha de AprobaciÃ³n'}</Badge>
                                         <div className='ml-4'>
                                             {detalleRendicion?.fecha_revision
                                                 ? dayjs(detalleRendicion.fecha_revision).format('DD/MM/YYYY HH:mm')
@@ -711,7 +711,7 @@ const DetalleRendicion = () => {
                     <Card>
                         <CardHeader>
                             <CardHeaderChild>
-                                <Badge className='text-xl'>Items de la Rendición</Badge>
+                                <Badge className='text-xl'>Items de la RendiciÃ³n</Badge>
                             </CardHeaderChild>
                             <CardHeaderChild>
                                 <div className='flex items-center justify-between'>
@@ -799,21 +799,21 @@ const DetalleRendicion = () => {
                                                                             className='text-emerald-600 dark:text-emerald-400'
                                                                             size='text-lg'
                                                                         />
-                                                                        <span className='text-base font-bold text-slate-800 dark:text-zinc-100'>
+                                                                        <span className='text-base font-bold text-zinc-800 dark:text-zinc-100'>
                                                                             Compra{' '}
                                                                             {compra.codigo ||
                                                                                 `#${compra.id}`}
                                                                         </span>
                                                                     </div>
 
-                                                                    <div className='h-6 w-px bg-slate-300' />
+                                                                    <div className='h-6 w-px bg-zinc-300' />
 
                                                                     <div className='flex flex-wrap items-center gap-4 text-xs'>
                                                                         <div className='flex flex-col'>
-                                                                            <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                            <span className='text-[10px] uppercase tracking-wide text-zinc-500'>
                                                                                 Items
                                                                             </span>
-                                                                            <span className='text-sm font-bold text-slate-700'>
+                                                                            <span className='text-sm font-bold text-zinc-700'>
                                                                                 {
                                                                                     (
                                                                                         compra.items ||
@@ -823,10 +823,10 @@ const DetalleRendicion = () => {
                                                                             </span>
                                                                         </div>
                                                                         <div className='flex flex-col'>
-                                                                            <span className='text-[10px] uppercase tracking-wide text-slate-500'>
+                                                                            <span className='text-[10px] uppercase tracking-wide text-zinc-500'>
                                                                                 Total
                                                                             </span>
-                                                                            <span className='text-sm font-bold text-slate-700'>
+                                                                            <span className='text-sm font-bold text-zinc-700'>
                                                                                 $
                                                                                 {(
                                                                                     compra.total_compra ||
@@ -870,7 +870,7 @@ const DetalleRendicion = () => {
                                                     className={
                                                         original.is_subitem
                                                             ? 'border-l-2 border-blue-300 bg-blue-50/60 hover:bg-blue-100/70'
-                                                            : 'hover:bg-gray-50 dark:hover:bg-zinc-800'
+                                                            : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
                                                     }>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <Td
@@ -895,12 +895,12 @@ const DetalleRendicion = () => {
                             </div>
                         </CardBody>
                         <div className='px-4 pb-4'>
-                            <div className='flex justify-end gap-6 border-t border-slate-200 pt-4'>
+                            <div className='flex justify-end gap-6 border-t border-zinc-200 pt-4'>
                                 <div className='text-right'>
-                                    <div className='text-[11px] uppercase tracking-wide text-slate-400'>
+                                    <div className='text-[11px] uppercase tracking-wide text-zinc-400'>
                                         Total rendido
                                     </div>
-                                    <div className='text-lg font-semibold text-slate-800'>
+                                    <div className='text-lg font-semibold text-zinc-800'>
                                         {formatCurrency(detalleRendicion?.total)}
                                     </div>
                                 </div>
@@ -935,7 +935,7 @@ const DetalleRendicion = () => {
                         <>
                             <div className='grid grid-cols-2 gap-4'>
                                 <div>
-                                    <Badge>Código</Badge>
+                                    <Badge>CÃ³digo</Badge>
                                     <div className='ml-4'>{selectedCompra.codigo}</div>
                                 </div>
                                 <div>
@@ -958,7 +958,7 @@ const DetalleRendicion = () => {
                                                 .locale('es')
                                                 .format('DD/MM/YYYY')
                                         ) : (
-                                            <span className='italic text-gray-400 dark:text-gray-300'>Sin fecha</span>
+                                            <span className='italic text-zinc-400 dark:text-zinc-300'>Sin fecha</span>
                                         )}
                                     </div>
                                 </div>
@@ -977,7 +977,7 @@ const DetalleRendicion = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>Descripción</Badge>
+                                    <Badge>DescripciÃ³n</Badge>
                                     <div className='ml-4'>
                                         {selectedCompra.observaciones || '-'}
                                     </div>
@@ -986,91 +986,91 @@ const DetalleRendicion = () => {
                             <div className='col-span-2 mt-4'>
                                 <div className='mb-3 flex items-center justify-between'>
                                     <Badge className='text-base'>Items de la Compra</Badge>
-                                    <span className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                    <span className='text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                         {itemsCompra.length} item
                                         {itemsCompra.length !== 1 ? 's' : ''}
                                     </span>
                                 </div>
-                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800'>
+                                <div className='mt-2 max-h-64 overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800'>
                                     {cargandoItems ? (
                                         <div className='flex items-center justify-center py-8'>
-                                            <div className='text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                            <div className='text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                                 Cargando items...
                                             </div>
                                         </div>
                                     ) : itemsCompra.length > 0 ? (
                                         <div className='overflow-x-auto'>
-                                            <table className='min-w-full divide-y divide-gray-200 dark:divide-zinc-700'>
-                                                <thead className='bg-gray-100 dark:bg-zinc-800'>
-                                                    <tr>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                            <Table className='min-w-full divide-y divide-zinc-200 dark:divide-zinc-700'>
+                                                <THead className='bg-zinc-100 dark:bg-zinc-800'>
+                                                    <Tr>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Nombre
-                                                        </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                        </Th>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Cantidad
-                                                        </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                        </Th>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Precio Unitario
-                                                        </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                        </Th>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Devuelto
-                                                        </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                        </Th>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Usado
-                                                        </th>
-                                                        <th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300'>
+                                                        </Th>
+                                                        <Th className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300'>
                                                             Subtotal
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className='divide-y divide-gray-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
+                                                        </Th>
+                                                    </Tr>
+                                                </THead>
+                                                <TBody className='divide-y divide-zinc-200 dark:divide-zinc-700 bg-white dark:bg-zinc-900'>
                                                     {itemsCompra.map((item, idx) => (
-                                                        <tr
+                                                        <Tr
                                                             key={item.id}
                                                             className={
                                                                 idx % 2 === 0
                                                                     ? 'bg-white dark:bg-zinc-900'
-                                                                    : 'bg-gray-50 dark:bg-zinc-800'
+                                                                    : 'bg-zinc-50 dark:bg-zinc-800'
                                                             }>
-                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                            <Td className='px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100'>
                                                                 {item.nombre_item}
-                                                            </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                            </Td>
+                                                            <Td className='px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100'>
                                                                 {item.cantidad}
-                                                            </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                            </Td>
+                                                            <Td className='px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100'>
                                                                 $
                                                                 {item.precio.toLocaleString(
                                                                     'es-CL',
                                                                 )}
-                                                            </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                            </Td>
+                                                            <Td className='px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100'>
                                                                 {item.cantidad_devuelta ?? 0}
-                                                            </td>
-                                                            <td className='px-4 py-3 text-sm text-gray-900 dark:text-gray-100'>
+                                                            </Td>
+                                                            <Td className='px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100'>
                                                                 {item.cantidad_usada ?? 0}
                                                                 {item.estado_uso_label
                                                                     ? ` (${item.estado_uso_label})`
                                                                     : ''}
-                                                            </td>
-                                                            <td className='px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100'>
+                                                            </Td>
+                                                            <Td className='px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
                                                                 $
                                                                 {(
                                                                     item.cantidad * item.precio
                                                                 ).toLocaleString('es-CL')}
-                                                            </td>
-                                                        </tr>
+                                                            </Td>
+                                                        </Tr>
                                                     ))}
-                                                </tbody>
-                                            </table>
+                                                </TBody>
+                                            </Table>
                                         </div>
                                     ) : (
                                         <div className='flex flex-col items-center justify-center py-8'>
-                                            <span className='mb-2 text-4xl'>📦</span>
-                                            <p className='text-sm font-medium text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                            <span className='mb-2 text-4xl'>ðŸ“¦</span>
+                                            <p className='text-sm font-medium text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                                 No hay items registrados
                                             </p>
-                                            <p className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                            <p className='text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                                 Esta compra no tiene items asociados
                                             </p>
                                         </div>

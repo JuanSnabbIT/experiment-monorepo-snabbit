@@ -252,19 +252,19 @@ export default DetalleEquipoEmpresa;
 //                                             height: '200px',
 //                                             border: '1px solid #e5e7eb',
 //                                         }}>
-//                                         <div className="text-lg font-semibold text-gray-700 dark:text-gray-300">{user.nombre_usuario}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Tipo de Equipo:</strong> {user.datos_equipo.tipo_equipo_label}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Marca:</strong> {user.datos_equipo.marca_label}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Tipo de Procesador:</strong> {user.datos_equipo.tipo_procesador_label}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Fecha de Asignación:</strong> {dayjs(user.fecha_asignacion).format('DD/MM/YYYY')}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Fecha de Devolución:</strong> {user.fecha_devolucion ? dayjs(user.fecha_devolucion).format('DD/MM/YYYY') : 'N/A'}</div>
-//                                         <div className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300"><strong>Observaciones:</strong> {user.observaciones}</div>
+//                                         <div className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">{user.nombre_usuario}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Tipo de Equipo:</strong> {user.datos_equipo.tipo_equipo_label}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Marca:</strong> {user.datos_equipo.marca_label}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Tipo de Procesador:</strong> {user.datos_equipo.tipo_procesador_label}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Fecha de Asignación:</strong> {dayjs(user.fecha_asignacion).format('DD/MM/YYYY')}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Fecha de Devolución:</strong> {user.fecha_devolucion ? dayjs(user.fecha_devolucion).format('DD/MM/YYYY') : 'N/A'}</div>
+//                                         <div className="text-sm text-zinc-500 dark:text-zinc-400 dark:text-zinc-300"><strong>Observaciones:</strong> {user.observaciones}</div>
 //                                     </div>
 //                                 </SwiperSlide>
 //                             ))}
 //                     </Swiper>
 //                 ) : (
-//                     <div className="text-center text-gray-500 dark:text-gray-400 dark:text-gray-300">No hay usuarios asignados</div>
+//                     <div className="text-center text-zinc-500 dark:text-zinc-400 dark:text-zinc-300">No hay usuarios asignados</div>
 //                 )}
 //             </div>
 //             {/* {detalleEquipoEmpresa.asignado_a && typeof(detalleEquipoEmpresa.datos_asignado_a) != "string" ? (

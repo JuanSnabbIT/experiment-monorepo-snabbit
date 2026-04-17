@@ -56,7 +56,7 @@ function ListaOCsAgrupadas() {
     const columns = [
         columnHelper.accessor('codigo', {
             cell: (info) => (
-                <span className='font-bold text-gray-600 dark:text-gray-400'>
+                <span className='font-bold text-zinc-600 dark:text-zinc-400'>
                     {info.getValue()}
                 </span>
             ),
@@ -67,7 +67,7 @@ function ListaOCsAgrupadas() {
             header: 'Cliente',
             cell: (info) => (
                 <div className='flex items-center gap-2'>
-                    <span className='font-semibold text-gray-700 dark:text-gray-300'>
+                    <span className='font-semibold text-zinc-700 dark:text-zinc-300'>
                         {info.row.original.nombre_cliente ?? '—'}
                     </span>
                     {info.row.original.es_prospecto && (
@@ -82,7 +82,7 @@ function ListaOCsAgrupadas() {
             id: 'grupos',
             header: 'Grupos proveedor',
             cell: (info) => (
-                <span className='text-gray-500'>
+                <span className='text-zinc-500'>
                     {info.row.original.grupos_proveedor?.length ?? 0} grupo(s)
                 </span>
             ),
@@ -100,7 +100,7 @@ function ListaOCsAgrupadas() {
         }),
         columnHelper.accessor('fecha_creacion', {
             cell: (info) => (
-                <span className='text-gray-500'>
+                <span className='text-zinc-500'>
                     {dayjs(info.getValue()).format('DD/MM/YYYY')}
                 </span>
             ),
@@ -157,7 +157,7 @@ function ListaOCsAgrupadas() {
                 <Card>
                     <CardBody className='z-0'>
                         {isLoading ? (
-                            <div className='py-8 text-center text-gray-400'>Cargando...</div>
+                            <div className='py-8 text-center text-zinc-400'>Cargando...</div>
                         ) : (
                             <div className='overflow-auto'>
                                 <Table className='min-w-[800px] table-fixed'>

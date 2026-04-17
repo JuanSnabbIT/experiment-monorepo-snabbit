@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.contenttypes.models import ContentType
-from .forms import ContratoServicioForm
+from .forms import ContratoServicioForm, UsuarioVinculadoLicenciaForm
 from empresas.models import UsuarioEmpresa
 from contratos.models import (
     ContratoEmpresaCliente,
@@ -146,6 +146,7 @@ class ContratoEmpresaClienteAdmin(admin.ModelAdmin):
 # ---------- ContratoLicencia Admin ----------
 class UsuarioVinculadoLicenciaInline(admin.TabularInline):
     model = UsuarioVinculadoLicencia
+    form = UsuarioVinculadoLicenciaForm
     extra = 1
     fields = ['usuario', 'correo_persona', 'nombre', 'correo_generico', 'fecha_asignacion']
     readonly_fields = ['fecha_asignacion']
@@ -256,6 +257,7 @@ class UsuarioVinculadoContratoAdmin(admin.ModelAdmin):
 
 @admin.register(UsuarioVinculadoLicencia)
 class UsuarioVinculadoLicenciaAdmin(admin.ModelAdmin):
+    form = UsuarioVinculadoLicenciaForm
     list_display = ('licencia', 'correo_persona', 'usuario', 'fecha_asignacion')
     list_filter = ('fecha_asignacion',)
     search_fields = ('usuario__usuario__email', 'correo_persona__correo', 'nombre')

@@ -395,7 +395,7 @@ const DetalleFactura = () => {
                     <div className='w-full space-y-1'>
                         <div className='flex items-start gap-2'>
                             <div className='flex-1 overflow-hidden'>
-                                <div className='truncate text-sm font-medium text-gray-900 dark:text-gray-100'>
+                                <div className='truncate text-sm font-medium text-zinc-900 dark:text-zinc-100'>
                                     {descripcion}
                                 </div>
                             </div>
@@ -421,8 +421,8 @@ const DetalleFactura = () => {
 
                         {/* Contenido expandible con la info adicional (usando campos del JSON) */}
                         {isExpanded && (
-                            <div className='space-y-2 border-t border-gray-300 dark:border-zinc-700 pt-2 text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300 dark:border-gray-600 dark:border-zinc-500'>
-                                <div className='font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200'>
+                            <div className='space-y-2 border-t border-zinc-300 dark:border-zinc-700 pt-2 text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300 dark:border-zinc-600 dark:border-zinc-500'>
+                                <div className='font-semibold text-zinc-700 dark:text-zinc-300 dark:text-zinc-200'>
                                     {detalles}
                                 </div>
                                 {/* Comentario mostrado en la tabla; no repetir en el área expandida */}
@@ -444,10 +444,10 @@ const DetalleFactura = () => {
         columnHelper.accessor('precio_ajustado', {
             cell: (info) => {
                 const val = Number(info.getValue() ?? 0);
-                if (val === 0) return <div className='text-center text-gray-400 dark:text-gray-300'>—</div>;
+                if (val === 0) return <div className='text-center text-zinc-400 dark:text-zinc-300'>—</div>;
                 const formatted = `$${Math.ceil(val).toLocaleString('es-CL')}`;
                 return (
-                    <div className='font-mono text-sm font-semibold text-green-600'>
+                    <div className='font-mono text-sm font-semibold text-emerald-600'>
                         {formatted}
                     </div>
                 );
@@ -471,7 +471,7 @@ const DetalleFactura = () => {
         }),
         columnHelper.accessor('comentario', {
             cell: (info) => (
-                <div className='max-w-xs truncate text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                <div className='max-w-xs truncate text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                     {info.getValue() || '—'}
                 </div>
             ),
@@ -559,23 +559,23 @@ const DetalleFactura = () => {
             const usuarios = (item as any).usuarios_asignados || [];
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
+                    <div className='font-semibold text-zinc-800 dark:text-zinc-100 dark:text-zinc-200'>
                         Usuarios Asignados ({usuarios.length})
                     </div>
                     {usuarios.length === 0 ? (
-                        <div className='text-xs text-gray-500 dark:text-gray-400 dark:text-gray-300'>Sin usuarios asignados</div>
+                        <div className='text-xs text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>Sin usuarios asignados</div>
                     ) : (
                         <div className='space-y-1'>
                             {usuarios.map((usuario: any, idx: number) => (
                                 <div
                                     key={usuario.id || idx}
-                                    className='flex items-center justify-between gap-1 rounded border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-1 text-xs dark:border-gray-700 dark:bg-gray-800'>
+                                    className='flex items-center justify-between gap-1 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-1 text-xs dark:border-zinc-700 dark:bg-zinc-800'>
                                     <div>
-                                        <div className='font-medium text-gray-700 dark:text-gray-300'>
+                                        <div className='font-medium text-zinc-700 dark:text-zinc-300'>
                                             {usuario.nombre_usuario}
                                         </div>
                                         {usuario.numero_serie_equipo && (
-                                            <div className='text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                            <div className='text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                                 📱 {usuario.numero_serie_equipo}
                                             </div>
                                         )}
@@ -597,10 +597,10 @@ const DetalleFactura = () => {
             const guiaId = (item as any).parent_id ?? (item as any).guia_id ?? '?';
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
+                    <div className='font-semibold text-zinc-800 dark:text-zinc-100 dark:text-zinc-200'>
                         Items en Guía ({cantItems})
                     </div>
-                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                    <div className='text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                         Guía de Salida #{guiaId} con {cantItems} items
                     </div>
                 </div>
@@ -609,10 +609,10 @@ const DetalleFactura = () => {
             const cantDetalles = (item as any).cantidad_detalles || 0;
             return (
                 <div className='space-y-1 text-sm'>
-                    <div className='font-semibold text-gray-800 dark:text-gray-100 dark:text-gray-200'>
+                    <div className='font-semibold text-zinc-800 dark:text-zinc-100 dark:text-zinc-200'>
                         Detalles de Rendición ({cantDetalles})
                     </div>
-                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                    <div className='text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                         Rendición #{(item as any).parent_id ?? (item as any).rendicion_id} con{' '}
                         {cantDetalles} líneas
                     </div>
@@ -705,7 +705,7 @@ const DetalleFactura = () => {
                 {loading ? (
                     <Card>
                         <CardBody>
-                            <div className='py-12 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                            <div className='py-12 text-center text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                 Cargando factura...
                             </div>
                         </CardBody>
@@ -713,7 +713,7 @@ const DetalleFactura = () => {
                 ) : !factura ? (
                     <Card>
                         <CardBody>
-                            <div className='py-12 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                            <div className='py-12 text-center text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                 Prefactura no encontrada.
                             </div>
                         </CardBody>
@@ -731,15 +731,15 @@ const DetalleFactura = () => {
                             <CardBody>
                                 <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                        <div className='text-sm font-semibold uppercase text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                             Cliente
                                         </div>
-                                        <div className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                        <div className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
                                             {factura.cliente_nombre || 'Sin nombre'}
                                         </div>
                                     </div>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                        <div className='text-sm font-semibold uppercase text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                             Estado
                                         </div>
                                         <div className='mt-1'>
@@ -747,10 +747,10 @@ const DetalleFactura = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <div className='text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                                        <div className='text-sm font-semibold uppercase text-zinc-500 dark:text-zinc-400 dark:text-zinc-300'>
                                             Fecha creación
                                         </div>
-                                        <div className='text-lg text-gray-700 dark:text-gray-300'>
+                                        <div className='text-lg text-zinc-700 dark:text-zinc-300'>
                                             {factura.fecha_creacion
                                                 ? dayjs(factura.fecha_creacion).format(
                                                       'DD/MM/YYYY HH:mm',
@@ -787,17 +787,17 @@ const DetalleFactura = () => {
                                             {resumen?.total_items ?? items.length}
                                         </div>
                                     </div>
-                                    <button
-                                        type='button'
+                                    <Button
+                                        variant='default'
                                         onClick={() => setIsOtsModalOpen(true)}
-                                        className='rounded-lg bg-purple-50 p-4 text-left transition hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40'>
-                                        <div className='text-sm font-semibold uppercase text-purple-600 dark:text-purple-400'>
+                                        className='rounded-lg bg-violet-50 p-4 text-left transition hover:bg-violet-100 dark:bg-violet-900/20 dark:hover:bg-violet-900/40'>
+                                        <div className='text-sm font-semibold uppercase text-violet-600 dark:text-violet-400'>
                                             OTs incluidas
                                         </div>
-                                        <div className='mt-1 text-2xl font-bold text-purple-900 dark:text-purple-100'>
+                                        <div className='mt-1 text-2xl font-bold text-violet-900 dark:text-violet-100'>
                                             {otsIncluidas.length}
                                         </div>
-                                    </button>
+                                    </Button>
                                 </div>
                             </CardBody>
                         </Card>
@@ -844,12 +844,12 @@ const DetalleFactura = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className='mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 p-4 text-sm dark:bg-gray-900/40'>
-                                        <div className='text-gray-700 dark:text-gray-300'>
+                                    <div className='mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-zinc-50 p-4 text-sm dark:bg-zinc-900/40'>
+                                        <div className='text-zinc-700 dark:text-zinc-300'>
                                             Período {visitas.periodo ?? '-'} | Proyección{' '}
                                             {(visitas.proyectadas_mes ?? 0)}/{visitas.incluidas_mes ?? 0}
                                         </div>
-                                        <div className='font-semibold text-gray-900 dark:text-gray-100'>
+                                        <div className='font-semibold text-zinc-900 dark:text-zinc-100'>
                                             Total adicional:{' '}
                                             {`$${Number(visitas.total_exceso ?? 0).toLocaleString('es-CL')}`}
                                         </div>
@@ -877,10 +877,10 @@ const DetalleFactura = () => {
                                                     className='size-8 text-emerald-600 dark:text-emerald-400'
                                                 />
                                                 <div className='flex-1'>
-                                                    <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                                                    <div className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
                                                         Documento asociado
                                                     </div>
-                                                    <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                                    <div className='text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                                         {typeof factura.documento_factura === 'string'
                                                             ? factura.documento_factura.split('/').pop() || 'documento'
                                                             : 'Documento vinculado'}
@@ -918,10 +918,10 @@ const DetalleFactura = () => {
                                                 className='size-8 text-amber-600 dark:text-amber-400'
                                             />
                                             <div>
-                                                <div className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                                                <div className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
                                                     Sin documento asociado
                                                 </div>
-                                                <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                                <div className='text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                                     Adjunta el documento de factura para completar el proceso
                                                 </div>
                                             </div>
@@ -939,7 +939,7 @@ const DetalleFactura = () => {
                             </CardHeader>
                             <CardBody>
                                 {items.length === 0 ? (
-                                    <div className='py-8 text-center text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                    <div className='py-8 text-center text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                         No hay items en esta prefactura.
                                     </div>
                                 ) : (
@@ -1016,20 +1016,20 @@ const DetalleFactura = () => {
                 </ModalHeader>
                 <ModalBody>
                     {otsIncluidas.length === 0 ? (
-                        <div className='py-6 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                        <div className='py-6 text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                             No hay OTs incluidas en esta prefactura.
                         </div>
                     ) : otsLoading ? (
-                        <div className='py-6 text-sm text-gray-600 dark:text-gray-400 dark:text-gray-300'>Cargando OTs...</div>
+                        <div className='py-6 text-sm text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>Cargando OTs...</div>
                     ) : (
                         <div className='space-y-3'>
                             {otsIncluidas.map((otId) => (
                                 <div
                                     key={otId}
-                                    className='flex items-center justify-between rounded border border-gray-200 dark:border-zinc-700 bg-gradient-to-r from-purple-50 to-white p-3'>
+                                    className='flex items-center justify-between rounded border border-zinc-200 dark:border-zinc-700 bg-gradient-to-r from-violet-50 to-white p-3'>
                                     <div className='space-y-1'>
-                                        <div className='font-semibold text-gray-800 dark:text-gray-100'>OT #{otId}</div>
-                                        <div className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300'>
+                                        <div className='font-semibold text-zinc-800 dark:text-zinc-100'>OT #{otId}</div>
+                                        <div className='text-xs text-zinc-600 dark:text-zinc-400 dark:text-zinc-300'>
                                             {otsInfo[otId]?.cliente_nombre || 'Cliente no disponible'}
                                         </div>
                                         <div className='flex flex-wrap items-center gap-2 text-xs'>

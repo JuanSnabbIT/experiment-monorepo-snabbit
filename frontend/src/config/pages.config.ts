@@ -97,7 +97,7 @@ export const Pages = {
                 id: 'detalleUsuarioEmpresa',
                 to: '/empresa/detalle-usuario-empresa/:id',
                 text: 'Detalle Usuario Empresa',
-                icon: 'DuoGroup',
+                icon: 'HeroUserGroup',
                 authority: ['staff', 'superadmin'],
             },
             // listaClientes:{
@@ -330,7 +330,7 @@ export const Pages = {
                 id: 'detalleBodega',
                 to: '/bodega/detalle-bodega/:id',
                 text: 'Detalle Bodega',
-                icon: 'DuoSafe',
+                icon: 'HeroBuildingStorefront',
                 authority: ['staff', 'superadmin'],
             },
             detalleGuiaSalidaBodega: {
@@ -410,7 +410,7 @@ export const Pages = {
                 id: 'detalleVisitaSoporte',
                 to: '/orden-trabajo/detalle-visita-soporte/:id',
                 text: 'Detalle Visita Soporte',
-                icon: 'DuoMailbox',
+                icon: 'HeroEnvelope',
                 authority: ['staff', 'superadmin'],
             },
             agregarItemsACompraDT: {

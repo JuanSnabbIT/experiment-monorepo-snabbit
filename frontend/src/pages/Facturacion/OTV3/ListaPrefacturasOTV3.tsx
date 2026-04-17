@@ -25,7 +25,7 @@ const ListaPrefacturasOTV3 = () => {
         <PageWrapper>
             <Subheader>
                 <SubheaderLeft>
-                    <h1 className='text-lg font-bold text-gray-800 dark:text-gray-100'>
+                    <h1 className='text-lg font-bold text-zinc-800 dark:text-zinc-100'>
                         Prefacturas OT V3
                     </h1>
                 </SubheaderLeft>
@@ -47,11 +47,11 @@ const ListaPrefacturasOTV3 = () => {
                     </CardHeader>
                     <CardBody>
                         {isLoading ? (
-                            <div className='py-10 text-center text-sm text-gray-400'>
+                            <div className='py-10 text-center text-sm text-zinc-400'>
                                 Cargando...
                             </div>
                         ) : data.length === 0 ? (
-                            <div className='py-10 text-center text-sm text-gray-400'>
+                            <div className='py-10 text-center text-sm text-zinc-400'>
                                 No hay prefacturas OT V3 para mostrar.
                             </div>
                         ) : (

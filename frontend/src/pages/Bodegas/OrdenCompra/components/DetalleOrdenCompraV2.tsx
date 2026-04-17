@@ -607,12 +607,13 @@ function DetalleOrdenCompraV2() {
                                     <div className='w-full'>
                                         <Badge>Cotización vinculada</Badge>
                                         <div className='ml-4'>
-                                            <button
-                                                type='button'
+                                            <Button
+                                                size='xs'
+                                                variant='outline'
                                                 onClick={handleIrACotizacion}
-                                                className='rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300'>
+                                                className='font-medium text-blue-700 dark:text-blue-300'>
                                                 #{detalleOrdenCompra.relacion_cotizacion_numero}
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 )}
@@ -1101,14 +1102,14 @@ function DetalleOrdenCompraV2() {
                     )}
 
                     {detalleOrdenCompra?.estado === '3' && (
-                        <Card className='flex justify-center border border-emerald-500 bg-green-100'>
+                        <Card className='flex justify-center border border-emerald-500 bg-emerald-100'>
                             <CardBody className='flex items-center justify-center gap-4'>
                                 <Icon
                                     icon='HeroInformationCircle'
                                     size='text-3xl'
                                     className='text-emerald-700'
                                 />
-                                <Badge className='text-2xl text-green-700'>
+                                <Badge className='text-2xl text-emerald-700'>
                                     Su orden ha sido enviada a su proveedor
                                 </Badge>
                             </CardBody>
@@ -1131,14 +1132,14 @@ function DetalleOrdenCompraV2() {
                     )}
 
                     {detalleOrdenCompra?.estado === '5' && (
-                        <Card className='flex justify-center border border-green-500 bg-green-100'>
+                        <Card className='flex justify-center border border-emerald-500 bg-emerald-100'>
                             <CardBody className='flex items-center justify-center gap-4'>
                                 <Icon
                                     icon='HeroInformationCircle'
                                     size='text-3xl'
-                                    className='text-green-700'
+                                    className='text-emerald-700'
                                 />
-                                <Badge className='text-2xl text-green-700'>
+                                <Badge className='text-2xl text-emerald-700'>
                                     ¡Su orden ha sido completada exitosamente!
                                 </Badge>
                             </CardBody>

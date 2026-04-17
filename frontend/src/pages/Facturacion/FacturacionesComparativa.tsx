@@ -1,9 +1,13 @@
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Checkbox from '@/components/form/Checkbox';
+import Input from '@/components/form/Input';
+import Select from '@/components/form/Select';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardTitle } from '@/components/ui/Card';
+import Table, { TBody, Td, THead, Th, Tr } from '@/components/ui/Table';
 import { IContratoMatching } from '@/interface/contrato.interface';
 import { ICotizacion, IItemCotizacion } from '@/interface/cotizaciones.interface';
 import { IOrdenDeTrabajo } from '@/interface/ordenTrabajo.interface';
@@ -124,13 +128,13 @@ const FacturacionesComparativa = () => {
         useGetOrdenesTrabajoQuery();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
 
-    // Obtener TODOS los clientes de la empresa (vía RelacionEmpresa)
+    // Obtener TODOS los clientes de la empresa (vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a RelacionEmpresa)
     const empresaId = personalizacionUsuario?.empresa;
     const { data: misClientes = [] } = useGetMisClientesQuery(empresaId ?? undefined, {
         skip: !empresaId,
     });
 
-    // Estado para selección de empresa cliente
+    // Estado para selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de empresa cliente
     const [selectedEmpresaClienteId, setSelectedEmpresaClienteId] = useState<number | null>(null);
     const [selectedContratoId, setSelectedContratoId] = useState<number | ''>('');
     const [selectedOts, setSelectedOts] = useState<number[]>([]);
@@ -142,7 +146,7 @@ const FacturacionesComparativa = () => {
             skip: !selectedEmpresaClienteId,
         });
 
-    // Estado para búsqueda en dropdown OTs
+    // Estado para bÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºsqueda en dropdown OTs
     const [searchOtInput, setSearchOtInput] = useState<string>('');
     const [showOtDropdown, setShowOtDropdown] = useState<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -192,10 +196,10 @@ const FacturacionesComparativa = () => {
     const [errorTipoCambio, setErrorTipoCambio] = useState<string | null>(null);
     const fechaInicialSetRef = useRef(false);
 
-    // OTs que ya están incluidas en otras prefacturas (excluirlas del dropdown)
+    // OTs que ya estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n incluidas en otras prefacturas (excluirlas del dropdown)
     const [excludedOtIds, setExcludedOtIds] = useState<number[]>([]);
 
-    // Función para crear prefactura (POST a API)
+    // FunciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n para crear prefactura (POST a API)
     const handleCrearPrefactura = async () => {
         try {
             if (!selectedEmpresaClienteId) {
@@ -301,7 +305,7 @@ const FacturacionesComparativa = () => {
         }
     };
 
-    // Inicializar con parámetros desde URL (cliente_id y ot_id)
+    // Inicializar con parÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡metros desde URL (cliente_id y ot_id)
     useEffect(() => {
         const clienteIdParam = searchParams.get('cliente_id');
         const otIdParam = searchParams.get('ot_id');
@@ -340,7 +344,7 @@ const FacturacionesComparativa = () => {
     }, [cotizacionesRelacionadas]);
 
 
-    // Cargar comparativa automáticamente cuando cambian contrato u OTs
+    // Cargar comparativa automÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ticamente cuando cambian contrato u OTs
     useEffect(() => {
         if (selectedContratoId && selectedOts.length > 0) {
             setLoadingComparativa(true);
@@ -418,11 +422,11 @@ const FacturacionesComparativa = () => {
                 data: {
                     ots_ids: selectedOts,
                     fecha_prefactura: fechaPrefactura,
-                    // No enviar contrato_id, backend ahora soporta parámetros opcionales
+                    // No enviar contrato_id, backend ahora soporta parÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡metros opcionales
                 },
             })
                 .then((response) => {
-                    // La respuesta debería tener estructura { ejecutado: {...}, pactado: null, diferencia: null }
+                    // La respuesta deberÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a tener estructura { ejecutado: {...}, pactado: null, diferencia: null }
                     setEjecutadoData(response.data);
 
                     // Inicializar config de items (por defecto: facturar=true, sin comentario)
@@ -463,11 +467,11 @@ const FacturacionesComparativa = () => {
                 method: 'post',
                 data: {
                     contrato_id: selectedContratoId,
-                    // No enviar ots_ids, backend ahora soporta parámetros opcionales
+                    // No enviar ots_ids, backend ahora soporta parÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡metros opcionales
                 },
             })
                 .then((response) => {
-                    // La respuesta debería tener estructura { pactado: {...}, ejecutado: null, diferencia: null }
+                    // La respuesta deberÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a tener estructura { pactado: {...}, ejecutado: null, diferencia: null }
                     setPactadoData(response.data);
                 })
                 .catch(() => {
@@ -502,7 +506,7 @@ const FacturacionesComparativa = () => {
         }
     }, [showOtDropdown]);
 
-    // Actualizar configuración de item
+    // Actualizar configuraciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de item
     const updateItemConfig = (itemId: string, updates: Partial<ItemPrefactura>) => {
         setItemsConfig((prev) => {
             const newMap = new Map(prev);
@@ -517,7 +521,7 @@ const FacturacionesComparativa = () => {
         });
     };
 
-    // Obtener tipo de badge según tipo de item
+    // Obtener tipo de badge segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn tipo de item
     const getTipoBadge = (tipo: string) => {
         switch (tipo) {
             case 'servicio_ot':
@@ -565,7 +569,7 @@ const FacturacionesComparativa = () => {
         [listaOrdenTrabajo, selectedEmpresaClienteId, excludedOtIds],
     );
 
-    // Filtrar OTs por búsqueda
+    // Filtrar OTs por bÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºsqueda
     const otasFiltradas = useMemo(() => {
         return otasDisponibles.filter((ot) =>
             `#${ot.id} - ${ot.cliente_nombre}`.toLowerCase().includes(searchOtInput.toLowerCase()),
@@ -714,7 +718,7 @@ const FacturacionesComparativa = () => {
         return Number(item.precio_venta_neta_total_moneda_base || 0);
     };
 
-    // Calcular valores para items ejecutados según moneda activa (visual)
+    // Calcular valores para items ejecutados segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn moneda activa (visual)
     const computeItemValues = (item: any, moneda: 'CLP' | 'USD') => {
         const cantidad = item.cantidad ?? 1;
         if (moneda === 'CLP') {
@@ -790,7 +794,7 @@ const FacturacionesComparativa = () => {
         return 'CLP' as const;
     };
 
-    // Calcular totales dinámicamente
+    // Calcular totales dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡micamente
     const totales = useMemo(() => {
         let totalFacturable = 0;
         let countFacturables = 0;
@@ -936,7 +940,7 @@ const FacturacionesComparativa = () => {
         return dayjs(value).format('DD/MM/YYYY');
     };
 
-    // Manejar selección de contrato
+    // Manejar selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de contrato
     const handleSelectContrato = (contratoId: number | '') => {
         setSelectedContratoId(contratoId);
         setVisitasMarcadasPorOt({});
@@ -944,7 +948,7 @@ const FacturacionesComparativa = () => {
         setExpandedPlanItems({});
     };
 
-    // Manejar selección de empresa cliente
+    // Manejar selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de empresa cliente
     const handleSelectEmpresaCliente = (empresaClienteId: number | null) => {
         setSelectedEmpresaClienteId(empresaClienteId);
         setSelectedContratoId('');
@@ -954,7 +958,7 @@ const FacturacionesComparativa = () => {
         setExpandedPlanItems({});
     };
 
-    // Manejar selección/deselección de OT
+    // Manejar selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n/deselecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de OT
     const handleToggleOt = (ot: IOrdenDeTrabajo) => {
         const isSelected = selectedOts.includes(ot.id);
         const nextSelected = isSelected
@@ -971,7 +975,7 @@ const FacturacionesComparativa = () => {
         }
     };
 
-    // Limpiar selección
+    // Limpiar selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
     const handleLimpiar = () => {
         setSelectedEmpresaClienteId(null);
         setSelectedContratoId('');
@@ -1000,12 +1004,12 @@ const FacturacionesComparativa = () => {
     const diferenciaComparativaPositiva = diferenciaComparativa >= 0;
 
     return (
-        <PageWrapper name='Facturación - Matching Manual'>
+        <PageWrapper name='FacturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n - Matching Manual'>
             <Subheader>
                 <SubheaderLeft>
-                    <h2 className='text-2xl font-bold dark:text-white'>Matching Manual de Facturación</h2>
-                    <p className='mt-1 text-sm text-gray-600 dark:text-gray-400'>
-                        Selecciona un contrato y sus órdenes de trabajo para comparar y hacer
+                    <h2 className='text-2xl font-bold dark:text-white'>Matching Manual de FacturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n</h2>
+                    <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-400'>
+                        Selecciona un contrato y sus ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³rdenes de trabajo para comparar y hacer
                         matching
                     </p>
                 </SubheaderLeft>
@@ -1024,39 +1028,41 @@ const FacturacionesComparativa = () => {
                 <div className='grid grid-cols-1 gap-6 lg:grid-cols-3'>
                     {/* DROPDOWN EMPRESA CLIENTE */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
+                        <label className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
                             Selecciona Empresa Cliente
                         </label>
-                        <select
+                        <Select
+                            name='empresa_cliente'
                             value={selectedEmpresaClienteId || ''}
                             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                                 handleSelectEmpresaCliente(
                                     e.target.value ? Number(e.target.value) : null,
                                 )
                             }
-                            className='w-full rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 font-semibold text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-100'>
+                            className='font-semibold'>
                             <option value=''>-- Selecciona una empresa --</option>
                             {empresasClienteDisponibles.map((empresaId) => (
                                 <option key={empresaId} value={empresaId}>
                                     {getNombreEmpresaCliente(empresaId)}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                     </div>
 
                     {/* DROPDOWN CONTRATOS */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                            Contrato <span className='font-normal text-gray-400'>(opcional)</span>
+                        <label className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                            Contrato <span className='font-normal text-zinc-400'>(opcional)</span>
                         </label>
-                        <select
+                        <Select
+                            name='contrato'
                             value={selectedContratoId}
                             onChange={(e) => handleSelectContrato(Number(e.target.value) || '')}
                             disabled={selectedEmpresaClienteId === null}
-                            className={`w-full rounded-lg border-2 border-gray-300 dark:border-gray-700 px-4 py-3 font-semibold transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:border-gray-500 ${
+                            className={`font-semibold ${
                                 selectedEmpresaClienteId === null
-                                    ? 'cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                                    : 'bg-white dark:bg-gray-900 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
+                                    ? 'cursor-not-allowed text-zinc-500 dark:text-zinc-400'
+                                    : 'text-zinc-900 dark:text-zinc-100'
                             }`}>
                             <option value=''>-- Sin contrato --</option>
                             {contratosActivosCliente.map((contrato) => (
@@ -1064,14 +1070,14 @@ const FacturacionesComparativa = () => {
                                     #{contrato.id} - {contrato.nombre}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                         {selectedEmpresaClienteId === null && (
-                            <p className='text-xs italic text-gray-500 dark:text-gray-400'>
+                            <p className='text-xs italic text-zinc-500 dark:text-zinc-400'>
                                 Selecciona una empresa cliente primero
                             </p>
                         )}
                         {selectedEmpresaClienteId !== null && loadingContratos && (
-                            <p className='text-xs italic text-gray-500 dark:text-gray-400'>
+                            <p className='text-xs italic text-zinc-500 dark:text-zinc-400'>
                                 Cargando contratos activos...
                             </p>
                         )}
@@ -1079,8 +1085,8 @@ const FacturacionesComparativa = () => {
 
                     {/* SELECTOR DE OTs */}
                     <div className='flex flex-col gap-2'>
-                        <label className='text-sm font-semibold text-gray-700 dark:text-gray-300'>
-                            Selecciona Órdenes de Trabajo
+                        <label className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                            Selecciona ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“rdenes de Trabajo
                         </label>
                         <div className='relative' ref={dropdownRef}>
                             <div
@@ -1088,13 +1094,13 @@ const FacturacionesComparativa = () => {
                                     if (selectedEmpresaClienteId === null) return;
                                     setShowOtDropdown(!showOtDropdown);
                                 }}
-                                className={`w-full cursor-pointer rounded-lg border-2 border-gray-300 dark:border-gray-700 px-4 py-3 font-semibold transition focus:outline-none ${
+                                className={`w-full cursor-pointer rounded-lg border-2 border-zinc-300 dark:border-zinc-700 px-4 py-3 font-semibold transition focus:outline-none ${
                                     selectedEmpresaClienteId === null
-                                        ? 'pointer-events-none cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                                        : 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 hover:border-gray-400 dark:border-gray-600'
+                                        ? 'pointer-events-none cursor-not-allowed bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                                        : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 hover:border-zinc-400 dark:border-zinc-600'
                                 }`}>
                                 {selectedOts.length === 0 ? (
-                                    <span className='text-sm text-gray-500 dark:text-gray-400'>
+                                    <span className='text-sm text-zinc-500 dark:text-zinc-400'>
                                         -- Selecciona OTs --
                                     </span>
                                 ) : (
@@ -1105,14 +1111,15 @@ const FacturacionesComparativa = () => {
                             </div>
 
                             {showOtDropdown && selectedEmpresaClienteId !== null && (
-                                <div className='absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg dark:border-gray-600 dark:border-gray-500 dark:bg-gray-800'>
-                                    <div className='border-b border-gray-200 dark:border-gray-700 p-3'>
-                                        <input
+                                <div className='absolute left-0 right-0 top-full z-20 mt-2 rounded-lg border-2 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg dark:border-zinc-600 dark:border-zinc-500 dark:bg-zinc-800'>
+                                    <div className='border-b border-zinc-200 dark:border-zinc-700 p-3'>
+                                        <Input
+                                            name='buscar_ot'
                                             type='text'
                                             placeholder='Buscar OT por ID o cliente...'
                                             value={searchOtInput}
                                             onChange={(e) => setSearchOtInput(e.target.value)}
-                                            className='w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none'
+                                            className='text-sm'
                                         />
                                     </div>
 
@@ -1121,18 +1128,20 @@ const FacturacionesComparativa = () => {
                                             otasFiltradas.map((ot) => (
                                                 <label
                                                     key={ot.id}
-                                                    className='flex cursor-pointer items-center gap-3 border-b border-gray-100 dark:border-gray-700 px-4 py-2 last:border-0 hover:bg-gray-100 dark:hover:bg-gray-700'>
-                                                    <input
-                                                        type='checkbox'
+                                                    className='flex cursor-pointer items-center gap-3 border-b border-zinc-100 dark:border-zinc-700 px-4 py-2 last:border-0 hover:bg-zinc-100 dark:hover:bg-zinc-700'>
+                                                    <Checkbox
+                                                        id={`ot-${ot.id}`}
+                                                        name={`ot-${ot.id}`}
                                                         checked={selectedOts.includes(ot.id)}
                                                         onChange={() => handleToggleOt(ot)}
-                                                        className='h-4 w-4 cursor-pointer'
+                                                        className='py-0'
+                                                        inputClassName='h-4 w-4 cursor-pointer'
                                                     />
                                                     <div className='flex-1 text-sm'>
                                                         <p className='font-medium'>
                                                             OT #{ot.id} - {ot.cliente_nombre}
                                                         </p>
-                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                             Finalizada:{' '}
                                                             {dayjs(ot.fecha_finalizacion_ot).format(
                                                                 'DD/MM/YYYY',
@@ -1142,7 +1151,7 @@ const FacturacionesComparativa = () => {
                                                 </label>
                                             ))
                                         ) : (
-                                            <div className='p-4 text-center text-sm text-gray-500 dark:text-gray-400'>
+                                            <div className='p-4 text-center text-sm text-zinc-500 dark:text-zinc-400'>
                                                 No hay OTs disponibles
                                             </div>
                                         )}
@@ -1160,11 +1169,13 @@ const FacturacionesComparativa = () => {
                                     key={ot.id}
                                     className='inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1.5 text-sm font-medium text-blue-700'>
                                     OT #{ot.id}
-                                    <button
+                                    <Button
+                                        size='xs'
+                                        variant='default'
                                         onClick={() => handleToggleOt(ot)}
-                                        className='font-bold text-blue-700 hover:text-blue-900'>
-                                        ×
-                                    </button>
+                                        className='!px-0 !py-0 font-bold text-blue-700 hover:text-blue-900'>
+                                        x
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -1184,18 +1195,18 @@ const FacturacionesComparativa = () => {
                                         {selectedContratoId && contratoSeleccionado ? (
                                             <>
                                                 {/* HEADER COMPACTO */}
-                                                <div className='border-b border-gray-200 pb-2 dark:border-gray-700'>
+                                                <div className='border-b border-zinc-200 pb-2 dark:border-zinc-700'>
                                                     <h3 className='text-sm font-bold text-blue-600 dark:text-blue-400'>
                                                         {contratoSeleccionado.nombre}
                                                     </h3>
-                                                    <p className='text-xs text-gray-500 dark:text-gray-400'>
+                                                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
                                                         ID #{contratoSeleccionado.id} | Estado:{' '}
                                                         {contratoSeleccionado.estado_label}
                                                     </p>
-                                                    <p className='text-xs text-gray-500 dark:text-gray-400'>
+                                                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
                                                         Moneda {contratoSeleccionado.moneda_cobro}
                                                         {contratoSeleccionado.dia_facturacion
-                                                            ? ` | Día facturación ${contratoSeleccionado.dia_facturacion}`
+                                                            ? ` | DÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a facturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n ${contratoSeleccionado.dia_facturacion}`
                                                             : ''}
                                                     </p>
                                                 </div>
@@ -1203,22 +1214,22 @@ const FacturacionesComparativa = () => {
                                                 {/* SERVICIOS CONTRATADOS (TABLA COMPACTA) */}
                                                 {contratoSeleccionado.items_comerciales.length > 0 ? (
                                                     <div>
-                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
-                                                            Ítems comerciales
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
+                                                            ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âtems comerciales
                                                         </h4>
-                                                        <div className='overflow-hidden rounded border border-gray-300 dark:border-gray-600'>
-                                                            <table className='w-full text-xs dark:text-gray-100'>
-                                                                <thead className='bg-gray-100 dark:bg-gray-800'>
-                                                                    <tr>
-                                                                        <th className='px-2 py-1 text-left font-medium text-gray-700 dark:text-gray-300'>
-                                                                            Ítem
-                                                                        </th>
-                                                                        <th className='px-2 py-1 text-right font-medium text-gray-700 dark:text-gray-300'>
+                                                        <div className='overflow-hidden rounded border border-zinc-300 dark:border-zinc-600'>
+                                                            <Table className='w-full text-xs dark:text-zinc-100'>
+                                                                <THead className='bg-zinc-100 dark:bg-zinc-800'>
+                                                                    <Tr>
+                                                                        <Th className='px-2 py-1 text-left font-medium text-zinc-700 dark:text-zinc-300'>
+                                                                            ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âtem
+                                                                        </Th>
+                                                                        <Th className='px-2 py-1 text-right font-medium text-zinc-700 dark:text-zinc-300'>
                                                                             Total mes
-                                                                        </th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className='divide-y bg-white dark:bg-gray-900'>
+                                                                        </Th>
+                                                                    </Tr>
+                                                                </THead>
+                                                                <TBody className='divide-y bg-white dark:bg-zinc-900'>
                                                                     {contratoSeleccionado.items_comerciales.map(
                                                                         (item) => {
                                                                             const planComponents =
@@ -1244,9 +1255,9 @@ const FacturacionesComparativa = () => {
                                                                             return (
                                                                                 <Fragment
                                                                                     key={item.id}>
-                                                                                    <tr
-                                                                                        className='hover:bg-gray-50 dark:hover:bg-gray-700'>
-                                                                                        <td className='px-2 py-1.5 text-gray-800 dark:text-gray-100'>
+                                                                                    <Tr
+                                                                                        className='hover:bg-zinc-50 dark:hover:bg-zinc-700'>
+                                                                                        <Td className='px-2 py-1.5 text-zinc-800 dark:text-zinc-100'>
                                                                                             <div className='font-medium'>
                                                                                                 {
                                                                                                     item.snapshot_nombre
@@ -1264,28 +1275,22 @@ const FacturacionesComparativa = () => {
                                                                                                 </div>
                                                                                             )}
                                                                                             {hasPlanBreakdown && (
-                                                                                                <button
-                                                                                                    type='button'
+                                                                                                <Button
+                                                                                                    size='xs'
+                                                                                                    variant='default'
                                                                                                     onClick={() =>
                                                                                                         toggleExpandedPlanItem(
                                                                                                             item.id,
                                                                                                         )
                                                                                                     }
-                                                                                                    className='mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200'>
-                                                                                                    <span>
-                                                                                                        {isExpanded
-                                                                                                            ? '▾'
-                                                                                                            : '▸'}
-                                                                                                    </span>
-                                                                                                    <span>
-                                                                                                        {isExpanded
-                                                                                                            ? 'Ocultar servicios incluidos'
-                                                                                                            : 'Ver servicios incluidos'}
-                                                                                                    </span>
-                                                                                                </button>
+                                                                                                    className='mt-1 !px-0 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200'>
+                                                                                                    {isExpanded
+                                                                                                        ? 'v Ocultar servicios incluidos'
+                                                                                                        : '> Ver servicios incluidos'}
+                                                                                                </Button>
                                                                                             )}
-                                                                                        </td>
-                                                                                        <td className='px-2 py-1.5 text-right font-medium text-gray-800 dark:text-gray-100'>
+                                                                                        </Td>
+                                                                                        <Td className='px-2 py-1.5 text-right font-medium text-zinc-800 dark:text-zinc-100'>
                                                                                             {formatCurrency(
                                                                                                 Number(
                                                                                                     item.total_mensual ||
@@ -1293,14 +1298,14 @@ const FacturacionesComparativa = () => {
                                                                                                 ),
                                                                                                 item.moneda,
                                                                                             )}
-                                                                                        </td>
-                                                                                    </tr>
+                                                                                        </Td>
+                                                                                    </Tr>
                                                                                     {hasPlanBreakdown &&
                                                                                         isExpanded && (
-                                                                                            <tr
+                                                                                            <Tr
                                                                                                 key={`item-${item.id}-expanded`}
-                                                                                                className='bg-gray-50 dark:bg-gray-800/60'>
-                                                                                                <td
+                                                                                                className='bg-zinc-50 dark:bg-zinc-800/60'>
+                                                                                                <Td
                                                                                                     colSpan={2}
                                                                                                     className='px-3 py-2'>
                                                                                                     <PlanIncludedServicesDetail
@@ -1310,76 +1315,76 @@ const FacturacionesComparativa = () => {
                                                                                                         title='Servicios incluidos'
                                                                                                         compact
                                                                                                     />
-                                                                                                </td>
-                                                                                            </tr>
+                                                                                                </Td>
+                                                                                            </Tr>
                                                                                         )}
                                                                                 </Fragment>
                                                                             );
                                                                         },
                                                                     )}
-                                                                </tbody>
-                                                            </table>
+                                                                </TBody>
+                                                            </Table>
                                                         </div>
                                                     </div>
                                                 ) : loadingPactado ? (
-                                                    <div className='py-4 text-center text-xs text-gray-600 dark:text-gray-400'>
+                                                    <div className='py-4 text-center text-xs text-zinc-600 dark:text-zinc-400'>
                                                         Cargando...
                                                     </div>
                                                 ) : (
-                                                    <div className='py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
-                                                        Sin ítems comerciales
+                                                    <div className='py-4 text-center text-xs text-zinc-500 dark:text-zinc-400'>
+                                                        Sin ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tems comerciales
                                                     </div>
                                                 )}
 
                                                 {visitasContratoBase.incluidas_mes > 0 && (
                                                     <div className='mt-3'>
-                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
                                                             Visitas del contrato
                                                         </h4>
-                                                        <div className='space-y-3 rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 p-3'>
+                                                        <div className='space-y-3 rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-20 p-3'>
                                                             <div className='grid grid-cols-2 gap-2 text-xs'>
-                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
-                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                <div className='rounded bg-white dark:bg-zinc-800 p-2'>
+                                                                    <p className='text-zinc-500 dark:text-zinc-400'>
                                                                         Incluidas este mes
                                                                     </p>
-                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                    <p className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
                                                                         {visitasContratoBase.incluidas_mes}
                                                                     </p>
                                                                 </div>
-                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
-                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                <div className='rounded bg-white dark:bg-zinc-800 p-2'>
+                                                                    <p className='text-zinc-500 dark:text-zinc-400'>
                                                                         Confirmadas este mes
                                                                     </p>
-                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                    <p className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
                                                                         {visitasContratoBase.confirmadas_mes}
                                                                     </p>
                                                                 </div>
-                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
-                                                                    <p className='text-gray-500 dark:text-gray-400'>
+                                                                <div className='rounded bg-white dark:bg-zinc-800 p-2'>
+                                                                    <p className='text-zinc-500 dark:text-zinc-400'>
                                                                         Marcadas en esta prefactura
                                                                     </p>
-                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                    <p className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
                                                                         {visitasPrefactura.marcadas_prefactura}
                                                                     </p>
                                                                 </div>
-                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
-                                                                    <p className='text-gray-500 dark:text-gray-400'>
-                                                                        Proyección
+                                                                <div className='rounded bg-white dark:bg-zinc-800 p-2'>
+                                                                    <p className='text-zinc-500 dark:text-zinc-400'>
+                                                                        ProyecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
                                                                     </p>
-                                                                    <p className='text-lg font-bold text-gray-900 dark:text-gray-100'>
+                                                                    <p className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
                                                                         {visitasPrefactura.proyectadas_mes}/
                                                                         {visitasContratoBase.incluidas_mes}
                                                                     </p>
                                                                 </div>
                                                             </div>
 
-                                                            <div className='flex items-center justify-between rounded bg-white dark:bg-gray-800 p-2 text-xs'>
+                                                            <div className='flex items-center justify-between rounded bg-white dark:bg-zinc-800 p-2 text-xs'>
                                                                 <div>
-                                                                    <p className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                    <p className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                                                         Estado mensual
                                                                     </p>
-                                                                    <p className='text-gray-600 dark:text-gray-400'>
-                                                                        Período {visitasContratoBase.periodo}
+                                                                    <p className='text-zinc-600 dark:text-zinc-400'>
+                                                                        PerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo {visitasContratoBase.periodo}
                                                                     </p>
                                                                 </div>
                                                                 <Badge
@@ -1396,11 +1401,12 @@ const FacturacionesComparativa = () => {
                                                             </div>
 
                                                             {visitasPrefactura.exceso_prefactura > 0 && (
-                                                                <div className='rounded bg-white dark:bg-gray-800 p-2'>
-                                                                    <label className='mb-1 block text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400'>
+                                                                <div className='rounded bg-white dark:bg-zinc-800 p-2'>
+                                                                    <label className='mb-1 block text-[11px] font-semibold uppercase text-zinc-500 dark:text-zinc-400'>
                                                                         Precio visita adicional
                                                                     </label>
-                                                                    <input
+                                                                    <Input
+                                                                        name='precio_visita_adicional'
                                                                         type='number'
                                                                         min='0'
                                                                         value={precioVisitaAdicional}
@@ -1409,9 +1415,9 @@ const FacturacionesComparativa = () => {
                                                                                 Number(event.target.value || 0),
                                                                             )
                                                                         }
-                                                                        className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-sm'
+                                                                        className='w-full px-2 py-1 text-sm'
                                                                     />
-                                                                    <p className='mt-1 text-xs text-gray-600 dark:text-gray-400'>
+                                                                    <p className='mt-1 text-xs text-zinc-600 dark:text-zinc-400'>
                                                                         Total adicional:{' '}
                                                                         {formatCurrency(
                                                                             visitasPrefactura.total_exceso,
@@ -1431,7 +1437,7 @@ const FacturacionesComparativa = () => {
                                                         .contrato_condiciones_especiales.length >
                                                         0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
                                                                 Condiciones Especiales
                                                             </h4>
                                                             <div className='space-y-2'>
@@ -1441,7 +1447,7 @@ const FacturacionesComparativa = () => {
                                                                     (cond: any, idx: number) => (
                                                                         <div
                                                                             key={idx}
-                                                                            className='rounded-md bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 px-3 py-2 text-xs text-gray-800 dark:text-yellow-200'>
+                                                                            className='rounded-md bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 px-3 py-2 text-xs text-zinc-800 dark:text-yellow-200'>
                                                                             <details className='cursor-pointer'>
                                                                                 <summary className='font-medium text-yellow-900 dark:text-yellow-300'>
                                                                                     {typeof cond ===
@@ -1456,15 +1462,15 @@ const FacturacionesComparativa = () => {
                                                                                               : '')
                                                                                         : cond.titulo_condicion ||
                                                                                           cond.nombre ||
-                                                                                          'Condición'}
+                                                                                          'CondiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n'}
                                                                                 </summary>
-                                                                                <p className='mt-2 text-xs text-gray-700 dark:text-gray-300'>
+                                                                                <p className='mt-2 text-xs text-zinc-700 dark:text-zinc-300'>
                                                                                     {typeof cond ===
                                                                                     'string'
                                                                                         ? cond
                                                                                         : cond.descripcion_condicion ||
                                                                                           cond.descripcion ||
-                                                                                          'Sin descripción'}
+                                                                                          'Sin descripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n'}
                                                                                 </p>
                                                                             </details>
                                                                         </div>
@@ -1491,18 +1497,18 @@ const FacturacionesComparativa = () => {
 
                                                 {contratoSeleccionado.visitas.length > 0 && (
                                                     <div className='mt-3'>
-                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                        <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
                                                             Visitas programadas
                                                         </h4>
-                                                        <div className='space-y-2 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-2'>
+                                                        <div className='space-y-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-2'>
                                                             {contratoSeleccionado.visitas.map((visita) => (
                                                                 <div
                                                                     key={visita.id}
-                                                                    className='rounded bg-white dark:bg-gray-800 p-2 text-xs'>
-                                                                    <p className='font-medium text-gray-800 dark:text-gray-100'>
+                                                                    className='rounded bg-white dark:bg-zinc-800 p-2 text-xs'>
+                                                                    <p className='font-medium text-zinc-800 dark:text-zinc-100'>
                                                                         {visita.descripcion_visita}
                                                                     </p>
-                                                                    <p className='text-gray-600 dark:text-gray-400'>
+                                                                    <p className='text-zinc-600 dark:text-zinc-400'>
                                                                         {visita.frecuencia_label || visita.frecuencia} | Incluidas:{' '}
                                                                         {visita.cantidad}
                                                                     </p>
@@ -1519,24 +1525,24 @@ const FacturacionesComparativa = () => {
                                                     (contratoSeleccionado as any).contrato_visitas
                                                         .length > 0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
                                                                 Visitas Programadas
                                                             </h4>
-                                                            <div className='space-y-2 rounded-md border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900 dark:bg-opacity-20 p-2'>
+                                                            <div className='space-y-2 rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-20 p-2'>
                                                                 {(
                                                                     contratoSeleccionado as any
                                                                 ).contrato_visitas.map(
                                                                     (visita: any, idx: number) => (
                                                                         <div
                                                                             key={idx}
-                                                                            className='flex items-start justify-between rounded bg-white dark:bg-gray-800 p-2'>
+                                                                            className='flex items-start justify-between rounded bg-white dark:bg-zinc-800 p-2'>
                                                                             <div>
-                                                                                <p className='font-medium text-gray-800 dark:text-gray-100'>
+                                                                                <p className='font-medium text-zinc-800 dark:text-zinc-100'>
                                                                                     {visita.tipo ||
                                                                                         visita.nombre ||
                                                                                         'Visita'}
                                                                                 </p>
-                                                                                <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                                                <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                                                     Frecuencia:{' '}
                                                                                     {visita.frecuencia ||
                                                                                         'Mensual'}
@@ -1557,19 +1563,19 @@ const FacturacionesComparativa = () => {
                                                     (contratoSeleccionado as any)
                                                         .usuarios_vinculados.length > 0 && (
                                                         <div className='mt-3'>
-                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400'>
+                                                            <h4 className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400'>
                                                                 Usuarios Vinculados
                                                             </h4>
-                                                            <div className='overflow-x-auto rounded-md border border-gray-300 dark:border-gray-600'>
-                                                                <table className='w-full text-xs dark:text-gray-100'>
-                                                                    <thead className='bg-gray-100 dark:bg-gray-800 dark:text-gray-300'>
-                                                                        <tr>
-                                                                            <th className='p-2 text-left font-semibold text-gray-700 dark:text-gray-300'>
+                                                            <div className='overflow-x-auto rounded-md border border-zinc-300 dark:border-zinc-600'>
+                                                                <Table className='w-full text-xs dark:text-zinc-100'>
+                                                                    <THead className='bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300'>
+                                                                        <Tr>
+                                                                            <Th className='p-2 text-left font-semibold text-zinc-700 dark:text-zinc-300'>
                                                                                 Usuario
-                                                                            </th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody className='divide-y dark:divide-gray-700'>
+                                                                            </Th>
+                                                                        </Tr>
+                                                                    </THead>
+                                                                    <TBody className='divide-y dark:divide-zinc-700'>
                                                                         {(
                                                                             contratoSeleccionado as any
                                                                         ).usuarios_vinculados.map(
@@ -1577,25 +1583,25 @@ const FacturacionesComparativa = () => {
                                                                                 usuarioId: number,
                                                                                 idx: number,
                                                                             ) => (
-                                                                                <tr
+                                                                                <Tr
                                                                                     key={idx}
-                                                                                    className='hover:bg-gray-50 dark:hover:bg-gray-700'>
-                                                                                    <td className='p-2 text-gray-800 dark:text-gray-100'>
+                                                                                    className='hover:bg-zinc-50 dark:hover:bg-zinc-700'>
+                                                                                    <Td className='p-2 text-zinc-800 dark:text-zinc-100'>
                                                                                         Usuario #
                                                                                         {usuarioId}
-                                                                                    </td>
-                                                                                </tr>
+                                                                                    </Td>
+                                                                                </Tr>
                                                                             ),
                                                                         )}
-                                                                    </tbody>
-                                                                </table>
+                                                                    </TBody>
+                                                                </Table>
                                                             </div>
                                                         </div>
                                                     )}
                                             </>
                                         ) : (
                                             <div className='py-6 text-center'>
-                                                <p className='text-sm font-semibold text-gray-600 dark:text-gray-400'>
+                                                <p className='text-sm font-semibold text-zinc-600 dark:text-zinc-400'>
                                                     Selecciona un contrato para ver los detalles
                                                 </p>
                                             </div>
@@ -1613,7 +1619,7 @@ const FacturacionesComparativa = () => {
                                                 </h3>
                                             </CardTitle>
                                             {loadingCotizaciones && (
-                                                <div className='text-xs text-gray-500 dark:text-gray-400'>
+                                                <div className='text-xs text-zinc-500 dark:text-zinc-400'>
                                                     Cargando cotizaciones...
                                                 </div>
                                             )}
@@ -1645,13 +1651,13 @@ const FacturacionesComparativa = () => {
                                                         return (
                                                             <div
                                                                 key={cotizacion.id}
-                                                                className='rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
+                                                                className='rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-800'>
                                                                 <div className='flex flex-wrap items-start justify-between gap-2'>
                                                                     <div>
-                                                                        <p className='text-sm font-semibold text-gray-800 dark:text-gray-100'>
+                                                                        <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
                                                                             {titulo}
                                                                         </p>
-                                                                        <p className='text-xs text-gray-500 dark:text-gray-400'>
+                                                                        <p className='text-xs text-zinc-500 dark:text-zinc-400'>
                                                                             Estado:{' '}
                                                                             {detalle.estado_label ??
                                                                                 cotizacion.estado_label ??
@@ -1659,12 +1665,12 @@ const FacturacionesComparativa = () => {
                                                                                 cotizacion.estado}
                                                                         </p>
                                                                     </div>
-                                                                    <span className='text-xs text-gray-500 dark:text-gray-400'>
+                                                                    <span className='text-xs text-zinc-500 dark:text-zinc-400'>
                                                                         {items.length} items
                                                                     </span>
                                                                 </div>
 
-                                                                <div className='mt-3 grid grid-cols-1 gap-2 text-xs text-gray-700 dark:text-gray-300 md:grid-cols-2'>
+                                                                <div className='mt-3 grid grid-cols-1 gap-2 text-xs text-zinc-700 dark:text-zinc-300 md:grid-cols-2'>
                                                                     <div>
                                                                         <span className='font-semibold'>
                                                                             Descripcion:
@@ -1722,91 +1728,91 @@ const FacturacionesComparativa = () => {
                                                                     </div>
                                                                 </div>
 
-                                                                <div className='mt-4 overflow-x-auto rounded-md border border-gray-200 dark:border-gray-700'>
-                                                                    <table className='w-full text-xs dark:text-gray-100'>
-                                                                        <thead className='bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'>
-                                                                            <tr>
-                                                                                <th className='px-3 py-2 text-left font-semibold'>
+                                                                <div className='mt-4 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-700'>
+                                                                    <Table className='w-full text-xs dark:text-zinc-100'>
+                                                                        <THead className='bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'>
+                                                                            <Tr>
+                                                                                <Th className='px-3 py-2 text-left font-semibold'>
                                                                                     Nombre
-                                                                                </th>
-                                                                                <th className='px-3 py-2 text-right font-semibold'>
+                                                                                </Th>
+                                                                                <Th className='px-3 py-2 text-right font-semibold'>
                                                                                     Cantidad
-                                                                                </th>
-                                                                                <th className='px-3 py-2 text-right font-semibold'>
+                                                                                </Th>
+                                                                                <Th className='px-3 py-2 text-right font-semibold'>
                                                                                     Valor Unit.
-                                                                                </th>
-                                                                                <th className='px-3 py-2 text-right font-semibold'>
+                                                                                </Th>
+                                                                                <Th className='px-3 py-2 text-right font-semibold'>
                                                                                     Total
-                                                                                </th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody className='divide-y bg-white dark:bg-gray-800 dark:divide-gray-700'>
+                                                                                </Th>
+                                                                            </Tr>
+                                                                        </THead>
+                                                                        <TBody className='divide-y bg-white dark:bg-zinc-800 dark:divide-zinc-700'>
                                                                             {items.length > 0 ? (
                                                                                 items.map(
                                                                                     (item) => (
-                                                                                        <tr
+                                                                                        <Tr
                                                                                             key={
                                                                                                 item.id
                                                                                             }
                                                                                             className={`border-l-4 ${
                                                                                                 item.aprobado
-                                                                                                    ? 'border-l-green-500 bg-white dark:bg-gray-800 dark:text-gray-100'
-                                                                                                    : 'border-l-gray-200 bg-gray-50 dark:border-l-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                                                                    ? 'border-l-emerald-500 bg-white dark:bg-zinc-800 dark:text-zinc-100'
+                                                                                                    : 'border-l-zinc-200 bg-zinc-50 dark:border-l-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
                                                                                             }`}>
-                                                                                            <td className='px-3 py-2'>
+                                                                                            <Td className='px-3 py-2'>
                                                                                                 <div className='font-medium'>
                                                                                                     {
                                                                                                         item.nombre_item
                                                                                                     }
                                                                                                 </div>
                                                                                                 {item.descripcion && (
-                                                                                                    <div className='text-[11px] text-gray-500 dark:text-gray-400'>
+                                                                                                    <div className='text-[11px] text-zinc-500 dark:text-zinc-400'>
                                                                                                         {
                                                                                                             item.descripcion
                                                                                                         }
                                                                                                     </div>
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='px-3 py-2 text-right'>
+                                                                                            </Td>
+                                                                                            <Td className='px-3 py-2 text-right'>
                                                                                                 {
                                                                                                     item.cantidad
                                                                                                 }
-                                                                                            </td>
-                                                                                            <td className='px-3 py-2 text-right'>
+                                                                                            </Td>
+                                                                                            <Td className='px-3 py-2 text-right'>
                                                                                                 {formatCurrency(
                                                                                                     getPrecioUnitario(item),
                                                                                                     moneda,
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='px-3 py-2 text-right font-semibold text-gray-800 dark:text-gray-100'>
+                                                                                            </Td>
+                                                                                            <Td className='px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-100'>
                                                                                                 {formatCurrency(
                                                                                                     getPrecioTotal(item),
                                                                                                     moneda,
                                                                                                 )}
-                                                                                            </td>
-                                                                                        </tr>
+                                                                                            </Td>
+                                                                                        </Tr>
                                                                                     ),
                                                                                 )
                                                                             ) : (
-                                                                                <tr>
-                                                                                    <td
+                                                                                <Tr>
+                                                                                    <Td
                                                                                         colSpan={4}
-                                                                                        className='px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
+                                                                                        className='px-3 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400'>
                                                                                         Sin items en
                                                                                         la
                                                                                         cotizacion
-                                                                                    </td>
-                                                                                </tr>
+                                                                                    </Td>
+                                                                                </Tr>
                                                                             )}
-                                                                        </tbody>
-                                                                    </table>
+                                                                        </TBody>
+                                                                    </Table>
                                                                 </div>
 
-                                                                <div className='mt-3 space-y-2 text-right text-xs text-gray-600 dark:text-gray-400'>
+                                                                <div className='mt-3 space-y-2 text-right text-xs text-zinc-600 dark:text-zinc-400'>
                                                                     {aprobadosItems.length > 0 && (
                                                                         <div>
                                                                             Total Aprobados:{' '}
-                                                                            <span className='font-semibold text-green-600'>
+                                                                            <span className='font-semibold text-emerald-600'>
                                                                                 {formatCurrency(
                                                                                     totalAprobados,
                                                                                     moneda,
@@ -1817,7 +1823,7 @@ const FacturacionesComparativa = () => {
                                                                     {items.length !== aprobadosItems.length && (
                                                                         <div>
                                                                             Total General:{' '}
-                                                                            <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                            <span className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                                                                 {formatCurrency(
                                                                                     totalItems,
                                                                                     moneda,
@@ -1828,7 +1834,7 @@ const FacturacionesComparativa = () => {
                                                                     {items.length === aprobadosItems.length && (
                                                                         <div>
                                                                             Total:{' '}
-                                                                            <span className='font-semibold text-gray-800 dark:text-gray-100'>
+                                                                            <span className='font-semibold text-zinc-800 dark:text-zinc-100'>
                                                                                 {formatCurrency(
                                                                                     totalItems,
                                                                                     moneda,
@@ -1842,7 +1848,7 @@ const FacturacionesComparativa = () => {
                                                     })}
                                                 </div>
                                             ) : (
-                                                <div className='py-4 text-center text-xs text-gray-500 dark:text-gray-400'>
+                                                <div className='py-4 text-center text-xs text-zinc-500 dark:text-zinc-400'>
                                                     Sin cotizaciones vinculadas
                                                 </div>
                                             )}
@@ -1860,7 +1866,7 @@ const FacturacionesComparativa = () => {
                                 <Card>
                                     <CardBody>
                                         <CardTitle>
-                                            <h3 className='text-lg font-bold text-green-600'>
+                                            <h3 className='text-lg font-bold text-emerald-600'>
                                                 OTs Ejecutado y Prefactura ({selectedOts.length})
                                             </h3>
                                         </CardTitle>
@@ -1868,30 +1874,30 @@ const FacturacionesComparativa = () => {
                                         {/* Resumen */}
                                         <div className='mb-4 grid grid-cols-4 gap-2 text-center'>
                                             <div>
-                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Trabajos</p>
-                                                <p className='text-lg font-bold text-green-600'>
+                                                <p className='text-xs text-zinc-600 dark:text-zinc-400'>Trabajos</p>
+                                                <p className='text-lg font-bold text-emerald-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.trabajos ||
                                                         0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Guías</p>
-                                                <p className='text-lg font-bold text-green-600'>
+                                                <p className='text-xs text-zinc-600 dark:text-zinc-400'>GuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as</p>
+                                                <p className='text-lg font-bold text-emerald-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.guias || 0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600 dark:text-gray-400'>Compras</p>
-                                                <p className='text-lg font-bold text-green-600'>
+                                                <p className='text-xs text-zinc-600 dark:text-zinc-400'>Compras</p>
+                                                <p className='text-lg font-bold text-emerald-600'>
                                                     {ejecutadoData?.ejecutado?.resumen?.compras ||
                                                         0}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                     Gastos Operativos
                                                 </p>
-                                                <p className='text-lg font-bold text-green-600'>
+                                                <p className='text-lg font-bold text-emerald-600'>
                                                     {ejecutadoData?.ejecutado?.resumen
                                                         ?.gastos_operativos || 0}
                                                 </p>
@@ -1899,18 +1905,19 @@ const FacturacionesComparativa = () => {
                                         </div>
 
                                         {/* Acciones de prefactura */}
-                                        <div className='mb-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800'>
+                                        <div className='mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-800'>
                                             <h3 className='mb-3 text-base font-semibold'>
                                                 Acciones
                                             </h3>
                                             <div className='flex flex-wrap items-center gap-3'>
                                                 <div className='flex flex-col gap-1'>
-                                                    <label className='text-xs font-semibold uppercase text-gray-500 dark:text-gray-400'>
+                                                    <label className='text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400'>
                                                         Fecha de prefactura
                                                     </label>
-                                                    <input
+                                                    <Input
+                                                        name='fecha_prefactura'
                                                         type='date'
-                                                        className='h-9 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 text-sm shadow-sm'
+                                                        className='h-9 px-2 text-sm shadow-sm'
                                                         value={fechaPrefactura}
                                                         onChange={(event) =>
                                                             setFechaPrefactura(
@@ -1919,14 +1926,14 @@ const FacturacionesComparativa = () => {
                                                         }
                                                     />
                                                     {cargandoTipoCambio && (
-                                                        <span className='text-xs text-gray-400 dark:text-gray-300'>
-                                                            Cargando dólar/UF...
+                                                        <span className='text-xs text-zinc-400 dark:text-zinc-300'>
+                                                            Cargando dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³lar/UF...
                                                         </span>
                                                     )}
                                                     {!cargandoTipoCambio &&
                                                         tipoCambioSeleccionado && (
-                                                            <span className='text-xs text-gray-500 dark:text-gray-400'>
-                                                                Dólar:{' '}
+                                                            <span className='text-xs text-zinc-500 dark:text-zinc-400'>
+                                                                DÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³lar:{' '}
                                                                 {formatCurrency(
                                                                     tipoCambioSeleccionado.dolar ??
                                                                         0,
@@ -1963,7 +1970,7 @@ const FacturacionesComparativa = () => {
                                                     items)
                                                 </Button>
                                                 {totales.countNoFacturables > 0 && (
-                                                    <span className='text-sm text-gray-600 dark:text-gray-400'>
+                                                    <span className='text-sm text-zinc-600 dark:text-zinc-400'>
                                                         {totales.countNoFacturables} items excluidos
                                                     </span>
                                                 )}
@@ -1973,36 +1980,36 @@ const FacturacionesComparativa = () => {
                                         {/* Tabla ejecutado con controles de prefactura */}
                                         {prefacturaPreviewItems.length > 0 ? (
                                             <div className='overflow-x-auto'>
-                                                <table className='w-full text-xs dark:text-gray-100'>
-                                                    <thead className='border-b-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800'>
-                                                        <tr>
-                                                            <th className='p-2 text-left font-semibold'>
+                                                <Table className='w-full text-xs dark:text-zinc-100'>
+                                                    <THead className='border-b-2 border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800'>
+                                                        <Tr>
+                                                            <Th className='p-2 text-left font-semibold'>
                                                                 Tipo
-                                                            </th>
-                                                            <th className='p-2 text-left font-semibold'>
-                                                                Descripción
-                                                            </th>
-                                                            <th className='p-2 text-right font-semibold'>
+                                                            </Th>
+                                                            <Th className='p-2 text-left font-semibold'>
+                                                                DescripciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+                                                            </Th>
+                                                            <Th className='p-2 text-right font-semibold'>
                                                                 Cant
-                                                            </th>
-                                                            <th className='p-2 text-right font-semibold'>
+                                                            </Th>
+                                                            <Th className='p-2 text-right font-semibold'>
                                                                 P.Unit ({ejecutadoData.ejecutado.moneda})
-                                                            </th>
-                                                            <th className='p-2 text-right font-semibold'>
+                                                            </Th>
+                                                            <Th className='p-2 text-right font-semibold'>
                                                                 Total ({ejecutadoData.ejecutado.moneda})
-                                                            </th>
-                                                            <th className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center font-semibold'>
+                                                            </Th>
+                                                            <Th className='border-l-2 border-zinc-300 dark:border-zinc-700 p-2 text-center font-semibold'>
                                                                 Facturar
-                                                            </th>
-                                                            <th className='p-2 text-right font-semibold'>
+                                                            </Th>
+                                                            <Th className='p-2 text-right font-semibold'>
                                                                 P.Ajustado
-                                                            </th>
-                                                            <th className='p-2 text-left font-semibold'>
+                                                            </Th>
+                                                            <Th className='p-2 text-left font-semibold'>
                                                                 Comentario
-                                                            </th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
+                                                            </Th>
+                                                        </Tr>
+                                                    </THead>
+                                                    <TBody>
                                                         {(() => {
                                                             // Agrupar items por OT
                                                             const itemsPorOT =
@@ -2031,16 +2038,16 @@ const FacturacionesComparativa = () => {
                                                                 ]) => {
                                                                     // Separador de OT
                                                                     rows.push(
-                                                                        <tr
+                                                                        <Tr
                                                                             key={`sep-ot-${otId}`}
                                                                             className={
                                                                                 isFirstOT
-                                                                                    ? 'bg-blue-50 dark:bg-slate-800'
-                                                                                    : 'border-t-2 border-blue-300 bg-blue-50 dark:border-slate-600 dark:bg-slate-800'
+                                                                                    ? 'bg-blue-50 dark:bg-zinc-800'
+                                                                                    : 'border-t-2 border-blue-300 bg-blue-50 dark:border-zinc-600 dark:bg-zinc-800'
                                                                             }>
-                                                                            <td
+                                                                            <Td
                                                                                colSpan={8}
-                                                                                className='p-2 font-bold text-gray-700 dark:text-gray-100'>
+                                                                                className='p-2 font-bold text-zinc-700 dark:text-zinc-100'>
                                                                                 <div className='flex items-center justify-between gap-3'>
                                                                                     <span>
                                                                                         {otId === 'sin_ot'
@@ -2049,9 +2056,10 @@ const FacturacionesComparativa = () => {
                                                                                     </span>
                                                                                     {otId !== 'sin_ot' &&
                                                                                         visitasContratoBase.incluidas_mes > 0 && (
-                                                                                        <label className='flex items-center gap-2 rounded-md bg-white/80 px-2 py-1 text-[11px] font-medium text-gray-700 shadow-sm dark:bg-slate-700 dark:text-gray-100'>
-                                                                                            <input
-                                                                                                type='checkbox'
+                                                                                        <label className='flex items-center gap-2 rounded-md bg-white/80 px-2 py-1 text-[11px] font-medium text-zinc-700 shadow-sm dark:bg-zinc-700 dark:text-zinc-100'>
+                                                                                            <Checkbox
+                                                                                                id={`marcar-visita-ot-${otId}`}
+                                                                                                name={`marcar-visita-ot-${otId}`}
                                                                                                 checked={Boolean(
                                                                                                     visitasMarcadasPorOt[
                                                                                                         Number(otId)
@@ -2072,14 +2080,15 @@ const FacturacionesComparativa = () => {
                                                                                                         }),
                                                                                                     )
                                                                                                 }
-                                                                                                className='h-4 w-4 cursor-pointer'
+                                                                                                className='py-0'
+                                                                                                inputClassName='h-4 w-4 cursor-pointer'
                                                                                             />
                                                                                             Cuenta como visita
                                                                                         </label>
                                                                                     )}
                                                                                 </div>
-                                                                            </td>
-                                                                        </tr>,
+                                                                            </Td>
+                                                                        </Tr>,
                                                                     );
                                                                     isFirstOT = false;
 
@@ -2147,7 +2156,7 @@ const FacturacionesComparativa = () => {
                                                                         },
                                                                     );
 
-                                                                    // Ordenar grupos: trabajos, guías, compras, gastos
+                                                                    // Ordenar grupos: trabajos, guÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as, compras, gastos
                                                                     const ordenGrupos = [
                                                                         'trabajos',
                                                                         'guia_',
@@ -2217,7 +2226,7 @@ const FacturacionesComparativa = () => {
                                                                                 const guiaId = (
                                                                                     primerItem as any
                                                                                 ).guia_id;
-                                                                                nombreGrupo = `Guía de Salida #${guiaId} - ${itemsGrupo.length} item(s)`;
+                                                                                nombreGrupo = `GuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a de Salida #${guiaId} - ${itemsGrupo.length} item(s)`;
                                                                             } else if (
                                                                                 grupoKey ===
                                                                                 'compras'
@@ -2234,17 +2243,17 @@ const FacturacionesComparativa = () => {
 
                                                                             // Separador del grupo
                                                                             rows.push(
-                                                                                <tr
+                                                                                <Tr
                                                                                     key={`sep-grupo-${otId}-${grupoKey}`}
-                                                                                    className='bg-gray-100 dark:bg-gray-800'>
-                                                                                    <td
+                                                                                    className='bg-zinc-100 dark:bg-zinc-800'>
+                                                                                    <Td
                                                                                         colSpan={8}
-                                                                                        className='p-1.5 pl-6 text-xs font-semibold text-gray-600 dark:text-gray-400'>
+                                                                                        className='p-1.5 pl-6 text-xs font-semibold text-zinc-600 dark:text-zinc-400'>
                                                                                         {
                                                                                             nombreGrupo
                                                                                         }
-                                                                                    </td>
-                                                                                </tr>,
+                                                                                    </Td>
+                                                                                </Tr>,
                                                                             );
 
                                                                             // Items del grupo
@@ -2275,10 +2284,10 @@ const FacturacionesComparativa = () => {
                                                                                                   'CLP',
                                                                                               );
                                                                                     rows.push(
-                                                                                        <tr
+                                                                                        <Tr
                                                                                             key={`${item.tipo}_${item.id}_${item.ot_id || 'no_ot'}`}
-                                                                                            className='border-b hover:bg-gray-50 dark:hover:bg-gray-700'>
-                                                                                            <td className='p-2 pl-8'>
+                                                                                            className='border-b hover:bg-zinc-50 dark:hover:bg-zinc-700'>
+                                                                                            <Td className='p-2 pl-8'>
                                                                                                 <Badge
                                                                                                     variant={
                                                                                                         tipoBadge.variant
@@ -2291,33 +2300,33 @@ const FacturacionesComparativa = () => {
                                                                                                         tipoBadge.label
                                                                                                     }
                                                                                                 </Badge>
-                                                                                            </td>
-                                                                                            <td className='p-2 text-gray-800 dark:text-gray-100'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2 text-zinc-800 dark:text-zinc-100'>
                                                                                                 <div className='font-medium'>
                                                                                                     {item.nombre ||
                                                                                                         (item as any)
                                                                                                             .descripcion ||
                                                                                                         'Sin nombre'}
                                                                                                 </div>
-                                                                                            </td>
-                                                                                            <td className='p-2 text-right'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2 text-right'>
                                                                                                 {
                                                                                                     item.cantidad
                                                                                                 }
-                                                                                            </td>
-                                                                                            <td className='p-2 text-right'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2 text-right'>
                                                                                                 {formatCurrency(
                                                                                                     computedValues.unit,
                                                                                                     'CLP',
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='p-2 text-right font-semibold text-green-600'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2 text-right font-semibold text-emerald-600'>
                                                                                                 {formatCurrency(
                                                                                                     computedValues.total,
                                                                                                     'CLP',
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='border-l-2 border-gray-300 dark:border-gray-700 p-2 text-center'>
+                                                                                            </Td>
+                                                                                            <Td className='border-l-2 border-zinc-300 dark:border-zinc-700 p-2 text-center'>
                                                                                                 {isSyntheticVisit ? (
                                                                                                     <Badge
                                                                                                         variant='solid'
@@ -2326,8 +2335,9 @@ const FacturacionesComparativa = () => {
                                                                                                         Exceso
                                                                                                     </Badge>
                                                                                                 ) : (
-                                                                                                    <input
-                                                                                                        type='checkbox'
+                                                                                                    <Checkbox
+                                                                                                        id={`facturar-${itemId}`}
+                                                                                                        name={`facturar-${itemId}`}
                                                                                                         checked={
                                                                                                             config?.facturar ??
                                                                                                             true
@@ -2341,15 +2351,16 @@ const FacturacionesComparativa = () => {
                                                                                                                     facturar:
                                                                                                                         e
                                                                                                                             .target
-                                                                                                                            .checked,
+                                                                                                                    .checked,
                                                                                                                 },
                                                                                                             )
                                                                                                         }
-                                                                                                        className='h-4 w-4 cursor-pointer'
+                                                                                                        className='py-0'
+                                                                                                        inputClassName='h-4 w-4 cursor-pointer'
                                                                                                     />
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='p-2'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2'>
                                                                                                 {isSyntheticVisit ? (
                                                                                                     <div className='text-right font-semibold text-red-600 dark:text-red-400'>
                                                                                                         {formatCurrency(
@@ -2358,7 +2369,8 @@ const FacturacionesComparativa = () => {
                                                                                                         )}
                                                                                                     </div>
                                                                                                 ) : (
-                                                                                                    <input
+                                                                                                    <Input
+                                                                                                        name={`precio-${itemId}`}
                                                                                                         type='number'
                                                                                                         placeholder='$'
                                                                                                         value={
@@ -2384,17 +2396,18 @@ const FacturacionesComparativa = () => {
                                                                                                                 },
                                                                                                             )
                                                                                                         }
-                                                                                                        className='w-20 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-right text-xs'
+                                                                                                        className='w-20 px-2 py-1 text-right text-xs'
                                                                                                     />
                                                                                                 )}
-                                                                                            </td>
-                                                                                            <td className='p-2'>
+                                                                                            </Td>
+                                                                                            <Td className='p-2'>
                                                                                                 {isSyntheticVisit ? (
-                                                                                                    <span className='text-xs text-gray-600 dark:text-gray-400'>
+                                                                                                    <span className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                                                                         Cobro por exceso de visitas del contrato.
                                                                                                     </span>
                                                                                                 ) : (
-                                                                                                    <input
+                                                                                                    <Input
+                                                                                                        name={`comentario-${itemId}`}
                                                                                                         type='text'
                                                                                                         placeholder='Comentario...'
                                                                                                         value={
@@ -2414,11 +2427,11 @@ const FacturacionesComparativa = () => {
                                                                                                                 },
                                                                                                             )
                                                                                                         }
-                                                                                                        className='w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-2 py-1 text-xs'
+                                                                                                        className='w-full px-2 py-1 text-xs'
                                                                                                     />
                                                                                                 )}
-                                                                                            </td>
-                                                                                        </tr>,
+                                                                                            </Td>
+                                                                                        </Tr>,
                                                                                     );
                                                                                 },
                                                                             );
@@ -2429,40 +2442,40 @@ const FacturacionesComparativa = () => {
 
                                                             return rows;
                                                         })()}
-                                                    </tbody>
-                                                </table>
+                                                    </TBody>
+                                                </Table>
 
                                                 {/* Totales de prefactura */}
                                                 <div className='mt-4 grid grid-cols-4 gap-3'>
                                                     <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                             Items
                                                         </p>
-                                                        <p className='text-lg font-bold dark:text-gray-100'>
+                                                        <p className='text-lg font-bold dark:text-zinc-100'>
                                                             {totales.totalItems}
                                                         </p>
                                                     </div>
-                                                    <div className='rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                    <div className='rounded-lg bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                             A Facturar
                                                         </p>
-                                                        <p className='text-lg font-bold text-green-600 dark:text-green-400'>
+                                                        <p className='text-lg font-bold text-emerald-600 dark:text-emerald-400'>
                                                             {totales.countFacturables}
                                                         </p>
                                                     </div>
                                                     <div className='rounded-lg bg-red-50 dark:bg-red-900 dark:bg-opacity-30 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                             No Facturar
                                                         </p>
                                                         <p className='text-lg font-bold text-red-600 dark:text-red-400'>
                                                             {totales.countNoFacturables}
                                                         </p>
                                                     </div>
-                                                    <div className='rounded-lg bg-purple-50 dark:bg-purple-900 dark:bg-opacity-30 p-3 text-center'>
-                                                        <p className='text-xs text-gray-600 dark:text-gray-400'>
+                                                    <div className='rounded-lg bg-violet-50 dark:bg-violet-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
                                                             Total
                                                         </p>
-                                                        <p className='text-lg font-bold text-purple-600 dark:text-purple-400'>
+                                                        <p className='text-lg font-bold text-violet-600 dark:text-violet-400'>
                                                             {formatCurrency(
                                                                 totales.totalFacturable,
                                                                 'CLP',
@@ -2472,8 +2485,8 @@ const FacturacionesComparativa = () => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className='mt-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 p-4 text-center'>
-                                                <p className='text-sm text-gray-500 dark:text-gray-400'>
+                                            <div className='mt-4 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 p-4 text-center'>
+                                                <p className='text-sm text-zinc-500 dark:text-zinc-400'>
                                                     No hay servicios registrados
                                                 </p>
                                             </div>
@@ -2483,7 +2496,7 @@ const FacturacionesComparativa = () => {
                             ) : (
                                 <Card>
                                     <CardBody>
-                                        <p className='text-sm text-gray-500 dark:text-gray-400'>
+                                        <p className='text-sm text-zinc-500 dark:text-zinc-400'>
                                             Selecciona OTs para ver el ejecutado.
                                         </p>
                                     </CardBody>
@@ -2504,15 +2517,15 @@ const FacturacionesComparativa = () => {
                             </CardTitle>
                             <div className='mt-4 grid grid-cols-1 gap-4 md:grid-cols-3'>
                                 <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-4 text-center'>
-                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Total Pactado</p>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Total Pactado</p>
                                     <p className='text-3xl font-bold text-blue-600 dark:text-blue-400'>
                                         $
                                         {totalPactadoComparativa.toLocaleString('es-CL')}
                                     </p>
                                 </div>
-                                <div className='rounded-lg bg-green-50 dark:bg-green-900 dark:bg-opacity-30 p-4 text-center'>
-                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Total Ejecutado</p>
-                                    <p className='text-3xl font-bold text-green-600 dark:text-green-400'>
+                                <div className='rounded-lg bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30 p-4 text-center'>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Total Ejecutado</p>
+                                    <p className='text-3xl font-bold text-emerald-600 dark:text-emerald-400'>
                                         $
                                         {totalEjecutadoComparativa.toLocaleString('es-CL')}
                                     </p>
@@ -2523,7 +2536,7 @@ const FacturacionesComparativa = () => {
                                             ? 'bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30'
                                             : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-30'
                                     }`}>
-                                    <p className='text-sm text-gray-600 dark:text-gray-400'>Diferencia</p>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Diferencia</p>
                                     <p
                                         className={`text-3xl font-bold ${
                                             diferenciaComparativaPositiva
@@ -2533,7 +2546,7 @@ const FacturacionesComparativa = () => {
                                         $
                                         {Math.abs(diferenciaComparativa).toLocaleString('es-CL')}
                                     </p>
-                                    <p className='mt-2 text-xs text-gray-500 dark:text-gray-400'>
+                                    <p className='mt-2 text-xs text-zinc-500 dark:text-zinc-400'>
                                         {diferenciaComparativaPositiva ? '+ Sobra' : '- Falta'}
                                     </p>
                                 </div>
@@ -2543,11 +2556,208 @@ const FacturacionesComparativa = () => {
                 </Container>
             )}
 
-            {/* BOTÓN LIMPIAR - solo si hay selección */}
+            {/* BOTÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N LIMPIAR - solo si hay selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n */}
             {(selectedEmpresaClienteId || selectedContratoId || selectedOts.length > 0) && (
                 <Container className='mb-4 flex justify-end gap-4'>
                     <Button variant='outline' color='gray' onClick={handleLimpiar}>
-                        Limpiar Selección
+                        Limpiar SelecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+                    </Button>
+                </Container>
+            )}
+        </PageWrapper>
+    );
+};
+
+export default FacturacionesComparativa;
+
+                                                                                                        value={
+                                                                                                            config?.precioAsignado ??
+                                                                                                            ''
+                                                                                                        }
+                                                                                                        onChange={
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            updateItemConfig(
+                                                                                                                itemId,
+                                                                                                                {
+                                                                                                                    precioAsignado:
+                                                                                                                        e
+                                                                                                                            .target
+                                                                                                                            .value
+                                                                                                                            ? Number(
+                                                                                                                                  e
+                                                                                                                                      .target
+                                                                                                                                      .value,
+                                                                                                                              )
+                                                                                                                            : null,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className='w-20 px-2 py-1 text-right text-xs'
+                                                                                                    />
+                                                                                                )}
+                                                                                            </Td>
+                                                                                            <Td className='p-2'>
+                                                                                                {isSyntheticVisit ? (
+                                                                                                    <span className='text-xs text-zinc-600 dark:text-zinc-400'>
+                                                                                                        Cobro por exceso de visitas del contrato.
+                                                                                                    </span>
+                                                                                                ) : (
+                                                                                                    <Input
+                                                                                                        name={comentario-}
+                                                                                                        type='text'
+                                                                                                        placeholder='Comentario...'
+                                                                                                        value={
+                                                                                                            config?.comentario ??
+                                                                                                            ''
+                                                                                                        }
+                                                                                                        onChange={
+                                                                                                            e,
+                                                                                                        ) =>
+                                                                                                            updateItemConfig(
+                                                                                                                itemId,
+                                                                                                                {
+                                                                                                                    comentario:
+                                                                                                                        e
+                                                                                                                            .target
+                                                                                                                            .value,
+                                                                                                                },
+                                                                                                            )
+                                                                                                        }
+                                                                                                        className='w-full px-2 py-1 text-xs'
+                                                                                                    />
+                                                                                                )}
+                                                                                            </Td>
+                                                                                        </Tr>,
+                                                                                    );
+                                                                                },
+                                                                            );
+                                                                        },
+                                                                    );
+                                                                },
+                                                            );
+
+                                                            return rows;
+                                                        })()}
+                                                    </TBody>
+                                                </Table>
+
+                                                {/* Totales de prefactura */}
+                                                <div className='mt-4 grid grid-cols-4 gap-3'>
+                                                    <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
+                                                            Items
+                                                        </p>
+                                                        <p className='text-lg font-bold dark:text-zinc-100'>
+                                                            {totales.totalItems}
+                                                        </p>
+                                                    </div>
+                                                    <div className='rounded-lg bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
+                                                            A Facturar
+                                                        </p>
+                                                        <p className='text-lg font-bold text-emerald-600 dark:text-emerald-400'>
+                                                            {totales.countFacturables}
+                                                        </p>
+                                                    </div>
+                                                    <div className='rounded-lg bg-red-50 dark:bg-red-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
+                                                            No Facturar
+                                                        </p>
+                                                        <p className='text-lg font-bold text-red-600 dark:text-red-400'>
+                                                            {totales.countNoFacturables}
+                                                        </p>
+                                                    </div>
+                                                    <div className='rounded-lg bg-violet-50 dark:bg-violet-900 dark:bg-opacity-30 p-3 text-center'>
+                                                        <p className='text-xs text-zinc-600 dark:text-zinc-400'>
+                                                            Total
+                                                        </p>
+                                                        <p className='text-lg font-bold text-violet-600 dark:text-violet-400'>
+                                                            {formatCurrency(
+                                                                totales.totalFacturable,
+                                                                'CLP',
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className='mt-4 rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 p-4 text-center'>
+                                                <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                                    No hay servicios registrados
+                                                </p>
+                                            </div>
+                                        )}
+                                    </CardBody>
+                                </Card>
+                            ) : (
+                                <Card>
+                                    <CardBody>
+                                        <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                            Selecciona OTs para ver el ejecutado.
+                                        </p>
+                                    </CardBody>
+                                </Card>
+                            )}
+                        </Container>
+                    </div>
+                </div>
+            )}
+
+            {/* RESUMEN COMPARATIVO */}
+            {comparativaData && (
+                <Container className='mb-5'>
+                    <Card>
+                        <CardBody>
+                            <CardTitle>
+                                <h3 className='text-lg font-bold'>Resumen Comparativo</h3>
+                            </CardTitle>
+                            <div className='mt-4 grid grid-cols-1 gap-4 md:grid-cols-3'>
+                                <div className='rounded-lg bg-blue-50 dark:bg-blue-900 dark:bg-opacity-30 p-4 text-center'>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Total Pactado</p>
+                                    <p className='text-3xl font-bold text-blue-600 dark:text-blue-400'>
+                                        $
+                                        {totalPactadoComparativa.toLocaleString('es-CL')}
+                                    </p>
+                                </div>
+                                <div className='rounded-lg bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30 p-4 text-center'>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Total Ejecutado</p>
+                                    <p className='text-3xl font-bold text-emerald-600 dark:text-emerald-400'>
+                                        $
+                                        {totalEjecutadoComparativa.toLocaleString('es-CL')}
+                                    </p>
+                                </div>
+                                <div
+                                    className={`rounded-lg p-4 text-center ${
+                                        diferenciaComparativaPositiva
+                                            ? 'bg-emerald-50 dark:bg-emerald-900 dark:bg-opacity-30'
+                                            : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-30'
+                                    }`}>
+                                    <p className='text-sm text-zinc-600 dark:text-zinc-400'>Diferencia</p>
+                                    <p
+                                        className={`text-3xl font-bold ${
+                                            diferenciaComparativaPositiva
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : 'text-red-600 dark:text-red-400'
+                                        }`}>
+                                        $
+                                        {Math.abs(diferenciaComparativa).toLocaleString('es-CL')}
+                                    </p>
+                                    <p className='mt-2 text-xs text-zinc-500 dark:text-zinc-400'>
+                                        {diferenciaComparativaPositiva ? '+ Sobra' : '- Falta'}
+                                    </p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </Container>
+            )}
+
+            {/* BOTÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N LIMPIAR - solo si hay selecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n */}
+            {(selectedEmpresaClienteId || selectedContratoId || selectedOts.length > 0) && (
+                <Container className='mb-4 flex justify-end gap-4'>
+                    <Button variant='outline' color='gray' onClick={handleLimpiar}>
+                        Limpiar SelecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
                     </Button>
                 </Container>
             )}
