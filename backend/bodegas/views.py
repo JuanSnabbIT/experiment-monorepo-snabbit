@@ -2790,6 +2790,9 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         stock_item = item_guia.stock_item
         bodega_id = item_guia.guia.bodega_id
 
+        from bodegas.validaciones import validar_estado_guia_permite_edicion
+        validar_estado_guia_permite_edicion(item_guia.guia)
+
         # Se elimina el item — el signal pre_delete maneja TODO:
         # stock, serie y movimiento de devolución
         item_guia.delete()
@@ -2834,6 +2837,9 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             )
 
         usuario_empresa = obtener_usuario_empresa(request.user)
+
+        from bodegas.validaciones import validar_estado_guia_permite_edicion
+        validar_estado_guia_permite_edicion(item_guia.guia)
 
         # Validar que se envíe la nueva cantidad
         nueva_cantidad = request.data.get("nueva_cantidad")
@@ -2938,6 +2944,24 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         item_guia = self.get_object()
         stock_item = item_guia.stock_item
 
+        from bodegas.validaciones import (
+            validar_estado_guia_permite_edicion,
+            validar_serie_no_duplicada_activa,
+        )
+        from bodegas.series import (
+            agregar_serie_a_stock,
+            liberar_series_por_item_guia,
+            reservar_serie,
+            serie_existe_en_stock,
+        )
+
+        # Validar que la guía permite edición
+        validar_estado_guia_permite_edicion(item_guia.guia)
+
+        # Validar que la serie no esté activa en otro stock_item de la empresa
+        empresa = stock_item.bodega.sucursal.empresa
+        validar_serie_no_duplicada_activa(empresa, serie, excluir_stock_item=stock_item)
+
         # Lock: Bloquear registros de OC para evitar race condition
         qs_oc = ItemOrdenCompraEnStock.objects.select_for_update().filter(stock_item=stock_item)
         if not qs_oc.exists():
@@ -2945,13 +2969,6 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
                 {"detail": "No existen registros de compra asociados a este stock item."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        from bodegas.series import (
-            agregar_serie_a_stock,
-            liberar_series_por_item_guia,
-            reservar_serie,
-            serie_existe_en_stock,
-        )
 
         # Primero: Liberar cualquier serie previamente asignada a este item_guia
         liberar_series_por_item_guia(stock_item, item_guia.id)
@@ -3570,29 +3587,43 @@ class MovimientoStockViewSet(viewsets.ModelViewSet):
     def crear_ajuste(self, request):
         """
         Registra un movimiento tipo AJUSTE sobre un StockItemEnBodega existente.
-        La cantidad puede ser positiva o negativa.
+        La cantidad puede ser positiva o negativa (delta, no valor absoluto).
+
+        Validaciones aplicadas:
+        - 'descripcion' obligatoria (motivo de auditoría).
+        - El ajuste no puede dejar el stock en negativo.
+        - delta != 0.
         """
+        from bodegas.validaciones import validar_ajuste_no_negativo, validar_motivo_ajuste
+
         s = AjusteStockSerializer(data=request.data, context={"request": request})
         s.is_valid(raise_exception=True)
         data = s.validated_data
         stock_item = data["stock_item"]
         qty_change = data["cantidad"]
+        descripcion = data.get("descripcion", "").strip()
         user = obtener_usuario_empresa(request.user)
 
-        # 1️⃣  Actualizar la cantidad en StockItemEnBodega de forma segura
-        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(cantidad=qty_change)
+        # 1️⃣ Validar motivo obligatorio
+        validar_motivo_ajuste(descripcion)
+
+        # 2️⃣ Validar que el ajuste no deje stock negativo
+        validar_ajuste_no_negativo(stock_item, qty_change)
+
+        # 3️⃣ Actualizar la cantidad en StockItemEnBodega de forma atómica (delta)
+        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
+            cantidad=F("cantidad") + qty_change
+        )
 
         # Refrescamos para reflejar el nuevo valor
         stock_item.refresh_from_db()
 
-        # 2️⃣  Registrar el movimiento tipo AJUSTE
+        # 4️⃣ Registrar el movimiento tipo AJUSTE
         movimiento = MovimientoStock.objects.create(
             stock_item=stock_item,
             tipo_movimiento="AJUSTE",
             cantidad=qty_change,
-            descripcion=data.get(
-                "descripcion", "Item ajustado manualmente en la bodega"
-            ),
+            descripcion=descripcion,
             usuario=user,
         )
 
