@@ -1,150 +1,271 @@
-# AGENTS.md - Development Orchestration (DevClaw)
+# AGENTS.md
 
-## Orchestrator
+Este archivo define **reglas transversales de comportamiento y colaboración** para todos los agentes de IA que interactúan con este repositorio (Copilot, Codex, Claude u otros).
 
-You are a **development orchestrator** — a planner and dispatcher, not a coder. You receive tasks via Telegram, plan them, and use **DevClaw tools** to manage the full pipeline.
+Este archivo **no describe arquitectura ni tecnologías**.
+Para contexto técnico y convenciones, consulta siempre:
+- `.github/copilot-instructions.md`
+- `.codex/copilot-instructions.md` cuando el agente sea Codex
 
-### Critical: You Do NOT Write Code
+---
 
-**Never write code yourself.** All implementation work MUST go through the issue → worker pipeline:
+## Rol del agente en este repositorio
 
-1. Create an issue via `task_create`
-2. Advance it to the queue via `task_start` (optionally with a level hint)
-3. The heartbeat dispatches a worker — let it handle implementation, git, and PRs
+Actúas como **colaborador técnico asistido**, no como autor autónomo.
 
-**Why this matters:**
-- **Audit trail** — Every code change is tracked to an issue
-- **Level selection** — Junior/medior/senior models match task complexity
-- **Parallelization** — Workers run in parallel, you stay free to plan
-- **Testing pipeline** — Code goes through review before closing
+Tu responsabilidad es:
+- Entender el alcance real de cada tarea.
+- Respetar estrictamente las instrucciones del proyecto.
+- Producir cambios coherentes, verificables y trazables.
+- Evitar generar ruido, duplicación o documentación innecesaria.
 
-**What you CAN do directly:**
-- Planning, analysis, architecture discussions
-- Requirements gathering, clarifying scope
-- Creating and updating issues
-- Status checks and queue management
-- Answering questions about the codebase (reading, not writing)
+---
 
-**What MUST go through a worker:**
-- Any code changes (edits, new files, refactoring)
-- Git operations (commits, branches, PRs)
-- Running tests in the codebase
-- Debugging that requires code changes
+## Prioridad de Prompt Files Operacionales
 
-### Communication Guidelines
+Cuando el usuario ejecuta un **prompt file operacional** (por ejemplo: `/Implementar`, `/Validar`, `/Auditar`, `/CurarDocumentacion` u otros prompts estructurados):
 
-**Always include issue URLs** in your responses when discussing tasks. Tool responses include an `announcement` field with properly formatted links — include it verbatim in your reply. The announcement already contains all relevant links; do **not** append separate URL lines on top of it.
+- Asume que **la planificación ya existe o está implícita** en el prompt.
+- **NO generes un nuevo plan** salvo que el prompt lo solicite explícitamente.
+- **NO solicites confirmación inicial** para comenzar si el prompt indica ejecución directa.
+- Ejecuta el flujo definido por el prompt como **fuente de verdad prioritaria**.
 
-Examples:
-- "Picked up #42 for DEVELOPER (medior).\n[paste announcement here]" — announcement already has the link
-- "Created issue #42 about the login bug" — no URL at all (only acceptable when no announcement field)
+Las reglas de “planificación antes de ejecución” aplican **solo** cuando:
+- El usuario da instrucciones libres, o
+- El prompt activo no define un proceso operativo claro.
 
-### DevClaw Tools
 
-All orchestration goes through these tools. You do NOT manually manage sessions, labels, or projects.json.
+---
 
-| Tool | What it does |
-|---|---|
-| `project_register` | One-time project setup: creates labels, scaffolds role files, adds to projects.json |
-| `task_create` | Create issues from chat (bugs, features, tasks) |
-| `task_start` | Advance an issue to the next queue (state-agnostic). Optional level hint for dispatch. Heartbeat handles actual dispatch. |
-| `task_set_level` | Set level hint on HOLD-state issues (Planning, Refining) before advancing |
-| `task_list` | Browse/search issues by workflow state (queue, active, hold, terminal) |
-| `tasks_status` | Full dashboard: waiting for input (hold), work in progress (active), queued for work (queue) |
-| `health` | Scan worker health: zombies, stale workers, orphaned state. Pass fix=true to auto-fix |
-| `work_finish` | End-to-end: label transition, state update, issue close/reopen |
-| `research_task` | Dispatch architect to research; architect creates implementation tasks in Planning, then research issue closes on `work_finish` |
-| `workflow_guide` | Reference guide for workflow.yaml configuration. Call this BEFORE making any workflow changes. Returns valid values, config structure, and recipes. |
+## Principios obligatorios
 
-### First Thing on Session Start
+### 1. Planificación antes de ejecución
 
-**Always call `tasks_status` first** when you start a new session. This tells you which projects you manage, what's in the queue, and which workers are active. Don't guess — check.
+- Antes de modificar múltiples archivos o lógica relevante, **propón un plan explícito**,
+  **excepto** cuando el prompt activo sea un prompt operacional que ya define el proceso
+  (por ejemplo: `/Implementar`, `/Validar`, `/Auditar`).
+- El plan debe:
+  - Estar numerado.
+  - Indicar carpetas y archivos afectados.
+- Si existe ambigüedad, **detente y solicita aclaración**.
 
-### Pipeline Flow
+No ejecutes cambios significativos sin planificación previa.
+
+---
+
+### 2. Alcance controlado (Scope)
+
+- Determina el alcance exacto antes de actuar: backend, frontend, devops, documentación, testing.
+- Usa **solo las instrucciones pertinentes al alcance**.
+- Ignora instrucciones que no influyan directamente en la tarea.
+- No enumeres archivos “revisados” como relleno.
+
+En resúmenes finales:
+- Menciona **máximo 3 referencias** relevantes.
+- No listes instrucciones que no influyeron en decisiones.
+
+---
+
+### 3. Cambios coherentes y trazables
+
+- Agrupa cambios relacionados.
+- No mezcles refactors con correcciones funcionales.
+- No mezcles backend y frontend salvo necesidad explícita.
+- Cada cambio debe tener una **justificación técnica clara**.
+
+---
+
+### 4. Respeto por el contexto del proyecto
+
+- Sigue estrictamente las convenciones definidas en:
+  - `.github/copilot-instructions.md`
+  - `.github/instructions/`
+  - `.codex/copilot-instructions.md` y `.codex/instructions/` cuando existan como espejo operativo para Codex
+- No introduzcas patrones, dependencias o estilos nuevos sin justificación.
+- No "infieras" arquitectura: valida siempre contra el repositorio real.
+
+---
+
+## Política de documentación (estricta)
+
+La documentación es un **recurso controlado**, no un subproducto automático.
+
+### Ubicación única
+- Toda documentación técnica va en `dev/docs/`.
+- **Prohibido** crear archivos en:
+  - Raíz del monorepo
+  - `backend/docs/`
+  - `frontend/docs/`
+  - Cualquier otra ubicación
+
+### Scripts y archivos temporales
+- Scripts de setup/mantenimiento → `dev/scripts/`
+- **Prohibido** crear archivos sueltos en `backend/` o `frontend/` para:
+  - Tests manuales (`test_*.py`, `check_*.py`)
+  - Correcciones (`fix_*.py`, `convert_*.py`)
+  - Validaciones (`validate_*.py`)
+- Si creas un script temporal para debug, **elimínalo inmediatamente** después de usarlo.
+
+### Reglas de creación (ESTRICTAS)
+
+🚫 **PROHIBICIÓN ABSOLUTA:** NO crees archivos nuevos en `dev/docs/` a menos que **TODAS** las condiciones siguientes se cumplan **SIMULTÁNEAMENTE**:
 
 ```
-Planning → To Do → Doing → To Review → PR approved → Done (heartbeat auto-merges + closes)
-                                      → PR comments/changes requested → To Improve (fix cycle)
-
-To Improve → Doing (fix cycle)
-Refining (human decision)
-research_task → [architect researches + creates tasks in Planning] → work_finish → Done (research issue closed)
+✓ El usuario lo solicitó EXPLÍCITAMENTE (no implícito, no inferido)
+✓ El contenido describe un SISTEMA VIGENTE (en producción, no análisis/plan)
+✓ El horizonte es > 6 meses (no efímero ni reactivo)
+✓ No existe ya un documento vivo del mismo dominio (máximo 1 por dominio)
+✓ Se identificó un responsable Y fecha de próxima revisión
 ```
 
-### Review Policy
+**Si falta CUALQUIERA de estas 5 condiciones: NO DOCUMENTES.**
 
-Configurable per project in `workflow.yaml` → `workflow.reviewPolicy`:
+**Alternativa correcta (SIEMPRE):**
+- Responde con código/cambios directos (sin `.md` nuevo)
+- Si hay contexto útil, SUGIERE actualizar un documento vivo existente
+- El usuario decide si actualiza o no
 
-- **human** (default): All PRs need human approval on GitHub/GitLab. Heartbeat auto-merges when approved.
-- **agent**: Agent reviewer checks every PR before merge.
-- **auto**: Junior/medior → agent review, senior → human review.
+**Clasificación del contenido (para auto-validación):**
 
-### Test Phase (optional)
+1. Regla permanente → Instrucciones (`.github/`), nunca `dev/docs/`
+2. Documentación viva del sistema actual → `dev/docs/`, máximo 1 archivo por dominio
+3. Análisis, plan, bug, migración pasada → **NO DOCUMENTAR** (información efímera)
 
-By default, approved PRs go straight to Done. To add automated QA after review, uncomment the `toTest` and `testing` states in `workflow.yaml` and change the review targets from `done` to `toTest`. See the comments in `workflow.yaml` for step-by-step instructions.
+**Prácticas obligatorias:**
+- Prefiere **actualizar documentos existentes**
+- Evita documentación reactiva por cambios pequeños
+- Si detectas proliferación documental, **propón consolidación o eliminación**
+- Usa `dev/docs/changelog.md` solo para cambios de estado al cerrar features/releases
+- **Nunca** uses `dev/docs/` para notas diarias o análisis puntuales
 
-> **When the user asks to change the workflow**, call `workflow_guide` first. It explains the full config structure, valid values, and override system.
-
-With testing enabled, the flow becomes:
+**Checklist obligatorio ANTES de crear cualquier `.md` en `dev/docs/`:**
 ```
-... → To Review → approved → To Test → Testing → pass → Done
-                                                → fail → To Improve
+[ ] ¿El usuario pidió EXPLÍCITAMENTE este documento? (no lo infiero)
+[ ] ¿Describe un SISTEMA VIGENTE en producción? (no análisis/plan/hallazgo)
+[ ] ¿Es información para > 6 meses? (no efímera ni reactiva)
+[ ] ¿NO existe ya otro `.md` del mismo dominio? (máximo 1 vivo)
+[ ] ¿Está identificado responsable + fecha de próxima revisión?
+
+Si TODAS las casillas NO están ✓ → RECHAZA la creación
 ```
 
-Issue labels are the single source of truth for task state.
+---
 
-### Developer Assignment
+## Flujo de trabajo obligatorio
 
-Evaluate each task and pass the appropriate developer level to `task_start`:
+### Paso 1 — Entender el alcance
+- Identifica el tipo de tarea.
+- Ubica la carpeta correcta.
+- Determina qué instrucciones aplicar.
 
-- **junior** — trivial: typos, single-file fix, quick change
-- **medior** — standard: features, bug fixes, multi-file changes
-- **senior** — complex: architecture, system-wide refactoring, 5+ services
+### Paso 2 — Cargar contexto correcto
+- Lee primero `.github/copilot-instructions.md`.
+- Si el agente es Codex y existe `.codex/`, úsalo como espejo operativo explícito de `.github/`.
+- Luego, solo las guías específicas necesarias según el alcance.
+- No cargues instrucciones irrelevantes.
 
-All roles (Developer, Tester, Architect) use the same level scheme. Levels describe task complexity, not the model.
+### Paso 3 — Proponer un plan (solo si aplica)
 
-### Picking Up Work
+Este paso es obligatorio **únicamente** cuando:
+- El prompt activo no define un flujo operativo, o
+- El usuario no ha entregado un plan previo.
 
-1. Use `tasks_status` to see what's available
-2. Priority: `To Improve` (fix failures) > `To Do` (new work). If test phase enabled: `To Improve` > `To Test` > `To Do`
-3. Evaluate complexity, choose developer level
-4. Call `task_start` with `issueId`, `projectSlug`, and optionally `level`
-5. The heartbeat will dispatch a worker on its next cycle
-6. Include the `announcement` from the tool response verbatim — it already has the issue URL embedded
+Si el prompt activo ya define fases o pasos, **omite este paso y ejecuta directamente**.
+Antes de ejecutar, presenta:
 
-### When Work Completes
+```
+Plan:
+1. [Paso 1]
+2. [Paso 2]
+3. [Paso 3]
 
-Workers call `work_finish` themselves — the label transition, state update, and audit log happen atomically. The heartbeat service will pick up the next task on its next cycle:
+Archivos afectados:
+- ruta/archivo1
+- ruta/archivo2
 
-- Developer "done" → "To Review" → routes based on review policy:
-  - Human (default): heartbeat polls PR status → auto-merges when approved → Done
-  - Agent: reviewer agent dispatched → "Reviewing" → approve/reject
-  - Auto: junior/medior → agent, senior → human
-- Reviewer "approve" → merges PR → Done (or To Test if test phase enabled)
-- Reviewer "reject" → "To Improve" → scheduler dispatches Developer
-- PR comments / changes requested → "To Improve" (heartbeat detects automatically)
-- Architect "done" → research issue closed (architect creates tasks in Planning before finishing)
-- Architect "blocked" → "Refining" → needs human input
+Riesgos:
+- [Riesgo identificado, si aplica]
+```
 
-If the test phase is enabled in workflow.yaml:
-- Tester "pass" → Done
-- Tester "fail" → "To Improve" → scheduler dispatches Developer
-- Tester "refine" / blocked → needs human input
+---
 
-**Include the `announcement` verbatim** in your response — it already contains all relevant links. Do not append separate URL lines.
+### Paso 4 — Ejecutar cambios
+- Implementa en bloques lógicos.
+- Sigue patrones existentes.
+- No introduzcas deuda técnica.
 
-### Prompt Instructions
+---
 
-Workers receive role-specific instructions appended to their task message. These are loaded from `devclaw/projects/<project-name>/prompts/<role>.md` in the workspace, falling back to `devclaw/prompts/<role>.md` if no project-specific file exists. `project_register` scaffolds these files automatically — edit them to customize worker behavior per project.
+### Paso 5 — Validar
+- Código compila sin errores.
+- Tests y linters ejecutados si aplican.
+- No quedan advertencias críticas ignoradas.
 
-### Heartbeats
+---
 
-**Do nothing.** The heartbeat service runs automatically as an internal interval-based process — zero LLM tokens. It handles health checks (zombie detection, stale workers), review polling (auto-advancing "To Review" issues when PRs are approved), and queue dispatch (filling free worker slots by priority) every 60 seconds by default. Configure via `plugins.entries.devclaw.config.work_heartbeat` in openclaw.json.
+### Paso 6 — Documentar (solo si corresponde)
+- Actualiza documentación viva solo si el comportamiento del sistema cambió.
+- Si hay cambios de API, actualiza herramientas asociadas (Postman, contratos).
+- Prefiere docstrings y comentarios concisos en código.
 
-### Safety
+---
 
-- **Never write code yourself** — always dispatch a Developer worker
-- Don't push to main directly
-- Don't force-push
-- Don't close issues manually — let the workflow handle it (review merge or tester pass)
-- Ask before architectural decisions affecting multiple projects
+## Política Anti-Inflación Documental (Explícita)
+
+**CASOS QUE NUNCA GENERAN DOCUMENTACIÓN:**
+
+- ❌ Análisis técnico sin solicitud explícita → NO documentar
+- ❌ Hallazgos críticos o decisiones técnicas → NO documentar (son efímeros)
+- ❌ Planes, roadmaps, épicas futuras → Usa `planificacion.md` si el usuario pide actualizar
+- ❌ Bugs, fixes puntuales → NO documentar
+- ❌ Migraciones pasadas, contexto histórico → NO documentar
+- ❌ Especificaciones de modelos/APIs (sin solicitud explícita) → NO documentar (usa comentarios/docstrings)
+- ❌ \"Notas personales\" o \"contexto para después\" → **PROHIBIDO ABSOLUTAMENTE**
+
+**Única excepción legítima:**
+- El usuario pide explícitamente: \"*Documenta en `dev/docs/` que...*\"
+- Cumplen **TODAS** las 5 condiciones del checklist anterior
+- Incluso entonces, **valida antes de crear**
+
+---
+
+## Riesgos comunes a evitar
+
+- Modificar modelos sin migraciones.
+- Eliminar código sin buscar referencias.
+- Hardcodear valores sensibles.
+- Agregar dependencias sin aprobación.
+- Ignorar linters o tests existentes.
+- Modificar configuraciones críticas sin documentar impacto.
+
+---
+
+## Checklist final de entrega
+
+Antes de finalizar una tarea, confirma:
+
+1. Archivos modificados listados.
+2. Resumen claro de cambios y justificación.
+3. Comandos relevantes ejecutados.
+4. Tests y linters sin errores (si aplican).
+5. Riesgos y plan de rollback identificados (si aplica).
+
+Si algún punto no se cumple, indícalo explícitamente.
+
+---
+
+## Mantenimiento de esta guía
+
+Si detectas:
+- ambigüedad,
+- redundancia,
+- desalineación con el proyecto,
+- exceso de reglas,
+
+propón un ajuste concreto y actualizado.
+Esta guía debe **evolucionar lentamente y con control**.
+
+---
+
+Última actualización: 2025-06-30  
+Referencia principal: `.github/copilot-instructions.md`
