@@ -590,20 +590,32 @@ class AjusteStockSerializer(serializers.Serializer):
     stock_item   = serializers.PrimaryKeyRelatedField(
         queryset=StockItemEnBodega.objects.all()
     )
-    cantidad     = serializers.IntegerField()          # puede ser + / -
-    descripcion  = serializers.CharField(allow_blank=True, required=False)
+    cantidad     = serializers.IntegerField(
+        help_text="Delta a aplicar al stock (positivo o negativo). No puede ser cero."
+    )
+    descripcion  = serializers.CharField(
+        allow_blank=False,
+        required=True,
+        help_text="Motivo obligatorio del ajuste. Queda registrado en el historial de auditoría.",
+    )
 
     def validate_cantidad(self, value):
         if value == 0:
-            raise serializers.ValidationError("La cantidad no puede ser cero.")
+            raise serializers.ValidationError("El delta de ajuste no puede ser cero.")
         return value
 
     def validate(self, attrs):
         stock_item = attrs["stock_item"]
-        nueva_cantidad = stock_item.cantidad + attrs["cantidad"]
+        delta = attrs["cantidad"]
+        nueva_cantidad = stock_item.cantidad + delta
         if nueva_cantidad < 0:
             raise serializers.ValidationError(
-                f"Stock insuficiente: el ajuste dejaría la cantidad en {nueva_cantidad}."
+                {
+                    "stock": (
+                        f"Stock insuficiente: el ajuste dejaría '{stock_item.item.nombre}' "
+                        f"en {nueva_cantidad} (actual: {stock_item.cantidad}, delta: {delta})."
+                    )
+                }
             )
         return attrs
 
