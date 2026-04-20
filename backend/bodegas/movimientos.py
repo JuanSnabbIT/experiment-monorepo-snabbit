@@ -21,11 +21,22 @@ def registrar_movimiento_stock(
         usuario (UsuarioEmpresa): usuario que realiza el movimiento
         origen_instancia (Modelo permitido): ItemOrdenCompraEnStock o ItemsGuiaSalida
         descripcion (str): texto descriptivo
-    """
 
-    # BUG FIX: Usar actualización atómica con F() para evitar race conditions
-    # y valores obsoletos en memoria
+    Raises:
+        ValueError: si la operación dejaría el stock en negativo (SALIDA/AJUSTE)
+    """
     from bodegas.models import StockItemEnBodega
+
+    # Guardia anti-negativo para movimientos que restan stock
+    if tipo_movimiento in ("SALIDA", "AJUSTE") and cantidad_delta < 0:
+        stock_item.refresh_from_db()
+        resultado = stock_item.cantidad + cantidad_delta
+        if resultado < 0:
+            raise ValueError(
+                f"registrar_movimiento_stock: el movimiento {tipo_movimiento} "
+                f"dejaría el stock de '{stock_item.item.nombre}' en {resultado} "
+                f"(disponible: {stock_item.cantidad}, delta: {cantidad_delta})."
+            )
 
     StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
         cantidad=F("cantidad") + cantidad_delta
@@ -166,6 +177,17 @@ def registrar_ajuste_inventario(
 def registrar_ajuste_manual(
     stock_item, cantidad_delta, usuario, descripcion="Ajuste manual"
 ):
+    """
+    Registra un ajuste manual de stock.
+
+    Raises:
+        ValueError: si la descripción está vacía (motivo obligatorio para auditoría)
+        ValueError: si el ajuste dejaría el stock en negativo
+    """
+    if not descripcion or not descripcion.strip():
+        raise ValueError(
+            "registrar_ajuste_manual: descripción/motivo es obligatorio para ajustes manuales."
+        )
     registrar_movimiento_stock(
         stock_item=stock_item,
         cantidad_delta=cantidad_delta,
