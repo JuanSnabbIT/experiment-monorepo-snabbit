@@ -58,6 +58,19 @@ build/
 
 # OS
 .DS_Store
+
+# OpenClaw / DevClaw runtime (no versionar)
+.openclaw/
+devclaw/projects.json
+devclaw_docs/
+backend/.venv/
+
+# Archivos de identidad de agentes (generados por OpenClaw)
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
 Thumbs.db
 
 # Misc
@@ -78,3 +91,6 @@ dev/scripts/data/
 
 # Template base (referencia de diseño, no subir)
 tema_base/
+
+# DevClaw runtime state (local only)
+devclaw/
