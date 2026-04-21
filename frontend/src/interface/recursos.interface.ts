@@ -38,6 +38,19 @@ export interface IEquipo {
     nombre_usuario_asignado: string;
 }
 
+export interface ITareaOtV3Origen {
+    id: number;
+    titulo: string;
+    orden_id: number;
+    tipo_tarea: string;
+}
+
+export interface IItemGuiaOrigen {
+    id: number;
+    numero_serie: string | null;
+    item_id: number | null;
+}
+
 export interface IUsuarioEquipo {
     id: number;
     fecha_creacion: string;
@@ -51,6 +64,8 @@ export interface IUsuarioEquipo {
     nombre_usuario: string;
     datos_equipo: IEquipo;
     foto_usuario: string | null;
+    tarea_otv3?: ITareaOtV3Origen | null;
+    item_guia_origen?: IItemGuiaOrigen | null;
 }
 
 export interface IDesvincularEquipoRequest {

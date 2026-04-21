@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
+import React, { useEffect, useState } from 'react';
 
 interface PrefacturaItem {
     ot_id?: number;
@@ -75,6 +75,15 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
     const [loadingSeguimientos, setLoadingSeguimientos] = useState(false);
     const [expandVinculados, setExpandVinculados] = useState(false);
     const [vinculados, setVinculados] = useState<any[]>([]);
+    const [seriesModalOpen, setSeriesModalOpen] = useState(false);
+    const [seriesModalTitle, setSeriesModalTitle] = useState('Series asociadas');
+    const [seriesModalItems, setSeriesModalItems] = useState<string[]>([]);
+
+    const handleOpenSeriesModal = (series: string[], title: string) => {
+        setSeriesModalItems(series);
+        setSeriesModalTitle(title);
+        setSeriesModalOpen(true);
+    };
 
     // Reset estado cuando el modal se cierra
     useEffect(() => {
@@ -713,15 +722,35 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                                                         ) &&
                                                             itemGuia.datos_stock.numeros_series
                                                                 .length > 0);
+                                                    const seriesList: string[] =
+                                                        itemGuia.datos_stock?.numeros_series ?? [];
                                                     return (
-                                                        <span
-                                                            className={
-                                                                isSerializado
-                                                                    ? 'text-sm font-medium text-gray-900 dark:text-gray-100'
-                                                                    : 'text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'
-                                                            }>
-                                                            {isSerializado ? 'Sí' : 'No'}
-                                                        </span>
+                                                        <div className='flex flex-col gap-2'>
+                                                            <span
+                                                                className={
+                                                                    isSerializado
+                                                                        ? 'text-sm font-medium text-gray-900 dark:text-gray-100'
+                                                                        : 'text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'
+                                                                }>
+                                                                {isSerializado ? 'Sí' : 'No'}
+                                                            </span>
+                                                            {seriesList.length > 0 && (
+                                                                <Button
+                                                                    size='xs'
+                                                                    color='violet'
+                                                                    variant='outline'
+                                                                    onClick={() => {
+                                                                        const title = itemGuia.datos_stock?.datos_item?.nombre
+                                                                            ? `Series de ${itemGuia.datos_stock.datos_item.nombre}`
+                                                                            : itemGuia.id
+                                                                            ? `Series de item ${itemGuia.id}`
+                                                                            : 'Series asociadas';
+                                                                        handleOpenSeriesModal(seriesList, title);
+                                                                    }}>
+                                                                    Ver series
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     );
                                                 })()}
                                             </td>
@@ -1290,6 +1319,27 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                     </Button>
                 </div>
             </ModalFooter>
+            <Modal isOpen={seriesModalOpen} setIsOpen={setSeriesModalOpen} size='sm'>
+                <ModalHeader>{seriesModalTitle}</ModalHeader>
+                <ModalBody>
+                    {seriesModalItems.length === 0 ? (
+                        <div className='py-6 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-300'>
+                            No hay series disponibles para este item.
+                        </div>
+                    ) : (
+                        <ul className='list-disc space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300'>
+                            {seriesModalItems.map((serie, index) => (
+                                <li key={`${serie}-${index}`}>{serie}</li>
+                            ))}
+                        </ul>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button variant='solid' color='red' onClick={() => setSeriesModalOpen(false)}>
+                        Cerrar
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </Modal>
     );
 };

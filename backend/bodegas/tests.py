@@ -358,6 +358,19 @@ class SeriesFuncionesTest(TransactionTestCase):
         self.oc_stock.refresh_from_db()
         self.assertEqual(len(self.oc_stock.numeros_serie["numeros_serie"]), 0)
 
+    def test_stockitem_serializer_incluye_series_legacy_disponibles(self):
+        from bodegas.serializers import StockItemEnBodegaSerializer
+
+        self.oc_stock.numeros_serie = {
+            "numeros_serie": [
+                {"serie": "SN-LEGACY", "modelo": "", "object_id": 0}
+            ]
+        }
+        self.oc_stock.save()
+
+        serializer = StockItemEnBodegaSerializer(self.stock)
+        self.assertIn("SN-LEGACY", serializer.data["numeros_series"])
+
     def test_eliminar_serie_asignada_falla(self):
         from bodegas.series import agregar_serie_a_stock, eliminar_serie_de_stock
         from bodegas.models import SerieItem

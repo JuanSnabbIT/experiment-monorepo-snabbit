@@ -94,3 +94,6 @@ tema_base/
 
 # DevClaw runtime state (local only)
 devclaw/
+
+# Workspace settings (local only)
+erp-smart-workspace.code-workspace

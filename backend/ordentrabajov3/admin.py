@@ -8,6 +8,7 @@ from .models import (
     GastoOTV3,
     AdjuntoOTV3,
     HistorialEstadoOTV3,
+    PrefacturaOTV3,
 )
 
 
@@ -71,3 +72,52 @@ class AdjuntoOTV3Admin(admin.ModelAdmin):
 class HistorialEstadoOTV3Admin(admin.ModelAdmin):
     list_display = ["id", "orden", "estado_anterior", "estado_nuevo", "usuario", "fecha_creacion"]
     list_filter = ["estado_nuevo"]
+
+
+@admin.register(PrefacturaOTV3)
+class PrefacturaOTV3Admin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "cliente",
+        "estado_cierre",
+        "moneda_prefactura",
+        "fecha_prefactura",
+        "creado_por",
+        "fecha_creacion",
+    ]
+    list_filter = ["estado_cierre", "moneda_prefactura", "fecha_prefactura", "cliente"]
+    search_fields = ["id", "cliente__nombre", "comentario"]
+    autocomplete_fields = ["cliente", "creado_por", "actualizado_por"]
+    filter_horizontal = ["ots", "contratos"]
+    raw_id_fields = ["ot"]
+    readonly_fields = ["fecha_creacion", "fecha_modificacion"]
+    date_hierarchy = "fecha_creacion"
+
+    fieldsets = (
+        ("Información principal", {
+            "fields": (
+                "ot",
+                "ots",
+                "contratos",
+                "cliente",
+                "estado_cierre",
+                "moneda_prefactura",
+                "fecha_prefactura",
+            )
+        }),
+        ("Documento y auditoría", {
+            "fields": (
+                "documento_factura",
+                "resultado",
+                "comentario",
+                "tasa_dolar_usada",
+                "tasa_uf_usada",
+                "fecha_tasa_cambio",
+                "creado_por",
+                "actualizado_por",
+                "fecha_creacion",
+                "fecha_modificacion",
+            ),
+            "classes": ("collapse",),
+        }),
+    )

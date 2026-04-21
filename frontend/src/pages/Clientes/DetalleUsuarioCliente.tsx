@@ -240,6 +240,7 @@ const DetalleUsuarioCliente = () => {
                                                     <Th>Tipo</Th>
                                                     <Th>Marca / Modelo</Th>
                                                     <Th>Nro Serie</Th>
+                                                    <Th>Origen</Th>
                                                     <Th>Fecha Asignacion</Th>
                                                     <Th>Estado</Th>
                                                     <Th>Acciones</Th>
@@ -254,6 +255,29 @@ const DetalleUsuarioCliente = () => {
                                                             {ue.datos_equipo?.modelo || '-'}
                                                         </Td>
                                                         <Td>{ue.datos_equipo?.numero_serie || '-'}</Td>
+                                                        <Td>
+                                                            {ue.tarea_otv3 ? (
+                                                                <div>
+                                                                    <div className='font-semibold'>OT {ue.tarea_otv3.orden_id}</div>
+                                                                    <div className='text-sm text-zinc-500'>
+                                                                        {ue.tarea_otv3.titulo}
+                                                                    </div>
+                                                                </div>
+                                                            ) : ue.item_guia_origen ? (
+                                                                <div>
+                                                                    <div className='font-semibold'>Guía #{ue.item_guia_origen.id}</div>
+                                                                    <div className='text-sm text-zinc-500'>
+                                                                        {ue.item_guia_origen.numero_serie
+                                                                            ? typeof ue.item_guia_origen.numero_serie === 'string'
+                                                                                ? ue.item_guia_origen.numero_serie
+                                                                                : JSON.stringify(ue.item_guia_origen.numero_serie)
+                                                                            : 'Sin serie'}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                '-'
+                                                            )}
+                                                        </Td>
                                                         <Td>
                                                             {ue.fecha_asignacion
                                                                 ? dayjs(ue.fecha_asignacion).format(

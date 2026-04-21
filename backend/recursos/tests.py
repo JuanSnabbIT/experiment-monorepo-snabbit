@@ -6,6 +6,7 @@ from bodegas.models import Bodega, SerieItem, StockItemEnBodega
 from core.models import PersonalizacionUsuario
 from empresas.models import Empresa, RelacionEmpresa, SucursalEmpresa, UsuarioEmpresa
 from items.models import ItemEmpresa
+from ordentrabajov3.models import OrdenDeTrabajoV3, TareaOTV3
 from recursos.models import Equipo, UsuarioEquipo
 
 User = get_user_model()
@@ -247,3 +248,25 @@ class UsuarioEquipoDetalleFlowAPITest(APITestCase):
         self.assertEqual(len(response_ok.data), 1)
         self.assertEqual(response_ok.data[0]["id"], self.usuario_equipo.id)
         self.assertIn("datos_equipo", response_ok.data[0])
+
+    def test_listado_por_usuario_empresa_incluye_origen_otv3(self):
+        orden = OrdenDeTrabajoV3.objects.create(
+            empresa=self.empresa_prestadora,
+            cliente=self.empresa_cliente,
+            titulo="OT QA Origen",
+        )
+        tarea = TareaOTV3.objects.create(
+            orden=orden,
+            titulo="Entrega equipo OT",
+            usuario_receptor=self.usuario_empresa_cliente,
+            tipo_tarea="entrega_equipo",
+        )
+        self.usuario_equipo.tarea_otv3 = tarea
+        self.usuario_equipo.save(update_fields=["tarea_otv3"])
+
+        response = self.client.get(self.url_listado)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["tarea_otv3"]["id"], tarea.id)
+        self.assertEqual(response.data[0]["tarea_otv3"]["titulo"], tarea.titulo)
+        self.assertEqual(response.data[0]["tarea_otv3"]["orden_id"], orden.id)

@@ -1342,6 +1342,8 @@ class TareaOTV3ViewSet(viewsets.ModelViewSet):
                     ue = UsuarioEquipo.objects.create(
                         equipo=equipo,
                         usuario=tarea.usuario_receptor,
+                        tarea_otv3=tarea,
+                        item_guia_origen=item_guia if item_guia else None,
                     )
                     usuario_equipo_ids.append(ue.pk)
 

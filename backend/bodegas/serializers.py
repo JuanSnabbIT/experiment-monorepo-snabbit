@@ -296,9 +296,10 @@ class StockItemEnBodegaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_numeros_series(self, obj):
-        """Retorna solo las series disponibles (no asignadas a otro documento)."""
-        from bodegas.series import obtener_series_disponibles
-        return obtener_series_disponibles(obj)
+        """Retorna las series disponibles para el stock item, incluyendo JSON legacy."""
+        from bodegas.functions import obtener_series_disponibles_para_stock
+
+        return obtener_series_disponibles_para_stock(obj)
 
 class ItemOrdenCompraEnStockSerializer(serializers.ModelSerializer):
     nombre_bodega = serializers.SerializerMethodField()

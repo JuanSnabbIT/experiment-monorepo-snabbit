@@ -32,7 +32,7 @@ function CrearMovimientoStockAjusteEnBodega({ item_stock }: { item_stock: IStock
         } else {
             formik.resetForm();
         }
-    }, [isOpen]);
+    }, [isOpen, item_stock.cantidad]);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -44,22 +44,32 @@ function CrearMovimientoStockAjusteEnBodega({ item_stock }: { item_stock: IStock
             cantidad: Yup.number()
                 .required('Requerido')
                 .nonNullable('Requerido')
-                .min(-1, 'Minimo 0'),
+                .min(0, 'Debe ser 0 o mayor'),
             descripcion: Yup.string().required('Requerido').nonNullable('Requerido'),
         }),
         onSubmit: async (values) => {
+            const cantidadActual = item_stock.cantidad;
+            const cantidadFinal = values.cantidad;
+            const delta = cantidadFinal - cantidadActual;
+
+            if (delta === 0) {
+                formik.setFieldError('cantidad', 'La cantidad debe ser distinta a la cantidad actual');
+                return;
+            }
+
             try {
                 const response = await ApiService.fetchData({
                     url: `/api/movimientos-stock/crear-ajuste/`,
                     method: 'post',
                     headers: { 'Content-Type': 'application/json' },
                     data: JSON.stringify({
-                        ...values,
+                        cantidad: delta,
+                        descripcion: values.descripcion,
                         stock_item: item_stock.id,
                     }),
                 });
                 if (response.data) {
-                    toast.success('Ajuste manual exitoso', { autoClose: 1000 });
+                    toast.success('Cantidad del stock actualizada', { autoClose: 1000 });
                     dispatch(listaStockItemsEnBodegaThunk({ id_bodega: detalleBodega?.id }));
                     setIsOpen(false);
                 }
@@ -67,17 +77,17 @@ function CrearMovimientoStockAjusteEnBodega({ item_stock }: { item_stock: IStock
                 const mensajesError = Object.values(error.response.data)
                     .flat() // Aplana los arrays en caso de que haya más de uno
                     .join(' '); // Une los mensajes en una sola cadena
-                toast.error(mensajesError, { toastId: 'Error al hacer un ajuste manual al stock' });
+                toast.error(mensajesError, { toastId: 'Error al actualizar la cantidad del stock' });
             }
         },
     });
 
     return (
         <>
-            <Tooltip text='Hacer Ajuste Manual'>
+            <Tooltip text='Editar cantidad total en bodega'>
                 <Button
                     variant='solid'
-                    icon='HeroArrowPath'
+                    icon='HeroAdjustmentsHorizontal'
                     color='zinc'
                     onClick={() => {
                         setIsOpen(true);
@@ -86,12 +96,18 @@ function CrearMovimientoStockAjusteEnBodega({ item_stock }: { item_stock: IStock
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>
-                    <Badge className='text-xl'>Hacer Ajuste Manual</Badge>
+                    <Badge className='text-xl'>Editar cantidad total en bodega</Badge>
                 </ModalHeader>
                 <ModalBody>
                     <div className='flex flex-col gap-4'>
                         <div>
-                            <Badge>Cantidad</Badge>
+                            <Badge>Cantidad actual</Badge>
+                            <div className='mt-2 rounded-lg border-2 border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'>
+                                {item_stock.cantidad}
+                            </div>
+                        </div>
+                        <div>
+                            <Badge>Nueva cantidad total</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.cantidad}
@@ -106,7 +122,7 @@ function CrearMovimientoStockAjusteEnBodega({ item_stock }: { item_stock: IStock
                             </Validation>
                         </div>
                         <div>
-                            <Badge>Descripción</Badge>
+                            <Badge>Descripción del cambio</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.descripcion}

@@ -112,6 +112,22 @@ class Equipo(ModeloBase):
 class UsuarioEquipo(ModeloBaseHistorico):
     equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name='usuario_equipo')
     usuario = models.ForeignKey('empresas.UsuarioEmpresa', on_delete=models.CASCADE, related_name='equipos_usuario')
+    tarea_otv3 = models.ForeignKey(
+        'ordentrabajov3.TareaOTV3',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuario_equipos',
+        verbose_name='Tarea OT V3 de origen',
+    )
+    item_guia_origen = models.ForeignKey(
+        'bodegas.ItemsGuiaSalida',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuario_equipos',
+        verbose_name='Item guía de salida origen',
+    )
     fecha_asignacion = models.DateField("Fecha de asignación", auto_now_add=True)
     fecha_devolucion = models.DateField("Fecha de devolución", null=True, blank=True)
     observaciones = models.TextField("Observaciones", blank=True)

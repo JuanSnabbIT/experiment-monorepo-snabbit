@@ -105,6 +105,8 @@ class UsuarioEquipoSerializer(serializers.ModelSerializer):
     nombre_usuario = serializers.SerializerMethodField()
     datos_equipo = EquipoSerializer(source="equipo", read_only=True)
     foto_usuario = serializers.SerializerMethodField()
+    tarea_otv3 = serializers.SerializerMethodField()
+    item_guia_origen = serializers.SerializerMethodField()
 
     def get_nombre_usuario(self, obj):
         return obj.usuario.usuario.get_nombre_completo()
@@ -112,8 +114,26 @@ class UsuarioEquipoSerializer(serializers.ModelSerializer):
     def get_foto_usuario(self, obj):
         if obj.usuario.usuario.image:
             return obj.usuario.usuario.image.url
-        else:
+        return None
+
+    def get_tarea_otv3(self, obj):
+        if not obj.tarea_otv3:
             return None
+        return {
+            'id': obj.tarea_otv3.id,
+            'titulo': obj.tarea_otv3.titulo,
+            'orden_id': obj.tarea_otv3.orden_id,
+            'tipo_tarea': obj.tarea_otv3.tipo_tarea,
+        }
+
+    def get_item_guia_origen(self, obj):
+        if not obj.item_guia_origen:
+            return None
+        return {
+            'id': obj.item_guia_origen.id,
+            'numero_serie': getattr(obj.item_guia_origen, 'numero_serie', None),
+            'item_id': getattr(obj.item_guia_origen, 'stock_item_id', None),
+        }
 
     class Meta:
         fields = '__all__'
@@ -130,6 +150,8 @@ class UsuarioEquipoListSerializer(serializers.ModelSerializer):
     marca_equipo = serializers.CharField(source='equipo.marca', read_only=True)
     foto_usuario = serializers.SerializerMethodField()
     datos_equipo = EquipoSerializer(source="equipo", read_only=True)
+    tarea_otv3 = serializers.SerializerMethodField()
+    item_guia_origen = serializers.SerializerMethodField()
 
     class Meta:
         model = UsuarioEquipo
@@ -138,7 +160,7 @@ class UsuarioEquipoListSerializer(serializers.ModelSerializer):
             'equipo', 'usuario', 'numero_serie_equipo', 'tipo_equipo', 'marca_equipo',
             'datos_equipo',
             'fecha_asignacion', 'fecha_devolucion', 'estado', 'observaciones',
-            'foto_usuario', 'fecha_creacion', 'fecha_modificacion'
+            'foto_usuario', 'tarea_otv3', 'item_guia_origen', 'fecha_creacion', 'fecha_modificacion'
         ]
 
     def get_nombre_usuario(self, obj):
@@ -157,6 +179,25 @@ class UsuarioEquipoListSerializer(serializers.ModelSerializer):
         if obj.usuario.usuario.image:
             return obj.usuario.usuario.image.url
         return None
+
+    def get_tarea_otv3(self, obj):
+        if not obj.tarea_otv3:
+            return None
+        return {
+            'id': obj.tarea_otv3.id,
+            'titulo': obj.tarea_otv3.titulo,
+            'orden_id': obj.tarea_otv3.orden_id,
+            'tipo_tarea': obj.tarea_otv3.tipo_tarea,
+        }
+
+    def get_item_guia_origen(self, obj):
+        if not obj.item_guia_origen:
+            return None
+        return {
+            'id': obj.item_guia_origen.id,
+            'numero_serie': getattr(obj.item_guia_origen, 'numero_serie', None),
+            'item_id': getattr(obj.item_guia_origen, 'stock_item_id', None),
+        }
 
 class EquipoDetalleCompletoSerializer(serializers.ModelSerializer):
     """Serializer con información completa del equipo incluyendo todas sus relaciones"""

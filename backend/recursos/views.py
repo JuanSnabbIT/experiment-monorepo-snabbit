@@ -174,7 +174,13 @@ class UsuarioEquipoViewSet(viewsets.ModelViewSet):
         # Filtrar UsuarioEquipo por el usuario_empresa
         usuario_equipos = UsuarioEquipo.objects.filter(
             usuario=usuario_empresa
-        ).select_related('equipo', 'usuario__usuario', 'usuario__sucursal__empresa')
+        ).select_related(
+            'equipo',
+            'usuario__usuario',
+            'usuario__sucursal__empresa',
+            'tarea_otv3',
+            'item_guia_origen',
+        )
 
         # Usar el serializer simplificado
         from .serializers import UsuarioEquipoListSerializer

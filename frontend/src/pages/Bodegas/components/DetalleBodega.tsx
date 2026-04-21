@@ -1,5 +1,6 @@
 import Input from '@/components/form/Input';
 import Icon from '@/components/icon/Icon';
+import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -55,6 +56,7 @@ function DetalleBodega() {
     const [isOpenSalida, setIsOpenSalida] = useState<boolean>(false);
     const [isOpenSeries, setIsOpenSeries] = useState<boolean>(false);
     const [stockItemSeries, setStockItemSeries] = useState<IStockItemEnBodega | undefined>();
+    const [openedSeriesRows, setOpenedSeriesRows] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         if (id) {
@@ -92,54 +94,73 @@ function DetalleBodega() {
 
     const columns = [
         columnHelper.accessor('datos_item.nombre', {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <div className='max-w-[240px] truncate text-sm font-medium text-gray-900 dark:text-gray-100'>
+                    {info.getValue()}
+                </div>
+            ),
             header: 'Nombre',
         }),
         columnHelper.accessor('cantidad', {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <div className='text-sm text-gray-700 dark:text-gray-300'>
+                    {info.getValue()}
+                </div>
+            ),
             header: 'Cantidad',
         }),
         columnHelper.accessor('pmp', {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <div className='text-sm text-gray-700 dark:text-gray-300'>
+                    {info.getValue()}
+                </div>
+            ),
             header: 'PMP',
         }),
         columnHelper.display({
             id: 'numeros_series',
             cell: (info) => {
-                const [num, setNum] = useState<string | null>(null);
-                const [isOpening, setIsOpening] = useState<boolean>(false);
+                const series = info.row.original.numeros_series ?? [];
+                const rowId = info.row.original.id;
+                const isOpen = openedSeriesRows[rowId] ?? false;
+                const hasSeries = series.length > 0;
 
                 return (
-                    <div>
-                        <Button
-                            isDisable={isOpening}
-                            variant='solid'
-                            icon={
-                                num === info.row.original.id.toString()
-                                    ? 'DuoAngleDown'
-                                    : 'DuoAngleUp'
-                            }
-                            onClick={() => {
-                                if (isOpening) return;
-
-                                setIsOpening(true);
-                                if (num === info.row.original.id.toString()) {
-                                    setNum(null);
-                                } else {
-                                    setNum(info.row.original.id.toString());
-                                }
-                                setTimeout(() => setIsOpening(false), 300);
-                            }}
-                        />
-                        <Collapse
-                            isOpen={num === info.row.original.id.toString()}
-                            className='transition-opacity'>
-                            <ul className='list-inside list-disc'>
-                                {info.row.original.numeros_series.map((numero, index) => (
-                                    <li key={`${numero}-${index}`}>{numero}</li>
-                                ))}
-                            </ul>
-                        </Collapse>
+                    <div className='space-y-2'>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            {hasSeries ? (
+                                <Badge color='emerald' variant='outline' className='text-[11px] uppercase'>
+                                    {series.length} disponible{series.length === 1 ? '' : 's'}
+                                </Badge>
+                            ) : (
+                                <span className='text-sm text-gray-500 dark:text-gray-400'>Sin series disponibles</span>
+                            )}
+                            {hasSeries && (
+                                <Button
+                                    size='xs'
+                                    variant='outline'
+                                    color='violet'
+                                    icon={isOpen ? 'DuoAngleDown' : 'DuoAngleUp'}
+                                    onClick={() => {
+                                        setOpenedSeriesRows((prev) => ({
+                                            ...prev,
+                                            [rowId]: !prev[rowId],
+                                        }));
+                                    }}
+                                />
+                            )}
+                        </div>
+                        {hasSeries && (
+                            <Collapse isOpen={isOpen} className='transition-opacity'>
+                                <ul className='list-inside list-disc space-y-1 text-sm text-gray-700 dark:text-gray-300'>
+                                    {series.map((numero, index) => (
+                                        <li key={`${numero}-${index}`} className='truncate'>
+                                            {numero}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Collapse>
+                        )}
                     </div>
                 );
             },
@@ -148,9 +169,10 @@ function DetalleBodega() {
         columnHelper.display({
             id: 'acciones',
             cell: (info) => (
-                <div className='flex flex-wrap gap-2'>
+                <div className='flex items-center justify-end gap-2'>
                     <Tooltip text='Ir al detalle del item en la empresa'>
                         <Button
+                            size='sm'
                             variant='solid'
                             color='violet'
                             icon='HeroEye'
@@ -158,22 +180,27 @@ function DetalleBodega() {
                                 navigate(
                                     `/registros/detalle-item-empresa/${info.row.original.item}`,
                                 );
-                            }}></Button>
+                            }}
+                        />
                     </Tooltip>
                     <Tooltip text='Gestionar N° de Serie'>
                         <Button
-                            variant='solid'
+                            size='sm'
+                            variant='outline'
                             color='blue'
                             icon='HeroHashtag'
                             onClick={() => {
                                 setStockItemSeries(info.row.original);
                                 setIsOpenSeries(true);
-                            }}></Button>
+                            }}
+                        />
                     </Tooltip>
-                    <CrearMovimientoStockAjusteEnBodega item_stock={info.row.original} />
+                    <div className='hidden sm:block'>
+                        <CrearMovimientoStockAjusteEnBodega item_stock={info.row.original} />
+                    </div>
                 </div>
             ),
-            header: '',
+            header: 'Acciones',
         }),
     ];
 
@@ -275,6 +302,10 @@ function DetalleBodega() {
             </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>
+                    <Breadcrumb
+                        path='Bodegas'
+                        currentPage={detalleBodega?.nombre || 'Detalle Bodega'}
+                    />
                     <Card className='w-full'>
                         <CardHeader>
                             <CardHeaderChild>
@@ -343,7 +374,7 @@ function DetalleBodega() {
                         </CardHeader>
                         <CardBody className='z-0'>
                             <div className='overflow-auto'>
-                                <Table className='min-w-[600px] table-fixed'>
+                                <Table className='min-w-[800px] table-fixed'>
                                     <THead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
@@ -354,16 +385,13 @@ function DetalleBodega() {
                                                         className='text-left'>
                                                         {header.isPlaceholder ? null : (
                                                             <div
-                                                                key={header.id}
                                                                 aria-hidden='true'
-                                                                {...{
-                                                                    className:
-                                                                        header.column.getCanSort()
-                                                                            ? 'cursor-pointer select-none flex items-center'
-                                                                            : '',
-                                                                    onClick:
-                                                                        header.column.getToggleSortingHandler(),
-                                                                }}>
+                                                                className={
+                                                                    header.column.getCanSort()
+                                                                        ? 'flex cursor-pointer select-none items-center gap-1'
+                                                                        : 'flex items-center gap-1'
+                                                                }
+                                                                onClick={header.column.getToggleSortingHandler()}>
                                                                 {flexRender(
                                                                     header.column.columnDef.header,
                                                                     header.getContext(),
@@ -406,7 +434,7 @@ function DetalleBodega() {
                                         ))}
                                     </TBody>
                                 </Table>
-                                <div className='mt-2 min-w-[600px]'>
+                                <div className='mt-2 min-w-[800px]'>
                                     <TableCardFooterTemplateV2 table={table} />
                                 </div>
                             </div>
