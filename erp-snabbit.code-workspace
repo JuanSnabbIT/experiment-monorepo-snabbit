@@ -129,7 +129,10 @@
             "**/__pycache__": true,
             "frontend/dist/": true,
             "frontend/node_modules/": true,
-            "tema_base/fyr-vite/node_modules/": true
+            "tema_base/fyr-vite/node_modules/": true,
+            "backend/.venv/": true,
+            ".openclaw/": true,
+            "devclaw_docs/": true
         },
 
         // --- Exclusiones de búsqueda ---

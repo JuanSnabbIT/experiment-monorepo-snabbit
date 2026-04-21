@@ -131,3 +131,111 @@ class MovimientoEnVoucherAdmin(admin.ModelAdmin):
     search_fields = ("voucher__numero", "movimiento__stock_item__item__nombre")
     list_filter = ("voucher__orden_trabajo",)
     ordering = ["voucher", "orden", "-fecha_creacion"]
+
+
+# ─── Auditoría y Trazabilidad (Fase 4) ───────────────────────────────────────
+
+from .models import (
+    BitácoraMovimiento,
+    BitácoraSerieMovimiento,
+    ReporteTrazabilidadSerie,
+    ReporteConciliación,
+    AnomalíaMovimiento,
+)
+
+
+@admin.register(BitácoraMovimiento)
+class BitácoraMovimientoAdmin(admin.ModelAdmin):
+    list_display = (
+        "tipo_evento", "item_nombre", "cantidad", "numero_documento",
+        "usuario_nombre", "empresa", "fecha_creacion",
+    )
+    list_filter = ("tipo_evento", "empresa", "bodega_origen")
+    search_fields = ("numero_documento", "item_nombre", "usuario_nombre")
+    readonly_fields = (
+        "tipo_evento", "item_nombre", "cantidad", "cantidad_series",
+        "cantidad_anterior", "cantidad_posterior", "numero_documento",
+        "usuario_nombre", "descripcion", "observaciones",
+        "empresa", "bodega_origen", "bodega_destino", "stock_item",
+        "documento_origen_content_type", "documento_origen_id",
+        "movimiento_reversado", "anulacion_razon",
+        "fecha_creacion", "fecha_modificacion",
+    )
+    ordering = ["-fecha_creacion"]
+    date_hierarchy = "fecha_creacion"
+
+    def has_add_permission(self, request):
+        return False  # Solo lectura — no crear manualmente
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Registros de auditoría no se eliminan
+
+
+@admin.register(BitácoraSerieMovimiento)
+class BitácoraSerieMovimientoAdmin(admin.ModelAdmin):
+    list_display = (
+        "serie_item", "estado_anterior", "estado_nuevo",
+        "documento_referencia", "empresa", "fecha_creacion",
+    )
+    list_filter = ("estado_nuevo", "empresa")
+    search_fields = ("serie_item__serie", "documento_referencia")
+    readonly_fields = tuple(
+        f for f in [
+            "serie_item", "estado_anterior", "estado_nuevo",
+            "documento_referencia", "observaciones", "empresa",
+            "bodega", "usuario", "bitacora_movimiento",
+            "fecha_creacion", "fecha_modificacion",
+        ]
+    )
+    ordering = ["-fecha_creacion"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ReporteConciliación)
+class ReporteConciliaciónAdmin(admin.ModelAdmin):
+    list_display = (
+        "stock_item", "bodega", "cantidad_stock_registrado",
+        "cantidad_stock_calculado", "diferencia", "es_consistente",
+        "empresa", "fecha_creacion",
+    )
+    list_filter = ("es_consistente", "empresa", "bodega")
+    search_fields = ("stock_item__item__nombre",)
+    readonly_fields = (
+        "bodega", "stock_item", "cantidad_stock_registrado",
+        "cantidad_stock_calculado", "diferencia",
+        "cantidad_series_registradas", "cantidad_series_disponibles",
+        "cantidad_series_reservadas", "cantidad_series_despachadas",
+        "es_consistente", "anomalias", "fecha_inicio", "fecha_cierre",
+        "empresa", "fecha_creacion", "fecha_modificacion",
+    )
+    ordering = ["-fecha_creacion"]
+
+
+@admin.register(AnomalíaMovimiento)
+class AnomalíaMovimientoAdmin(admin.ModelAdmin):
+    list_display = (
+        "tipo_anomalia", "descripcion_corta", "resuelta",
+        "empresa", "fecha_creacion",
+    )
+    list_filter = ("tipo_anomalia", "resuelta", "empresa")
+    search_fields = ("descripcion",)
+    ordering = ["-fecha_creacion"]
+    actions = ["marcar_como_resuelta"]
+
+    def descripcion_corta(self, obj):
+        return obj.descripcion[:80] + ("..." if len(obj.descripcion) > 80 else "")
+    descripcion_corta.short_description = "Descripción"
+
+    @admin.action(description="Marcar seleccionadas como resueltas")
+    def marcar_como_resuelta(self, request, queryset):
+        from django.utils import timezone
+        count = queryset.filter(resuelta=False).update(
+            resuelta=True,
+            fecha_resolucion=timezone.now(),
+        )
+        self.message_user(request, f"{count} anomalía(s) marcada(s) como resueltas.")

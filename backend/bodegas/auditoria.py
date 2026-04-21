@@ -19,7 +19,7 @@ class BitácoraMovimiento(ModeloBase):
     """
     Registro completo y auditable de cada evento en el sistema de bodegas.
     
-    Cada evento relevante crea un registro immutable que permite reconstruir
+    Cada evento relevante crea un registro inmutable que permite reconstruir
     el estado del inventario en cualquier momento.
     
     Eventos capturados:
