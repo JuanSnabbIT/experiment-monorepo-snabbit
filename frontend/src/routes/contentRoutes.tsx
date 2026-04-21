@@ -87,10 +87,13 @@ const DetalleBodega = lazy(() => import('@/pages/Bodegas/components/DetalleBodeg
 const ListaMisRendiciones = lazy(() => import('@/pages/Rendiciones/ListaMisRendiciones'));
 const FacturacionesComparativa = lazy(() => import('@/pages/Facturacion/FacturacionesComparativa'));
 const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
-const ListaFacturasUnificada = lazy(() => import('@/pages/Facturacion/ListaFacturasUnificada'));
 const DetalleFacturaContrato = lazy(() => import('@/pages/Facturacion/DetalleFacturaContrato'));
 const MatchingManualOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/MatchingManualOTV3'));
+const ListaPrefacturasOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/ListaPrefacturasOTV3'));
 const DetallePrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/DetallePrefacturaOTV3'));
+const ListaPrefacturasContrato = lazy(
+    () => import('@/pages/Facturacion/ListaPrefacturasContrato'),
+);
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
 // const ListaCotizaciones = lazy(() => import('@/pages/Cotizaciones/ListaCotizaciones'))
 const DetalleCotizacion = lazy(() => import('@/pages/Cotizaciones/components/DetalleCotizacion'));
@@ -459,7 +462,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.listaFacturas.to,
-        element: <Navigate to={`${Pages.facturacion.subPages.facturasContrato.to}?tab=ot`} replace />,
+        element: <Navigate to={Pages.facturacion.subPages.facturasContrato.to} replace />,
         authority: Pages.facturacion.subPages.listaFacturas.authority,
     },
     {
@@ -474,7 +477,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.facturasContrato.to,
-        element: <ListaFacturasUnificada />,
+        element: <ListaPrefacturasContrato />,
         authority: Pages.facturacion.subPages.facturasContrato.authority,
     },
     {
@@ -484,7 +487,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.prefacturasOTV3.to,
-        element: <Navigate to={`${Pages.facturacion.subPages.facturasContrato.to}?tab=ot`} replace />,
+        element: <ListaPrefacturasOTV3 />,
         authority: Pages.facturacion.subPages.prefacturasOTV3.authority,
     },
     {

@@ -13,8 +13,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-import Pages from '@/config/pages.config';
-
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -24,14 +22,13 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import ButtonGroup from '@/components/ui/ButtonGroup';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import Pages from '@/config/pages.config';
 import { IContratoMatching, IFacturaContrato } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import { IPrefacturaOTV3 } from '@/interface/ordenTrabajoV3.interface';
 import { useAppSelector } from '@/store';
 import {
     useCreateFacturaContratoMutation,
@@ -40,12 +37,10 @@ import {
     useGetProximoPeriodoFacturaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
-import { useGetPrefacturasOTV3Query } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     buildPrefacturaContratoDetailPath,
-    buildPrefacturaOTDetailPath,
     calculatePrefacturaMetricas,
     createPrefacturacionSearchParams,
     getPrefacturaEstadoColor,
@@ -77,12 +72,7 @@ const formatContratoTotal = (factura: IFacturaContrato) => {
     return `${factura.moneda_label || 'CLP'} ${monto.toLocaleString('es-CL')}`;
 };
 
-const formatOTTotal = (prefactura: IPrefacturaOTV3) => {
-    const monto = Number(prefactura.resultado?.resumen?.total_facturar ?? 0);
-    return `$${Math.ceil(monto).toLocaleString('es-CL')}`;
-};
-
-const ListaFacturasUnificada = () => {
+const ListaPrefacturasContrato = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
@@ -92,30 +82,52 @@ const ListaFacturasUnificada = () => {
         () => parsePrefacturacionSearchParams(searchParams),
         [searchParams],
     );
-    const { tab: activeTab, estado: filtroEstado, q: globalFilter, historico: verHistorico } =
-        routeState;
+    const { tab, estado: filtroEstado, q: globalFilter, historico: verHistorico } = routeState;
+
+    const createContratoSearchParams = useCallback(
+        (state: Partial<IPrefacturacionRouteState>) => {
+            const params = createPrefacturacionSearchParams(state);
+            params.delete('tab');
+            return params;
+        },
+        [],
+    );
 
     const updateRouteState = useCallback(
         (patch: Partial<IPrefacturacionRouteState>) => {
             const nextState: IPrefacturacionRouteState = {
-                tab: patch.tab ?? routeState.tab,
+                tab: 'contrato',
                 estado: patch.estado ?? routeState.estado,
                 q: patch.q ?? routeState.q,
                 historico: patch.historico ?? routeState.historico,
             };
 
-            setSearchParams(createPrefacturacionSearchParams(nextState), { replace: true });
+            const nextParams = createContratoSearchParams(nextState);
+            if (nextParams.toString() !== searchParams.toString()) {
+                setSearchParams(nextParams, { replace: true });
+            }
         },
-        [routeState, setSearchParams],
+        [routeState, searchParams, setSearchParams, createContratoSearchParams],
     );
 
     useEffect(() => {
+        if (tab === 'ot') {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('tab');
+            const queryString = nextParams.toString();
+            navigate(
+                `${Pages.facturacion.subPages.prefacturasOTV3.to}${queryString ? `?${queryString}` : ''}`,
+                { replace: true },
+            );
+            return;
+        }
+
         const parsed = parsePrefacturacionSearchParams(searchParams);
-        const normalizedParams = createPrefacturacionSearchParams(parsed);
+        const normalizedParams = createContratoSearchParams(parsed);
         if (normalizedParams.toString() !== searchParams.toString()) {
             setSearchParams(normalizedParams, { replace: true });
         }
-    }, [searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams, tab, navigate, createContratoSearchParams]);
 
     const contratoQueryParams = useMemo(() => {
         const params: { estado?: string; historico?: boolean } = {};
@@ -125,7 +137,7 @@ const ListaFacturasUnificada = () => {
         if (verHistorico) {
             params.historico = true;
         }
-        return params;
+        return Object.keys(params).length > 0 ? params : undefined;
     }, [filtroEstado, verHistorico]);
 
     const { data: facturasContrato = [], isLoading: isLoadingContrato } =
@@ -190,25 +202,6 @@ const ListaFacturasUnificada = () => {
         return facturasContrato.filter((factura) => filtroEstado.includes(factura.estado as never));
     }, [facturasContrato, filtroEstado]);
 
-    const otQueryArgs = useMemo(
-        () => ({
-            estado: filtroEstado.length === 1 ? filtroEstado[0] : undefined,
-        }),
-        [filtroEstado],
-    );
-    const { data: facturasOT = [], isLoading: isLoadingOT } = useGetPrefacturasOTV3Query(
-        activeTab === 'ot' ? otQueryArgs : undefined,
-        { skip: activeTab !== 'ot' },
-    );
-
-    const facturasOTFiltradas = useMemo(() => {
-        if (filtroEstado.length <= 1) {
-            return facturasOT;
-        }
-
-        return facturasOT.filter((prefactura) => filtroEstado.includes(prefactura.estado_cierre as never));
-    }, [facturasOT, filtroEstado]);
-
     const contratoListItems = useMemo<IPrefacturaListItemVM[]>(
         () =>
             facturasContratoFiltradas.map((factura) => ({
@@ -230,37 +223,7 @@ const ListaFacturasUnificada = () => {
         [facturasContratoFiltradas, routeState],
     );
 
-    const otListItems = useMemo<IPrefacturaListItemVM[]>(
-        () =>
-            facturasOTFiltradas.map((prefactura) => {
-                const otIds = prefactura.resultado?.ots_incluidas ?? [];
-                return {
-                    id: prefactura.id,
-                    tipo: 'ot',
-                    tipoLabel: 'OT',
-                    referencia:
-                        otIds.length > 0
-                            ? `${otIds.length} OT${otIds.length === 1 ? '' : 's'} incluidas`
-                            : 'Sin OTs asociadas',
-                    cliente: prefactura.cliente_nombre || 'Sin nombre',
-                    contexto:
-                        prefactura.resultado?.resumen?.total_items !== undefined
-                            ? `${prefactura.resultado.resumen.total_items} item(s)`
-                            : 'Sin resumen',
-                    estado: prefactura.estado_cierre,
-                    estadoLabel: getPrefacturaEstadoLabel(prefactura.estado_cierre),
-                    totalLabel: formatOTTotal(prefactura),
-                    fechaLabel: prefactura.fecha_creacion
-                        ? dayjs(prefactura.fecha_creacion).format('DD/MM/YYYY')
-                        : '-',
-                    otIds,
-                    detailPath: buildPrefacturaOTDetailPath(prefactura.id, routeState),
-                };
-            }),
-        [facturasOTFiltradas, routeState],
-    );
-
-    const currentItems = activeTab === 'contrato' ? contratoListItems : otListItems;
+    const currentItems = contratoListItems;
     const currentMetricas = useMemo(
         () =>
             calculatePrefacturaMetricas(currentItems, (item) => item.estado),
@@ -299,30 +262,8 @@ const ListaFacturasUnificada = () => {
             }),
             columnHelper.display({
                 id: 'contexto',
-                header: activeTab === 'contrato' ? 'Periodo' : 'OTs',
-                cell: ({ row }) => {
-                    if (row.original.tipo === 'contrato') {
-                        return row.original.contexto;
-                    }
-
-                    if (row.original.otIds.length === 0) {
-                        return '—';
-                    }
-
-                    return (
-                        <div className='flex flex-wrap gap-1'>
-                            {row.original.otIds.map((otId) => (
-                                <Badge
-                                    key={otId}
-                                    variant='outline'
-                                    color='zinc'
-                                    className='text-xs'>
-                                    OT #{otId}
-                                </Badge>
-                            ))}
-                        </div>
-                    );
-                },
+                header: 'Periodo',
+                cell: ({ row }) => row.original.contexto,
             }),
             columnHelper.accessor('totalLabel', {
                 header: 'Total',
@@ -355,7 +296,7 @@ const ListaFacturasUnificada = () => {
                 ),
             }),
         ],
-        [activeTab, navigate],
+        [navigate],
     );
 
     const table = useReactTable({
@@ -401,7 +342,7 @@ const ListaFacturasUnificada = () => {
         }
     };
 
-    const isLoading = activeTab === 'contrato' ? isLoadingContrato : isLoadingOT;
+    const isLoading = isLoadingContrato;
 
     const renderMetricCard = (label: string, value: number, valueClassName?: string) => (
         <Card>
@@ -416,44 +357,16 @@ const ListaFacturasUnificada = () => {
         <PageWrapper>
             <Subheader>
                 <SubheaderLeft>
-                    <h1 className='text-xl font-bold'>Prefacturacion</h1>
+                    <h1 className='text-xl font-bold'>Prefacturas Contratos</h1>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <Button
-                    variant='solid'
-                    icon='HeroPlus'
-                    onClick={() => {
-                        if (activeTab === 'ot') {
-                            navigate(Pages.facturacion.subPages.matchingManualOTV3.to);
-                        } else {
-                            setModalCrear(true);
-                        }
-                    }}>
-                    {activeTab === 'ot' ? 'Nueva Prefactura OT V3' : 'Nueva Prefactura de Contrato'}
-                </Button>
+                    <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
+                        Nueva Prefactura Contrato
+                    </Button>
                 </SubheaderRight>
             </Subheader>
 
             <Container>
-                <div className='mb-4'>
-                    <ButtonGroup>
-                        <Button
-                            variant={activeTab === 'contrato' ? 'solid' : 'outline'}
-                            color={activeTab === 'contrato' ? 'violet' : 'zinc'}
-                            icon='HeroClipboardDocumentList'
-                            onClick={() => updateRouteState({ tab: 'contrato' })}>
-                            Contrato
-                        </Button>
-                        <Button
-                            variant={activeTab === 'ot' ? 'solid' : 'outline'}
-                            color={activeTab === 'ot' ? 'sky' : 'zinc'}
-                            icon='HeroWrenchScrewdriver'
-                            onClick={() => updateRouteState({ tab: 'ot' })}>
-                            Ordenes de Trabajo V3
-                        </Button>
-                    </ButtonGroup>
-                </div>
-
                 <div className='mb-4 grid grid-cols-2 gap-4 md:grid-cols-4'>
                     {renderMetricCard('Total', currentMetricas.total)}
                     {renderMetricCard('Borrador', currentMetricas.borrador, 'text-amber-500')}
@@ -677,4 +590,4 @@ const ListaFacturasUnificada = () => {
     );
 };
 
-export default ListaFacturasUnificada;
+export default ListaPrefacturasContrato;

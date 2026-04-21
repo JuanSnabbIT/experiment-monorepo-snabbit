@@ -700,7 +700,7 @@ export const Pages = {
             facturasContrato: {
                 id: 'facturasContrato',
                 to: '/facturacion/facturas-contrato',
-                text: 'Prefacturación',
+                text: 'Prefacturas Contratos',
                 icon: 'HeroClipboardDocumentList',
                 authority: ['staff', 'superadmin'],
             },
@@ -714,7 +714,7 @@ export const Pages = {
             prefacturasOTV3: {
                 id: 'prefacturasOTV3',
                 to: '/facturacion/otv3/prefacturas',
-                text: 'Prefacturas OT V3',
+                text: 'Prefacturas OT',
                 icon: 'HeroClipboardDocumentList',
                 authority: ['staff', 'superadmin'],
             },

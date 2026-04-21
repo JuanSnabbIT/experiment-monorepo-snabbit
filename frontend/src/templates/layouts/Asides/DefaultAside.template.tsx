@@ -1,20 +1,18 @@
+import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
+import { Pages } from '@/config/pages.config';
+import CrearClienteEnMenu from '@/pages/Clientes/modals/CrearClienteEnMenu';
+import { listaBodegasThunk, useAppDispatch, useAppSelector } from '@/store';
+import { detalleEmpresaThunk, listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import { useEffect } from 'react';
 import Aside, { AsideBody } from '../../../components/layouts/Aside/Aside';
 import Nav, {
-    NavButton,
     NavCollapse,
     NavItem,
     NavSeparator,
-    NavTitle,
-    NavUser,
+    NavTitle
 } from '../../../components/layouts/Navigation/Nav';
-import AsideHeadPart from './_parts/AsideHead.part';
 import AsideFooterPart from './_parts/AsideFooter.part';
-import { Pages } from '@/config/pages.config';
-import { listaBodegasThunk, useAppDispatch, useAppSelector } from '@/store';
-import { detalleEmpresaThunk, listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
-import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityCheckNav';
-import CrearClienteEnMenu from '@/pages/Clientes/modals/CrearClienteEnMenu';
+import AsideHeadPart from './_parts/AsideHead.part';
 
 const DefaultAsideTemplate = () => {
     const dispatch = useAppDispatch();
@@ -441,6 +439,19 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.facturacion.subPages.facturasContrato.icon}
                                     id={
                                         Pages.facturacion.subPages.facturasContrato.id
+                                    }></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={
+                                    Pages.facturacion.subPages.prefacturasOTV3.authority
+                                }
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.facturacion.subPages.prefacturasOTV3.text}
+                                    to={Pages.facturacion.subPages.prefacturasOTV3.to}
+                                    icon={Pages.facturacion.subPages.prefacturasOTV3.icon}
+                                    id={
+                                        Pages.facturacion.subPages.prefacturasOTV3.id
                                     }></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
