@@ -89,7 +89,6 @@ const FacturacionesComparativa = lazy(() => import('@/pages/Facturacion/Facturac
 const DetalleFactura = lazy(() => import('@/pages/Facturacion/DetalleFactura'));
 const ListaFacturasUnificada = lazy(() => import('@/pages/Facturacion/ListaFacturasUnificada'));
 const DetalleFacturaContrato = lazy(() => import('@/pages/Facturacion/DetalleFacturaContrato'));
-const ListaPrefacturasOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/ListaPrefacturasOTV3'));
 const MatchingManualOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/MatchingManualOTV3'));
 const DetallePrefacturaOTV3 = lazy(() => import('@/pages/Facturacion/OTV3/DetallePrefacturaOTV3'));
 // const ListaRendicionesSucursales = lazy(() => import('@/pages/Rendiciones/ListaRendicionSucursal'))
@@ -485,7 +484,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.facturacion.subPages.prefacturasOTV3.to,
-        element: <ListaPrefacturasOTV3 />,
+        element: <Navigate to={`${Pages.facturacion.subPages.facturasContrato.to}?tab=ot`} replace />,
         authority: Pages.facturacion.subPages.prefacturasOTV3.authority,
     },
     {

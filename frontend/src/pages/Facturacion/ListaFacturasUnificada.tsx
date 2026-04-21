@@ -31,7 +31,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { IContratoMatching, IFacturaContrato } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
-import { ICierreAdministrativoOTDetail } from '@/interface/ordenTrabajo.interface';
+import { IPrefacturaOTV3 } from '@/interface/ordenTrabajoV3.interface';
 import { useAppSelector } from '@/store';
 import {
     useCreateFacturaContratoMutation,
@@ -40,7 +40,7 @@ import {
     useGetProximoPeriodoFacturaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
-import { useGetCierresAdministrativosOTQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
+import { useGetPrefacturasOTV3Query } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
@@ -77,7 +77,7 @@ const formatContratoTotal = (factura: IFacturaContrato) => {
     return `${factura.moneda_label || 'CLP'} ${monto.toLocaleString('es-CL')}`;
 };
 
-const formatOTTotal = (prefactura: ICierreAdministrativoOTDetail) => {
+const formatOTTotal = (prefactura: IPrefacturaOTV3) => {
     const monto = Number(prefactura.resultado?.resumen?.total_facturar ?? 0);
     return `$${Math.ceil(monto).toLocaleString('es-CL')}`;
 };
@@ -193,12 +193,11 @@ const ListaFacturasUnificada = () => {
     const otQueryArgs = useMemo(
         () => ({
             estado: filtroEstado.length === 1 ? filtroEstado[0] : undefined,
-            historico: verHistorico || undefined,
         }),
-        [filtroEstado, verHistorico],
+        [filtroEstado],
     );
-    const { data: facturasOT = [], isLoading: isLoadingOT } = useGetCierresAdministrativosOTQuery(
-        otQueryArgs,
+    const { data: facturasOT = [], isLoading: isLoadingOT } = useGetPrefacturasOTV3Query(
+        activeTab === 'ot' ? otQueryArgs : undefined,
         { skip: activeTab !== 'ot' },
     );
 
@@ -420,9 +419,18 @@ const ListaFacturasUnificada = () => {
                     <h1 className='text-xl font-bold'>Prefacturacion</h1>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    <Button variant='solid' icon='HeroPlus' onClick={() => setModalCrear(true)}>
-                        Nueva Prefactura de Contrato
-                    </Button>
+                    <Button
+                    variant='solid'
+                    icon='HeroPlus'
+                    onClick={() => {
+                        if (activeTab === 'ot') {
+                            navigate(Pages.facturacion.subPages.matchingManualOTV3.to);
+                        } else {
+                            setModalCrear(true);
+                        }
+                    }}>
+                    {activeTab === 'ot' ? 'Nueva Prefactura OT V3' : 'Nueva Prefactura de Contrato'}
+                </Button>
                 </SubheaderRight>
             </Subheader>
 
@@ -437,12 +445,10 @@ const ListaFacturasUnificada = () => {
                             Contrato
                         </Button>
                         <Button
-                            variant='outline'
-                            color='sky'
+                            variant={activeTab === 'ot' ? 'solid' : 'outline'}
+                            color={activeTab === 'ot' ? 'sky' : 'zinc'}
                             icon='HeroWrenchScrewdriver'
-                            onClick={() =>
-                                navigate(Pages.facturacion.subPages.prefacturasOTV3.to)
-                            }>
+                            onClick={() => updateRouteState({ tab: 'ot' })}>
                             Ordenes de Trabajo V3
                         </Button>
                     </ButtonGroup>

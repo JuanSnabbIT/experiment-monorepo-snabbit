@@ -15,6 +15,7 @@ from contratos.models import (
     ContratoLicencia,
     ContratoCondicionEspecial,
     EnvioContratoAprobacion,
+    FacturaContrato,
     UsuarioVinculadoLicencia,
     UsuarioVinculadoContrato,
     PersonaLicenciataria,
@@ -144,6 +145,29 @@ class ContratoMultiTenancyTest(ContratoAPITestBase):
         response = self.client.get(f"/api/contratos/{self.contrato.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.contrato.id)
+
+
+class FacturaContratoListTest(ContratoAPITestBase):
+    def test_list_facturas_contrato_sin_datos_devuelve_lista_vacia(self):
+        response = self.client.get("/api/facturas-contrato/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_list_factura_contrato_con_contrato_sin_items_comerciales(self):
+        FacturaContrato.objects.create(
+            contrato=self.contrato,
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            periodo_inicio=date.today(),
+            periodo_fin=date.today() + timedelta(days=30),
+            monto_total=0,
+            moneda="USD",
+        )
+
+        response = self.client.get("/api/facturas-contrato/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["monto_calculado"], "0")
 
 
 class PlantillaContratoReordenarTest(ContratoAPITestBase):

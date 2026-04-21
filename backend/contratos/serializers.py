@@ -1378,13 +1378,9 @@ class EnvioContratoAprobacionSerializer(serializers.ModelSerializer):
 class FacturaContratoSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     moneda_label = serializers.SerializerMethodField()
-    nombre_contrato = serializers.CharField(source="contrato.nombre", read_only=True)
-    nombre_cliente = serializers.CharField(
-        source="empresa_cliente.nombre", read_only=True
-    )
-    nombre_prestadora = serializers.CharField(
-        source="empresa_prestadora.nombre", read_only=True
-    )
+    nombre_contrato = serializers.SerializerMethodField()
+    nombre_cliente = serializers.SerializerMethodField()
+    nombre_prestadora = serializers.SerializerMethodField()
     creado_por_nombre = serializers.SerializerMethodField()
     monto_calculado = serializers.SerializerMethodField()
 
@@ -1404,13 +1400,26 @@ class FacturaContratoSerializer(serializers.ModelSerializer):
     def get_moneda_label(self, obj):
         return obj.get_moneda_display()
 
+    def get_nombre_contrato(self, obj):
+        return getattr(getattr(obj, "contrato", None), "nombre", None)
+
+    def get_nombre_cliente(self, obj):
+        return getattr(getattr(obj, "empresa_cliente", None), "nombre", None)
+
+    def get_nombre_prestadora(self, obj):
+        return getattr(getattr(obj, "empresa_prestadora", None), "nombre", None)
+
     def get_creado_por_nombre(self, obj):
         if obj.creado_por:
             return str(obj.creado_por)
         return None
 
     def get_monto_calculado(self, obj):
-        return str(obj.contrato.total_items_comerciales or 0)
+        contrato = getattr(obj, "contrato", None)
+        if contrato is None:
+            return "0"
+        total = getattr(contrato, "total_items_comerciales", 0) or 0
+        return str(total)
 
 
 # ── Serializers para Matching OT → Contrato ──

@@ -95,6 +95,23 @@
         "chat.agent.maxRequests": 50,
 
         // --- Terminal ---
+        "terminal.integrated.profiles.windows": {
+            "Command Prompt": {
+                "path": "C:\\Windows\\System32\\cmd.exe",
+                "args": [
+                    "/K",
+                    "conda activate ENV"
+                ]
+            },
+            "PowerShell": {
+                "source": "PowerShell",
+                "args": [
+                    "-NoExit",
+                    "-Command",
+                    "& conda shell.powershell hook | Out-String | Invoke-Expression; conda activate ENV"
+                ]
+            }
+        },
         "terminal.integrated.defaultProfile.windows": "Command Prompt",
 
         // --- Formateo automático ---
@@ -112,8 +129,10 @@
             "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
 
-        // --- Python: intérprete (ajustar si el path cambia) ---
-        "python.defaultInterpreterPath": "C:\\Users\\soporte\\.conda\\envs\\ENV\\python.exe",
+        // --- Python: intérprete y activación de entorno en terminal ---
+        "python.defaultInterpreterPath": "${env:USERPROFILE}\\.conda\\envs\\ENV\\python.exe",
+        "python.condaPath": "conda",
+        "python.terminal.activateEnvironment": true,
 
         // --- Git ---
         "git.autofetch": true,

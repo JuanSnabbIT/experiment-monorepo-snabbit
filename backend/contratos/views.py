@@ -2948,6 +2948,13 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
     serializer_class = FacturaContratoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except (AttributeError, TypeError, ValueError, KeyError) as exc:
+            logging.exception("Error al listar facturas de contrato")
+            return Response([], status=status.HTTP_200_OK)
+
     # ── Multi-tenancy ──────────────────────────────────────────
     def get_queryset(self):
         from core.models import PersonalizacionUsuario
