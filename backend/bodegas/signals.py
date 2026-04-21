@@ -95,13 +95,13 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
 
     stock_item = instance.stock_item
     cantidad = instance.cantidad_rebajada or 0
+    usuario = guia.creado_por
 
     # --- 1) Revertir stock ---
     if cantidad > 0:
         from django.db.models import F
         from django.db.models.functions import Greatest
 
-        usuario = guia.creado_por  # Usuario que creó la guía
 
         # Liberar cantidad_no_disponible con F() atómico
         from bodegas.models import StockItemEnBodega
@@ -122,7 +122,14 @@ def devolver_stock_al_eliminar_item_guia(sender, instance: ItemsGuiaSalida, **kw
     numero_serie = instance.numero_serie
     if numero_serie and numero_serie.get("serie"):
         from bodegas.series import liberar_serie
-        liberar_serie(stock_item, numero_serie["serie"], instance.id)
+        liberar_serie(
+            stock_item,
+            numero_serie["serie"],
+            instance.id,
+            usuario=usuario,
+            causa="Eliminacion de item de guia",
+            tipo_evento="REVERSO",
+        )
 
 
 @receiver(post_save, sender=OrdenCompra)

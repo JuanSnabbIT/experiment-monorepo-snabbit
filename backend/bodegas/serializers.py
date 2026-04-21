@@ -315,7 +315,10 @@ class ItemOrdenCompraEnStockSerializer(serializers.ModelSerializer):
             return obj.stock_item.bodega.nombre
         item_oc = getattr(obj, "item_oc", None)
         if item_oc and hasattr(item_oc, "item"):
-            stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
+            qs = StockItemEnBodega.objects.filter(item=item_oc.item)
+            if obj.bodega_temporal_id:
+                qs = qs.filter(bodega_id=obj.bodega_temporal_id)
+            stock_item = qs.order_by("id").first()
             if stock_item:
                 return stock_item.bodega.nombre
         if obj.bodega_temporal:
@@ -327,7 +330,10 @@ class ItemOrdenCompraEnStockSerializer(serializers.ModelSerializer):
             return obj.stock_item.bodega_id
         item_oc = getattr(obj, "item_oc", None)
         if item_oc and hasattr(item_oc, "item"):
-            stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
+            qs = StockItemEnBodega.objects.filter(item=item_oc.item)
+            if obj.bodega_temporal_id:
+                qs = qs.filter(bodega_id=obj.bodega_temporal_id)
+            stock_item = qs.order_by("id").first()
             if stock_item:
                 return stock_item.bodega_id
         return None

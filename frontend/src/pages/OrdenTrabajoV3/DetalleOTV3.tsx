@@ -142,7 +142,7 @@ const DetalleOTV3 = () => {
     const currentStepIndex = ETAPA_STEP_INDEX[etapaActual] ?? 0;
 
     const tecnicosOptions: TSelectOption[] = (usuariosEmpresa ?? []).map((u: IUsuarioEmpresa) => ({
-        value: String(u.usuario),
+        value: String(u.id),
         label: u.nombre_usuario || u.email_usuario,
     }));
 

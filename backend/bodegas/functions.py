@@ -999,14 +999,13 @@ def recepcionar_oc_y_crear_guia(orden_compra, estado, items_data, usuario=None):
 
             if item_oc_en_stock.bodega_temporal:
                 stock_item, created = StockItemEnBodega.objects.get_or_create(
+                    bodega=item_oc_en_stock.bodega_temporal,
                     item=ioc.item,
-                    defaults={'bodega': item_oc_en_stock.bodega_temporal, 'cantidad': 0, 'pmp': 0},
+                    defaults={"cantidad": 0, "pmp": 0},
                 )
-                if not created and stock_item.bodega_id != item_oc_en_stock.bodega_temporal_id:
-                    raise ValidationError(f"El item {ioc.id} ya existe en otra bodega.")
 
                 item_oc_en_stock.stock_item = stock_item
-                item_oc_en_stock.save(update_fields=['stock_item'])
+                item_oc_en_stock.save(update_fields=["stock_item"])
 
                 if cantidad_a_ingresar > 0:
                     registrar_entrada(

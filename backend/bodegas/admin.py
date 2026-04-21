@@ -100,6 +100,14 @@ class SerieItemAdmin(admin.ModelAdmin):
     raw_id_fields = ("stock_item", "item_guia_salida", "item_orden_compra_en_stock")
 
 
+@admin.register(SerieEvento)
+class SerieEventoAdmin(admin.ModelAdmin):
+    list_display = ("serie", "tipo_evento", "estado_anterior", "estado_nuevo", "usuario", "fecha_creacion")
+    list_filter = ("tipo_evento", "estado_nuevo")
+    search_fields = ("serie", "causa", "documento_tipo")
+    raw_id_fields = ("serie_item", "stock_item", "guia_salida", "item_guia_salida", "usuario")
+
+
 class MovimientoEnVoucherInline(admin.TabularInline):
     model = MovimientoEnVoucher
     extra = 0

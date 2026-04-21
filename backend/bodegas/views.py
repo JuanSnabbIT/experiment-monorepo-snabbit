@@ -8,7 +8,7 @@ from core.tasks import send_email_task
 from cuentas.functions import obtener_usuario_empresa
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.timezone import now, timedelta
@@ -96,6 +96,14 @@ from .serializers import (
     TomaInventarioCrearSerializer,
     TomaInventarioSerializer,
     VoucherDevolucionSerializer,
+)
+from .servicios_stock_series import (
+    ajustar_reserva_item_guia,
+    despachar_items_guia_de_guia,
+    devolver_item_guia,
+    liberar_series_de_item_guia,
+    reservar_serie_para_item_guia,
+    reservar_stock_para_item_guia,
 )
 
 load_dotenv()
@@ -861,13 +869,10 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 
             # Obtener o crear el stock del ítem en la bodega
             stock_item, created = StockItemEnBodega.objects.get_or_create(
-                item=ioc.item, defaults={"bodega": bodega, "cantidad": 0, "pmp": 0}
+                bodega=bodega,
+                item=ioc.item,
+                defaults={"cantidad": 0, "pmp": 0},
             )
-            if not created and stock_item.bodega_id != bodega.id:
-                return Response(
-                    {"detail": f"El item {ioc.id} ya existe en otra bodega."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             # Actualizar la relación de ItemOrdenCompraEnStock con el nuevo StockItemEnBodega
             item_oc_en_stock.stock_item = stock_item
@@ -1514,7 +1519,12 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
 
         # Agregar la serie al primer registro disponible
         oc_target = qs_oc.first()
-        agregar_serie_a_stock(oc_target, serie)
+        agregar_serie_a_stock(
+            oc_target,
+            serie,
+            usuario=obtener_usuario_empresa(request.user),
+            causa="Alta manual de serie en stock",
+        )
 
         # Retornar el stock item actualizado
         stock_item.refresh_from_db()
@@ -1542,7 +1552,12 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
 
         from bodegas.series import eliminar_serie_de_stock
 
-        eliminada, motivo = eliminar_serie_de_stock(stock_item, serie)
+        eliminada, motivo = eliminar_serie_de_stock(
+            stock_item,
+            serie,
+            usuario=obtener_usuario_empresa(request.user),
+            causa="Eliminacion manual de serie en stock",
+        )
         if not eliminada:
             if motivo == "Serie no encontrada.":
                 return Response(
@@ -1598,7 +1613,20 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        orden_compra = OrdenCompra.objects.filter(pk=orden_compra_pk).first()
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=request.user
+        ).select_related("sucursal_principal__empresa").first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return Response(
+                {"detail": "No tienes una sucursal principal asignada."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        empresa = personalizacion.sucursal_principal.empresa
+
+        orden_compra = OrdenCompra.objects.filter(
+            pk=orden_compra_pk,
+            oc_empresa=empresa,
+        ).first()
         if not orden_compra:
             return Response(
                 {"detail": "Orden de compra no encontrada."},
@@ -1620,19 +1648,28 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
         item_ids = [item.item_id for item in items_en_orden]
 
         if orden_compra.estado in ("1", "3", "4"):
-            stock_items = {
-                stock_item.item_id: stock_item
-                for stock_item in StockItemEnBodega.objects.filter(
-                    item_id__in=item_ids
-                ).select_related("bodega")
-            }
+            stock_qs = StockItemEnBodega.objects.filter(
+                item_id__in=item_ids,
+                bodega__sucursal__empresa=empresa,
+            ).select_related("bodega")
+            stock_items = {}
+            stock_fallback_por_item = {}
+            for stock_item in stock_qs:
+                stock_items[(stock_item.bodega_id, stock_item.item_id)] = stock_item
+                stock_fallback_por_item.setdefault(stock_item.item_id, stock_item)
             for item in items_en_orden:
                 item_stock, _ = ItemOrdenCompraEnStock.objects.get_or_create(
                     content_type=content_type_oc,
                     item_oc_id=item.id,
                     defaults={"cantidad": item.cantidad},
                 )
-                stock_item = stock_items.get(item.item_id)
+                stock_item = None
+                if item_stock.bodega_temporal_id:
+                    stock_item = stock_items.get(
+                        (item_stock.bodega_temporal_id, item.item_id)
+                    )
+                if not stock_item:
+                    stock_item = stock_fallback_por_item.get(item.item_id)
                 if stock_item and item_stock.bodega_temporal_id != stock_item.bodega_id:
                     item_stock.bodega_temporal = stock_item.bodega
                     item_stock.save(update_fields=["bodega_temporal"])
@@ -1661,10 +1698,9 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
 
             item_oc = instance.item_oc
             if item_oc and hasattr(item_oc, "item"):
-                stock_item = StockItemEnBodega.objects.filter(item=item_oc.item).first()
-                if stock_item and stock_item.bodega_id != bodega_temporal_id:
+                if instance.stock_item_id and instance.stock_item.bodega_id != bodega_temporal_id:
                     return Response(
-                        {"detail": "La bodega ya esta definida por stock existente."},
+                        {"detail": "El item ya esta asociado a otro stock en una bodega distinta."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -1674,6 +1710,29 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
 class GuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = GuiaSalida.objects.all()
     serializer_class = GuiaSalidaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def _empresa_activa(self):
+        personalizacion = PersonalizacionUsuario.objects.filter(
+            usuario=self.request.user
+        ).select_related("sucursal_principal__empresa").first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return None
+        return personalizacion.sucursal_principal.empresa
+
+    def get_queryset(self):
+        empresa = self._empresa_activa()
+        if not empresa:
+            return GuiaSalida.objects.none()
+        return GuiaSalida.objects.filter(
+            bodega__sucursal__empresa=empresa
+        ).select_related(
+            "bodega",
+            "cliente",
+            "entregado_a__sucursal__empresa",
+            "recibido_por__sucursal__empresa",
+        )
+
 
     # --- Estados permitidos para eliminación ---
     ESTADOS_PERMITIDOS_ELIMINAR = ("P",)
@@ -1766,6 +1825,31 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 {"detail": "No tienes una sucursal principal asignada."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        empresa_prestador = usuario.sucursal.empresa
+
+        bodega_id = payload.get("bodega")
+        if bodega_id in (None, ""):
+            return Response(
+                {"detail": "Debes indicar una bodega."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            bodega_id = int(bodega_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "La bodega debe ser un ID valido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        bodega = Bodega.objects.filter(
+            pk=bodega_id,
+            sucursal__empresa=empresa_prestador,
+        ).first()
+        if not bodega:
+            return Response(
+                {"detail": "La bodega indicada no existe para tu empresa."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        payload["bodega"] = bodega.id
 
         orden_trabajo = None
         orden_trabajo_id = payload.get("orden_trabajo")
@@ -1777,9 +1861,14 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     {"detail": "La OT debe ser un ID valido."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            orden_trabajo = OrdenDeTrabajo.objects.select_related("cliente", "empresa").filter(
-                pk=orden_trabajo_id
-            ).first()
+            orden_trabajo = (
+                OrdenDeTrabajo.objects.select_related("cliente", "empresa")
+                .filter(
+                    pk=orden_trabajo_id,
+                    empresa=empresa_prestador,
+                )
+                .first()
+            )
             if not orden_trabajo:
                 return Response(
                     {"detail": "La OT indicada no existe."},
@@ -1798,9 +1887,14 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     {"detail": "La cotizacion de origen debe ser un ID valido."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            cotizacion_origen = Cotizacion.objects.select_related("cliente", "empresa").filter(
-                pk=cotizacion_origen_id
-            ).first()
+            cotizacion_origen = (
+                Cotizacion.objects.select_related("cliente", "empresa")
+                .filter(
+                    pk=cotizacion_origen_id,
+                    empresa=empresa_prestador,
+                )
+                .first()
+            )
             if not cotizacion_origen:
                 return Response(
                     {"detail": "La cotizacion de origen indicada no existe."},
@@ -1830,7 +1924,6 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        empresa_prestador = usuario.sucursal.empresa
         es_cliente = RelacionEmpresa.objects.filter(
             prestador_servicios=empresa_prestador,
             cliente=empresa_cliente,
@@ -1838,9 +1931,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         if not es_cliente:
             return Response(
                 {
-                    "detail": "La empresa cliente seleccionada no pertenece a tus clientes."
+                    "detail": "La empresa cliente seleccionada no existe para tu empresa."
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         if cotizacion_origen:
@@ -2044,61 +2137,10 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # 0) Validar que los items serializados tengan número de serie asignado
-                items_sin_serie = []
-                for item_guia in ItemsGuiaSalida.objects.filter(
-                    guia=guia_salida, individualizado=True
-                ).select_related("stock_item__item"):
-                    numero_serie = item_guia.numero_serie or {}
-                    if not (
-                        numero_serie.get("serie")
-                        and numero_serie.get("modelo")
-                        and numero_serie.get("object_id")
-                    ):
-                        items_sin_serie.append(str(item_guia.stock_item.item))
-                if items_sin_serie:
-                    nombres = ", ".join(items_sin_serie)
-                    return Response(
-                        {
-                            "detail": (
-                                f"Los siguientes items serializados no tienen número de serie asignado: "
-                                f"{nombres}. Asigna la serie antes de aprobar la guía."
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # 1) Validar cantidades
-                for item_guia in ItemsGuiaSalida.objects.filter(
-                    guia=guia_salida
-                ).select_related("stock_item"):
-                    if (
-                        item_guia.cantidad_rebajada
-                        > item_guia.stock_item.cantidad_no_disponible
-                    ):
-                        return Response(
-                            {
-                                "detail": (
-                                    f"La cantidad a rebajar ({item_guia.cantidad_rebajada}) "
-                                    f"excede el stock reservado "
-                                    f"({item_guia.stock_item.cantidad_no_disponible}) "
-                                    f"para el item {item_guia.stock_item.item}."
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                # 2) Rebajar cantidad_no_disponible con F() atómico
-                for item_guia in ItemsGuiaSalida.objects.filter(guia=guia_salida):
-                    from django.db.models.functions import Greatest
-                    StockItemEnBodega.objects.filter(pk=item_guia.stock_item_id).update(
-                        cantidad_no_disponible=Greatest(
-                            F("cantidad_no_disponible") - item_guia.cantidad_rebajada, 0
-                        )
-                    )
-                    item_guia.save()
-
-                    # NO registrar_salida aquí: ya se registró al agregar el item a la guía
+                despachar_items_guia_de_guia(
+                    guia=guia_salida,
+                    usuario=usuario_empresa,
+                )
 
                 # 3) Marcar guía firmada (el tránsito lo dispara el inicio del trabajo) y guardar firma
                 guia_salida.estado = "FR"
@@ -2109,7 +2151,17 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     guia_salida.firma_entrega = firma_base64
                     guia_salida.fecha_firma_entrega = timezone.now()
                 if recibido_por:
-                    user_recibido = UsuarioEmpresa.objects.get(pk=recibido_por)
+                    user_recibido = UsuarioEmpresa.objects.select_related(
+                        "sucursal__empresa"
+                    ).filter(
+                        pk=recibido_por,
+                        sucursal__empresa_id=guia_salida.bodega.sucursal.empresa_id,
+                    ).first()
+                    if not user_recibido:
+                        return Response(
+                            {"detail": "El usuario recibido_por no pertenece a tu empresa."},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
                     guia_salida.recibido_por = user_recibido
                 guia_salida.save()
 
@@ -2288,7 +2340,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         - Si se envía 'items', devuelve sólo los indicados y con la cantidad especificada.
         """
         # Bloqueamos la guía para evitar concurrencia
-        guia = GuiaSalida.objects.select_for_update().get(pk=pk)
+        guia = self.get_queryset().select_for_update().get(pk=pk)
         items_data = request.data.get("items", None)
         usuario = obtener_usuario_empresa(request.user)
 
@@ -2305,7 +2357,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             for item in items_qs:
                 # Determinar cantidad a devolver
                 if items_data is None:
-                    devolver = item.cantidad_rebajada
+                    devolver = item.cantidad_rebajada - item.cantidad_devuelta
+                    if devolver <= 0:
+                        continue
                 else:
                     data = next(
                         (
@@ -2321,38 +2375,23 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                     devolver = int(data.get("cantidad_a_devolver", 0))
-                    max_dev = item.cantidad_rebajada - item.cantidad_devuelta
-                    if devolver > max_dev:
-                        return Response(
-                            {
-                                "detail": f"No puedes devolver más de lo rebajado en item {item.pk}."
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                    if devolver <= 0:
+                        continue
 
-                stock = item.stock_item
-
-                # 1) Actualizar registro en ItemsGuiaSalida
-                item.cantidad_devuelta += devolver
-                item.save()
-
-                # 2) Registrar devolución (suma automática al stock + movimiento)
-                registrar_devolucion(
-                    stock_item=stock,
-                    cantidad=devolver,
-                    usuario=usuario,
-                    origen=item,
-                    descripcion="Devolución desde guía de salida",
-                )
+                try:
+                    devolver_item_guia(
+                        item_guia=item,
+                        cantidad=devolver,
+                        usuario=usuario,
+                        causa="Devolucion a bodega",
+                    )
+                except ValidationError as exc:
+                    return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
                 # 3) Eliminar el Equipo asociado a este número de serie
-                serie = item.numero_serie.get("serie")
+                serie = (item.numero_serie or {}).get("serie")
                 if serie:
                     Equipo.objects.filter(numero_serie=serie).delete()
-
-                    # 4) Liberar serie en ItemOrdenCompraEnStock via series.py
-                    from bodegas.series import liberar_serie
-                    liberar_serie(stock, serie, item.pk)
 
             # 5) Recalcular y guardar estado de la guía basada en ItemsGuiaSalida
             all_items = ItemsGuiaSalida.objects.filter(guia=guia)
@@ -2405,7 +2444,16 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         
         try:
             from empresas.models import UsuarioEmpresa
-            confirmado_por = UsuarioEmpresa.objects.get(pk=confirmado_por_id)
+            confirmado_por_qs = UsuarioEmpresa.objects.select_related(
+                "sucursal__empresa"
+            ).filter(pk=confirmado_por_id)
+            if guia_salida.cliente_id:
+                confirmado_por_qs = confirmado_por_qs.filter(
+                    sucursal__empresa_id=guia_salida.cliente_id
+                )
+            confirmado_por = confirmado_por_qs.first()
+            if not confirmado_por:
+                raise UsuarioEmpresa.DoesNotExist
         except UsuarioEmpresa.DoesNotExist:
             return Response(
                 {"detail": "El usuario especificado no existe"},
@@ -2413,7 +2461,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             )
         
         with transaction.atomic():
-            guia_salida = GuiaSalida.objects.select_for_update().get(pk=pk)
+            guia_salida = self.get_queryset().select_for_update().get(pk=pk)
             # Guardar firma de cliente en la guia
             guia_salida.firma_entrega = firma
             guia_salida.fecha_firma_entrega = timezone.now()
@@ -2441,33 +2489,19 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     devolver = int(data.get("cantidad_a_devolver", 0))
                     if devolver <= 0:
                         continue
-                    max_dev = item.cantidad_rebajada - item.cantidad_devuelta
-                    if devolver > max_dev:
-                        return Response(
-                            {
-                                "detail": f"No puedes devolver mas de lo rebajado en item {item.pk}."
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
+                    try:
+                        devolver_item_guia(
+                            item_guia=item,
+                            cantidad=devolver,
+                            usuario=usuario_empresa or confirmado_por,
+                            causa="Devolucion confirmada por cliente",
                         )
+                    except ValidationError as exc:
+                        return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
-                    stock = item.stock_item
-                    item.cantidad_devuelta += devolver
-                    item.save()
-
-                    registrar_devolucion(
-                        stock_item=stock,
-                        cantidad=devolver,
-                        usuario=usuario_empresa or confirmado_por,
-                        origen=item,
-                        descripcion="Devolucion desde guia de salida",
-                    )
-
-                    serie = item.numero_serie.get("serie")
+                    serie = (item.numero_serie or {}).get("serie")
                     if serie:
                         Equipo.objects.filter(numero_serie=serie).delete()
-                        # Liberar serie en ItemOrdenCompraEnStock via series.py
-                        from bodegas.series import liberar_serie as _liberar_serie
-                        _liberar_serie(stock, serie, item.pk)
 
             items = ItemsGuiaSalida.objects.filter(guia=guia_salida)
             total_reb = sum(i.cantidad_rebajada for i in items)
@@ -2522,10 +2556,14 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
 
         try:
             # Lock: select_for_update para evitar race condition en stock
-            stock_item = StockItemEnBodega.objects.select_for_update().get(pk=stock_item_id)
+            stock_item = StockItemEnBodega.objects.select_for_update().get(
+                pk=stock_item_id,
+                bodega_id=guia_salida.bodega_id,
+                bodega__sucursal__empresa_id=guia_salida.bodega.sucursal.empresa_id,
+            )
         except StockItemEnBodega.DoesNotExist:
             return Response(
-                {"detail": "El stock_item_id proporcionado no existe."},
+                {"detail": "El stock_item_id proporcionado no existe para la guia actual."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -2557,18 +2595,16 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 cantidad_rebajada,
                 cantidad_original=cantidad_original,
             )
-            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-                cantidad_no_disponible=F("cantidad_no_disponible") + cantidad_rebajada
-            )
-
             for item_guia in items_creados:
-                registrar_salida(
-                    stock_item=stock_item,
-                    cantidad=1,
-                    origen=item_guia,
-                    usuario=usuario_empresa,
-                    descripcion="Items serializados añadidos a la guia",
-                )
+                try:
+                    reservar_stock_para_item_guia(
+                        item_guia=item_guia,
+                        cantidad=1,
+                        usuario=usuario_empresa,
+                        descripcion="Items serializados anadidos a la guia",
+                    )
+                except ValidationError as exc:
+                    return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
             stock_item.refresh_from_db()
             serializer = ItemsGuiaSalidaSerializer(items_creados[0])
@@ -2592,19 +2628,15 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             cantidad_rebajada=cantidad_rebajada,
             individualizado=individualizado,
         )
-        # Actualizar cantidad no disponible (reservada) con F() atómico
-        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-            cantidad_no_disponible=F("cantidad_no_disponible") + cantidad_rebajada
-        )
-
-        # registrar_salida actualiza stock_item.cantidad automáticamente con F()
-        registrar_salida(
-            stock_item=stock_item,
-            cantidad=cantidad_rebajada,
-            origen=item_guia,
-            usuario=usuario_empresa,
-            descripcion="Items añadidos a la guia",
-        )
+        try:
+            reservar_stock_para_item_guia(
+                item_guia=item_guia,
+                cantidad=cantidad_rebajada,
+                usuario=usuario_empresa,
+                descripcion="Items anadidos a la guia",
+            )
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
         # Refrescar stock_item para asegurar que cantidad y cantidad_no_disponible están sincronizados
         stock_item.refresh_from_db()
@@ -2619,6 +2651,9 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         detail=False, methods=["get"], url_path=r"(?P<empresa_id>[^/.]+)/disponibles"
     )
     def guias_disponibles(self, request, empresa_id=None):
+        empresa_activa = self._empresa_activa()
+        if not empresa_activa or str(empresa_activa.id) != str(empresa_id):
+            return Response([], status=status.HTTP_200_OK)
         guias = (
             self.get_queryset()
             .filter(estado="ER")
@@ -2703,6 +2738,11 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 # eliminamos y registramos la serie
                 qs.delete()
                 series_borradas.append(serie)
+            liberar_series_de_item_guia(
+                item_guia=item,
+                usuario=obtener_usuario_empresa(request.user),
+                causa='Reversion de guia a estado "P"',
+            )
 
         return Response(
             {
@@ -2711,6 +2751,93 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=False, methods=["get"], url_path="trazabilidad-serie")
+    def trazabilidad_serie(self, request):
+        serie = (request.query_params.get("serie") or "").strip()
+        if not serie:
+            return Response(
+                {"detail": "El parametro 'serie' es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        empresa = self._empresa_activa()
+        if not empresa:
+            return Response(
+                {"detail": "No tienes una empresa activa."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        from bodegas.models import MovimientoStock, SerieEvento, SerieItem
+
+        serie_obj = (
+            SerieItem.objects.select_related(
+                "stock_item__bodega",
+                "stock_item__item",
+                "item_guia_salida__guia",
+            )
+            .filter(empresa=empresa, serie=serie)
+            .first()
+        )
+        if not serie_obj:
+            return Response(
+                {"detail": "La serie indicada no existe para tu empresa."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        eventos_qs = SerieEvento.objects.filter(
+            serie=serie_obj.serie,
+            stock_item=serie_obj.stock_item,
+        ).select_related(
+            "usuario__usuario",
+            "guia_salida",
+            "item_guia_salida",
+            "bodega_origen",
+            "bodega_destino",
+        ).order_by("fecha_creacion")
+
+        movimientos_qs = MovimientoStock.objects.filter(stock_item=serie_obj.stock_item)
+        stock_derivado = movimientos_qs.aggregate(total=Sum("cantidad")).get("total") or 0
+        series_activas = SerieItem.objects.filter(
+            stock_item=serie_obj.stock_item,
+            estado__in=("disponible", "reservada", "despachada"),
+        ).count()
+
+        eventos = [
+            {
+                "id": ev.id,
+                "tipo_evento": ev.tipo_evento,
+                "estado_anterior": ev.estado_anterior,
+                "estado_nuevo": ev.estado_nuevo,
+                "usuario": ev.usuario.usuario.get_nombre_completo()
+                if ev.usuario and ev.usuario.usuario
+                else None,
+                "documento_tipo": ev.documento_tipo,
+                "documento_id": ev.documento_id,
+                "causa": ev.causa,
+                "bodega_origen": ev.bodega_origen.nombre if ev.bodega_origen else None,
+                "bodega_destino": ev.bodega_destino.nombre if ev.bodega_destino else None,
+                "fecha": ev.fecha_creacion,
+            }
+            for ev in eventos_qs
+        ]
+
+        payload = {
+            "serie": serie_obj.serie,
+            "estado_actual": serie_obj.estado,
+            "stock_item_id": serie_obj.stock_item_id,
+            "bodega": serie_obj.stock_item.bodega.nombre,
+            "item": str(serie_obj.stock_item.item),
+            "historial": eventos,
+            "conciliacion": {
+                "stock_actual": serie_obj.stock_item.cantidad,
+                "stock_no_disponible": serie_obj.stock_item.cantidad_no_disponible,
+                "stock_derivado_movimientos": stock_derivado,
+                "series_activas_en_stock": series_activas,
+                "coincide_stock_vs_movimientos": serie_obj.stock_item.cantidad == stock_derivado,
+            },
+        }
+        return Response(payload, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="items")
     def items(self, request, pk=None):
@@ -2760,7 +2887,7 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             )
 
         # Filtrar los items de guía de salida que coinciden con el cliente
-        items_guia = ItemsGuiaSalida.objects.filter(guia__cliente_id=cliente_id)
+        items_guia = self.get_queryset().filter(guia__cliente_id=cliente_id)
         serializer = self.get_serializer(items_guia, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2862,41 +2989,14 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
 
         stock_item = item_guia.stock_item
 
-        # Si se incrementa la cantidad, se requiere tomar más stock
-        if delta > 0:
-            if stock_item.cantidad < delta:
-                return Response(
-                    {
-                        "detail": "No hay suficiente stock disponible para incrementar la cantidad."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # Incrementar cantidad no disponible (reservada) con F() atómico
-            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-                cantidad_no_disponible=F("cantidad_no_disponible") + delta
-            )
-            registrar_salida(
-                stock_item=stock_item,
-                cantidad=delta,
+        try:
+            ajustar_reserva_item_guia(
+                item_guia=item_guia,
+                delta=delta,
                 usuario=usuario_empresa,
-                origen=item_guia,
-                descripcion="Items aumentados en la guia de salida",
             )
-        # Si se reduce la cantidad, se devuelven ítems al stock
-        elif delta < 0:
-            # Liberar cantidad no disponible (reservada) con F() atómico
-            from django.db.models.functions import Greatest
-            StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-                cantidad_no_disponible=Greatest(F("cantidad_no_disponible") - abs(delta), 0)
-            )
-            registrar_devolucion(
-                stock_item=stock_item,
-                cantidad=abs(delta),
-                usuario=usuario_empresa,
-                origen=item_guia,
-                descripcion="Items reducidos en la guia de salida (devolución parcial)",
-            )
-        # Si delta es 0, no hay cambios en el stock
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
         # Refrescar stock_item para asegurar sincronización
         if delta != 0:
@@ -2950,8 +3050,6 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
         )
         from bodegas.series import (
             agregar_serie_a_stock,
-            liberar_series_por_item_guia,
-            reservar_serie,
             serie_existe_en_stock,
         )
 
@@ -2971,23 +3069,33 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
             )
 
         # Primero: Liberar cualquier serie previamente asignada a este item_guia
-        liberar_series_por_item_guia(stock_item, item_guia.id)
+        liberar_series_de_item_guia(
+            item_guia=item_guia,
+            usuario=obtener_usuario_empresa(request.user),
+            causa="Cambio de serie asignada",
+        )
 
         # Si la serie no está registrada en stock, registrarla automáticamente.
         # Ocurre cuando el item fue recepcionado sin asignarle series previas
         # y el usuario ingresa el número de serie directamente al crear la guía.
         if not serie_existe_en_stock(stock_item, serie):
-            agregar_serie_a_stock(qs_oc.first(), serie)
+            agregar_serie_a_stock(
+                qs_oc.first(),
+                serie,
+                usuario=obtener_usuario_empresa(request.user),
+                causa="Alta automatica de serie durante asignacion",
+            )
 
         # Segundo: Reservar la nueva serie
-        reservada, motivo = reservar_serie(stock_item, serie, item_guia.id)
-        if not reservada:
-            return Response(
-                {"detail": motivo},
-                status=status.HTTP_400_BAD_REQUEST
-                if "asignada" in motivo
-                else status.HTTP_404_NOT_FOUND,
+        try:
+            reservar_serie_para_item_guia(
+                item_guia=item_guia,
+                serie=serie,
+                usuario=obtener_usuario_empresa(request.user),
+                causa="Asignacion de serie en item de guia",
             )
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
         # Actualizamos el JSON del ItemsGuiaSalida con la estructura simple.
         item_guia.numero_serie = {
@@ -3024,8 +3132,11 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
 
         if not nuevo_valor:
             # Desactivando: liberar serie y limpiar campo
-            from bodegas.series import liberar_series_por_item_guia
-            liberar_series_por_item_guia(item_guia.stock_item, item_guia.id)
+            liberar_series_de_item_guia(
+                item_guia=item_guia,
+                usuario=obtener_usuario_empresa(request.user),
+                causa="Desactivar individualizado",
+            )
             item_guia.numero_serie = {}
         else:
             series_disponibles = obtener_series_disponibles_para_stock(item_guia.stock_item)

@@ -79,9 +79,9 @@ const FirmarGuiaOTV3 = ({ isOpen, setIsOpen, guia, ordenId, firmantesOptions = [
 
                         <div>
                             <Label htmlFor='firma_recibido_por' className='mb-1'>
-                                Quien recibe{' '}
+                                Técnico que firma la guía{' '}
                                 <span className='text-red-500'>*</span>
-                                <span className='ml-1 text-xs font-normal text-gray-400'>(usuario de la empresa proveedora)</span>
+                                <span className='ml-1 text-xs font-normal text-gray-400'>(de la empresa prestadora del servicio)</span>
                             </Label>
                             {firmantesOptions.length > 0 ? (
                                 <SelectReact

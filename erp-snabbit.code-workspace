@@ -95,23 +95,6 @@
         "chat.agent.maxRequests": 50,
 
         // --- Terminal ---
-        "terminal.integrated.profiles.windows": {
-            "Command Prompt": {
-                "path": "C:\\Windows\\System32\\cmd.exe",
-                "args": [
-                    "/K",
-                    "conda activate ENV"
-                ]
-            },
-            "PowerShell": {
-                "source": "PowerShell",
-                "args": [
-                    "-NoExit",
-                    "-Command",
-                    "& conda shell.powershell hook | Out-String | Invoke-Expression; conda activate ENV"
-                ]
-            }
-        },
         "terminal.integrated.defaultProfile.windows": "Command Prompt",
 
         // --- Formateo automático ---

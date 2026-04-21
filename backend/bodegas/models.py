@@ -333,7 +333,11 @@ class StockItemEnBodega(ModeloBaseHistorico):
     bodega = models.ForeignKey(
         Bodega, related_name="stock_items", on_delete=models.CASCADE
     )
-    item = models.OneToOneField("items.ItemEmpresa", on_delete=models.CASCADE)
+    item = models.ForeignKey(
+        "items.ItemEmpresa",
+        on_delete=models.CASCADE,
+        related_name="stocks_por_bodega",
+    )
     cantidad = models.IntegerField(default=0)
     cantidad_no_disponible = models.IntegerField(default=0)
     pmp = models.IntegerField(default=0)
@@ -344,6 +348,20 @@ class StockItemEnBodega(ModeloBaseHistorico):
     class Meta:
         verbose_name = "Stock de Item en Bodega"
         verbose_name_plural = "Stock de Items en Bodega"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["bodega", "item"],
+                name="uniq_stock_item_por_bodega",
+            ),
+            models.CheckConstraint(
+                check=Q(cantidad__gte=0),
+                name="stock_cantidad_no_negativa",
+            ),
+            models.CheckConstraint(
+                check=Q(cantidad_no_disponible__gte=0),
+                name="stock_no_disponible_no_negativa",
+            ),
+        ]
 
     def __str__(self):
         return "%s en %s" % (self.item.nombre, self.bodega.nombre)
@@ -432,6 +450,87 @@ class SerieItem(ModeloBase):
 
     def __str__(self):
         return f"{self.serie} ({self.get_estado_display()})"
+
+
+class SerieEvento(ModeloBase):
+    EVENTOS = (
+        ("ALTA", "Alta de serie"),
+        ("BAJA", "Baja de serie"),
+        ("RESERVA", "Reserva"),
+        ("LIBERACION", "Liberacion"),
+        ("DESPACHO", "Despacho"),
+        ("DEVOLUCION", "Devolucion"),
+        ("AJUSTE", "Ajuste"),
+        ("REVERSO", "Reverso"),
+    )
+
+    serie_item = models.ForeignKey(
+        SerieItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos",
+    )
+    serie = models.CharField(max_length=250, db_index=True)
+    tipo_evento = models.CharField(max_length=20, choices=EVENTOS)
+    estado_anterior = models.CharField(max_length=20, blank=True)
+    estado_nuevo = models.CharField(max_length=20, blank=True)
+    usuario = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    stock_item = models.ForeignKey(
+        "bodegas.StockItemEnBodega",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_serie",
+    )
+    guia_salida = models.ForeignKey(
+        "bodegas.GuiaSalida",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_serie",
+    )
+    item_guia_salida = models.ForeignKey(
+        "bodegas.ItemsGuiaSalida",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_serie",
+    )
+    bodega_origen = models.ForeignKey(
+        "bodegas.Bodega",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_serie_origen",
+    )
+    bodega_destino = models.ForeignKey(
+        "bodegas.Bodega",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="eventos_serie_destino",
+    )
+    documento_tipo = models.CharField(max_length=50, blank=True)
+    documento_id = models.PositiveIntegerField(null=True, blank=True)
+    causa = models.CharField(max_length=255, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "Evento de Serie"
+        verbose_name_plural = "Eventos de Series"
+        ordering = ["-fecha_creacion"]
+        indexes = [
+            models.Index(fields=["serie", "fecha_creacion"]),
+        ]
+
+    def __str__(self):
+        return f"{self.serie} - {self.tipo_evento}"
 
 
 class GuiaSalida(ModeloBaseHistorico):

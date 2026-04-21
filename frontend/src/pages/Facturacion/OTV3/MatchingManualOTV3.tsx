@@ -54,7 +54,7 @@ const tipoBadge = (tipo: string): { color: string; label: string } => {
         cotizacion: { color: 'violet', label: 'Cotizacion' },
         guia_salida: { color: 'emerald', label: 'Material' },
         gasto_operativo: { color: 'red', label: 'Gasto' },
-        visita_adicional_contrato: { color: 'red', label: 'Visita Extra' },
+        visita_adicional_contrato: { color: 'red', label: 'Visita adicional' },
     };
     return map[tipo] ?? { color: 'zinc', label: tipo };
 };
@@ -272,6 +272,12 @@ const MatchingManualOTV3 = () => {
         setPrecioVisitaAdicional(precioBackend);
     }, [comparativa?.visitas_contrato]);
 
+    const precioVisitaAdicionalEfectivo = useMemo(() => {
+        const visitaKey = `visita_adicional_contrato_${visitasContratoBase.periodo}`;
+        const config = itemsConfig.get(visitaKey);
+        return config?.precioAsignado ?? precioVisitaAdicional;
+    }, [itemsConfig, visitasContratoBase.periodo, precioVisitaAdicional]);
+
     const otsMarcadasVisita = useMemo(
         () => otIdsSeleccionadas.filter((otId) => Boolean(visitasMarcadasPorOt[otId])),
         [otIdsSeleccionadas, visitasMarcadasPorOt],
@@ -310,14 +316,14 @@ const MatchingManualOTV3 = () => {
             exceso_ya_confirmado: excesoYaConfirmado,
             exceso_prefactura: excesoPrefactura,
             ots_marcadas: otsMarcadasVisita,
-            precio_unitario_exceso: precioVisitaAdicional,
+            precio_unitario_exceso: precioVisitaAdicionalEfectivo,
             requiere_precio_manual: visitasContratoBase.requiere_precio_manual,
-            total_exceso: excesoPrefactura * precioVisitaAdicional,
+            total_exceso: excesoPrefactura * precioVisitaAdicionalEfectivo,
         };
     }, [comparativa?.visitas_contrato, otsMarcadasVisita, precioVisitaAdicional, visitasContratoBase]);
 
     const syntheticVisitaItem = useMemo(() => {
-        if (contratoIds.length === 0 || visitasPrefactura.exceso_prefactura <= 0) return null;
+        if (visitasPrefactura.exceso_prefactura <= 0) return null;
         return {
             tipo: 'visita_adicional_contrato',
             id: `visita-extra-${visitasPrefactura.periodo}`,
@@ -327,7 +333,10 @@ const MatchingManualOTV3 = () => {
             total: visitasPrefactura.total_exceso,
             moneda: monedaPrefactura,
         } as IItemEjecutadoV3;
-    }, [contratoIds.length, monedaPrefactura, visitasPrefactura]);
+    }, [monedaPrefactura, visitasPrefactura]);
+
+    const mostrarVisitasContratoCard = comparativaCargada &&
+        otSeleccionadasData.length > 0;
 
     // ── Items combinados para render ─────────────────────────────────
     const allItems = useMemo(
@@ -530,7 +539,7 @@ const MatchingManualOTV3 = () => {
                             itemId: key,
                             facturar: true,
                             comentario: '',
-                            precioAsignado: Number(item.total || 0),
+                            precioAsignado: Number(item.precio_unitario || 0),
                         });
                     });
                 setItemsConfig(newConfig);
@@ -556,9 +565,21 @@ const MatchingManualOTV3 = () => {
             return;
         }
 
+        const syntheticItemKey = syntheticVisitaItem
+            ? `${syntheticVisitaItem.tipo}_${syntheticVisitaItem.id}`
+            : null;
+        const syntheticFacturar = syntheticItemKey
+            ? itemsConfig.get(syntheticItemKey)?.facturar ?? true
+            : true;
+
+        const syntheticPrecioAsignado = syntheticItemKey
+            ? itemsConfig.get(syntheticItemKey)?.precioAsignado ?? Number(syntheticVisitaItem?.precio_unitario ?? 0)
+            : 0;
+
         if (
             visitasPrefactura.exceso_prefactura > 0 &&
-            (!Number.isFinite(precioVisitaAdicional) || precioVisitaAdicional <= 0)
+            syntheticFacturar &&
+            (!Number.isFinite(syntheticPrecioAsignado) || syntheticPrecioAsignado <= 0)
         ) {
             toast.warn(
                 visitasPrefactura.requiere_precio_manual
@@ -583,7 +604,7 @@ const MatchingManualOTV3 = () => {
                     precio_total: Number(item.total || 0),
                     moneda: (item.moneda as TMonedaPrefacturaOTV3) ?? monedaPrefactura,
                     precio_ajustado: config?.precioAsignado ?? null,
-                    facturar: isSynthetic ? true : (config?.facturar ?? true),
+                    facturar: config?.facturar ?? true,
                     comentario: isSynthetic
                         ? 'Cobro adicional por exceso de visitas contractuales.'
                         : (config?.comentario || ''),
@@ -1025,9 +1046,17 @@ const MatchingManualOTV3 = () => {
                                                             const isSynthetic =
                                                                 item.tipo ===
                                                                 'visita_adicional_contrato';
+                                                            const facturar = config?.facturar ?? true;
+                                                            const precioAsignadoValor =
+                                                                config?.precioAsignado != null
+                                                                    ? config.precioAsignado
+                                                                    : Number(item.precio_unitario || 0);
+                                                            const totalAsignado =
+                                                                precioAsignadoValor * Number(item.cantidad || 1);
+                                                            const rowClass = facturar ? '' : 'opacity-40';
 
                                                             return (
-                                                                <Tr key={key}>
+                                                                <Tr key={key} className={rowClass}>
                                                                     <Td>
                                                                         <Badge
                                                                             color={
@@ -1051,89 +1080,61 @@ const MatchingManualOTV3 = () => {
                                                                     </Td>
                                                                     <Td className='text-right text-xs'>
                                                                         {formatCurrency(
-                                                                            item.precio_unitario,
+                                                                            isSynthetic
+                                                                                ? precioAsignadoValor
+                                                                                : item.precio_unitario,
                                                                             item.moneda ?? monedaRender,
                                                                         )}
                                                                     </Td>
                                                                     <Td className='text-right text-xs'>
                                                                         {formatCurrency(
-                                                                            item.total,
+                                                                            isSynthetic
+                                                                                ? totalAsignado
+                                                                                : item.total,
                                                                             item.moneda ?? monedaRender,
                                                                         )}
                                                                     </Td>
                                                                     {/* Matching columns */}
                                                                     <Td className='border-l-2 border-zinc-300 text-center dark:border-zinc-700'>
-                                                                        {isSynthetic ? (
-                                                                            <Badge
-                                                                                variant='solid'
-                                                                                color='red'>
-                                                                                Exceso
-                                                                            </Badge>
-                                                                        ) : (
-                                                                            <Checkbox
-                                                                                id={`facturar-${key}`}
-                                                                                name={`facturar-${key}`}
-                                                                                checked={
-                                                                                    config?.facturar ??
-                                                                                    true
-                                                                                }
-                                                                                onChange={(e) =>
-                                                                                    updateItemConfig(
-                                                                                        key,
-                                                                                        {
-                                                                                            facturar:
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .checked,
-                                                                                        },
-                                                                                    )
-                                                                                }
-                                                                                className='py-0'
-                                                                                inputClassName='h-4 w-4 cursor-pointer'
-                                                                            />
-                                                                        )}
+                                                                        <Checkbox
+                                                                            id={`facturar-${key}`}
+                                                                            name={`facturar-${key}`}
+                                                                            checked={config?.facturar ?? true}
+                                                                            onChange={(e) =>
+                                                                                updateItemConfig(key, {
+                                                                                    facturar:
+                                                                                        e.target.checked,
+                                                                                })
+                                                                            }
+                                                                            className='py-0'
+                                                                            inputClassName='h-4 w-4 cursor-pointer'
+                                                                        />
                                                                     </Td>
                                                                     <Td>
-                                                                        {isSynthetic ? (
-                                                                            <div className='text-right text-xs font-semibold text-red-600 dark:text-red-400'>
-                                                                                {formatCurrency(
-                                                                                    visitasPrefactura.total_exceso,
-                                                                                    monedaRender,
-                                                                                )}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <Input
-                                                                                name={`precio-${key}`}
-                                                                                type='number'
-                                                                                placeholder={
-                                                                                    monedaRender === 'CLP'
-                                                                                        ? '$'
-                                                                                        : monedaRender
-                                                                                }
-                                                                                value={
-                                                                                    config?.precioAsignado ??
-                                                                                    ''
-                                                                                }
-                                                                                onChange={(e) =>
-                                                                                    updateItemConfig(
-                                                                                        key,
-                                                                                        {
-                                                                                            precioAsignado:
-                                                                                                e
-                                                                                                    .target
-                                                                                                    .value
-                                                                                                    ? Number(
-                                                                                                          e
-                                                                                                              .target
-                                                                                                              .value,
-                                                                                                      )
-                                                                                                    : null,
-                                                                                        },
-                                                                                    )
-                                                                                }
-                                                                                className='w-24 px-2 py-1 text-right text-xs'
-                                                                            />
-                                                                        )}
+                                                                        <Input
+                                                                            name={`precio-${key}`}
+                                                                            type='number'
+                                                                            placeholder={
+                                                                                monedaRender === 'CLP'
+                                                                                    ? '$'
+                                                                                    : monedaRender
+                                                                            }
+                                                                            value={precioAsignadoValor}
+                                                                            onChange={(e) =>
+                                                                                updateItemConfig(key, {
+                                                                                    precioAsignado:
+                                                                                        e.target.value
+                                                                                            ? Number(
+                                                                                                  e.target.value,
+                                                                                              )
+                                                                                            : null,
+                                                                                })
+                                                                            }
+                                                                            disabled={
+                                                                                config?.facturar === false
+                                                                            }
+                                                                            className='w-24 px-2 py-1 text-right text-xs'
+                                                                        />
                                                                     </Td>
                                                                 </Tr>
                                                             );
@@ -1150,12 +1151,17 @@ const MatchingManualOTV3 = () => {
                     )}
 
                     {/* ── 6. Visitas de contrato ──────────────────── */}
-                    {comparativaCargada && contratoIds.length > 0 && (
+                    {mostrarVisitasContratoCard && (
                         <Card className='lg:col-span-2'>
                             <CardHeader>
                                 <CardHeaderChild>Visitas de contrato</CardHeaderChild>
                             </CardHeader>
                             <CardBody className='space-y-4'>
+                                {contratoIds.length === 0 && (
+                                    <div className='rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200'>
+                                        No seleccionaste contratos. Si hay exceso de visitas, ingresa el precio unitario adicional para continuar.
+                                    </div>
+                                )}
                                 <div className='grid grid-cols-2 gap-4 text-sm md:grid-cols-4'>
                                     <div>
                                         <p className='text-xs text-zinc-500'>Periodo</p>
@@ -1216,42 +1222,6 @@ const MatchingManualOTV3 = () => {
                                     </div>
                                 </div>
 
-                                {/* Precio visita adicional */}
-                                {visitasPrefactura.exceso_prefactura > 0 && (
-                                    <div className='max-w-xs'>
-                                        <Label htmlFor='precioVisita'>
-                                            Precio unitario visita adicional
-                                        </Label>
-                                        {visitasPrefactura.requiere_precio_manual && (
-                                            <p className='mb-1 text-xs text-amber-600 dark:text-amber-300'>
-                                                Seleccionaste multiples contratos. Debes ingresar el precio manualmente.
-                                            </p>
-                                        )}
-                                        <Input
-                                            id='precioVisita'
-                                            name='precioVisita'
-                                            type='number'
-                                            value={precioVisitaAdicional || ''}
-                                            onChange={(
-                                                e: React.ChangeEvent<HTMLInputElement>,
-                                            ) =>
-                                                setPrecioVisitaAdicional(
-                                                    Number(e.target.value) || 0,
-                                                )
-                                            }
-                                            placeholder={monedaRender === 'CLP' ? '$0' : `0 ${monedaRender}`}
-                                        />
-                                        <p className='mt-1 text-xs text-zinc-400'>
-                                            Total exceso:{' '}
-                                            {formatCurrency(
-                                                visitasPrefactura.total_exceso,
-                                                monedaRender,
-                                            )}{' '}
-                                            ({visitasPrefactura.exceso_prefactura} visita
-                                            {visitasPrefactura.exceso_prefactura > 1 ? 's' : ''})
-                                        </p>
-                                    </div>
-                                )}
                             </CardBody>
                         </Card>
                     )}

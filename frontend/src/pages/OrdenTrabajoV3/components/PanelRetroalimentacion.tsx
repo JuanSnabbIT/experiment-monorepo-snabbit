@@ -1,8 +1,12 @@
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import type { IOrdenDeTrabajoV3 } from '@/interface/ordenTrabajoV3.interface';
-import { useSolicitarRetroalimentacionV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
+import {
+    useCambiarEstadoV3Mutation,
+    useSolicitarRetroalimentacionV3Mutation,
+} from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import { toast } from 'react-toastify';
 
 interface IProps {
@@ -10,7 +14,8 @@ interface IProps {
 }
 
 const PanelRetroalimentacion = ({ orden }: IProps) => {
-    const [solicitarRetro, { isLoading }] = useSolicitarRetroalimentacionV3Mutation();
+    const [solicitarRetro, { isLoading: isLoadingReenviar }] = useSolicitarRetroalimentacionV3Mutation();
+    const [cambiarEstado, { isLoading: isLoadingOmitir }] = useCambiarEstadoV3Mutation();
 
     const solicitante = orden.cliente_solicitante_detalle;
 
@@ -18,6 +23,31 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
         try {
             await solicitarRetro(orden.id).unwrap();
             toast.success('Correo de retroalimentacion reenviado correctamente.');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleOmitirRetroalimentacion = async () => {
+        const confirmado = await confirmAlert({
+            title: 'Omitir retroalimentación',
+            text: 'Si omites esta retroalimentación, la OT avanzará directamente a Por facturar.',
+            confirmText: 'Sí, omitir',
+            cancelText: 'No, mantener',
+            confirmColor: '#f59e0b',
+        });
+
+        if (!confirmado) {
+            return;
+        }
+
+        try {
+            await cambiarEstado({
+                id: orden.id,
+                estado: 'por_facturar',
+                comentario: 'Retroalimentación omitida desde el panel de retroalimentación.',
+            }).unwrap();
+            toast.success('Retroalimentación omitida. La OT avanzó a Por facturar.');
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
@@ -64,16 +94,23 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
                     </div>
                 )}
 
-                {solicitante && (
-                    <div className='flex justify-end'>
+                <div className='flex justify-end gap-3'>
+                    {solicitante && (
                         <Button
                             icon='HeroArrowPath'
-                            isLoading={isLoading}
+                            isLoading={isLoadingReenviar}
                             onClick={handleReenviar}>
                             Reenviar correo
                         </Button>
-                    </div>
-                )}
+                    )}
+                    <Button
+                        color='red'
+                        icon='HeroArrowRightOnRectangle'
+                        isLoading={isLoadingOmitir}
+                        onClick={handleOmitirRetroalimentacion}>
+                        Omitir retroalimentación
+                    </Button>
+                </div>
             </CardBody>
         </Card>
     );

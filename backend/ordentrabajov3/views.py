@@ -943,12 +943,14 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
         """
         from django.db import transaction
         from bodegas.models import GuiaSalida, StockItemEnBodega, ItemsGuiaSalida
-        from bodegas.movimientos import registrar_salida
         from bodegas.functions import obtener_series_disponibles_para_stock
         from cuentas.functions import obtener_usuario_empresa
-        from bodegas.series import reservar_serie
+        from bodegas.servicios_stock_series import (
+            reservar_serie_para_item_guia,
+            reservar_stock_para_item_guia,
+        )
         from cotizaciones.models import Cotizacion
-        from django.db.models import F
+        from rest_framework.exceptions import ValidationError as DRFValidationError
 
         ot = self.get_object()
         bodega_id = request.data.get("bodega_id")
@@ -1027,12 +1029,10 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             item_emp = ItemEmpresa.objects.get(pk=item_id_ing)
                         except ItemEmpresa.DoesNotExist:
                             raise ValueError(f"Item {item_id_ing} no encontrado.")
-                        existing = StockItemEnBodega.objects.filter(item=item_emp).first()
-                        if existing and existing.bodega_id != int(bodega_id):
-                            raise ValueError(
-                                f"El item '{item_emp.nombre}' ya tiene stock en otra bodega "
-                                f"({existing.bodega.nombre}). No se puede ingresar aqui."
-                            )
+                        existing = StockItemEnBodega.objects.filter(
+                            item=item_emp,
+                            bodega_id=bodega_id,
+                        ).first()
                         if existing:
                             stock_ing = existing
                             if stock_ing.pmp == 0 and precio_ing > 0:
@@ -1082,9 +1082,15 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                     numero_serie = item_d.get("numero_serie")
 
                     try:
-                        stock_item = StockItemEnBodega.objects.select_for_update().get(pk=stock_item_id)
+                        stock_item = StockItemEnBodega.objects.select_for_update().get(
+                            pk=stock_item_id,
+                            bodega_id=bodega_id,
+                            bodega__sucursal__empresa=ot.empresa,
+                        )
                     except StockItemEnBodega.DoesNotExist:
-                        raise ValueError(f"Stock item {stock_item_id} no encontrado.")
+                        raise ValueError(
+                            f"Stock item {stock_item_id} no encontrado en la bodega seleccionada."
+                        )
 
                     series_disponibles = obtener_series_disponibles_para_stock(stock_item)
                     tiene_series = bool(series_disponibles)
@@ -1120,20 +1126,21 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             }
                         )
                         item_guia.refresh_from_db()
-                        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-                            cantidad_no_disponible=F("cantidad_no_disponible") + 1
-                        )
                         try:
-                            reservar_serie(stock_item, numero_serie, item_guia)
-                        except Exception:
-                            pass
-                        registrar_salida(
-                            stock_item=stock_item,
-                            cantidad=1,
-                            origen=item_guia,
-                            usuario=usuario_empresa,
-                            descripcion="Item con serie agregado via guia rapida OTV3",
-                        )
+                            reservar_stock_para_item_guia(
+                                item_guia=item_guia,
+                                cantidad=1,
+                                usuario=usuario_empresa,
+                                descripcion="Item con serie agregado via guia rapida OTV3",
+                            )
+                            reservar_serie_para_item_guia(
+                                item_guia=item_guia,
+                                serie=numero_serie,
+                                usuario=usuario_empresa,
+                                causa="Reserva de serie via guia rapida OTV3",
+                            )
+                        except DRFValidationError as exc:
+                            raise ValueError(str(exc.detail))
                     else:
                         if cantidad_rebajada > stock_item.cantidad:
                             raise ValueError(
@@ -1148,16 +1155,15 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
                             cantidad_rebajada=cantidad_rebajada,
                             individualizado=False,
                         )
-                        StockItemEnBodega.objects.filter(pk=stock_item.pk).update(
-                            cantidad_no_disponible=F("cantidad_no_disponible") + cantidad_rebajada
-                        )
-                        registrar_salida(
-                            stock_item=stock_item,
-                            cantidad=cantidad_rebajada,
-                            origen=item_guia,
-                            usuario=usuario_empresa,
-                            descripcion="Item agregado via guia rapida OTV3",
-                        )
+                        try:
+                            reservar_stock_para_item_guia(
+                                item_guia=item_guia,
+                                cantidad=cantidad_rebajada,
+                                usuario=usuario_empresa,
+                                descripcion="Item agregado via guia rapida OTV3",
+                            )
+                        except DRFValidationError as exc:
+                            raise ValueError(str(exc.detail))
 
                 ot.guias_salida.add(guia)
                 if cotizacion:
