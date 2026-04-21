@@ -6,6 +6,8 @@
 **Estado:** Draft pre-despliegue
 **Responsable:** Equipo de DevOps + Operaciones
 
+> Restricción conocida del modelo actual: la transferencia entre bodegas del mismo item no está implementada como flujo nativo porque `StockItemEnBodega.item` es `OneToOneField`. Antes de activar ese flujo en producción, se requiere ajuste de modelo y pruebas dedicadas.
+
 ---
 
 ## 1. Pre-Despliegue (48 horas antes)
@@ -190,11 +192,11 @@ Después de 24 horas, sistema está **GREEN** si:
 
 ### 7.1 Health Check Post-Despliegue
 
-Ver archivo: `post_deployment_health_check.py`
+Ver archivo: `backend/bodegas/management/commands/post_deployment_health_check.py`
 
 ### 7.2 Verificación de Integridad de Series
 
-Ver archivo: `verify_series_integrity.py`
+Usar las consultas operables de `dev/docs/fase5_indicadores_salud.md`.
 
 ---
 
@@ -218,6 +220,8 @@ Ver archivo: `verify_series_integrity.py`
 ---
 
 **Documento preparado por:** DevClaw - Fase 5
+
+> Nota de control: los claims de cobertura y monitoreo deben validarse siempre contra los artefactos reales del repositorio y la salida adjunta de tests, sin sobredeclaración.
 **Revisado por:** Pendiente
 **Aprobado por:** Pendiente
 
