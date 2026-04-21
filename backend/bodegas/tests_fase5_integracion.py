@@ -122,6 +122,16 @@ class TestFlujosIntegrales(SetupComunFase5):
         self.stock_seriado.refresh_from_db()
         self.assertEqual(self.stock_seriado.cantidad, stock_antes + 2)
 
+    def test_transferencia_no_aplica_en_modelo_actual_por_restriccion_one_to_one(self):
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                StockItemEnBodega.objects.create(
+                    bodega=Bodega.objects.create(nombre="Bodega Secundaria", sucursal=self.sucursal),
+                    item=self.item_seriado,
+                    cantidad=0,
+                    cantidad_no_disponible=0,
+                )
+
     def test_despacho_reserva_serie_y_genera_movimiento(self):
         guia = self.crear_guia()
         item_guia = self.crear_item_guia_seriado(guia, "SERIE-001")
