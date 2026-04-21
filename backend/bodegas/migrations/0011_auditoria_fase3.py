@@ -1,39 +1,21 @@
-# Generated migration for audit trail models - Phase 3
-
 from django.db import migrations, models
 import django.db.models.deletion
 
-
 class Migration(migrations.Migration):
-
     dependencies = [
         ('bodegas', '0010_consumo_directo_oc'),
-        ('empresas', '0001_initial'),  # Adjust based on actual empresas migration
+        ('empresas', '0001_initial'),
         ('contenttypes', '0002_remove_content_type_name'),
     ]
 
     operations = [
-        # BitácoraMovimiento
         migrations.CreateModel(
             name='BitácoraMovimiento',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('fecha_creacion', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('fecha_actualizacion', models.DateTimeField(auto_now=True)),
-                ('tipo_evento', models.CharField(
-                    choices=[
-                        ('ingreso_compra', 'Ingreso por Compra'),
-                        ('salida_guia', 'Salida por Guía'),
-                        ('devolucion', 'Devolución de Cliente'),
-                        ('ajuste_inventario', 'Ajuste de Inventario'),
-                        ('anulacion', 'Anulación'),
-                        ('reverso', 'Reverso de Movimiento'),
-                        ('ajuste_serie', 'Ajuste de Serie'),
-                        ('transferencia_bodega', 'Transferencia Entre Bodegas'),
-                    ],
-                    db_index=True,
-                    max_length=30,
-                )),
+                ('tipo_evento', models.CharField(choices=[('ingreso_compra', 'Ingreso por Compra'), ('salida_guia', 'Salida por Guía'), ('devolucion', 'Devolución de Cliente'), ('ajuste_inventario', 'Ajuste de Inventario'), ('anulacion', 'Anulación'), ('reverso', 'Reverso de Movimiento'), ('ajuste_serie', 'Ajuste de Serie'), ('transferencia_bodega', 'Transferencia Entre Bodegas')], db_index=True, max_length=30)),
                 ('documento_origen_id', models.PositiveIntegerField(blank=True, null=True)),
                 ('numero_documento', models.CharField(blank=True, db_index=True, max_length=100)),
                 ('cantidad', models.IntegerField()),
@@ -47,7 +29,7 @@ class Migration(migrations.Migration):
                 ('anulacion_razon', models.CharField(blank=True, max_length=250)),
                 ('bodega_destino', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='bitacora_entradas', to='bodegas.bodega')),
                 ('bodega_origen', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='bitacora_salidas', to='bodegas.bodega')),
-                ('documento_origen_content_type', models.ForeignKey(blank=True, limit_choices_to=models.Q(('app_label', 'bodegas'), ('model', 'itemordencompraenstock'), ('app_label', 'bodegas'), ('model', 'itemsguiasalida'), ('app_label', 'bodegas'), ('model', 'itementomainventario'), ('app_label', 'bodegas'), ('model', 'voucherdevolucion'), _connector='OR'), null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='bitacora_documentos_origen', to='contenttypes.contenttype')),
+                ('documento_origen_content_type', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='bitacora_documentos_origen', to='contenttypes.contenttype')),
                 ('empresa', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='bitacora_movimientos', to='empresas.empresa')),
                 ('movimiento_reversado', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='reversos', to='bodegas.bitacoramovimiento')),
                 ('stock_item', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='bitacora_movimientos', to='bodegas.stockitemenBodega')),
@@ -59,8 +41,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-fecha_creacion'],
             },
         ),
-        
-        # BitácoraSerieMovimiento
         migrations.CreateModel(
             name='BitácoraSerieMovimiento',
             fields=[
@@ -83,8 +63,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-fecha_creacion'],
             },
         ),
-        
-        # ReporteTrazabilidadSerie
         migrations.CreateModel(
             name='ReporteTrazabilidadSerie',
             fields=[
@@ -107,8 +85,6 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Reportes de Trazabilidad',
             },
         ),
-        
-        # ReporteConciliación
         migrations.CreateModel(
             name='ReporteConciliación',
             fields=[
@@ -136,8 +112,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-fecha_creacion'],
             },
         ),
-        
-        # AnomalíaMovimiento
         migrations.CreateModel(
             name='AnomalíaMovimiento',
             fields=[
@@ -162,35 +136,5 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Anomalías de Movimientos',
                 'ordering': ['-fecha_creacion'],
             },
-        ),
-        
-        # Add indexes
-        migrations.AddIndex(
-            model_name='bitacoramovimiento',
-            index=models.Index(fields=['empresa', 'fecha_creacion'], name='bodegas_bi_empresa_fecha_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='bitacoramovimiento',
-            index=models.Index(fields=['tipo_evento', 'fecha_creacion'], name='bodegas_bi_evento_fecha_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='bitacoramovimiento',
-            index=models.Index(fields=['stock_item', 'fecha_creacion'], name='bodegas_bi_stock_fecha_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='bitacoraserimovimiento',
-            index=models.Index(fields=['serie_item', 'fecha_creacion'], name='bodegas_bs_serie_fecha_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='bitacoraserimovimiento',
-            index=models.Index(fields=['empresa', 'fecha_creacion'], name='bodegas_bs_empresa_fecha_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='anomaliamovimiento',
-            index=models.Index(fields=['tipo_anomalia', 'resuelta'], name='bodegas_ano_tipo_res_idx'),
-        ),
-        migrations.AddIndex(
-            model_name='anomaliamovimiento',
-            index=models.Index(fields=['empresa', 'resuelta'], name='bodegas_ano_empresa_res_idx'),
         ),
     ]
