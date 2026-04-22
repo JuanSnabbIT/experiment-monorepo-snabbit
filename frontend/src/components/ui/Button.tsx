@@ -1,18 +1,18 @@
-import React, { forwardRef, HTMLAttributes, ReactNode } from 'react';
 import classNames from 'classnames';
-import { TColors } from '../../types/colors.type';
-import { TColorIntensity } from '../../types/colorIntensities.type';
-import { TRounded } from '../../types/rounded.type';
+import { ButtonHTMLAttributes, forwardRef, ReactNode } from 'react';
 import themeConfig from '../../config/theme.config';
 import useColorIntensity from '../../hooks/useColorIntensity';
-import { TIcons } from '../../types/icons.type';
-import Icon from '../icon/Icon';
 import { TBorderWidth } from '../../types/borderWidth.type';
+import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
+import { TIcons } from '../../types/icons.type';
+import { TRounded } from '../../types/rounded.type';
+import Icon from '../icon/Icon';
 
 export type TButtonVariants = 'solid' | 'outline' | 'default';
 export type TButtonSize = 'xs' | 'sm' | 'default' | 'lg' | 'xl';
 
-export interface IButtonProps extends HTMLAttributes<HTMLButtonElement> {
+export interface IButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     borderWidth?: TBorderWidth;
     children?: ReactNode;
     className?: string;
