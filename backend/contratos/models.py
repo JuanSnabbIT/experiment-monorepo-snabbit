@@ -549,11 +549,93 @@ class Visita(ModeloBase):
 
 
 class Licencia(ModeloBase):
+    empresa_prestadora = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="licencias_catalogo",
+        blank=True,
+        null=True,
+    )
     nombre = models.CharField(max_length=255, verbose_name="Nombre de la licencia")
     proveedor = models.CharField(max_length=255, verbose_name="Proveedor", blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    numero_parte = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name='Número de parte (código de licencia)',
+    )
+    precio_compra = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de partner',
+    )
+    precio_venta = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de venta sugerido',
+    )
+    precio_modalidad_p1m = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio P1M',
+    )
+    precio_venta_p1m = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de venta sugerido P1M',
+    )
+    precio_modalidad_p1m_compromiso_p1y = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio P1M con compromiso P1Y',
+    )
+    precio_venta_p1m_compromiso_p1y = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de venta sugerido P1M con compromiso P1Y',
+    )
+    precio_modalidad_p1y = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio P1Y',
+    )
+    precio_venta_p1y = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de venta sugerido P1Y',
+    )
+    precio_modalidad_pago_unico = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio Pago único',
+    )
+    precio_venta_pago_unico = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name='Precio de venta sugerido Pago único',
+    )
+    moneda = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        default='USD',
+        verbose_name='Moneda',
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
 
     def __str__(self):
-        return f"{self.nombre} - {self.proveedor}"
+        proveedor = self.proveedor or 'Sin proveedor'
+        return f"{self.nombre} - {proveedor}"
 
 
 class PersonaLicenciataria(ModeloBaseHistorico):

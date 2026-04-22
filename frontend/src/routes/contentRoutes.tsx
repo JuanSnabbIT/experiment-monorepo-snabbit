@@ -36,27 +36,28 @@ const DashboardVacaciones = lazy(() => import('@/pages/Calendario/DashboardVacac
 const ListaUsuariosEmpresa = lazy(() => import('@/pages/Empresas/ListaUsuariosEmpresa'));
 const DetalleUsuarioEmpresa = lazy(() => import('@/pages/Empresas/DetalleUsuarioEmpresa'));
 const ListaProveedoresEmpresa = lazy(
-    () => import('@/pages/Items/Proveedor/ListaProveedoresEmpresa'),
+    () => import('@/pages/Registros/Proveedor/ListaProveedoresEmpresa'),
 );
 const DetalleProveedorEmpresa = lazy(
-    () => import('@/pages/Items/Proveedor/DetalleProveedorEmpresa'),
+    () => import('@/pages/Registros/Proveedor/DetalleProveedorEmpresa'),
 );
-const ListaItemsEmpresa = lazy(() => import('@/pages/Items/ListaItemsEmpresa'));
-const DetalleItemEmpresa = lazy(() => import('@/pages/Items/DetalleItemEmpresa'));
+const ListaItemsEmpresa = lazy(() => import('@/pages/Registros/Items/ListaItemsEmpresa'));
+const DetalleItemEmpresa = lazy(() => import('@/pages/Registros/Items/DetalleItemEmpresa'));
+const ListaLicencias = lazy(() => import('@/pages/Registros/Licencias/ListaLicencias'));
 const ListaBodegas = lazy(() => import('@/pages/Bodegas/ListaBodegas'));
 const ListaOrdenesCompraV2 = lazy(() => import('@/pages/Bodegas/OrdenCompra/ListaOrdenesCompraV2'));
 const DetalleOrdenCompraV2 = lazy(
     () => import('@/pages/Bodegas/OrdenCompra/components/DetalleOrdenCompraV2'),
 );
-const DetalleFabricante = lazy(() => import('@/pages/Items/Registro/Fabricante/DetalleFabricante'));
-const DetalleCategoria = lazy(() => import('@/pages/Items/Registro/Categoria/DetalleCategoria'));
+const DetalleFabricante = lazy(() => import('@/pages/Registros/Fabricante/DetalleFabricante'));
+const DetalleCategoria = lazy(() => import('@/pages/Registros/Categoria/DetalleCategoria'));
 const CompletarOrdenDeCompraV2 = lazy(
     () => import('@/pages/Bodegas/OrdenCompra/components/CompletarOrdenDeCompraV2'),
 );
 const ListaEmpresas = lazy(() => import('@/pages/Empresas/ListaEmpresas'));
 const DetalleEmpresa = lazy(() => import('@/pages/Empresas/DetalleEmpresa'));
-const ListaCategorias = lazy(() => import('@/pages/Items/Registro/Categoria/ListaCategorias'));
-const ListaFabricantes = lazy(() => import('@/pages/Items/Registro/Fabricante/ListaFabricantes'));
+const ListaCategorias = lazy(() => import('@/pages/Registros/Categoria/ListaCategorias'));
+const ListaFabricantes = lazy(() => import('@/pages/Registros/Fabricante/ListaFabricantes'));
 // const ListaClientes = lazy(() => import('@/pages/Clientes/ListaClientes'))
 const DetalleCliente = lazy(() => import('@/pages/Clientes/DetalleCliente'));
 const ListaGuiaSalidaBodega = lazy(
@@ -79,7 +80,7 @@ const ListaMisOrdenesDeCompra = lazy(
 const AgregarItemsOrdenCompra = lazy(
     () => import('@/pages/Bodegas/OrdenCompra/components/AgregarItemsOrdenCompra'),
 );
-const ListaUsuarios = lazy(() => import('@/pages/Core/User/ListaUser'));
+const ListaUsuarios = lazy(() => import('@/pages/Registros/Usuarios/ListaUsuarios'));
 const DetalleSucursal = lazy(() => import('@/pages/Empresas/DetalleSucursal'));
 const ListaRendiciones = lazy(() => import('@/pages/Rendiciones/RendicionesAdmin'));
 const DetalleRendicion = lazy(() => import('@/pages/Rendiciones/components/DetalleRendicion'));
@@ -114,7 +115,7 @@ const VistaPreviaFirmaContrato = lazy(
     () => import('@/pages/Contratos/VistaPreviaFirmaContrato'),
 );
 const PlanesYServicios = lazy(
-    () => import('@/pages/Contratos/Registro/PlanesYServicios'),
+    () => import('@/pages/Registros/PlanesYServicios'),
 );
 
 const RedirectCrearPrefacturaOTV3Legacy = () => {
@@ -123,10 +124,10 @@ const RedirectCrearPrefacturaOTV3Legacy = () => {
     return <Navigate to={target} replace />;
 };
 const ListaPlantillasContrato = lazy(
-    () => import('@/pages/Contratos/PlantillasContrato/ListaPlantillas'),
+    () => import('@/pages/Registros/PlantillasContrato/ListaPlantillas'),
 );
 const DetallePlantillaContrato = lazy(
-    () => import('@/pages/Contratos/PlantillasContrato/DetallePlantilla'),
+    () => import('@/pages/Registros/PlantillasContrato/DetallePlantilla'),
 );
 const DetalleUsuarioCliente = lazy(() => import('@/pages/Clientes/DetalleUsuarioCliente'));
 const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'));
@@ -330,6 +331,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.registros.subPages.listaItemsEmpresa.to,
         element: <ListaItemsEmpresa />,
         authority: Pages.registros.subPages.listaItemsEmpresa.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaLicencias.to,
+        element: <ListaLicencias />,
+        authority: Pages.registros.subPages.listaLicencias.authority,
     },
     {
         path: Pages.registros.subPages.detalleFabricante.to,

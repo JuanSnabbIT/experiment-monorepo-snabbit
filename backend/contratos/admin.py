@@ -192,8 +192,9 @@ class VisitaAdmin(admin.ModelAdmin):
 
 @admin.register(Licencia)
 class LicenciaAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'proveedor')
-    search_fields = ('nombre',)
+    list_display = ('nombre', 'proveedor', 'moneda', 'precio_venta', 'activo')
+    search_fields = ('nombre', 'proveedor')
+    list_filter = ('activo', 'moneda')
 
 
 @admin.register(CondicionEspecial)

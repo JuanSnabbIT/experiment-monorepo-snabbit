@@ -7,6 +7,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { IServicio } from '@/interface/contrato.interface';
+import ScopeSummary from '@/pages/Contratos/components/ScopeSummary';
 import {
     useDeleteServicioMutation,
     useGetServiciosQuery,
@@ -26,7 +27,6 @@ import {
 } from '@tanstack/react-table';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
-import ScopeSummary from '../../components/ScopeSummary';
 import ModalServicio from '../modals/ModalServicio';
 import TabCaracteristicas from './TabCaracteristicas';
 

@@ -2504,6 +2504,17 @@ class LicenciaViewSet(viewsets.ModelViewSet):
     serializer_class = LicenciaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return Licencia.objects.none()
+        return Licencia.objects.filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(empresa_prestadora=_empresa_del_usuario(self.request.user))
+
 class CondicionEspecialViewSet(viewsets.ModelViewSet):
     queryset = CondicionEspecial.objects.all()
     serializer_class = CondicionEspecialSerializer

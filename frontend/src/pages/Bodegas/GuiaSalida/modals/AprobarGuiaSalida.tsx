@@ -68,7 +68,7 @@ function AprobarGuiaSalida({
                     <div className='flex flex-col gap-4'>
                         {detalleGuiaSalidaBodega && !detalleGuiaSalidaBodega.recibido_por && (
                             <div>
-                                <Badge>Recibido Por</Badge>
+                                <Badge>Responsable</Badge>
                                 <SelectReact
                                     name='recibido_por'
                                     placeholder='Seleccione un usuario'

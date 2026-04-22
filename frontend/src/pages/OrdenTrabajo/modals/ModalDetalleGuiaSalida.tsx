@@ -16,8 +16,8 @@ import {
 import { confirmAlert } from '@/utils/sweetAlert';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Fragment } from 'react/jsx-runtime';
 import { toast } from 'react-toastify';
+import { Fragment } from 'react/jsx-runtime';
 import ModalConfirmarRecepcionGuia from './ModalConfirmarRecepcionGuia';
 
 function ModalDetalleGuiaSalida({
@@ -96,7 +96,7 @@ function ModalDetalleGuiaSalida({
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>Recibido Por</Badge>
+                                    <Badge>Responsable</Badge>
                                     <div className='ml-4'>
                                         {guiaActual?.nombre_recibido_por}
                                     </div>

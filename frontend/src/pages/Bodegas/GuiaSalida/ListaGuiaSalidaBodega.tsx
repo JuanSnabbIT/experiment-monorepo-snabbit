@@ -147,7 +147,7 @@ function ListaGuiaSalidaBodega() {
         }),
         columnHelper.accessor('nombre_recibido_por', {
             cell: (info) => info.getValue(),
-            header: 'Recibido Por',
+            header: 'Responsable',
         }),
         columnHelper.accessor('fecha_creacion', {
             cell: (info) => (

@@ -114,13 +114,13 @@ const CotizacionesEmpresa = () => {
     const columns = [
         columnHelper.accessor('numero_cotizacion', {
             cell: (info) => (
-                <div className='font-bold text-zinc-600 dark:text-zinc-400'>#{info.getValue()}</div>
+                <div className='font-bold text-zinc-700 dark:text-zinc-300'>#{info.getValue()}</div>
             ),
             header: 'N°',
         }),
         columnHelper.accessor('nombre', {
             cell: (info) => (
-                <div className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                <div className='font-semibold text-zinc-700 dark:text-zinc-300'>
                     {info.getValue()}
                 </div>
             ),
@@ -128,7 +128,7 @@ const CotizacionesEmpresa = () => {
         }),
         columnHelper.accessor('cliente_nombre', {
             cell: (info) => (
-                <div className='font-medium text-zinc-700 dark:text-zinc-300'>
+                <div className='font-medium text-zinc-600 dark:text-zinc-400'>
                     {info.getValue()}
                 </div>
             ),
@@ -177,21 +177,6 @@ const CotizacionesEmpresa = () => {
                         <Badge variant='solid' color={color} className='capitalize shadow-sm'>
                             {estado}
                         </Badge>
-                        {estadoOC === 'pendiente_oc' && (
-                            <Badge color='amber' variant='outline' className='text-xs'>
-                                Sin OC
-                            </Badge>
-                        )}
-                        {estadoOC === 'en_oc' && (
-                            <Badge color='blue' variant='outline' className='text-xs'>
-                                En OC
-                            </Badge>
-                        )}
-                        {estadoOC === 'cerrada_comercialmente' && (
-                            <Badge color='zinc' variant='outline' className='text-xs'>
-                                Cerrada comercialmente
-                            </Badge>
-                        )}
                     </div>
                 );
             },
@@ -344,7 +329,7 @@ const CotizacionesEmpresa = () => {
                                             <Th
                                                 key={header.id}
                                                 isColumnBorder={false}
-                                                className='text-left font-semibold text-zinc-500 dark:text-zinc-400'>
+                                                className='text-left font-semibold text-zinc-900 dark:text-zinc-100'>
                                                 {header.isPlaceholder ? null : (
                                                     <div
                                                         key={header.id}

@@ -4,8 +4,8 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import { useState } from 'react';
-import TabPlanes from './components/TabPlanes';
-import TabServicios from './components/TabServicios';
+import TabPlanes from './PlanesYServicios/components/TabPlanes';
+import TabServicios from './PlanesYServicios/components/TabServicios';
 
 type TTab = 'servicios' | 'planes';
 

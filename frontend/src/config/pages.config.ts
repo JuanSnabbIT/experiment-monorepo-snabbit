@@ -503,6 +503,13 @@ export const Pages = {
                 icon: 'HeroCube',
                 authority: ['staff', 'superadmin'],
             },
+            listaLicencias: {
+                id: 'listaLicencias',
+                to: '/registros/licencias',
+                text: 'Licencias',
+                icon: 'HeroKey',
+                authority: ['staff', 'superadmin'],
+            },
             listaUsuarios: {
                 id: 'listaUsuarios',
                 to: '/registros/lista-usuarios',

@@ -1,19 +1,4 @@
-﻿import { Fragment, useCallback, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
-    SortingState,
-    useReactTable,
-} from '@tanstack/react-table';
-import dayjs from 'dayjs';
-import 'dayjs/locale/es';
-import { toast } from 'react-toastify';
-import Icon from '@/components/icon/Icon';
+﻿import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -26,7 +11,11 @@ import Modal, {
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import { IInsumo } from '@/interface/ordenTrabajo.interface';
+import AprobarGuiaSalida from '@/pages/Bodegas/GuiaSalida/modals/AprobarGuiaSalida';
+import ApiService from '@/services/ApiService';
 import { useAppSelector } from '@/store';
+import { useGetDetalleCotizacionPorNumeroQuery, useGetItemsEnCotizacionQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import {
     useComprobarGuiaSalidaMutation,
     useGetDetalleGuiaSalidaQuery,
@@ -34,16 +23,27 @@ import {
     useGetInsumosOrdenTrabajoQuery,
     useGetItemsGuiaSalidaQuery,
 } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
-import { useGetDetalleCotizacionPorNumeroQuery, useGetItemsEnCotizacionQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
-import ApiService from '@/services/ApiService';
-import { IInsumo } from '@/interface/ordenTrabajo.interface';
+import {
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import { Fragment, useCallback, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import ModalConfirmarRecepcionGuia from '../modals/ModalConfirmarRecepcionGuia';
 import ModalVincularGuia from '../modals/ModalVincularGuia';
 import VincularCotizacion from '../modals/VincularCotizacion';
-import AprobarGuiaSalida from '@/pages/Bodegas/GuiaSalida/modals/AprobarGuiaSalida';
 
 type InsumoItemRow = {
     guiaId: number;
@@ -718,7 +718,7 @@ function Insumos() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>Recibido Por</Badge>
+                                    <Badge>Responsable</Badge>
                                     <div className='ml-4'>
                                         {selectedGuia.nombre_recibido_por || '-'}
                                     </div>

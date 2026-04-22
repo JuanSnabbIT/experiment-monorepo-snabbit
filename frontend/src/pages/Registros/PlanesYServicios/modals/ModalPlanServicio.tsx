@@ -14,6 +14,7 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { ICaracteristicaServicio, IPlanServicio, IServicio } from '@/interface/contrato.interface';
+import ScopeSummary from '@/pages/Contratos/components/ScopeSummary';
 import {
     useCreatePlanServicioMutation,
     useGetServiciosQuery,
@@ -25,7 +26,6 @@ import { useFormik } from 'formik';
 import { Dispatch, SetStateAction, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import ScopeSummary from '../../components/ScopeSummary';
 
 interface IModalPlanServicioProps {
     isOpen: boolean;

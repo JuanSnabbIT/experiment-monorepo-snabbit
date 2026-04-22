@@ -1,4 +1,5 @@
-import React, {
+import classNames from 'classnames';
+import {
     Children,
     cloneElement,
     FC,
@@ -9,11 +10,10 @@ import React, {
     ReactNode,
     useId,
 } from 'react';
-import classNames from 'classnames';
 import themeConfig from '../../config/theme.config';
-import { TRounded } from '../../types/rounded.type';
-import { TColors } from '../../types/colors.type';
 import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
+import { TRounded } from '../../types/rounded.type';
 import { IValidationBaseProps } from './Validation';
 
 export type TCheckboxVariants = 'default' | 'switch';
@@ -23,6 +23,7 @@ interface ICheckboxProps
     extends InputHTMLAttributes<HTMLInputElement>,
         Partial<IValidationBaseProps> {
     checked?: boolean;
+    children?: ReactNode;
     className?: string;
     color?: TColors;
     colorIntensity?: TColorIntensity;
@@ -39,6 +40,7 @@ interface ICheckboxProps
 const Checkbox = forwardRef<HTMLInputElement, ICheckboxProps>((props, ref) => {
     const {
         checked = false,
+        children,
         className,
         color = themeConfig.themeColor,
         colorIntensity = themeConfig.themeColorShade,
@@ -173,6 +175,8 @@ const Checkbox = forwardRef<HTMLInputElement, ICheckboxProps>((props, ref) => {
         inputClassName,
     );
 
+    const labelContent = label ?? children;
+
     return (
         <div
             data-component-name='Checkbox'
@@ -190,7 +194,7 @@ const Checkbox = forwardRef<HTMLInputElement, ICheckboxProps>((props, ref) => {
                 className={checkboxClasses}
                 {...rest}
             />
-            {!!label && (
+            {!!labelContent && (
                 <label
                     htmlFor={id || inputHintId}
                     className={classNames(
@@ -198,7 +202,7 @@ const Checkbox = forwardRef<HTMLInputElement, ICheckboxProps>((props, ref) => {
                         { '!pointer-events-none': rest?.disabled },
                         labelDimensionClasses,
                     )}>
-                    {label}
+                    {labelContent}
                 </label>
             )}
         </div>

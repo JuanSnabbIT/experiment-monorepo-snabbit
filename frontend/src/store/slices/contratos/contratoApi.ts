@@ -1,3 +1,4 @@
+import { IBodega } from '@/interface/bodega.interface';
 import {
     IAlcanceComercialPayload,
     ICaracteristicaServicio,
@@ -28,7 +29,6 @@ import {
     IVisita,
     IVolverContratoBorradorResponse
 } from '@/interface/contrato.interface';
-import { IBodega } from '@/interface/bodega.interface';
 import {
     IDesvincularEquipoRequest,
     IDesvincularEquipoResponse,
@@ -509,7 +509,25 @@ const contratoApi = RtkQueryService.injectEndpoints({
         // ─── Mutation: Crear licencia de catálogo ───
         createLicenciaCatalogo: builder.mutation<
             ILicencia,
-            { nombre: string; proveedor?: string }
+            {
+                nombre: string;
+                numero_parte?: string;
+                proveedor?: string;
+                tipo?: string;
+                descripcion?: string;
+                precio_compra?: number;
+                precio_venta?: number;
+                precio_venta_p1m?: number;
+                precio_venta_p1m_compromiso_p1y?: number;
+                precio_venta_p1y?: number;
+                precio_venta_pago_unico?: number;
+                precio_modalidad_p1m?: number;
+                precio_modalidad_p1m_compromiso_p1y?: number;
+                precio_modalidad_p1y?: number;
+                precio_modalidad_pago_unico?: number;
+                moneda?: string;
+                activo?: boolean;
+            }
         >({
             query: (data) => ({
                 url: '/api/licencias/',
@@ -517,6 +535,52 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 data,
             }),
             invalidatesTags: ['ContratoLicencias'],
+        }),
+
+        updateLicenciaCatalogo: builder.mutation<
+            ILicencia,
+            {
+                id: number | string;
+                data: {
+                    nombre?: string;
+                    numero_parte?: string;
+                    proveedor?: string;
+                    tipo?: string;
+                    descripcion?: string;
+                    precio_compra?: number;
+                    precio_venta?: number;
+                    precio_venta_p1m?: number;
+                    precio_venta_p1m_compromiso_p1y?: number;
+                    precio_venta_p1y?: number;
+                    precio_venta_pago_unico?: number;
+                    precio_modalidad_p1m?: number;
+                    precio_modalidad_p1m_compromiso_p1y?: number;
+                    precio_modalidad_p1y?: number;
+                    precio_modalidad_pago_unico?: number;
+                    moneda?: string;
+                    activo?: boolean;
+                };
+            }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/licencias/${id}/`,
+                method: 'patch',
+                data,
+            }),
+            invalidatesTags: ['ContratoLicencias'],
+        }),
+
+        deleteLicenciaCatalogo: builder.mutation<void, number | string>({
+            query: (id) => ({
+                url: `/api/licencias/${id}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: ['ContratoLicencias'],
+        }),
+
+        getLicencia: builder.query<ILicencia, number | string>({
+            query: (id) => ({ url: `/api/licencias/${id}/`, method: 'get' }),
+            providesTags: (_result, _error, id) => [{ type: 'ContratoLicencias', id: Number(id) }],
         }),
 
         // ─── Mutation: Crear ContratoLicencia (nested bajo contrato) ───
@@ -996,6 +1060,8 @@ export const {
     useDeleteUsuarioVinculadoLicenciaMutation,
     useCambiarEstadoContratoLicenciaMutation,
     useCreateLicenciaCatalogoMutation,
+    useUpdateLicenciaCatalogoMutation,
+    useDeleteLicenciaCatalogoMutation,
     useCreateContratoLicenciaMutation,
     useGetHistorialContratoLicenciaQuery,
     useGetFirmasConfidencialidadQuery,

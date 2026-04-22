@@ -373,7 +373,7 @@ function CrearCotizacion({
                         {formik.values.cliente && (
                             <>
                                 <div className='w-full'>
-                                    <Badge>Nombre</Badge>
+                                    <Badge>Nombre Cotización</Badge>
                                     <Validation
                                         isValid={formik.isValid}
                                         isTouched={formik.touched.nombre}

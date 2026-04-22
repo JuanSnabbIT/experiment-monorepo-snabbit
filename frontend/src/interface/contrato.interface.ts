@@ -529,6 +529,17 @@ export interface ILicencia {
     fecha_modificacion: string;
     nombre: string;
     proveedor: string | null;
+    descripcion: string | null;
+    numero_parte: string | null;
+    precio_compra: number;
+    precio_venta: number;
+    precio_modalidad_p1m: number;
+    precio_modalidad_p1m_compromiso_p1y: number;
+    precio_modalidad_p1y: number;
+    precio_modalidad_pago_unico: number;
+    moneda: string;
+    activo: boolean;
+    empresa_prestadora?: number | null;
 }
 
 export interface IPersonaLicenciatariaResumen {

@@ -928,7 +928,7 @@ function DetalleGuiaSalidaBodega() {
                                                 </div>
                                             </div>
                                             <div className='w-full'>
-                                                <Badge>Recibido Por</Badge>
+                                                <Badge>Responsable</Badge>
                                                 <SelectReact
                                                     name='recibido_por'
                                                     placeholder='Seleccione un usuario'
@@ -989,7 +989,7 @@ function DetalleGuiaSalidaBodega() {
                                                 </div>
                                             </div>
                                             <div className='w-full'>
-                                                <Badge>Recibido Por</Badge>
+                                                <Badge>Responsable</Badge>
                                                 <div className='ml-4'>
                                                     {detalleGuiaSalidaBodega?.nombre_recibido_por}
                                                 </div>

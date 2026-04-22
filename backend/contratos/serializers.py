@@ -367,6 +367,19 @@ class LicenciaSerializer(serializers.ModelSerializer):
         model = Licencia
         fields = '__all__'
 
+    def validate(self, data):
+        precio_modalidades = [
+            data.get('precio_modalidad_p1m', 0),
+            data.get('precio_modalidad_p1m_compromiso_p1y', 0),
+            data.get('precio_modalidad_p1y', 0),
+            data.get('precio_modalidad_pago_unico', 0),
+        ]
+        if all((value or 0) == 0 for value in precio_modalidades):
+            raise serializers.ValidationError(
+                'Al menos un precio por modalidad debe ser mayor a 0.',
+            )
+        return data
+
 # Serializador para CondicionEspecial
 class CondicionEspecialSerializer(serializers.ModelSerializer):
     class Meta:

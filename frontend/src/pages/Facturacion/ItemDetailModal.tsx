@@ -636,7 +636,7 @@ const ItemDetailModal: React.FC<Props> = ({ open, onClose, item: rawItem }) => {
                         )}
                         {data.nombre_recibido_por && (
                             <div>
-                                <Badge className='mb-1'>Recibido Por</Badge>
+                                <Badge className='mb-1'>Responsable</Badge>
                                 <div className='ml-4 text-sm text-gray-700 dark:text-gray-300'>
                                     {data.nombre_recibido_por}
                                 </div>

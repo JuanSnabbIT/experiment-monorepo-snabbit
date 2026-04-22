@@ -233,7 +233,7 @@ function CrearGuiaSalidaEnDetalleBodega({
                         </div>
                         <div className='w-full'>
                             <div className='mb-2 flex items-center justify-between gap-4'>
-                                <Badge>Recibido Por</Badge>
+                                <Badge>Responsable</Badge>
                                 <Input
                                     className='max-w-[200px]'
                                     name='globalFilter'

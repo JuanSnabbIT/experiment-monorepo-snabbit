@@ -2,8 +2,8 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardFooter, CardFooterChild } from '@/components/ui/Card';
 import { IPlanServicio } from '@/interface/contrato.interface';
+import ScopeSummary from '@/pages/Contratos/components/ScopeSummary';
 import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
-import ScopeSummary from '../../components/ScopeSummary';
 
 interface IPlanCatalogCardProps {
     plan: IPlanServicio;

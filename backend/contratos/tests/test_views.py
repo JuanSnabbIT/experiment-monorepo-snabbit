@@ -170,6 +170,84 @@ class FacturaContratoListTest(ContratoAPITestBase):
         self.assertEqual(response.data[0]["monto_calculado"], "0")
 
 
+class LicenciaViewSetTest(ContratoAPITestBase):
+    def test_list_licencias_solo_de_empresa_prestadora_o_publicas(self):
+        Licencia.objects.create(
+            nombre="Licencia Pres",
+            proveedor="Proveedor A",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        Licencia.objects.create(
+            nombre="Licencia Publica",
+            proveedor="Proveedor Global",
+            empresa_prestadora=None,
+        )
+        Licencia.objects.create(
+            nombre="Licencia Ajena",
+            proveedor="Proveedor Otro",
+            empresa_prestadora=self.empresa_otra,
+        )
+
+        response = self.client.get("/api/licencias/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        nombres = [item["nombre"] for item in response.data]
+        self.assertIn("Licencia Pres", nombres)
+        self.assertIn("Licencia Publica", nombres)
+        self.assertNotIn("Licencia Ajena", nombres)
+
+    def test_create_licencia_asigna_empresa_prestadora(self):
+        payload = {
+            "nombre": "Licencia Nueva",
+            "numero_parte": "NP-001",
+            "proveedor": "Proveedor Nuevo",
+            "descripcion": "Una prueba",
+            "precio_compra": 10.0,
+            "precio_venta": 15.0,
+            "precio_venta_p1m": 16.0,
+            "precio_venta_p1m_compromiso_p1y": 14.0,
+            "precio_venta_p1y": 140.0,
+            "precio_venta_pago_unico": 150.0,
+            "precio_modalidad_p1m": 12.0,
+            "precio_modalidad_p1m_compromiso_p1y": 11.0,
+            "precio_modalidad_p1y": 120.0,
+            "precio_modalidad_pago_unico": 130.0,
+            "moneda": "CLP",
+            "activo": True,
+        }
+
+        response = self.client.post("/api/licencias/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["empresa_prestadora"], self.empresa_prestadora.id)
+        self.assertEqual(response.data["nombre"], "Licencia Nueva")
+
+    def test_create_licencia_requiere_precio_modalidad(self):
+        payload = {
+            "nombre": "Licencia Sin Modalidad",
+            "numero_parte": "NP-002",
+            "proveedor": "Proveedor Nuevo",
+            "descripcion": "Sin modalidad activa",
+            "precio_compra": 10.0,
+            "precio_venta": 15.0,
+            "precio_venta_p1m": 0.0,
+            "precio_venta_p1m_compromiso_p1y": 0.0,
+            "precio_venta_p1y": 0.0,
+            "precio_venta_pago_unico": 0.0,
+            "precio_modalidad_p1m": 0.0,
+            "precio_modalidad_p1m_compromiso_p1y": 0.0,
+            "precio_modalidad_p1y": 0.0,
+            "precio_modalidad_pago_unico": 0.0,
+            "moneda": "CLP",
+            "activo": True,
+        }
+
+        response = self.client.post("/api/licencias/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            'Al menos un precio por modalidad debe ser mayor a 0.',
+            str(response.data),
+        )
+
+
 class PlantillaContratoReordenarTest(ContratoAPITestBase):
     def setUp(self):
         super().setUp()
