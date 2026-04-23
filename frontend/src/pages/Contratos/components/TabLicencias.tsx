@@ -310,6 +310,7 @@ const TabLicencias = ({
                 listaLicencias={listaLicencias}
                 editIndex={modalLicencia.editIndex}
                 editNombreLicencia={modalLicencia.editNombre}
+                contractCurrency={detalleContratoEmpresaCliente.moneda_cobro as 'USD' | 'CLP' | 'UF'}
             />
 
             {/* Modal cambiar estado */}

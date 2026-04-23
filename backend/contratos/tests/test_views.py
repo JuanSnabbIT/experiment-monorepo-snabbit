@@ -569,6 +569,163 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(licencia_contrato.fecha_inicio, date.today())
         self.assertEqual(licencia_contrato.fecha_fin, date.today() + timedelta(days=30))
 
+    def test_crear_completo_usa_precio_catalogo_si_no_se_indica_precio(self):
+        self.licencia.precio_venta = 12000
+        self.licencia.moneda = "USD"
+        self.licencia.save()
+
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Completo con Licencia Catalogo",
+                    "tipo": "servicios",
+                },
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 5,
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Completo con Licencia Catalogo")
+        licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
+        self.assertEqual(float(licencia_contrato.precio_unitario), 12000.0)
+        self.assertEqual(licencia_contrato.tipo_moneda, "USD")
+
+    def test_crear_completo_usa_modalidad_catalogo_y_ignora_payload(self):
+        self.licencia.modalidad_base = "P1Y"
+        self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
+        self.licencia.precio_venta = 15000
+        self.licencia.moneda = "USD"
+        self.licencia.save()
+
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Completo con Modalidad Catalogo",
+                    "tipo": "servicios",
+                },
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "anual",
+                        "cantidad": 5,
+                        "precio_unitario": "15000.00",
+                        "fecha_inicio": date.today().isoformat(),
+                        "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Completo con Modalidad Catalogo")
+        licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
+        self.assertEqual(licencia_contrato.tipo_modalidad, "p1y-m")
+        self.assertEqual(float(licencia_contrato.precio_unitario), 15000.0)
+        self.assertEqual(licencia_contrato.tipo_moneda, "USD")
+
+    def test_crear_completo_tipo_licencia_rechaza_si_no_hay_licencias(self):
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Licencia Sin Licencias",
+                    "tipo": "licencia",
+                    "moneda_cobro": "USD",
+                },
+                "licencias": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+
+    def test_crear_completo_licencia_normaliza_moneda_del_contrato(self):
+        self.licencia.precio_venta = 20000
+        self.licencia.moneda = "USD"
+        self.licencia.modalidad_base = "P1M"
+        self.licencia.save()
+
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Licencia Moneda Normalizada",
+                    "tipo": "licencia",
+                    "moneda_cobro": "CLP",
+                },
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "otros",
+                        "cantidad": 1,
+                        "precio_unitario": "20000.00",
+                        "tipo_moneda": "USD",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Licencia Moneda Normalizada")
+        licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
+        self.assertEqual(licencia_contrato.tipo_modalidad, "p1m-m")
+        self.assertEqual(licencia_contrato.tipo_moneda, "CLP")
+
+    def test_crear_completo_rechaza_precio_unitario_no_positivo(self):
+        self.licencia.precio_venta = 15000
+        self.licencia.save()
+
+        response = self.client.post(
+            "/api/contratos/crear-completo/",
+            {
+                "contrato": {
+                    "empresa_cliente": self.empresa_cliente.id,
+                    "fecha_inicio": date.today().isoformat(),
+                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
+                    "nombre": "Contrato Licencia Precio Invalido",
+                    "tipo": "licencia",
+                },
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "p1y-m",
+                        "cantidad": 1,
+                        "precio_unitario": 0,
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+
 
 class ContratoVentaCotizacionesTest(ContratoAPITestBase):
     def setUp(self):
@@ -954,6 +1111,85 @@ class ContratoVentaCotizacionesTest(ContratoAPITestBase):
         self.assertEqual(item_serializado["precio_unitario"], 80.0)
 
 
+class ContratoBorradorLicenciaConsistenciaTest(ContratoAPITestBase):
+    def setUp(self):
+        super().setUp()
+        self.contrato_licencia = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Borrador Licenciamiento",
+            estado="borrador",
+            tipo="licencia",
+            moneda_cobro="USD",
+        )
+
+    def test_actualizar_borrador_rechaza_tipo_licencia_sin_licencias(self):
+        response = self.client.put(
+            f"/api/contratos/{self.contrato_licencia.id}/actualizar-borrador/",
+            {
+                "contrato": {"nombre": "Contrato sin licencias"},
+                "licencias": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+
+    def test_actualizar_borrador_licencia_deriva_modalidad_y_normaliza_moneda(self):
+        self.licencia.modalidad_base = "P1Y"
+        self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
+        self.licencia.precio_venta = 9900
+        self.licencia.save()
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato_licencia.id}/actualizar-borrador/",
+            {
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "tipo_modalidad": "anual",
+                        "cantidad": 2,
+                        "precio_unitario": "9900.00",
+                        "tipo_moneda": "CLP",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vinculada = ContratoLicencia.objects.get(
+            contrato=self.contrato_licencia,
+            licencia=self.licencia,
+        )
+        self.assertEqual(vinculada.tipo_modalidad, "p1y-m")
+        self.assertEqual(vinculada.tipo_moneda, "USD")
+
+    def test_actualizar_borrador_rechaza_precio_unitario_no_positivo(self):
+        self.licencia.precio_venta = 100
+        self.licencia.save()
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato_licencia.id}/actualizar-borrador/",
+            {
+                "licencias": [
+                    {
+                        "licencia_id": self.licencia.id,
+                        "cantidad": 1,
+                        "precio_unitario": 0,
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+
+
 class CatalogoServiciosAPITest(ContratoAPITestBase):
     def test_crear_servicio_con_alcance_structurado(self):
         caracteristica = CaracteristicaServicio.objects.create(
@@ -1211,6 +1447,7 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
             licencia=self.licencia,
             cantidad=2,
             tipo_modalidad="p1y-m",
+            precio_unitario="100.00",
             fecha_inicio=date.today(),
             fecha_fin=date.today() + timedelta(days=30),
             estado="activa",
@@ -1245,6 +1482,126 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         contrato_licencia.refresh_from_db()
         self.assertEqual(contrato_licencia.fecha_fin, date.today() + timedelta(days=90))
+
+    def test_actualizar_contrato_ignora_modalidad_payload_y_normaliza_moneda(self):
+        self.contrato.moneda_cobro = "CLP"
+        self.contrato.tipo = "licencia"
+        self.contrato.save(update_fields=["moneda_cobro", "tipo"])
+
+        self.licencia.modalidad_base = "P1Y"
+        self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
+        self.licencia.precio_venta = 11000
+        self.licencia.save()
+
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="perpetua",
+            precio_unitario="11000.00",
+            tipo_moneda="USD",
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=30),
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "id": contrato_licencia.id,
+                        "tipo_modalidad": "perpetua",
+                        "tipo_moneda": "USD",
+                        "cantidad": 3,
+                        "precio_unitario": "12000.00",
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        contrato_licencia.refresh_from_db()
+        self.assertEqual(contrato_licencia.tipo_modalidad, "p1y-m")
+        self.assertEqual(contrato_licencia.tipo_moneda, "CLP")
+
+    def test_actualizar_contrato_tipo_licencia_rechaza_quedar_sin_licencias(self):
+        self.contrato.tipo = "licencia"
+        self.contrato.save(update_fields=["tipo"])
+
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=1,
+            tipo_modalidad="p1m-m",
+            precio_unitario="100.00",
+            tipo_moneda="USD",
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [],
+                "eliminar_licencias": [contrato_licencia.id],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
+
+    def test_actualizar_contrato_rechaza_precio_unitario_no_positivo(self):
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=1,
+            tipo_modalidad="p1m-m",
+            precio_unitario="100.00",
+            tipo_moneda="USD",
+            estado="activa",
+        )
+
+        response = self.client.put(
+            f"/api/contratos/{self.contrato.id}/actualizar/",
+            {
+                "contrato": {"nombre": self.contrato.nombre},
+                "visitas": [],
+                "eliminar_visitas": [],
+                "licencias": [
+                    {
+                        "id": contrato_licencia.id,
+                        "cantidad": 2,
+                        "precio_unitario": 0,
+                    }
+                ],
+                "eliminar_licencias": [],
+                "condiciones_especiales": [],
+                "eliminar_condiciones": [],
+                "usuarios_vinculados": [],
+                "eliminar_usuarios": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("licencias", response.data)
 
     def test_actualizar_contrato_acepta_fechas_string_en_nueva_licencia(self):
         response = self.client.put(
@@ -2057,6 +2414,7 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             licencia=self.licencia,
             cantidad=2,
             tipo_modalidad="p1y-m",
+            precio_unitario="100.00",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2097,6 +2455,7 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             licencia=self.licencia,
             cantidad=3,
             tipo_modalidad="p1y-m",
+            precio_unitario="100.00",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2128,6 +2487,26 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_detalle_licencia_incluye_bandera_precio_sobrescrito(self):
+        self.licencia.precio_venta = 120
+        self.licencia.save()
+        contrato_licencia = ContratoLicencia.objects.create(
+            contrato=self.contrato,
+            licencia=self.licencia,
+            cantidad=2,
+            tipo_modalidad="p1m-m",
+            precio_unitario="150.00",
+            tipo_moneda="USD",
+            fecha_inicio=date.today(),
+            estado="activa",
+        )
+
+        response = self.client.get(f"/api/contrato-licencias/{contrato_licencia.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("precio_sobrescrito", response.data)
+        self.assertTrue(response.data["precio_sobrescrito"])
 
     def test_patch_licencia_permite_aumentar_cupos_fuera_de_ventana(self):
         contrato_licencia = ContratoLicencia.objects.create(

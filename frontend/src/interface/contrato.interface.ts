@@ -293,6 +293,7 @@ export interface IContratoLicencia {
     otro_tipo: null | string;
     cantidad: number;
     precio_unitario: string;
+    precio_sobrescrito: boolean;
     tipo_moneda: string;
     fecha_inicio: null | string;
     fecha_fin: null | string;

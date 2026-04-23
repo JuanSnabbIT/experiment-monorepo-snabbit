@@ -171,31 +171,70 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
         return (
             <div>
                 <h6 className='mb-2 text-sm font-semibold text-zinc-500'>{titulo}</h6>
-                <div className='grid grid-cols-12 gap-2'>
-                    <div className='col-span-4 text-xs font-bold'>Usuario</div>
-                    <div className='col-span-3 text-xs font-bold'>Tipo</div>
-                    <div className='col-span-2 text-xs font-bold'>{accion === 'ninguna' ? 'F. firma' : 'F. Vinculacion'}</div>
-                    <div className='col-span-2 text-xs font-bold'>Estado</div>
-                    <div className='col-span-1 text-xs font-bold'></div>
+                <div className='grid grid-cols-1 gap-2 text-xs sm:grid-cols-12'>
+                    <div className='col-span-1 sm:col-span-4 font-bold'>Usuario</div>
+                    <div className='col-span-1 sm:col-span-3 font-bold'>Tipo</div>
+                    <div className='col-span-1 sm:col-span-2 font-bold'>
+                        {accion === 'ninguna' ? 'F. firma' : 'F. Vinculacion'}
+                    </div>
+                    <div className='col-span-1 sm:col-span-2 font-bold'>Estado</div>
+                    <div className='col-span-1 sm:col-span-1 font-bold' />
                     {items.map((v, i) => (
                         <Fragment key={v.id}>
-                            <div className={classNames('col-span-4', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
-                                {v.correo_display}
-                                {v.es_destinatario_principal && <div className='mt-1'><Badge variant='outline' color='emerald'>Principal</Badge></div>}
+                            <div className={classNames('col-span-1 min-w-0 sm:col-span-4', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
+                                <p className='truncate text-sm'>{v.correo_display}</p>
+                                {v.es_destinatario_principal && (
+                                    <div className='mt-1'>
+                                        <Badge variant='outline' color='emerald'>
+                                            Principal
+                                        </Badge>
+                                    </div>
+                                )}
                             </div>
-                            <div className={classNames('col-span-3', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>{v.tipo_usuario_label}</div>
-                            <div className={classNames('col-span-2', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
-                                {accion === 'ninguna'
-                                    ? v.firma_pendiente?.fecha_firma ? dayjs(v.firma_pendiente.fecha_firma).format('DD/MM/YYYY') : 'Sin fecha'
-                                    : dayjs(v.fecha_vinculacion).format('DD/MM/YYYY')}
+                            <div className={classNames('col-span-1 min-w-0 sm:col-span-3', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
+                                <p className='truncate text-sm'>{v.tipo_usuario_label}</p>
                             </div>
-                            <div className={classNames('col-span-2', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
-                                <Badge variant='outline' color={getEstadoFirmaVisual(v).color}>{getEstadoFirmaVisual(v).label}</Badge>
+                            <div className={classNames('col-span-1 min-w-0 sm:col-span-2', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
+                                <p className='truncate text-sm'>
+                                    {accion === 'ninguna'
+                                        ? v.firma_pendiente?.fecha_firma
+                                            ? dayjs(v.firma_pendiente.fecha_firma).format('DD/MM/YYYY')
+                                            : 'Sin fecha'
+                                        : dayjs(v.fecha_vinculacion).format('DD/MM/YYYY')}
+                                </p>
                             </div>
-                            <div className={classNames('col-span-1', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
-                                {accion === 'enviar' && <Tooltip text='Enviar firma'><Button variant='solid' color='blue' size='sm' icon='DuoMail' isLoading={enviando} onClick={() => handleEnviarFirma(v.id)} /></Tooltip>}
-                                {accion === 'reenviar' && <Tooltip text='Reenviar firma'><Button variant='solid' color='emerald' size='sm' icon='DuoOutgoingMail' onClick={() => handleReenviarFirma(v.id, v.firma_pendiente!.id)} /></Tooltip>}
-                                {accion === 'ninguna' && <span className='text-xs text-zinc-400'>-</span>}
+                            <div className={classNames('col-span-1 min-w-0 sm:col-span-2', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
+                                <Badge variant='outline' color={getEstadoFirmaVisual(v).color}>
+                                    {getEstadoFirmaVisual(v).label}
+                                </Badge>
+                            </div>
+                            <div className={classNames('col-span-1 min-w-0 sm:col-span-1', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
+                                {accion === 'enviar' && (
+                                    <Tooltip text='Enviar firma'>
+                                        <Button
+                                            variant='solid'
+                                            color='blue'
+                                            size='sm'
+                                            icon='DuoMail'
+                                            isLoading={enviando}
+                                            onClick={() => handleEnviarFirma(v.id)}
+                                        />
+                                    </Tooltip>
+                                )}
+                                {accion === 'reenviar' && (
+                                    <Tooltip text='Reenviar firma'>
+                                        <Button
+                                            variant='solid'
+                                            color='emerald'
+                                            size='sm'
+                                            icon='DuoOutgoingMail'
+                                            onClick={() => handleReenviarFirma(v.id, v.firma_pendiente!.id)}
+                                        />
+                                    </Tooltip>
+                                )}
+                                {accion === 'ninguna' && (
+                                    <span className='text-xs text-zinc-400'>-</span>
+                                )}
                             </div>
                         </Fragment>
                     ))}

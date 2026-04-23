@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
 from dateutil.relativedelta import relativedelta
+from decimal import Decimal, InvalidOperation
 from contratos.models import (
     ContratoEmpresaCliente,
     EnvioContratoAprobacion,
@@ -661,10 +662,15 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     proveedor_licencia = serializers.SerializerMethodField()
     tipo_moneda_label = serializers.SerializerMethodField()
     licencias_disponibles  = serializers.SerializerMethodField()
+    licencia_precio_partner = serializers.SerializerMethodField()
+    licencia_precio_venta = serializers.SerializerMethodField()
+    licencia_moneda = serializers.SerializerMethodField()
+    licencia_modalidad_base = serializers.SerializerMethodField()
+    licencia_numero_parte = serializers.SerializerMethodField()
+    licencia_descripcion = serializers.SerializerMethodField()
     fecha_inicio_edicion = serializers.SerializerMethodField()
     fecha_fin_edicion = serializers.SerializerMethodField()
     dias_hasta_fin_edicion = serializers.SerializerMethodField()
-    nombre_contrato = serializers.SerializerMethodField()
     se_puede_reducir = serializers.SerializerMethodField()
     se_puede_cancelar = serializers.SerializerMethodField()
     se_puede_desvincular = serializers.SerializerMethodField()
@@ -674,6 +680,7 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     color_estado = serializers.SerializerMethodField()
     empresa_cliente = serializers.SerializerMethodField()
+    precio_sobrescrito = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoLicencia
@@ -690,6 +697,34 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
 
     def get_tipo_moneda_label(self, obj):
         return obj.get_tipo_moneda_display()
+
+    def get_licencia_precio_partner(self, obj):
+        return float(obj.licencia.precio_partner) if obj.licencia and obj.licencia.precio_partner is not None else None
+
+    def get_licencia_precio_venta(self, obj):
+        return float(obj.licencia.precio_venta) if obj.licencia and obj.licencia.precio_venta is not None else None
+
+    def get_licencia_moneda(self, obj):
+        return obj.licencia.moneda if obj.licencia else None
+
+    def get_licencia_modalidad_base(self, obj):
+        return obj.licencia.modalidad_base if obj.licencia else None
+
+    def get_licencia_numero_parte(self, obj):
+        return obj.licencia.numero_parte if obj.licencia else None
+
+    def get_licencia_descripcion(self, obj):
+        return obj.licencia.descripcion if obj.licencia else None
+
+    def get_precio_sobrescrito(self, obj):
+        if not obj.licencia:
+            return False
+        try:
+            precio_catalogo = Decimal(str(obj.licencia.precio_venta))
+            precio_contrato = Decimal(str(obj.precio_unitario))
+        except (InvalidOperation, TypeError, ValueError):
+            return False
+        return precio_contrato != precio_catalogo
 
     def get_licencias_disponibles(self, obj):
         """

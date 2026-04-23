@@ -659,40 +659,43 @@ const DetalleContrato = () => {
                     </Card>
 
                     {/* ── Secciones del contrato — orden canónico ── */}
-                    {/* Tipo-específicos primero, comunes al final */}
-                    <div className='col-span-full flex flex-col gap-4'>
-                        <TabLicencias
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                            listaLicencias={listaLicencias}
-                        />
-                        <TabCotizaciones
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabServicios
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                            listaContentType={listaContentType}
-                        />
-                        <TabVisitas
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                            listaVisitas={listaVisitas}
-                        />
-                        <TabDocumento
-                            contrato={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabCondiciones
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabUsuarios
-                            detalleContratoEmpresaCliente={contrato}
-                            puedeEditar={puedeEditar}
-                        />
-                        <TabHistorial contratoId={contrato.id} />
+                    <div className='col-span-full grid grid-cols-12 gap-4'>
+                        <div className='col-span-full lg:col-span-8 flex flex-col gap-4'>
+                            <TabLicencias
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                                listaLicencias={listaLicencias}
+                            />
+                            <TabCotizaciones
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                            />
+                            <TabServicios
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                                listaContentType={listaContentType}
+                            />
+                            <TabUsuarios
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                            />
+                            <TabVisitas
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                                listaVisitas={listaVisitas}
+                            />
+                            <TabCondiciones
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                            />
+                            <TabDocumento
+                                contrato={contrato}
+                                puedeEditar={puedeEditar}
+                            />
+                        </div>
+                        <div className='col-span-full lg:col-span-4 flex flex-col gap-4'>
+                            <TabHistorial contratoId={contrato.id} />
+                        </div>
                     </div>
                 </div>
             </Container>

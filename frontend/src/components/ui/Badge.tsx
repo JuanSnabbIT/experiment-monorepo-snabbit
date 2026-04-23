@@ -1,15 +1,15 @@
-import React, { FC, ReactNode } from 'react';
 import classNames from 'classnames';
-import { TColors } from '../../types/colors.type';
-import { TColorIntensity } from '../../types/colorIntensities.type';
+import { forwardRef, HTMLAttributes, ReactNode } from 'react';
 import themeConfig from '../../config/theme.config';
 import useColorIntensity from '../../hooks/useColorIntensity';
 import { TBorderWidth } from '../../types/borderWidth.type';
+import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
 import { TRounded } from '../../types/rounded.type';
 
 export type TBadgeVariants = 'solid' | 'outline' | 'default';
 
-interface IBadgeProps {
+interface IBadgeProps extends HTMLAttributes<HTMLSpanElement> {
     borderWidth?: TBorderWidth;
     children: ReactNode;
     className?: string;
@@ -18,7 +18,7 @@ interface IBadgeProps {
     rounded?: TRounded;
     variant?: TBadgeVariants;
 }
-const Badge: FC<IBadgeProps> = (props) => {
+const Badge = forwardRef<HTMLSpanElement, IBadgeProps>((props, ref) => {
     const {
         borderWidth = themeConfig.borderWidth,
         children,
@@ -57,11 +57,11 @@ const Badge: FC<IBadgeProps> = (props) => {
     );
 
     return (
-        <span data-component-name='Badge' className={classes} {...rest}>
+        <span ref={ref} data-component-name='Badge' className={classes} {...rest}>
             {children}
         </span>
     );
-};
+});
 Badge.displayName = 'Badge';
 
 export default Badge;

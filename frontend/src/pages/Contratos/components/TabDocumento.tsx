@@ -13,7 +13,7 @@ import {
 } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
@@ -38,6 +38,25 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
 
     const seccionesOrdenadas = [...secciones].sort((a, b) => a.orden - b.orden);
     const tieneEditadasManualmente = secciones.some((s) => s.fue_editado_manualmente);
+
+    const EXPAND_THRESHOLD = 5;
+    const MAX_VISIBLE_SECCIONES_COMPACTAS = 3;
+    const [compactMode, setCompactMode] = useState(false);
+
+    useEffect(() => {
+        if (seccionesOrdenadas.length > EXPAND_THRESHOLD) {
+            setCompactMode(true);
+        }
+    }, [seccionesOrdenadas.length]);
+
+    const seccionesVisibles =
+        compactMode && seccionesOrdenadas.length > EXPAND_THRESHOLD
+            ? seccionesOrdenadas.slice(0, MAX_VISIBLE_SECCIONES_COMPACTAS)
+            : seccionesOrdenadas;
+    const seccionesOcultas =
+        compactMode && seccionesOrdenadas.length > EXPAND_THRESHOLD
+            ? seccionesOrdenadas.length - MAX_VISIBLE_SECCIONES_COMPACTAS
+            : 0;
 
     const toggleSeccion = (id: number) => {
         setExpandidas((prev) => {
@@ -102,10 +121,10 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
 
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className='border border-x-0 border-t-0 border-b-black'>
                 <CardHeaderChild>
                     <div>
-                        <div className='text-lg font-semibold'>Documento del contrato</div>
+                        <div className='text-lg font-semibold text-blue-500'>Documento del contrato</div>
                         <div className='text-sm text-zinc-500'>
                             {plantillaDetalle
                                 ? `Basado en plantilla: ${plantillaDetalle.titulo}`
@@ -128,26 +147,49 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
                     </div>
                 </CardHeaderChild>
             </CardHeader>
-            <CardBody>
+            <CardBody className='space-y-4 p-4'>
                 <div className='flex flex-col gap-4'>
                     {/* Acciones superiores */}
                     <div className='flex flex-wrap items-center justify-between gap-2'>
                         <div className='flex gap-2'>
                             {secciones.length > 0 && (
                                 <>
-                                    <Button size='sm' onClick={expandirTodas}>
+                                    <Button
+                                        size='sm'
+                                        variant='outline'
+                                        color='blue'
+                                        className='text-blue-500'
+                                        onClick={expandirTodas}>
                                         Expandir todas
                                     </Button>
-                                    <Button size='sm' onClick={colapsarTodas}>
+                                    <Button
+                                        size='sm'
+                                        variant='outline'
+                                        color='blue'
+                                        className='text-blue-500'
+                                        onClick={colapsarTodas}>
                                         Colapsar todas
                                     </Button>
                                 </>
+                            )}
+                            {seccionesOrdenadas.length > EXPAND_THRESHOLD && (
+                                <Button
+                                    size='sm'
+                                    variant='outline'
+                                    color='blue'
+                                    className='text-blue-500'
+                                    onClick={() => setCompactMode((prev) => !prev)}>
+                                    {compactMode ? 'Vista completa' : 'Vista compacta'}
+                                </Button>
                             )}
                         </div>
                         <div className='flex gap-2'>
                             {contrato.plantilla && (
                                 <Button
                                     size='sm'
+                                    variant='outline'
+                                    color='blue'
+                                    className='text-blue-500'
                                     icon='HeroArrowTopRightOnSquare'
                                     onClick={() =>
                                         navigate(
@@ -160,6 +202,9 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
                             {puedeEditar && secciones.length > 0 && (
                                 <Button
                                     size='sm'
+                                    variant='outline'
+                                    color='blue'
+                                    className='text-blue-500'
                                     icon='HeroArrowPath'
                                     isLoading={isGenerando}
                                     onClick={handleRegenerar}>
@@ -201,92 +246,107 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
 
                     {!isLoading && secciones.length > 0 && (
                         <div className='flex flex-col gap-2'>
-                            {seccionesOrdenadas.map((seccion) => {
-                                const estaExpandida = expandidas.has(seccion.id);
-                                const estaEditando = editando === seccion.id;
+                            {compactMode && seccionesOcultas > 0 && (
+                                <div className='rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50'>
+                                    Mostrando {MAX_VISIBLE_SECCIONES_COMPACTAS} de {seccionesOrdenadas.length} secciones. {seccionesOcultas} secciones ocultas.
+                                </div>
+                            )}
+                            <div className='flex flex-col gap-2 max-h-[520px] overflow-y-auto pr-2'>
+                                {seccionesVisibles.map((seccion) => {
+                                    const estaExpandida = expandidas.has(seccion.id);
+                                    const estaEditando = editando === seccion.id;
 
-                                return (
-                                    <div
-                                        key={seccion.id}
-                                        className='rounded-lg border border-zinc-200 dark:border-zinc-700'>
-                                        {/* Header colapsable */}
-                                        <button
-                                            type='button'
-                                            className='flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                                            onClick={() => toggleSeccion(seccion.id)}>
-                                            <div className='flex items-center gap-2'>
-                                                <span
-                                                    className={classNames(
-                                                        'text-xs transition-transform',
-                                                        estaExpandida && 'rotate-90',
-                                                    )}>
-                                                    ▶
-                                                </span>
-                                                <span className='text-sm font-semibold'>
-                                                    {seccion.titulo}
-                                                </span>
-                                                {seccion.fue_editado_manualmente && (
-                                                    <Badge
-                                                        variant='outline'
-                                                        color='amber'
-                                                        className='text-xs'>
-                                                        Editado
-                                                    </Badge>
+                                    return (
+                                        <div
+                                            key={seccion.id}
+                                            className='rounded-lg border border-zinc-200 dark:border-zinc-700'>
+                                            {/* Header colapsable */}
+                                            <div className='flex w-full items-center justify-between gap-3 border-b border-transparent p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'>
+                                                <button
+                                                    type='button'
+                                                    className='flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300'
+                                                    aria-expanded={estaExpandida}
+                                                    onClick={() => toggleSeccion(seccion.id)}>
+                                                    <span
+                                                        className={classNames(
+                                                            'text-xs transition-transform',
+                                                            estaExpandida && 'rotate-90',
+                                                        )}>
+                                                        ▶
+                                                    </span>
+                                                    <span className='text-sm font-semibold'>
+                                                        {seccion.titulo}
+                                                    </span>
+                                                    {seccion.fue_editado_manualmente && (
+                                                        <Badge
+                                                            variant='outline'
+                                                            color='amber'
+                                                            className='text-xs'>
+                                                            Editado
+                                                        </Badge>
+                                                    )}
+                                                </button>
+                                                {puedeEditar && !estaEditando && (
+                                                    <Button
+                                                        icon='HeroPencil'
+                                                        size='sm'
+                                                        onClick={() => handleIniciarEdicion(seccion)}>
+                                                        Editar
+                                                    </Button>
                                                 )}
                                             </div>
-                                            {puedeEditar && !estaEditando && (
-                                                <Button
-                                                    icon='HeroPencil'
-                                                    size='sm'
-                                                    onClick={(e: React.MouseEvent) => {
-                                                        e.stopPropagation();
-                                                        handleIniciarEdicion(seccion);
-                                                    }}>
-                                                    Editar
-                                                </Button>
-                                            )}
-                                        </button>
 
-                                        {/* Contenido expandido */}
-                                        {estaExpandida && (
-                                            <div className='border-t border-zinc-200 p-4 dark:border-zinc-700'>
-                                                {estaEditando ? (
-                                                    <div className='flex flex-col gap-2'>
-                                                        <Textarea
-                                                            id={`seccion-edit-${seccion.id}`}
-                                                            name={`seccion-edit-${seccion.id}`}
-                                                            value={contenidoEdit}
-                                                            onChange={(e) =>
-                                                                setContenidoEdit(e.target.value)
-                                                            }
-                                                            rows={8}
-                                                        />
-                                                        <div className='flex justify-end gap-2'>
-                                                            <Button
-                                                                size='sm'
-                                                                onClick={handleCancelarEdicion}>
-                                                                Cancelar
-                                                            </Button>
-                                                            <Button
-                                                                variant='solid'
-                                                                size='sm'
-                                                                onClick={() =>
-                                                                    handleGuardarEdicion(seccion.id)
-                                                                }>
-                                                                Guardar cambios
-                                                            </Button>
+                                            {/* Contenido expandido */}
+                                            {estaExpandida && (
+                                                <div className='border-t border-zinc-200 p-4 dark:border-zinc-700'>
+                                                    {estaEditando ? (
+                                                        <div className='flex flex-col gap-2'>
+                                                            <Textarea
+                                                                id={`seccion-edit-${seccion.id}`}
+                                                                name={`seccion-edit-${seccion.id}`}
+                                                                value={contenidoEdit}
+                                                                onChange={(e) =>
+                                                                    setContenidoEdit(e.target.value)
+                                                                }
+                                                                rows={8}
+                                                            />
+                                                            <div className='flex justify-end gap-2'>
+                                                                <Button
+                                                                    size='sm'
+                                                                    onClick={handleCancelarEdicion}>
+                                                                    Cancelar
+                                                                </Button>
+                                                                <Button
+                                                                    variant='solid'
+                                                                    size='sm'
+                                                                    onClick={() =>
+                                                                        handleGuardarEdicion(seccion.id)
+                                                                    }>
+                                                                    Guardar cambios
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className='whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300'>
-                                                        {seccion.contenido_renderizado}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                                    ) : (
+                                                        <div className='whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300'>
+                                                            {seccion.contenido_renderizado}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {compactMode && seccionesOcultas > 0 && (
+                                <div className='flex justify-end'>
+                                    <Button
+                                        size='sm'
+                                        variant='outline'
+                                        onClick={() => setCompactMode(false)}>
+                                        Ver todas las secciones
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

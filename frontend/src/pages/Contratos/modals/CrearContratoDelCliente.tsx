@@ -242,6 +242,7 @@ function CrearContratoDelCliente({
     const [step, setStep] = useState<TWizardStep>(1);
     const [modalAddLicencia, setModalAddLicencia] = useState(false);
     const [cotizacionesSeleccionadas, setCotizacionesSeleccionadas] = useState<number[]>([]);
+    const [licenciasStepError, setLicenciasStepError] = useState<string | null>(null);
 
     // Estado para la seleccion de plan/servicios (Paso 2)
     const SELECCION_INICIAL: ISeleccionPlanServicios = {
@@ -616,8 +617,53 @@ function CrearContratoDelCliente({
         setStep(1);
         setSeleccionPlan(SELECCION_INICIAL);
         setCotizacionesSeleccionadas([]);
+        setLicenciasStepError(null);
         formik.resetForm();
         licFormik.resetForm();
+    };
+
+    const validarPasoLicencias = (): boolean => {
+        if (!esLicencia) {
+            return true;
+        }
+
+        if (licFormik.values.licencias.length === 0) {
+            setLicenciasStepError(
+                'Debes agregar al menos una licencia para continuar con un contrato de tipo licenciamiento.',
+            );
+            return false;
+        }
+
+        const indexSinCatalogo = licFormik.values.licencias.findIndex((lic) => !lic.licencia_id);
+        if (indexSinCatalogo >= 0) {
+            setLicenciasStepError(
+                `La licencia #${indexSinCatalogo + 1} no tiene un item de catalogo seleccionado.`,
+            );
+            return false;
+        }
+
+        const indexSinCantidad = licFormik.values.licencias.findIndex(
+            (lic) => Number(lic.cantidad || 0) <= 0,
+        );
+        if (indexSinCantidad >= 0) {
+            setLicenciasStepError(
+                `La licencia #${indexSinCantidad + 1} debe tener una cantidad mayor a 0.`,
+            );
+            return false;
+        }
+
+        const indexSinPrecio = licFormik.values.licencias.findIndex(
+            (lic) => Number(lic.precio_unitario || 0) <= 0,
+        );
+        if (indexSinPrecio >= 0) {
+            setLicenciasStepError(
+                `La licencia #${indexSinPrecio + 1} debe tener un precio unitario mayor a 0.`,
+            );
+            return false;
+        }
+
+        setLicenciasStepError(null);
+        return true;
     };
 
     const handleSiguiente = async () => {
@@ -653,6 +699,9 @@ function CrearContratoDelCliente({
         } else if (step === 4) {
             setStep(esLicencia ? 5 : esVenta ? 6 : 7);
         } else if (step === 5) {
+            if (!validarPasoLicencias()) {
+                return;
+            }
             setStep(esVenta ? 6 : 7);
         } else if (step === 6) {
             setStep(7);
@@ -675,8 +724,50 @@ function CrearContratoDelCliente({
         }
     };
 
+    useEffect(() => {
+        if (licenciasStepError) {
+            setLicenciasStepError(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [licFormik.values.licencias]);
+
     const getLicenciaNombre = (licId?: number) =>
         listaLicencias.find((l) => l.id === licId)?.nombre ?? '';
+
+    const getLicenciaModalidadLabel = (licId?: number) => {
+        const licencia = listaLicencias.find((item) => item.id === licId);
+        if (!licencia) {
+            return '-';
+        }
+        if (licencia.modalidad_base === 'P1M') {
+            return 'Compromiso mensual / P1M';
+        }
+        if (licencia.modalidad_base === 'P1Y') {
+            return licencia.modalidad_anual_forma_pago === 'PAGO_MENSUAL'
+                ? 'Compromiso anual pago mensual / P1Y-M'
+                : 'Compromiso anual pago unico / P1Y-A';
+        }
+        if (licencia.modalidad_base === 'PAGO_UNICO') {
+            return 'Perpetua';
+        }
+        return '-';
+    };
+
+    const licenciasChecklist = {
+        tieneLicencias: licFormik.values.licencias.length > 0,
+        catalogoCompleto:
+            licFormik.values.licencias.length > 0 &&
+            licFormik.values.licencias.every((lic) => Boolean(lic.licencia_id)),
+        cantidadValida:
+            licFormik.values.licencias.length > 0 &&
+            licFormik.values.licencias.every((lic) => Number(lic.cantidad || 0) > 0),
+        precioValido:
+            licFormik.values.licencias.length > 0 &&
+            licFormik.values.licencias.every((lic) => Number(lic.precio_unitario || 0) > 0),
+        vigenciaCompleta:
+            licFormik.values.licencias.length > 0 &&
+            licFormik.values.licencias.every((lic) => Boolean(lic.fecha_inicio && lic.fecha_fin)),
+    };
 
     const esLicenciaInicial = (index: number): boolean => {
         if (!licenciasIniciales || licenciasIniciales.length === 0) return false;
@@ -1364,16 +1455,24 @@ function CrearContratoDelCliente({
                     {step === 5 && (
                         <div className='flex flex-col gap-3'>
                             <p className='text-sm text-zinc-500'>
-                                Agrega las licencias que incluira este contrato. Puedes omitir
-                                este paso y agregarlas mas tarde.
+                                Agrega las licencias que incluira este contrato. Este paso es
+                                obligatorio para contratos de licenciamiento.
                             </p>
+
+                            {licenciasStepError && (
+                                <div className='rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200'>
+                                    {licenciasStepError}
+                                </div>
+                            )}
                             {licFormik.values.licencias.length > 0 && (
                                 <Table>
                                     <THead>
                                         <Tr>
                                             <Th>Licencia</Th>
+                                            <Th>Modalidad</Th>
                                             <Th>Cupos</Th>
                                             <Th>Vigencia</Th>
+                                            <Th>Total</Th>
                                             <Th>{' '}</Th>
                                         </Tr>
                                     </THead>
@@ -1381,6 +1480,9 @@ function CrearContratoDelCliente({
                                         {licFormik.values.licencias.map((lic, i) => (
                                             <Tr key={i}>
                                                 <Td>{getLicenciaNombre(lic.licencia_id)}</Td>
+                                                <Td>
+                                                    {getLicenciaModalidadLabel(lic.licencia_id)}
+                                                </Td>
                                                 <Td>{lic.cantidad}</Td>
                                                 <Td>
                                                     <span className='text-sm'>
@@ -1396,6 +1498,12 @@ function CrearContratoDelCliente({
                                                               )
                                                             : ''}
                                                     </span>
+                                                </Td>
+                                                <Td>
+                                                    {formatCurrencyByMoneda(
+                                                        lic.cantidad * lic.precio_unitario,
+                                                        monedaContrato,
+                                                    )}
                                                 </Td>
                                                 <Td>
                                                     {!esLicenciaInicial(i) && (
@@ -1418,6 +1526,15 @@ function CrearContratoDelCliente({
                                         ))}
                                     </TBody>
                                 </Table>
+                            )}
+                            {licFormik.values.licencias.length > 0 && (
+                                <div className='text-right text-sm font-medium'>
+                                    Total del paso:{' '}
+                                    {formatCurrencyByMoneda(
+                                        totalLicenciasSeleccionadas,
+                                        monedaContrato,
+                                    )}
+                                </div>
                             )}
                             <Button icon='HeroPlus' onClick={() => setModalAddLicencia(true)}>
                                 Agregar licencia
@@ -1802,7 +1919,8 @@ function CrearContratoDelCliente({
 
                             {esLicencia && licFormik.values.licencias.length === 0 && (
                                 <p className='text-sm text-zinc-400'>
-                                    No se agregaron licencias. Podras agregarlas despues.
+                                    Debes agregar al menos una licencia para completar este tipo
+                                    de contrato.
                                 </p>
                             )}
 
@@ -1945,6 +2063,7 @@ function CrearContratoDelCliente({
                 onClose={() => setModalAddLicencia(false)}
                 formik={licFormik}
                 listaLicencias={listaLicencias}
+                contractCurrency={monedaContrato}
             />
         </>
     );

@@ -1,5 +1,6 @@
 import logging
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from rest_framework import viewsets, status, serializers
 from django.db import models
@@ -362,6 +363,113 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             ),
         }
 
+    def _normalizar_cantidad_licencia(self, value, *, default=1):
+        cantidad = default if value in (None, "") else value
+        try:
+            cantidad_normalizada = int(cantidad)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError({"cantidad": ["Debe ser un numero entero mayor a 0."]})
+
+        if cantidad_normalizada <= 0:
+            raise serializers.ValidationError({"cantidad": ["Debe ser mayor a 0."]})
+
+        return cantidad_normalizada
+
+    def _normalizar_precio_unitario_licencia(
+        self,
+        value,
+        *,
+        licencia,
+        precio_actual=None,
+    ):
+        precio = value
+        if precio in (None, "") and precio_actual not in (None, ""):
+            precio = precio_actual
+        if precio in (None, ""):
+            precio = licencia.precio_venta
+
+        try:
+            precio_normalizado = Decimal(str(precio))
+        except (TypeError, ValueError, InvalidOperation):
+            raise serializers.ValidationError(
+                {"precio_unitario": ["Debe ser un numero mayor a 0."]}
+            )
+
+        if precio_normalizado <= 0:
+            raise serializers.ValidationError({"precio_unitario": ["Debe ser mayor a 0."]})
+
+        return precio_normalizado
+
+    def _build_campos_licencia_contrato(
+        self,
+        *,
+        contrato,
+        licencia,
+        item,
+        fecha_inicio_default=None,
+        fecha_fin_default=None,
+        precio_actual=None,
+        cantidad_default=1,
+        partner_default=True,
+        otro_tipo_default=None,
+    ):
+        fechas_normalizadas = self._normalizar_fechas_licencia(
+            item,
+            fecha_inicio_default=fecha_inicio_default,
+            fecha_fin_default=fecha_fin_default,
+        )
+        tipo_modalidad = self._obtener_tipo_modalidad_desde_licencia(licencia)
+        otro_tipo = (
+            item.get("otro_tipo", otro_tipo_default)
+            if tipo_modalidad == "otros"
+            else None
+        )
+        cantidad = self._normalizar_cantidad_licencia(
+            item.get("cantidad"),
+            default=cantidad_default,
+        )
+        precio_unitario = self._normalizar_precio_unitario_licencia(
+            item.get("precio_unitario"),
+            licencia=licencia,
+            precio_actual=precio_actual,
+        )
+
+        return {
+            "tipo_modalidad": tipo_modalidad,
+            "otro_tipo": otro_tipo,
+            "cantidad": cantidad,
+            "precio_unitario": precio_unitario,
+            "fecha_inicio": fechas_normalizadas["fecha_inicio"],
+            "fecha_fin": fechas_normalizadas["fecha_fin"],
+            # Moneda de licencia siempre alineada a la moneda del contrato.
+            "tipo_moneda": contrato.moneda_cobro,
+            "partner": item.get("partner", partner_default),
+        }
+
+    def _asegurar_licencias_para_contrato_tipo_licencia(self, contrato):
+        if contrato.tipo != "licencia":
+            return
+        if ContratoLicencia.objects.filter(contrato=contrato).exists():
+            return
+        raise serializers.ValidationError(
+            {
+                "detail": [
+                    "Debes agregar al menos una licencia para contratos de tipo licencia."
+                ]
+            }
+        )
+
+    def _obtener_tipo_modalidad_desde_licencia(self, licencia):
+        if licencia.modalidad_base == "P1M":
+            return "p1m-m"
+        if licencia.modalidad_base == "P1Y":
+            if licencia.modalidad_anual_forma_pago == "PAGO_MENSUAL":
+                return "p1y-m"
+            return "p1y-a"
+        if licencia.modalidad_base == "PAGO_UNICO":
+            return "perpetua"
+        return "otros"
+
     def _reemplazar_licencias(self, contrato, licencias_data):
         ContratoLicencia.objects.filter(contrato=contrato).delete()
         for item in licencias_data or []:
@@ -373,19 +481,19 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 raise serializers.ValidationError(
                     {"licencias": [f"Licencia {licencia_id} no encontrada."]}
                 )
-            fechas_normalizadas = self._normalizar_fechas_licencia(item)
+
             try:
+                campos_licencia = self._build_campos_licencia_contrato(
+                    contrato=contrato,
+                    licencia=licencia,
+                    item=item,
+                    cantidad_default=1,
+                    partner_default=True,
+                )
                 ContratoLicencia.objects.create(
                     contrato=contrato,
                     licencia=licencia,
-                    tipo_modalidad=item.get("tipo_modalidad", "otros"),
-                    otro_tipo=item.get("otro_tipo"),
-                    cantidad=item.get("cantidad", 1),
-                    precio_unitario=item.get("precio_unitario", 0),
-                    fecha_inicio=fechas_normalizadas["fecha_inicio"],
-                    fecha_fin=fechas_normalizadas["fecha_fin"],
-                    tipo_moneda=item.get("tipo_moneda") or contrato.moneda_cobro,
-                    partner=item.get("partner", True),
+                    **campos_licencia,
                 )
             except DjangoValidationError as exc:
                 raise serializers.ValidationError(
@@ -546,6 +654,11 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 self._reemplazar_usuarios(contrato, usuarios, destinatario_principal=destinatario)
         except serializers.ValidationError as exc:
             errores["destinatario_principal"] = exc.detail
+
+        try:
+            self._asegurar_licencias_para_contrato_tipo_licencia(contrato)
+        except serializers.ValidationError as exc:
+            errores["licencias"] = exc.detail
 
         if errores:
             raise serializers.ValidationError(errores)
@@ -901,19 +1014,26 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     except ContratoLicencia.DoesNotExist:
                         continue
                     # No se permite cambiar "contrato" ni "licencia". Ignoramos si vienen en el payload.
-                    fechas_normalizadas = self._normalizar_fechas_licencia(
-                        item,
-                        fecha_inicio_default=cl.fecha_inicio,
-                        fecha_fin_default=cl.fecha_fin,
-                    )
-                    cl.tipo_modalidad = item.get("tipo_modalidad", cl.tipo_modalidad)
-                    cl.otro_tipo = item.get("otro_tipo", cl.otro_tipo)
-                    cl.cantidad = item.get("cantidad", cl.cantidad)
-                    cl.precio_unitario = item.get("precio_unitario", cl.precio_unitario)
-                    cl.fecha_inicio = fechas_normalizadas["fecha_inicio"]
-                    cl.fecha_fin = fechas_normalizadas["fecha_fin"]
-                    cl.tipo_moneda = item.get("tipo_moneda", cl.tipo_moneda)
                     try:
+                        campos_licencia = self._build_campos_licencia_contrato(
+                            contrato=contrato,
+                            licencia=cl.licencia,
+                            item=item,
+                            fecha_inicio_default=cl.fecha_inicio,
+                            fecha_fin_default=cl.fecha_fin,
+                            precio_actual=cl.precio_unitario,
+                            cantidad_default=cl.cantidad,
+                            partner_default=cl.partner,
+                            otro_tipo_default=cl.otro_tipo,
+                        )
+                        cl.tipo_modalidad = campos_licencia["tipo_modalidad"]
+                        cl.otro_tipo = campos_licencia["otro_tipo"]
+                        cl.cantidad = campos_licencia["cantidad"]
+                        cl.precio_unitario = campos_licencia["precio_unitario"]
+                        cl.fecha_inicio = campos_licencia["fecha_inicio"]
+                        cl.fecha_fin = campos_licencia["fecha_fin"]
+                        cl.tipo_moneda = campos_licencia["tipo_moneda"]
+                        cl.partner = campos_licencia["partner"]
                         cl.save()
                     except serializers.ValidationError as e:
                         raise serializers.ValidationError({"licencias": e.detail}) from e
@@ -929,19 +1049,21 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     try:
                         licencia_obj = Licencia.objects.get(pk=licencia_id)
                     except Licencia.DoesNotExist:
-                        continue
-                    fechas_normalizadas = self._normalizar_fechas_licencia(item)
+                        raise serializers.ValidationError(
+                            {"licencias": [f"Licencia {licencia_id} no encontrada."]}
+                        )
                     try:
+                        campos_licencia = self._build_campos_licencia_contrato(
+                            contrato=contrato,
+                            licencia=licencia_obj,
+                            item=item,
+                            cantidad_default=1,
+                            partner_default=True,
+                        )
                         ContratoLicencia.objects.create(
                             contrato=contrato,
                             licencia=licencia_obj,
-                            tipo_modalidad=item.get("tipo_modalidad", "otros"),
-                            otro_tipo=item.get("otro_tipo", ""),
-                            cantidad=item.get("cantidad", 1),
-                            precio_unitario=item.get("precio_unitario", 0),
-                            fecha_inicio=fechas_normalizadas["fecha_inicio"],
-                            fecha_fin=fechas_normalizadas["fecha_fin"],
-                            tipo_moneda=item.get("tipo_moneda", "USD")
+                            **campos_licencia,
                         )
                     except serializers.ValidationError as e:
                         raise serializers.ValidationError({"licencias": e.detail}) from e
@@ -949,6 +1071,11 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         raise serializers.ValidationError(
                             {"licencias": e.message_dict if hasattr(e, 'message_dict') else {'detail': e.messages}}
                         ) from e
+
+            try:
+                self._asegurar_licencias_para_contrato_tipo_licencia(contrato)
+            except serializers.ValidationError as e:
+                raise serializers.ValidationError({"licencias": e.detail}) from e
 
             # ============ CONTRATO CONDICIONES ESPECIALES ============
             condiciones_data = request.data.get("condiciones_especiales", [])
