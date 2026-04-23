@@ -95,7 +95,13 @@
         "chat.agent.maxRequests": 50,
 
         // --- Terminal ---
-        "terminal.integrated.defaultProfile.windows": "Command Prompt",
+        "terminal.integrated.profiles.windows": {
+            "Command Prompt (ENV)": {
+                "path": "C:\\Windows\\System32\\cmd.exe",
+                "args": ["/K", "C:\\ProgramData\\anaconda3\\Scripts\\activate ENV"]
+            }
+        },
+        "terminal.integrated.defaultProfile.windows": "Command Prompt (ENV)",
 
         // --- Formateo automático ---
         "editor.formatOnSave": true,
@@ -115,7 +121,7 @@
         // --- Python: intérprete y activación de entorno en terminal ---
         "python.defaultInterpreterPath": "${env:USERPROFILE}\\.conda\\envs\\ENV\\python.exe",
         "python.condaPath": "conda",
-        "python.terminal.activateEnvironment": true,
+        "python.terminal.activateEnvironment": false,
 
         // --- Git ---
         "git.autofetch": true,

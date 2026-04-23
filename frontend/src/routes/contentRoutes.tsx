@@ -44,6 +44,9 @@ const DetalleProveedorEmpresa = lazy(
 const ListaItemsEmpresa = lazy(() => import('@/pages/Registros/Items/ListaItemsEmpresa'));
 const DetalleItemEmpresa = lazy(() => import('@/pages/Registros/Items/DetalleItemEmpresa'));
 const ListaLicencias = lazy(() => import('@/pages/Registros/Licencias/ListaLicencias'));
+const DetalleLicenciaCatalogo = lazy(
+    () => import('@/pages/Registros/Licencias/DetalleLicenciaCatalogo'),
+);
 const ListaBodegas = lazy(() => import('@/pages/Bodegas/ListaBodegas'));
 const ListaOrdenesCompraV2 = lazy(() => import('@/pages/Bodegas/OrdenCompra/ListaOrdenesCompraV2'));
 const DetalleOrdenCompraV2 = lazy(
@@ -336,6 +339,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.registros.subPages.listaLicencias.to,
         element: <ListaLicencias />,
         authority: Pages.registros.subPages.listaLicencias.authority,
+    },
+    {
+        path: Pages.registros.subPages.detalleLicencia.to,
+        element: <DetalleLicenciaCatalogo />,
+        authority: Pages.registros.subPages.detalleLicencia.authority,
     },
     {
         path: Pages.registros.subPages.detalleFabricante.to,

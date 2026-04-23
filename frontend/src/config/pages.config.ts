@@ -510,6 +510,13 @@ export const Pages = {
                 icon: 'HeroKey',
                 authority: ['staff', 'superadmin'],
             },
+            detalleLicencia: {
+                id: 'detalleLicenciaRegistro',
+                to: '/registros/detalle-licencia/:id',
+                text: 'Detalle Licencia',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
             listaUsuarios: {
                 id: 'listaUsuarios',
                 to: '/registros/lista-usuarios',

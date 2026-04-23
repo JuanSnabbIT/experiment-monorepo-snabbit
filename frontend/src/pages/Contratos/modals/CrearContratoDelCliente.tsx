@@ -787,31 +787,6 @@ function CrearContratoDelCliente({
                                         />
                                     </Validation>
                                 )}
-                                {formik.values.tipo && !tipoFijo && (
-                                    <div className='mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500'>
-                                        <span className='font-semibold text-zinc-600 dark:text-zinc-300'>
-                                            Pasos incluidos:
-                                        </span>
-                                        {[
-                                            'Config. b\u00e1sica',
-                                            'Conf. comercial',
-                                            'Destinatario',
-                                            ...(esServicios || esLicencia ? ['Plan/Servicios'] : []),
-                                            ...(esLicencia ? ['Licencias'] : []),
-                                            ...(esVenta ? ['Cotizaciones'] : []),
-                                            'Revisi\u00f3n',
-                                        ].map((paso, i, arr) => (
-                                            <span key={i} className='flex items-center gap-1'>
-                                                <span className='rounded-full bg-zinc-100 px-2 py-0.5 dark:bg-zinc-800'>
-                                                    {paso}
-                                                </span>
-                                                {i < arr.length - 1 && (
-                                                    <span className='text-zinc-300'>&rsaquo;</span>
-                                                )}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
                             <div>
                                 <Label htmlFor='fecha_inicio'>Fecha de inicio</Label>

@@ -513,18 +513,11 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 nombre: string;
                 numero_parte?: string;
                 proveedor?: string;
-                tipo?: string;
                 descripcion?: string;
-                precio_compra?: number;
+                modalidad_base?: 'P1M' | 'P1Y' | 'PAGO_UNICO';
+                modalidad_anual_forma_pago?: 'PAGO_UNICO' | 'PAGO_MENSUAL' | null;
+                precio_partner?: number;
                 precio_venta?: number;
-                precio_venta_p1m?: number;
-                precio_venta_p1m_compromiso_p1y?: number;
-                precio_venta_p1y?: number;
-                precio_venta_pago_unico?: number;
-                precio_modalidad_p1m?: number;
-                precio_modalidad_p1m_compromiso_p1y?: number;
-                precio_modalidad_p1y?: number;
-                precio_modalidad_pago_unico?: number;
                 moneda?: string;
                 activo?: boolean;
             }
@@ -545,18 +538,11 @@ const contratoApi = RtkQueryService.injectEndpoints({
                     nombre?: string;
                     numero_parte?: string;
                     proveedor?: string;
-                    tipo?: string;
                     descripcion?: string;
-                    precio_compra?: number;
+                    modalidad_base?: 'P1M' | 'P1Y' | 'PAGO_UNICO';
+                    modalidad_anual_forma_pago?: 'PAGO_UNICO' | 'PAGO_MENSUAL' | null;
+                    precio_partner?: number;
                     precio_venta?: number;
-                    precio_venta_p1m?: number;
-                    precio_venta_p1m_compromiso_p1y?: number;
-                    precio_venta_p1y?: number;
-                    precio_venta_pago_unico?: number;
-                    precio_modalidad_p1m?: number;
-                    precio_modalidad_p1m_compromiso_p1y?: number;
-                    precio_modalidad_p1y?: number;
-                    precio_modalidad_pago_unico?: number;
                     moneda?: string;
                     activo?: boolean;
                 };
@@ -1062,6 +1048,7 @@ export const {
     useCreateLicenciaCatalogoMutation,
     useUpdateLicenciaCatalogoMutation,
     useDeleteLicenciaCatalogoMutation,
+    useGetLicenciaQuery,
     useCreateContratoLicenciaMutation,
     useGetHistorialContratoLicenciaQuery,
     useGetFirmasConfidencialidadQuery,

@@ -12,92 +12,75 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
-import { TIPO_MONEDA_LICENCIA } from '@/constants/contrato.constant';
+import {
+    TIPO_MODALIDAD_ANUAL_FORMA_PAGO,
+    TIPO_MODALIDAD_BASE_LICENCIA,
+    TIPO_MONEDA_LICENCIA,
+} from '@/constants/contrato.constant';
+import ApiService from '@/services/ApiService';
 import { useAppDispatch, useAppSelector } from '@/store';
-import { useCreateLicenciaCatalogoMutation, useDeleteLicenciaCatalogoMutation, useGetLicenciasCatalogoQuery } from '@/store/slices/contratos/contratoApi';
+import {
+    useCreateLicenciaCatalogoMutation,
+    useDeleteLicenciaCatalogoMutation,
+    useGetLicenciasCatalogoQuery,
+} from '@/store/slices/contratos/contratoApi';
 import { listaProveedoresEmpresaThunk } from '@/store/slices/item/itemSlice';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-
-const MODALIDADES_PAGO_OPTIONS: TSelectOption[] = [
-    { value: 'P1M', label: 'P1M — Mensual' },
-    { value: 'P1M_P1Y', label: 'P1M con compromiso P1Y' },
-    { value: 'P1Y', label: 'P1Y — Anual' },
-    { value: 'PAGO_UNICO', label: 'Pago único' },
-];
 
 interface IFormValues {
     nombre: string;
     numero_parte: string;
     proveedor: string;
     descripcion: string;
-    precio_compra: number;
+    modalidad_base: 'P1M' | 'P1Y' | 'PAGO_UNICO';
+    modalidad_anual_forma_pago: 'PAGO_UNICO' | 'PAGO_MENSUAL' | '';
+    precio_partner: number;
     precio_venta: number;
-    precio_venta_p1m: number;
-    precio_venta_p1m_compromiso_p1y: number;
-    precio_venta_p1y: number;
-    precio_venta_pago_unico: number;
-    precio_modalidad_p1m: number;
-    precio_modalidad_p1m_compromiso_p1y: number;
-    precio_modalidad_p1y: number;
-    precio_modalidad_pago_unico: number;
     moneda: string;
     activo: boolean;
 }
 
+interface IQuickProveedor {
+    nombre: string;
+    rut: string;
+}
+
+const getModalidadLabel = (licencia: {
+    modalidad_base: string;
+    modalidad_anual_forma_pago: string | null;
+}) => {
+    if (licencia.modalidad_base === 'P1M') {
+        return 'P1M - Mensual';
+    }
+    if (licencia.modalidad_base === 'P1Y') {
+        if (licencia.modalidad_anual_forma_pago === 'PAGO_MENSUAL') {
+            return 'P1Y - Pago mensual';
+        }
+        return 'P1Y - Pago unico';
+    }
+    return 'Pago unico';
+};
+
 const ListaLicencias = () => {
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { listaProveedoresEmpresa } = useAppSelector((state) => state.item);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalStep, setModalStep] = useState(1);
-    const [selectedModalidadPago, setSelectedModalidadPago] = useState('P1M');
     const [optionProveedores, setOptionProveedores] = useState<TSelectOption[]>([]);
-    const [modalidadError, setModalidadError] = useState<string | null>(null);
+    const [showQuickProveedor, setShowQuickProveedor] = useState(false);
+    const [quickProveedor, setQuickProveedor] = useState<IQuickProveedor>({ nombre: '', rut: '' });
+    const [isCreatingProveedor, setIsCreatingProveedor] = useState(false);
+
     const { data: licencias = [], isLoading, isFetching } = useGetLicenciasCatalogoQuery();
     const [createLicenciaCatalogo, { isLoading: isCreating }] = useCreateLicenciaCatalogoMutation();
     const [deleteLicenciaCatalogo, { isLoading: isDeleting }] = useDeleteLicenciaCatalogoMutation();
-
-    const getPrecioModalidad = (licencia: any, modalidad: string) => {
-        const value = (() => {
-            switch (modalidad) {
-                case 'P1M':
-                    return licencia.precio_modalidad_p1m;
-                case 'P1M_P1Y':
-                    return licencia.precio_modalidad_p1m_compromiso_p1y;
-                case 'P1Y':
-                    return licencia.precio_modalidad_p1y;
-                case 'PAGO_UNICO':
-                    return licencia.precio_modalidad_pago_unico;
-                default:
-                    return 0;
-            }
-        })();
-
-        return Number(value) || 0;
-    };
-
-    const getPrecioVentaModalidad = (licencia: any, modalidad: string) => {
-        const value = (() => {
-            switch (modalidad) {
-                case 'P1M':
-                    return licencia.precio_venta_p1m;
-                case 'P1M_P1Y':
-                    return licencia.precio_venta_p1m_compromiso_p1y;
-                case 'P1Y':
-                    return licencia.precio_venta_p1y;
-                case 'PAGO_UNICO':
-                    return licencia.precio_venta_pago_unico;
-                default:
-                    return 0;
-            }
-        })();
-
-        return Number(value) || 0;
-    };
 
     const formik = useFormik<IFormValues>({
         initialValues: {
@@ -105,50 +88,48 @@ const ListaLicencias = () => {
             numero_parte: '',
             proveedor: '',
             descripcion: '',
-            precio_compra: 0,
+            modalidad_base: 'P1M',
+            modalidad_anual_forma_pago: '',
+            precio_partner: 0,
             precio_venta: 0,
-            precio_venta_p1m: 0,
-            precio_venta_p1m_compromiso_p1y: 0,
-            precio_venta_p1y: 0,
-            precio_venta_pago_unico: 0,
-            precio_modalidad_p1m: 0,
-            precio_modalidad_p1m_compromiso_p1y: 0,
-            precio_modalidad_p1y: 0,
-            precio_modalidad_pago_unico: 0,
             moneda: 'USD',
             activo: true,
         },
         validationSchema: Yup.object({
             nombre: Yup.string().required('Nombre es requerido'),
-            precio_compra: Yup.number().min(0, 'Mínimo 0').required('Precio de partner es requerido'),
-            precio_venta: Yup.number().min(0, 'Mínimo 0'),
-            precio_venta_p1m: Yup.number().min(0, 'Mínimo 0'),
-            precio_venta_p1m_compromiso_p1y: Yup.number().min(0, 'Mínimo 0'),
-            precio_venta_p1y: Yup.number().min(0, 'Mínimo 0'),
-            precio_venta_pago_unico: Yup.number().min(0, 'Mínimo 0'),
-            precio_modalidad_p1m: Yup.number().min(0, 'Mínimo 0'),
-            precio_modalidad_p1m_compromiso_p1y: Yup.number().min(0, 'Mínimo 0'),
-            precio_modalidad_p1y: Yup.number().min(0, 'Mínimo 0'),
-            precio_modalidad_pago_unico: Yup.number().min(0, 'Mínimo 0'),
+            modalidad_base: Yup.mixed<'P1M' | 'P1Y' | 'PAGO_UNICO'>()
+                .oneOf(['P1M', 'P1Y', 'PAGO_UNICO'])
+                .required('Modalidad es requerida'),
+            modalidad_anual_forma_pago: Yup.string().when('modalidad_base', {
+                is: 'P1Y',
+                then: (schema) => schema.required('Forma de pago anual es requerida'),
+                otherwise: (schema) => schema.notRequired(),
+            }),
+            precio_partner: Yup.number()
+                .moreThan(0, 'Debe ser mayor a 0')
+                .required('Precio partner es requerido'),
+            precio_venta: Yup.number()
+                .moreThan(0, 'Debe ser mayor a 0')
+                .required('Precio venta es requerido'),
             moneda: Yup.string().required('Moneda es requerida'),
         }),
         onSubmit: async (values) => {
             try {
-                await createLicenciaCatalogo(values).unwrap();
+                await createLicenciaCatalogo({
+                    ...values,
+                    modalidad_anual_forma_pago:
+                        values.modalidad_base === 'P1Y' &&
+                        values.modalidad_anual_forma_pago !== ''
+                            ? values.modalidad_anual_forma_pago
+                            : null,
+                }).unwrap();
                 toast.success('Licencia creada');
-                setIsModalOpen(false);
-                setModalStep(1);
-                formik.resetForm();
+                handleCloseModal();
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
             }
         },
     });
-
-    const WIZARD_STEPS = [
-        { key: 1, label: 'Datos generales' },
-        { key: 2, label: 'Precios por modalidad' },
-    ];
 
     useEffect(() => {
         if (isModalOpen && personalizacionUsuario?.empresa) {
@@ -157,85 +138,28 @@ const ListaLicencias = () => {
     }, [dispatch, isModalOpen, personalizacionUsuario?.empresa]);
 
     useEffect(() => {
-        if (listaProveedoresEmpresa.length > 0) {
-            setOptionProveedores(
-                listaProveedoresEmpresa.map((prov) => ({
-                    value: prov.nombre || prov.id.toString(),
-                    label: prov.nombre,
-                })),
-            );
-        } else {
-            setOptionProveedores([]);
-        }
+        setOptionProveedores(
+            listaProveedoresEmpresa.map((proveedor) => ({
+                value: proveedor.nombre,
+                label: proveedor.nombre,
+            })),
+        );
     }, [listaProveedoresEmpresa]);
 
     const rows = useMemo(() => licencias || [], [licencias]);
 
-    const handleNextStep = async () => {
-        const errors = await formik.validateForm();
-
-        if (errors.nombre || errors.moneda) {
-            formik.setTouched({
-                nombre: true,
-                moneda: true,
-            });
-            return;
-        }
-
-        setModalidadError(null);
-        setModalStep(2);
-    };
-
-    const handlePreviousStep = () => {
-        setModalStep(1);
-    };
-
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setModalStep(1);
-        setModalidadError(null);
+        setShowQuickProveedor(false);
+        setQuickProveedor({ nombre: '', rut: '' });
         formik.resetForm();
     };
 
     const handleOpenModal = () => {
-        setModalStep(1);
         formik.resetForm();
+        setShowQuickProveedor(false);
+        setQuickProveedor({ nombre: '', rut: '' });
         setIsModalOpen(true);
-    };
-
-    const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (modalStep === 1) {
-            await handleNextStep();
-            return;
-        }
-
-        const hasModalidadPrice = [
-            formik.values.precio_modalidad_p1m,
-            formik.values.precio_modalidad_p1m_compromiso_p1y,
-            formik.values.precio_modalidad_p1y,
-            formik.values.precio_modalidad_pago_unico,
-        ].some((value) => Number(value) > 0);
-
-        if (!hasModalidadPrice) {
-            setModalidadError('Al menos un precio por modalidad debe ser mayor a 0.');
-            return;
-        }
-
-        const hasModalidadSuggestedPrice = [
-            formik.values.precio_venta_p1m,
-            formik.values.precio_venta_p1m_compromiso_p1y,
-            formik.values.precio_venta_p1y,
-            formik.values.precio_venta_pago_unico,
-        ].some((value) => Number(value) > 0);
-
-        if (!hasModalidadSuggestedPrice) {
-            setModalidadError('Al menos un precio de venta sugerido debe ser mayor a 0.');
-            return;
-        }
-
-        setModalidadError(null);
-        formik.handleSubmit(event);
     };
 
     const handleDelete = async (id: number) => {
@@ -251,6 +175,48 @@ const ListaLicencias = () => {
         }
     };
 
+    const handleCreateProveedorRapido = async () => {
+        const empresaId = personalizacionUsuario?.empresa;
+        if (!empresaId) {
+            toast.error('No fue posible identificar la empresa.');
+            return;
+        }
+        if (!quickProveedor.nombre.trim() || !quickProveedor.rut.trim()) {
+            toast.error('Nombre y RUT son obligatorios para crear proveedor.');
+            return;
+        }
+
+        setIsCreatingProveedor(true);
+        try {
+            const response = await ApiService.fetchData<{ nombre: string }>({
+                url: `/api/empresas/${empresaId}/proveedores-empresa/`,
+                method: 'post',
+                headers: { 'Content-Type': 'application/json' },
+                data: {
+                    empresa: empresaId,
+                    nombre: quickProveedor.nombre.trim(),
+                    rut: quickProveedor.rut.trim(),
+                },
+            });
+
+            const proveedorNombre = response.data?.nombre ?? quickProveedor.nombre.trim();
+            await dispatch(listaProveedoresEmpresaThunk({ id_empresa: empresaId }));
+            formik.setFieldValue('proveedor', proveedorNombre);
+            setQuickProveedor({ nombre: '', rut: '' });
+            setShowQuickProveedor(false);
+            toast.success('Proveedor creado y seleccionado');
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        } finally {
+            setIsCreatingProveedor(false);
+        }
+    };
+
+    const handleFormSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        await formik.submitForm();
+    };
+
     return (
         <PageWrapper isProtectedRoute name='Licencias' title='Licencias'>
             <Subheader>
@@ -263,35 +229,19 @@ const ListaLicencias = () => {
                     </Button>
                 </SubheaderRight>
             </Subheader>
+
             <Container className='h-full w-full'>
                 <Card>
                     <CardHeader>Licencias registradas</CardHeader>
                     <CardBody>
-                        <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                            <div className='text-sm font-medium'>Selecciona modalidad de pago para ver el precio</div>
-                            <div className='w-full sm:w-72'>
-                                <SelectReact
-                                    name='selectedModalidadPago'
-                                    options={MODALIDADES_PAGO_OPTIONS}
-                                    value={MODALIDADES_PAGO_OPTIONS.find(
-                                        (option) => option.value === selectedModalidadPago,
-                                    )}
-                                    onChange={(option) =>
-                                        setSelectedModalidadPago((option as TSelectOption).value)
-                                    }
-                                />
-                            </div>
-                        </div>
                         <div className='overflow-x-auto'>
                             <Table>
                                 <THead>
                                     <Tr>
                                         <Th>Nombre</Th>
-                                        <Th>Número de parte</Th>
+                                        <Th>Modalidad</Th>
                                         <Th>Moneda</Th>
-                                        <Th>Precio partner</Th>
                                         <Th>Precio venta</Th>
-                                        <Th>Activo</Th>
                                         <Th>Acciones</Th>
                                     </Tr>
                                 </THead>
@@ -299,21 +249,30 @@ const ListaLicencias = () => {
                                     {rows.map((licencia) => (
                                         <Tr key={licencia.id}>
                                             <Td>{licencia.nombre}</Td>
-                                            <Td>{licencia.numero_parte || '—'}</Td>
+                                            <Td>{getModalidadLabel(licencia)}</Td>
                                             <Td>{licencia.moneda}</Td>
-                                            <Td>{getPrecioModalidad(licencia, selectedModalidadPago).toFixed(2)}</Td>
-                                            <Td>{getPrecioVentaModalidad(licencia, selectedModalidadPago).toFixed(2)}</Td>
-                                            <Td>{licencia.activo ? 'Sí' : 'No'}</Td>
+                                            <Td>{Number(licencia.precio_venta || 0).toFixed(2)}</Td>
                                             <Td>
-                                                <Button
-                                                    variant='default'
-                                                    color='red'
-                                                    size='sm'
-                                                    icon='HeroTrash'
-                                                    aria-label='Eliminar licencia'
-                                                    onClick={() => handleDelete(licencia.id)}
-                                                    disabled={isDeleting}
-                                                />
+                                                <div className='flex items-center gap-2'>
+                                                    <Button
+                                                        variant='outline'
+                                                        size='sm'
+                                                        icon='HeroEye'
+                                                        onClick={() =>
+                                                            navigate(`/registros/detalle-licencia/${licencia.id}`)
+                                                        }>
+                                                        Ver detalle
+                                                    </Button>
+                                                    <Button
+                                                        variant='default'
+                                                        color='red'
+                                                        size='sm'
+                                                        icon='HeroTrash'
+                                                        aria-label='Eliminar licencia'
+                                                        onClick={() => handleDelete(licencia.id)}
+                                                        disabled={isDeleting}
+                                                    />
+                                                </div>
                                             </Td>
                                         </Tr>
                                     ))}
@@ -333,246 +292,247 @@ const ListaLicencias = () => {
                 <ModalHeader>Crear licencia</ModalHeader>
                 <form onSubmit={handleFormSubmit}>
                     <ModalBody>
-                        <div className='mb-4 flex items-center justify-center gap-1'>
-                            {WIZARD_STEPS.map((stepDef, index) => {
-                                const isActive = stepDef.key === modalStep;
-                                const isCompleted = stepDef.key < modalStep;
-                                return (
-                                    <div key={stepDef.key} className='flex items-center gap-1'>
-                                        {index > 0 && (
-                                            <div
-                                                className={`h-0.5 w-6 ${
-                                                    isCompleted
-                                                        ? 'bg-blue-500'
-                                                        : 'bg-zinc-300 dark:bg-zinc-600'
-                                                }`}
+                        <div className='grid gap-4'>
+                            <div>
+                                <Label htmlFor='nombre'>Nombre</Label>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.nombre}
+                                    invalidFeedback={formik.errors.nombre}>
+                                    <Input
+                                        name='nombre'
+                                        value={formik.values.nombre}
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </Validation>
+                            </div>
+
+                            <div>
+                                <div className='mb-1 flex items-center justify-between'>
+                                    <Label htmlFor='proveedor'>Proveedor</Label>
+                                    <Button
+                                        type='button'
+                                        variant='outline'
+                                        size='sm'
+                                        icon='HeroPlus'
+                                        onClick={() => setShowQuickProveedor((prev) => !prev)}>
+                                        Crear proveedor rápido
+                                    </Button>
+                                </div>
+                                <SelectReact
+                                    name='proveedor'
+                                    options={optionProveedores}
+                                    value={
+                                        optionProveedores.find(
+                                            (option) => option.value === formik.values.proveedor,
+                                        ) ?? null
+                                    }
+                                    onChange={(option) =>
+                                        formik.setFieldValue(
+                                            'proveedor',
+                                            (option as TSelectOption)?.value ?? '',
+                                        )
+                                    }
+                                    isClearable
+                                />
+                            </div>
+
+                            {showQuickProveedor && (
+                                <div className='space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700'>
+                                    <Alert color='blue' variant='outline' className='rounded-lg'>
+                                        Creación rápida de proveedor: solo nombre y RUT.
+                                    </Alert>
+                                    <div className='grid gap-3 md:grid-cols-2'>
+                                        <div>
+                                            <Label htmlFor='quick_proveedor_nombre'>Nombre proveedor</Label>
+                                            <Input
+                                                name='quick_proveedor_nombre'
+                                                value={quickProveedor.nombre}
+                                                onChange={(e) =>
+                                                    setQuickProveedor((prev) => ({
+                                                        ...prev,
+                                                        nombre: e.target.value,
+                                                    }))
+                                                }
                                             />
-                                        )}
-                                        <div
-                                            className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                                isActive
-                                                    ? 'bg-blue-500 text-white'
-                                                    : isCompleted
-                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                                    : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
-                                            }`}>
-                                            {stepDef.label}
+                                        </div>
+                                        <div>
+                                            <Label htmlFor='quick_proveedor_rut'>RUT</Label>
+                                            <Input
+                                                name='quick_proveedor_rut'
+                                                value={quickProveedor.rut}
+                                                onChange={(e) =>
+                                                    setQuickProveedor((prev) => ({
+                                                        ...prev,
+                                                        rut: e.target.value,
+                                                    }))
+                                                }
+                                            />
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                        {modalStep === 1 ? (
-                            <div className='grid gap-4'>
+                                    <div className='flex justify-end'>
+                                        <Button
+                                            type='button'
+                                            variant='solid'
+                                            onClick={handleCreateProveedorRapido}
+                                            disabled={isCreatingProveedor}>
+                                            Crear y seleccionar proveedor
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <Label htmlFor='numero_parte'>Número de parte</Label>
+                                <Input
+                                    name='numero_parte'
+                                    value={formik.values.numero_parte}
+                                    onChange={formik.handleChange}
+                                />
+                            </div>
+
+                            <div className='grid gap-4 md:grid-cols-2'>
                                 <div>
-                                    <Label htmlFor='nombre'>Nombre</Label>
+                                    <Label htmlFor='modalidad_base'>Modalidad</Label>
                                     <Validation
                                         isValid={formik.isValid}
-                                        isTouched={formik.touched.nombre}
-                                        invalidFeedback={formik.errors.nombre}>
+                                        isTouched={formik.touched.modalidad_base}
+                                        invalidFeedback={formik.errors.modalidad_base as string}>
+                                        <SelectReact
+                                            name='modalidad_base'
+                                            options={[...TIPO_MODALIDAD_BASE_LICENCIA]}
+                                            value={
+                                                [...TIPO_MODALIDAD_BASE_LICENCIA].find(
+                                                    (option) =>
+                                                        option.value === formik.values.modalidad_base,
+                                                ) as unknown as TSelectOption
+                                            }
+                                            onChange={(option) => {
+                                                const modalidad = (option as TSelectOption).value as
+                                                    | 'P1M'
+                                                    | 'P1Y'
+                                                    | 'PAGO_UNICO';
+                                                formik.setFieldValue('modalidad_base', modalidad);
+                                                if (modalidad !== 'P1Y') {
+                                                    formik.setFieldValue(
+                                                        'modalidad_anual_forma_pago',
+                                                        '',
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </Validation>
+                                </div>
+
+                                {formik.values.modalidad_base === 'P1Y' && (
+                                    <div>
+                                        <Label htmlFor='modalidad_anual_forma_pago'>Forma pago anual</Label>
+                                        <Validation
+                                            isValid={formik.isValid}
+                                            isTouched={formik.touched.modalidad_anual_forma_pago}
+                                            invalidFeedback={
+                                                formik.errors.modalidad_anual_forma_pago as string
+                                            }>
+                                            <SelectReact
+                                                name='modalidad_anual_forma_pago'
+                                                options={[...TIPO_MODALIDAD_ANUAL_FORMA_PAGO]}
+                                                value={
+                                                    [...TIPO_MODALIDAD_ANUAL_FORMA_PAGO].find(
+                                                        (option) =>
+                                                            option.value ===
+                                                            formik.values.modalidad_anual_forma_pago,
+                                                    ) as unknown as TSelectOption
+                                                }
+                                                onChange={(option) =>
+                                                    formik.setFieldValue(
+                                                        'modalidad_anual_forma_pago',
+                                                        (option as TSelectOption).value,
+                                                    )
+                                                }
+                                            />
+                                        </Validation>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className='grid gap-4 md:grid-cols-2'>
+                                <div>
+                                    <Label htmlFor='precio_partner'>Precio partner</Label>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.precio_partner}
+                                        invalidFeedback={formik.errors.precio_partner as string}>
                                         <Input
-                                            name='nombre'
-                                            value={formik.values.nombre}
+                                            name='precio_partner'
+                                            type='number'
+                                            value={formik.values.precio_partner}
                                             onChange={formik.handleChange}
                                             onBlur={formik.handleBlur}
+                                            step='0.01'
                                         />
                                     </Validation>
                                 </div>
                                 <div>
-                                    <Label htmlFor='proveedor'>Proveedor</Label>
-                                    <SelectReact
-                                        name='proveedor'
-                                        isCreatable
-                                        options={optionProveedores}
-                                        value={
-                                            optionProveedores.find(
-                                                (option) => option.value === formik.values.proveedor,
-                                            ) ?? null
-                                        }
-                                        onChange={(option) =>
-                                            formik.setFieldValue(
-                                                'proveedor',
-                                                (option as TSelectOption)?.value ?? '',
-                                            )
-                                        }
-                                        onCreateOption={(inputValue) => {
-                                            const newOption = { value: inputValue, label: inputValue };
-                                            setOptionProveedores((prevOptions) => [...prevOptions, newOption]);
-                                            formik.setFieldValue('proveedor', inputValue);
-                                        }}
-                                        formatCreateLabel={(inputValue) => `Crear proveedor: ${inputValue}`}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor='numero_parte'>Número de parte</Label>
-                                    <Input
-                                        name='numero_parte'
-                                        value={formik.values.numero_parte}
-                                        onChange={formik.handleChange}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor='moneda'>Moneda</Label>
-                                    <SelectReact
-                                        name='moneda'
-                                        options={TIPO_MONEDA_LICENCIA}
-                                        value={TIPO_MONEDA_LICENCIA.find(
-                                            (option) => option.value === formik.values.moneda,
-                                        )}
-                                        onChange={(option) =>
-                                            formik.setFieldValue('moneda', (option as TSelectOption).value)
-                                        }
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor='descripcion'>Descripción</Label>
-                                    <Textarea
-                                        name='descripcion'
-                                        value={formik.values.descripcion}
-                                        onChange={formik.handleChange}
-                                    />
-                                </div>
-                                <div>
-                                    <Checkbox
-                                        name='activo'
-                                        checked={formik.values.activo}
-                                        onChange={(event) =>
-                                            formik.setFieldValue('activo', event.target.checked)
-                                        }>
-                                        Activo
-                                    </Checkbox>
+                                    <Label htmlFor='precio_venta'>Precio venta</Label>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.precio_venta}
+                                        invalidFeedback={formik.errors.precio_venta as string}>
+                                        <Input
+                                            name='precio_venta'
+                                            type='number'
+                                            value={formik.values.precio_venta}
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            step='0.01'
+                                        />
+                                    </Validation>
                                 </div>
                             </div>
-                        ) : (
-                            <div className='space-y-4'>
-                                {modalidadError && (
-                                    <Alert color='red' variant='outline' className='rounded-2xl'>
-                                        {modalidadError}
-                                    </Alert>
-                                )}
-                                <div className='grid gap-4'>
-                                    <div className='rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
-                                        <div className='mb-4 text-base font-semibold'>Pago Mensual</div>
-                                        <div className='grid gap-4 md:grid-cols-2'>
-                                            <div>
-                                                <Label htmlFor='precio_modalidad_p1m'>Precio de partner</Label>
-                                                <Input
-                                                    name='precio_modalidad_p1m'
-                                                    type='number'
-                                                    value={formik.values.precio_modalidad_p1m}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor='precio_venta_p1m'>Precio de venta sugerido</Label>
-                                                <Input
-                                                    name='precio_venta_p1m'
-                                                    type='number'
-                                                    value={formik.values.precio_venta_p1m}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className='rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
-                                        <div className='mb-4 text-base font-semibold'>Pago mensual compromiso anual</div>
-                                        <div className='grid gap-4 md:grid-cols-2'>
-                                            <div>
-                                                <Label htmlFor='precio_modalidad_p1m_compromiso_p1y'>Precio de partner</Label>
-                                                <Input
-                                                    name='precio_modalidad_p1m_compromiso_p1y'
-                                                    type='number'
-                                                    value={formik.values.precio_modalidad_p1m_compromiso_p1y}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor='precio_venta_p1m_compromiso_p1y'>Precio de venta sugerido</Label>
-                                                <Input
-                                                    name='precio_venta_p1m_compromiso_p1y'
-                                                    type='number'
-                                                    value={formik.values.precio_venta_p1m_compromiso_p1y}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className='rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
-                                        <div className='mb-4 text-base font-semibold'>Pago anual</div>
-                                        <div className='grid gap-4 md:grid-cols-2'>
-                                            <div>
-                                                <Label htmlFor='precio_modalidad_p1y'>Precio de partner</Label>
-                                                <Input
-                                                    name='precio_modalidad_p1y'
-                                                    type='number'
-                                                    value={formik.values.precio_modalidad_p1y}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor='precio_venta_p1y'>Precio de venta sugerido</Label>
-                                                <Input
-                                                    name='precio_venta_p1y'
-                                                    type='number'
-                                                    value={formik.values.precio_venta_p1y}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className='rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
-                                        <div className='mb-4 text-base font-semibold'>Pago único</div>
-                                        <div className='grid gap-4 md:grid-cols-2'>
-                                            <div>
-                                                <Label htmlFor='precio_modalidad_pago_unico'>Precio de partner</Label>
-                                                <Input
-                                                    name='precio_modalidad_pago_unico'
-                                                    type='number'
-                                                    value={formik.values.precio_modalidad_pago_unico}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor='precio_venta_pago_unico'>Precio de venta sugerido</Label>
-                                                <Input
-                                                    name='precio_venta_pago_unico'
-                                                    type='number'
-                                                    value={formik.values.precio_venta_pago_unico}
-                                                    onChange={formik.handleChange}
-                                                    step='0.01'
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+
+                            <div>
+                                <Label htmlFor='moneda'>Moneda</Label>
+                                <SelectReact
+                                    name='moneda'
+                                    options={TIPO_MONEDA_LICENCIA}
+                                    value={TIPO_MONEDA_LICENCIA.find(
+                                        (option) => option.value === formik.values.moneda,
+                                    )}
+                                    onChange={(option) =>
+                                        formik.setFieldValue('moneda', (option as TSelectOption).value)
+                                    }
+                                />
                             </div>
-                        )}
+
+                            <div>
+                                <Label htmlFor='descripcion'>Descripción</Label>
+                                <Textarea
+                                    name='descripcion'
+                                    value={formik.values.descripcion}
+                                    onChange={formik.handleChange}
+                                />
+                            </div>
+
+                            <div>
+                                <Checkbox
+                                    name='activo'
+                                    checked={formik.values.activo}
+                                    onChange={(event) =>
+                                        formik.setFieldValue('activo', event.target.checked)
+                                    }>
+                                    Activo
+                                </Checkbox>
+                            </div>
+                        </div>
                     </ModalBody>
                     <ModalFooter>
                         <Button type='button' variant='outline' onClick={handleCloseModal}>
                             Cancelar
                         </Button>
-                        {modalStep === 2 ? (
-                            <>
-                                <Button type='button' variant='outline' onClick={handlePreviousStep}>
-                                    Anterior
-                                </Button>
-                                <Button type='submit' variant='solid' disabled={isCreating}>
-                                    Guardar
-                                </Button>
-                            </>
-                        ) : (
-                            <Button type='button' variant='solid' onClick={handleNextStep}>
-                                Siguiente
-                            </Button>
-                        )}
+                        <Button type='submit' variant='solid' disabled={isCreating}>
+                            Guardar
+                        </Button>
                     </ModalFooter>
                 </form>
             </Modal>

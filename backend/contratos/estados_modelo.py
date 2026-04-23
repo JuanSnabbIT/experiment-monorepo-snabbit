@@ -33,6 +33,17 @@ TIPO_MODALIDAD_LICENCIA = [
     ('otros', 'Otros, señale en observaciones')
 ]
 
+TIPO_MODALIDAD_BASE_LICENCIA = [
+    ('P1M', 'P1M - Mensual'),
+    ('P1Y', 'P1Y - Anual'),
+    ('PAGO_UNICO', 'Pago unico'),
+]
+
+TIPO_MODALIDAD_ANUAL_FORMA_PAGO = [
+    ('PAGO_UNICO', 'Pago unico'),
+    ('PAGO_MENSUAL', 'Pago mensual'),
+]
+
 TIPO_MONEDA_LICENCIA = [
     ('UF', 'Unidad de Fomento'),
     ('USD', 'Dolares Americanos'),

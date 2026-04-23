@@ -363,21 +363,64 @@ class PersonaLicenciatariaSerializer(serializers.ModelSerializer):
 
 # Serializador para Licencia
 class LicenciaSerializer(serializers.ModelSerializer):
+    LEGACY_FIELDS = {
+        'precio_modalidad_p1m',
+        'precio_modalidad_p1m_compromiso_p1y',
+        'precio_modalidad_p1y',
+        'precio_modalidad_pago_unico',
+        'precio_venta_p1m',
+        'precio_venta_p1m_compromiso_p1y',
+        'precio_venta_p1y',
+        'precio_venta_pago_unico',
+        'precio_compra',
+    }
+
     class Meta:
         model = Licencia
         fields = '__all__'
 
-    def validate(self, data):
-        precio_modalidades = [
-            data.get('precio_modalidad_p1m', 0),
-            data.get('precio_modalidad_p1m_compromiso_p1y', 0),
-            data.get('precio_modalidad_p1y', 0),
-            data.get('precio_modalidad_pago_unico', 0),
-        ]
-        if all((value or 0) == 0 for value in precio_modalidades):
+    def to_internal_value(self, data):
+        legacy_present = [field for field in self.LEGACY_FIELDS if field in data]
+        if legacy_present:
             raise serializers.ValidationError(
-                'Al menos un precio por modalidad debe ser mayor a 0.',
+                {
+                    field: 'Campo legacy no permitido en el nuevo contrato de licencias.'
+                    for field in legacy_present
+                }
             )
+        return super().to_internal_value(data)
+
+    def validate(self, data):
+        modalidad_base = data.get('modalidad_base', getattr(self.instance, 'modalidad_base', None))
+        modalidad_anual_forma_pago = data.get(
+            'modalidad_anual_forma_pago',
+            getattr(self.instance, 'modalidad_anual_forma_pago', None),
+        )
+        precio_partner = data.get('precio_partner', getattr(self.instance, 'precio_partner', None))
+        precio_venta = data.get('precio_venta', getattr(self.instance, 'precio_venta', None))
+
+        errors = {}
+
+        if precio_partner is None or float(precio_partner) <= 0:
+            errors['precio_partner'] = 'Debe ser mayor a 0.'
+        if precio_venta is None or float(precio_venta) <= 0:
+            errors['precio_venta'] = 'Debe ser mayor a 0.'
+
+        if modalidad_base == 'P1Y':
+            if not modalidad_anual_forma_pago:
+                errors['modalidad_anual_forma_pago'] = (
+                    'Es obligatoria cuando la modalidad base es P1Y.'
+                )
+        else:
+            if modalidad_anual_forma_pago:
+                errors['modalidad_anual_forma_pago'] = (
+                    'Solo aplica para modalidad base P1Y.'
+                )
+            data['modalidad_anual_forma_pago'] = None
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
         return data
 
 # Serializador para CondicionEspecial

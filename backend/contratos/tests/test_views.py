@@ -201,16 +201,10 @@ class LicenciaViewSetTest(ContratoAPITestBase):
             "numero_parte": "NP-001",
             "proveedor": "Proveedor Nuevo",
             "descripcion": "Una prueba",
-            "precio_compra": 10.0,
+            "modalidad_base": "P1Y",
+            "modalidad_anual_forma_pago": "PAGO_MENSUAL",
+            "precio_partner": 10.0,
             "precio_venta": 15.0,
-            "precio_venta_p1m": 16.0,
-            "precio_venta_p1m_compromiso_p1y": 14.0,
-            "precio_venta_p1y": 140.0,
-            "precio_venta_pago_unico": 150.0,
-            "precio_modalidad_p1m": 12.0,
-            "precio_modalidad_p1m_compromiso_p1y": 11.0,
-            "precio_modalidad_p1y": 120.0,
-            "precio_modalidad_pago_unico": 130.0,
             "moneda": "CLP",
             "activo": True,
         }
@@ -219,33 +213,41 @@ class LicenciaViewSetTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["empresa_prestadora"], self.empresa_prestadora.id)
         self.assertEqual(response.data["nombre"], "Licencia Nueva")
+        self.assertEqual(response.data["modalidad_base"], "P1Y")
+        self.assertEqual(response.data["modalidad_anual_forma_pago"], "PAGO_MENSUAL")
 
-    def test_create_licencia_requiere_precio_modalidad(self):
+    def test_create_licencia_requiere_modalidad_anual_forma_pago_si_base_p1y(self):
         payload = {
             "nombre": "Licencia Sin Modalidad",
             "numero_parte": "NP-002",
             "proveedor": "Proveedor Nuevo",
             "descripcion": "Sin modalidad activa",
-            "precio_compra": 10.0,
+            "modalidad_base": "P1Y",
+            "precio_partner": 10.0,
             "precio_venta": 15.0,
-            "precio_venta_p1m": 0.0,
-            "precio_venta_p1m_compromiso_p1y": 0.0,
-            "precio_venta_p1y": 0.0,
-            "precio_venta_pago_unico": 0.0,
-            "precio_modalidad_p1m": 0.0,
-            "precio_modalidad_p1m_compromiso_p1y": 0.0,
-            "precio_modalidad_p1y": 0.0,
-            "precio_modalidad_pago_unico": 0.0,
             "moneda": "CLP",
             "activo": True,
         }
 
         response = self.client.post("/api/licencias/", payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn(
-            'Al menos un precio por modalidad debe ser mayor a 0.',
-            str(response.data),
-        )
+        self.assertIn("modalidad_anual_forma_pago", response.data)
+
+    def test_create_licencia_rechaza_payload_legacy(self):
+        payload = {
+            "nombre": "Licencia Legacy",
+            "numero_parte": "NP-003",
+            "modalidad_base": "P1M",
+            "precio_partner": 5.0,
+            "precio_venta": 8.0,
+            "precio_modalidad_p1m": 11.0,
+            "moneda": "USD",
+            "activo": True,
+        }
+
+        response = self.client.post("/api/licencias/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("precio_modalidad_p1m", response.data)
 
 
 class PlantillaContratoReordenarTest(ContratoAPITestBase):

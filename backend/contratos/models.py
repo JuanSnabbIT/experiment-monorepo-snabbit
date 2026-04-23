@@ -558,14 +558,27 @@ class Licencia(ModeloBase):
     )
     nombre = models.CharField(max_length=255, verbose_name="Nombre de la licencia")
     proveedor = models.CharField(max_length=255, verbose_name="Proveedor", blank=True, null=True)
-    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripcion')
     numero_parte = models.CharField(
         max_length=255,
         blank=True,
         null=True,
-        verbose_name='Número de parte (código de licencia)',
+        verbose_name='Numero de parte (codigo de licencia)',
     )
-    precio_compra = models.DecimalField(
+    modalidad_base = models.CharField(
+        max_length=16,
+        choices=TIPO_MODALIDAD_BASE_LICENCIA,
+        default='PAGO_UNICO',
+        verbose_name='Modalidad base',
+    )
+    modalidad_anual_forma_pago = models.CharField(
+        max_length=16,
+        choices=TIPO_MODALIDAD_ANUAL_FORMA_PAGO,
+        blank=True,
+        null=True,
+        verbose_name='Forma de pago anual',
+    )
+    precio_partner = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
@@ -576,54 +589,6 @@ class Licencia(ModeloBase):
         decimal_places=2,
         default=0,
         verbose_name='Precio de venta sugerido',
-    )
-    precio_modalidad_p1m = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio P1M',
-    )
-    precio_venta_p1m = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio de venta sugerido P1M',
-    )
-    precio_modalidad_p1m_compromiso_p1y = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio P1M con compromiso P1Y',
-    )
-    precio_venta_p1m_compromiso_p1y = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio de venta sugerido P1M con compromiso P1Y',
-    )
-    precio_modalidad_p1y = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio P1Y',
-    )
-    precio_venta_p1y = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio de venta sugerido P1Y',
-    )
-    precio_modalidad_pago_unico = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio Pago único',
-    )
-    precio_venta_pago_unico = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        default=0,
-        verbose_name='Precio de venta sugerido Pago único',
     )
     moneda = models.CharField(
         max_length=3,

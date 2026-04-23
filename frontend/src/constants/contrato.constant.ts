@@ -36,6 +36,18 @@ export const TIPO_MODALIDAD_LICENCIA = [
     { value: 'otros', label: 'Otros, señale en observaciones' },
 ];
 
+
+export const TIPO_MODALIDAD_BASE_LICENCIA = [
+    { value: 'P1M', label: 'P1M - Mensual' },
+    { value: 'P1Y', label: 'P1Y - Anual' },
+    { value: 'PAGO_UNICO', label: 'Pago unico' },
+] as const;
+
+export const TIPO_MODALIDAD_ANUAL_FORMA_PAGO = [
+    { value: 'PAGO_UNICO', label: 'Pago unico' },
+    { value: 'PAGO_MENSUAL', label: 'Pago mensual' },
+] as const;
+
 export const CATEGORIAS_SERVICIO = [
     { value: 'mantencion', label: 'Mantención Infraestructura' },
     { value: 'desarrollo', label: 'Desarrollo de Software' },
