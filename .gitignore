@@ -80,8 +80,11 @@ htmlcov/
 *.cover
 
 # Development notebooks
-**/*.ipynb_checkpoints/
+
 backend/jupyter_notebooks/
+**/migrations/*.py
+!**/migrations/__init__.py
+**/.ipynb_checkpoints/
 
 # Development data files (user imports, test data)
 dev/scripts/data/
