@@ -83,6 +83,9 @@ TOOLS.md
 USER.md
 Thumbs.db
 
+# Agent frontend design previews (generados localmente, no versionar)
+agent-previews/
+
 # Misc
 *.orig
 

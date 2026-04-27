@@ -99,9 +99,29 @@
             "Command Prompt (ENV)": {
                 "path": "C:\\Windows\\System32\\cmd.exe",
                 "args": ["/K", "C:\\ProgramData\\anaconda3\\Scripts\\activate ENV"]
+            },
+            "PowerShell (ENV)": {
+                "source": "PowerShell",
+                "args": [
+                    "-NoExit",
+                    "-Command",
+                    "& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
+                ]
+            },
+            "PowerShell": {
+                "source": "PowerShell",
+                "args": []
             }
         },
-        "terminal.integrated.defaultProfile.windows": "Command Prompt (ENV)",
+        "terminal.integrated.defaultProfile.windows": "PowerShell (ENV)",
+        "terminal.integrated.automationProfile.windows": {
+            "source": "PowerShell",
+            "args": [
+                "-NoExit",
+                "-Command",
+                "& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
+            ]
+        },
 
         // --- Formateo automático ---
         "editor.formatOnSave": true,

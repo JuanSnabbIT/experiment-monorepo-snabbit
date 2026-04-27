@@ -264,6 +264,87 @@ class JiraClient:
         self._agile_request("POST", f"/sprint/{sprint_id}/issue", {"issues": issue_keys})
 
     # ------------------------------------------------------------------ #
+    # Metodos de actualizacion
+    # ------------------------------------------------------------------ #
+
+    def update_issue(self, issue_key: str, fields: dict) -> dict:
+        """
+        Actualiza campos de una issue existente (PUT /issue/{key}).
+
+        La API de Jira devuelve 204 No Content en exito, por lo que el
+        metodo retorna un dict vacio cuando la actualizacion se realiza
+        correctamente.
+
+        Args:
+            issue_key:  Key de la issue (ej: 'SEB-227')
+            fields:     Dict con los campos a actualizar (mismo formato que create_issue)
+
+        Returns:
+            dict vacio en exito, o lanza RuntimeError en caso de error HTTP
+        """
+        self._validar_proyecto(issue_key.split("-")[0])
+        return self._request("PUT", f"/issue/{issue_key}", {"fields": fields})
+
+    def get_transitions(self, issue_key: str) -> list:
+        """
+        Retorna las transiciones disponibles para una issue en su estado actual.
+
+        Returns:
+            Lista de dicts con 'id', 'name' y 'to' (estado destino).
+        """
+        result = self._request("GET", f"/issue/{issue_key}/transitions")
+        return result.get("transitions", [])
+
+    def transition_issue(self, issue_key: str, transition_name: str) -> None:
+        """
+        Transiciona una issue al estado indicado por nombre (case-insensitive).
+
+        Busca entre las transiciones disponibles la que coincida con
+        `transition_name` y ejecuta la transicion.
+
+        Args:
+            issue_key:       Key de la issue (ej: 'SEB-42')
+            transition_name: Nombre parcial del estado destino (ej: 'en proceso', 'done')
+
+        Raises:
+            ValueError:   Si no se encuentra ninguna transicion con ese nombre.
+            RuntimeError: Si la llamada HTTP falla.
+        """
+        self._validar_proyecto(issue_key.split("-")[0])
+        transitions = self.get_transitions(issue_key)
+        nombre_lower = transition_name.lower()
+        match = next(
+            (t for t in transitions if nombre_lower in t["name"].lower()),
+            None,
+        )
+        if not match:
+            disponibles = [t["name"] for t in transitions]
+            raise ValueError(
+                f"No se encontro la transicion '{transition_name}' en {issue_key}. "
+                f"Disponibles: {disponibles}"
+            )
+        self._request("POST", f"/issue/{issue_key}/transitions", {"transition": {"id": match["id"]}})
+
+    def search_issues(self, jql: str, fields: list = None) -> list:
+        """
+        Busca issues con JQL usando el endpoint /search/jql.
+
+        Args:
+            jql:    Consulta JQL (ej: 'project=SEB AND summary ~ "logo"')
+            fields: Lista de campos a retornar (default: key, summary, status, parent)
+
+        Returns:
+            Lista de dicts de issues.
+        """
+        payload = {
+            "jql": jql,
+            "maxResults": 50,
+            "fields": fields or ["key", "summary", "status", "parent", "issuetype"],
+        }
+        result = self._request("POST", "/search/jql", payload)
+        return result.get("issues", [])
+
+    # ------------------------------------------------------------------ #
     # Helpers de presentacion
     # ------------------------------------------------------------------ #
 
