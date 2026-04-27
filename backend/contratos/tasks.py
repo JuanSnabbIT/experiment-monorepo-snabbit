@@ -7,6 +7,8 @@ from contratos.models import (
     NotificacionVentanaLicencia,
     UsuarioVinculadoContrato,
 )
+from core.pdf.canvas_utils import get_logo_empresa_b64
+from django.template.loader import render_to_string
 from core.tasks import send_email_task
 from dateutil.relativedelta import relativedelta
 import os
@@ -60,12 +62,15 @@ def notificar_contratos_por_vencer():
             continue
 
         subject = f"⚠️ Contrato '{contrato.nombre}' vence en {dias_restantes} día(s)"
-        html_body = (
-            f"<p>El contrato <b>{contrato.nombre}</b> entre "
-            f"<b>{contrato.empresa_prestadora}</b> y <b>{contrato.empresa_cliente}</b> "
-            f"vence el <b>{contrato.fecha_fin.strftime('%d/%m/%Y')}</b> "
-            f"({dias_restantes} día(s) restantes).</p>"
-            f"<p>Revisa el contrato y toma las acciones necesarias (renovar, actualizar, etc.).</p>"
+        html_body = render_to_string(
+            "email-contratos/contrato_por_vencer.html",
+            {
+                "contrato_nombre": contrato.nombre,
+                "empresa_prestadora": str(contrato.empresa_prestadora),
+                "empresa_cliente": str(contrato.empresa_cliente),
+                "fecha_fin": contrato.fecha_fin.strftime("%d/%m/%Y"),
+                "dias_restantes": dias_restantes,
+            },
         )
 
         send_email_task.delay(
@@ -75,6 +80,8 @@ def notificar_contratos_por_vencer():
             "Contrato por vencer",
             f"{frontend_url}/empresa/contratos",
             "Ver contratos",
+            logo_empresa_b64=get_logo_empresa_b64(contrato.empresa_prestadora),
+            empresa_nombre=getattr(contrato.empresa_prestadora, 'nombre', None),
         )
         notificaciones_enviadas += 1
 
@@ -181,17 +188,14 @@ def notificar_ventana_edicion_licencias():
         )
 
         subject = "Ventana activa para ajustar cupos de licencia"
-        html_body = (
-            f"<p>La licencia <b>{licencia.licencia.nombre}</b> del contrato "
-            f"<b>{licencia.contrato.nombre}</b> inició hoy su ventana de gestión de cupos.</p>"
-            f"<p>Hasta el <b>{fecha_limite.strftime('%d/%m/%Y')}</b> podrás:</p>"
-            "<ul>"
-            "<li>Disminuir cupos</li>"
-            "<li>Solicitar la baja o cancelación de la licencia</li>"
-            "<li>Aumentar cupos</li>"
-            "</ul>"
-            "<p>Una vez finalizada esta ventana, solo será posible aumentar cupos.</p>"
-            f"<p>Empresa cliente: <b>{empresa_cliente.nombre}</b>.</p>"
+        html_body = render_to_string(
+            "email-contratos/contrato_ventana_licencias.html",
+            {
+                "licencia_nombre": licencia.licencia.nombre,
+                "contrato_nombre": licencia.contrato.nombre,
+                "fecha_limite": fecha_limite.strftime("%d/%m/%Y"),
+                "empresa_cliente": empresa_cliente.nombre,
+            },
         )
 
         send_email_task.delay(
@@ -201,6 +205,8 @@ def notificar_ventana_edicion_licencias():
             "Gestión de cupos disponible",
             detail_url,
             "Revisar licencia",
+            logo_empresa_b64=get_logo_empresa_b64(licencia.contrato.empresa_prestadora),
+            empresa_nombre=getattr(licencia.contrato.empresa_prestadora, 'nombre', None),
         )
 
         NotificacionVentanaLicencia.objects.create(

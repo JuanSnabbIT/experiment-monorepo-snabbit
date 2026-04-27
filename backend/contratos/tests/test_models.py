@@ -23,7 +23,7 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
 )
-from contratos.tareas_2do_plano import notificar_ventana_edicion_licencias
+from contratos.tasks import notificar_ventana_edicion_licencias
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
 
@@ -474,7 +474,7 @@ class NotificacionVentanaLicenciaTaskTest(TestCase):
             estado="activa",
         )
 
-    @patch("contratos.tareas_2do_plano.send_email_task.delay")
+    @patch("contratos.tasks.send_email_task.delay")
     def test_tarea_envia_correo_una_vez_por_ciclo(self, mocked_delay):
         notificar_ventana_edicion_licencias()
 

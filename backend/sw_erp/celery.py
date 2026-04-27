@@ -24,7 +24,7 @@ from celery.schedules import crontab
 
 app.conf.beat_schedule = {
     'actualizar_contratos_vencidos_diario': {
-        'task': 'contratos.tareas_2do_plano.actualizar_contratos_vencidos',
+        'task': 'contratos.tasks.actualizar_contratos_vencidos',
         'schedule': crontab(hour=8, minute=0),
     },
     'expirar_cotizaciones_vencidas': {
@@ -35,8 +35,16 @@ app.conf.beat_schedule = {
         'task': 'cotizaciones.tasks.refrescar_tipo_cambio_proyecciones',
         'schedule': crontab(hour=6, minute=0),  # Diariamente a las 6 AM
     },
+    'notificar_contratos_por_vencer_diario': {
+        'task': 'contratos.tasks.notificar_contratos_por_vencer',
+        'schedule': crontab(hour=8, minute=30),
+    },
+    'generar_facturas_mensuales_diario': {
+        'task': 'contratos.tasks.generar_facturas_mensuales',
+        'schedule': crontab(hour=7, minute=0),
+    },
     'notificar_ventana_edicion_licencias_diario': {
-        'task': 'contratos.tareas_2do_plano.notificar_ventana_edicion_licencias',
+        'task': 'contratos.tasks.notificar_ventana_edicion_licencias',
         'schedule': crontab(hour=8, minute=15),
     },
     'verificar_retroalimentaciones_v3': {
