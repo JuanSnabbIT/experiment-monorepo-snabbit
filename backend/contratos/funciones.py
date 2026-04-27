@@ -131,6 +131,24 @@ def _build_signature_image(firma_base64):
     return image
 
 
+def _build_logo_image(empresa):
+    """Retorna una Image de ReportLab con el logo de la empresa o None si no hay logo."""
+    from core.pdf.canvas_utils import get_logo_empresa_b64
+
+    logo_b64 = get_logo_empresa_b64(empresa)
+    if not logo_b64:
+        return None
+    try:
+        raw = logo_b64.split(",", 1)[1] if "," in logo_b64 else logo_b64
+        img = Image(BytesIO(base64.b64decode(raw)))
+        img.drawWidth = 1.5 * inch
+        img.drawHeight = 0.6 * inch
+        img.hAlign = "LEFT"
+        return img
+    except Exception:
+        return None
+
+
 def _normalize_contract_text_lines(value):
     if not value:
         return []
@@ -377,6 +395,13 @@ def generar_contrato_desde_plantilla(
     )
 
     elementos = []
+
+    # ── Logo de la empresa prestadora ────────────────────────────────────────
+    if contrato.empresa_prestadora:
+        logo_img = _build_logo_image(contrato.empresa_prestadora)
+        if logo_img:
+            elementos.append(logo_img)
+            elementos.append(Spacer(1, 8))
 
     # ── Cabecera del documento ───────────────────────────────────────────────
     elementos.append(Paragraph(

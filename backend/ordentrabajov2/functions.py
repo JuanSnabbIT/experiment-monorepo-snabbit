@@ -2054,15 +2054,15 @@ def generar_pdf_orden_trabajo(orden, servicios, soportes, guias, gastos, adjunto
     ancho, alto = A4
     mx, my = 40, 40
 
-    logo_b64 = None
-    if os.path.exists(LOGO_PATH):
+    empresa = getattr(orden, "empresa", None)
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
+    if not logo_b64 and os.path.exists(LOGO_PATH):
         try:
             with open(LOGO_PATH, "rb") as f:
-                logo_bytes = f.read()
                 logo_b64 = (
-                    "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
+                    "data:image/png;base64," + base64.b64encode(f.read()).decode()
                 )
-        except:
+        except Exception:
             pass
 
     ubicacion = "Santiago"

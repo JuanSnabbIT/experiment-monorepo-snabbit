@@ -17,7 +17,13 @@ function PDFContratoLicencias({
                         {dayjs().locale('es').format('DD [de] MMMM [del] YYYY')}
                     </div>
                     <div className='max-h-[50px] max-w-[100px] md:max-h-[50px] md:max-w-[100px]'>
-                        <img src='/src/assets/isabella-fischer-6ast1xZ9YJY-unsplash-thumb.jpg' />
+                        {contrato.datos_empresa.logo && (
+                            <img
+                                src={contrato.datos_empresa.logo}
+                                alt={contrato.datos_empresa.nombre}
+                                className='max-h-[50px] max-w-[100px] object-contain'
+                            />
+                        )}
                     </div>
                 </div>
                 <div className='text-center text-xl font-bold md:text-2xl'>{contrato.nombre}</div>

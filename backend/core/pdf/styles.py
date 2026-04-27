@@ -3,7 +3,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 # --- COLOR PALETTE (Based on Cotizaciones) ---
-BRAND_BLUE = colors.HexColor("#003366")    # Legacy Blue (kept for compatibility)
+BRAND_BLUE = colors.HexColor("#003366")    # PDF primary color (email header uses #0f172a)
 ACTION_BLUE = colors.HexColor("#3b82f6")   # Links / En Proceso
 SUCCESS_GREEN = colors.HexColor("#10b981") # Completada
 ALERT_RED = colors.HexColor("#ef4444")     # Cancelada / Errors

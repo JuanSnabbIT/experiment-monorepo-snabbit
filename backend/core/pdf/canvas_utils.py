@@ -138,3 +138,43 @@ def draw_paginacion(pdf, ancho, mx, my):
     page = pdf.getPageNumber()
     pdf.setFont(*FONTS["footer"])
     pdf.drawRightString(ancho - mx, 15, f"{page}/{page}")
+
+
+def get_logo_empresa_b64(empresa):
+    """
+    Extrae el logo de una empresa y lo retorna como data URL base64.
+
+    Soporta tres formatos del campo empresa.logo:
+      - FileField de Django: se lee con .read()
+      - String data URL (ya tiene 'data:...,base64,...'): se retorna directamente
+      - Ruta de archivo en disco: se lee con open()
+
+    Retorna 'data:image/png;base64,...' o None si no hay logo o falla la lectura.
+    """
+    logo_field = getattr(empresa, "logo", None)
+    if not logo_field:
+        return None
+
+    logo_bytes = None
+
+    if hasattr(logo_field, "read"):
+        # FileField / FieldFile de Django
+        try:
+            logo_bytes = logo_field.read()
+        except Exception:
+            return None
+    elif isinstance(logo_field, str) and "," in logo_field:
+        # Ya es data URL: data:image/png;base64,...
+        return logo_field
+    elif isinstance(logo_field, str):
+        # Ruta de archivo en disco
+        try:
+            with open(logo_field, "rb") as f:
+                logo_bytes = f.read()
+        except Exception:
+            return None
+
+    if logo_bytes:
+        return "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
+
+    return None

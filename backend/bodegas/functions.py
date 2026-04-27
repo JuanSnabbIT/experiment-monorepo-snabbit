@@ -26,6 +26,7 @@ from core.pdf.canvas_utils import (
     draw_footer,
     draw_paginacion,
     _format_clp,
+    get_logo_empresa_b64,
 )
 from reportlab.lib.pagesizes import A4
 
@@ -172,6 +173,7 @@ def generar_orden_de_compra(
     estado_orden=None,
     nombre_cliente=None,
     rut_cliente=None,
+    empresa=None,
 ):
     """
     Genera un PDF de Orden de Compra profesional usando core.pdf components (Canvas).
@@ -187,14 +189,13 @@ def generar_orden_de_compra(
     # Current params don't include logo_b64, so we might need to fetch it or rely on existing logic
     # The existing function logic imported LOGO_PATH. We can read it.
     
-    logo_b64 = None
-    if os.path.exists(LOGO_PATH):
-       try: 
-           with open(LOGO_PATH, "rb") as f:
-               logo_bytes = f.read()
-               logo_b64 = "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
-       except:
-           pass
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
+    if not logo_b64 and os.path.exists(LOGO_PATH):
+        try:
+            with open(LOGO_PATH, "rb") as f:
+                logo_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        except Exception:
+            pass
 
     # Fecha format
     try:

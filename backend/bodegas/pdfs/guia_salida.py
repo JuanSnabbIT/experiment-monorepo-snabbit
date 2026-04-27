@@ -17,6 +17,7 @@ from core.pdf.canvas_utils import (
     draw_titulo,
     draw_footer,
     draw_paginacion,
+    get_logo_empresa_b64,
 )
 
 def draw_datos_guia(pdf, cliente_nombre, cliente_rut, entregado_a_nombre, recibido_por_nombre, mx, y):
@@ -138,21 +139,21 @@ def generar_pdf_guia_salida(
     recibido_por_nombre,
     items, # List of dicts
     buffer,
-    observaciones=None
+    observaciones=None,
+    empresa=None,
 ):
     pdf = canvas.Canvas(buffer, pagesize=A4)
     ancho, alto = A4
     mx, my = 40, 40
     ubicacion = "Santiago"
     
-    logo_b64 = None
-    if os.path.exists(LOGO_PATH):
-       try: 
-           with open(LOGO_PATH, "rb") as f:
-               logo_bytes = f.read()
-               logo_b64 = "data:image/png;base64," + base64.b64encode(logo_bytes).decode()
-       except:
-           pass
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
+    if not logo_b64 and os.path.exists(LOGO_PATH):
+        try:
+            with open(LOGO_PATH, "rb") as f:
+                logo_b64 = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        except Exception:
+            pass
 
     try:
         # Try to parse the input date string
