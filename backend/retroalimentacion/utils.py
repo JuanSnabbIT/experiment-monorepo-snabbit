@@ -5,6 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from core.models import PreguntaEnRetroalimentacion
+from core.pdf.canvas_utils import get_logo_empresa_b64
 from core.tasks import send_email_task
 import os
 from dotenv import load_dotenv
@@ -76,6 +77,8 @@ def crear_retroalimentacion_y_enviar_correo(orden):
     titulo = f"Encuesta de Satisfacción - OT N°{orden.id}"
     subject = f"📋 {empresa_nombre} - Evalúe nuestro servicio (OT N°{orden.id})"
 
+    logo_b64 = get_logo_empresa_b64(getattr(orden, 'empresa', None))
+
     send_email_task.delay(
         subject=subject,
         recipient_list=[email],
@@ -83,6 +86,8 @@ def crear_retroalimentacion_y_enviar_correo(orden):
         titulo=titulo,
         url_boton=url,
         text_boton="Evaluar Servicio",
+        logo_empresa_b64=logo_b64,
+        empresa_nombre=empresa_nombre,
     )
 
 
@@ -162,6 +167,8 @@ def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
     titulo = f"Encuesta de Satisfaccion - {otv3.titulo}"
     subject = f"Evalue nuestro servicio - {otv3.titulo}"
 
+    logo_b64 = get_logo_empresa_b64(getattr(otv3, 'empresa', None))
+
     send_email_task.delay(
         subject=subject,
         recipient_list=[email],
@@ -169,6 +176,8 @@ def crear_retroalimentacion_y_enviar_correo_otv3(otv3_id):
         titulo=titulo,
         url_boton=url,
         text_boton="Evaluar Servicio",
+        logo_empresa_b64=logo_b64,
+        empresa_nombre=empresa_nombre,
     )
 
 
@@ -216,6 +225,8 @@ def reenviar_correo_retroalimentacion_v3(otv3):
     titulo = f"Recordatorio: Encuesta de Satisfaccion - {otv3.titulo}"
     subject = f"Recordatorio - Evalue nuestro servicio: {otv3.titulo}"
 
+    logo_b64 = get_logo_empresa_b64(getattr(otv3, 'empresa', None))
+
     send_email_task.delay(
         subject=subject,
         recipient_list=[email],
@@ -223,4 +234,6 @@ def reenviar_correo_retroalimentacion_v3(otv3):
         titulo=titulo,
         url_boton=url,
         text_boton="Evaluar Servicio",
+        logo_empresa_b64=logo_b64,
+        empresa_nombre=empresa_nombre,
     )

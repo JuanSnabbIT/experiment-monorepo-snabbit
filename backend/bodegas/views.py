@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
 
 from core.models import PersonalizacionUsuario
+from core.pdf.canvas_utils import get_logo_empresa_b64
 from core.tasks import send_email_task
 from cuentas.functions import obtener_usuario_empresa
 from django.contrib.contenttypes.models import ContentType
@@ -755,6 +756,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         url_boton = f"{os.getenv('FRONTEND_URL')}/detalle-orden-compra/{orden.pk}"
 
         try:
+            logo_b64 = get_logo_empresa_b64(orden.oc_empresa) if orden.oc_empresa else None
             send_email_task(
                 asunto,
                 [email_destinatario],
@@ -763,6 +765,8 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
                 url_boton,
                 "Ir a la Orden",
                 [],
+                logo_empresa_b64=logo_b64,
+                empresa_nombre=getattr(orden.oc_empresa, 'nombre', None),
             )
             # send_email_task(
             #     asunto,
@@ -1132,6 +1136,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
             estado_orden=estado_pdf,
             nombre_cliente=orden.oc_cliente.nombre if orden.oc_cliente else None,
             rut_cliente=orden.oc_cliente.rut_empresa if orden.oc_cliente else None,
+            empresa=orden.oc_empresa,
         )
 
         # Devolver el PDF como respuesta
@@ -1805,7 +1810,8 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
             recibido_por_nombre=recibido_por,
             items=items_data,
             buffer=buffer,
-            observaciones=guia.motivo
+            observaciones=guia.motivo,
+            empresa=guia.bodega.sucursal.empresa,
         )
         
         buffer.seek(0)

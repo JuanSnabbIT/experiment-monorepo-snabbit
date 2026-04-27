@@ -2,6 +2,7 @@ import os
 
 from asgiref.sync import sync_to_async
 from core.models import PersonalizacionUsuario
+from core.pdf.canvas_utils import get_logo_empresa_b64
 from core.tasks import send_email_task
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -162,8 +163,19 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
         titulo = "Invitación Empresa"
         text_boton = "Aceptar Invitación"
 
+        empresa = getattr(sucursal, 'empresa', None) if hasattr(sucursal, 'empresa') else None
+        logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
+
         send_email_task(
-            email_subject, [email], html_body, titulo, activation_link, text_boton, []
+            email_subject,
+            [email],
+            html_body,
+            titulo,
+            activation_link,
+            text_boton,
+            [],
+            logo_empresa_b64=logo_b64,
+            empresa_nombre=getattr(empresa, 'nombre', None),
         )
 
         # Enviar correo electrónico con el enlace de activación
@@ -221,6 +233,9 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
         titulo = "Invitación Empresa"
         text_boton = "Aceptar Invitación"
 
+        empresa_reenvio = getattr(invitacion.sucursal, 'empresa', None) if invitacion.sucursal else None
+        logo_b64_reenvio = get_logo_empresa_b64(empresa_reenvio) if empresa_reenvio else None
+
         send_email_task(
             email_subject,
             [invitacion.email],
@@ -229,6 +244,8 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
             activation_link,
             text_boton,
             [],
+            logo_empresa_b64=logo_b64_reenvio,
+            empresa_nombre=getattr(empresa_reenvio, 'nombre', None),
         )
 
         return Response(

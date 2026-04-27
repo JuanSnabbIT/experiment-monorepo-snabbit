@@ -19,6 +19,7 @@ from bodegas.models import ItemEnOrdenCompra, ItemOrdenCompraEnStock, Movimiento
 from bodegas.serializers import OrdenCompraSerializer
 from core.models import PersonalizacionUsuario
 from core.tasks import send_email_task
+from core.pdf.canvas_utils import get_logo_empresa_b64
 from cuentas.functions import obtener_usuario_empresa
 from empresas.models import Empresa, UsuarioEmpresa
 from empresas.serializers import UsuarioEmpresaSerializer
@@ -528,6 +529,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             text_boton="Ver Cotización",
             # cc=correos_cc,  # Correos en copia (usuarios + copias externas)
             pdf_attachment=(pdf_filename, pdf_bytes),  # Adjuntar PDF
+            logo_empresa_b64=get_logo_empresa_b64(cotizacion.empresa),
+            empresa_nombre=getattr(cotizacion.empresa, 'nombre', None),
         )
 
         return Response(
@@ -615,6 +618,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                     text_boton="Ver y Responder Cotización",
                     cc=[],
                     pdf_attachment=(pdf_filename, pdf_bytes),
+                    logo_empresa_b64=get_logo_empresa_b64(cotizacion.empresa),
+                    empresa_nombre=getattr(cotizacion.empresa, 'nombre', None),
                 )
                 emails_enviados.append(email)
             
@@ -725,6 +730,8 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 text_boton="Ver y Responder Cotización",
                 cc=[],
                 pdf_attachment=(pdf_filename, pdf_bytes),
+                logo_empresa_b64=get_logo_empresa_b64(cotizacion.empresa),
+                empresa_nombre=getattr(cotizacion.empresa, 'nombre', None),
             )
         except (OperationalError, CeleryError) as exc:
             logger.error(

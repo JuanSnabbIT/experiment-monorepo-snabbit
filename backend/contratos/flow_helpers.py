@@ -6,7 +6,9 @@ import binascii
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils import timezone
 
+from django.template.loader import render_to_string
 from core.tasks import send_email_task
+from core.pdf.canvas_utils import get_logo_empresa_b64
 
 from .funciones import generar_contrato_en_memoria, generar_contrato_desde_plantilla
 from .models import (
@@ -468,14 +470,17 @@ def _frontend_url():
 def enviar_correo_aprobacion(envio: EnvioContratoAprobacion):
     subject = "Tu contrato esta listo para revision"
     recipient_list = [envio.destinatario.correo_display]
-    html_body = (
-        "<p>Hola,</p>"
-        "<p>Tu contrato ya esta disponible para revision y aprobacion.</p>"
-        "<p>Puedes revisarlo completo desde el siguiente enlace:</p>"
+    nombre = envio.destinatario.nombre_display or "cliente"
+    html_body = render_to_string(
+        "email-contratos/contrato_aprobacion.html",
+        {"nombre": nombre},
     )
     titulo = "Revisa tu contrato"
     url_boton = f"{_frontend_url()}/contrato/aprobacion/{envio.uuid}"
     text_boton = "Revisar contrato"
+
+    empresa = getattr(envio.contrato, "empresa_prestadora", None)
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
 
     send_email_task.delay(
         subject,
@@ -484,20 +489,25 @@ def enviar_correo_aprobacion(envio: EnvioContratoAprobacion):
         titulo,
         url_boton,
         text_boton,
+        logo_empresa_b64=logo_b64,
+        empresa_nombre=getattr(empresa, 'nombre', None),
     )
 
 
 def enviar_correo_firma(envio: EnvioContratoFirmaUsuario):
     subject = "Tu contrato esta listo para firma"
     recipient_list = [envio.usuario.correo_display]
-    html_body = (
-        "<p>Hola,</p>"
-        "<p>Tu contrato fue aprobado y ya esta disponible para firma.</p>"
-        "<p>Haz clic en el siguiente enlace para revisarlo y firmarlo:</p>"
+    nombre = envio.usuario.nombre_display or "cliente"
+    html_body = render_to_string(
+        "email-contratos/contrato_firma.html",
+        {"nombre": nombre},
     )
     titulo = "Firma tu contrato"
     url_boton = f"{_frontend_url()}/firmar-contrato/{envio.uuid}"
     text_boton = "Firmar contrato"
+
+    empresa = getattr(getattr(envio.usuario, "contrato", None), "empresa_prestadora", None)
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
 
     send_email_task.delay(
         subject,
@@ -506,6 +516,8 @@ def enviar_correo_firma(envio: EnvioContratoFirmaUsuario):
         titulo,
         url_boton,
         text_boton,
+        logo_empresa_b64=logo_b64,
+        empresa_nombre=getattr(empresa, 'nombre', None),
     )
 
 

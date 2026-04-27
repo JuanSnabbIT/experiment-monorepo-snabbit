@@ -459,6 +459,7 @@ def notificar_respuesta_cotizacion(
         motivo_rechazo: Razón del rechazo (solo para rechazo)
     """
     from core.tasks import send_email_task
+    from core.pdf.canvas_utils import get_logo_empresa_b64
     from django.conf import settings
 
     Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
@@ -540,6 +541,8 @@ def notificar_respuesta_cotizacion(
             titulo=f"Cotización {cotizacion.numero_cotizacion} {accion_display}",
             url_boton=url_detalle,
             text_boton="Ver Cotización",
+            logo_empresa_b64=get_logo_empresa_b64(empresa),
+            empresa_nombre=getattr(empresa, 'nombre', None),
         )
         return f"Notificación enviada a {email_empresa} - Cotización {cotizacion.numero_cotizacion} {accion}"
     except Exception as e:

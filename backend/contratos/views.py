@@ -78,6 +78,8 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_date, parse_datetime
 from django.utils import timezone
+from core.pdf.canvas_utils import get_logo_empresa_b64
+from django.template.loader import render_to_string
 from core.tasks import send_email_task
 from .flow_helpers import (
     actualizar_pdf_firmado_envio,
@@ -2956,15 +2958,19 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
         """
         subject = "¡Tu contrato está listo para firmar!"
         recipient_list = [envio.usuario.correo_display]
-        html_body = (
-            "<p>Hola,</p>"
-            "<p>Te hemos enviado (o reenviado) tu contrato para que lo firmes.</p>"
-            "<p>Por favor haz clic en el botón de abajo para revisar y firmar:</p>"
+        nombre = envio.usuario.nombre_display or "cliente"
+        html_body = render_to_string(
+            "email-contratos/contrato_firma_reenvio.html",
+            {"nombre": nombre},
         )
         titulo       = "Firma tu contrato"
         frontend_url = os.getenv("FRONTEND_URL", "https://app.gestionsnabb-it.cl")
         url_boton    = f"{frontend_url}/firmar-contrato/{envio.uuid}"
         text_boton   = "Firmar contrato ahora"
+
+        # Logo de la empresa prestadora
+        empresa = getattr(envio.usuario.contrato, 'empresa_prestadora', None) if hasattr(envio.usuario, 'contrato') else None
+        logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
 
         # Tarea asíncrona de Celery
         send_email_task.delay(
@@ -2974,6 +2980,8 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
             titulo,
             url_boton,
             text_boton,
+            logo_empresa_b64=logo_b64,
+            empresa_nombre=getattr(empresa, 'nombre', None),
         )
 
 @require_GET

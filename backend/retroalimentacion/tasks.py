@@ -52,10 +52,7 @@ def verificar_retroalimentaciones_v3_pendientes():
     from ordentrabajov3.models import OrdenDeTrabajoV3
     from ordentrabajov3.estados_modelo import ESTADO_RETROALIMENTACION, ESTADO_POR_FACTURAR
     from core.tasks import send_email_task
-    from django.conf import settings
-    import os
-
-    ahora = timezone.now()
+    from core.pdf.canvas_utils import get_logo_empresa_b64
     frontend_url = getattr(settings, "FRONTEND_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
 
     pendientes = (
@@ -118,6 +115,8 @@ def verificar_retroalimentaciones_v3_pendientes():
             "<p>Le tomara menos de 2 minutos completarla.</p>"
         )
 
+        logo_b64 = get_logo_empresa_b64(getattr(otv3, 'empresa', None))
+
         send_email_task.delay(
             subject=f"Recordatorio: Evalue nuestro servicio - {otv3.titulo}",
             recipient_list=[email],
@@ -125,6 +124,8 @@ def verificar_retroalimentaciones_v3_pendientes():
             titulo="Recordatorio de Encuesta",
             url_boton=url,
             text_boton="Completar Encuesta",
+            logo_empresa_b64=logo_b64,
+            empresa_nombre=getattr(otv3, 'empresa', None) and getattr(otv3.empresa, 'nombre', None),
         )
 
         retro.recordatorios_enviados += 1
