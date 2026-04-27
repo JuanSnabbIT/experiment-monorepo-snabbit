@@ -38,7 +38,7 @@ class SendEmailTaskTest(TestCase):
         self.assertIn('lang="es"', html_content)
         self.assertIn('role="presentation"', html_content)
         self.assertIn('<span style="display:none', html_content)
-        self.assertIn('Hola,', html_content)
+        self.assertIn('Este es el contenido del correo.', html_content)
         self.assertIn('Politica de Privacidad', html_content.replace('í', 'i'))
         self.assertIn(url_boton, html_content)
 
@@ -88,3 +88,20 @@ class SendEmailTaskTest(TestCase):
 
         del os.environ['SUPPORT_EMAIL']
         del os.environ['SUPPORT_PHONE']
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_send_email_task_uses_company_name_when_logo_is_missing(self):
+        send_email_task.run(
+            'Prueba empresa',
+            ['empresa@example.com'],
+            '<p>Contenido</p>',
+            'Notificación',
+            'https://example.com',
+            'Ir',
+            empresa_nombre='ACME S.A.',
+        )
+
+        message = mail.outbox[-1]
+        html_content = message.alternatives[0][0]
+        self.assertIn('ACME S.A.', html_content)
+        self.assertIn('El Equipo de ACME S.A.', html_content)
