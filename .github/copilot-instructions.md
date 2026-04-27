@@ -100,6 +100,7 @@ monorepo_erp/
 | `testing.md` | Tests, validaciones, linting |
 | `deployment.md` | Build y despliegue |
 | `glossary.md` | Glosario de términos de negocio y técnicos |
+| `jira-guide.md` | Integración Jira: scripts CLI, jerarquía de issues, sprints |
 
 ---
 
@@ -122,6 +123,9 @@ Cargar: `AGENTS.md` + `testing.md`
 
 ### Deployment
 Cargar: `AGENTS.md` + `deployment.md`
+
+### Jira / Gestión de Issues
+Cargar: `AGENTS.md` + `jira-guide.md`
 
 ---
 

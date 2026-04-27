@@ -1902,6 +1902,21 @@ class ContratoRevisionPublicaTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("invalidado", response.data["detail"])
 
+    def test_pdf_publico_usa_pdf_congelado_inmutable(self):
+        pdf_congelado = b"PDF_CONGELADO_BYTES"
+        self.envio_aprobacion.pdf_congelado = pdf_congelado
+        self.envio_aprobacion.save(update_fields=["pdf_congelado"])
+
+        self.contrato.nombre = "Contrato modificado despues del envio"
+        self.contrato.save(update_fields=["nombre", "fecha_modificacion"])
+
+        response = self.client.get(
+            f"/api/public/contrato-aprobacion/{self.envio_aprobacion.uuid}/pdf/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content, pdf_congelado)
+
     def test_respuestas_publicas_rechazan_token_deprecado(self):
         from django.utils import timezone
 

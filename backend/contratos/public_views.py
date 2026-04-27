@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from .flow_helpers import get_client_ip
 from .flow_helpers import actualizar_pdf_firmado_envio
 from .flow_helpers import construir_pdf_contrato
+from .flow_helpers import construir_pdf_desde_payload
 from .flow_helpers import validar_firma_imagen
 from .models import EnvioContratoAprobacion, EnvioContratoFirmaUsuario
 from .public_serializers import (
@@ -111,8 +112,13 @@ class PublicContratoAprobacionPDFView(APIView):
         if error_response:
             return error_response
 
-        # Regenerar PDF desde datos vivos del contrato
-        pdf_bytes = construir_pdf_contrato(envio.contrato)
+        if envio.pdf_congelado:
+            pdf_bytes = envio.pdf_congelado
+        elif envio.snapshot_contrato:
+            pdf_bytes = construir_pdf_desde_payload(envio.snapshot_contrato)
+        else:
+            pdf_bytes = construir_pdf_contrato(envio.contrato)
+
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = (
             f'attachment; filename="contrato_aprobacion_{envio.contrato_id}_v{envio.version_envio}.pdf"'

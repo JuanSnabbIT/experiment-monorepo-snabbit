@@ -24,7 +24,7 @@ from celery.schedules import crontab
 
 app.conf.beat_schedule = {
     'actualizar_contratos_vencidos_diario': {
-        'task': 'tareas2doplano.tareas.actualizar_contratos_vencidos',
+        'task': 'contratos.tareas_2do_plano.actualizar_contratos_vencidos',
         'schedule': crontab(hour=8, minute=0),
     },
     'expirar_cotizaciones_vencidas': {
