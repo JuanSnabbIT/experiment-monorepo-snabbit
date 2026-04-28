@@ -476,7 +476,7 @@ def enviar_correo_aprobacion(envio: EnvioContratoAprobacion):
         {"nombre": nombre},
     )
     titulo = "Revisa tu contrato"
-    url_boton = f"{_frontend_url()}/contrato/aprobacion/{envio.uuid}"
+    url_boton = f"{_frontend_url()}/contrato/public/aprobacion/{envio.uuid}"
     text_boton = "Revisar contrato"
 
     empresa = getattr(envio.contrato, "empresa_prestadora", None)
@@ -503,7 +503,7 @@ def enviar_correo_firma(envio: EnvioContratoFirmaUsuario):
         {"nombre": nombre},
     )
     titulo = "Firma tu contrato"
-    url_boton = f"{_frontend_url()}/firmar-contrato/{envio.uuid}"
+    url_boton = f"{_frontend_url()}/contrato/public/firma/{envio.uuid}"
     text_boton = "Firmar contrato"
 
     empresa = getattr(getattr(envio.usuario, "contrato", None), "empresa_prestadora", None)

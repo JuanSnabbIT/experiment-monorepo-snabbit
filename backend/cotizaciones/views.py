@@ -597,7 +597,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                     solicitante.save()  # Genera token en save()
 
                 # URL pública con token único para este solicitante
-                url_responder = f"{frontend_url}/cotizacion/responder/{solicitante.token}"
+                url_responder = f"{frontend_url}/cotizacion/public/responder/{solicitante.token}"
                 nombre_solicitante = solicitante.get_nombre()
 
                 # Construir el cuerpo del correo personalizado
@@ -708,7 +708,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         )
 
         frontend_url = os.getenv('FRONTEND_URL', 'https://gestion.snabbit.cl')
-        url_responder = f"{frontend_url}/cotizacion/responder/{solicitante.token}"
+        url_responder = f"{frontend_url}/cotizacion/public/responder/{solicitante.token}"
         nombre_solicitante = solicitante.get_nombre()
 
         # Construir el cuerpo del correo personalizado

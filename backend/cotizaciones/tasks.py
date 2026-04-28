@@ -548,3 +548,129 @@ def notificar_respuesta_cotizacion(
     except Exception as e:
         logger.error(f"Error enviando notificación de respuesta: {e}")
         return f"Error enviando notificación: {e}"
+
+
+@shared_task
+def alertar_cotizaciones_por_vencer() -> str:
+    """
+    Tarea diaria (9:00 AM) que envía recordatorios escalonados a solicitantes
+    de cotizaciones en estado 'enviada', basándose en los días transcurridos
+    desde el último envío por correo (EnvioCotizacionCorreo.fecha_envio).
+
+    Lógica de recordatorios:
+      - Día 2: solo si el solicitante AUN no ha visto el documento (fecha_primera_vista is null)
+      - Día 3: recordatorio general de revisión
+      - Día 6: alerta de vencimiento próximo
+      - Día 7: aviso de vencimiento (cotización vence al día 14)
+    """
+    from core.tasks import send_email_task
+    from core.pdf.canvas_utils import get_logo_empresa_b64
+    from django.conf import settings
+
+    Cotizacion = apps.get_model("cotizaciones", "Cotizacion")
+    SolicitanteCotizacion = apps.get_model("cotizaciones", "SolicitanteCotizacion")
+    EnvioCorreoCotizacion = apps.get_model("cotizaciones", "EnvioCorreoCotizacion")
+
+    hoy = timezone.localdate()
+    enviadas = Cotizacion.objects.filter(estado="enviada").prefetch_related("solicitantes")
+
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+    total_enviados = 0
+
+    for cotizacion in enviadas:
+        # Ancla: fecha del último envío de correo para esta cotización
+        ultimo_envio = (
+            EnvioCorreoCotizacion.objects.filter(cotizacion=cotizacion)
+            .order_by("-fecha_envio")
+            .first()
+        )
+        if not ultimo_envio:
+            continue
+
+        dias_transcurridos = (hoy - ultimo_envio.fecha_envio.date()).days
+
+        if dias_transcurridos not in (2, 3, 6, 7):
+            continue
+
+        logo_b64 = get_logo_empresa_b64(cotizacion.empresa)
+        empresa_nombre = cotizacion.empresa.nombre if cotizacion.empresa else "La empresa"
+
+        for solicitante in cotizacion.solicitantes.all():
+            # Omitir si ya respondió
+            if solicitante.fecha_respuesta:
+                continue
+
+            email = solicitante.get_email()
+            nombre = solicitante.get_nombre()
+            if not email:
+                continue
+
+            url = f"{frontend_url}/cotizacion/public/responder/{solicitante.token}"
+
+            if dias_transcurridos == 2 and solicitante.fecha_primera_vista is not None:
+                # Solo recordar en día 2 si aún no ha abierto el documento
+                continue
+
+            if dias_transcurridos == 2:
+                subject = f"Tienes una cotización pendiente de revisión — N°{cotizacion.numero_cotizacion}"
+                titulo = "Cotización pendiente de revisión"
+                html_body = (
+                    f"<p>Estimado/a <strong>{nombre}</strong>,</p>"
+                    f"<p>Notamos que aún no has revisado la cotización "
+                    f"<strong>N°{cotizacion.numero_cotizacion}</strong> enviada por "
+                    f"<strong>{empresa_nombre}</strong>.</p>"
+                    f"<p>Por favor revísala cuando puedas. Tienes hasta el "
+                    f"<strong>{cotizacion.fecha_vencimiento.strftime('%d/%m/%Y') if cotizacion.fecha_vencimiento else 'próximos días'}"
+                    f"</strong> para responder.</p>"
+                )
+            elif dias_transcurridos == 3:
+                subject = f"Recordatorio: Cotización N°{cotizacion.numero_cotizacion} esperando tu respuesta"
+                titulo = "Recordatorio de cotización"
+                html_body = (
+                    f"<p>Estimado/a <strong>{nombre}</strong>,</p>"
+                    f"<p>Te recordamos que tienes pendiente la cotización "
+                    f"<strong>N°{cotizacion.numero_cotizacion}</strong> de "
+                    f"<strong>{empresa_nombre}</strong>.</p>"
+                    f"<p>Puedes aprobar o rechazar los ítems directamente desde el enlace de acceso.</p>"
+                )
+            elif dias_transcurridos == 6:
+                subject = f"⚠️ Tu cotización N°{cotizacion.numero_cotizacion} vence mañana"
+                titulo = "Cotización por vencer"
+                html_body = (
+                    f"<p>Estimado/a <strong>{nombre}</strong>,</p>"
+                    f"<p><strong>La cotización N°{cotizacion.numero_cotizacion}</strong> de "
+                    f"<strong>{empresa_nombre}</strong> vence mañana.</p>"
+                    f"<p>Si no respondes antes del vencimiento, la cotización quedará expirada "
+                    f"y deberás solicitar una nueva.</p>"
+                )
+            else:  # dias_transcurridos == 7
+                subject = f"Último día: Cotización N°{cotizacion.numero_cotizacion} vence hoy"
+                titulo = "Último día para responder"
+                html_body = (
+                    f"<p>Estimado/a <strong>{nombre}</strong>,</p>"
+                    f"<p><strong>Hoy es el último día</strong> para responder la cotización "
+                    f"<strong>N°{cotizacion.numero_cotizacion}</strong> de "
+                    f"<strong>{empresa_nombre}</strong>.</p>"
+                    f"<p>La cotización expirará al finalizar el día. "
+                    f"Responde ahora para no perder la oportunidad.</p>"
+                )
+
+            try:
+                send_email_task.delay(
+                    subject=subject,
+                    recipient_list=[email],
+                    html_body=html_body,
+                    titulo=titulo,
+                    url_boton=url,
+                    text_boton="Ver cotización",
+                    logo_empresa_b64=logo_b64,
+                    empresa_nombre=empresa_nombre,
+                )
+                total_enviados += 1
+            except Exception as exc:
+                logger.error(
+                    f"Error enviando alerta de cotización {cotizacion.id} "
+                    f"a {email}: {exc}"
+                )
+
+    return f"Alertas de vencimiento: {total_enviados} correos enviados."

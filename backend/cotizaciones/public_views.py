@@ -27,7 +27,7 @@ ENDPOINTS PÚBLICOS (sin autenticación):
    - Notifica al emisor
 
 FLUJO ESPERADO EN FRONTEND:
-1. Usuario recibe email con link: {FRONTEND_URL}/cotizacion/responder/{token}
+1. Usuario recibe email con link: {FRONTEND_URL}/cotizacion/public/responder/{token}
 2. Frontend llama GET /api/public/cotizacion/{token}/ para obtener datos
 3. Muestra cotización con botones Aprobar/Rechazar
 4. Si aprueba: muestra selector de items + confirmación
@@ -124,6 +124,11 @@ class PublicCotizacionDetailView(RetrieveAPIView):
             )
 
         cotizacion = solicitante.cotizacion
+
+        # Registrar primer acceso del solicitante al documento
+        if not solicitante.fecha_primera_vista:
+            solicitante.fecha_primera_vista = timezone.now()
+            solicitante.save(update_fields=["fecha_primera_vista"])
 
         # Verificar expiración (pero permitir ver)
         if not cotizacion.es_vigente and cotizacion.estado == "enviada":

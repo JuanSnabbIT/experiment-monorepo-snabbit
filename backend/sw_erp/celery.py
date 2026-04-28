@@ -35,6 +35,10 @@ app.conf.beat_schedule = {
         'task': 'cotizaciones.tasks.refrescar_tipo_cambio_proyecciones',
         'schedule': crontab(hour=6, minute=0),  # Diariamente a las 6 AM
     },
+    'alertar_cotizaciones_por_vencer_diario': {
+        'task': 'cotizaciones.tasks.alertar_cotizaciones_por_vencer',
+        'schedule': crontab(hour=9, minute=0),  # Diariamente a las 9 AM
+    },
     'notificar_contratos_por_vencer_diario': {
         'task': 'contratos.tasks.notificar_contratos_por_vencer',
         'schedule': crontab(hour=8, minute=30),

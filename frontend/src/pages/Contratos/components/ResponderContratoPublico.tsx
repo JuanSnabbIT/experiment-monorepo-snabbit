@@ -133,18 +133,9 @@ const ResponderContratoPublico = () => {
 
     const verificarPreviewAntes = async (): Promise<boolean> => {
         if (haVistoPreview) return true;
-        const result = await confirmAlert({
-            title: 'No has revisado el documento completo',
-            text: 'Te recomendamos revisar el documento completo antes de continuar. ¿Deseas verlo ahora?',
-            confirmText: 'Ver documento',
-            cancelText: 'Continuar sin ver',
-            icon: 'info',
-        });
-        if (result) {
-            setPreviewOpen(true);
-            return false;
-        }
-        return true;
+        toast.info('Debes revisar el documento completo antes de continuar.');
+        setPreviewOpen(true);
+        return false;
     };
 
     const responder = async (

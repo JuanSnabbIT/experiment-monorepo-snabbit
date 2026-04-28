@@ -53,7 +53,11 @@ def verificar_retroalimentaciones_v3_pendientes():
     from ordentrabajov3.estados_modelo import ESTADO_RETROALIMENTACION, ESTADO_POR_FACTURAR
     from core.tasks import send_email_task
     from core.pdf.canvas_utils import get_logo_empresa_b64
+    from django.conf import settings
+    import os
+
     frontend_url = getattr(settings, "FRONTEND_URL", os.getenv("FRONTEND_URL", "http://127.0.0.1:5173"))
+    ahora = timezone.now()
 
     pendientes = (
         Retroalimentacion.objects.filter(
@@ -110,15 +114,20 @@ def verificar_retroalimentaciones_v3_pendientes():
 
         html_body = (
             f"<p>Estimado/a <strong>{nombre}</strong>,</p>"
-            f"<p>Le recordamos que aun tiene pendiente la evaluacion del servicio "
-            f"para la orden <strong>\"{otv3.titulo}\"</strong> de <strong>{empresa_nombre}</strong>.</p>"
-            "<p>Le tomara menos de 2 minutos completarla.</p>"
+            f"<p>Te recordamos que tienes pendiente la evaluacion del servicio recibido "
+            f"para la orden <strong>\"{otv3.titulo}\"</strong>, prestado por "
+            f"<strong>{empresa_nombre}</strong>.</p>"
+            f"<p style='background:#e8f4fd;border-left:4px solid #2196f3;padding:10px 14px;margin:16px 0;'>"
+            f"<strong>Tu opinion es importante.</strong><br>"
+            f"La encuesta toma menos de 2 minutos y nos ayuda a mejorar la calidad del servicio."
+            f"</p>"
+            f"<p>Si ya completaste la evaluacion, por favor ignora este mensaje.</p>"
         )
 
         logo_b64 = get_logo_empresa_b64(getattr(otv3, 'empresa', None))
 
         send_email_task.delay(
-            subject=f"Recordatorio: Evalue nuestro servicio - {otv3.titulo}",
+            subject=f"Recordatorio: Evalua el servicio recibido — {otv3.titulo}",
             recipient_list=[email],
             html_body=html_body,
             titulo="Recordatorio de Encuesta",

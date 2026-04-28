@@ -350,10 +350,14 @@ class PublicContratoFirmaPDFView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Si ya fue firmado, servir el PDF congelado (con firma incrustada)
-        if envio.firmado and envio.pdf_congelado:
+        # Servir el PDF en orden de prioridad para garantizar inmutabilidad del documento
+        if envio.pdf_congelado:
             pdf_bytes = envio.pdf_congelado
+        elif envio.snapshot_contrato:
+            # Reconstruir desde snapshot para registros historicos sin pdf_congelado
+            pdf_bytes = construir_pdf_desde_payload(envio.snapshot_contrato)
         else:
+            # Fallback final: solo para datos previos a la implementacion del congelado
             pdf_bytes = construir_pdf_contrato(envio.usuario.contrato)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")

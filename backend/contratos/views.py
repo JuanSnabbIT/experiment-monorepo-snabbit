@@ -2965,7 +2965,7 @@ class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
         )
         titulo       = "Firma tu contrato"
         frontend_url = os.getenv("FRONTEND_URL", "https://app.gestionsnabb-it.cl")
-        url_boton    = f"{frontend_url}/firmar-contrato/{envio.uuid}"
+        url_boton    = f"{frontend_url}/contrato/public/firma/{envio.uuid}"
         text_boton   = "Firmar contrato ahora"
 
         # Logo de la empresa prestadora

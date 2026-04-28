@@ -603,6 +603,12 @@ class SolicitanteCotizacion(ModeloBase):
     fecha_respuesta = models.DateTimeField(blank=True, null=True)
     ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
     motivo_rechazo = models.TextField(blank=True, null=True)
+    fecha_primera_vista = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha de primera vista",
+        help_text="Fecha en que el solicitante abrio el enlace publico por primera vez",
+    )
 
     class Meta:
         verbose_name = "Solicitante de Cotización"

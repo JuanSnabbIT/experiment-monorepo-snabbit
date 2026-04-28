@@ -187,7 +187,10 @@ def notificar_ventana_edicion_licencias():
             f"/contrato/{licencia.contrato.id}/licencia/{licencia.id}"
         )
 
-        subject = "Ventana activa para ajustar cupos de licencia"
+        subject = (
+            f"[Acción requerida] Ventana abierta para ajustar cupos — "
+            f"{licencia.licencia.nombre} / {empresa_cliente.nombre}"
+        )
         html_body = render_to_string(
             "email-contratos/contrato_ventana_licencias.html",
             {
@@ -195,6 +198,7 @@ def notificar_ventana_edicion_licencias():
                 "contrato_nombre": licencia.contrato.nombre,
                 "fecha_limite": fecha_limite.strftime("%d/%m/%Y"),
                 "empresa_cliente": empresa_cliente.nombre,
+                "detalle_url": detail_url,
             },
         )
 

@@ -27,6 +27,7 @@ const ResponderCotizacionPublica = () => {
     const [motivoRechazo, setMotivoRechazo] = useState('');
     const [motivoRechazoOtro, setMotivoRechazoOtro] = useState('');
     const [showRechazoModal, setShowRechazoModal] = useState(false);
+    const [documentoRevisado, setDocumentoRevisado] = useState(false);
 
     // Opciones predeterminadas de rechazo
     const MOTIVOS_RECHAZO = [
@@ -167,6 +168,8 @@ const ResponderCotizacionPublica = () => {
             toast.error('Error al descargar el PDF');
         } finally {
             setDownloadingPdf(false);
+            // Marcar como revisado al descargar el PDF
+            setDocumentoRevisado(true);
         }
     };
 
@@ -174,6 +177,10 @@ const ResponderCotizacionPublica = () => {
         if (!token || !cotizacion) return;
         if (selectedItemIds.length === 0) {
             toast.error('Selecciona al menos un ítem para aprobar.');
+            return;
+        }
+        if (!documentoRevisado) {
+            toast.info('Confirma que has revisado la cotización antes de aprobar.');
             return;
         }
 
@@ -632,11 +639,22 @@ const ResponderCotizacionPublica = () => {
                         {/* Card: Responder */}
                         {puedeResponder && (
                             <div className='rounded-lg border border-blue-200 bg-blue-50 p-5 print:hidden dark:border-blue-900 dark:bg-blue-950/30'>
+                                {/* Confirmación de revisión obligatoria */}
+                                <label className='mb-4 flex cursor-pointer items-center gap-3 rounded-lg border border-blue-300 bg-white p-3 dark:border-blue-700 dark:bg-zinc-800'>
+                                    <Checkbox
+                                        id='documento-revisado'
+                                        checked={documentoRevisado}
+                                        onChange={(e) => setDocumentoRevisado(e.target.checked)}
+                                    />
+                                    <span className='text-sm text-gray-700 dark:text-zinc-200'>
+                                        He revisado la cotización y sus ítems antes de responder.
+                                    </span>
+                                </label>
                                 <div className='flex flex-col items-center gap-4 sm:flex-row sm:justify-center'>
                                     <button
                                         type='button'
                                         onClick={handleAprobar}
-                                        disabled={submitting || selectedItemIds.length === 0}
+                                        disabled={submitting || selectedItemIds.length === 0 || !documentoRevisado}
                                         className='flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50'>
                                         <Icon icon='HeroCheckCircle' className='h-4 w-4' />
                                         Aprobar ({selectedItemIds.length})

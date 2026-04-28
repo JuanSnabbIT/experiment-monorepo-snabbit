@@ -123,8 +123,8 @@ class JiraClient:
             project_key:  Key del proyecto — debe ser 'SEB'
             summary:      Titulo de la issue
             description:  Descripcion en texto plano
-            issue_type:   "Epic", "Story" o "Task"
-            parent_key:   Key de la issue padre (para vincular historia a epica)
+            issue_type:   Nombre del tipo de issue disponible en Jira
+            parent_key:   Key de la issue padre (para subtareas)
             labels:       Lista de etiquetas (ej: ["backend"] o ["frontend"])
 
         Returns:

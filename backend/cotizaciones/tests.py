@@ -1,3 +1,7 @@
+import uuid
+from datetime import date, timedelta
+
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -5,7 +9,6 @@ from rest_framework import status
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from core.models import PersonalizacionUsuario
 from .models import Cotizacion, ItemCotizacion, SolicitanteCotizacion
-from django.contrib.contenttypes.models import ContentType
 
 User = get_user_model()
 
@@ -188,7 +191,7 @@ class CrearCopiaRechazadaTestCase(TestCase):
         self.assertGreater(nueva_cotizacion.seguimientos.count(), 0)
 
         seguimiento = nueva_cotizacion.seguimientos.first()
-        self.assertIn("Copia", seguimiento.comentario)
+        self.assertIn("reformulacion", seguimiento.comentario)
         self.assertIn("creada", seguimiento.comentario)
 
 
@@ -272,3 +275,212 @@ class MonedaItemCotizacionTestCase(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("dolar_observado", response.data)
+
+
+class FlujoCotizacionPublicaTestCase(TestCase):
+    """
+    Tests de integracion para el flujo publico de cotizacion (SEB-238).
+
+    Cubre los endpoints:
+        GET  /api/public/cotizacion/{token}/
+        POST /api/public/cotizacion/{token}/aprobar/
+        POST /api/public/cotizacion/{token}/rechazar/
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.empresa = Empresa.objects.create(nombre="Empresa Prueba Publica")
+        self.cliente = Empresa.objects.create(nombre="Cliente Prueba Publica")
+        self.sucursal = SucursalEmpresa.objects.create(
+            nombre="Casa Matriz", empresa=self.empresa
+        )
+        self.user = User.objects.create_user(
+            email="publico@test.com", password="testpass123"
+        )
+        PersonalizacionUsuario.objects.get_or_create(
+            usuario=self.user,
+            defaults={"sucursal_principal": self.sucursal},
+        )
+        self.usuario_empresa = UsuarioEmpresa.objects.create(
+            usuario=self.user, sucursal=self.sucursal
+        )
+
+        self.cotizacion = Cotizacion.objects.create(
+            nombre="Cotizacion Prueba Publica",
+            empresa=self.empresa,
+            cliente=self.cliente,
+            estado="enviada",
+            total_estimado=500.00,
+            tipo_moneda="2",
+            fecha_vencimiento=date.today() + timedelta(days=14),
+        )
+        self.item = ItemCotizacion.objects.create(
+            cotizacion=self.cotizacion,
+            nombre="Servicio de red",
+            descripcion="Instalacion de red",
+            cantidad=1,
+            precio_unitario=500.00,
+            costo_total=500.00,
+            tipo_moneda="2",
+        )
+
+        content_type = ContentType.objects.get_for_model(UsuarioEmpresa)
+        self.solicitante = SolicitanteCotizacion.objects.create(
+            cotizacion=self.cotizacion,
+            content_type=content_type,
+            usuario_id=self.usuario_empresa.id,
+        )
+        self.token = self.solicitante.token
+
+    # ------------------------------------------------------------------
+    # GET /api/public/cotizacion/{token}/
+    # ------------------------------------------------------------------
+
+    def test_get_detalle_token_valido_retorna_200(self):
+        """Un token valido retorna datos de la cotizacion."""
+        response = self.client.get(f"/api/public/cotizacion/{self.token}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("numero_cotizacion", response.data)
+
+    def test_get_detalle_token_invalido_retorna_404(self):
+        """Un token inexistente retorna 404."""
+        token_falso = uuid.uuid4()
+        response = self.client.get(f"/api/public/cotizacion/{token_falso}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_get_detalle_registra_primera_vista(self):
+        """El primer GET registra fecha_primera_vista en el solicitante."""
+        self.assertIsNone(self.solicitante.fecha_primera_vista)
+        self.client.get(f"/api/public/cotizacion/{self.token}/")
+        self.solicitante.refresh_from_db()
+        self.assertIsNotNone(self.solicitante.fecha_primera_vista)
+
+    def test_get_detalle_no_requiere_autenticacion(self):
+        """El endpoint es publico (no requiere JWT)."""
+        self.client.credentials()
+        response = self.client.get(f"/api/public/cotizacion/{self.token}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    # ------------------------------------------------------------------
+    # POST /api/public/cotizacion/{token}/aprobar/
+    # ------------------------------------------------------------------
+
+    def test_aprobar_cotizacion_exitosamente(self):
+        """Una cotizacion en estado 'enviada' puede aprobarse via token."""
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/aprobar/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("detail", response.data)
+        self.cotizacion.refresh_from_db()
+        self.assertEqual(self.cotizacion.estado, "aceptada")
+
+    def test_aprobar_marca_token_como_usado(self):
+        """Despues de aprobar el token queda marcado como usado."""
+        self.client.post(f"/api/public/cotizacion/{self.token}/aprobar/")
+        self.solicitante.refresh_from_db()
+        self.assertTrue(self.solicitante.token_usado)
+
+    def test_aprobar_token_ya_usado_retorna_400(self):
+        """Intentar aprobar con un token ya usado retorna 400."""
+        self.solicitante.token_usado = True
+        self.solicitante.save(update_fields=["token_usado"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/aprobar/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_aprobar_cotizacion_estado_invalido_retorna_400(self):
+        """Aprobar una cotizacion no en estado 'enviada' retorna 400."""
+        self.cotizacion.estado = "pendiente"
+        self.cotizacion.save(update_fields=["estado"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/aprobar/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_aprobar_cotizacion_expirada_retorna_410(self):
+        """Aprobar una cotizacion vencida retorna 410 Gone."""
+        self.cotizacion.fecha_vencimiento = date.today() - timedelta(days=1)
+        self.cotizacion.save(update_fields=["fecha_vencimiento"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/aprobar/")
+        self.assertEqual(response.status_code, status.HTTP_410_GONE)
+
+    def test_aprobar_items_especificos(self):
+        """Se puede aprobar solo un subconjunto de items."""
+        response = self.client.post(
+            f"/api/public/cotizacion/{self.token}/aprobar/",
+            {"item_ids": [self.item.id]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.item.refresh_from_db()
+        self.assertTrue(self.item.aprobado)
+
+    def test_aprobar_items_invalidos_retorna_400(self):
+        """Pasar ids de items de otra cotizacion retorna 400."""
+        response = self.client.post(
+            f"/api/public/cotizacion/{self.token}/aprobar/",
+            {"item_ids": [99999]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_aprobar_token_invalido_retorna_404(self):
+        """Token inexistente retorna 404 al aprobar."""
+        token_falso = uuid.uuid4()
+        response = self.client.post(f"/api/public/cotizacion/{token_falso}/aprobar/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    # ------------------------------------------------------------------
+    # POST /api/public/cotizacion/{token}/rechazar/
+    # ------------------------------------------------------------------
+
+    def test_rechazar_cotizacion_exitosamente(self):
+        """Una cotizacion en estado 'enviada' puede rechazarse via token."""
+        response = self.client.post(
+            f"/api/public/cotizacion/{self.token}/rechazar/",
+            {"motivo": "Precio fuera de presupuesto"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.cotizacion.refresh_from_db()
+        self.assertEqual(self.cotizacion.estado, "rechazada")
+
+    def test_rechazar_sin_motivo_es_valido(self):
+        """Rechazar sin motivo (body vacio) es un caso valido."""
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/rechazar/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_rechazar_guarda_motivo(self):
+        """El motivo de rechazo queda persistido en el solicitante."""
+        motivo = "No cumple los requisitos tecnicos"
+        self.client.post(
+            f"/api/public/cotizacion/{self.token}/rechazar/",
+            {"motivo": motivo},
+            format="json",
+        )
+        self.solicitante.refresh_from_db()
+        self.assertEqual(self.solicitante.motivo_rechazo, motivo)
+
+    def test_rechazar_token_ya_usado_retorna_400(self):
+        """Intentar rechazar con un token ya usado retorna 400."""
+        self.solicitante.token_usado = True
+        self.solicitante.save(update_fields=["token_usado"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/rechazar/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rechazar_cotizacion_estado_invalido_retorna_400(self):
+        """Rechazar una cotizacion en estado 'pendiente' retorna 400."""
+        self.cotizacion.estado = "pendiente"
+        self.cotizacion.save(update_fields=["estado"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/rechazar/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rechazar_cotizacion_expirada_retorna_410(self):
+        """Rechazar una cotizacion vencida retorna 410 Gone."""
+        self.cotizacion.fecha_vencimiento = date.today() - timedelta(days=1)
+        self.cotizacion.save(update_fields=["fecha_vencimiento"])
+        response = self.client.post(f"/api/public/cotizacion/{self.token}/rechazar/")
+        self.assertEqual(response.status_code, status.HTTP_410_GONE)
+
+    def test_rechazar_token_invalido_retorna_404(self):
+        """Token inexistente retorna 404 al rechazar."""
+        token_falso = uuid.uuid4()
+        response = self.client.post(f"/api/public/cotizacion/{token_falso}/rechazar/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
