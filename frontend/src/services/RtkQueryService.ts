@@ -38,6 +38,8 @@ const RtkQueryService = createApi({
     reducerPath: 'rtkApi',
     baseQuery: axiosBaseQuery(),
     tagTypes: [
+        'Notificaciones',
+        'NotificacionesNoLeidas',
         'Cotizaciones',
         'CotizacionesItems',
         'CotizacionesSolicitantes',

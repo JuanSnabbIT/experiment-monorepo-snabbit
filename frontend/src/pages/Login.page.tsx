@@ -13,6 +13,7 @@ import Validation from '../components/form/Validation';
 import Icon from '../components/icon/Icon';
 import PageWrapper from '../components/layouts/PageWrapper/PageWrapper';
 import Button from '../components/ui/Button';
+import useFCMToken from '../hooks/useFCMToken';
 import LogoTemplate from '../templates/layouts/Logo/Logo.template';
 
 interface LoginResponse {
@@ -24,6 +25,7 @@ const LoginPage = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [passwordShowStatus, setPasswordShowStatus] = useState<boolean>(false);
+    const { registrarToken } = useFCMToken();
     useKeyPressEvent('Enter', () => {
         formik.handleSubmit();
     });
@@ -57,6 +59,8 @@ const LoginPage = () => {
                     );
                     dispatch(userMeThunk());
                     dispatch(obtenerGruposThunk());
+                    // Registrar token FCM (no bloqueante; tolera errores).
+                    registrarToken().catch(() => {});
                     navigate('/');
                 }
             } catch (error: any) {
