@@ -44,6 +44,7 @@ urlpatterns = [
     path("api/", include("visitas.urls")),
     path("api/", include("contratos.urls")),
     path('api/', include('retroalimentacion.urls')),
+    path("api/", include("notificaciones.urls")),
     path("metrics/", exports.ExportToDjangoView, name="prometheus-metrics"),
 ]
 
@@ -52,23 +53,26 @@ if settings.DEBUG:
 
 # DEMO TEMPORAL — Eliminar despues de validar el sprint SEB
 if settings.DEBUG:
-    from core.dev_preview import (
-        preview_hub,
-        preview_djoser_activation,
-        preview_djoser_confirmation,
-        preview_djoser_password_reset,
-        preview_djoser_password_changed,
-        preview_contrato_aprobacion,
-        preview_contrato_firma,
-        preview_celery_beat,
-    )
-    urlpatterns += [
-        path("dev-preview/", preview_hub),
-        path("dev-preview/djoser/activation/", preview_djoser_activation),
-        path("dev-preview/djoser/confirmation/", preview_djoser_confirmation),
-        path("dev-preview/djoser/password-reset/", preview_djoser_password_reset),
-        path("dev-preview/djoser/password-changed/", preview_djoser_password_changed),
-        path("dev-preview/contrato/aprobacion/", preview_contrato_aprobacion),
-        path("dev-preview/contrato/firma/", preview_contrato_firma),
-        path("dev-preview/celery-beat/", preview_celery_beat),
-    ]
+    try:
+        from core.dev_preview import (
+            preview_hub,
+            preview_djoser_activation,
+            preview_djoser_confirmation,
+            preview_djoser_password_reset,
+            preview_djoser_password_changed,
+            preview_contrato_aprobacion,
+            preview_contrato_firma,
+            preview_celery_beat,
+        )
+        urlpatterns += [
+            path("dev-preview/", preview_hub),
+            path("dev-preview/djoser/activation/", preview_djoser_activation),
+            path("dev-preview/djoser/confirmation/", preview_djoser_confirmation),
+            path("dev-preview/djoser/password-reset/", preview_djoser_password_reset),
+            path("dev-preview/djoser/password-changed/", preview_djoser_password_changed),
+            path("dev-preview/contrato/aprobacion/", preview_contrato_aprobacion),
+            path("dev-preview/contrato/firma/", preview_contrato_firma),
+            path("dev-preview/celery-beat/", preview_celery_beat),
+        ]
+    except ImportError:
+        pass

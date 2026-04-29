@@ -219,6 +219,8 @@ def create_groups():
         ("tecnico", "Técnico de campo para OT y visitas"),
         ("bodeguero", "Gestores de inventario y bodegas"),
         ("representante_legal", "Representante legal de empresa"),
+        ("contabilidad", "Recibe notificaciones de prefacturas listas para facturar"),
+        ("comprador", "Recibe notificaciones de stock bajo el mínimo"),
     ]
 
     grupos = {}

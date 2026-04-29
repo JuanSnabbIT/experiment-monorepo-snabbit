@@ -66,6 +66,13 @@ build/
 .env.local
 .env.*.local
 
+#
+.env.development
+
+# Credentials (no versionar)
+credentials/
+backend/credentials/
+
 # OS
 .DS_Store
 

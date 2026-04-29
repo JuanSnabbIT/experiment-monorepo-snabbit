@@ -341,6 +341,12 @@ class StockItemEnBodega(ModeloBaseHistorico):
     cantidad = models.IntegerField(default=0)
     cantidad_no_disponible = models.IntegerField(default=0)
     pmp = models.IntegerField(default=0)
+    # Umbral de alerta de stock bajo (configurable por item-bodega).
+    # 0 = sin alerta. Cuando `cantidad <= stock_minimo` se notifica a Compradores.
+    stock_minimo = models.IntegerField(default=0)
+    # Flag anti-duplicado: True cuando ya se envio la alerta de stock bajo
+    # para el ciclo actual (se resetea al reponer sobre el minimo).
+    alerta_stock_enviada = models.BooleanField(default=False)
     compras = models.ManyToManyField(
         ContentType, through="bodegas.ItemOrdenCompraEnStock"
     )
