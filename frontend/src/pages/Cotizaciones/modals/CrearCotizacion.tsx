@@ -70,7 +70,7 @@ function CrearCotizacion({
         initialValues: {
             nombre: '',
             cliente: '',
-            tipo_moneda: '2',
+            tipo_moneda: '1',
             porcentaje_recargo: 0,
             descripcion: '',
             observaciones: '',
