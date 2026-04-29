@@ -2084,6 +2084,16 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
         prefactura.actualizado_por = usuario_empresa
         prefactura.save(update_fields=["estado_cierre", "actualizado_por"])
 
+        # TEST — Hook E1 (prefactura_por_facturar) deshabilitado temporalmente.
+        # Las reglas de negocio exactas (destinatarios, condiciones, frecuencia)
+        # aun no estan definidas. Descomentar cuando se confirmen.
+        # try:
+        #     from notificaciones.services import notificar_prefactura_por_facturar
+        #     notificar_prefactura_por_facturar(prefactura, usuario_actor=request.user)
+        # except Exception:
+        #     import logging
+        #     logging.getLogger(__name__).exception("Error al notificar prefactura v3 id=%s", prefactura.pk)
+
         serializer = PrefacturaOTV3Serializer(prefactura, context={"request": request})
         return Response(serializer.data, status=200)
 

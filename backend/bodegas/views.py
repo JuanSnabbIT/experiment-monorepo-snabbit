@@ -2013,6 +2013,18 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         usuario = obtener_usuario_empresa(self.request.user)
         serializer.save(creado_por=usuario)
 
+        # TEST — Hook E2 (guia_requiere_firma) deshabilitado temporalmente.
+        # Las reglas de negocio exactas (destinatarios, condiciones, frecuencia)
+        # aun no estan definidas. Descomentar cuando se confirmen.
+        # try:
+        #     from notificaciones.services import notificar_guia_requiere_firma
+        #     notificar_guia_requiere_firma(serializer.instance, usuario_actor=self.request.user)
+        # except Exception:
+        #     import logging
+        #     logging.getLogger(__name__).exception(
+        #         "Hook FCM guia_requiere_firma fallo (silencioso)."
+        #     )
+
     def update(self, request, *args, **kwargs):
         """
         Actualiza la guía. Se eliminó la creación automática de OT para permitir

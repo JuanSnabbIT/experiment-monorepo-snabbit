@@ -95,6 +95,7 @@ def registrar_entrada(
         origen_instancia=origen,
         descripcion=descripcion,
     )
+    _resetear_alerta_stock(stock_item)
 
 
 def registrar_salida(
@@ -128,6 +129,17 @@ def registrar_salida(
         descripcion=descripcion,
     )
 
+    # TEST — Hook E3 (stock_bajo_minimo) deshabilitado temporalmente.
+    # Las reglas de negocio exactas (destinatarios, condiciones, frecuencia)
+    # aun no estan definidas. Descomentar cuando se confirmen.
+    # try:
+    #     from notificaciones.services import notificar_stock_bajo
+    #     actor = getattr(usuario, "usuario", None)  # UsuarioEmpresa.usuario -> User
+    #     notificar_stock_bajo(stock_item, usuario_actor=actor)
+    # except Exception:
+    #     import logging
+    #     logging.getLogger(__name__).exception("Hook FCM stock_bajo fallo (silencioso).")
+
 
 def registrar_devolucion(
     stock_item, cantidad, usuario, origen, descripcion="Devolución de guía"
@@ -159,6 +171,7 @@ def registrar_devolucion(
         origen_instancia=origen,
         descripcion=descripcion,
     )
+    _resetear_alerta_stock(stock_item)
 
 
 def registrar_ajuste_inventario(
@@ -172,6 +185,7 @@ def registrar_ajuste_inventario(
         origen_instancia=origen,
         descripcion=descripcion,
     )
+    _resetear_alerta_stock(stock_item)
 
 
 def registrar_ajuste_manual(
@@ -196,3 +210,19 @@ def registrar_ajuste_manual(
         origen_instancia=None,
         descripcion=descripcion,
     )
+    if cantidad_delta > 0:
+        _resetear_alerta_stock(stock_item)
+
+
+def _resetear_alerta_stock(stock_item) -> None:
+    """Helper interno: resetea la flag de alerta cuando el stock vuelve sobre el minimo."""
+    try:
+        from notificaciones.services import resetear_alerta_stock_si_repuesto
+
+        resetear_alerta_stock_si_repuesto(stock_item)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Reset de flag alerta_stock_enviada fallo (silencioso)."
+        )
