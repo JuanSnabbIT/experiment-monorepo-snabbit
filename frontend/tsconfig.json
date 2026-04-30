@@ -17,6 +17,8 @@
             "@/*": ["./src/*"]
         },
 
+        "types": ["vite/client"],
+
         /* Linting */
         "strict": true,
         //		"noUnusedLocals": true,
