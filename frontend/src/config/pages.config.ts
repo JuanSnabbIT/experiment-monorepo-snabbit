@@ -140,7 +140,7 @@ export const Pages = {
                 to: '/empresa/contratos',
                 text: 'Contratos',
                 icon: 'HeroDocumentDuplicate',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'contratos', 'finanzas'],
             },
             detalleContrato: {
                 id: 'detalleContrato',
@@ -192,7 +192,7 @@ export const Pages = {
                 to: '/cotizacion/detalle-cotizacion/:numero_cotizacion',
                 text: 'Detalle Cotizaci\u00f3n',
                 icon: 'HeroDocument',
-                authority: ['staff', 'superadmin', 'tecnico'],
+                authority: ['staff', 'superadmin', 'tecnico', 'ventas'],
             },
             listaCotizacionesEmpresa: {
                 id: 'listaCotizacionesEmpresa',
@@ -258,7 +258,7 @@ export const Pages = {
                 to: '/compras/detalle-orden-compra/:id',
                 text: 'Detalle Orden Compra',
                 icon: 'HeroDocument',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'comprador', 'bodega'],
             },
             completarOrdenCompra: {
                 id: 'completarOrdenCompra',
@@ -338,7 +338,7 @@ export const Pages = {
                 to: '/bodega/detalle-guia-salida-bodega/:id',
                 text: 'Detalle Guia de Salida de Bodega',
                 icon: 'HeroDocument',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'bodega', 'tecnico'],
             },
             devolucionParcialGuiaSalidaBodega: {
                 id: 'devolucionParcialGuiaSalidaBodega',
@@ -397,7 +397,7 @@ export const Pages = {
                 to: '/orden-trabajo/detalle-orden-trabajo/:id',
                 text: 'Detalle Orden Trabajo',
                 icon: 'HeroDocument',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'tecnico', 'operaciones', 'finanzas'],
             },
             listaVisitasSoporte: {
                 id: 'listaVisitasSoporte',
@@ -411,7 +411,7 @@ export const Pages = {
                 to: '/orden-trabajo/detalle-visita-soporte/:id',
                 text: 'Detalle Visita Soporte',
                 icon: 'HeroEnvelope',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'tecnico'],
             },
             agregarItemsACompraDT: {
                 id: 'agregarItemsACompraDT',
@@ -456,7 +456,7 @@ export const Pages = {
                 to: '/orden-trabajo-v3/:id',
                 text: 'Detalle OT V3',
                 icon: 'HeroDocument',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'tecnico', 'operaciones', 'finanzas'],
             },
         },
     },
@@ -616,7 +616,7 @@ export const Pages = {
                 to: '/vacaciones/detalle-solicitud-vacaciones/:id',
                 text: 'Detalle Solicitud Vacaciones',
                 icon: 'HeroEye',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'rrhh', 'tecnico'],
             },
             pdfSolicitudVacaciones: {
                 id: 'pdfSolicitudVacaciones',
@@ -671,7 +671,7 @@ export const Pages = {
                 to: '/rendicion/detalle-rendicion/:id',
                 text: 'Detalle Rendicion',
                 icon: 'HeroCurrencyDollar',
-                authority: ['staff', 'superadmin'],
+                authority: ['staff', 'superadmin', 'tecnico', 'operaciones', 'finanzas'],
             },
             listaMisRendiciones: {
                 id: 'listaMisRendiciones',

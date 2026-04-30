@@ -21,15 +21,11 @@ import notificacionesApi, {
 
 const formatearTiempo = (iso: string): string => {
     const fecha = new Date(iso);
-    const diffMs = Date.now() - fecha.getTime();
-    const min = Math.floor(diffMs / 60000);
-    if (min < 1) return 'ahora';
-    if (min < 60) return `${min}m`;
-    const horas = Math.floor(min / 60);
-    if (horas < 24) return `${horas}h`;
-    const dias = Math.floor(horas / 24);
-    if (dias < 7) return `${dias}d`;
-    return fecha.toLocaleDateString();
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    return `${pad(fecha.getDate())}/${pad(fecha.getMonth() + 1)}/${fecha.getFullYear()} ${pad(
+        fecha.getHours(),
+    )}:${pad(fecha.getMinutes())}`;
 };
 
 const NotificationPartial = () => {
@@ -102,6 +98,64 @@ const NotificationPartial = () => {
 
     const total = noLeidasData?.no_leidas ?? 0;
 
+    const resolveUrlDestino = (urlDestino: string): string => {
+        if (!urlDestino.startsWith('/')) {
+            return urlDestino;
+        }
+
+        const match = urlDestino.match(/^\/(ot|ordenes-de-trabajo)\/(\d+)$/);
+        if (match) {
+            return `/orden-trabajo/detalle-orden-trabajo/${match[2]}`;
+        }
+
+        const matchOtV3 = urlDestino.match(/^\/ot-v3\/(\d+)$/);
+        if (matchOtV3) {
+            return `/orden-trabajo-v3/${matchOtV3[1]}`;
+        }
+
+        const matchCotizacion = urlDestino.match(/^\/cotizaciones\/(\d+)$/);
+        if (matchCotizacion) {
+            return `/cotizacion/detalle-cotizacion/${matchCotizacion[1]}`;
+        }
+
+        const matchContratoFactura = urlDestino.match(/^\/contratos\/(\d+)\/facturas\/(\d+)$/);
+        if (matchContratoFactura) {
+            return '/empresa/contratos';
+        }
+
+        const matchContrato = urlDestino.match(/^\/contratos\/(\d+)$/);
+        if (matchContrato) {
+            return '/empresa/contratos';
+        }
+
+        const matchGuia = urlDestino.match(/^\/bodegas\/guias-salida\/(\d+)$/);
+        if (matchGuia) {
+            return `/bodega/detalle-guia-salida-bodega/${matchGuia[1]}`;
+        }
+
+        const matchOrdenCompra = urlDestino.match(/^\/bodegas\/ordenes-compra\/(\d+)$/);
+        if (matchOrdenCompra) {
+            return `/compras/detalle-orden-compra/${matchOrdenCompra[1]}`;
+        }
+
+        const matchRendicion = urlDestino.match(/^\/rendiciones\/(\d+)$/);
+        if (matchRendicion) {
+            return `/rendicion/detalle-rendicion/${matchRendicion[1]}`;
+        }
+
+        const matchVacaciones = urlDestino.match(/^\/vacaciones\/(\d+)$/);
+        if (matchVacaciones) {
+            return `/vacaciones/detalle-solicitud-vacaciones/${matchVacaciones[1]}`;
+        }
+
+        const matchVisita = urlDestino.match(/^\/visitas\/(\d+)$/);
+        if (matchVisita) {
+            return `/orden-trabajo/detalle-visita-soporte/${matchVisita[1]}`;
+        }
+
+        return urlDestino;
+    };
+
     const handleClick = async (n: INotificacion) => {
         if (!n.leida) {
             try {
@@ -111,7 +165,7 @@ const NotificationPartial = () => {
             }
         }
         if (n.url_destino) {
-            navigate(n.url_destino);
+            navigate(resolveUrlDestino(n.url_destino));
         }
     };
 

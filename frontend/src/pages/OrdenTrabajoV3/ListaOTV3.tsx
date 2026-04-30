@@ -1,9 +1,11 @@
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Card, { CardBody } from '@/components/ui/Card';
+import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
@@ -52,6 +54,19 @@ const COLOR_PRIORIDAD: Record<string, string> = {
     critica: 'red',
 };
 
+const ESTADO_OPCIONES: TSelectOption[] = [
+    { value: 'borrador', label: 'Borrador' },
+    { value: 'preparacion', label: 'Preparación' },
+    { value: 'en_ejecucion', label: 'En ejecución' },
+    { value: 'retroalimentacion', label: 'Retroalimentación' },
+    { value: 'por_facturar', label: 'Por facturar' },
+    { value: 'completada', label: 'Completada' },
+    { value: 'parcialmente_facturada', label: 'Parcialmente facturada' },
+    { value: 'facturada', label: 'Facturada' },
+    { value: 'cerrada', label: 'Cerrada' },
+    { value: 'cancelada', label: 'Cancelada' },
+];
+
 const columnHelper = createColumnHelper<IOrdenDeTrabajoV3List>();
 
 const ListaOTV3 = () => {
@@ -59,11 +74,16 @@ const ListaOTV3 = () => {
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState<string[]>([]);
     const [crearOpen, setCrearOpen] = useState(false);
 
     const { data: ordenes = [], isLoading } = useGetOrdenesV3Query(undefined, {
         skip: !personalizacionUsuario?.empresa,
     });
+
+    const ordenesFiltradas = filtroEstado.length > 0
+        ? ordenes.filter((o) => filtroEstado.includes(o.estado))
+        : ordenes;
 
     const columns = [
         columnHelper.accessor('id', {
@@ -74,7 +94,7 @@ const ListaOTV3 = () => {
             ),
         }),
         columnHelper.accessor('titulo', {
-            header: 'Titulo',
+            header: 'Título',
             cell: (info) => (
                 <span className='font-semibold text-zinc-800 dark:text-zinc-200'>{info.getValue()}</span>
             ),
@@ -113,7 +133,7 @@ const ListaOTV3 = () => {
                 info.getValue() ? dayjs(info.getValue()).format('DD/MM/YYYY HH:mm') : '-',
         }),
         columnHelper.accessor('tecnico_responsable_nombre', {
-            header: 'Tecnico',
+            header: 'Técnico',
             cell: (info) => info.getValue() ?? '-',
         }),
         columnHelper.display({
@@ -127,23 +147,29 @@ const ListaOTV3 = () => {
         }),
         columnHelper.display({
             id: 'acciones',
-            header: 'Acciones',
+            header: '',
+            size: 80,
             cell: ({ row }) => (
-                <Tooltip text='Ver detalle'>
-                    <Button
-                        icon='HeroEye'
-                        size='sm'
-                        onClick={() =>
-                            navigate(`/orden-trabajo-v3/${row.original.id}`)
-                        }
-                    />
-                </Tooltip>
+                <div className='flex justify-center'>
+                    <Tooltip text='Ver detalle'>
+                        <Button
+                            variant='solid'
+                            color='violet'
+                            icon='HeroEye'
+                            size='sm'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/orden-trabajo-v3/${row.original.id}`);
+                            }}
+                        />
+                    </Tooltip>
+                </div>
             ),
         }),
     ];
 
     const table = useReactTable({
-        data: ordenes,
+        data: ordenesFiltradas,
         columns,
         state: { sorting, globalFilter },
         onSortingChange: setSorting,
@@ -164,6 +190,19 @@ const ListaOTV3 = () => {
                     />
                 </SubheaderLeft>
                 <SubheaderRight>
+                    <SelectReact
+                        name='filtroEstado'
+                        placeholder='Filtrar por estado...'
+                        options={ESTADO_OPCIONES}
+                        isMulti
+                        value={ESTADO_OPCIONES.filter((o) => filtroEstado.includes(o.value))}
+                        onChange={(selected) =>
+                            setFiltroEstado(
+                                (selected as TSelectOption[]).map((s) => s.value),
+                            )
+                        }
+                        className='min-w-[220px]'
+                    />
                     <Button
                         variant='solid'
                         icon='HeroPlus'
@@ -174,61 +213,104 @@ const ListaOTV3 = () => {
                 </SubheaderRight>
             </Subheader>
 
-            <Container>
+            <Container className='h-full w-full'>
                 <Card>
-                    <CardBody className='overflow-auto'>
-                        {isLoading ? (
-                            <div className='py-10 text-center text-zinc-400'>Cargando...</div>
-                        ) : (
-                            <Table>
-                                <THead>
-                                    {table.getHeaderGroups().map((hg) => (
-                                        <Tr key={hg.id}>
-                                            {hg.headers.map((h) => (
-                                                <Th
-                                                    key={h.id}
-                                                    className='cursor-pointer select-none'
-                                                    onClick={h.column.getToggleSortingHandler()}
-                                                >
-                                                    {flexRender(
-                                                        h.column.columnDef.header,
-                                                        h.getContext(),
-                                                    )}
-                                                </Th>
+                    <CardHeader>
+                        <CardHeaderChild>
+                            <span className='font-semibold'>Órdenes de Trabajo V3</span>
+                            <Badge color='zinc'>{table.getFilteredRowModel().rows.length}</Badge>
+                        </CardHeaderChild>
+                    </CardHeader>
+                    <CardBody className='z-0'>
+                        <div className='overflow-auto'>
+                            {isLoading ? (
+                                <div className='py-10 text-center text-zinc-400'>Cargando...</div>
+                            ) : (
+                                <>
+                                    <Table className='min-w-[1200px] table-fixed'>
+                                        <THead>
+                                            {table.getHeaderGroups().map((hg) => (
+                                                <Tr key={hg.id}>
+                                                    {hg.headers.map((h) => (
+                                                        <Th
+                                                            key={h.id}
+                                                            isColumnBorder={false}
+                                                            className='text-left'>
+                                                            {h.isPlaceholder ? null : (
+                                                                <div
+                                                                    aria-hidden='true'
+                                                                    className={
+                                                                        h.column.getCanSort()
+                                                                            ? 'flex cursor-pointer select-none items-center'
+                                                                            : ''
+                                                                    }
+                                                                    onClick={h.column.getToggleSortingHandler()}>
+                                                                    {flexRender(
+                                                                        h.column.columnDef.header,
+                                                                        h.getContext(),
+                                                                    )}
+                                                                    {{
+                                                                        asc: (
+                                                                            <Icon
+                                                                                icon='HeroChevronUp'
+                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                            />
+                                                                        ),
+                                                                        desc: (
+                                                                            <Icon
+                                                                                icon='HeroChevronDown'
+                                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                                            />
+                                                                        ),
+                                                                    }[
+                                                                        h.column.getIsSorted() as string
+                                                                    ] ?? null}
+                                                                </div>
+                                                            )}
+                                                        </Th>
+                                                    ))}
+                                                </Tr>
                                             ))}
-                                        </Tr>
-                                    ))}
-                                </THead>
-                                <TBody>
-                                    {table.getRowModel().rows.length === 0 ? (
-                                        <Tr>
-                                            <Td colSpan={columns.length} className='py-8 text-center text-zinc-400'>
-                                                No hay ordenes de trabajo registradas.
-                                            </Td>
-                                        </Tr>
-                                    ) : (
-                                        table.getRowModel().rows.map((row) => (
-                                            <Tr
-                                                key={row.id}
-                                                className='cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                                                onClick={() => navigate(`/orden-trabajo-v3/${row.original.id}`)}
-                                            >
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <Td key={cell.id}>
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext(),
-                                                        )}
+                                        </THead>
+                                        <TBody>
+                                            {table.getRowModel().rows.length === 0 ? (
+                                                <Tr>
+                                                    <Td
+                                                        colSpan={columns.length}
+                                                        className='py-8 text-center text-zinc-400'>
+                                                        No hay órdenes de trabajo registradas.
                                                     </Td>
-                                                ))}
-                                            </Tr>
-                                        ))
-                                    )}
-                                </TBody>
-                            </Table>
-                        )}
+                                                </Tr>
+                                            ) : (
+                                                table.getRowModel().rows.map((row) => (
+                                                    <Tr
+                                                        key={row.id}
+                                                        className='cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/orden-trabajo-v3/${row.original.id}`,
+                                                            )
+                                                        }>
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <Td key={cell.id}>
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext(),
+                                                                )}
+                                                            </Td>
+                                                        ))}
+                                                    </Tr>
+                                                ))
+                                            )}
+                                        </TBody>
+                                    </Table>
+                                    <div className='mt-2 min-w-[1200px]'>
+                                        <TableCardFooterTemplateV2 table={table} />
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </CardBody>
-                    <TableCardFooterTemplateV2 table={table} />
                 </Card>
             </Container>
 

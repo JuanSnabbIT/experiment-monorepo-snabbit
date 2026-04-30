@@ -43,9 +43,9 @@ const COLOR_ESTADO: Record<TEstadoOTV3, string> = {
 
 const CTA_LABEL: Record<TEstadoOTV3, string | null> = {
     borrador: 'Confirmar OT',
-    preparacion: 'Iniciar Ejecucion',
-    en_ejecucion: 'Enviar a Retroalimentacion',
-    retroalimentacion: null,
+    preparacion: 'Iniciar Ejecución',
+    en_ejecucion: 'Enviar a Retroalimentación',
+    retroalimentacion: 'Pasar a Por Facturar',
     por_facturar: null,
     completada: null,
     parcialmente_facturada: null,
@@ -57,10 +57,10 @@ const CTA_LABEL: Record<TEstadoOTV3, string | null> = {
 // ---- STEPPER CONFIG ----
 type TStepDef = { id: TEtapaUIOTV3 | 'cerrada' | 'cancelada'; label: string; desc: string };
 const STEPS: TStepDef[] = [
-    { id: 'preparacion', label: 'Preparacion', desc: 'Equipo y tareas' },
-    { id: 'ejecucion', label: 'Ejecucion', desc: 'Realizar el trabajo' },
-    { id: 'retroalimentacion', label: 'Retroalimentacion', desc: 'Feedback del cliente' },
-    { id: 'por_facturar', label: 'Por facturar', desc: 'Preparar facturacion' },
+    { id: 'preparacion', label: 'Preparación', desc: 'Equipo y tareas' },
+    { id: 'ejecucion', label: 'Ejecución', desc: 'Realizar el trabajo' },
+    { id: 'retroalimentacion', label: 'Retroalimentación', desc: 'Feedback del cliente' },
+    { id: 'por_facturar', label: 'Por facturar', desc: 'Preparar facturación' },
     { id: 'cierre', label: 'Cierre', desc: 'Documentar y cerrar' },
 ];
 
@@ -99,6 +99,13 @@ const SWAL_CONFIRM: Record<
         confirmText: 'Sí, enviar',
         confirmColor: '#8b5cf6',
         successText: 'El cliente recibirá un correo para evaluar el servicio.',
+    },
+    por_facturar: {
+        title: '¿Pasar a Por Facturar?',
+        text: 'La retroalimentación será omitida. La OT avanzará directamente a Por facturar.',
+        confirmText: 'Sí, avanzar',
+        confirmColor: '#10b981',
+        successText: 'La OT está lista para facturar.',
     },
     cerrada: {
         title: '¿Confirmar cierre definitivo?',

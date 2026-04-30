@@ -1,6 +1,7 @@
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
@@ -153,7 +154,13 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
     const alcanceBloqueado = cotizaciones.length === 0 && !descripcionDraft.trim();
 
     return (
-        <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
+        <>
+            {alcanceBloqueado && (
+                <Alert color='amber' className='mb-4'>
+                    Esta OT no tiene cotización ni descripción. Agrega al menos uno antes de iniciar la ejecución.
+                </Alert>
+            )}
+            <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
             {/* Informacion principal */}
             <Card>
                 <CardHeader>
@@ -162,19 +169,19 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                 <CardBody>
                     <dl className='space-y-3 text-sm'>
                         <div className='flex gap-2'>
-                            <dt className='w-36 shrink-0 text-gray-500'>Cliente:</dt>
+                            <dt className='w-36 shrink-0 text-zinc-500'>Cliente:</dt>
                             <dd className='font-medium'>{orden.cliente_nombre ?? '-'}</dd>
                         </div>
                         <div className='flex gap-2'>
-                            <dt className='w-36 shrink-0 text-gray-500'>Modalidad:</dt>
+                            <dt className='w-36 shrink-0 text-zinc-500'>Modalidad:</dt>
                             <dd>{orden.modalidad_display}</dd>
                         </div>
                         <div className='flex gap-2'>
-                            <dt className='w-36 shrink-0 text-gray-500'>Prioridad:</dt>
+                            <dt className='w-36 shrink-0 text-zinc-500'>Prioridad:</dt>
                             <dd>{orden.prioridad_display}</dd>
                         </div>
                         <div className='flex gap-2'>
-                            <dt className='w-36 shrink-0 text-gray-500'>Fecha programada:</dt>
+                            <dt className='w-36 shrink-0 text-zinc-500'>Fecha programada:</dt>
                             <dd>
                                 {orden.fecha_programada
                                     ? dayjs(orden.fecha_programada).format('DD/MM/YYYY HH:mm')
@@ -189,13 +196,15 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
             <Card>
                 <CardHeader>
                     <CardHeaderChild>Equipo de Trabajo</CardHeaderChild>
-                    <Button
-                        icon='HeroPlus'
-                        size='sm'
-                        variant='outline'
-                        onClick={() => setModalTecnico(true)}>
-                        Asignar
-                    </Button>
+                    <CardHeaderChild>
+                        <Button
+                            icon='HeroPlus'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setModalTecnico(true)}>
+                            Asignar técnico
+                        </Button>
+                    </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
                     {orden.asignaciones && orden.asignaciones.length > 0 ? (
@@ -229,7 +238,9 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                             </TBody>
                         </Table>
                     ) : (
-                        <p className='text-sm text-gray-400'>Sin tecnicos asignados aun.</p>
+                        <div className='py-6 text-center text-sm text-zinc-400'>
+                            Sin técnicos asignados aún.
+                        </div>
                     )}
                 </CardBody>
             </Card>
@@ -286,11 +297,11 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                             />
                         </div>
                     ) : descripcionDraft.trim() ? (
-                        <div className='whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200'>
+                        <div className='whitespace-pre-wrap rounded-md bg-zinc-50 p-3 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'>
                             {descripcionDraft}
                         </div>
                     ) : (
-                        <p className='text-sm text-gray-400'>Sin descripcion registrada.</p>
+                        <p className='text-sm text-zinc-400'>Sin descripcion registrada.</p>
                     )}
                 </CardBody>
             </Card>
@@ -300,17 +311,19 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                 <CardHeader>
                     <CardHeaderChild>
                         Tareas Definidas{' '}
-                        <span className='text-sm font-normal text-gray-500'>
+                        <span className='text-sm font-normal text-zinc-500'>
                             ({orden.tareas_completadas}/{orden.total_tareas})
                         </span>
                     </CardHeaderChild>
-                    <Button
-                        icon='HeroPlus'
-                        size='sm'
-                        variant='outline'
-                        onClick={() => setModalTarea(true)}>
-                        Agregar tarea
-                    </Button>
+                    <CardHeaderChild>
+                        <Button
+                            icon='HeroPlus'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setModalTarea(true)}>
+                            Agregar tarea
+                        </Button>
+                    </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
                     {orden.tareas && orden.tareas.length > 0 ? (
@@ -329,7 +342,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                 {orden.tareas.map((t) => (
                                     <Tr
                                         key={t.id}
-                                        className='cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                    className='cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
                                         onClick={() => onTareaClick?.(t)}>
                                         <Td>{t.titulo}</Td>
                                         <Td>{t.tecnico_asignado_nombre ?? '-'}</Td>
@@ -347,7 +360,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                             {t.requiere_firma ? (
                                                 <Badge color='amber'>Requiere firma</Badge>
                                             ) : (
-                                                <span className='text-gray-400'>-</span>
+                                                <span className='text-zinc-400'>-</span>
                                             )}
                                         </Td>
                                         <Td onClick={(e) => e.stopPropagation()}>
@@ -365,9 +378,9 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                             </TBody>
                         </Table>
                     ) : (
-                        <p className='py-4 text-center text-sm text-gray-400'>
-                            No hay tareas definidas. Agrega tareas antes de iniciar la ejecucion.
-                        </p>
+                        <div className='py-6 text-center text-sm text-zinc-400'>
+                            No hay tareas definidas aún.
+                        </div>
                     )}
                 </CardBody>
             </Card>
@@ -383,20 +396,22 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                             </Badge>
                         )}
                     </CardHeaderChild>
-                    <Button
-                        icon='HeroLink'
-                        size='sm'
-                        variant='outline'
-                        onClick={() => setModalCotizacion(true)}>
-                        {cotizaciones.length > 0 ? 'Gestionar' : 'Vincular cotizacion'}
-                    </Button>
+                    <CardHeaderChild>
+                        <Button
+                            icon='HeroLink'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setModalCotizacion(true)}>
+                            {cotizaciones.length > 0 ? 'Gestionar' : 'Vincular cotización'}
+                        </Button>
+                    </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
                     {cotizaciones.length === 0 ? (
-                        <p className='py-2 text-sm text-gray-400'>
-                            Sin cotizaciones vinculadas. Vincula una cotizacion aceptada del cliente
-                            para gestionar sus guias de salida por separado.
-                        </p>
+                        <div className='py-4 text-center text-sm text-zinc-400'>
+                            Sin cotizaciones vinculadas. Vincula una cotización aceptada del cliente
+                            para gestionar sus guías de salida por separado.
+                        </div>
                     ) : (
                         <div className='space-y-4'>
                             {cotizaciones.map((cotizacion) => {
@@ -723,6 +738,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                 bodegasOptions={bodegasOptions}
             />
         </div>
+        </>
     );
 };
 

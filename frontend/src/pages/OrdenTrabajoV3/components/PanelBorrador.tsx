@@ -9,7 +9,7 @@ import { useUpdateOrdenV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTra
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import { useFormik } from 'formik';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import CrearSolicitanteProspectoOTV3 from '../modals/CrearSolicitanteProspectoOTV3';
 
@@ -22,6 +22,9 @@ interface IProps {
 const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) => {
     const [updateOrden, { isLoading }] = useUpdateOrdenV3Mutation();
     const [crearSolicitanteOpen, setCrearSolicitanteOpen] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const didMount = useRef(false);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -36,6 +39,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
             notas_internas: (orden as any).notas_internas ?? '',
         },
         onSubmit: async (values) => {
+            setSaveStatus('saving');
             try {
                 await updateOrden({
                     id: orden.id,
@@ -48,8 +52,9 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                         notas_internas: values.notas_internas,
                     },
                 }).unwrap();
-                toast.success('OT actualizada');
+                setSaveStatus('saved');
             } catch (error: unknown) {
+                setSaveStatus('error');
                 toast.error(getErrorMessage(error));
             }
         },
@@ -59,23 +64,64 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
         orden.cliente_es_prospecto === true &&
         (solicitantesOptions.length === 0 || !orden.cliente_solicitante);
 
+    useEffect(() => {
+        if (!didMount.current) {
+            didMount.current = true;
+            return;
+        }
+
+        if (!formik.dirty) {
+            return;
+        }
+
+        if (saveTimeout.current) {
+            clearTimeout(saveTimeout.current);
+        }
+
+        saveTimeout.current = setTimeout(() => {
+            void formik.submitForm();
+        }, 800);
+
+        return () => {
+            if (saveTimeout.current) {
+                clearTimeout(saveTimeout.current);
+            }
+        };
+    }, [formik.values, formik.dirty, formik.submitForm]);
+
+    useEffect(() => {
+        if (saveStatus === 'saved') {
+            const timeout = setTimeout(() => {
+                setSaveStatus('idle');
+            }, 2000);
+
+            return () => clearTimeout(timeout);
+        }
+
+        return undefined;
+    }, [saveStatus]);
+
+    const saveStatusLabel =
+        saveStatus === 'saving'
+            ? 'Guardando...'
+            : saveStatus === 'saved'
+            ? 'Guardado automáticamente'
+            : saveStatus === 'error'
+            ? 'Error al guardar'
+            : 'Sin cambios';
+
     return (
         <Card>
             <CardHeader>
                 <CardHeaderChild>
-                    <span className='font-semibold text-gray-700 dark:text-gray-200'>
+                    <span className='font-semibold text-zinc-700 dark:text-zinc-200'>
                         Informacion de la OT
                     </span>
                 </CardHeaderChild>
                 <CardHeaderChild>
-                    <Button
-                        variant='solid'
-                        color='blue'
-                        size='sm'
-                        isLoading={isLoading}
-                        onClick={() => void formik.submitForm()}>
-                        Guardar cambios
-                    </Button>
+                    <span className='text-sm text-zinc-500 dark:text-zinc-400'>
+                        {saveStatusLabel}
+                    </span>
                 </CardHeaderChild>
             </CardHeader>
             <CardBody>

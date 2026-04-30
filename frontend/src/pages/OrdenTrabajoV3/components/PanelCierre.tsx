@@ -38,11 +38,11 @@ const PanelCierre = ({ orden }: IProps) => {
                             </p>
                             <p className='text-xs text-red-600 dark:text-red-400'>No realizadas</p>
                         </div>
-                        <div className='rounded-lg border border-gray-200 bg-gray-50 p-3 text-center dark:border-gray-700 dark:bg-gray-800'>
-                            <p className='text-2xl font-bold text-gray-600 dark:text-gray-400'>
+                        <div className='rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-center dark:border-zinc-700 dark:bg-zinc-800'>
+                            <p className='text-2xl font-bold text-zinc-600 dark:text-zinc-400'>
                                 {tareasPendientes.length}
                             </p>
-                            <p className='text-xs text-gray-500'>Pendientes</p>
+                            <p className='text-xs text-zinc-500'>Pendientes</p>
                         </div>
                     </div>
 
@@ -51,13 +51,13 @@ const PanelCierre = ({ orden }: IProps) => {
                             {orden.tareas.map((t) => (
                                 <div
                                     key={t.id}
-                                    className='flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm dark:border-gray-800'>
+                                    className='flex items-center justify-between rounded-lg border border-zinc-100 p-2 text-sm dark:border-zinc-800'>
                                     <div>
                                         <p className='font-medium'>{t.titulo}</p>
                                         {t.fecha_ejecutada && (
-                                            <p className='text-xs text-gray-400'>
+                                            <p className='text-xs text-zinc-400'>
                                                 Ejecutada:{' '}
-                                                {dayjs(t.fecha_ejecutada).format('DD/MM/YY')}
+                                                {dayjs(t.fecha_ejecutada).format('DD/MM/YYYY')}
                                             </p>
                                         )}
                                     </div>
@@ -83,7 +83,7 @@ const PanelCierre = ({ orden }: IProps) => {
                 <CardHeader>
                     <CardHeaderChild>
                         Gastos y Rendicion{' '}
-                        <span className='text-sm font-normal text-gray-500'>
+                        <span className='text-sm font-normal text-zinc-500'>
                             Total: ${orden.total_gastos?.toLocaleString('es-CL') ?? '0'}
                         </span>
                     </CardHeaderChild>
@@ -117,7 +117,7 @@ const PanelCierre = ({ orden }: IProps) => {
                             </TBody>
                         </Table>
                     ) : (
-                        <p className='py-2 text-sm text-gray-400'>Sin gastos registrados.</p>
+                        <p className='py-2 text-sm text-zinc-400'>Sin gastos registrados.</p>
                     )}
                 </CardBody>
             </Card>

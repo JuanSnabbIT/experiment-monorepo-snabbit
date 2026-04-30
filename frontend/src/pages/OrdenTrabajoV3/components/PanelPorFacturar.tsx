@@ -54,7 +54,7 @@ const PanelPorFacturar = ({ orden }: IProps) => {
                 </CardBody>
             </Card>
 
-            <Card className='border-blue-200 dark:border-blue-700'>
+            <Card>
                 <CardHeader>
                     <CardHeaderChild>Prefacturación OT V3</CardHeaderChild>
                 </CardHeader>

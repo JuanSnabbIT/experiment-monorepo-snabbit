@@ -106,7 +106,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                 <CardHeader>
                     <CardHeaderChild>
                         Tareas{' '}
-                        <span className='text-sm font-normal text-gray-500'>
+                        <span className='text-sm font-normal text-zinc-500'>
                             ({orden.tareas_completadas}/{orden.total_tareas} completadas)
                         </span>
                     </CardHeaderChild>
@@ -114,18 +114,18 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                 <CardBody>
                     <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
                         {/* Pendientes */}
-                        <div className='rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50'>
-                            <p className='mb-3 text-sm font-semibold text-gray-500'>Pendientes</p>
+                        <div className='rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <p className='mb-3 text-sm font-semibold text-zinc-500'>Pendientes</p>
                             <div className='space-y-2'>
                                 {orden.tareas
                                     ?.filter((t) => t.estado === 'pendiente')
                                     .map((t) => (
                                         <div
                                             key={t.id}
-                                            className='rounded-md border border-gray-200 bg-white p-2 text-sm dark:border-gray-700 dark:bg-gray-900'>
+                                            className='rounded-md border border-zinc-200 bg-white p-2 text-sm dark:border-zinc-700 dark:bg-zinc-900'>
                                             <p className='font-medium'>{t.titulo}</p>
                                             {t.tecnico_asignado_nombre && (
-                                                <p className='text-xs text-gray-400'>{t.tecnico_asignado_nombre}</p>
+                                                <p className='text-xs text-zinc-400'>{t.tecnico_asignado_nombre}</p>
                                             )}
                                             <Button
                                                 size='sm'
@@ -137,7 +137,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                         </div>
                                     ))}
                                 {!orden.tareas?.filter((t) => t.estado === 'pendiente').length && (
-                                    <p className='text-xs text-gray-400'>Sin tareas pendientes</p>
+                                    <p className='py-2 text-center text-xs text-zinc-400'>Sin tareas pendientes</p>
                                 )}
                             </div>
                         </div>
@@ -153,10 +153,10 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                     .map((t) => (
                                         <div
                                             key={t.id}
-                                            className='rounded-md border border-blue-200 bg-white p-2 text-sm dark:border-blue-700 dark:bg-gray-900'>
+                                            className='rounded-md border border-blue-200 bg-white p-2 text-sm dark:border-blue-700 dark:bg-zinc-900'>
                                             <p className='font-medium'>{t.titulo}</p>
                                             {t.tecnico_asignado_nombre && (
-                                                <p className='text-xs text-gray-400'>{t.tecnico_asignado_nombre}</p>
+                                                <p className='text-xs text-zinc-400'>{t.tecnico_asignado_nombre}</p>
                                             )}
                                             {t.requiere_firma && (
                                                 <Badge color='amber' className='mt-1'>
@@ -174,7 +174,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                         </div>
                                     ))}
                                 {!orden.tareas?.filter((t) => t.estado === 'en_proceso').length && (
-                                    <p className='text-xs text-blue-400'>Sin tareas en proceso</p>
+                                    <p className='py-2 text-center text-xs text-blue-400'>Sin tareas en proceso</p>
                                 )}
                             </div>
                         </div>
@@ -192,7 +192,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                     .map((t) => (
                                         <div
                                             key={t.id}
-                                            className='rounded-md border border-emerald-200 bg-white p-2 text-sm dark:border-emerald-700 dark:bg-gray-900'>
+                                            className='rounded-md border border-emerald-200 bg-white p-2 text-sm dark:border-emerald-700 dark:bg-zinc-900'>
                                             <p className='font-medium'>{t.titulo}</p>
                                             <div className='mt-1 flex flex-wrap gap-1'>
                                                 <Badge color={ESTADO_TAREA_COLOR[t.estado] as any}>
@@ -207,8 +207,8 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                 {!orden.tareas?.filter((t) =>
                                     ['completada', 'no_realizada'].includes(t.estado),
                                 ).length && (
-                                    <p className='text-xs text-emerald-400'>
-                                        Ninguna completada aun
+                                    <p className='py-2 text-center text-xs text-emerald-400'>
+                                        Ninguna completada aún
                                     </p>
                                 )}
                             </div>
@@ -222,7 +222,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                 <CardHeader>
                     <CardHeaderChild>
                         Gastos{' '}
-                        <span className='text-sm font-normal text-gray-500'>
+                        <span className='text-sm font-normal text-zinc-500'>
                             Total: ${orden.total_gastos?.toLocaleString('es-CL') ?? '0'}
                         </span>
                     </CardHeaderChild>
@@ -240,12 +240,12 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                             {orden.gastos.map((g) => (
                                 <div
                                     key={g.id}
-                                    className='flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm dark:border-gray-800'>
+                                    className='flex items-center justify-between rounded-lg border border-zinc-100 p-2 text-sm dark:border-zinc-800'>
                                     <div>
                                         <p className='font-medium'>{g.detalle}</p>
-                                        <p className='text-xs text-gray-400'>
+                                        <p className='text-xs text-zinc-400'>
                                             {g.cantidad} x ${parseFloat(g.monto_unitario).toLocaleString('es-CL')} ={' '}
-                                            <span className='font-semibold text-gray-700 dark:text-gray-300'>
+                                            <span className='font-semibold text-zinc-700 dark:text-zinc-300'>
                                                 ${parseFloat(g.monto_total).toLocaleString('es-CL')}
                                             </span>
                                         </p>
@@ -260,7 +260,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                             ))}
                         </div>
                     ) : (
-                        <p className='py-2 text-sm text-gray-400'>Sin gastos registrados.</p>
+                        <p className='py-2 text-sm text-zinc-400'>Sin gastos registrados.</p>
                     )}
                 </CardBody>
             </Card>
@@ -283,7 +283,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                             {orden.adjuntos.map((a) => (
                                 <div
                                     key={a.id}
-                                    className='group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700'>
+                                    className='group relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'>
                                     {a.tipo === 'foto' ? (
                                         <img
                                             src={a.archivo}
@@ -291,8 +291,8 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                             className='h-24 w-full object-cover'
                                         />
                                     ) : (
-                                        <div className='flex h-24 items-center justify-center bg-gray-50 text-gray-500 dark:bg-gray-800'>
-                                            <span className='text-3xl'>📎</span>
+                                        <div className='flex h-24 items-center justify-center bg-zinc-50 text-zinc-500 dark:bg-zinc-800'>
+                                            <span className='text-3xl'>ðŸ“Ž</span>
                                         </div>
                                     )}
                                     <div className='absolute bottom-0 left-0 right-0 flex items-center justify-between bg-black/50 px-2 py-1 opacity-0 transition-opacity group-hover:opacity-100'>
@@ -310,7 +310,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                             ))}
                         </div>
                     ) : (
-                        <p className='py-2 text-sm text-gray-400'>Sin adjuntos.</p>
+                        <p className='py-2 text-sm text-zinc-400'>Sin adjuntos.</p>
                     )}
                 </CardBody>
             </Card>
@@ -328,20 +328,20 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                 .map((s: ISeguimientoOTV3) => (
                                     <div
                                         key={s.id}
-                                        className='rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm dark:border-gray-800 dark:bg-gray-800/50'>
-                                        <div className='mb-1 flex items-center gap-2 text-xs text-gray-400'>
-                                            <span className='font-medium text-gray-600 dark:text-gray-300'>
+                                        className='rounded-lg border border-zinc-100 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-800/50'>
+                                        <div className='mb-1 flex items-center gap-2 text-xs text-zinc-400'>
+                                            <span className='font-medium text-zinc-600 dark:text-zinc-300'>
                                                 {s.autor_nombre}
                                             </span>
                                             <span>
                                                 {dayjs(s.fecha_creacion).format('DD/MM/YY HH:mm')}
                                             </span>
                                         </div>
-                                        <p className='text-gray-700 dark:text-gray-200'>{s.contenido}</p>
+                                        <p className='text-zinc-700 dark:text-zinc-200'>{s.contenido}</p>
                                     </div>
                                 ))
                         ) : (
-                            <p className='text-sm text-gray-400'>Sin comentarios aun.</p>
+                            <p className='text-sm text-zinc-400'>Sin comentarios aun.</p>
                         )}
                     </div>
                     {/* Input nuevo comentario */}
@@ -365,7 +365,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                 </CardBody>
             </Card>
 
-            {/* Cotizaciones de la OT — solo lectura con firma de guias */}
+            {/* Cotizaciones de la OT "” solo lectura con firma de guias */}
             {orden.cotizaciones_detalle && orden.cotizaciones_detalle.length > 0 && (
                 <Card className='lg:col-span-2'>
                     <CardHeader>
@@ -395,12 +395,12 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                 return (
                                     <div
                                         key={cotizacion.id}
-                                        className='rounded-lg border border-gray-200 dark:border-gray-700'>
+                                        className='rounded-lg border border-zinc-200 dark:border-zinc-700'>
                                         {/* Cabecera de cotizacion */}
-                                        <div className='flex items-center justify-between gap-3 rounded-t-lg border-b border-gray-200 bg-blue-50 px-4 py-3 dark:border-gray-700 dark:bg-blue-900/20'>
+                                        <div className='flex items-center justify-between gap-3 rounded-t-lg border-b border-zinc-200 bg-blue-50 px-4 py-3 dark:border-zinc-700 dark:bg-blue-900/20'>
                                             <div className='min-w-0'>
                                                 <p className='truncate font-semibold text-blue-800 dark:text-blue-300'>
-                                                    #{cotizacion.numero_cotizacion} —{' '}
+                                                    #{cotizacion.numero_cotizacion} "”{' '}
                                                     {cotizacion.nombre}
                                                 </p>
                                                 <div className='mt-1 flex flex-wrap gap-1'>
@@ -413,12 +413,12 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                             </div>
                                         </div>
 
-                                        {/* Items — siempre visibles */}
+                                        {/* Items "” siempre visibles */}
                                         <div className='px-4 pt-3'>
                                             {cotizacion.items && cotizacion.items.length > 0 ? (
-                                                <div className='overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700'>
+                                                <div className='overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'>
                                                     <table className='w-full text-sm'>
-                                                        <thead className='bg-gray-100 text-xs font-semibold uppercase text-gray-500 dark:bg-gray-800 dark:text-gray-400'>
+                                                        <thead className='bg-gray-100 text-xs font-semibold uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'>
                                                             <tr>
                                                                 <th className='px-3 py-2 text-left'>
                                                                     Item
@@ -436,14 +436,14 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                                 <tr
                                                                     key={item.id}
                                                                     className='bg-white dark:bg-gray-900/30'>
-                                                                    <td className='px-3 py-2 text-gray-700 dark:text-gray-300'>
+                                                                    <td className='px-3 py-2 text-zinc-700 dark:text-zinc-300'>
                                                                         {item.nombre}
                                                                     </td>
-                                                                    <td className='px-3 py-2 text-xs text-gray-500 dark:text-gray-400'>
+                                                                    <td className='px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400'>
                                                                         {item.proveedor_empresa_nombre ??
-                                                                            '—'}
+                                                                            '"”'}
                                                                     </td>
-                                                                    <td className='px-3 py-2 text-right text-gray-600 dark:text-gray-400'>
+                                                                    <td className='px-3 py-2 text-right text-zinc-600 dark:text-zinc-400'>
                                                                         {item.cantidad}
                                                                     </td>
                                                                 </tr>
@@ -452,7 +452,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                     </table>
                                                 </div>
                                             ) : (
-                                                <p className='text-sm text-gray-400'>
+                                                <p className='text-sm text-zinc-400'>
                                                     Sin items registrados.
                                                 </p>
                                             )}
@@ -460,7 +460,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
 
                                         {/* Resumen guias + toggle */}
                                         <div className='flex items-center justify-between px-4 py-3'>
-                                            <span className='text-sm text-gray-500'>
+                                            <span className='text-sm text-zinc-500'>
                                                 {guiasDeEstaCot.length > 0 ? (
                                                     <span className='font-medium text-emerald-600 dark:text-emerald-400'>
                                                         {guiasDeEstaCot.length} guia(s) de salida
@@ -487,7 +487,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
 
                                         {/* Detalle colapsable */}
                                         {isExpanded && (
-                                            <div className='space-y-4 border-t border-gray-200 px-4 pb-4 pt-3 dark:border-gray-700'>
+                                            <div className='space-y-4 border-t border-zinc-200 px-4 pb-4 pt-3 dark:border-zinc-700'>
                                                 {/* Alerta equipos */}
                                                 {cotizacion.tiene_equipos && (
                                                     <div className='flex items-start gap-2 rounded-lg border border-violet-300 bg-violet-50 p-3 text-sm text-violet-800 dark:border-violet-700 dark:bg-violet-900/20 dark:text-violet-300'>
@@ -501,11 +501,11 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
 
                                                 {/* Guias de salida */}
                                                 <div>
-                                                    <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                                                    <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
                                                         Guias de Salida
                                                     </p>
                                                     {guiasDeEstaCot.length === 0 ? (
-                                                        <p className='text-sm text-gray-400'>
+                                                        <p className='text-sm text-zinc-400'>
                                                             Sin guias de salida para esta
                                                             cotizacion.
                                                         </p>
@@ -514,7 +514,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                             {guiasDeEstaCot.map((g) => (
                                                                 <div
                                                                     key={g.id}
-                                                                    className='flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50'>
+                                                                    className='flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
                                                                     <div>
                                                                         <p className='text-sm font-medium'>
                                                                             Guia #{g.id}{' '}
@@ -528,7 +528,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                                                 {g.estado_label}
                                                                             </Badge>
                                                                         </p>
-                                                                        <p className='text-xs text-gray-500'>
+                                                                        <p className='text-xs text-zinc-500'>
                                                                             {g.descripcion_items}
                                                                         </p>
                                                                     </div>
@@ -590,3 +590,4 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
 };
 
 export default PanelEjecucion;
+

@@ -57,7 +57,7 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
         <Card>
             <CardHeader>
                 <CardHeaderChild>
-                    <span className='font-semibold text-gray-700 dark:text-gray-200'>
+                    <span className='font-semibold text-zinc-700 dark:text-zinc-200'>
                         Retroalimentacion del Cliente
                     </span>
                 </CardHeaderChild>
@@ -76,11 +76,11 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
                 </div>
 
                 {solicitante && (
-                    <div className='text-sm text-gray-600 dark:text-gray-400'>
+                    <div className='text-sm text-zinc-600 dark:text-zinc-400'>
                         <span className='font-medium'>Enviado a:</span>{' '}
                         {solicitante.nombre}
                         {solicitante.email && (
-                            <span className='ml-1 text-gray-400'>({solicitante.email})</span>
+                            <span className='ml-1 text-zinc-400'>({solicitante.email})</span>
                         )}
                     </div>
                 )}
@@ -104,11 +104,11 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
                         </Button>
                     )}
                     <Button
-                        color='red'
+                        color='amber'
                         icon='HeroArrowRightOnRectangle'
                         isLoading={isLoadingOmitir}
                         onClick={handleOmitirRetroalimentacion}>
-                        Omitir retroalimentación
+                        Avanzar sin evaluación
                     </Button>
                 </div>
             </CardBody>
