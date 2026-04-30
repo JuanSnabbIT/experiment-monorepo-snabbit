@@ -221,6 +221,13 @@ def create_groups():
         ("representante_legal", "Representante legal de empresa"),
         ("contabilidad", "Recibe notificaciones de prefacturas listas para facturar"),
         ("comprador", "Recibe notificaciones de stock bajo el mínimo"),
+        # Lote SEB-275..301: nuevos roles para destinatarios de notificaciones FCM
+        ("ventas", "Recibe notificaciones de cotizaciones (aprobada, rechazada, por vencer)"),
+        ("operaciones", "Recibe notificaciones de OT y rendiciones para revisión operativa"),
+        ("finanzas", "Recibe notificaciones de rendiciones, contratos y facturación"),
+        ("rrhh", "Recibe notificaciones de solicitudes de vacaciones"),
+        ("contratos", "Recibe notificaciones de firma/rechazo y activación de contratos"),
+        ("bodega", "Recibe notificaciones de hitos en guías de salida"),
     ]
 
     grupos = {}
