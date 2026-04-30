@@ -39,7 +39,13 @@ class NotificacionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_tipo_label(self, obj: Notificacion) -> str:
-        return TipoEventoNotificacion(obj.tipo).label if obj.tipo else ""
+        if not obj.tipo:
+            return ""
+
+        try:
+            return TipoEventoNotificacion(obj.tipo).label
+        except ValueError:
+            return str(obj.tipo)
 
 
 class ConfiguracionNotificacionEmpresaSerializer(serializers.ModelSerializer):
@@ -50,4 +56,10 @@ class ConfiguracionNotificacionEmpresaSerializer(serializers.ModelSerializer):
         fields = ["id", "empresa", "tipo", "tipo_label", "activo"]
 
     def get_tipo_label(self, obj: ConfiguracionNotificacionEmpresa) -> str:
-        return TipoEventoNotificacion(obj.tipo).label if obj.tipo else ""
+        if not obj.tipo:
+            return ""
+
+        try:
+            return TipoEventoNotificacion(obj.tipo).label
+        except ValueError:
+            return str(obj.tipo)

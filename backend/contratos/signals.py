@@ -147,3 +147,13 @@ def generar_primera_prefactura_al_activar(sender, instance, created, **kwargs):
         moneda=instance.moneda_cobro,
         comentario=f"Prefactura automática — primer período {periodo_inicio.strftime('%m/%Y')}",
     )
+
+    # Hook FCM N18: contrato activado y primera prefactura generada (silencioso)
+    try:
+        from notificaciones.services import notificar_contrato_activado
+        notificar_contrato_activado(instance)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Hook FCM N18 (contrato activado) fallo (silencioso)."
+        )

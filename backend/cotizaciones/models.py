@@ -89,6 +89,11 @@ class Cotizacion(ModeloBase):
         verbose_name="Fecha de facturación congelada",
         help_text="Indica si la fecha de facturación ya fue sincronizada desde una prefactura",
     )
+    alerta_vencimiento_fcm_enviada = models.BooleanField(
+        default=False,
+        verbose_name="Alerta FCM de vencimiento enviada",
+        help_text="Anti-flood: marca si ya se envio la notificacion push de proximidad a vencer.",
+    )
     copia_de = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,

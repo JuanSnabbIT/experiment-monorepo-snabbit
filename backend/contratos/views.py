@@ -3063,6 +3063,17 @@ def firmar_envio(request, uuid):
     if envio.usuario.contrato.estado == 'en_firma':
         envio.usuario.contrato.estado = 'activo'
         envio.usuario.contrato.save(update_fields=['estado', 'fecha_modificacion'])
+        # Hook FCM N17: contrato firmado (silencioso). N18 lo maneja la signal.
+        try:
+            from notificaciones.services import notificar_contrato_resolucion_cliente
+            notificar_contrato_resolucion_cliente(
+                envio.usuario.contrato, accion="firmado"
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N17 (contrato firmado view) fallo (silencioso)."
+            )
 
     # Responder con los campos actualizados
     return JsonResponse({

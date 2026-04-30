@@ -165,6 +165,18 @@ class PublicAprobarContratoView(APIView):
         envio.contrato.estado = "aprobado_cliente"
         envio.contrato.save(update_fields=["estado", "fecha_modificacion"])
 
+        # Hook FCM N17: aprobacion del cliente (silencioso)
+        try:
+            from notificaciones.services import notificar_contrato_resolucion_cliente
+            notificar_contrato_resolucion_cliente(
+                envio.contrato, accion="aprobado"
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N17 (contrato aprobado) fallo (silencioso)."
+            )
+
         return Response(
             {"detail": "Contrato aprobado exitosamente.", "contrato_id": envio.contrato_id},
             status=status.HTTP_200_OK,
@@ -226,6 +238,18 @@ class PublicRechazarContratoView(APIView):
         envio.contrato.estado = "cambios_solicitados"
         envio.contrato.save(update_fields=["estado", "fecha_modificacion"])
 
+        # Hook FCM N17: rechazo con cambios solicitados (silencioso)
+        try:
+            from notificaciones.services import notificar_contrato_resolucion_cliente
+            notificar_contrato_resolucion_cliente(
+                envio.contrato, accion="con cambios solicitados"
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N17 (contrato cambios) fallo (silencioso)."
+            )
+
         return Response(
             {"detail": "Contrato rechazado. Se registraron los cambios solicitados."},
             status=status.HTTP_200_OK,
@@ -286,6 +310,18 @@ class PublicRechazarDefinitivoContratoView(APIView):
 
         envio.contrato.estado = "rechazado_cliente"
         envio.contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        # Hook FCM N17: rechazo definitivo (silencioso)
+        try:
+            from notificaciones.services import notificar_contrato_resolucion_cliente
+            notificar_contrato_resolucion_cliente(
+                envio.contrato, accion="rechazado definitivamente"
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N17 (contrato rechazado definitivo) fallo (silencioso)."
+            )
 
         return Response(
             {"detail": "Contrato rechazado definitivamente y cerrado."},
@@ -430,6 +466,18 @@ class PublicFirmarContratoView(APIView):
         contrato = envio.usuario.contrato
         contrato.estado = "activo"
         contrato.save(update_fields=["estado", "fecha_modificacion"])
+
+        # Hook FCM N17 + N18: contrato firmado y activado (silencioso). Se delega N18
+        # a la signal post_save (generar_primera_prefactura_al_activar) para evitar duplicados;
+        # aqui solo emitimos el evento de firma (resolucion cliente).
+        try:
+            from notificaciones.services import notificar_contrato_resolucion_cliente
+            notificar_contrato_resolucion_cliente(contrato, accion="firmado")
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N17 (contrato firmado) fallo (silencioso)."
+            )
 
         return Response(
             {

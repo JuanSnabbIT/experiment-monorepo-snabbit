@@ -14,6 +14,30 @@ class AsistenciaUsuarioViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(visita_id=self.kwargs.get('visita_soporte_pk'))
 
+    def perform_create(self, serializer):
+        asistencia = serializer.save()
+        # Hook FCM N14: visita asignada al tecnico (silencioso)
+        try:
+            usuario_equipo = getattr(asistencia, "usuario_equipo", None)
+            tecnico_user_id = (
+                getattr(getattr(usuario_equipo, "usuario", None), "usuario_id", None)
+                if usuario_equipo
+                else None
+            )
+            visita = getattr(asistencia, "visita", None)
+            if tecnico_user_id and visita:
+                from notificaciones.services import notificar_visita_asignada
+                notificar_visita_asignada(
+                    visita,
+                    tecnico_user_id=tecnico_user_id,
+                    usuario_actor=self.request.user,
+                )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N14 (visita asignada) fallo (silencioso)."
+            )
+
 class VisitaSoporteViewSet(viewsets.ModelViewSet):
     queryset = VisitaSoporte.objects.all()
     serializer_class = VisitaSoporteSerializer

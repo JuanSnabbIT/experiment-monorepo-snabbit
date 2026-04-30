@@ -339,6 +339,16 @@ class PublicAprobarCotizacionView(APIView):
                 tipo="aprobacion",
             )
 
+            # Hook FCM N2: cotización aprobada vía link público (silencioso)
+            try:
+                from notificaciones.services import notificar_cotizacion_aprobada
+                notificar_cotizacion_aprobada(cotizacion, usuario_actor=None)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N2 (cotizacion aprobada publica) fallo (silencioso)."
+                )
+
         # 8. Notificar al emisor (async)
         from .tasks import notificar_respuesta_cotizacion
 
@@ -468,6 +478,16 @@ class PublicRechazarCotizacionView(APIView):
             # Cambiar estado cotización
             cotizacion.estado = "rechazada"
             cotizacion.save(update_fields=["estado"])
+
+            # Hook FCM N3: cotización rechazada vía link público (silencioso)
+            try:
+                from notificaciones.services import notificar_cotizacion_rechazada
+                notificar_cotizacion_rechazada(cotizacion, usuario_actor=None)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N3 (cotizacion rechazada publica) fallo (silencioso)."
+                )
 
             # Crear seguimiento
             comentario = f"Cotización rechazada vía email por {solicitante.get_nombre()} ({solicitante.get_email()})."

@@ -22,6 +22,40 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
             return SolicitudVacaciones.objects.none()
         return SolicitudVacaciones.objects.filter(usuario_empresa__sucursal=sucursal)
 
+    def perform_create(self, serializer):
+        solicitud = serializer.save()
+        # Hook FCM N12: solicitud de vacaciones creada (silencioso)
+        try:
+            from notificaciones.services import notificar_vacaciones_solicitud_creada
+            notificar_vacaciones_solicitud_creada(
+                solicitud, usuario_actor=self.request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N12 (vacaciones creada) fallo (silencioso)."
+            )
+
+    def perform_update(self, serializer):
+        estado_anterior = None
+        if serializer.instance and serializer.instance.pk:
+            estado_anterior = SolicitudVacaciones.objects.filter(
+                pk=serializer.instance.pk
+            ).values_list("estado", flat=True).first()
+        solicitud = serializer.save()
+        # Hook FCM N13: resolución de solicitud (aprobada/rechazada) (silencioso)
+        if estado_anterior == "1" and solicitud.estado in ("2", "3"):
+            try:
+                from notificaciones.services import notificar_vacaciones_resolucion
+                notificar_vacaciones_resolucion(
+                    solicitud, usuario_actor=self.request.user
+                )
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N13 (vacaciones resolucion) fallo (silencioso)."
+                )
+
     @action(detail=False, methods=['get'], url_path='mis-solicitudes')
     def mis_solicitudes(self, request):
         user = request.user

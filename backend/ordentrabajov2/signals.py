@@ -69,15 +69,22 @@ def crear_registros_iniciales_y_cierre(sender, instance, created, **kwargs):
 # ── Tracking: estado anterior de la OT para detectar transiciones ──
 @receiver(pre_save, sender=OrdenDeTrabajo)
 def capturar_estado_anterior_ot(sender, instance, **kwargs):
-    """Guarda el estado anterior para el post_save de conteo de visitas."""
+    """Guarda el estado y técnico anteriores para hooks post_save."""
     if instance.pk:
-        instance._estado_anterior = (
+        previo = (
             OrdenDeTrabajo.objects.filter(pk=instance.pk)
-            .values_list("estado", flat=True)
+            .values("estado", "tecnico_responsable_ot_id")
             .first()
         )
+        if previo:
+            instance._estado_anterior = previo["estado"]
+            instance._tecnico_responsable_anterior_id = previo["tecnico_responsable_ot_id"]
+        else:
+            instance._estado_anterior = None
+            instance._tecnico_responsable_anterior_id = None
     else:
         instance._estado_anterior = None
+        instance._tecnico_responsable_anterior_id = None
 
 
 # ── Conteo de visitas usadas al completar OT ──
@@ -120,3 +127,53 @@ def actualizar_visitas_usadas_contrato(sender, instance, created, **kwargs):
         for cv in visitas_contrato:
             cv.visitas_usadas = max(0, cv.visitas_usadas - n_presenciales)
             cv.save(update_fields=["visitas_usadas"])
+
+
+# ── Hooks de notificaciones FCM (lote SEB-275..301) ──
+@receiver(post_save, sender=OrdenDeTrabajo)
+def fcm_hook_ot_v2(sender, instance, created, **kwargs):
+    """Dispara N1 (asignación técnico), N10 (cambio de estado), N11 (facturada).
+
+    Falla silenciosamente para no romper el flujo de negocio.
+    """
+    import logging
+
+    logger_local = logging.getLogger(__name__)
+
+    estado_anterior = getattr(instance, "_estado_anterior", None)
+    tecnico_anterior_id = getattr(instance, "_tecnico_responsable_anterior_id", None)
+    tecnico_actual_id = instance.tecnico_responsable_ot_id
+
+    # N1: asignación / reasignación de técnico
+    try:
+        if tecnico_actual_id and tecnico_actual_id != tecnico_anterior_id:
+            from notificaciones.services import notificar_ot_asignada_tecnico
+
+            tecnico_user_id = (
+                instance.tecnico_responsable_ot.usuario_id
+                if instance.tecnico_responsable_ot
+                else None
+            )
+            if tecnico_user_id:
+                notificar_ot_asignada_tecnico(
+                    instance, tecnico_user_id, usuario_actor=None
+                )
+    except Exception:
+        logger_local.exception("Hook FCM N1 (OT v2 asignación) fallo (silencioso).")
+
+    # N10 / N11: cambios de estado
+    if not created and estado_anterior and estado_anterior != instance.estado:
+        try:
+            from notificaciones.services import (
+                notificar_ot_cambio_estado,
+                notificar_ot_cerrada_facturada,
+            )
+
+            notificar_ot_cambio_estado(
+                instance, estado_anterior, instance.estado, usuario_actor=None
+            )
+            if instance.estado == "facturada":
+                notificar_ot_cerrada_facturada(instance, usuario_actor=None)
+        except Exception:
+            logger_local.exception("Hook FCM N10/N11 (OT v2 estado) fallo (silencioso).")
+

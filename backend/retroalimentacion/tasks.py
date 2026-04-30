@@ -93,6 +93,15 @@ def verificar_retroalimentaciones_v3_pendientes():
                     ultimo.save(update_fields=["comentario"])
             except Exception:
                 pass
+            # Hook FCM N20: plazo de retroalimentacion vencido (silencioso)
+            try:
+                from notificaciones.services import notificar_retroalimentacion_plazo_vencido
+                notificar_retroalimentacion_plazo_vencido(retro)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N20 (retroalimentacion vencida) fallo (silencioso)."
+                )
             continue
 
         # Recordatorio: enviar si han pasado >= 24h desde el ultimo envio

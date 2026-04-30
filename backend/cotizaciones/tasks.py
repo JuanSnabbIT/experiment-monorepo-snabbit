@@ -592,6 +592,16 @@ def alertar_cotizaciones_por_vencer() -> str:
         if dias_transcurridos not in (2, 3, 6, 7):
             continue
 
+        # Hook FCM N4: cotización por vencer (silencioso, anti-flood vía flag)
+        if dias_transcurridos in (6, 7):
+            try:
+                from notificaciones.services import notificar_cotizacion_por_vencer
+                notificar_cotizacion_por_vencer(cotizacion)
+            except Exception:
+                logger.exception(
+                    "Hook FCM N4 (cotizacion por vencer) fallo (silencioso)."
+                )
+
         logo_b64 = get_logo_empresa_b64(cotizacion.empresa)
         empresa_nombre = cotizacion.empresa.nombre if cotizacion.empresa else "La empresa"
 

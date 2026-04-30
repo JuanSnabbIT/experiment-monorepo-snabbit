@@ -55,7 +55,19 @@ class RendicionViewSet(viewsets.ModelViewSet):
         """
         cliente = serializer.validated_data.get("cliente")
 
-        serializer.save()
+        rendicion = serializer.save()
+
+        # Hook FCM N5: rendición pendiente de aprobación (silencioso)
+        try:
+            from notificaciones.services import notificar_rendicion_pendiente_aprobacion
+            notificar_rendicion_pendiente_aprobacion(
+                rendicion, usuario_actor=self.request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N5 (rendicion pendiente) fallo (silencioso)."
+            )
 
     @action(detail=False, methods=["get"], url_path="mis-rendiciones")
     def mis_rendiciones(self, request):
@@ -519,8 +531,17 @@ class RendicionViewSet(viewsets.ModelViewSet):
         # Actualizar estado de compras asociadas a la rendición
         self._actualizar_estado_compras(rendicion, "C")
         
-        # TODO: Enviar notificación al usuario que creó la rendición
-        # notify_user(rendicion.usuario.usuario, f"Tu rendición ha sido rechazada: {motivo}")
+        # Hook FCM N6: rendición rechazada (silencioso)
+        try:
+            from notificaciones.services import notificar_rendicion_actualizada
+            notificar_rendicion_actualizada(
+                rendicion, accion="rechazada", usuario_actor=request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N6 (rendicion rechazada) fallo (silencioso)."
+            )
         
         serializer = self.get_serializer(rendicion)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -552,8 +573,17 @@ class RendicionViewSet(viewsets.ModelViewSet):
         # Actualizar estado de compras asociadas a la rendición
         self._actualizar_estado_compras(rendicion, "R")
         
-        # TODO: Enviar notificación al usuario que creó la rendición
-        # notify_user(rendicion.usuario.usuario, "Tu rendición ha sido aprobada")
+        # Hook FCM N6: rendición aprobada (silencioso)
+        try:
+            from notificaciones.services import notificar_rendicion_actualizada
+            notificar_rendicion_actualizada(
+                rendicion, accion="aprobada", usuario_actor=request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N6 (rendicion aprobada) fallo (silencioso)."
+            )
         
         serializer = self.get_serializer(rendicion)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -602,9 +632,18 @@ class RendicionViewSet(viewsets.ModelViewSet):
         rendicion.fecha_revision = timezone.now()  # Registrar cuándo se pagó
         rendicion.save()
         
-        # TODO: Enviar notificación al usuario que creó la rendición
+        # Hook FCM N6: rendición pagada (silencioso)
+        try:
+            from notificaciones.services import notificar_rendicion_actualizada
+            notificar_rendicion_actualizada(
+                rendicion, accion="pagada", usuario_actor=request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N6 (rendicion pagada) fallo (silencioso)."
+            )
         # TODO: Registrar el pago en el sistema de contabilidad si aplica
-        # notify_user(rendicion.usuario.usuario, "Tu rendición ha sido pagada")
         
         serializer = self.get_serializer(rendicion)
         return Response(serializer.data, status=status.HTTP_200_OK)

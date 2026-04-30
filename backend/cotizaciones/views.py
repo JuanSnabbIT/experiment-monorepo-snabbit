@@ -838,6 +838,16 @@ class CotizacionViewSet(viewsets.ModelViewSet):
             cotizacion.estado = "aceptada"
             cotizacion.save(update_fields=["estado"])
 
+        # Hook FCM N2: cotización aprobada (silencioso)
+        try:
+            from notificaciones.services import notificar_cotizacion_aprobada
+            notificar_cotizacion_aprobada(cotizacion, usuario_actor=request.user)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N2 (cotizacion aprobada) fallo (silencioso)."
+            )
+
         return Response(
             {"detail": "Cotización aprobada y items actualizados correctamente."},
             status=status.HTTP_200_OK,

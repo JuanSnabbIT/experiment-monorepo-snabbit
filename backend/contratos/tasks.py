@@ -135,6 +135,22 @@ def generar_facturas_mensuales():
         )
         facturas_creadas += 1
 
+        # Hook FCM N19: factura mensual generada (silencioso)
+        try:
+            from notificaciones.services import notificar_contrato_factura_generada
+            ultima_factura = FacturaContrato.objects.filter(
+                contrato=contrato,
+                periodo_inicio=periodo_inicio,
+                periodo_fin=periodo_fin,
+            ).order_by("-id").first()
+            if ultima_factura:
+                notificar_contrato_factura_generada(ultima_factura)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N19 (contrato factura generada) fallo (silencioso)."
+            )
+
     return f"Se generaron {facturas_creadas} prefacturas automáticas."
 
 
