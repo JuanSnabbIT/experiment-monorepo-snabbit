@@ -896,6 +896,17 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         orden.estado = estado
         orden.save()
 
+        # Hook FCM N8: OC mercadería recibida (silencioso). Solo si quedó completada.
+        if estado in ("5", "7"):
+            try:
+                from notificaciones.services import notificar_oc_mercaderia_recibida
+                notificar_oc_mercaderia_recibida(orden, usuario_actor=request.user)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N8 (OC recepcionada) fallo (silencioso)."
+                )
+
         return Response(
             {"message": "Orden completada con éxito", "estado": estado},
             status=status.HTTP_200_OK,
@@ -953,6 +964,16 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
                 items_data=items_data,
                 usuario=usuario_empresa,
             )
+            # Hook FCM N8: OC mercadería recibida (silencioso)
+            if estado in ("5", "7"):
+                try:
+                    from notificaciones.services import notificar_oc_mercaderia_recibida
+                    notificar_oc_mercaderia_recibida(orden, usuario_actor=request.user)
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception(
+                        "Hook FCM N8 (OC recepcionada via guia) fallo (silencioso)."
+                    )
             return Response(resultado, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"detail": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -1434,6 +1455,17 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
         orden.estado = "5"
         orden._change_reason = "Recepcionado como consumo directo"
         orden.save(update_fields=["estado"])
+
+        # Hook FCM N8: OC mercadería recibida (consumo directo, silencioso)
+        try:
+            from notificaciones.services import notificar_oc_mercaderia_recibida
+            notificar_oc_mercaderia_recibida(orden, usuario_actor=request.user)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N8 (OC consumo directo) fallo (silencioso)."
+            )
+
         return Response(
             {
                 "id": orden.id,
@@ -2013,17 +2045,6 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
         usuario = obtener_usuario_empresa(self.request.user)
         serializer.save(creado_por=usuario)
 
-        # TEST — Hook E2 (guia_requiere_firma) deshabilitado temporalmente.
-        # Las reglas de negocio exactas (destinatarios, condiciones, frecuencia)
-        # aun no estan definidas. Descomentar cuando se confirmen.
-        # try:
-        #     from notificaciones.services import notificar_guia_requiere_firma
-        #     notificar_guia_requiere_firma(serializer.instance, usuario_actor=self.request.user)
-        # except Exception:
-        #     import logging
-        #     logging.getLogger(__name__).exception(
-        #         "Hook FCM guia_requiere_firma fallo (silencioso)."
-        #     )
 
     def update(self, request, *args, **kwargs):
         """
@@ -2182,6 +2203,18 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                         )
                     guia_salida.recibido_por = user_recibido
                 guia_salida.save()
+
+            # Hook FCM N23: guía aprobada/firmada (silencioso)
+            try:
+                from notificaciones.services import notificar_guia_salida_hito
+                notificar_guia_salida_hito(
+                    guia_salida, hito="aprobada", usuario_actor=request.user
+                )
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N23 (guia aprobada) fallo (silencioso)."
+                )
 
             serializer = self.get_serializer(guia_salida)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -2422,6 +2455,18 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                     guia.estado = "PR"
                 guia.save()
 
+            # Hook FCM N23: guía devuelta a bodega (silencioso)
+            try:
+                from notificaciones.services import notificar_guia_salida_hito
+                notificar_guia_salida_hito(
+                    guia, hito="devuelta", usuario_actor=request.user
+                )
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Hook FCM N23 (guia devuelta) fallo (silencioso)."
+                )
+
             serializer = GuiaSalidaSerializer(guia, context={"request": request})
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -2533,6 +2578,18 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
                 guia_salida.estado = "PR"
 
             guia_salida.save(update_fields=["firma_entrega", "fecha_firma_entrega", "entregado_a", "estado"])
+
+        # Hook FCM N23: guía recepcionada por cliente (silencioso)
+        try:
+            from notificaciones.services import notificar_guia_salida_hito
+            notificar_guia_salida_hito(
+                guia_salida, hito="recepcionada", usuario_actor=request.user
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Hook FCM N23 (guia recepcionada) fallo (silencioso)."
+            )
 
         serializer = self.get_serializer(guia_salida)
         return Response(serializer.data, status=status.HTTP_200_OK)

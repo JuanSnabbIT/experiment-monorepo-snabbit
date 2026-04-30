@@ -23,9 +23,24 @@ class TipoEventoNotificacion(models.TextChoices):
     Mantener sincronizado con los hooks definidos en cada módulo del backend.
     """
 
-    PREFACTURA_POR_FACTURAR = "prefactura_por_facturar", "Prefactura lista para facturar"
-    GUIA_REQUIERE_FIRMA = "guia_requiere_firma", "Guía requiere firma del técnico"
-    STOCK_BAJO_MINIMO = "stock_bajo_minimo", "Stock por debajo del mínimo"
+    # Lote 2 (epic SEB-201, batch SEB-275..301)
+    OT_ASIGNADA_TECNICO = "ot_asignada_tecnico", "OT asignada a técnico"
+    OT_CAMBIO_ESTADO = "ot_cambio_estado", "OT cambió de estado"
+    OT_CERRADA_FACTURADA = "ot_cerrada_facturada", "OT cerrada o facturada"
+    COTIZACION_APROBADA = "cotizacion_aprobada", "Cotización aprobada por cliente"
+    COTIZACION_RECHAZADA = "cotizacion_rechazada", "Cotización rechazada por cliente"
+    COTIZACION_POR_VENCER = "cotizacion_por_vencer", "Cotización próxima a vencer"
+    RENDICION_PENDIENTE_APROBACION = "rendicion_pendiente_aprobacion", "Rendición pendiente de aprobación"
+    RENDICION_ACTUALIZADA = "rendicion_actualizada", "Rendición aprobada, rechazada o pagada"
+    OC_MERCADERIA_RECIBIDA = "oc_mercaderia_recibida", "Orden de compra recepcionada"
+    GUIA_SALIDA_HITO = "guia_salida_hito", "Guía de salida: hito alcanzado"
+    VACACIONES_SOLICITUD_CREADA = "vacaciones_solicitud_creada", "Solicitud de vacaciones creada"
+    VACACIONES_RESOLUCION = "vacaciones_resolucion", "Vacaciones aprobadas o rechazadas"
+    VISITA_ASIGNADA = "visita_asignada", "Visita programada o reasignada"
+    CONTRATO_RESOLUCION_CLIENTE = "contrato_resolucion_cliente", "Contrato firmado o rechazado por cliente"
+    CONTRATO_ACTIVADO = "contrato_activado", "Contrato activado (primera prefactura generada)"
+    CONTRATO_FACTURA_GENERADA = "contrato_factura_generada", "Factura mensual de contrato generada"
+    RETROALIMENTACION_PLAZO_VENCIDO = "retroalimentacion_plazo_vencido", "Plazo de retroalimentación vencido"
 
 
 class FCMToken(ModeloBase):

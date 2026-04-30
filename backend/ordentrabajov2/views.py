@@ -2560,18 +2560,6 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
 
         self._lock_cotizaciones_fecha_prefactura(prefactura)
 
-        # TEST — Hook E1 (prefactura_por_facturar) deshabilitado temporalmente.
-        # Las reglas de negocio exactas (destinatarios, condiciones, frecuencia)
-        # aun no estan definidas. Descomentar cuando se confirmen.
-        # try:
-        #     from notificaciones.services import notificar_prefactura_por_facturar
-        #     notificar_prefactura_por_facturar(prefactura, usuario_actor=request.user)
-        # except Exception:
-        #     import logging
-        #     logging.getLogger(__name__).exception(
-        #         "Hook FCM prefactura_por_facturar fallo (silencioso)."
-        #     )
-
         serializer = self.get_serializer(prefactura)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
