@@ -8,10 +8,15 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("contratos", "0028_contratoempresacliente_requiere_nda_and_more"),
-        ("empresas", "0003_alter_relacionempresa_tipo_relacion"),
+        ('empresas', '0002_data_asignar_grupo_trabajador'),
     ]
 
     operations = [
+        # Vacio: este contenido fue absorbido por 0001_initial durante el squash.
+        # Ver _legacy_operations para el contenido original.
+    ]
+
+    _legacy_operations = [
         migrations.AddField(
             model_name="licencia",
             name="activo",

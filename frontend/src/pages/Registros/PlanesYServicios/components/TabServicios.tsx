@@ -32,12 +32,21 @@ import TabCaracteristicas from './TabCaracteristicas';
 
 const columnHelper = createColumnHelper<IServicio>();
 
-const formatMoney = (value?: string | number | null, suffix = '') => {
+const formatMoney = (
+    value?: string | number | null,
+    currency: 'CLP' | 'USD' | 'UF' = 'CLP',
+) => {
     const numeric = Number(value || 0);
-    return `${new Intl.NumberFormat('es-CL', {
-        minimumFractionDigits: suffix === 'UF' ? 2 : 0,
-        maximumFractionDigits: suffix === 'UF' ? 2 : 0,
-    }).format(numeric)}${suffix ? ` ${suffix}` : ''}`;
+    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
+    const formatted = new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }).format(numeric);
+
+    if (currency === 'CLP') {
+        return `$${formatted}`;
+    }
+    return `${formatted} ${currency}`;
 };
 
 const truncateText = (value?: string | null, max = 120) => {
@@ -115,28 +124,14 @@ const TabServicios = () => {
         columnHelper.display({
             id: 'precio_base',
             cell: (info) => {
-                const { precio_clp, precio_uf, precio_usd } = info.row.original;
-                const clp = Number(precio_clp || 0);
-                const uf = Number(precio_uf || 0);
-                const usd = Number(precio_usd || 0);
-                // Mostrar solo la moneda principal (la que tiene valor)
-                if (uf > 0)
-                    return (
-                        <span className='font-medium'>{formatMoney(precio_uf, 'UF')}</span>
-                    );
-                if (usd > 0)
-                    return (
-                        <span className='font-medium'>
-                            {formatMoney(precio_usd, 'USD')}
-                        </span>
-                    );
-                if (clp > 0)
-                    return (
-                        <span className='font-medium'>
-                            ${formatMoney(precio_clp)}
-                        </span>
-                    );
-                return <span className='text-zinc-400'>Sin precio</span>;
+                const { precio, tipo_moneda } = info.row.original;
+                const amount = Number(precio || 0);
+                if (amount <= 0) return <span className='text-zinc-400'>Sin precio</span>;
+                if (tipo_moneda === 'UF')
+                    return <span className='font-medium'>{formatMoney(precio, 'UF')}</span>;
+                if (tipo_moneda === 'USD')
+                    return <span className='font-medium'>{formatMoney(precio, 'USD')}</span>;
+                return <span className='font-medium'>${formatMoney(precio)}</span>;
             },
             header: 'Precio',
             size: 140,

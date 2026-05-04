@@ -436,9 +436,8 @@ export interface IPlanServicio {
     version?: number;
     activo?: boolean;
     es_vigente?: boolean;
-    precio_clp?: string;
-    precio_uf?: string;
-    precio_usd?: string;
+    precio?: string;
+    tipo_moneda?: string;
     veces_por_mes_default?: number;
     num_visitas_mensuales?: number | null;
     formas_pago_permitidas?: string[];
@@ -446,9 +445,8 @@ export interface IPlanServicio {
     requiere_nueva_version?: boolean;
     alcance_heredado?: IPlanAlcanceItem[];
     alcance_conflictos?: IPlanAlcanceConflicto[];
-    precio_sugerido_clp?: number;
-    precio_sugerido_uf?: number;
-    precio_sugerido_usd?: number;
+    precio_sugerido?: number | null;
+    tipo_moneda_sugerido?: string | null;
     incluye?: string | null;
     no_incluye?: string | null;
     clausulas_especiales?: string | null;
@@ -468,9 +466,8 @@ export interface IServicio {
     version?: number;
     activo?: boolean;
     es_vigente?: boolean;
-    precio_clp?: string;
-    precio_uf?: string;
-    precio_usd?: string;
+    precio?: string;
+    tipo_moneda?: string;
     veces_por_mes_default?: number;
     formas_pago_permitidas?: string[];
     bloqueado_por_uso?: boolean;

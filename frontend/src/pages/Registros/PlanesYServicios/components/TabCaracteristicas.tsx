@@ -108,6 +108,12 @@ const TabCaracteristicas = () => {
         onSortingChange: setSorting,
         enableGlobalFilter: true,
         onGlobalFilterChange: setGlobalFilter,
+        initialState: {
+            pagination: {
+                pageSize: 5,
+                pageIndex: 0,
+            },
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),

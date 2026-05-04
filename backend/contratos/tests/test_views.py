@@ -1202,9 +1202,8 @@ class CatalogoServiciosAPITest(ContratoAPITestBase):
             {
                 "nombre": "Soporte Gestionado",
                 "categoria": "soporte",
-                "precio_clp": "10000",
-                "precio_uf": "0.30",
-                "precio_usd": "15",
+                "precio": "10000",
+                "tipo_moneda": "CLP",
                 "alcance_config": [
                     {
                         "caracteristica_id": caracteristica.id,
@@ -1230,9 +1229,8 @@ class CatalogoServiciosAPITest(ContratoAPITestBase):
             nombre="Mesa de ayuda",
             categoria="soporte",
             empresa_prestadora=self.empresa_prestadora,
-            precio_clp="25000",
-            precio_uf="0.70",
-            precio_usd="30",
+            precio="25000",
+            tipo_moneda="CLP",
         )
         ServicioCaracteristica.objects.create(
             servicio=servicio,
@@ -1250,12 +1248,44 @@ class CatalogoServiciosAPITest(ContratoAPITestBase):
         response = self.client.get(f"/api/planes-servicio/{plan.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["precio_sugerido_clp"], 25000.0)
+        self.assertEqual(response.data["precio_sugerido"], 25000.0)
+        self.assertEqual(response.data["tipo_moneda_sugerido"], "CLP")
         self.assertEqual(len(response.data["alcance_heredado"]), 1)
         self.assertEqual(
             response.data["alcance_heredado"][0]["caracteristica"]["nombre"],
             "Atencion remota",
         )
+
+    def test_actualizar_servicio_en_plan_genera_nueva_version(self):
+        servicio = Servicio.objects.create(
+            nombre="Servicio Base",
+            categoria="soporte",
+            empresa_prestadora=self.empresa_prestadora,
+            precio="20000",
+            tipo_moneda="CLP",
+        )
+        plan = PlanServicio.objects.create(
+            nombre="Plan Base",
+            empresa_prestadora=self.empresa_prestadora,
+        )
+        plan.servicios.add(servicio)
+
+        response = self.client.patch(
+            f"/api/servicios/{servicio.id}/",
+            {"nombre": "Servicio Actualizado", "precio": "25000"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["version"], 2)
+        self.assertEqual(response.data["nombre"], "Servicio Actualizado")
+        self.assertEqual(str(response.data["precio"]), "25000")
+
+        servicio.refresh_from_db()
+        self.assertFalse(servicio.es_vigente)
+        nueva_version = Servicio.objects.get(version=2, servicio_origen=servicio)
+        self.assertTrue(nueva_version.es_vigente)
+        self.assertEqual(nueva_version.nombre, "Servicio Actualizado")
 
 
 class ContratoTransicionEstadoTest(ContratoAPITestBase):
@@ -1994,7 +2024,8 @@ class ContratoPlanDetalleSnapshotTest(ContratoAPITestBase):
             descripcion="Soporte remoto y seguimiento operativo.",
             categoria="soporte",
             empresa_prestadora=self.empresa_prestadora,
-            precio_clp="45000",
+            precio="45000",
+            tipo_moneda="CLP",
             incluye="Mesa de ayuda remota",
             no_incluye="Hardware",
             clausulas_especiales="Atencion prioritaria en horario habil.",
@@ -2017,7 +2048,8 @@ class ContratoPlanDetalleSnapshotTest(ContratoAPITestBase):
             nombre="Plan Soporte Integral",
             descripcion="Cobertura principal para clientes con SLA extendido.",
             empresa_prestadora=self.empresa_prestadora,
-            precio_clp="45000",
+            precio="45000",
+            tipo_moneda="CLP",
             num_visitas_mensuales=2,
             incluye="Coordinacion operativa",
             no_incluye="Cambios de infraestructura mayor",

@@ -490,9 +490,13 @@ class Servicio(ModeloBase):
     )
     activo = models.BooleanField(default=True)
     es_vigente = models.BooleanField(default=True)
-    precio_clp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
-    precio_uf = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    precio_usd = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    precio = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    tipo_moneda = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        default="USD",
+        verbose_name="Moneda de precio",
+    )
     veces_por_mes_default = models.PositiveIntegerField(default=1)
     formas_pago_permitidas = models.JSONField(default=list, blank=True)
     incluye = models.TextField(blank=True, null=True, verbose_name="Incluye")
@@ -531,11 +535,19 @@ class Servicio(ModeloBase):
         )
 
     def get_precio_por_moneda(self, moneda):
-        return {
-            "CLP": self.precio_clp,
-            "UF": self.precio_uf,
-            "USD": self.precio_usd,
-        }.get(moneda, self.precio_usd)
+        return self.precio
+
+    @property
+    def precio_clp(self):
+        return self.precio if self.tipo_moneda == "CLP" else Decimal("0")
+
+    @property
+    def precio_uf(self):
+        return self.precio if self.tipo_moneda == "UF" else Decimal("0")
+
+    @property
+    def precio_usd(self):
+        return self.precio if self.tipo_moneda == "USD" else Decimal("0")
 
     def __str__(self):
         return self.nombre
@@ -722,9 +734,13 @@ class PlanServicio(ModeloBaseHistorico):
     )
     activo = models.BooleanField(default=True)
     es_vigente = models.BooleanField(default=True)
-    precio_clp = models.DecimalField(max_digits=14, decimal_places=2, default=0)
-    precio_uf = models.DecimalField(max_digits=14, decimal_places=4, default=0)
-    precio_usd = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    precio = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    tipo_moneda = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        default="USD",
+        verbose_name="Moneda de precio",
+    )
     veces_por_mes_default = models.PositiveIntegerField(default=1)
     num_visitas_mensuales = models.PositiveSmallIntegerField(
         null=True,
@@ -787,11 +803,19 @@ class PlanServicio(ModeloBaseHistorico):
         return "\n".join(bloques)
 
     def get_precio_por_moneda(self, moneda):
-        return {
-            "CLP": self.precio_clp,
-            "UF": self.precio_uf,
-            "USD": self.precio_usd,
-        }.get(moneda, self.precio_usd)
+        return self.precio
+
+    @property
+    def precio_clp(self):
+        return self.precio if self.tipo_moneda == "CLP" else Decimal("0")
+
+    @property
+    def precio_uf(self):
+        return self.precio if self.tipo_moneda == "UF" else Decimal("0")
+
+    @property
+    def precio_usd(self):
+        return self.precio if self.tipo_moneda == "USD" else Decimal("0")
 
     def __str__(self):
         return self.nombre
@@ -922,7 +946,12 @@ class ContratoItemComercial(ModeloBaseHistorico):
         choices=FORMAS_PAGO_COMERCIALES,
         default="mensual",
     )
-    moneda = models.CharField(max_length=3, choices=TIPO_MONEDA_LICENCIA, default="USD")
+    moneda = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        blank=True,
+        null=True,
+    )
     precio_unitario_contratado = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     total_mensual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     total_anual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
@@ -991,6 +1020,8 @@ class ContratoItemComercial(ModeloBaseHistorico):
                 self.snapshot_no_incluye = getattr(referencia, "no_incluye", None)
             if not self.snapshot_clausulas:
                 self.snapshot_clausulas = getattr(referencia, "clausulas_especiales", None)
+            if not self.moneda:
+                self.moneda = getattr(referencia, "tipo_moneda", None)
             if not self.precio_unitario_contratado:
                 self.precio_unitario_contratado = referencia.get_precio_por_moneda(self.moneda)
             if not self.veces_por_mes:
@@ -1066,9 +1097,9 @@ class ContratoServicio(ModeloBaseHistorico):
             "cantidad": self.cantidad,
             "veces_por_mes": getattr(referencia, "veces_por_mes_default", 1) or 1,
             "forma_pago": self.contrato.forma_pago_contractual,
-            "moneda": self.contrato.moneda_cobro,
+            "moneda": getattr(referencia, "tipo_moneda", self.contrato.moneda_cobro),
             "precio_unitario_contratado": self.precio_unitario
-            or referencia.get_precio_por_moneda(self.contrato.moneda_cobro),
+            or referencia.precio,
         }
         item = self.item_comercial
         if item is None:

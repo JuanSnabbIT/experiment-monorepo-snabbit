@@ -120,6 +120,9 @@ const VistaPreviaFirmaContrato = lazy(
 const PlanesYServicios = lazy(
     () => import('@/pages/Registros/PlanesYServicios'),
 );
+const DetallePlanServicio = lazy(
+    () => import('@/pages/Registros/PlanesYServicios/DetallePlanServicio'),
+);
 
 const RedirectCrearPrefacturaOTV3Legacy = () => {
     const { search } = useLocation();
@@ -364,6 +367,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.registros.subPages.listaPlanesYServicios.to,
         element: <PlanesYServicios />,
         authority: Pages.registros.subPages.listaPlanesYServicios.authority,
+    },
+    {
+        path: Pages.registros.subPages.detallePlanServicio.to,
+        element: <DetallePlanServicio />,
+        authority: Pages.registros.subPages.detallePlanServicio.authority,
     },
     {
         path: Pages.registros.subPages.listaPlantillasContrato.to,

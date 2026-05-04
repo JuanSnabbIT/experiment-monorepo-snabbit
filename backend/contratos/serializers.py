@@ -82,6 +82,8 @@ class ServicioSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
     )
+    precio = serializers.DecimalField(max_digits=14, decimal_places=4, required=False)
+    tipo_moneda = serializers.CharField(required=False)
     categoria_label = serializers.SerializerMethodField()
     bloqueado_por_uso = serializers.SerializerMethodField()
     requiere_nueva_version = serializers.SerializerMethodField()
@@ -220,13 +222,14 @@ class PlanServicioSerializer(serializers.ModelSerializer):
         many=True, queryset=Servicio.objects.all(),
         write_only=True, required=False, source='servicios',
     )
+    precio = serializers.DecimalField(max_digits=14, decimal_places=4, required=False)
+    tipo_moneda = serializers.CharField(required=False)
     bloqueado_por_uso = serializers.SerializerMethodField()
     requiere_nueva_version = serializers.SerializerMethodField()
     alcance_heredado = serializers.SerializerMethodField()
     alcance_conflictos = serializers.SerializerMethodField()
-    precio_sugerido_clp = serializers.SerializerMethodField()
-    precio_sugerido_uf = serializers.SerializerMethodField()
-    precio_sugerido_usd = serializers.SerializerMethodField()
+    precio_sugerido = serializers.SerializerMethodField()
+    tipo_moneda_sugerido = serializers.SerializerMethodField()
     incluye = serializers.SerializerMethodField()
     no_incluye = serializers.SerializerMethodField()
 
@@ -300,14 +303,23 @@ class PlanServicioSerializer(serializers.ModelSerializer):
         _heredado, conflictos = self._build_alcance_data(obj)
         return conflictos
 
-    def get_precio_sugerido_clp(self, obj):
-        return sum((detalle.servicio_version.precio_clp or 0) for detalle in obj.detalles_servicio.all())
+    def get_precio_sugerido(self, obj):
+        detalles = list(obj.detalles_servicio.select_related('servicio_version').all())
+        if not detalles:
+            return None
+        monedas = {d.servicio_version.tipo_moneda for d in detalles}
+        if len(monedas) != 1:
+            return None
+        return sum(d.servicio_version.precio or 0 for d in detalles)
 
-    def get_precio_sugerido_uf(self, obj):
-        return sum((detalle.servicio_version.precio_uf or 0) for detalle in obj.detalles_servicio.all())
-
-    def get_precio_sugerido_usd(self, obj):
-        return sum((detalle.servicio_version.precio_usd or 0) for detalle in obj.detalles_servicio.all())
+    def get_tipo_moneda_sugerido(self, obj):
+        detalles = list(obj.detalles_servicio.select_related('servicio_version').all())
+        if not detalles:
+            return None
+        monedas = {d.servicio_version.tipo_moneda for d in detalles}
+        if len(monedas) != 1:
+            return None
+        return monedas.pop()
 
     def get_incluye(self, obj):
         return obj.construir_texto_alcance(ServicioCaracteristica.MODO_INCLUYE) or obj.incluye

@@ -13,8 +13,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import { ICaracteristicaServicio, IPlanServicio, IServicio } from '@/interface/contrato.interface';
-import ScopeSummary from '@/pages/Contratos/components/ScopeSummary';
+import { IPlanServicio, IServicio } from '@/interface/contrato.interface';
 import {
     useCreatePlanServicioMutation,
     useGetServiciosQuery,
@@ -37,7 +36,7 @@ interface IFormularioPlan {
     nombre: string;
     descripcion: string;
     servicios_ids: number[];
-    moneda: string;
+    tipo_moneda: string;
     precio: string;
     num_visitas_mensuales: string;
     clausulas_especiales: string;
@@ -50,7 +49,7 @@ const validationSchema = Yup.object({
         .required('El nombre es requerido'),
     descripcion: Yup.string().max(1000, 'Maximo 1000 caracteres').nullable(),
     servicios_ids: Yup.array().of(Yup.number()).min(1, 'Debe incluir al menos un servicio'),
-    moneda: Yup.string().required(),
+    tipo_moneda: Yup.string().required(),
     precio: Yup.number().nullable().typeError('Debe ser un numero'),
     num_visitas_mensuales: Yup.number()
         .nullable()
@@ -61,10 +60,21 @@ const validationSchema = Yup.object({
 });
 
 const MONEDA_OPTIONS: TSelectOption[] = [
-    { value: 'clp', label: 'CLP' },
-    { value: 'uf', label: 'UF' },
-    { value: 'usd', label: 'USD' },
+    { value: 'CLP', label: 'CLP' },
+    { value: 'UF', label: 'UF' },
+    { value: 'USD', label: 'USD' },
 ];
+
+const formatPriceValue = (
+    value: number,
+    currency: 'CLP' | 'UF' | 'USD',
+) => {
+    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
+    return new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    }).format(value);
+};
 
 const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps) => {
     const isEditing = !!plan;
@@ -83,8 +93,8 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
             nombre: plan?.nombre || '',
             descripcion: plan?.descripcion || '',
             servicios_ids: plan?.servicios?.map((s) => s.id) || [],
-            moneda: plan?.precio_uf ? 'uf' : plan?.precio_usd ? 'usd' : 'clp',
-            precio: plan?.precio_uf || plan?.precio_usd || plan?.precio_clp || '',
+            tipo_moneda: plan?.tipo_moneda || 'CLP',
+            precio: plan?.precio || '',
             num_visitas_mensuales: plan?.num_visitas_mensuales != null ? String(plan.num_visitas_mensuales) : '',
             clausulas_especiales: plan?.clausulas_especiales || '',
         },
@@ -95,9 +105,8 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                     nombre: values.nombre,
                     descripcion: values.descripcion,
                     servicios_ids: values.servicios_ids,
-                    precio_clp: values.moneda === 'clp' ? values.precio || undefined : undefined,
-                    precio_uf: values.moneda === 'uf' ? values.precio || undefined : undefined,
-                    precio_usd: values.moneda === 'usd' ? values.precio || undefined : undefined,
+                    precio: values.precio || undefined,
+                    tipo_moneda: values.tipo_moneda,
                     num_visitas_mensuales:
                         values.num_visitas_mensuales !== ''
                             ? Number(values.num_visitas_mensuales)
@@ -133,15 +142,12 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
 
     // Precio sugerido = suma de precios base de servicios seleccionados
     const precioSugerido = useMemo(() => {
-        let clp = 0;
-        let uf = 0;
-        let usd = 0;
+        const totales: Record<string, number> = {};
         selectedServicios.forEach((s) => {
-            clp += Number(s.precio_clp || 0);
-            uf += Number(s.precio_uf || 0);
-            usd += Number(s.precio_usd || 0);
+            const mon = s.tipo_moneda || 'CLP';
+            totales[mon] = (totales[mon] || 0) + Number(s.precio || 0);
         });
-        return { clp, uf, usd };
+        return totales;
     }, [selectedServicios]);
 
     // Autocompletar precio al seleccionar servicios (solo en creacion, si esta vacio)
@@ -149,78 +155,14 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
         if (!isOpen || isEditing) return;
         const currentPrecio = Number(formik.values.precio || 0);
         if (currentPrecio === 0) {
-            const moneda = formik.values.moneda;
-            const sugerido =
-                moneda === 'uf'
-                    ? precioSugerido.uf
-                    : moneda === 'usd'
-                      ? precioSugerido.usd
-                      : precioSugerido.clp;
+            const sugerido = precioSugerido[formik.values.tipo_moneda] || 0;
             if (sugerido > 0) formik.setFieldValue('precio', String(sugerido));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formik.values.servicios_ids, isOpen]);
 
-    // Alcance heredado calculado desde servicios seleccionados
-    const alcancePreview = useMemo(() => {
-        const agrupados: Record<
-            number,
-            {
-                caracteristica: ICaracteristicaServicio;
-                incluye: string[];
-                no_incluye: string[];
-            }
-        > = {};
-        selectedServicios.forEach((s) => {
-            (s.alcance_caracteristicas || []).forEach((item) => {
-                const registro = agrupados[item.caracteristica.id] || {
-                    caracteristica: item.caracteristica,
-                    incluye: [],
-                    no_incluye: [],
-                };
-                registro[item.modo].push(s.nombre);
-                agrupados[item.caracteristica.id] = registro;
-            });
-        });
-
-        const heredado: Array<{
-            caracteristica: ICaracteristicaServicio;
-            modo: 'incluye' | 'no_incluye';
-            servicios: string[];
-        }> = [];
-        const conflictos: Array<{
-            caracteristica: ICaracteristicaServicio;
-            servicios_incluye: string[];
-            servicios_no_incluye: string[];
-        }> = [];
-
-        Object.values(agrupados).forEach((item) => {
-            if (item.incluye.length > 0 && item.no_incluye.length > 0) {
-                conflictos.push({
-                    caracteristica: item.caracteristica,
-                    servicios_incluye: item.incluye,
-                    servicios_no_incluye: item.no_incluye,
-                });
-            } else {
-                heredado.push({
-                    caracteristica: item.caracteristica,
-                    modo: item.incluye.length > 0 ? 'incluye' : 'no_incluye',
-                    servicios: item.incluye.length > 0 ? item.incluye : item.no_incluye,
-                });
-            }
-        });
-
-        return { heredado, conflictos };
-    }, [selectedServicios]);
-
     const handleApplyPrecioSugerido = () => {
-        const moneda = formik.values.moneda;
-        const val =
-            moneda === 'uf'
-                ? String(precioSugerido.uf)
-                : moneda === 'usd'
-                  ? String(precioSugerido.usd)
-                  : String(precioSugerido.clp);
+        const val = String(precioSugerido[formik.values.tipo_moneda] || 0);
         formik.setFieldValue('precio', val);
     };
 
@@ -232,22 +174,22 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
         if (!tc || amount <= 0) return null;
         const { uf, dolar } = tc;
         let clp: number;
-        if (formik.values.moneda === 'clp') clp = amount;
-        else if (formik.values.moneda === 'uf') clp = amount * uf;
+        if (formik.values.tipo_moneda === 'CLP') clp = amount;
+        else if (formik.values.tipo_moneda === 'UF') clp = amount * uf;
         else clp = amount * dolar;
-        const fmt = (v: number, decimals: number) =>
+        const fmt = (v: number, currency: 'CLP' | 'UF' | 'USD') =>
             new Intl.NumberFormat('es-CL', {
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals,
+                minimumFractionDigits: currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0,
+                maximumFractionDigits: currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0,
             }).format(v);
         return [
-            formik.values.moneda !== 'clp' ? `$${fmt(Math.round(clp), 0)} CLP` : null,
-            formik.values.moneda !== 'uf' ? `${fmt(clp / uf, 2)} UF` : null,
-            formik.values.moneda !== 'usd' ? `${fmt(clp / dolar, 2)} USD` : null,
+            formik.values.tipo_moneda !== 'CLP' ? `$${fmt(Math.round(clp), 'CLP')} CLP` : null,
+            formik.values.tipo_moneda !== 'UF' ? `${fmt(clp / uf, 'UF')} UF` : null,
+            formik.values.tipo_moneda !== 'USD' ? `${fmt(clp / dolar, 'USD')} USD` : null,
         ]
             .filter(Boolean)
             .join(' · ≈ ');
-    }, [formik.values.precio, formik.values.moneda, tc]);
+    }, [formik.values.precio, formik.values.tipo_moneda, tc]);
 
     return (
         <Modal isStaticBackdrop isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
@@ -347,16 +289,11 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                         </div>
                         {selectedServicios.length > 0 && (
                             <div className='mb-2 text-xs text-zinc-500'>
-                                Sugerido ({formik.values.moneda.toUpperCase()}):{' '}
-                                {formik.values.moneda === 'uf'
-                                    ? precioSugerido.uf.toLocaleString('es-CL', {
-                                          minimumFractionDigits: 2,
-                                      })
-                                    : formik.values.moneda === 'usd'
-                                      ? precioSugerido.usd.toLocaleString('es-CL', {
-                                            minimumFractionDigits: 2,
-                                        })
-                                      : precioSugerido.clp.toLocaleString('es-CL')}
+                                Sugerido ({formik.values.tipo_moneda}):{' '}
+                                {formatPriceValue(
+                                    precioSugerido[formik.values.tipo_moneda] || 0,
+                                    formik.values.tipo_moneda as 'CLP' | 'UF' | 'USD',
+                                )}
                             </div>
                         )}
                         <div className='flex gap-2'>
@@ -365,16 +302,16 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                                     options={MONEDA_OPTIONS}
                                     value={
                                         MONEDA_OPTIONS.find(
-                                            (o) => o.value === formik.values.moneda,
+                                            (o) => o.value === formik.values.tipo_moneda,
                                         ) ?? MONEDA_OPTIONS[0]
                                     }
                                     onChange={(opt) =>
                                         formik.setFieldValue(
-                                            'moneda',
+                                            'tipo_moneda',
                                             (opt as TSelectOption).value,
                                         )
                                     }
-                                    name='moneda'
+                                    name='tipo_moneda'
                                 />
                             </div>
                             <div className='flex-1'>
@@ -400,21 +337,6 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                             </div>
                         )}
                     </div>
-
-                    {/* Alcance heredado de servicios (read-only) */}
-                    {selectedServicios.length > 0 &&
-                        (alcancePreview.heredado.length > 0 ||
-                            alcancePreview.conflictos.length > 0) && (
-                            <div>
-                                <Label htmlFor='alcance_heredado'>Alcance heredado de servicios</Label>
-                                <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
-                                    <ScopeSummary
-                                        planItems={alcancePreview.heredado}
-                                        conflicts={alcancePreview.conflictos}
-                                    />
-                                </div>
-                            </div>
-                        )}
 
                     <div>
                         <Label htmlFor='clausulas_especiales'>Clausulas especiales</Label>

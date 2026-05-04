@@ -552,6 +552,13 @@ export const Pages = {
                 icon: 'HeroBriefcase',
                 authority: ['staff', 'superadmin'],
             },
+            detallePlanServicio: {
+                id: 'detallePlanServicio',
+                to: '/registros/planes-y-servicios/:planId',
+                text: 'Detalle Plan de Servicio',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
             listaPlantillasContrato: {
                 id: 'listaPlantillasContrato',
                 to: '/registros/plantillas-contrato',

@@ -103,7 +103,8 @@ class PrefacturaOTV3ApiTest(APITestCase):
             empresa_prestadora=self.empresa_prestadora,
             nombre="Plan Test OTV3",
             num_visitas_mensuales=plan_num_visitas_mensuales,
-            precio_clp=1000,
+            precio=1000,
+            tipo_moneda="CLP",
         )
         ContratoItemComercial.objects.create(
             contrato=contrato,

@@ -79,6 +79,16 @@
         @apply appearance-none rounded border-0 !important;
     }
 
+    input[type='date']::-webkit-calendar-picker-indicator {
+        filter: none;
+        opacity: 0.8;
+    }
+
+    html.dark input[type='date']::-webkit-calendar-picker-indicator {
+        filter: invert(1) brightness(1.25);
+        opacity: 0.95;
+    }
+
     code {
         @apply break-words font-mono text-pink-500;
     }

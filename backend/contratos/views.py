@@ -221,11 +221,11 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
     def _crear_item_comercial_desde_payload(self, contrato, item, orden=0, es_addon=False):
         tipo_origen, referencia = self._resolver_referencia_catalogo(contrato, item)
-        moneda = item.get("moneda") or contrato.moneda_cobro
+        moneda = item.get("moneda") or getattr(referencia, "tipo_moneda", contrato.moneda_cobro)
         precio_unitario = (
             item.get("precio_unitario_contratado")
             or item.get("precio_unitario")
-            or referencia.get_precio_por_moneda(moneda)
+            or referencia.precio
         )
         forma_pago = item.get("forma_pago") or contrato.forma_pago_contractual
         cantidad = item.get("cantidad") or 1
@@ -2444,6 +2444,7 @@ class ServicioViewSet(viewsets.ModelViewSet):
                 content_type=ContentType.objects.get_for_model(Servicio),
                 object_id=instance.pk,
             ).exists()
+            or PlanServicioDetalle.objects.filter(servicio_version=instance).exists()
         )
         if not usado_en_contrato:
             self.perform_update(serializer)
@@ -2468,9 +2469,8 @@ class ServicioViewSet(viewsets.ModelViewSet):
                 "incluye": instance.incluye,
                 "no_incluye": instance.no_incluye,
                 "clausulas_especiales": instance.clausulas_especiales,
-                "precio_clp": instance.precio_clp,
-                "precio_uf": instance.precio_uf,
-                "precio_usd": instance.precio_usd,
+                "precio": instance.precio,
+                "tipo_moneda": instance.tipo_moneda,
                 "veces_por_mes_default": instance.veces_por_mes_default,
                 "formas_pago_permitidas": instance.formas_pago_permitidas,
             }
@@ -2552,9 +2552,8 @@ class PlanServicioViewSet(viewsets.ModelViewSet):
                 "incluye": instance.incluye,
                 "no_incluye": instance.no_incluye,
                 "clausulas_especiales": instance.clausulas_especiales,
-                "precio_clp": instance.precio_clp,
-                "precio_uf": instance.precio_uf,
-                "precio_usd": instance.precio_usd,
+                "precio": instance.precio,
+                "tipo_moneda": instance.tipo_moneda,
                 "veces_por_mes_default": instance.veces_por_mes_default,
                 "formas_pago_permitidas": instance.formas_pago_permitidas,
             }

@@ -8,10 +8,15 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('contratos', '0015_contratoempresacliente_dias_aviso_termino_and_more'),
-        ('empresas', '0002_empresa_giro_empresa_nombre_fantasia_and_more'),
+        ('empresas', '0002_data_asignar_grupo_trabajador'),
     ]
 
     operations = [
+        # Vacio: este contenido fue absorbido por 0001_initial durante el squash.
+        # Ver _legacy_operations para el contenido original.
+    ]
+
+    _legacy_operations = [
         migrations.AlterUniqueTogether(
             name='etiquetaplantilla',
             unique_together=set(),

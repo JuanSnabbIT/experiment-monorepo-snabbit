@@ -1,0 +1,134 @@
+Traceback (most recent call last):
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\sqlite3\base.py", line 350, in execute
+    return super().execute(query)
+           ~~~~~~~~~~~~~~~^^^^^^^
+sqlite3.OperationalError: duplicate column name: dia_facturacion
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\proyectos\experiment-monorepo-snabbit\backend\manage.py", line 22, in <module>
+    main()
+    ~~~~^^
+  File "C:\proyectos\experiment-monorepo-snabbit\backend\manage.py", line 18, in main
+    execute_from_command_line(sys.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\commands\test.py", line 24, in run_from_argv
+    super().run_from_argv(argv)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\base.py", line 413, in run_from_argv
+    self.execute(*args, **cmd_options)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\base.py", line 459, in execute
+    output = self.handle(*args, **options)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\commands\test.py", line 63, in handle
+    failures = test_runner.run_tests(test_labels)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\test\runner.py", line 1066, in run_tests
+    old_config = self.setup_databases(
+        aliases=databases,
+        serialized_aliases=suite.serialized_aliases,
+    )
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\test\runner.py", line 964, in setup_databases
+    return _setup_databases(
+        self.verbosity,
+    ...<5 lines>...
+        **kwargs,
+    )
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\test\utils.py", line 206, in setup_databases
+    connection.creation.create_test_db(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        verbosity=verbosity,
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        serialize=serialize_alias,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\base\creation.py", line 78, in create_test_db
+    call_command(
+    ~~~~~~~~~~~~^
+        "migrate",
+        ^^^^^^^^^^
+    ...<3 lines>...
+        run_syncdb=True,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\__init__.py", line 194, in call_command
+    return command.execute(*args, **defaults)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\base.py", line 459, in execute
+    output = self.handle(*args, **options)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\base.py", line 107, in wrapper
+    res = handle_func(*args, **kwargs)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\core\management\commands\migrate.py", line 357, in handle
+    post_migrate_state = executor.migrate(
+        targets,
+    ...<3 lines>...
+        fake_initial=fake_initial,
+    )
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\migrations\executor.py", line 135, in migrate
+    state = self._migrate_all_forwards(
+        state, plan, full_plan, fake=fake, fake_initial=fake_initial
+    )
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\migrations\executor.py", line 167, in _migrate_all_forwards
+    state = self.apply_migration(
+        state, migration, fake=fake, fake_initial=fake_initial
+    )
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\migrations\executor.py", line 255, in apply_migration
+    state = migration.apply(state, schema_editor)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\migrations\migration.py", line 132, in apply
+    operation.database_forwards(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self.app_label, schema_editor, old_state, project_state
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\migrations\operations\fields.py", line 110, in database_forwards
+    schema_editor.add_field(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        from_model,
+        ^^^^^^^^^^^
+        field,
+        ^^^^^^
+    )
+    ^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\sqlite3\schema.py", line 318, in add_field
+    super().add_field(model, field)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\base\schema.py", line 768, in add_field
+    self.execute(sql, params or None)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\base\schema.py", line 202, in execute
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Users\soporte\.conda\envs\ENV\Lib\site-packages\django\db\backends\sqlite3\base.py", line 350, in execute
+    return super().execute(query)
+           ~~~~~~~~~~~~~~~^^^^^^^
+django.db.utils.OperationalError: duplicate column name: dia_facturacion

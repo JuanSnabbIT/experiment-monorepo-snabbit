@@ -98,9 +98,8 @@ interface IServicioCatalogoPayload {
         orden?: number;
     }>;
     caracteristicas_ids?: number[];
-    precio_clp?: number | string;
-    precio_uf?: number | string;
-    precio_usd?: number | string;
+    precio?: number | string;
+    tipo_moneda?: string;
     veces_por_mes_default?: number;
     clausulas_especiales?: string | null;
 }
@@ -109,9 +108,8 @@ interface IPlanServicioCatalogoPayload {
     nombre: string;
     descripcion?: string;
     servicios_ids?: number[];
-    precio_clp?: number | string;
-    precio_uf?: number | string;
-    precio_usd?: number | string;
+    precio?: number | string;
+    tipo_moneda?: string;
     veces_por_mes_default?: number;
     clausulas_especiales?: string | null;
 }
@@ -385,6 +383,11 @@ const contratoApi = RtkQueryService.injectEndpoints({
         getPlanesServicio: builder.query<IPlanServicio[], void>({
             query: () => ({ url: '/api/planes-servicio/', method: 'get' }),
             providesTags: ['PlanesServicio', 'ContratoServicios'],
+        }),
+
+        getPlanServicio: builder.query<IPlanServicio, number | string>({
+            query: (id) => ({ url: `/api/planes-servicio/${id}/`, method: 'get' }),
+            providesTags: (_result, _error, id) => [{ type: 'PlanesServicio', id: Number(id) }],
         }),
 
         getVisitasCatalogo: builder.query<IVisita[], void>({
@@ -1033,6 +1036,7 @@ export const {
     useEditarAlcanceComercialMutation,
     useGetServiciosQuery,
     useGetPlanesServicioQuery,
+    useGetPlanServicioQuery,
     useGetVisitasCatalogoQuery,
     useGetLicenciasCatalogoQuery,
     useGetCondicionesEspecialesQuery,

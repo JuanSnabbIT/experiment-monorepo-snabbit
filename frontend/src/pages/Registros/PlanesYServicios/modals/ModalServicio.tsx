@@ -40,6 +40,30 @@ interface IAlcanceItem {
     orden: number;
 }
 
+const CURRENCY_DECIMALS: Record<string, number> = {
+    CLP: 0,
+    USD: 1,
+    UF: 4,
+};
+
+const normalizePrecioValue = (value: string, currency: string) => {
+    const raw = value.replace(',', '.');
+    const [integerPart, decimalPart] = raw.split('.');
+    const precision = CURRENCY_DECIMALS[currency] ?? 2;
+
+    if (!decimalPart || precision === 0) {
+        return integerPart || '';
+    }
+
+    return `${integerPart}.${decimalPart.slice(0, precision)}`;
+};
+
+const getPrecioStep = (currency: string) => {
+    if (currency === 'USD') return '0.1';
+    if (currency === 'UF') return '0.0001';
+    return '1';
+};
+
 const validationSchema = Yup.object({
     nombre: Yup.string()
         .min(2, 'Minimo 2 caracteres')
@@ -47,9 +71,26 @@ const validationSchema = Yup.object({
         .required('El nombre es requerido'),
     descripcion: Yup.string().max(1000, 'Maximo 1000 caracteres').nullable(),
     categoria: Yup.string().required('La categoria es requerida'),
-    precio_clp: Yup.number().nullable().typeError('Debe ser un numero'),
-    precio_uf: Yup.number().nullable().typeError('Debe ser un numero'),
-    precio_usd: Yup.number().nullable().typeError('Debe ser un numero'),
+    precio: Yup.string()
+        .nullable()
+        .test('is-number', 'Debe ser un numero', (value) => {
+            if (value === undefined || value === null || value === '') return true;
+            const parsed = Number(value.toString().replace(',', '.'));
+            return !Number.isNaN(parsed);
+        })
+        .test(
+            'currency-precision',
+            'CLP no puede tener decimales, USD maximo 1 decimal, UF maximo 4 decimales',
+            function (value) {
+                if (value === undefined || value === null || value === '') return true;
+                const currency = (this.parent as { tipo_moneda?: string }).tipo_moneda;
+                const raw = value.toString().replace(',', '.');
+                const [, decimalPart] = raw.split('.');
+                const maxDecimals = CURRENCY_DECIMALS[currency] ?? 2;
+                return !decimalPart || decimalPart.length <= maxDecimals;
+            },
+        ),
+    tipo_moneda: Yup.string().required('La moneda es requerida'),
     clausulas_especiales: Yup.string().max(2000, 'Maximo 2000 caracteres').nullable(),
 });
 
@@ -69,8 +110,6 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
         null,
     );
     const [modalCaractOpen, setModalCaractOpen] = useState(false);
-    const [moneda, setMoneda] = useState<'CLP' | 'UF' | 'USD'>('CLP');
-    const [showOtrasMonedas, setShowOtrasMonedas] = useState(false);
 
     useEffect(() => {
         if (isOpen && servicio?.alcance_caracteristicas) {
@@ -84,19 +123,6 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
         } else if (isOpen) {
             setAlcanceItems([]);
         }
-        if (isOpen && servicio) {
-            if (Number(servicio.precio_uf || 0) > 0) setMoneda('UF');
-            else if (Number(servicio.precio_usd || 0) > 0) setMoneda('USD');
-            else setMoneda('CLP');
-            const hasMultiple =
-                [servicio.precio_clp, servicio.precio_uf, servicio.precio_usd].filter(
-                    (p) => Number(p || 0) > 0,
-                ).length > 1;
-            setShowOtrasMonedas(hasMultiple);
-        } else if (isOpen) {
-            setMoneda('CLP');
-            setShowOtrasMonedas(false);
-        }
     }, [isOpen, servicio]);
 
     const formik = useFormik({
@@ -105,9 +131,8 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
             nombre: servicio?.nombre || '',
             descripcion: servicio?.descripcion || '',
             categoria: servicio?.categoria || '',
-            precio_clp: servicio?.precio_clp || '',
-            precio_uf: servicio?.precio_uf || '',
-            precio_usd: servicio?.precio_usd || '',
+            precio: servicio?.precio || '',
+            tipo_moneda: servicio?.tipo_moneda || 'CLP',
             clausulas_especiales: servicio?.clausulas_especiales || '',
         },
         validationSchema,
@@ -117,9 +142,8 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
                     nombre: values.nombre,
                     descripcion: values.descripcion || undefined,
                     categoria: values.categoria,
-                    precio_clp: values.precio_clp || undefined,
-                    precio_uf: values.precio_uf || undefined,
-                    precio_usd: values.precio_usd || undefined,
+                    precio: values.precio || undefined,
+                    tipo_moneda: values.tipo_moneda,
                     clausulas_especiales: values.clausulas_especiales || null,
                     alcance_config: alcanceItems.map((item, idx) => ({
                         caracteristica_id: item.caracteristica_id,
@@ -202,13 +226,18 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
 
     return (
         <>
-            <Modal isStaticBackdrop isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
+            <Modal
+                isStaticBackdrop
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                size='lg'
+                isScrollable>
                 <ModalHeader>
                     <Badge className='text-xl'>
                         {isEditing ? 'Editar Servicio' : 'Crear Servicio'}
                     </Badge>
                 </ModalHeader>
-                <ModalBody>
+                <ModalBody className='max-h-[68vh] overflow-y-auto'>
                     <div className='flex flex-col gap-4'>
                         <div className='flex items-center gap-2'>
                             <Tooltip
@@ -282,7 +311,7 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
                         </div>
 
                         <div>
-                            <Label htmlFor={`precio_${moneda.toLowerCase()}`}>Precio</Label>
+                            <Label htmlFor='precio'>Precio</Label>
                             <div className='flex items-start gap-2'>
                                 <div className='w-28 shrink-0'>
                                     <SelectReact
@@ -291,85 +320,49 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
                                             { value: 'UF', label: 'UF' },
                                             { value: 'USD', label: 'USD' },
                                         ]}
-                                        value={{ value: moneda, label: moneda }}
+                                        value={{ value: formik.values.tipo_moneda, label: formik.values.tipo_moneda }}
                                         onChange={(opt) => {
                                             const selected = opt as TSelectOption;
-                                            setMoneda(
-                                                selected.value as 'CLP' | 'UF' | 'USD',
-                                            );
+                                            formik.setFieldValue('tipo_moneda', selected?.value || 'CLP');
                                         }}
-                                        name='moneda'
+                                        name='tipo_moneda'
                                     />
                                 </div>
                                 <div className='flex-1'>
                                     <Validation
                                         isValid={formik.isValid}
-                                        isTouched={
-                                            formik.touched[
-                                                `precio_${moneda.toLowerCase()}` as keyof typeof formik.touched
-                                            ] as boolean | undefined
-                                        }
-                                        invalidFeedback={
-                                            formik.errors[
-                                                `precio_${moneda.toLowerCase()}` as keyof typeof formik.errors
-                                            ]
-                                        }>
+                                        isTouched={formik.touched.precio}
+                                        invalidFeedback={formik.errors.precio}>
                                         <Input
-                                            id={`precio_${moneda.toLowerCase()}`}
-                                            name={`precio_${moneda.toLowerCase()}`}
+                                            id='precio'
+                                            name='precio'
                                             type='number'
+                                            step={getPrecioStep(formik.values.tipo_moneda)}
                                             placeholder='0'
-                                            value={
-                                                formik.values[
-                                                    `precio_${moneda.toLowerCase()}` as keyof typeof formik.values
-                                                ]
-                                            }
-                                            onChange={formik.handleChange}
-                                            onBlur={formik.handleBlur}
+                                            value={formik.values.precio}
+                                            onChange={(event) => {
+                                                const rawValue = event.target.value;
+                                                const normalizedValue = normalizePrecioValue(
+                                                    rawValue,
+                                                    formik.values.tipo_moneda,
+                                                );
+                                                formik.setFieldValue('precio', normalizedValue);
+                                            }}
+                                            onBlur={(event) => {
+                                                const rawValue = event.target.value;
+                                                const normalizedValue = normalizePrecioValue(
+                                                    rawValue,
+                                                    formik.values.tipo_moneda,
+                                                );
+                                                if (normalizedValue !== rawValue) {
+                                                    formik.setFieldValue('precio', normalizedValue);
+                                                }
+                                                formik.handleBlur(event);
+                                            }}
                                         />
                                     </Validation>
                                 </div>
                             </div>
-                            <button
-                                type='button'
-                                className='mt-2 flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                                onClick={() => setShowOtrasMonedas((v) => !v)}>
-                                <Icon
-                                    icon={
-                                        showOtrasMonedas
-                                            ? 'HeroChevronUp'
-                                            : 'HeroChevronDown'
-                                    }
-                                    size='text-sm'
-                                />
-                                {showOtrasMonedas
-                                    ? 'Ocultar otras monedas'
-                                    : 'Ingresar en otras monedas'}
-                            </button>
-                            {showOtrasMonedas && (
-                                <div className='mt-2 grid grid-cols-2 gap-3'>
-                                    {(['CLP', 'UF', 'USD'] as const)
-                                        .filter((m) => m !== moneda)
-                                        .map((m) => {
-                                            const field =
-                                                `precio_${m.toLowerCase()}` as keyof typeof formik.values;
-                                            return (
-                                                <div key={m}>
-                                                    <Label htmlFor={field}>{m}</Label>
-                                                    <Input
-                                                        id={field}
-                                                        name={field}
-                                                        type='number'
-                                                        placeholder='0'
-                                                        value={formik.values[field]}
-                                                        onChange={formik.handleChange}
-                                                        onBlur={formik.handleBlur}
-                                                    />
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-                            )}
                         </div>
 
                         <div>
@@ -410,7 +403,7 @@ const ModalServicio = ({ isOpen, setIsOpen, servicio }: IModalServicioProps) => 
                             </div>
 
                             {alcanceItems.length > 0 && (
-                                <div className='mt-3 space-y-2'>
+                                <div className='mt-3 space-y-2 max-h-72 overflow-y-auto pr-1'>
                                     {alcanceItems.map((item, idx) => (
                                         <div
                                             key={item.caracteristica_id}

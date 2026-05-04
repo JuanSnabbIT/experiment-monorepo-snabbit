@@ -279,5 +279,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Vacio: este contenido fue absorbido por 0001_initial durante el squash.
+        # Ver _legacy_operations para el contenido original.
+    ]
+
+    _legacy_operations = [
         migrations.RunPython(seed_default_plantillas, reverse_seed),
     ]

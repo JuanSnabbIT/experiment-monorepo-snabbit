@@ -1,17 +1,14 @@
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Card, { CardBody, CardFooter, CardFooterChild } from '@/components/ui/Card';
+import Card, { CardBody, CardFooter, CardFooterChild, CardHeader } from '@/components/ui/Card';
 import { IPlanServicio } from '@/interface/contrato.interface';
-import ScopeSummary from '@/pages/Contratos/components/ScopeSummary';
-import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
+import { useNavigate } from 'react-router-dom';
 
 interface IPlanCatalogCardProps {
     plan: IPlanServicio;
     onDelete: (plan: IPlanServicio) => void;
     onEdit: (plan: IPlanServicio) => void;
 }
-
-const VISIBLE_SERVICES_COUNT = 4;
 
 const formatNumber = (value?: string | number | null, maximumFractionDigits = 0) =>
     new Intl.NumberFormat('es-CL', {
@@ -29,289 +26,133 @@ const formatPriceLabel = (
         return '-';
     }
 
+    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
+    const formatted = formatNumber(numeric, decimals);
+
     if (currency === 'CLP') {
-        return `$${formatNumber(numeric)}`;
+        return `$${formatted}`;
     }
 
-    if (currency === 'UF') {
-        return `${formatNumber(numeric, 2)} UF`;
-    }
-
-    return `${formatNumber(numeric)} USD`;
+    return `${formatted} ${currency}`;
 };
 
 const getPrimaryPrice = (plan: IPlanServicio) => {
-    const candidates = [
-        { currency: 'CLP' as const, value: plan.precio_clp },
-        { currency: 'UF' as const, value: plan.precio_uf },
-        { currency: 'USD' as const, value: plan.precio_usd },
-    ];
-
-    const selected = candidates.find((candidate) => Number(candidate.value || 0) > 0);
-
-    if (!selected) {
-        return null;
-    }
-
+    const amount = Number(plan.precio || 0);
+    if (amount <= 0 || !plan.tipo_moneda) return null;
+    const currency = plan.tipo_moneda as 'CLP' | 'UF' | 'USD';
     return {
-        currency: selected.currency,
-        label: formatPriceLabel(selected.currency, selected.value),
+        currency,
+        label: formatPriceLabel(currency, amount),
     };
 };
 
-const TODAY = new Date().toISOString().slice(0, 10);
-
-type TCambioData = { dolar: number; uf: number };
-
-const computeEquiv = (
-    from: 'CLP' | 'UF' | 'USD',
-    amount: number,
-    to: 'CLP' | 'UF' | 'USD',
-    tc: TCambioData | undefined,
-): string | null => {
-    if (!tc || amount <= 0 || !tc.uf || !tc.dolar || from === to) return null;
-    let clp: number;
-    if (from === 'CLP') clp = amount;
-    else if (from === 'UF') clp = amount * tc.uf;
-    else clp = amount * tc.dolar;
-    if (to === 'CLP') return `≈ $${formatNumber(Math.round(clp))}`;
-    if (to === 'UF') return `≈ ${formatNumber(clp / tc.uf, 2)} UF`;
-    return `≈ ${formatNumber(clp / tc.dolar, 2)} USD`;
-};
-
-const PlanCatalogCard = ({ plan, onDelete, onEdit }: IPlanCatalogCardProps) => {
+const PlanCatalogCard = ({ plan }: IPlanCatalogCardProps) => {
+    const navigate = useNavigate();
     const primaryPrice = getPrimaryPrice(plan);
-    const { data: tc } = useGetTipoCambioQuery(TODAY, { skip: !primaryPrice });
-    const primaryAmount = primaryPrice
-        ? Number(
-              primaryPrice.currency === 'CLP'
-                  ? plan.precio_clp
-                  : primaryPrice.currency === 'UF'
-                    ? plan.precio_uf
-                    : plan.precio_usd || 0,
-          )
-        : 0;
-    const visibleServices = plan.servicios.slice(0, VISIBLE_SERVICES_COUNT);
-    const hiddenServicesCount = Math.max(plan.servicios.length - VISIBLE_SERVICES_COUNT, 0);
-    const scopeCount = (plan.alcance_heredado?.length || 0) + (plan.alcance_conflictos?.length || 0);
 
     return (
-        <Card className='h-full border border-zinc-200 shadow-sm dark:border-zinc-800'>
-            <CardBody className='flex h-full flex-col gap-5'>
-                <div className='space-y-3'>
-                    <div className='flex items-start justify-between gap-3'>
-                        <div className='min-w-0'>
-                            <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                                Plan de servicio
-                            </div>
-                            <h3 className='mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
-                                {plan.nombre}
-                            </h3>
+        <Card className='h-[560px] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
+            <CardHeader className='border-b border-zinc-200 px-6 py-4 dark:border-zinc-800'>
+                <div className='flex items-end justify-between gap-4 w-full'>
+                    <div className='min-w-0 flex-1'>
+                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                            Plan de servicio
                         </div>
-                        <div className='flex shrink-0 flex-wrap justify-end gap-2'>
-                            <Badge variant='outline' color='blue' className='text-[11px]'>
-                                {plan.servicios.length} servicios
-                            </Badge>
-                            {plan.num_visitas_mensuales != null ? (
-                                <Badge variant='outline' color='amber' className='text-[11px]'>
-                                    {plan.num_visitas_mensuales} visitas/mes
-                                </Badge>
-                            ) : (
-                                <Badge variant='outline' color='zinc' className='text-[11px]'>
-                                    Sin visitas
-                                </Badge>
-                            )}
-                        </div>
+                        <h3 className='mt-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {plan.nombre}
+                        </h3>
+                        <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-400'>
+                            {plan.servicios.length} servicios incluidos
+                        </p>
                     </div>
-                    <p className='text-sm leading-6 text-zinc-500 dark:text-zinc-400'>
-                        {plan.descripcion?.trim() || 'Sin descripcion general para este plan.'}
-                    </p>
-                </div>
-
-                <div className='rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/60 dark:bg-blue-950/20'>
-                    <div className='text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300'>
-                        Precio del plan
-                    </div>
-                    {primaryPrice ? (
-                        <>
-                            <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-50'>
-                                {primaryPrice.label}
-                            </div>
-                            <div className='mt-1 text-xs text-zinc-500 dark:text-zinc-400'>
-                                Moneda principal: {primaryPrice.currency}
-                            </div>
-                        </>
-                    ) : (
-                        <div className='mt-2 text-lg font-medium text-zinc-600 dark:text-zinc-300'>
-                            Sin precio definido
+                    <div className='ml-auto flex-shrink-0 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-right dark:border-zinc-800 dark:bg-zinc-900'>
+                        <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
+                            Precio
                         </div>
-                    )}
-
-                    <div className='mt-4 space-y-2'>
-                        {(['CLP', 'UF', 'USD'] as const).map((curr) => {
-                            const stored = Number(
-                                curr === 'CLP'
-                                    ? plan.precio_clp
-                                    : curr === 'UF'
-                                      ? plan.precio_uf
-                                      : plan.precio_usd || 0,
-                            );
-                            const equiv =
-                                stored <= 0 && primaryPrice
-                                    ? (computeEquiv(primaryPrice.currency, primaryAmount, curr, tc) ?? '-')
-                                    : '-';
-                            const val = stored > 0 ? formatPriceLabel(curr, stored) : equiv;
-                            return (
-                                <PriceRow
-                                    key={curr}
-                                    label={curr}
-                                    value={val}
-                                    isEquivalent={stored <= 0 && val !== '-'}
-                                />
-                            );
-                        })}
+                        <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {primaryPrice?.label ?? 'Sin precio'}
+                        </div>
+                        <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
+                            {primaryPrice?.currency ?? 'Sin moneda'}
+                        </div>
                     </div>
                 </div>
+            </CardHeader>
 
-                <div className='rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60'>
-                    <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                        Precio sugerido
-                    </div>
-                    <div className='mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100'>
-                        {Number(plan.precio_sugerido_clp || 0) > 0
-                            ? `$${formatNumber(plan.precio_sugerido_clp)} CLP`
-                            : 'Sin sugerencia automatica'}
-                    </div>
-                </div>
-
-                <section className='space-y-3'>
-                    <div className='flex items-center justify-between gap-2'>
-                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                            Servicios incluidos
+            <CardBody className='flex h-full flex-col gap-4 px-6 py-4 overflow-hidden'>
+                <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900'>
+                    <div className='flex items-center justify-between gap-3'>
+                        <div>
+                            <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                Servicios incluidos
+                            </div>
+                            <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-300'>
+                                Una vista rápida de lo que ofrece este plan.
+                            </p>
                         </div>
-                        <span className='text-xs text-zinc-500'>
-                            {plan.servicios.length} total
+                        <span className='rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'>
+                            {plan.servicios.length} servicios
                         </span>
                     </div>
 
                     {plan.servicios.length > 0 ? (
-                        <div className='flex flex-wrap gap-2'>
-                            {visibleServices.map((service) => (
+                        <div className='mt-4 flex flex-col items-start gap-2 h-56 overflow-y-auto pr-2'>
+                            {plan.servicios.map((service) => (
                                 <Badge
                                     key={service.id}
                                     color='emerald'
                                     variant='outline'
-                                    className='text-[11px]'>
+                                    className='inline-flex max-w-full text-[11px] whitespace-normal'>
                                     {service.nombre}
                                 </Badge>
                             ))}
-                            {hiddenServicesCount > 0 && (
-                                <Badge color='zinc' variant='outline' className='text-[11px]'>
-                                    +{hiddenServicesCount} mas
-                                </Badge>
-                            )}
                         </div>
                     ) : (
-                        <div className='rounded-2xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
+                        <div className='mt-4 rounded-2xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
                             Este plan aun no tiene servicios asociados.
                         </div>
                     )}
-                </section>
+                </div>
 
-                <section className='space-y-3'>
-                    <div className='flex items-center justify-between gap-2'>
-                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                            Alcance heredado
+                <div className='grid gap-3 sm:grid-cols-2'>
+                    <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
+                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                            Visitas presenciales
                         </div>
-                        {scopeCount > 0 && (
-                            <Badge variant='outline' color='blue' className='text-[11px]'>
-                                {scopeCount} bloques
-                            </Badge>
-                        )}
+                        <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {plan.num_visitas_mensuales != null
+                                ? `${plan.num_visitas_mensuales} / mes`
+                                : 'No aplica'}
+                        </div>
                     </div>
-                    <div className='rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800'>
-                        <ScopeSummary
-                            planItems={plan.alcance_heredado}
-                            conflicts={plan.alcance_conflictos}
-                            includeText={plan.incluye}
-                            excludeText={plan.no_incluye}
-                            clauseText={plan.clausulas_especiales}
-                            compact
-                        />
-                    </div>
-                </section>
-
-                <div className='mt-auto rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-800/60'>
-                    <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                        <MetricBlock
-                            label='Visitas presenciales'
-                            value={
-                                plan.num_visitas_mensuales != null
-                                    ? `${plan.num_visitas_mensuales} por mes`
-                                    : 'No aplica'
-                            }
-                        />
-                        <MetricBlock
-                            label='Conflictos detectados'
-                            value={`${plan.alcance_conflictos?.length || 0}`}
-                        />
+                    <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
+                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                            Conflictos detectados
+                        </div>
+                        <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {plan.alcance_conflictos?.length || 0}
+                        </div>
                     </div>
                 </div>
+
             </CardBody>
 
             <CardFooter className='border-t border-zinc-200/80 pt-4 dark:border-zinc-800'>
-                <CardFooterChild className='w-full justify-between sm:justify-end'>
-                    <Button
-                        variant='solid'
-                        color='blue'
-                        icon='HeroPencil'
-                        size='sm'
-                        onClick={() => onEdit(plan)}>
-                        Editar
-                    </Button>
+                <CardFooterChild className='w-full justify-between'>
                     <Button
                         variant='outline'
-                        color='red'
-                        icon='HeroTrash'
+                        color='blue'
                         size='sm'
-                        onClick={() => onDelete(plan)}>
-                        Eliminar
+                        onClick={() => navigate(`/registros/planes-y-servicios/${plan.id}`)}>
+                        Ver detalle
                     </Button>
+                    <Badge variant='outline' color='blue' className='text-[11px]'>
+                        {plan.servicios.length} servicios
+                    </Badge>
                 </CardFooterChild>
             </CardFooter>
         </Card>
     );
 };
-
-const PriceRow = ({
-    label,
-    value,
-    isEquivalent = false,
-}: {
-    label: string;
-    value: string;
-    isEquivalent?: boolean;
-}) => (
-    <div className='flex items-center justify-between gap-3 rounded-xl bg-white/80 px-3 py-2 text-sm dark:bg-zinc-900/60'>
-        <span className='text-zinc-500 dark:text-zinc-400'>{label}</span>
-        <span
-            className={
-                isEquivalent
-                    ? 'italic text-zinc-400 dark:text-zinc-500'
-                    : 'font-medium text-zinc-900 dark:text-zinc-100'
-            }>
-            {value}
-        </span>
-    </div>
-);
-
-const MetricBlock = ({ label, value }: { label: string; value: string }) => (
-    <div className='space-y-1'>
-        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-            {label}
-        </div>
-        <div className='text-sm font-medium text-zinc-800 dark:text-zinc-100'>{value}</div>
-    </div>
-);
 
 export default PlanCatalogCard;
