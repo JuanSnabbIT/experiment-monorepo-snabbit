@@ -5,6 +5,7 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Alert from '@/components/ui/Alert';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
@@ -77,7 +78,16 @@ const ModalEditarPlantilla = ({
 
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-            <ModalHeader>Configuración de plantilla</ModalHeader>
+            <ModalHeader>
+                <div className='flex items-center gap-3'>
+                    <span>Configuración de plantilla</span>
+                    {plantilla?.version && (
+                        <Badge variant='outline' color='amber'>
+                            v{plantilla.version}
+                        </Badge>
+                    )}
+                </div>
+            </ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-4'>
                     {esDefault && (
@@ -141,14 +151,6 @@ const ModalEditarPlantilla = ({
                             onChange={formik.handleChange}
                             label='Plantilla activa'
                         />
-                    </div>
-                    <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
-                        <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                            Versión actual
-                        </p>
-                        <p className='mt-1 text-sm text-zinc-500'>
-                            v{plantilla?.version ?? '-'}
-                        </p>
                     </div>
                 </div>
             </ModalBody>

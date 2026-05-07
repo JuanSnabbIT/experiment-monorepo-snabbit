@@ -106,3 +106,15 @@ CONTENIDO_CANONICO_FIRMAS = (
     "Representante Empresa Prestadora: [nombre_empresa_prestadora]\n"
     "Representante Cliente: [nombre_cliente]"
 )
+
+# ── Contenido canónico para secciones de tipo "identificacion_cliente" ──
+CONTENIDO_CANONICO_IDENTIFICACION = (
+    "1.- Identificación de \"EL CLIENTE\"\n\n"
+    "Nombre o Razón Social: [nombre_cliente]\n"
+    "R.U.T: [rut_cliente]\n"
+    "Domicilio: [domicilio_cliente]\n"
+    "Giro o actividad: [giro_cliente]\n"
+    "Representante legal: [representante_cliente]\n"
+    "R.U.T del representante: [rut_representante_cliente]\n"
+    "E-mail: [email_cliente]"
+)

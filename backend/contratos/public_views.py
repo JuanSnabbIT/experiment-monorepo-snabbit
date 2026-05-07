@@ -79,10 +79,16 @@ class PublicContratoAprobacionDetailView(APIView):
         if error_response:
             return error_response
 
-        secciones_qs = envio.contrato.secciones_generadas.select_related(
-            "seccion_plantilla"
-        ).order_by("orden")
-        secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
+        # Preferir secciones del snapshot (congelado al enviar) para integridad documental.
+        # Solo usar la BD viva como fallback cuando el snapshot no las incluye.
+        snapshot = envio.snapshot_contrato or {}
+        if snapshot.get("secciones_generadas"):
+            secciones_data = snapshot["secciones_generadas"]
+        else:
+            secciones_qs = envio.contrato.secciones_generadas.select_related(
+                "seccion_plantilla"
+            ).order_by("orden")
+            secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
 
         serializer = ContratoAprobacionPublicSerializer(
             {
@@ -95,7 +101,7 @@ class PublicContratoAprobacionDetailView(APIView):
                 "comentario_respuesta": envio.comentario_respuesta,
                 "version_envio": envio.version_envio,
                 "destinatario": _destinatario_payload(envio.destinatario),
-                "contrato": envio.snapshot_contrato or {},
+                "contrato": snapshot,
                 "secciones_generadas": secciones_data,
             }
         )
@@ -345,11 +351,15 @@ class PublicContratoFirmaDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        contrato = envio.usuario.contrato
-        secciones_qs = contrato.secciones_generadas.select_related(
-            "seccion_plantilla"
-        ).order_by("orden")
-        secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
+        # Preferir secciones del snapshot (congelado al enviar) para integridad documental.
+        snapshot = envio.snapshot_contrato or {}
+        if snapshot.get("secciones_generadas"):
+            secciones_data = snapshot["secciones_generadas"]
+        else:
+            secciones_qs = contrato.secciones_generadas.select_related(
+                "seccion_plantilla"
+            ).order_by("orden")
+            secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
 
         serializer = ContratoFirmaPublicSerializer(
             {
@@ -365,7 +375,7 @@ class PublicContratoFirmaDetailView(APIView):
                 ),
                 "es_version_enviada": True,
                 "destinatario": _destinatario_payload(envio.usuario),
-                "contrato": envio.snapshot_contrato or {},
+                "contrato": snapshot,
                 "secciones_generadas": secciones_data,
             }
         )

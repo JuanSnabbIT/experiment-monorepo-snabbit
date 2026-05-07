@@ -200,6 +200,58 @@ const renderContenidoConChips = (
     );
 };
 
+const BloqueIdentificacionClientePreview = ({
+    mockData,
+    isDimmed,
+}: {
+    mockData?: IMockComercial;
+    isDimmed?: boolean;
+}) => {
+    const rows: { label: string; value: string }[] = [
+        { label: 'Nombre o Raz\u00f3n Social', value: mockData?.info.cliente ?? '' },
+        { label: 'R.U.T', value: mockData?.info.rut_cliente ?? '' },
+        { label: 'Domicilio', value: '' },
+        { label: 'Giro o actividad', value: '' },
+        { label: 'Representante legal', value: '' },
+        { label: 'R.U.T', value: '' },
+        { label: 'E-mail', value: '' },
+    ];
+
+    return (
+        <div
+            className={`rounded-lg border border-gray-200 bg-white p-6 transition-opacity dark:border-zinc-700 dark:bg-zinc-900${
+                isDimmed ? ' opacity-30' : ''
+            }`}>
+            <div className='mb-3 flex items-center gap-2'>
+                <Badge color='sky' variant='outline' className='text-xs'>
+                    Secci\u00f3n predeterminada
+                </Badge>
+            </div>
+            <h2 className='mb-4 text-base font-semibold text-gray-900 dark:text-zinc-100'>
+                1.- Identificaci\u00f3n de &quot;EL CLIENTE&quot;
+            </h2>
+            <div className='overflow-hidden rounded-md border border-gray-200 dark:border-zinc-700'>
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={`grid grid-cols-[200px,1fr] text-sm${
+                            i > 0 ? ' border-t border-gray-200 dark:border-zinc-700' : ''
+                        }`}>
+                        <div className='border-r border-gray-200 px-3 py-2 font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400'>
+                            {row.label}
+                        </div>
+                        <div className='px-3 py-2 text-gray-900 dark:text-zinc-100'>
+                            {row.value || (
+                                <span className='italic text-gray-300 dark:text-zinc-600'>\u2014</span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 interface IPreviewDocumentalPlantillaProps {
     isOpen: boolean;
     setIsOpen: Dispatch<SetStateAction<boolean>>;
@@ -213,6 +265,7 @@ interface IPreviewDocumentalPlantillaProps {
         titulo?: string;
         tipo?: string;
     };
+    onModeChange?: (mode: 'general' | 'focus-section' | 'reorder') => void;
     onReorder?: (payload: {
         secciones: { id: number; orden: number }[];
         bloques: { alcance: number; operacion: number; condiciones: number };
@@ -228,6 +281,7 @@ const PreviewDocumentalPlantilla = ({
     mode,
     focusSectionId,
     sectionOverride,
+    onModeChange,
     onReorder,
     isReordering,
 }: IPreviewDocumentalPlantillaProps) => {
@@ -260,6 +314,8 @@ const PreviewDocumentalPlantilla = ({
     );
 
     const [localReorderItems, setLocalReorderItems] = useState<PreviewItem[]>([]);
+    const initialReorderRef = useRef<string[]>([]);
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
     const mixedPreviewItems = useMemo(
         () => buildMixedList(previewSectionItems, plantilla),
@@ -268,9 +324,37 @@ const PreviewDocumentalPlantilla = ({
 
     useEffect(() => {
         if (isOpen && isReorderMode) {
-            setLocalReorderItems(buildMixedList(previewSectionItems, plantilla));
+            const initial = buildMixedList(previewSectionItems, plantilla);
+            setLocalReorderItems(initial);
+            initialReorderRef.current = initial.map(getPreviewItemId);
+            setShowDiscardConfirm(false);
         }
     }, [isOpen, isReorderMode, previewSectionItems, plantilla]);
+
+    const hasUnsavedReorderChanges =
+        isReorderMode &&
+        localReorderItems.length > 0 &&
+        localReorderItems.map(getPreviewItemId).join(',') !==
+            initialReorderRef.current.join(',');
+
+    const handleClosePreview = () => {
+        setIsOpen(false);
+        onModeChange?.('general');
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            onModeChange?.('general');
+        }
+    }, [isOpen, onModeChange]);
+
+    const handleCancelReorder = () => {
+        if (hasUnsavedReorderChanges) {
+            setShowDiscardConfirm(true);
+            return;
+        }
+        handleClosePreview();
+    };
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -317,16 +401,25 @@ const PreviewDocumentalPlantilla = ({
             attachFocusRef?: boolean;
         },
     ) => {
+        const isFocused = options?.focused ?? false;
+        const isDimmed = options?.dimmed ?? false;
+
         const sectionContent =
             item.seccion.tipo === 'firmas' ? (
-                <ZonaFirmaReferencia />
+                <ZonaFirmaReferencia isFocused={isFocused} isDimmed={isDimmed} />
+            ) : item.seccion.tipo === 'identificacion_cliente' ? (
+                <ZonaIdentificacionClienteReferencia
+                    etiquetas={etiquetas}
+                    isFocused={isFocused}
+                    isDimmed={isDimmed}
+                />
             ) : (
                 <SeccionPreview
                     seccion={item.seccion}
                     etiquetas={etiquetas}
                     isOverride={item.isOverride}
-                    isFocused={options?.focused ?? false}
-                    isDimmed={options?.dimmed ?? false}
+                    isFocused={isFocused}
+                    isDimmed={isDimmed}
                     ref={options?.attachFocusRef ? focusRef : undefined}
                 />
             );
@@ -341,12 +434,14 @@ const PreviewDocumentalPlantilla = ({
             );
         }
 
-        if (item.seccion.tipo === 'firmas' && options?.attachFocusRef) {
-            return (
-                <div key={item.seccion.id} ref={focusRef}>
-                    {sectionContent}
-                </div>
-            );
+        if (item.seccion.tipo === 'firmas' || item.seccion.tipo === 'identificacion_cliente') {
+            if (options?.attachFocusRef) {
+                return (
+                    <div key={item.seccion.id} ref={focusRef}>
+                        {sectionContent}
+                    </div>
+                );
+            }
         }
 
         return <Fragment key={item.seccion.id}>{sectionContent}</Fragment>;
@@ -448,16 +543,29 @@ const PreviewDocumentalPlantilla = ({
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} fullScreen isScrollable>
             <ModalHeader>
-                <div className='flex items-center gap-3'>
-                    <span>
-                        {isReorderMode
-                            ? 'Ordenar secciones'
-                            : 'Vista previa documental'}
-                    </span>
-                    {isReorderMode && (
-                        <Badge color='amber' variant='outline'>
-                            Modo: Reordenar
-                        </Badge>
+                <div className='flex items-center justify-between gap-3 w-full'>
+                    <div className='flex items-center gap-3'>
+                        <span>
+                            {isReorderMode
+                                ? 'Ordenar secciones'
+                                : 'Vista previa documental'}
+                        </span>
+                        {isReorderMode && (
+                            <Badge color='amber' variant='outline'>
+                                Modo: Reordenar
+                            </Badge>
+                        )}
+                    </div>
+                    {onModeChange && (
+                        <Button
+                            size='sm'
+                            variant='outline'
+                            icon={isReorderMode ? 'HeroEye' : 'HeroBars3BottomLeft'}
+                            onClick={() =>
+                                onModeChange(isReorderMode ? 'general' : 'reorder')
+                            }>
+                            {isReorderMode ? 'Ver vista previa' : 'Ordenar secciones'}
+                        </Button>
                     )}
                 </div>
             </ModalHeader>
@@ -529,21 +637,41 @@ const PreviewDocumentalPlantilla = ({
             </ModalBody>
             <ModalFooter>
                 {isReorderMode ? (
-                    <div className='flex gap-2'>
-                        <Button onClick={() => setIsOpen(false)}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant='solid'
-                            icon='HeroCheck'
-                            onClick={handleSaveOrder}
-                            isLoading={isReordering}
-                            isDisable={isReordering}>
-                            Guardar orden
-                        </Button>
+                    <div className='flex flex-col gap-3'>
+                        {showDiscardConfirm && (
+                            <div className='flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200'>
+                                <span className='flex-1'>
+                                    Tienes cambios sin guardar. ¿Descartar el orden nuevo?
+                                </span>
+                                <Button
+                                    size='sm'
+                                    color='red'
+                                    onClick={handleClosePreview}>
+                                    Descartar
+                                </Button>
+                                <Button
+                                    size='sm'
+                                    onClick={() => setShowDiscardConfirm(false)}>
+                                    Seguir editando
+                                </Button>
+                            </div>
+                        )}
+                        <div className='flex gap-2'>
+                            <Button onClick={handleCancelReorder}>
+                                {hasUnsavedReorderChanges ? 'Cancelar (cambios pendientes)' : 'Cancelar'}
+                            </Button>
+                            <Button
+                                variant='solid'
+                                icon='HeroCheck'
+                                onClick={handleSaveOrder}
+                                isLoading={isReordering}
+                                isDisable={isReordering}>
+                                Guardar orden
+                            </Button>
+                        </div>
                     </div>
                 ) : (
-                    <Button onClick={() => setIsOpen(false)}>Cerrar</Button>
+                    <Button onClick={handleClosePreview}>Cerrar</Button>
                 )}
             </ModalFooter>
         </Modal>
@@ -983,8 +1111,71 @@ const CondicionesMock = ({ condiciones }: { condiciones: IMockCondicion[] }) => 
     </div>
 );
 
-const ZonaFirmaReferencia = () => (
-    <section className='rounded-lg border border-dashed border-gray-300 bg-gray-50/60 p-6 dark:border-zinc-600 dark:bg-zinc-800/40'>
+const ZonaIdentificacionClienteReferencia = ({
+    etiquetas,
+    isFocused = false,
+    isDimmed = false,
+}: {
+    etiquetas: IEtiquetaPlantilla[];
+    isFocused?: boolean;
+    isDimmed?: boolean;
+}) => {
+    const rows: { label: string; clave: string }[] = [
+        { label: 'Nombre o Raz\u00f3n Social', clave: 'nombre_cliente' },
+        { label: 'R.U.T', clave: 'rut_cliente' },
+        { label: 'Domicilio', clave: 'domicilio_cliente' },
+        { label: 'Giro o actividad', clave: 'giro_cliente' },
+        { label: 'Representante legal', clave: 'representante_cliente' },
+        { label: 'R.U.T del representante', clave: 'rut_representante_cliente' },
+        { label: 'E-mail', clave: 'email_cliente' },
+    ];
+
+    const stateClass = isFocused
+        ? ' ring-2 ring-blue-400'
+        : isDimmed
+          ? ' opacity-40 pointer-events-none'
+          : '';
+
+    return (
+        <section
+            className={`rounded-lg border border-dashed border-blue-300 bg-blue-50/30 p-5 dark:border-blue-700 dark:bg-blue-950/20 transition-all duration-300${stateClass}`}>
+            <Badge color='blue' variant='outline' className='mb-3 text-[10px]'>
+                Identificaci&oacute;n del cliente (demo)
+            </Badge>
+            <div className='overflow-hidden rounded-md border border-blue-200 dark:border-blue-800/60'>
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={`grid grid-cols-[220px,1fr] text-sm${
+                            i > 0 ? ' border-t border-blue-200 dark:border-blue-800/60' : ''
+                        }`}>
+                        <div className='border-r border-blue-200 px-3 py-2 font-medium text-blue-900 dark:border-blue-800/60 dark:text-blue-200'>
+                            {row.label}
+                        </div>
+                        <div className='flex items-center gap-1 px-3 py-2'>
+                            <EtiquetaChipPreview clave={row.clave} etiquetas={etiquetas} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
+const ZonaFirmaReferencia = ({
+    isFocused = false,
+    isDimmed = false,
+}: {
+    isFocused?: boolean;
+    isDimmed?: boolean;
+}) => {
+    const stateClass = isFocused
+        ? ' ring-2 ring-blue-400 border-blue-300 bg-blue-50/30 dark:border-blue-700 dark:bg-blue-950/20'
+        : isDimmed
+          ? ' opacity-40 pointer-events-none'
+          : '';
+    return (
+    <section className={`rounded-lg border border-dashed border-gray-300 bg-gray-50/60 p-6 dark:border-zinc-600 dark:bg-zinc-800/40 transition-all duration-300${stateClass}`}>
         <div className='mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
             <Icon icon='HeroPencilSquare' className='h-4 w-4' />
             Zona de firma (solo referencia visual)
@@ -1006,4 +1197,5 @@ const ZonaFirmaReferencia = () => (
             </div>
         </div>
     </section>
-);
+    );
+};

@@ -92,6 +92,7 @@ export interface IContratoEmpresaCliente {
     contrato_anterior_detalle?: IContratoRenovacionRef | null;
     renovaciones_detalle?: IContratoRenovacionRef[];
     plantilla?: number | null;
+    plantilla_version_usada?: string | null;
     dias_aviso_termino?: number;
     requiere_nda?: boolean;
 }
@@ -405,6 +406,7 @@ export interface IContratoItemComercial {
     orden: number;
     nombre: string;
     subtotal: number;
+    subtotal_en_moneda_cobro: number | null;
     tipo_item: 'servicio' | 'plan';
     servicio_generico: IPlanServicio | IServicio | Record<string, unknown>;
 }
@@ -421,6 +423,7 @@ export interface IContratoServicio {
     content_type: number;
     nombre: string;
     subtotal: number;
+    subtotal_en_moneda_cobro: number | null;
     tipo_item: string;
 }
 

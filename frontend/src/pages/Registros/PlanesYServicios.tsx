@@ -4,6 +4,7 @@ import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/S
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TabPlanes from './PlanesYServicios/components/TabPlanes';
 import TabServicios from './PlanesYServicios/components/TabServicios';
 
@@ -15,7 +16,12 @@ const TABS: { key: TTab; label: string; icon: string }[] = [
 ];
 
 const PlanesYServicios = () => {
-    const [activeTab, setActiveTab] = useState<TTab>('servicios');
+    const location = useLocation();
+    const navigate = useNavigate();
+    const queryTab = new URLSearchParams(location.search).get('tab');
+    const [activeTab, setActiveTab] = useState<TTab>(
+        queryTab === 'planes' ? 'planes' : 'servicios',
+    );
     const [showInfo, setShowInfo] = useState(false);
 
     return (
@@ -27,7 +33,12 @@ const PlanesYServicios = () => {
                             key={tab.key}
                             icon={tab.icon}
                             variant={activeTab === tab.key ? 'solid' : 'outline'}
-                            onClick={() => setActiveTab(tab.key)}>
+                            onClick={() => {
+                                setActiveTab(tab.key);
+                                navigate(`/registros/planes-y-servicios?tab=${tab.key}`, {
+                                    replace: true,
+                                });
+                            }}>
                             {tab.label}
                         </Button>
                     ))}

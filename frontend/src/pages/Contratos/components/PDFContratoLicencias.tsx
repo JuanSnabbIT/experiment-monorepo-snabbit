@@ -45,39 +45,26 @@ function PDFContratoLicencias({
                     </div>
                     <div className='col-span-2 border border-x-black border-b-black p-1'>R.U.T</div>
                     <div className='col-span-4 border border-r-black border-t-black p-1'>
-                        {contrato.datos_cliente.rut_empresa || 'Sin Rut'}
+                        {contrato.datos_cliente.rut_empresa || ''}
                     </div>
-                    <div className='col-span-2 border border-x-black border-b-black p-1'>
-                        Domicilio
-                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>Domicilio</div>
                     <div className='col-span-4 border border-r-black border-t-black p-1'>
-                        {contrato.datos_cliente.direccion_principal || 'Sin Direccion Principal'}
+                        {contrato.datos_cliente.direccion_principal || ''}
                     </div>
-                    {/* <div className="col-span-2 p-1 border border-b-black border-x-black">Giro o Actividad</div>
-                    <div className="col-span-4 p-1 border border-t-black border-r-black">{"Sin Giro o Actividad"}</div> */}
-                    {contrato.datos_cliente.representantes_legales.length > 0 && (
-                        <>
-                            <div className='col-span-2 border border-x-black border-b-black p-1'>
-                                Representante Legal
-                            </div>
-                            <div className='col-span-4 border border-r-black border-t-black p-1'>
-                                {contrato.datos_cliente.representantes_legales[0].nombre_usuario}
-                            </div>
-                            <div className='col-span-2 border border-x-black border-b-black p-1'>
-                                R.U.T
-                            </div>
-                            <div className='col-span-4 border border-r-black border-t-black p-1'>
-                                {contrato.datos_cliente.representantes_legales[0].papeleta.rut ||
-                                    'Sin Rut'}
-                            </div>
-                            <div className='col-span-2 border border-x-black border-b-black p-1'>
-                                E-mail
-                            </div>
-                            <div className='col-span-4 border border-y-black border-r-black p-1'>
-                                {contrato.datos_cliente.representantes_legales[0].email_usuario}
-                            </div>
-                        </>
-                    )}
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>Giro o actividad</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'></div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>Representante Legal</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.nombre_usuario || ''}
+                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>R.U.T</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.papeleta?.rut || ''}
+                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>E-mail</div>
+                    <div className='col-span-4 border border-y-black border-r-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.email_usuario || ''}
+                    </div>
                 </div>
                 <div className='text-xl font-bold md:text-2xl'>2.- SERVICIOS Y PLANES</div>
                 <div className='flex flex-col'>

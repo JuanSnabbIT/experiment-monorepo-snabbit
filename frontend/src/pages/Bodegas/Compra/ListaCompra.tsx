@@ -59,7 +59,7 @@ function ListaCompra() {
             id: 'acciones',
             cell: (info) => (
                 <div className='flex flex-wrap gap-2'>
-                    <Tooltip text='Detalle'>
+                    <Tooltip text='Ver detalle'>
                         <Button
                             variant='solid'
                             icon='HeroEye'

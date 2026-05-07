@@ -34,7 +34,9 @@ import {
 import {
     useGetPlantillasContratoQuery,
 } from '@/store/slices/contratos/plantillaContratoApi';
+import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { convertCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
@@ -80,6 +82,31 @@ const FORMA_PAGO_VENTA_OPTIONS: TSelectOption[] = [
 
 type THitoPagoVenta = NonNullable<ICuotaVenta['hito_pago_tipo']>;
 
+type TFormaPagoContractual = 'mensual' | 'anual' | 'pago_unico';
+
+type TFormaPagoVenta = 'contado' | 'cuotas';
+
+interface ICrearContratoFormValues {
+    nombre: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+    observaciones: string;
+    tipo: string;
+    moneda_cobro: 'CLP' | 'UF' | 'USD';
+    forma_pago_contractual: TFormaPagoContractual;
+    forma_pago_venta: TFormaPagoVenta;
+    cuotas_venta: ICuotaVenta[];
+    plantilla: string;
+    dias_aviso_termino: number;
+    requiere_nda: boolean;
+    destinatario_modo: 'interno' | 'externo';
+    destinatario_interno_id: string;
+    destinatario_nombre: string;
+    destinatario_correo: string;
+    condicion_catalogo_id: string;
+    condicion_texto: string;
+}
+
 const HITO_PAGO_VENTA_LABELS: Record<THitoPagoVenta, string> = {
     inicio: 'Inicio',
     entrega_intermedia: 'Entrega intermedia',
@@ -110,6 +137,25 @@ const formatCurrencyByMoneda = (
         currency: moneda,
         maximumFractionDigits: 0,
     }).format(value);
+};
+
+const getTotalPorFormaPagoContractual = (
+    precioUnitario: number,
+    cantidad: number,
+    formaPagoContractual: 'mensual' | 'anual' | 'pago_unico',
+    vecesPorMes = 1,
+): number => {
+    const subtotalMensual = precioUnitario * cantidad * vecesPorMes;
+
+    if (formaPagoContractual === 'pago_unico') {
+        return precioUnitario * cantidad;
+    }
+
+    if (formaPagoContractual === 'anual') {
+        return subtotalMensual * 12;
+    }
+
+    return subtotalMensual;
 };
 
 const normalizeCurrency = (currency?: string | null): 'CLP' | 'UF' | 'USD' => {
@@ -259,6 +305,8 @@ function CrearContratoDelCliente({
     const { data: planes = [] } = useGetPlanesServicioQuery();
     const { data: serviciosCatalogo = [] } = useGetServiciosQuery();
     const { data: condicionesCatalogo = [] } = useGetCondicionesEspecialesQuery();
+    const fechaTipoCambio = new Date().toISOString().slice(0, 10);
+    const { data: tipoCambio } = useGetTipoCambioQuery(fechaTipoCambio);
     const { data: plantillasContrato = [] } = useGetPlantillasContratoQuery();
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
         detalleCliente?.info_cliente.id ?? '',
@@ -301,7 +349,7 @@ function CrearContratoDelCliente({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, tipoFijo]);
 
-    const formik = useFormik({
+    const formik = useFormik<ICrearContratoFormValues>({
         enableReinitialize: true,
         initialValues: {
             nombre: '',
@@ -386,7 +434,11 @@ function CrearContratoDelCliente({
                 }),
             dias_aviso_termino: Yup.number()
                 .min(0, 'Debe ser mayor o igual a 0')
-                .required('Requerido'),
+                .when('fecha_fin', {
+                    is: (fechaFin: string) => Boolean(fechaFin),
+                    then: (schema) => schema.required('Requerido'),
+                    otherwise: (schema) => schema.notRequired(),
+                }),
             destinatario_modo: Yup.string().oneOf(['interno', 'externo']).required('Requerido'),
             destinatario_interno_id: Yup.string().when('destinatario_modo', {
                 is: 'interno',
@@ -440,7 +492,9 @@ function CrearContratoDelCliente({
                               }))
                             : [],
                     plantilla: Number(values.plantilla),
-                    dias_aviso_termino: values.dias_aviso_termino,
+                    dias_aviso_termino: values.fecha_fin
+                        ? values.dias_aviso_termino
+                        : undefined,
                     requiere_nda: values.requiere_nda,
                 };
 
@@ -589,14 +643,31 @@ function CrearContratoDelCliente({
     );
 
     const monedaContrato = formik.values.moneda_cobro as 'CLP' | 'UF' | 'USD';
+    const formaPagoContractual = formik.values.forma_pago_contractual as 'mensual' | 'anual' | 'pago_unico';
+    const cantidadPorModoPagoResumen = formaPagoContractual === 'anual' ? 12 : 1;
+    const planSeleccionadoResumen = planes.find((p) => p.id === seleccionPlan.plan_id);
     const totalPlanSeleccionado =
         seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
-            ? seleccionPlan.plan_cantidad * seleccionPlan.plan_precio_unitario
+            ? convertCurrency(
+                  getTotalPorFormaPagoContractual(
+                      seleccionPlan.plan_precio_unitario,
+                      seleccionPlan.plan_cantidad,
+                      formaPagoContractual,
+                  ),
+                  planSeleccionadoResumen?.tipo_moneda,
+                  monedaContrato,
+                  tipoCambio,
+              )
             : 0;
-    const totalServiciosSeleccionados = seleccionPlan.servicios.reduce(
-        (acc, item) => acc + item.cantidad * item.precio_unitario,
-        0,
-    );
+    const totalServiciosSeleccionados = seleccionPlan.servicios.reduce((acc, item) => {
+        const servicio = serviciosCatalogo.find((sc) => sc.id === item.servicio_id);
+        const subtotal = getTotalPorFormaPagoContractual(
+            item.precio_unitario,
+            item.cantidad,
+            formaPagoContractual,
+        );
+        return acc + convertCurrency(subtotal, servicio?.tipo_moneda, monedaContrato, tipoCambio);
+    }, 0);
     const totalLicenciasSeleccionadas = licFormik.values.licencias.reduce(
         (acc, item) => acc + item.cantidad * item.precio_unitario,
         0,
@@ -615,9 +686,10 @@ function CrearContratoDelCliente({
             setInternalIsOpen(false);
         }
         setStep(1);
+        setLicenciasStepError(null);
         setSeleccionPlan(SELECCION_INICIAL);
         setCotizacionesSeleccionadas([]);
-        setLicenciasStepError(null);
+        setModalAddLicencia(false);
         formik.resetForm();
         licFormik.resetForm();
     };
@@ -822,7 +894,8 @@ function CrearContratoDelCliente({
                 setIsOpen={(val) => {
                     if (!val) handleClose();
                 }}
-                size='lg'>
+                size='lg'
+                isScrollable>
                 <ModalHeader>
                     <Badge className='text-xl'>Crear Contrato</Badge>
                 </ModalHeader>
@@ -1001,13 +1074,20 @@ function CrearContratoDelCliente({
                                         name='dias_aviso_termino'
                                         type='number'
                                         onChange={formik.handleChange}
-                                        value={String(formik.values.dias_aviso_termino)}
+                                        value={formik.values.fecha_fin ? String(formik.values.dias_aviso_termino) : ''}
                                         onBlur={formik.handleBlur}
+                                        disabled={!formik.values.fecha_fin}
+                                        placeholder={!formik.values.fecha_fin ? 'Sin fecha de término' : undefined}
                                     />
                                 </Validation>
                                 <p className='mt-1 text-xs text-zinc-500'>
                                     Días de anticipación para notificar el término del contrato.
                                 </p>
+                                {!formik.values.fecha_fin && (
+                                    <p className='mt-1 text-xs text-zinc-500'>
+                                        La opción está bloqueada hasta que definas una fecha de término.
+                                    </p>
+                                )}
                             </div>
                             <div className='flex items-start gap-3 md:col-span-2'>
                                 <Checkbox
@@ -1448,6 +1528,10 @@ function CrearContratoDelCliente({
                         <SelectorPlanServicios
                             value={seleccionPlan}
                             onChange={setSeleccionPlan}
+                            contractCurrency={monedaContrato}
+                            contractPaymentMode={formik.values.forma_pago_contractual}
+                            hidePlanInputs={true}
+                            hideVisitasSection={true}
                         />
                     )}
 
@@ -1676,7 +1760,11 @@ function CrearContratoDelCliente({
                                 />
                                 <ResumenItem
                                     label='Aviso previo'
-                                    valor={`${formik.values.dias_aviso_termino} días`}
+                                    valor={
+                                        formik.values.fecha_fin && formik.values.dias_aviso_termino
+                                            ? `${formik.values.dias_aviso_termino} días`
+                                            : '-'
+                                    }
                                 />
                                 <ResumenItem
                                     label='Fecha inicio'
@@ -1784,13 +1872,13 @@ function CrearContratoDelCliente({
                                                             <div className='text-xs text-zinc-500'>
                                                                 {formatCurrencyByMoneda(
                                                                     seleccionPlan.plan_precio_unitario,
-                                                                    monedaContrato,
+                                                                    normalizeCurrency(planSeleccionadoResumen?.tipo_moneda),
                                                                 )}{' '}
                                                                 c/u
                                                             </div>
                                                         </div>
                                                         <div className='text-right text-zinc-500'>
-                                                            <div>x{seleccionPlan.plan_cantidad}</div>
+                                                            <div>x{seleccionPlan.plan_cantidad * cantidadPorModoPagoResumen}</div>
                                                             <div className='text-xs'>
                                                                 {formatCurrencyByMoneda(
                                                                     totalPlanSeleccionado,
@@ -1811,6 +1899,16 @@ function CrearContratoDelCliente({
                                                         const serv = serviciosCatalogo.find(
                                                             (sc) => sc.id === s.servicio_id,
                                                         );
+                                                        const subtotalServicio = convertCurrency(
+                                                            getTotalPorFormaPagoContractual(
+                                                                s.precio_unitario,
+                                                                s.cantidad,
+                                                                formaPagoContractual,
+                                                            ),
+                                                            serv?.tipo_moneda,
+                                                            monedaContrato,
+                                                            tipoCambio,
+                                                        );
                                                         return (
                                                             <div
                                                                 key={s.servicio_id}
@@ -1823,17 +1921,16 @@ function CrearContratoDelCliente({
                                                                     <div className='text-xs text-zinc-500'>
                                                                         {formatCurrencyByMoneda(
                                                                             s.precio_unitario,
-                                                                            monedaContrato,
+                                                                            normalizeCurrency(serv?.tipo_moneda),
                                                                         )}{' '}
                                                                         c/u
                                                                     </div>
                                                                 </div>
                                                                 <div className='text-right text-zinc-500'>
-                                                                    <div>x{s.cantidad}</div>
+                                                                    <div>x{s.cantidad * cantidadPorModoPagoResumen}</div>
                                                                     <div className='text-xs'>
                                                                         {formatCurrencyByMoneda(
-                                                                            s.cantidad *
-                                                                                s.precio_unitario,
+                                                                            subtotalServicio,
                                                                             monedaContrato,
                                                                         )}
                                                                     </div>

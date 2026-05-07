@@ -1,6 +1,6 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
-import SelectReact, { TSelectGroups, TSelectOption } from '@/components/form/SelectReact';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { useGetMisClientesQuery, useGetMisProspectosQuery, useGetUsuariosTodoElC
 import { useCreateOrdenV3Mutation } from '@/store/slices/ordenTrabajoV3/ordenTrabajoV3Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
@@ -55,34 +56,57 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
         skip: !empresaId,
     });
 
-    const clientesOrdenados = [...relacionesClientes].sort((a, b) =>
-        a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+    const clientesOrdenados = useMemo(
+        () => [...relacionesClientes].sort((a, b) =>
+            a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+        ),
+        [relacionesClientes],
     );
-    const prospectosOrdenados = [...relacionesProspectos].sort((a, b) =>
-        a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+    const prospectosOrdenados = useMemo(
+        () => [...relacionesProspectos].sort((a, b) =>
+            a.info_cliente.nombre.localeCompare(b.info_cliente.nombre),
+        ),
+        [relacionesProspectos],
     );
 
-    const clientesIds = new Set(clientesOrdenados.map((r) => r.cliente));
-    const prospectosIds = new Set(prospectosOrdenados.map((r) => r.cliente));
+    const clientesIds = useMemo(
+        () => new Set(clientesOrdenados.map((r) => r.cliente)),
+        [clientesOrdenados],
+    );
+    const prospectosIds = useMemo(
+        () => new Set(prospectosOrdenados.map((r) => r.cliente)),
+        [prospectosOrdenados],
+    );
 
-    const clientesOptions: TSelectOption[] = clientesOrdenados.map((r) => ({
-        value: String(r.cliente),
-        label: r.info_cliente.nombre,
-    }));
-    const prospectosOptions: TSelectOption[] = prospectosOrdenados
-        .filter((r) => !clientesIds.has(r.cliente))
-        .map((r) => ({
-            value: String(r.cliente),
-            label: r.info_cliente.nombre,
-        }));
+    const clientesOptions = useMemo(
+        () =>
+            clientesOrdenados.map((r) => ({
+                value: String(r.cliente),
+                label: r.info_cliente.nombre,
+            })),
+        [clientesOrdenados],
+    );
+    const prospectosOptions = useMemo(
+        () =>
+            prospectosOrdenados
+                .filter((r) => !clientesIds.has(r.cliente))
+                .map((r) => ({
+                    value: String(r.cliente),
+                    label: r.info_cliente.nombre,
+                })),
+        [prospectosOrdenados, clientesIds],
+    );
 
-    const clienteOptionsAgrupadas: TSelectGroups =
-        prospectosOptions.length > 0
-            ? [
-                  { label: 'Clientes', options: clientesOptions },
-                  { label: 'Prospectos', options: prospectosOptions },
-              ]
-            : [{ label: 'Clientes', options: clientesOptions }];
+    const clienteOptionsAgrupadas = useMemo(
+        () =>
+            prospectosOptions.length > 0
+                ? [
+                      { label: 'Clientes', options: clientesOptions },
+                      { label: 'Prospectos', options: prospectosOptions },
+                  ]
+                : [{ label: 'Clientes', options: clientesOptions }],
+        [clientesOptions, prospectosOptions],
+    );
 
     const formik = useFormik({
         initialValues: {
@@ -127,10 +151,14 @@ const CrearOTV3 = ({ isOpen, setIsOpen }: IProps) => {
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(clienteSeleccionado, {
         skip: !clienteSeleccionado || isProspectoSeleccionado,
     });
-    const solicitantesOptions: TSelectOption[] = usuariosCliente.map((u: IUsuarioEmpresa) => ({
-        value: String(u.id),
-        label: u.nombre_usuario || u.email_usuario,
-    }));
+    const solicitantesOptions: TSelectOption[] = useMemo(
+        () =>
+            usuariosCliente.map((u: IUsuarioEmpresa) => ({
+                value: String(u.id),
+                label: u.nombre_usuario || u.email_usuario,
+            })),
+        [usuariosCliente],
+    );
 
     const handleClose = () => {
         formik.resetForm();

@@ -3,7 +3,7 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
+import { IContratoEmpresaCliente, IEmpresaContrato } from '@/interface/contrato.interface';
 import { ISeccionContratoGenerada } from '@/interface/plantillaContrato.interface';
 import {
     useGenerarSeccionesContratoMutation,
@@ -16,6 +16,50 @@ import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+
+const IdentificacionClienteCard = ({ cliente }: { cliente: IEmpresaContrato }) => {
+    const rep = cliente?.representantes_legales?.[0] ?? null;
+    const rows: { label: string; value: string }[] = [
+        { label: 'Nombre o Raz\u00f3n Social', value: cliente?.nombre || '\u2014' },
+        { label: 'R.U.T', value: cliente?.rut_empresa || '' },
+        { label: 'Domicilio', value: cliente?.direccion_principal || '' },
+        { label: 'Giro o actividad', value: '' },
+        { label: 'Representante legal', value: rep?.nombre_usuario ?? '' },
+        { label: 'R.U.T', value: rep?.papeleta?.rut ?? '' },
+        { label: 'E-mail', value: rep?.email_usuario ?? '' },
+    ];
+
+    return (
+        <div className='overflow-hidden rounded-md border border-gray-200 dark:border-zinc-700'>
+            <div className='flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/60'>
+                <Badge color='sky' variant='outline' className='text-xs'>
+                    Secci&oacute;n predeterminada
+                </Badge>
+                <span className='text-sm font-semibold text-gray-800 dark:text-zinc-100'>
+                    1.- Identificaci&oacute;n de &quot;EL CLIENTE&quot;
+                </span>
+            </div>
+            <div>
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={`grid grid-cols-[200px,1fr] text-sm${
+                            i > 0 ? ' border-t border-gray-200 dark:border-zinc-700' : ''
+                        }`}>
+                        <div className='border-r border-gray-200 px-3 py-2 font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400'>
+                            {row.label}
+                        </div>
+                        <div className='px-3 py-2 text-gray-900 dark:text-zinc-100'>
+                            {row.value || (
+                                <span className='italic text-gray-300 dark:text-zinc-600'>&mdash;</span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 interface ITabDocumentoProps {
     contrato: IContratoEmpresaCliente;
@@ -144,6 +188,31 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
                                 Con ediciones manuales
                             </Badge>
                         )}
+                        {contrato.plantilla_version_usada && (
+                            <Badge
+                                color={
+                                    plantillaDetalle?.version &&
+                                    String(plantillaDetalle.version) !==
+                                        contrato.plantilla_version_usada
+                                        ? 'amber'
+                                        : 'zinc'
+                                }
+                                variant='outline'
+                                title={
+                                    plantillaDetalle?.version &&
+                                    String(plantillaDetalle.version) !==
+                                        contrato.plantilla_version_usada
+                                        ? `La plantilla tiene cambios desde la v${contrato.plantilla_version_usada}. Considera regenerar el borrador.`
+                                        : `Generado con plantilla v${contrato.plantilla_version_usada}`
+                                }>
+                                v{contrato.plantilla_version_usada}
+                                {plantillaDetalle?.version &&
+                                    String(plantillaDetalle.version) !==
+                                        contrato.plantilla_version_usada && (
+                                        <span className='ml-1'>⚠</span>
+                                    )}
+                            </Badge>
+                        )}
                     </div>
                 </CardHeaderChild>
             </CardHeader>
@@ -213,6 +282,8 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
                             )}
                         </div>
                     </div>
+
+                    <IdentificacionClienteCard cliente={contrato.datos_cliente} />
 
                     {tieneEditadasManualmente && (
                         <Alert color='amber' icon='HeroExclamationTriangle' variant='outline'>

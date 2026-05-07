@@ -1571,6 +1571,16 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="enviar-aprobacion")
     def enviar_aprobacion(self, request, pk=None):
         contrato = self.get_object()
+        if not contrato.secciones_generadas.exists():
+            return Response(
+                {
+                    "detail": (
+                        "El contrato no tiene secciones generadas. "
+                        "Genera el documento desde la plantilla antes de enviarlo a aprobación."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if contrato.estado not in ("borrador", "cambios_solicitados"):
             return Response(
                 {"detail": "Solo se puede enviar a aprobacion desde borrador o cambios solicitados."},
@@ -2012,6 +2022,20 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         if not contrato.plantilla:
             return Response(
                 {"detail": "El contrato no tiene plantilla asociada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if (
+            contrato.plantilla.tipo_contrato
+            and contrato.tipo_contrato
+            and contrato.plantilla.tipo_contrato != contrato.tipo_contrato
+        ):
+            return Response(
+                {
+                    "detail": (
+                        f"La plantilla es de tipo '{contrato.plantilla.tipo_contrato}' pero el contrato "
+                        f"es de tipo '{contrato.tipo_contrato}'. Selecciona una plantilla compatible."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         secciones = generar_secciones_contrato(contrato)
@@ -3334,8 +3358,20 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        from contratos.estados_modelo import CONTENIDO_CANONICO_IDENTIFICACION
+
         empresa = _empresa_del_usuario(self.request.user)
-        serializer.save(empresa_prestadora=empresa)
+        plantilla = serializer.save(empresa_prestadora=empresa)
+        # Crear la sección predeterminada de identificación del cliente
+        SeccionPlantilla.objects.create(
+            plantilla=plantilla,
+            titulo='Identificación del Cliente',
+            tipo='identificacion_cliente',
+            contenido_template=CONTENIDO_CANONICO_IDENTIFICACION,
+            orden=1,
+            es_editable_en_contrato=False,
+            es_obligatoria=True,
+        )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
@@ -3392,15 +3428,23 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
         return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id)
 
     def _normalizar_firmas(self, serializer):
-        """Si la sección es tipo firmas, fuerza contenido canónico y flags."""
-        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS
+        """Fuerza contenido canónico y flags para secciones de tipo predeterminado."""
+        from contratos.estados_modelo import (
+            CONTENIDO_CANONICO_FIRMAS,
+            CONTENIDO_CANONICO_IDENTIFICACION,
+        )
 
-        if serializer.validated_data.get('tipo') == 'firmas' or (
-            self.action in ('partial_update', 'update')
-            and serializer.instance
-            and serializer.instance.tipo == 'firmas'
-        ):
+        tipo = serializer.validated_data.get('tipo') or (
+            serializer.instance.tipo
+            if (self.action in ('partial_update', 'update') and serializer.instance)
+            else None
+        )
+        if tipo == 'firmas':
             serializer.validated_data['contenido_template'] = CONTENIDO_CANONICO_FIRMAS
+            serializer.validated_data['es_editable_en_contrato'] = False
+            serializer.validated_data['es_obligatoria'] = True
+        elif tipo == 'identificacion_cliente':
+            serializer.validated_data['contenido_template'] = CONTENIDO_CANONICO_IDENTIFICACION
             serializer.validated_data['es_editable_en_contrato'] = False
             serializer.validated_data['es_obligatoria'] = True
 

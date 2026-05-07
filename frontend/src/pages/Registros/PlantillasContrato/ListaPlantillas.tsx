@@ -2,13 +2,14 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import ConfirmarEliminar from '@/components/modals/ConfirmarEliminar';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
-import { useAppDispatch } from '@/store';
-import plantillaContratoApi, {
+import {
+    useDeletePlantillaMutation,
     useGetPlantillasContratoQuery,
 } from '@/store/slices/contratos/plantillaContratoApi';
 import { useState } from 'react';
@@ -17,10 +18,10 @@ import ModalCrearPlantilla from './components/ModalCrearPlantilla';
 
 const ListaPlantillas = () => {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
     const [modalOpen, setModalOpen] = useState(false);
 
-    const { data: plantillas, isLoading } = useGetPlantillasContratoQuery();
+    const { data: plantillas, isLoading, error } = useGetPlantillasContratoQuery();
+    const [deletePlantilla] = useDeletePlantillaMutation();
 
     const getTipoLabel = (tipo: string) =>
         TIPO_CONTRATO.find((item) => item.value === tipo)?.label || tipo;
@@ -29,10 +30,6 @@ const ListaPlantillas = () => {
     const inactivas = (plantillas?.length || 0) - activas;
     const seccionesTotales =
         plantillas?.reduce((total, item) => total + (item.secciones?.length || 0), 0) || 0;
-
-    const handlePlantillaDeleted = () => {
-        dispatch(plantillaContratoApi.util.invalidateTags(['PlantillasContrato']));
-    };
 
     return (
         <PageWrapper>
@@ -55,6 +52,11 @@ const ListaPlantillas = () => {
                             <h2 className='mt-1 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
                                 Biblioteca base para tus contratos
                             </h2>
+                            <p className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
+                                Define los bloques reutilizables de texto que se insertarán al
+                                generar un contrato. Cada plantilla puede tener múltiples secciones
+                                ordenadas y personalizadas con etiquetas dinámicas.
+                            </p>
                         </div>
                         <div className='flex flex-wrap gap-2'>
                             <Badge variant='outline' color='blue'>
@@ -77,11 +79,16 @@ const ListaPlantillas = () => {
                         <CardHeader>
                             <CardHeaderChild>
                                 <div>
-                                    <div className='text-lg font-semibold'>Gestion de plantillas</div>
+                                    <div className='text-lg font-semibold'>Gestión de plantillas</div>
                                 </div>
                             </CardHeaderChild>
                         </CardHeader>
                     <CardBody>
+                        {error && (
+                            <Alert color='red' icon='HeroExclamationTriangle' className='mb-4'>
+                                No se pudieron cargar las plantillas. Intenta recargar la página.
+                            </Alert>
+                        )}
                         {isLoading ? (
                             <p className='py-8 text-center text-zinc-500'>
                                 Cargando plantillas...
@@ -90,7 +97,7 @@ const ListaPlantillas = () => {
                             <div className='flex flex-col items-center gap-4 py-10 text-center'>
                                 <div className='max-w-md'>
                                     <p className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
-                                        Aun no hay plantillas creadas.
+                                        Aún no hay plantillas creadas.
                                     </p>
                                 </div>
                                 <Button
@@ -129,7 +136,7 @@ const ListaPlantillas = () => {
                                                             </Button>
                                                             <span className='text-xs text-zinc-500'>
                                                                 {plantilla.descripcion ||
-                                                                    'Sin descripcion.'}
+                                                                    'Sin descripción.'}
                                                             </span>
                                                             <div className='mt-1 flex flex-wrap gap-1'>
                                                                 {plantilla.es_default && (
@@ -181,20 +188,20 @@ const ListaPlantillas = () => {
                                                             <Button
                                                                 variant='solid'
                                                                 size='sm'
-                                                                icon='HeroPencil'
+                                                                icon='HeroArrowTopRightOnSquare'
                                                                 onClick={() =>
                                                                     navigate(
                                                                         `/registros/plantillas-contrato/${plantilla.id}`,
                                                                     )
                                                                 }>
-                                                                Editar
+                                                                Gestionar
                                                             </Button>
                                                             {!plantilla.es_default && (
                                                                 <ConfirmarEliminar
                                                                     peticionUrl={`/api/plantillas-contrato/${plantilla.id}/`}
                                                                     nombre={plantilla.titulo}
-                                                                    onDispatch={
-                                                                        handlePlantillaDeleted
+                                                                    onDispatch={() =>
+                                                                        deletePlantilla(plantilla.id)
                                                                     }
                                                                     buttonSize='sm'
                                                                 />

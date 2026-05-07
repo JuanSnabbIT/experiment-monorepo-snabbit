@@ -72,6 +72,7 @@ export const TIPOS_SECCION = [
     { value: 'encabezado', label: 'Encabezado' },
     { value: 'clausula', label: 'Cláusula' },
     { value: 'condiciones_generales', label: 'Condiciones Generales' },
+    { value: 'identificacion_cliente', label: 'Identificación del Cliente' },
     { value: 'firmas', label: 'Firmas' },
     { value: 'libre', label: 'Sección Libre' },
 ];
@@ -119,8 +120,32 @@ export const TRANSICIONES_ESTADO_LICENCIA: Record<string, string[]> = {
     cancelada:  [],
 };
 
+// ─── Etiquetas calculadas por motor_plantillas.py (no vienen de BD) ───
+// Estas etiquetas se resuelven en runtime al generar secciones desde la plantilla.
+export const ETIQUETAS_CALCULADAS: { clave: string; nombre: string; descripcion: string }[] = [
+    { clave: 'cotizaciones_tabla',              nombre: 'Tabla de cotizaciones',       descripcion: 'Tabla HTML con los ítems de las cotizaciones vinculadas' },
+    { clave: 'cantidad_cotizaciones',           nombre: 'N° de cotizaciones',          descripcion: 'Cantidad de cotizaciones vinculadas al contrato' },
+    { clave: 'total_cotizaciones',              nombre: 'Total cotizaciones',           descripcion: 'Suma total de todas las cotizaciones en la moneda del contrato' },
+    { clave: 'forma_pago_venta',                nombre: 'Forma de pago (venta)',        descripcion: 'Forma de pago definida en la OT de venta vinculada' },
+    { clave: 'cantidad_cuotas_venta',           nombre: 'N° de cuotas',                descripcion: 'Número de cuotas del plan de pago de la venta' },
+    { clave: 'cuotas_venta_tabla',              nombre: 'Tabla de cuotas',             descripcion: 'Tabla HTML con el detalle de cada cuota del plan de pago' },
+    { clave: 'cotizaciones_totales_convertidos',nombre: 'Total convertido (USD/UF)',   descripcion: 'Total de cotizaciones convertido a USD u otra moneda base' },
+    { clave: 'dolar_observado_cotizaciones',    nombre: 'Dólar observado',             descripcion: 'Tipo de cambio USD utilizado para la conversión de montos' },
+];
+
 // Contenido canónico para secciones tipo "firmas" (espejo del backend)
 export const CONTENIDO_CANONICO_FIRMAS =
     '[Zona de firmas del contrato]\n\n' +
     'Representante Empresa Prestadora: [nombre_empresa_prestadora]\n' +
     'Representante Cliente: [nombre_cliente]';
+
+// Contenido canónico para secciones tipo "identificacion_cliente"
+export const CONTENIDO_CANONICO_IDENTIFICACION =
+    '1.- Identificación de "EL CLIENTE"\n\n' +
+    'Nombre o Razón Social: [nombre_cliente]\n' +
+    'R.U.T: [rut_cliente]\n' +
+    'Domicilio: [domicilio_cliente]\n' +
+    'Giro o actividad: [giro_cliente]\n' +
+    'Representante legal: [representante_cliente]\n' +
+    'R.U.T del representante: [rut_representante_cliente]\n' +
+    'E-mail: [email_cliente]';

@@ -82,6 +82,13 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         related_name="contratos",
         verbose_name="Plantilla utilizada",
     )
+    plantilla_version_usada = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name="Versión de plantilla utilizada",
+        help_text="Versión de la plantilla al momento de generar las últimas secciones.",
+    )
 
     servicios_genericos = models.ManyToManyField(
         ContentType,
@@ -136,6 +143,16 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
 
     @property
     def total_items_comerciales(self):
+        # Convierte cada item a moneda_cobro antes de sumar para evitar mezclar monedas.
+        # Si la conversion falla (falta tipo de cambio), retorna la suma bruta como fallback.
+        from contratos.currency_utils import consolidar_totales_items
+
+        total_convertido = consolidar_totales_items(
+            self.items_comerciales.all(), self.moneda_cobro
+        )
+        if total_convertido is not None:
+            return total_convertido
+        # Fallback: suma directa (comportamiento anterior, sin conversion)
         return sum(
             item.total_para_forma_pago_contractual for item in self.items_comerciales.all()
         )
@@ -1727,6 +1744,7 @@ TIPO_SECCION_CHOICES = [
     ("encabezado", "Encabezado"),
     ("clausula", "Cláusula"),
     ("condiciones_generales", "Condiciones Generales"),
+    ("identificacion_cliente", "Identificación del Cliente"),
     ("firmas", "Firmas"),
     ("libre", "Sección Libre"),
 ]

@@ -11,9 +11,9 @@ import type {
 import {
     ContractTextBlock,
     ContractTextList,
-    PlanIncludedServicesDetail,
     getPlanComponentDetails,
     isPlanContractSource,
+    PlanIncludedServicesDetail,
 } from './planContractDetail';
 
 interface IResumenDatosContratoProps {
@@ -156,7 +156,7 @@ const TablaItemsComerciales = ({
                         {formatCurrency(item.precio_unitario_contratado, moneda)}
                     </Td>
                     <Td className='text-right font-medium'>
-                        {formatCurrency(item.subtotal, moneda)}
+                        {formatCurrency(item.subtotal_en_moneda_cobro ?? item.subtotal, moneda)}
                     </Td>
                 </Tr>
             ))}

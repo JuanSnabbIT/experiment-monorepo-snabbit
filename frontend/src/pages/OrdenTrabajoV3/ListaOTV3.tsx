@@ -314,7 +314,7 @@ const ListaOTV3 = () => {
                 </Card>
             </Container>
 
-            <CrearOTV3 isOpen={crearOpen} setIsOpen={setCrearOpen} />
+            {crearOpen && <CrearOTV3 isOpen={crearOpen} setIsOpen={setCrearOpen} />}
         </PageWrapper>
     );
 };

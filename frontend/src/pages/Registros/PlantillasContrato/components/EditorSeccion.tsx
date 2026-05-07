@@ -1,6 +1,8 @@
 import Label from '@/components/form/Label';
 import Badge from '@/components/ui/Badge';
-import { COLORES_CATEGORIA } from '@/constants/contrato.constant';
+import Button from '@/components/ui/Button';
+import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
+import { COLORES_CATEGORIA, ETIQUETAS_CALCULADAS } from '@/constants/contrato.constant';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -15,6 +17,31 @@ import {
 import { HistoryEditor, withHistory } from 'slate-history';
 import { Editable, ReactEditor, RenderElementProps, Slate, withReact } from 'slate-react';
 import SelectorEtiqueta from './SelectorEtiqueta';
+
+const SelectorEtiquetasSistema = ({ onSelect }: { onSelect: (clave: string) => void }) => (
+    <Dropdown>
+        <DropdownToggle>
+            <Button icon='HeroTag' size='sm'>
+                Etiquetas sistema
+            </Button>
+        </DropdownToggle>
+        <DropdownMenu className='max-h-80 w-72 overflow-auto'>
+            <div className='px-3 py-2 border-b border-zinc-200 text-xs font-semibold uppercase text-zinc-500 dark:border-zinc-700'>
+                Etiquetas del sistema
+            </div>
+            {ETIQUETAS_CALCULADAS.map((et) => (
+                <DropdownItem
+                    key={et.clave}
+                    onClick={() => onSelect(et.clave)}>
+                    <div className='flex flex-col'>
+                        <span className='font-medium'>{et.nombre}</span>
+                        <span className='text-xs text-zinc-400'>[{et.clave}]</span>
+                    </div>
+                </DropdownItem>
+            ))}
+        </DropdownMenu>
+    </Dropdown>
+);
 
 // ─── Tipos Slate custom ───
 
@@ -288,10 +315,11 @@ const EditorSeccion = ({
                         </span>
                     )}
                     <SelectorEtiqueta etiquetas={etiquetas} onSelect={insertarEtiqueta} />
+                    <SelectorEtiquetasSistema onSelect={insertarEtiqueta} />
                 </div>
             </div>
             <div className='rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400'>
-                Inserta etiquetas desde el selector. Se mostrarán como chips en el texto.
+                Inserta etiquetas desde los selectores. Se mostrarán como chips en el texto.
             </div>
             <Slate editor={editor} initialValue={initialValue} onChange={handleChange}>
                 <Editable

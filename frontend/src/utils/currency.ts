@@ -16,6 +16,12 @@ export const formatPrice = (
 
 type CurrencyCode = 'CLP' | 'USD' | 'UF' | string;
 
+const normalizeCurrency = (currency?: string | null): 'CLP' | 'USD' | 'UF' => {
+    if (currency === '1' || currency === 'USD') return 'USD';
+    if (currency === '3' || currency === 'UF') return 'UF';
+    return 'CLP';
+};
+
 export const formatCurrency = (
     value: number | string | undefined | null,
     currency?: string | null,
@@ -24,9 +30,32 @@ export const formatCurrency = (
         return `${formatPrice(value, 1, 1)} USD`;
     }
     if (currency === '3' || currency === 'UF') {
-        return `${formatPrice(value, 4, 4)} UF`;
+        return `${formatPrice(value, 2, 2)} UF`;
     }
     return `$ ${formatPrice(value, 0, 0)}`;
+};
+
+export const convertCurrency = (
+    value: number,
+    fromCurrency: string | null | undefined,
+    toCurrency: string | null | undefined,
+    tipoCambio?: { dolar?: number | null; uf?: number | null },
+): number => {
+    const from = normalizeCurrency(fromCurrency);
+    const to = normalizeCurrency(toCurrency);
+    if (from === to || !value) return value;
+    if (!tipoCambio) return value;
+
+    const dolar = tipoCambio.dolar ?? 0;
+    const uf = tipoCambio.uf ?? 0;
+
+    if (from === 'CLP' && to === 'USD') return dolar > 0 ? value / dolar : value;
+    if (from === 'CLP' && to === 'UF') return uf > 0 ? value / uf : value;
+    if (from === 'USD' && to === 'CLP') return value * dolar;
+    if (from === 'USD' && to === 'UF') return dolar > 0 && uf > 0 ? (value * dolar) / uf : value;
+    if (from === 'UF' && to === 'CLP') return value * uf;
+    if (from === 'UF' && to === 'USD') return dolar > 0 && uf > 0 ? (value * uf) / dolar : value;
+    return value;
 };
 
 export const parseLocaleNumber = (

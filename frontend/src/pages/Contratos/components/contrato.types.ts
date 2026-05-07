@@ -31,6 +31,14 @@ export interface ISelectorPlanServiciosProps {
     value: ISeleccionPlanServicios;
     /** Callback cuando la selección cambia */
     onChange: (value: ISeleccionPlanServicios) => void;
+    /** Moneda del contrato para mostrar valores convertidos */
+    contractCurrency?: 'CLP' | 'UF' | 'USD';
+    /** Forma de pago contractual para el flujo de contratos */
+    contractPaymentMode?: 'mensual' | 'anual' | 'pago_unico';
+    /** Oculta campos de cantidad/precio del plan cuando se renderiza en el modal de contrato */
+    hidePlanInputs?: boolean;
+    /** Oculta la sección de visitas incluidas en modos de contrato de servicio */
+    hideVisitasSection?: boolean;
 }
 
 /**

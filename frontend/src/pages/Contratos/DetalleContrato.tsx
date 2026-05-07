@@ -1,4 +1,3 @@
-import Icon from '@/components/icon/Icon';
 import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
@@ -13,6 +12,7 @@ import Card, {
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { useEstadoContrato } from '@/hooks/useEstadoContrato';
+import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
 import {
     listaContentTypeThunk,
@@ -52,6 +52,29 @@ import TabUsuarios from './components/TabUsuarios';
 import TabVisitas from './components/TabVisitas';
 import DetalleConfidencialidadContrato from './modals/DetalleConfidencialidadContrato';
 import ModalEditarDatosGenerales from './modals/ModalEditarDatosGenerales';
+
+const PAGO_LABEL: Record<string, string> = {
+    mensual: 'Mensual',
+    anual: 'Anual',
+    pago_unico: 'Pago unico',
+};
+
+const PAGO_VENTA_LABEL: Record<string, string> = {
+    contado: 'Contado',
+    cuotas: 'Cuotas',
+};
+
+const getFormaPagoLabel = (contrato: IContratoEmpresaCliente) => {
+    if (contrato.tipo === 'venta') {
+        return (
+            contrato.resumen_comercial?.forma_pago_venta_label ||
+            (contrato.forma_pago_venta ? PAGO_VENTA_LABEL[contrato.forma_pago_venta] : null) ||
+            'Contado'
+        );
+    }
+
+    return PAGO_LABEL[contrato.forma_pago_contractual] || contrato.forma_pago_contractual || '—';
+};
 
 // ── Componente Principal ──
 
@@ -306,47 +329,10 @@ const DetalleContrato = () => {
                 <Card>
                     <CardBody className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
                         <div>
-                            <div className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
-                                Operacion del contrato
+                            <div className='text-xl font-bold text-blue-500'>
+                                {contrato.nombre}{' '}
+                                <span className='text-base font-medium text-zinc-500'>#{contrato.id}</span>
                             </div>
-                            <div className='text-xs text-zinc-500'>
-                                Centraliza aqui los cambios de estado y las acciones principales.
-                            </div>
-                            {contrato && (
-                                <div className='mt-2 flex flex-wrap gap-2 text-xs'>
-                                    <span className='rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'>
-                                        Firma prestadora:{' '}
-                                        {firmaPrestadoraDisponible ? 'configurada' : 'faltante'}
-                                    </span>
-                                    <span className='rounded-full bg-zinc-100 px-2 py-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'>
-                                        Confidencialidad:{' '}
-                                        {tieneConfidencialidad ? 'asociada' : 'sin acuerdos'}
-                                    </span>
-                                </div>
-                            )}
-                            {pendientes.length > 0 && (
-                                <div className='mt-3 flex flex-col gap-1'>
-                                    <span className='text-xs font-semibold text-zinc-500 dark:text-zinc-400'>
-                                        Pendiente para avanzar:
-                                    </span>
-                                    {pendientes.map((p) => (
-                                        <span key={p.label} className='flex items-center gap-1 text-xs'>
-                                            <Icon
-                                                icon={p.cumplido ? 'HeroCheckCircle' : 'HeroExclamationCircle'}
-                                                className={p.cumplido ? 'text-emerald-500' : 'text-amber-500'}
-                                            />
-                                            <span
-                                                className={
-                                                    p.cumplido
-                                                        ? 'text-zinc-400 line-through'
-                                                        : 'text-zinc-700 dark:text-zinc-300'
-                                                }>
-                                                {p.label}
-                                            </span>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
                         </div>
                         <div className='flex flex-wrap items-center gap-2'>
                             {puedeActivar && (
@@ -495,108 +481,104 @@ const DetalleContrato = () => {
                     {/* ── Cabecera del contrato ── */}
                     <Card className='col-span-full'>
                         <CardBody>
-                            <div className='grid grid-cols-5 gap-4'>
-                                <div className='col-span-3 flex flex-col gap-2'>
-                                    {/* Nombre */}
-                                    <div className='text-xl font-bold text-blue-500'>
-                                        {contrato.nombre}{' '}
-                                        #{contrato.id}
-                                    </div>
-
-                                    {/* Empresa Prestadora */}
-                                    <div>
-                                        <span className='font-bold text-blue-500'>
-                                            Empresa Prestadora:{' '}
-                                        </span>
+                            <div className='mb-4 flex items-center justify-between'>
+                                <div className='text-xl font-bold text-blue-500'>Resumen del contrato</div>
+                            </div>
+                            <div className='grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3'>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Empresa Prestadora</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {contrato.datos_empresa.nombre}
                                     </div>
+                                </div>
 
-                                    {/* Empresa Cliente */}
-                                    <div>
-                                        <span className='font-bold text-blue-500'>
-                                            Empresa Cliente:{' '}
-                                        </span>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Empresa Cliente</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {contrato.datos_cliente.nombre}
                                     </div>
+                                </div>
 
-                                    {/* Vigencia */}
-                                    <div>
-                                        <span className='font-bold text-blue-500'>
-                                            Vigencia:{' '}
-                                        </span>
-                                        {dayjs(contrato.fecha_inicio).format('DD/MM/YYYY')}{' '}
-                                        -{' '}
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Vigencia</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
+                                        {dayjs(contrato.fecha_inicio).format('DD/MM/YYYY')} -{' '}
                                         {contrato.fecha_fin
                                             ? dayjs(contrato.fecha_fin).format('DD/MM/YYYY')
                                             : 'Sin Fecha de Finalización'}
                                     </div>
+                                </div>
 
-                                    {/* Tipo */}
-                                    <div>
-                                        <span className='font-bold text-blue-500'>Tipo: </span>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Tipo</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {contrato.tipo_label}
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <span className='font-bold text-blue-500'>
-                                            Destinatario principal:{' '}
-                                        </span>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Moneda</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
+                                        {contrato.moneda_cobro}
+                                    </div>
+                                </div>
+
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Forma de pago</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
+                                        {getFormaPagoLabel(contrato)}
+                                    </div>
+                                </div>
+
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Destinatario principal</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {contrato.destinatario_principal?.nombre_display ?? 'Sin definir'}
                                         {contrato.destinatario_principal?.correo_display
                                             ? ` (${contrato.destinatario_principal.correo_display})`
                                             : ''}
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <span className='font-bold text-blue-500'>
-                                            Aprobación del cliente:{' '}
-                                        </span>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Aprobación del cliente</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {ultimoEnvioAprobacionDeprecado
                                             ? 'Enlace invalidado'
                                             : contrato.ultimo_envio_aprobacion?.respondido
-                                            ? contrato.ultimo_envio_aprobacion.aprobado
-                                                ? 'Aprobada'
-                                                : 'Rechazada'
-                                            : contrato.ultimo_envio_aprobacion?.enviado
-                                              ? 'Pendiente'
-                                              : 'No enviada'}
+                                                ? contrato.ultimo_envio_aprobacion.aprobado
+                                                    ? 'Aprobada'
+                                                    : 'Rechazada'
+                                                : contrato.ultimo_envio_aprobacion?.enviado
+                                                    ? 'Pendiente'
+                                                    : 'No enviada'}
                                     </div>
+                                </div>
 
-                                    {ultimoEnvioAprobacionDeprecado && (
-                                        <div className='rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800'>
-                                            El ultimo enlace de aprobacion fue invalidado
-                                            {contrato.ultimo_envio_aprobacion?.fecha_deprecacion
-                                                ? ` el ${dayjs(
-                                                      contrato.ultimo_envio_aprobacion.fecha_deprecacion,
-                                                  ).format('DD/MM/YYYY HH:mm')}`
-                                                : ''}
-                                            . Corrige el destinatario o el contenido y luego reenvia una nueva aprobacion.
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <span className='font-bold text-blue-500'>Firma: </span>
+                                <div className='space-y-1'>
+                                    <span className='font-bold text-blue-500'>Firma</span>
+                                    <div className='text-zinc-700 dark:text-zinc-200'>
                                         {contrato.ultimo_envio_firma?.firmado
                                             ? 'Firmado'
                                             : contrato.ultimo_envio_firma?.enviado
-                                              ? 'Pendiente'
-                                              : 'No enviada'}
+                                                ? 'Pendiente'
+                                                : 'No enviada'}
                                     </div>
+                                </div>
 
-                                    {contrato.ultimo_comentario_cliente && (
-                                        <div>
-                                            <span className='font-bold text-blue-500'>
-                                                Comentario del cliente:{' '}
-                                            </span>
+                                {contrato.ultimo_comentario_cliente && (
+                                    <div className='col-span-full space-y-1'>
+                                        <span className='font-bold text-blue-500'>Comentario del cliente</span>
+                                        <div className='text-zinc-700 dark:text-zinc-200'>
                                             {contrato.ultimo_comentario_cliente}
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {contrato.contrato_anterior_detalle && (
+                                {contrato.contrato_anterior_detalle && (
+                                    <div className='col-span-full space-y-1'>
+                                        <span className='font-bold text-blue-500'>Renovación de</span>
                                         <div>
-                                            <span className='font-bold text-blue-500'>
-                                                Renovación de:{' '}
-                                            </span>
                                             <Button
                                                 variant='default'
                                                 size='xs'
@@ -609,13 +591,13 @@ const DetalleContrato = () => {
                                                 {contrato.contrato_anterior_detalle.nombre} #{contrato.contrato_anterior_detalle.id}
                                             </Button>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {contrato.renovaciones_detalle && contrato.renovaciones_detalle.length > 0 && (
-                                        <div>
-                                            <span className='font-bold text-blue-500'>
-                                                Renovado en:{' '}
-                                            </span>
+                                {contrato.renovaciones_detalle && contrato.renovaciones_detalle.length > 0 && (
+                                    <div className='col-span-full space-y-1'>
+                                        <span className='font-bold text-blue-500'>Renovado en</span>
+                                        <div className='text-zinc-700 dark:text-zinc-200'>
                                             {contrato.renovaciones_detalle.map((r, idx) => (
                                                 <span key={r.id}>
                                                     {idx > 0 && ', '}
@@ -633,17 +615,8 @@ const DetalleContrato = () => {
                                                 </span>
                                             ))}
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Botones de acción */}
-                                <div className='col-span-2 flex items-start justify-end'>
-                                    <Badge
-                                        variant='outline'
-                                        color={colorEstadoContrato(contrato.estado)}>
-                                        {contrato.estado_label}
-                                    </Badge>
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         </CardBody>
                         <CardFooter className='border border-x-0 border-b-0 border-t-black pt-2'>
@@ -679,11 +652,6 @@ const DetalleContrato = () => {
                                 detalleContratoEmpresaCliente={contrato}
                                 puedeEditar={puedeEditar}
                             />
-                            <TabVisitas
-                                detalleContratoEmpresaCliente={contrato}
-                                puedeEditar={puedeEditar}
-                                listaVisitas={listaVisitas}
-                            />
                             <TabCondiciones
                                 detalleContratoEmpresaCliente={contrato}
                                 puedeEditar={puedeEditar}
@@ -694,6 +662,11 @@ const DetalleContrato = () => {
                             />
                         </div>
                         <div className='col-span-full lg:col-span-4 flex flex-col gap-4'>
+                            <TabVisitas
+                                detalleContratoEmpresaCliente={contrato}
+                                puedeEditar={puedeEditar}
+                                listaVisitas={listaVisitas}
+                            />
                             <TabHistorial contratoId={contrato.id} />
                         </div>
                     </div>

@@ -4,7 +4,7 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Alert from '@/components/ui/Alert';
-import { CONTENIDO_CANONICO_FIRMAS, TIPOS_SECCION } from '@/constants/contrato.constant';
+import { CONTENIDO_CANONICO_FIRMAS, CONTENIDO_CANONICO_IDENTIFICACION, TIPOS_SECCION } from '@/constants/contrato.constant';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
 import { FormikProps } from 'formik';
 import { useEffect } from 'react';
@@ -36,6 +36,8 @@ const SeccionForm = ({
     idPrefix = 'sec',
 }: ISeccionFormProps) => {
     const esFirmas = formik.values.tipo === 'firmas';
+    const esIdentificacion = formik.values.tipo === 'identificacion_cliente';
+    const esPredeterminada = esFirmas || esIdentificacion;
 
     // Forzar valores canónicos cuando el tipo es firmas
     useEffect(() => {
@@ -56,11 +58,30 @@ const SeccionForm = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [esFirmas]);
 
+    // Forzar valores canónicos cuando el tipo es identificacion_cliente
+    useEffect(() => {
+        if (esIdentificacion) {
+            if (formik.values.titulo !== 'Identificación del Cliente') {
+                formik.setFieldValue('titulo', 'Identificación del Cliente');
+            }
+            if (formik.values.contenido_template !== CONTENIDO_CANONICO_IDENTIFICACION) {
+                formik.setFieldValue('contenido_template', CONTENIDO_CANONICO_IDENTIFICACION);
+            }
+            if (formik.values.es_editable_en_contrato) {
+                formik.setFieldValue('es_editable_en_contrato', false);
+            }
+            if (!formik.values.es_obligatoria) {
+                formik.setFieldValue('es_obligatoria', true);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esIdentificacion]);
+
     return (
         <div className='flex flex-col gap-4'>
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                 <div>
-                    <Label htmlFor={`${idPrefix}-titulo`}>Titulo</Label>
+                    <Label htmlFor={`${idPrefix}-titulo`}>Título</Label>
                     <Validation
                         isValid={formik.isValid}
                         isTouched={formik.touched.titulo}
@@ -71,7 +92,7 @@ const SeccionForm = ({
                             value={formik.values.titulo}
                             onChange={formik.handleChange}
                             onBlur={formik.handleBlur}
-                            disabled={esFirmas}
+                            disabled={esPredeterminada}
                         />
                     </Validation>
                 </div>
@@ -102,6 +123,15 @@ const SeccionForm = ({
                         contrato. No requiere edición manual.
                     </p>
                 </Alert>
+            ) : esIdentificacion ? (
+                <Alert color='sky' variant='outline' className='text-sm'>
+                    <p className='font-semibold'>Identificación del cliente (bloque del sistema)</p>
+                    <p className='mt-1 text-zinc-500'>
+                        Muestra los datos identificatorios del cliente con sus etiquetas
+                        correspondientes. El contenido se completa automáticamente al generar el
+                        documento.
+                    </p>
+                </Alert>
             ) : (
                 <EditorSeccion
                     value={formik.values.contenido_template}
@@ -109,7 +139,7 @@ const SeccionForm = ({
                         formik.setFieldValue('contenido_template', value)
                     }
                     etiquetas={etiquetas}
-                    label='Texto base de la seccion'
+                    label='Texto base de la sección'
                 />
             )}
 
@@ -121,12 +151,14 @@ const SeccionForm = ({
                         checked={formik.values.es_editable_en_contrato}
                         onChange={formik.handleChange}
                         label='Editable en contrato'
-                        disabled={esFirmas}
+                        disabled={esPredeterminada}
                     />
                     <p className='mt-2 text-xs text-zinc-500'>
                         {esFirmas
                             ? 'Las firmas no son editables en contrato.'
-                            : 'Permite ajustes posteriores.'}
+                            : esIdentificacion
+                              ? 'La identificación del cliente no es editable en contrato.'
+                              : 'Permite ajustes posteriores.'}
                     </p>
                 </div>
                 <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
@@ -136,12 +168,14 @@ const SeccionForm = ({
                         checked={formik.values.es_obligatoria}
                         onChange={formik.handleChange}
                         label='Obligatoria'
-                        disabled={esFirmas}
+                        disabled={esPredeterminada}
                     />
                     <p className='mt-2 text-xs text-zinc-500'>
                         {esFirmas
                             ? 'Las firmas siempre son obligatorias.'
-                            : 'Mantiene el bloque en la base.'}
+                            : esIdentificacion
+                              ? 'La identificación del cliente siempre es obligatoria.'
+                              : 'Mantiene el bloque en la base.'}
                     </p>
                 </div>
             </div>

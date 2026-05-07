@@ -6,18 +6,13 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { useDeletePlanServicioMutation, useGetPlanServicioQuery } from '@/store/slices/contratos/contratoApi';
+import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ModalPlanServicio from './modals/ModalPlanServicio';
-
-const formatNumber = (value?: string | number | null, maximumFractionDigits = 0) =>
-    new Intl.NumberFormat('es-CL', {
-        minimumFractionDigits: maximumFractionDigits,
-        maximumFractionDigits,
-    }).format(Number(value || 0));
 
 const formatPriceLabel = (
     currency: 'CLP' | 'UF' | 'USD',
@@ -29,14 +24,7 @@ const formatPriceLabel = (
         return '-';
     }
 
-    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
-    const formatted = formatNumber(numeric, decimals);
-
-    if (currency === 'CLP') {
-        return `$${formatted}`;
-    }
-
-    return `${formatted} ${currency}`;
+    return formatCurrency(numeric, currency);
 };
 
 const DetallePlanServicio = () => {
@@ -63,7 +51,7 @@ const DetallePlanServicio = () => {
         try {
             await deletePlan(plan.id).unwrap();
             toast.success('Plan eliminado');
-            navigate('/registros/planes-y-servicios');
+            navigate('/registros/planes-y-servicios?tab=planes');
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
@@ -130,7 +118,7 @@ const DetallePlanServicio = () => {
         <PageWrapper isProtectedRoute name='Detalle Plan de Servicio' title='Detalle Plan de Servicio'>
             <Subheader>
                 <SubheaderLeft>
-                    <Button icon='HeroArrowLeft' onClick={() => navigate('/registros/planes-y-servicios')}>
+                    <Button icon='HeroArrowLeft' onClick={() => navigate('/registros/planes-y-servicios?tab=planes')}>
                         Volver
                     </Button>
                     <div>

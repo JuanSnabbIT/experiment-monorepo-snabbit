@@ -23,7 +23,7 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import ModalPlanServicio from '../modals/ModalPlanServicio';
-import PlanCatalogCard from './PlanCatalogCard';
+import PlanCard from './PlanCard';
 
 const columnHelper = createColumnHelper<IPlanServicio>();
 
@@ -205,7 +205,7 @@ const TabPlanes = () => {
                     ) : (
                         <div className='grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3'>
                             {visibleRows.map((row) => (
-                                <PlanCatalogCard
+                                <PlanCard
                                     key={row.original.id}
                                     plan={row.original}
                                     onEdit={handleEdit}

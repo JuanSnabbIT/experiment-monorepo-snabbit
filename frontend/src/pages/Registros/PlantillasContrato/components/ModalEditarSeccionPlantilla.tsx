@@ -1,8 +1,8 @@
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import {
-  IEtiquetaPlantilla,
-  ISeccionPlantilla,
+    IEtiquetaPlantilla,
+    ISeccionPlantilla,
 } from '@/interface/plantillaContrato.interface';
 import { useGetDetallePlantillaQuery, useUpdateSeccionPlantillaMutation } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -22,7 +22,7 @@ interface IModalEditarSeccionPlantillaProps {
 }
 
 const validationSchema = Yup.object({
-    titulo: Yup.string().required('Titulo requerido'),
+    titulo: Yup.string().required('Título requerido'),
     tipo: Yup.string().required('Tipo requerido'),
 });
 
@@ -62,7 +62,7 @@ const ModalEditarSeccionPlantilla = ({
                         tipo: values.tipo as ISeccionPlantilla['tipo'],
                     },
                 }).unwrap();
-                toast.success('Seccion actualizada');
+                toast.success('Sección actualizada');
                 setIsOpen(false);
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
@@ -97,7 +97,7 @@ const ModalEditarSeccionPlantilla = ({
     return (
         <>
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
-            <ModalHeader>Editar seccion</ModalHeader>
+            <ModalHeader>Editar sección</ModalHeader>
             <ModalBody>
                 <SeccionForm
                     formik={formik}

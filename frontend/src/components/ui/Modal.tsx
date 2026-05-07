@@ -1,3 +1,5 @@
+import classNames from 'classnames';
+import { AnimatePresence, motion, MotionProps } from 'framer-motion';
 import React, {
     Children,
     cloneElement,
@@ -11,13 +13,11 @@ import React, {
     useId,
     useRef,
 } from 'react';
-import { AnimatePresence, motion, MotionProps } from 'framer-motion';
-import classNames from 'classnames';
-import useEventListener from '../../hooks/useEventListener';
-import Portal from '../layouts/Portal/Portal';
-import { TRounded } from '../../types/rounded.type';
 import themeConfig from '../../config/theme.config';
+import useEventListener from '../../hooks/useEventListener';
+import { TRounded } from '../../types/rounded.type';
 import { TScreens } from '../../types/screens.type';
+import Portal from '../layouts/Portal/Portal';
 import CloseButton from './CloseButton';
 
 type TModalCustomSize = string | number;
@@ -186,8 +186,8 @@ const Content: FC<IContentProps> = (props) => {
         'pointer-events-auto relative flex w-full flex-col bg-white dark:bg-zinc-950',
         'shadow-2xl',
         [`${rounded}`],
+        'max-h-full overflow-hidden',
         {
-            'max-h-full overflow-hidden': isScrollable,
             'h-full': !!fullScreen,
             'rounded-none': typeof fullScreen !== 'string' && fullScreen,
             'max-2xl:rounded-none': fullScreen === '2xl',
@@ -225,6 +225,7 @@ const Dialog = forwardRef<HTMLDivElement, IDialogProps>((props, ref) => {
 
     const classes = classNames(
         'pointer-events-none relative mx-auto my-6 max-w-[var(--theme-modal-width)] w-full',
+        'max-h-[calc(100%-theme(margin.6)*2)] overflow-hidden',
         {
             'h-[calc(100%-theme(margin.6)*2)]': isScrollable,
             'flex min-h-[calc(100%-theme(margin.6)*2)] items-center': isCentered && !fullScreen,

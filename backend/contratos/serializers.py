@@ -456,6 +456,7 @@ class ContratoItemComercialSerializer(serializers.ModelSerializer):
     plan_version = PlanServicioSerializer(read_only=True)
     nombre = serializers.CharField(source='snapshot_nombre', read_only=True)
     subtotal = serializers.SerializerMethodField()
+    subtotal_en_moneda_cobro = serializers.SerializerMethodField()
     tipo_item = serializers.CharField(source='tipo_origen', read_only=True)
     servicio_generico = serializers.SerializerMethodField()
 
@@ -464,11 +465,36 @@ class ContratoItemComercialSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_subtotal(self, obj):
-        if obj.forma_pago == 'pago_unico':
-            return float(obj.total_pago_unico)
-        if obj.forma_pago == 'anual':
-            return float(obj.total_anual)
-        return float(obj.total_mensual)
+        # Retorna el total en la moneda propia del item (sin conversion).
+        # Usar junto a `moneda` del item para mostrar el precio individual.
+        return float(obj.total_para_forma_pago_contractual)
+
+    def get_subtotal_en_moneda_cobro(self, obj):
+        # Retorna el total convertido a moneda_cobro del contrato.
+        # Usar para sumar totales en la moneda del contrato.
+        # Retorna None si no se puede obtener el tipo de cambio requerido.
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+
+        contrato = obj.contrato
+        if not contrato:
+            return None
+        moneda_cobro = contrato.moneda_cobro
+        moneda_item = obj.moneda or "CLP"
+        if moneda_item == moneda_cobro:
+            return float(obj.total_para_forma_pago_contractual)
+
+        dolar, uf = obtener_tipos_cambio_actuales()
+        convertido = convertir_precio_item_safe(
+            obj.total_para_forma_pago_contractual,
+            moneda_origen=moneda_item,
+            moneda_destino=moneda_cobro,
+            dolar_observado=dolar,
+            valor_uf=uf,
+        )
+        return float(convertido) if convertido is not None else None
 
     def get_servicio_generico(self, obj):
         if obj.tipo_origen == 'plan' and obj.plan_version_id:
@@ -492,6 +518,7 @@ class ContratoServicioSerializer(serializers.ModelSerializer):
     nombre = serializers.SerializerMethodField()
 
     subtotal = serializers.SerializerMethodField()
+    subtotal_en_moneda_cobro = serializers.SerializerMethodField()
     tipo_item = serializers.SerializerMethodField()
 
     class Meta:
@@ -516,9 +543,44 @@ class ContratoServicioSerializer(serializers.ModelSerializer):
             return ""
 
     def get_subtotal(self, obj):
+        # Retorna el total en la moneda propia del item (sin conversion).
         if obj.item_comercial_id:
             return float(obj.item_comercial.total_para_forma_pago_contractual)
         return float(obj.precio_unitario) * obj.cantidad
+
+    def get_subtotal_en_moneda_cobro(self, obj):
+        # Retorna el total convertido a moneda_cobro del contrato.
+        # Retorna None si no se puede obtener el tipo de cambio requerido.
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+
+        contrato = obj.contrato
+        if not contrato:
+            return None
+        moneda_cobro = contrato.moneda_cobro
+
+        if obj.item_comercial_id:
+            monto = obj.item_comercial.total_para_forma_pago_contractual
+            moneda_item = obj.item_comercial.moneda or "CLP"
+        else:
+            from decimal import Decimal
+            monto = Decimal(str(obj.precio_unitario)) * obj.cantidad
+            moneda_item = getattr(obj, 'tipo_moneda', moneda_cobro) or moneda_cobro
+
+        if moneda_item == moneda_cobro:
+            return float(monto)
+
+        dolar, uf = obtener_tipos_cambio_actuales()
+        convertido = convertir_precio_item_safe(
+            monto,
+            moneda_origen=moneda_item,
+            moneda_destino=moneda_cobro,
+            dolar_observado=dolar,
+            valor_uf=uf,
+        )
+        return float(convertido) if convertido is not None else None
 
     def get_tipo_item(self, obj):
         if obj.item_comercial_id:

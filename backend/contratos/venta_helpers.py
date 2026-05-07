@@ -10,7 +10,7 @@ MONEDA_COTIZACION_MAP = {
 CUANTIZACION_POR_MONEDA = {
     "CLP": Decimal("0.01"),
     "USD": Decimal("0.01"),
-    "UF": Decimal("0.0001"),
+    "UF": Decimal("0.01"),
 }
 
 FORMAS_PAGO_VENTA_VALIDAS = {"contado", "cuotas"}

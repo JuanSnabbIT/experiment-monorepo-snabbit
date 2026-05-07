@@ -1,3 +1,5 @@
+import Button from '@/components/ui/Button';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import type {
     ICaracteristicaServicio,
     IContratoItemComercial,
@@ -8,6 +10,7 @@ import type {
     IServicio,
     IServicioAlcanceItem,
 } from '@/interface/contrato.interface';
+import { useState } from 'react';
 
 export interface IPlanComponentContractDetail {
     key: string;
@@ -265,50 +268,85 @@ export const ContractTextBlock = ({
     );
 };
 
+export const PlanServiceDetailModal = ({
+    component,
+    isOpen,
+    setIsOpen,
+}: {
+    component: IPlanComponentContractDetail | null;
+    isOpen: boolean;
+    setIsOpen: (v: boolean) => void;
+}) => {
+    if (!component) return null;
+    return (
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+            <ModalHeader>{component.nombre}</ModalHeader>
+            <ModalBody className='space-y-3 pb-5'>
+                {component.categoriaLabel && (
+                    <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
+                        {component.categoriaLabel}
+                    </div>
+                )}
+                {component.descripcion && (
+                    <p className='text-sm leading-6 text-zinc-700 dark:text-zinc-300'>
+                        {component.descripcion}
+                    </p>
+                )}
+                <ContractTextList title='Incluye' value={component.incluye} />
+                <ContractTextList title='No incluye' value={component.noIncluye} />
+                <ContractTextBlock
+                    title='Clausulas especiales'
+                    value={component.clausulasEspeciales}
+                />
+            </ModalBody>
+        </Modal>
+    );
+};
+
 export const PlanIncludedServicesDetail = ({
     components,
-    title = 'Servicios incluidos en el plan',
-    compact = false,
+    title = 'Servicios incluidos',
 }: {
     components: IPlanComponentContractDetail[];
     title?: string;
     compact?: boolean;
 }) => {
+    const [selected, setSelected] = useState<IPlanComponentContractDetail | null>(null);
+
     if (components.length === 0) return null;
 
-    const cardClassName = compact
-        ? 'rounded-2xl border border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-950/20'
-        : 'rounded-2xl border border-zinc-200 bg-white px-4 py-4 dark:border-zinc-800 dark:bg-zinc-950/20';
-
     return (
-        <div className='mt-4 space-y-3'>
-            <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                {title}
-            </div>
-            <div className='space-y-3'>
-                {components.map((component) => (
-                    <div className={cardClassName} key={component.key}>
-                        <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                            {component.nombre}
-                        </div>
-
-                        {component.descripcion && (
-                            <p className='mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300'>
-                                {component.descripcion}
-                            </p>
-                        )}
-
-                        <div className='mt-3 space-y-3'>
-                            <ContractTextList title='Incluye' value={component.incluye} />
-                            <ContractTextList title='No incluye' value={component.noIncluye} />
-                            <ContractTextBlock
-                                title='Clausulas especiales'
-                                value={component.clausulasEspeciales}
+        <>
+            <PlanServiceDetailModal
+                component={selected}
+                isOpen={!!selected}
+                setIsOpen={(v) => {
+                    if (!v) setSelected(null);
+                }}
+            />
+            <div className='mt-4'>
+                <div className='mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
+                    {title} ({components.length})
+                </div>
+                <div className='divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800'>
+                    {components.map((component) => (
+                        <div
+                            key={component.key}
+                            className='flex items-center justify-between px-3 py-2.5 first:rounded-t-xl last:rounded-b-xl hover:bg-zinc-50 dark:hover:bg-zinc-900/40'>
+                            <span className='text-sm text-zinc-800 dark:text-zinc-200'>
+                                {component.nombre}
+                            </span>
+                            <Button
+                                color='zinc'
+                                variant='plain'
+                                icon='HeroEye'
+                                size='sm'
+                                onClick={() => setSelected(component)}
                             />
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
-        </div>
+        </>
     );
 };

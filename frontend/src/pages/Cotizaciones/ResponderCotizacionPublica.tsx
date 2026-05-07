@@ -1,6 +1,7 @@
 import Checkbox from '@/components/form/Checkbox';
 import Textarea from '@/components/form/Textarea';
 import Icon from '@/components/icon/Icon';
+import Button from '@/components/ui/Button';
 import type { ICotizacionPublica } from '@/interface/cotizaciones.interface';
 import ApiService from '@/services/ApiService';
 import { formatCurrency } from '@/utils/currency';
@@ -291,11 +292,9 @@ const ResponderCotizacionPublica = () => {
                     <Icon icon='HeroExclamationTriangle' className='mx-auto mb-4 text-5xl text-red-500' />
                     <h2 className='mb-2 text-xl font-semibold text-red-600'>Error</h2>
                     <p className='mb-6 text-gray-600 dark:text-zinc-300'>{error || 'No se pudo cargar la cotización.'}</p>
-                    <button
-                        onClick={() => navigate('/login')}
-                        className='rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700'>
+                    <Button variant='solid' onClick={() => navigate('/login')}>
                         Ir al inicio de sesión
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -507,12 +506,16 @@ const ResponderCotizacionPublica = () => {
                                 <span className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
                                     Selecciona los ítems a aprobar
                                 </span>
-                                <button
+                                <Button
+                                    variant='default'
+                                    color='blue'
+                                    size='sm'
                                     onClick={toggleAll}
+                                    isDisable={submitting}
                                     disabled={submitting}
-                                    className='text-sm text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50'>
+                                    className='!px-2'>
                                     {allSelected ? 'Desmarcar todos' : 'Seleccionar todos'}
-                                </button>
+                                </Button>
                             </div>
                         )}
 
@@ -651,22 +654,28 @@ const ResponderCotizacionPublica = () => {
                                     </span>
                                 </label>
                                 <div className='flex flex-col items-center gap-4 sm:flex-row sm:justify-center'>
-                                    <button
+                                    <Button
                                         type='button'
+                                        variant='solid'
+                                        color='emerald'
                                         onClick={handleAprobar}
+                                        isDisable={submitting || selectedItemIds.length === 0 || !documentoRevisado}
                                         disabled={submitting || selectedItemIds.length === 0 || !documentoRevisado}
-                                        className='flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50'>
+                                        className='flex items-center gap-2'>
                                         <Icon icon='HeroCheckCircle' className='h-4 w-4' />
                                         Aprobar ({selectedItemIds.length})
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type='button'
+                                        variant='outline'
+                                        color='red'
                                         onClick={handleOpenRechazoModal}
+                                        isDisable={submitting}
                                         disabled={submitting}
-                                        className='flex items-center gap-2 rounded-lg border border-red-600 bg-white px-6 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:hover:bg-zinc-700'>
+                                        className='flex items-center gap-2 !text-red-600 dark:!text-red-200'>
                                         <Icon icon='HeroXCircle' className='h-4 w-4' />
                                         Rechazar
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         )}
@@ -677,10 +686,14 @@ const ResponderCotizacionPublica = () => {
                                 <p className='text-sm text-gray-500 dark:text-zinc-400'>
                                     Vigencia: {cotizacion.fecha_vencimiento ? dayjs(cotizacion.fecha_vencimiento).format('DD/MM/YYYY') : 'Sin fecha'}
                                 </p>
-                                <button
+                                <Button
+                                    variant='default'
+                                    color='blue'
+                                    size='sm'
                                     onClick={handleDownloadPdf}
+                                    isDisable={downloadingPdf}
                                     disabled={downloadingPdf}
-                                    className='flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 hover:underline disabled:opacity-50'>
+                                    className='!px-2'>
                                     {downloadingPdf ? (
                                         <>
                                             <div className='h-3.5 w-3.5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent'></div>
@@ -692,7 +705,7 @@ const ResponderCotizacionPublica = () => {
                                             Descargar PDF
                                         </>
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>

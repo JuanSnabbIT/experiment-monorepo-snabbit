@@ -19,7 +19,7 @@ interface IModalCrearSeccionPlantillaProps {
 }
 
 const validationSchema = Yup.object({
-    titulo: Yup.string().required('Titulo requerido'),
+    titulo: Yup.string().required('Título requerido'),
     tipo: Yup.string().required('Tipo requerido'),
 });
 
@@ -53,7 +53,7 @@ const ModalCrearSeccionPlantilla = ({
                         tipo: values.tipo as ISeccionPlantilla['tipo'],
                     },
                 }).unwrap();
-                toast.success('Seccion creada');
+                toast.success('Sección creada');
                 resetForm();
                 setIsOpen(false);
                 onCreated(nueva);
@@ -77,7 +77,7 @@ const ModalCrearSeccionPlantilla = ({
 
     return (
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
-            <ModalHeader>Nueva seccion</ModalHeader>
+            <ModalHeader>Nueva sección</ModalHeader>
             <ModalBody>
                 <SeccionForm
                     formik={formik}
@@ -93,7 +93,7 @@ const ModalCrearSeccionPlantilla = ({
                     onClick={() => formik.handleSubmit()}
                     isLoading={isLoading}
                     isDisable={isLoading}>
-                    Guardar seccion
+                    Guardar sección
                 </Button>
             </ModalFooter>
         </Modal>

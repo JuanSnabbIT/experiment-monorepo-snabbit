@@ -2,19 +2,14 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardFooter, CardFooterChild, CardHeader } from '@/components/ui/Card';
 import { IPlanServicio } from '@/interface/contrato.interface';
+import { formatCurrency } from '@/utils/currency';
 import { useNavigate } from 'react-router-dom';
 
-interface IPlanCatalogCardProps {
+interface IPlanCardProps {
     plan: IPlanServicio;
     onDelete: (plan: IPlanServicio) => void;
     onEdit: (plan: IPlanServicio) => void;
 }
-
-const formatNumber = (value?: string | number | null, maximumFractionDigits = 0) =>
-    new Intl.NumberFormat('es-CL', {
-        minimumFractionDigits: maximumFractionDigits,
-        maximumFractionDigits,
-    }).format(Number(value || 0));
 
 const formatPriceLabel = (
     currency: 'CLP' | 'UF' | 'USD',
@@ -26,14 +21,7 @@ const formatPriceLabel = (
         return '-';
     }
 
-    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
-    const formatted = formatNumber(numeric, decimals);
-
-    if (currency === 'CLP') {
-        return `$${formatted}`;
-    }
-
-    return `${formatted} ${currency}`;
+    return formatCurrency(numeric, currency);
 };
 
 const getPrimaryPrice = (plan: IPlanServicio) => {
@@ -46,7 +34,7 @@ const getPrimaryPrice = (plan: IPlanServicio) => {
     };
 };
 
-const PlanCatalogCard = ({ plan }: IPlanCatalogCardProps) => {
+const PlanCard = ({ plan }: IPlanCardProps) => {
     const navigate = useNavigate();
     const primaryPrice = getPrimaryPrice(plan);
 
@@ -140,9 +128,10 @@ const PlanCatalogCard = ({ plan }: IPlanCatalogCardProps) => {
             <CardFooter className='border-t border-zinc-200/80 pt-4 dark:border-zinc-800'>
                 <CardFooterChild className='w-full justify-between'>
                     <Button
-                        variant='outline'
-                        color='blue'
+                        variant='solid'
+                        color='violet'
                         size='sm'
+                        icon='HeroEye'
                         onClick={() => navigate(`/registros/planes-y-servicios/${plan.id}`)}>
                         Ver detalle
                     </Button>
@@ -155,4 +144,4 @@ const PlanCatalogCard = ({ plan }: IPlanCatalogCardProps) => {
     );
 };
 
-export default PlanCatalogCard;
+export default PlanCard;

@@ -2,130 +2,86 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
-import { useGetDetalleContratoQuery } from '@/store/slices/contratos/contratoApi';
-import 'dayjs/locale/es';
-import { useRef } from 'react';
+import { useAppSelector } from '@/store';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useReactToPrint } from 'react-to-print';
-import PDFContratoLicencias from './PDFContratoLicencias';
-import PDFContratoServicios from './PDFContratoServicios';
-import PDFContratoVenta from './PDFContratoVenta';
+import { toast } from 'react-toastify';
 
-// Componente Header que se repetirá en todas las páginas gracias al "fixed"
-// const Header = () => (
-//     <View style={styles.header} fixed>
-//         <Text style={{color: "#808080", fontSize: 15, alignSelf: "center"}}>{dayjs().locale('es').format("DD [de] MMMM [del] YYYY")}</Text>
-//         <View style={{width: '50%', height: '100%'}}>
-//             <Image
-//                 style={{ width: '100%', height: '100%' }}
-//                 src={Image1}
-//             />
-//         </View>
-//     </View>
-// );
-
+/**
+ * Página de visualización de PDF de contrato.
+ * Descarga el PDF generado por WeasyPrint en el backend y lo abre en una nueva pestaña.
+ * Los componentes React-PDF legacy (PDFContratoVenta, PDFContratoServicios, PDFContratoLicencias)
+ * han sido deprecados en favor del endpoint /api/contratos/{id}/pdf/.
+ */
 function PDFContrato() {
     const navigate = useNavigate();
-    const { id } = useParams();
-    const { data: detalleContratoEmpresaCliente } = useGetDetalleContratoQuery(id!, { skip: !id });
-    const componentRef = useRef<HTMLDivElement>(null);
-    const reactToPrintFn = useReactToPrint({ contentRef: componentRef });
+    const { id } = useParams<{ id: string }>();
+    const token = useAppSelector((state) => state.auth.access);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleOpenPDF = async () => {
+        if (!id) return;
+        setIsLoading(true);
+        try {
+            const baseUrl = process.env.VITE_API_URL ?? '';
+            const response = await fetch(`${baseUrl}/api/contratos/${id}/pdf/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Liberar el objeto URL después de un delay para que el navegador pueda abrirlo
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <PageWrapper
             isProtectedRoute={false}
-            name='Contratos del Cliente'
-            title='Contratos del Cliente'>
+            name='PDF del contrato'
+            title='PDF del contrato'>
             <Subheader>
                 <SubheaderLeft>
-                    <div className='flex w-full gap-4'>
-                        <Button
-                            icon='HeroArrowSmallLeft'
-                            onClick={() => {
-                                navigate(-1);
-                            }}
-                        />
-                    </div>
+                    <Button icon='HeroArrowSmallLeft' onClick={() => navigate(-1)} />
                 </SubheaderLeft>
                 <SubheaderRight>
                     <Button
-                        icon='HeroPrinter'
-                        onClick={() => {
-                            // if (componentRef.current) {
-                            //     const printContents = componentRef.current.innerHTML;
-                            //     const printWindow = window.open('', '', 'height=600,width=800');
-                            //     if (printWindow) {
-                            //         printWindow.document.write(`
-                            //             <html>
-                            //                 <head>
-                            //                     <title>Imprimir Componente</title>
-                            //                     <link rel="stylesheet" type="text/css" href="/styles/index.css">
-                            //                     <link rel="stylesheet" type="text/css" href="/styles/vendors.css">
-                            //                 </head>
-                            //                 <body>
-                            //                     ${printContents}
-                            //                 </body>
-                            //             </html>
-                            //         `);
-                            //         printWindow.document.close(); // Finaliza la escritura del documento.
-                            //         printWindow.focus(); // Fija el foco en la nueva ventana.
-                            //         printWindow.print(); // Llama a la función de impresión.
-                            //         printWindow.close(); // Cierra la ventana de impresión tras ejecutarla.
-                            //     }
-                            // }
-                            reactToPrintFn();
-                        }}></Button>
+                        icon='HeroDocumentArrowDown'
+                        variant='solid'
+                        isLoading={isLoading}
+                        onClick={handleOpenPDF}>
+                        Abrir PDF
+                    </Button>
                 </SubheaderRight>
             </Subheader>
-            <Container className='h-full w-full md:max-w-[800px]'>
-                {detalleContratoEmpresaCliente ? (
-                    <>
-                        {detalleContratoEmpresaCliente.tipo === 'servicios' && (
-                            <PDFContratoServicios
-                                contrato={detalleContratoEmpresaCliente}
-                                componentRef={componentRef}
-                            />
-                        )}
-                        {detalleContratoEmpresaCliente.tipo === 'licencia' && (
-                            <PDFContratoLicencias
-                                contrato={detalleContratoEmpresaCliente}
-                                componentRef={componentRef}
-                            />
-                        )}
-                        {detalleContratoEmpresaCliente.tipo === 'venta' && (
-                            <PDFContratoVenta
-                                contrato={detalleContratoEmpresaCliente}
-                                componentRef={componentRef}
-                            />
-                        )}
-                    </>
-                ) : (
-                    <div>Sin Contrato</div>
-                )}
-                {/* <PDFViewer className="w-full h-full">
-                    <Document language="es">
-                        <Page size="LEGAL" style={styles.page}>
-                            <Header />
-                            <View style={styles.content}>
-                                <Text style={styles.title}>CONTRATO DE SERVICIOS TECNOLOGICOS Y ASESORIAS</Text>
-                            </View>
-                        </Page>
-                    </Document>
-                </PDFViewer> */}
+            <Container className='flex h-full items-center justify-center'>
+                <div className='flex flex-col items-center gap-4 py-16 text-center'>
+                    <p className='text-zinc-500'>
+                        Haz clic en "Abrir PDF" para descargar el documento generado por el servidor.
+                    </p>
+                    <Button
+                        icon='HeroDocumentArrowDown'
+                        variant='solid'
+                        size='lg'
+                        isLoading={isLoading}
+                        onClick={handleOpenPDF}>
+                        Abrir PDF
+                    </Button>
+                </div>
             </Container>
         </PageWrapper>
     );
 }
 
 export default PDFContrato;
-
-// // Definición de estilos
-// const styles = StyleSheet.create({
-//     page: {
-//         padding: 40,
-//         fontFamily: 'Helvetica',
-//         fontSize: 10,
-//     },
 //     // Header: se posiciona absolutamente y con "fixed", se repite en cada página generada.
 //     header: {
 //         display: "flex",

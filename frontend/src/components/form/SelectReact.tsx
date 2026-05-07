@@ -1,24 +1,24 @@
+import classNames from 'classnames';
 import React, { FC } from 'react';
 import ReactSelect, {
     ClassNamesConfig,
     ControlProps,
     GroupBase,
+    MultiValue,
     MultiValueProps,
     MultiValueRemoveProps,
     OptionProps,
     SingleValue,
-    MultiValue,
 } from 'react-select';
 import { PublicBaseSelectProps } from 'react-select/base';
-import classNames from 'classnames';
 import CreatableSelect from 'react-select/creatable';
-import { TBorderWidth } from '../../types/borderWidth.type';
 import themeConfig from '../../config/theme.config';
-import { TRounded } from '../../types/rounded.type';
-import { TColors } from '../../types/colors.type';
-import { TColorIntensity } from '../../types/colorIntensities.type';
 import useColorIntensity from '../../hooks/useColorIntensity';
 import useRoundedSize from '../../hooks/useRoundedSize';
+import { TBorderWidth } from '../../types/borderWidth.type';
+import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
+import { TRounded } from '../../types/rounded.type';
 import { IValidationBaseProps } from './Validation';
 
 export type TSelectVariant = 'solid';
@@ -86,6 +86,7 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
         isMulti = false,
         onCreateOption = undefined,
         formatCreateLabel = undefined,
+        onChange,
         ...rest
     } = props;
 
@@ -148,12 +149,8 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
     const handleChange = (
         newValue: SingleValue<TSelectOption> | MultiValue<TSelectOption> | null,
     ) => {
-        if (!isMulti && newValue && !Array.isArray(newValue)) {
-            const option = newValue as TSelectOption;
-        } else if (isMulti && Array.isArray(newValue)) {
-            newValue.forEach((option) => {
-                const opt = option as TSelectOption;
-            });
+        if (typeof onChange === 'function') {
+            onChange(newValue as any);
         }
     };
 

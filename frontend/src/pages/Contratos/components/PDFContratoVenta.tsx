@@ -74,17 +74,31 @@ function PDFContratoVenta({
                     1.- IDENTIFICACION DEL CLIENTE ({contrato.datos_cliente.nombre})
                 </div>
                 <div className='grid grid-cols-6'>
-                    <div className='col-span-2 border border-black p-1'>Nombre o razon social</div>
+                    <div className='col-span-2 border border-black p-1'>Nombre o Razón Social</div>
                     <div className='col-span-4 border border-r-black border-t-black p-1'>
                         {contrato.datos_cliente.nombre}
                     </div>
                     <div className='col-span-2 border border-x-black border-b-black p-1'>R.U.T</div>
                     <div className='col-span-4 border border-r-black border-t-black p-1'>
-                        {contrato.datos_cliente.rut_empresa || 'Sin RUT'}
+                        {contrato.datos_cliente.rut_empresa || ''}
                     </div>
                     <div className='col-span-2 border border-x-black border-b-black p-1'>Domicilio</div>
                     <div className='col-span-4 border border-r-black border-t-black p-1'>
-                        {contrato.datos_cliente.direccion_principal || 'Sin direccion principal'}
+                        {contrato.datos_cliente.direccion_principal || ''}
+                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>Giro o actividad</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'></div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>Representante Legal</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.nombre_usuario || ''}
+                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>R.U.T</div>
+                    <div className='col-span-4 border border-r-black border-t-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.papeleta?.rut || ''}
+                    </div>
+                    <div className='col-span-2 border border-x-black border-b-black p-1'>E-mail</div>
+                    <div className='col-span-4 border border-y-black border-r-black p-1'>
+                        {contrato.datos_cliente.representantes_legales[0]?.email_usuario || ''}
                     </div>
                 </div>
 

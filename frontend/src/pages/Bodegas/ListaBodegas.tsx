@@ -48,7 +48,7 @@ function ListaBodegas() {
             id: 'acciones',
             cell: (info) => (
                 <div>
-                    <Tooltip text='Detalle'>
+                    <Tooltip text='Ver detalle'>
                         <Button
                             variant='solid'
                             color='violet'

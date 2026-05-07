@@ -6,6 +6,11 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Dropdown, {
+    DropdownItem,
+    DropdownMenu,
+    DropdownToggle,
+} from '@/components/ui/Dropdown';
 import { TIPO_CONTRATO, TIPOS_SECCION } from '@/constants/contrato.constant';
 import { ISeccionPlantilla } from '@/interface/plantillaContrato.interface';
 import { useAppDispatch } from '@/store';
@@ -16,7 +21,7 @@ import plantillaContratoApi, {
     useReordenarSeccionesPlantillaMutation,
 } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ModalCrearSeccionPlantilla from './components/ModalCrearSeccionPlantilla';
@@ -39,13 +44,24 @@ interface ISeccionCardProps {
     onPreviewSection: (seccion: ISeccionPlantilla) => void;
 }
 
-const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection }: ISeccionCardProps) => (
-    <div className='rounded-xl border border-zinc-200 p-4 transition-all hover:border-blue-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900'>
+const TIPOS_PREDETERMINADOS = new Set(['firmas', 'identificacion_cliente']);
+
+const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection }: ISeccionCardProps) => {
+    const esPredeterminada = TIPOS_PREDETERMINADOS.has(seccion.tipo);
+    return (
+    <div className={`rounded-xl border p-4 transition-all ${
+        esPredeterminada
+            ? 'border-blue-300 bg-blue-50/40 dark:border-blue-700 dark:bg-blue-950/20'
+            : 'border-zinc-200 hover:border-blue-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900'
+    }`}>
         <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
                 <div className='flex flex-wrap gap-2'>
                     <Badge color='blue'>Bloque {seccion.orden}</Badge>
                     <Badge color='zinc' variant='outline'>{getTipoSeccionLabel(seccion.tipo)}</Badge>
+                    {esPredeterminada && (
+                        <Badge color='sky' variant='outline'>Predeterminada</Badge>
+                    )}
                 </div>
                 <div className='mt-2 font-semibold text-zinc-900 dark:text-zinc-100'>{seccion.titulo}</div>
                 <div className='mt-2 flex flex-wrap gap-2 text-xs text-zinc-500'>
@@ -73,7 +89,8 @@ const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection
             </div>
         </div>
     </div>
-);
+    );
+};
 
 const DetallePlantilla = () => {
     const navigate = useNavigate();
@@ -89,7 +106,7 @@ const DetallePlantilla = () => {
     const [previewMode, setPreviewMode] = useState<'general' | 'focus-section' | 'reorder'>('general');
     const [focusSectionId, setFocusSectionId] = useState<number | undefined>(undefined);
 
-    const { data: plantilla, isLoading } = useGetDetallePlantillaQuery(id);
+    const { data: plantilla, isLoading, error } = useGetDetallePlantillaQuery(id);
     const { data: etiquetas = [] } = useGetEtiquetasPlantillaQuery();
     const [duplicarPlantilla] = useDuplicarPlantillaMutation();
     const [reordenarSecciones, { isLoading: isReordering }] = useReordenarSeccionesPlantillaMutation();
@@ -100,17 +117,17 @@ const DetallePlantilla = () => {
         setPreviewOpen(true);
     };
 
-    const handleReorder = () => {
-        setPreviewMode('reorder');
-        setFocusSectionId(undefined);
-        setPreviewOpen(true);
-    };
-
     const handlePreviewSection = (seccion: ISeccionPlantilla) => {
         setPreviewMode('focus-section');
         setFocusSectionId(seccion.id);
         setPreviewOpen(true);
     };
+
+    useEffect(() => {
+        if (!previewOpen) {
+            setPreviewMode('general');
+        }
+    }, [previewOpen]);
 
     const handleDuplicar = async () => {
         try {
@@ -141,6 +158,18 @@ const DetallePlantilla = () => {
             <PageWrapper>
                 <Container>
                     <p className='py-10 text-center text-zinc-500'>Cargando plantilla...</p>
+                </Container>
+            </PageWrapper>
+        );
+    }
+
+    if (error) {
+        return (
+            <PageWrapper>
+                <Container>
+                    <Alert color='red' icon='HeroExclamationTriangle' className='mt-6'>
+                        No se pudo cargar la plantilla. Intenta recargar la página.
+                    </Alert>
                 </Container>
             </PageWrapper>
         );
@@ -183,10 +212,10 @@ const DetallePlantilla = () => {
             <Container className='flex flex-col gap-4'>
                 {plantilla.es_default && (
                     <Alert color='blue' icon='HeroInformationCircle' variant='outline'>
-                        Esta es una plantilla del sistema. Puedes editar sus secciones y configuracion
+                        Esta es una plantilla del sistema. Puedes editar sus secciones y configuración
                         directamente. Si necesitas una variante para otro flujo, usa{' '}
-                        <strong>Duplicar</strong> para crear una version alternativa.
-                        Tambien puedes usar etiquetas como{' '}
+                        <strong>Duplicar</strong> para crear una versión alternativa.
+                        También puedes usar etiquetas como{' '}
                         <code className='rounded bg-blue-100 px-1 text-xs dark:bg-blue-900'>[nombre_proveedor]</code>{' '}
                         para insertar datos reales del contrato.
                     </Alert>
@@ -196,28 +225,40 @@ const DetallePlantilla = () => {
                         <div className='max-w-2xl'>
                             <div className='mt-2 flex flex-wrap gap-2'>
                                 <Badge variant='outline' color='blue'>{getTipoContratoLabel(plantilla.tipo_contrato)}</Badge>
-                                <Badge variant='outline' color='amber'>Version {plantilla.version}</Badge>
+                                <Badge variant='outline' color='amber'>Versión {plantilla.version}</Badge>
                                 <Badge variant='outline' color='zinc'>{secciones.length} secciones</Badge>
                             </div>
                         </div>
-                        <div className='flex flex-wrap gap-2'>
-                            <Button icon='HeroCog6Tooth' onClick={() => setConfigModalOpen(true)}>
-                                Configuracion
-                            </Button>
-                            <Button icon='HeroEye' onClick={handlePreview}>
-                                Validar borrador
-                            </Button>
-                            <Button icon='HeroBars3BottomLeft' onClick={handleReorder}>
-                                Ordenar secciones
-                            </Button>
-                            <Button icon='HeroDocumentDuplicate' onClick={handleDuplicar}>
-                                Duplicar
-                            </Button>
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <Dropdown>
+                                <DropdownToggle>
+                                    <Button icon='HeroEllipsisVertical'>
+                                        Más acciones
+                                    </Button>
+                                </DropdownToggle>
+                                <DropdownMenu placement='bottom-end'>
+                                    <DropdownItem
+                                        icon='HeroCog6Tooth'
+                                        onClick={() => setConfigModalOpen(true)}>
+                                        Configuración
+                                    </DropdownItem>
+                                    <DropdownItem
+                                        icon='HeroEye'
+                                        onClick={handlePreview}>
+                                        Vista previa
+                                    </DropdownItem>
+                                    <DropdownItem
+                                        icon='HeroDocumentDuplicate'
+                                        onClick={handleDuplicar}>
+                                        Duplicar plantilla
+                                    </DropdownItem>
+                                </DropdownMenu>
+                            </Dropdown>
                             <Button
                                 variant='solid'
                                 icon='HeroPlus'
                                 onClick={() => setCreateSectionModalOpen(true)}>
-                                Nueva seccion
+                                Nueva sección
                             </Button>
                         </div>
                     </div>
@@ -280,6 +321,7 @@ const DetallePlantilla = () => {
                 etiquetas={etiquetas}
                 mode={previewMode}
                 focusSectionId={focusSectionId}
+                onModeChange={setPreviewMode}
                 onReorder={async ({ secciones, bloques }) => {
                     try {
                         await reordenarSecciones({

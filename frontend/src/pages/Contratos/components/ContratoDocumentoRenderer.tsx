@@ -5,6 +5,7 @@ import type {
     IContratoServicio,
     ICotizacionVinculadaResumen,
     ICuotaVenta,
+    IEmpresaContrato,
     ISeccionContratoGenerada,
 } from '@/interface/contrato.interface';
 import {
@@ -122,7 +123,7 @@ const CommercialItemBlock = ({
                 {formatCurrency(item.precio_unitario_contratado, monedaContrato)}
             </p>
             <p className='text-sm font-medium text-gray-900 md:text-right dark:text-zinc-100'>
-                {formatCurrency(item.subtotal, monedaContrato)}
+                {formatCurrency(item.subtotal_en_moneda_cobro ?? item.subtotal, monedaContrato)}
             </p>
         </div>
 
@@ -163,7 +164,7 @@ const LegacyServiceBlock = ({
                     {formatCurrency(service.precio_unitario, monedaContrato)}
                 </p>
                 <p className='text-sm font-medium text-gray-900 md:text-right dark:text-zinc-100'>
-                    {formatCurrency(service.subtotal, monedaContrato)}
+                    {formatCurrency(service.subtotal_en_moneda_cobro ?? service.subtotal, monedaContrato)}
                 </p>
             </div>
 
@@ -371,6 +372,50 @@ const CommercialItemsSection = ({
     );
 };
 
+const ClientIdentificationSection = ({ cliente }: { cliente: IEmpresaContrato }) => {
+    const rep = cliente.representantes_legales?.[0] ?? null;
+    const rows: { label: string; value: string }[] = [
+        { label: 'Nombre o Raz\u00f3n Social', value: cliente.nombre || '\u2014' },
+        { label: 'R.U.T', value: cliente.rut_empresa || '' },
+        { label: 'Domicilio', value: cliente.direccion_principal || '' },
+        { label: 'Giro o actividad', value: '' },
+        { label: 'Representante legal', value: rep?.nombre_usuario ?? '' },
+        { label: 'R.U.T', value: rep?.papeleta?.rut ?? '' },
+        { label: 'E-mail', value: rep?.email_usuario ?? '' },
+    ];
+
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Identificaci&oacute;n
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    1.- Identificaci&oacute;n de &quot;EL CLIENTE&quot;
+                </h2>
+            </div>
+            <div className='overflow-hidden rounded-md border border-gray-200 dark:border-zinc-700'>
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={`grid grid-cols-[200px,1fr] text-sm${
+                            i > 0 ? ' border-t border-gray-200 dark:border-zinc-700' : ''
+                        }`}>
+                        <div className='border-r border-gray-200 px-3 py-2 font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400'>
+                            {row.label}
+                        </div>
+                        <div className='px-3 py-2 text-gray-900 dark:text-zinc-100'>
+                            {row.value || (
+                                <span className='italic text-gray-400 dark:text-zinc-600'>&mdash;</span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
 function ContratoDocumentoRenderer({
     secciones,
     contrato,
@@ -432,6 +477,8 @@ function ContratoDocumentoRenderer({
                     </div>
                 </div>
             </section>
+
+            <ClientIdentificationSection cliente={empresaCliente} />
 
             {seccionesContenido.map((seccion) => (
                 <section

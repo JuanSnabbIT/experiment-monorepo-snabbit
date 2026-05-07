@@ -6,6 +6,7 @@ from cuentas.models import User
 from contratos.forms import UsuarioVinculadoLicenciaForm
 from contratos.models import (
     ContratoEmpresaCliente,
+    ContratoItemComercial,
     ContratoVisita,
     ContratoLicencia,
     ContratoCondicionEspecial,
@@ -23,6 +24,7 @@ from contratos.models import (
     Licencia,
     CondicionEspecial,
 )
+from contratos.serializers import ContratoItemComercialSerializer
 from contratos.tasks import notificar_ventana_edicion_licencias
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
@@ -119,6 +121,31 @@ class ContratoEmpresaClienteModelTest(TestCase):
             nombre="Contrato Indefinido",
         )
         self.assertIsNone(contrato.fecha_fin)
+
+    def test_item_comercial_subtotal_usa_forma_pago_contractual(self):
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            nombre="Contrato Anual",
+            forma_pago_contractual="anual",
+        )
+        servicio = Servicio.objects.create(nombre="Soporte TI", categoria="soporte")
+        item = ContratoItemComercial.objects.create(
+            contrato=contrato,
+            tipo_origen="servicio",
+            servicio_version=servicio,
+            snapshot_nombre="Soporte TI",
+            cantidad=1,
+            veces_por_mes=1,
+            forma_pago="mensual",
+            moneda="CLP",
+            precio_unitario_contratado=100,
+        )
+        item.recalcular_totales()
+
+        serializer = ContratoItemComercialSerializer(item)
+        self.assertEqual(serializer.data["subtotal"], 1200.0)
 
 
 class CatalogoModelTest(TestCase):

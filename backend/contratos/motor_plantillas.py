@@ -309,4 +309,9 @@ def generar_secciones_contrato(contrato):
             )
             resultado.append(nueva)
 
+    # Registrar la versión de la plantilla usada en esta generación
+    if plantilla.version:
+        contrato.plantilla_version_usada = str(plantilla.version)
+        contrato.save(update_fields=["plantilla_version_usada", "fecha_modificacion"])
+
     return resultado

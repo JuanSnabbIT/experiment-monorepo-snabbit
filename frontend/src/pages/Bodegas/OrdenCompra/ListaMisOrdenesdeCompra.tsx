@@ -151,6 +151,7 @@ function ListaMisOrdenesCompra() {
                     <Tooltip text='Detalle Orden de Compra'>
                         <Button
                             variant='solid'
+                            color='violet'
                             onClick={() => {
                                 navigate(`/compras/detalle-orden-compra/${info.row.original.id}`);
                             }}

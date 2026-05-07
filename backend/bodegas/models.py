@@ -288,6 +288,8 @@ class Compra(ModeloBaseHistorico):
     )
     estado = models.CharField(max_length=2, choices=ESTADO_CR, default="-")
     items = models.ManyToManyField("items.ItemEmpresa", through="bodegas.ItemEnCompra")
+    # Legacy reference to V2 orders. This field exists for backward compatibility,
+    # but the foreign key constraint is not enforced at the database level.
     orden_trabajo = models.ForeignKey(
         "ordentrabajov2.OrdenDeTrabajo",
         on_delete=models.SET_NULL,
@@ -295,6 +297,7 @@ class Compra(ModeloBaseHistorico):
         blank=True,
         related_name="compras_rapidas",
         verbose_name="Orden de trabajo",
+        db_constraint=False,
     )
 
     @property
@@ -583,12 +586,15 @@ class GuiaSalida(ModeloBaseHistorico):
         blank=True,
         related_name="entregado_a_guia",
     )
+    # Legacy reference to V2 orders. This field exists for backward compatibility,
+    # but the foreign key constraint is not enforced at the database level.
     orden_trabajo = models.ForeignKey(
         "ordentrabajov2.OrdenDeTrabajo",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="guias_salida",
+        db_constraint=False,
     )
 
     def __str__(self):
@@ -718,11 +724,14 @@ class VoucherDevolucion(ModeloBase):
         db_index=True,
         help_text="Número único del voucher, ej: VDEV-2025-0001",
     )
+    # Legacy reference to V2 orders. This field exists for backward compatibility,
+    # but the foreign key constraint is not enforced at the database level.
     orden_trabajo = models.OneToOneField(
         "ordentrabajov2.OrdenDeTrabajo",
         on_delete=models.CASCADE,
         related_name="voucher_devolucion",
         help_text="Orden de trabajo asociada a estas devoluciones",
+        db_constraint=False,
     )
     movimientos = models.ManyToManyField(
         MovimientoStock,

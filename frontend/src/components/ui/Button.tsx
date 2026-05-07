@@ -9,7 +9,7 @@ import { TIcons } from '../../types/icons.type';
 import { TRounded } from '../../types/rounded.type';
 import Icon from '../icon/Icon';
 
-export type TButtonVariants = 'solid' | 'outline' | 'default';
+export type TButtonVariants = 'solid' | 'outline' | 'default' | 'plain';
 export type TButtonSize = 'xs' | 'sm' | 'default' | 'lg' | 'xl';
 
 export interface IButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -95,6 +95,18 @@ const Button = forwardRef<HTMLButtonElement, IButtonProps>((props, ref) => {
             // Hover
             [`hover:text-${color}-${colorIntensity} dark:hover:text-${color}-${colorIntensity}`],
             // Active
+            [`active:text-${color}-${colorIntensity}`],
+            {
+                [`text-${color}-${colorIntensity}`]: isActive,
+            },
+        ),
+        plain: classNames(
+            // Plain behaves like default but keeps the alias for semantic intent
+            'bg-transparent',
+            { 'text-zinc-600 dark:text-zinc-400': !isActive },
+            [`${borderWidth}`],
+            'border-transparent',
+            [`hover:text-${color}-${colorIntensity} dark:hover:text-${color}-${colorIntensity}`],
             [`active:text-${color}-${colorIntensity}`],
             {
                 [`text-${color}-${colorIntensity}`]: isActive,

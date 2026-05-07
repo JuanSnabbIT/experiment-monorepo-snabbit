@@ -1,5 +1,5 @@
 import Button from '@/components/ui/Button';
-import OffCanvas, { OffCanvasBody, OffCanvasHeader } from '@/components/ui/OffCanvas';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import {
     IAlcanceComercialPayload,
@@ -158,10 +158,20 @@ function AgregarServiciosyPlanesContrato({
                     Editar
                 </Button>
             </Tooltip>
-            <OffCanvas isOpen={isOpen} setIsOpen={setIsOpen} isStaticBackdrop>
-                <OffCanvasHeader>Plan y servicios del contrato</OffCanvasHeader>
-                <OffCanvasBody>
-                    <SelectorPlanServicios value={seleccion} onChange={setSeleccion} />
+            <Modal
+                isStaticBackdrop
+                isOpen={isOpen}
+                setIsOpen={setIsOpen}
+                size='xl'
+                isScrollable={false}
+                isCentered>
+                <ModalHeader>Plan y servicios del contrato</ModalHeader>
+                <ModalBody>
+                    <SelectorPlanServicios
+                        value={seleccion}
+                        onChange={setSeleccion}
+                        contractCurrency={contrato.moneda_cobro}
+                    />
                     <div className='mt-6 flex justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700'>
                         <Button color='red' onClick={() => setIsOpen(false)}>
                             Cancelar
@@ -170,8 +180,8 @@ function AgregarServiciosyPlanesContrato({
                             Guardar
                         </Button>
                     </div>
-                </OffCanvasBody>
-            </OffCanvas>
+                </ModalBody>
+            </Modal>
         </>
     );
 }
