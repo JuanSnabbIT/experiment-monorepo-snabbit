@@ -1,6 +1,7 @@
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import { IContratoItemComercial } from '@/interface/contrato.interface';
 import { useState } from 'react';
 import AgregarServiciosyPlanesContrato from '../modals/AgregarServiciosyPlanesContrato';
 import { ITabServiciosProps } from './contrato.types';
@@ -281,18 +282,19 @@ const TabServicios = ({
                                         </div>
 
                                         {esPlan && (() => {
-                                            const planPrice = Number(contServ.precio_unitario_contratado || 0);
-                                            const planPriceAnual = contServ.precio_unitario_anual_contratado
-                                                ? Number(contServ.precio_unitario_anual_contratado)
+                                            const planItem = contServ as IContratoItemComercial;
+                                            const planPrice = Number(planItem.precio_unitario_contratado || 0);
+                                            const planPriceAnual = planItem.precio_unitario_anual_contratado
+                                                ? Number(planItem.precio_unitario_anual_contratado)
                                                 : null;
                                             // Equivalente anual por unidad en moneda propia del item
                                             // = subtotal (ya es total_anual del backend) / cantidad
                                             const planUnitAnualEquiv =
-                                                planPrice > 0 && Number(contServ.cantidad || 1) > 0
-                                                    ? Number(contServ.subtotal || 0) / Number(contServ.cantidad || 1)
+                                                planPrice > 0 && Number(planItem.cantidad || 1) > 0
+                                                    ? Number(planItem.subtotal || 0) / Number(planItem.cantidad || 1)
                                                     : 0;
                                             const visitasIncluidas =
-                                                contServ.snapshot_num_visitas_mensuales ?? contServ.num_visitas_mensuales;
+                                                planItem.snapshot_num_visitas_mensuales ?? planItem.num_visitas_mensuales;
                                             const planDetalle = componentesPlan[0] ?? null;
 
                                             // Totales ya calculados por el backend según forma_pago_contractual:

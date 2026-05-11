@@ -36,7 +36,7 @@ function UsuariosEquipoEnDetalleEquipo() {
                                 <TimelineItem
                                     image={
                                         userEquipo.foto_usuario
-                                            ? `${process.env.VITE_API_URL}${userEquipo.foto_usuario}`
+                                            ? `${import.meta.env.VITE_API_URL}${userEquipo.foto_usuario}`
                                             : '/src/assets/local/user_default.png'
                                     }
                                     key={index}>

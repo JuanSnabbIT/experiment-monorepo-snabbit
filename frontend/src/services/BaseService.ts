@@ -75,7 +75,7 @@ const executeFullLogout = () => {
 
 const BaseService = axios.create({
     timeout: 60000,
-    baseURL: `${process.env.VITE_API_URL}`,
+    baseURL: `${import.meta.env.VITE_API_URL}`,
 });
 
 // Interceptor de Solicitud
@@ -142,7 +142,7 @@ BaseService.interceptors.response.use(
             if (refreshToken && !refreshExpired) {
                 try {
                     const refreshResponse = await axios.post(
-                        `${process.env.VITE_API_URL}/auth/jwt/refresh/`,
+                        `${import.meta.env.VITE_API_URL}/auth/jwt/refresh/`,
                         {
                             refresh: refreshToken,
                         },

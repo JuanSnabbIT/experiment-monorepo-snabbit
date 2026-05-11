@@ -350,7 +350,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                         </div>
                         <div className='flex gap-2'>
                             <div className='w-28 shrink-0'>
-                                <Input value={formik.values.tipo_moneda} disabled />
+                                <Input name='tipo_moneda' value={formik.values.tipo_moneda} disabled />
                             </div>
                             <div className='flex-1'>
                                 <Validation
