@@ -1293,8 +1293,7 @@ const FacturacionesComparativa = () => {
                                                                                         <Td className='px-2 py-1.5 text-right font-medium text-zinc-800 dark:text-zinc-100'>
                                                                                             {formatCurrency(
                                                                                                 Number(
-                                                                                                    item.subtotal ??
-                                                                                                        item.total_mensual ??
+                                                                                                    item.total_mensual ??
                                                                                                         0,
                                                                                                 ),
                                                                                                 item.moneda,

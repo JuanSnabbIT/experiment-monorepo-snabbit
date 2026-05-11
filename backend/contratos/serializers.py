@@ -731,13 +731,14 @@ class UsuarioVinculadoLicenciaSerializer(serializers.ModelSerializer):
 # class ContratoLicenciaVinculoUsuarioSerializer(serializers.ModelSerializer):
 class ContratoLicenciaSerializer(serializers.ModelSerializer):
     contrato = serializers.PrimaryKeyRelatedField(read_only=True)
-    tipo_modalidad_label = serializers.SerializerMethodField()
+    modalidad_snapshot_label = serializers.SerializerMethodField()
+    moneda_snapshot_label = serializers.SerializerMethodField()
     nombre_licencia = serializers.SerializerMethodField()
     proveedor_licencia = serializers.SerializerMethodField()
-    tipo_moneda_label = serializers.SerializerMethodField()
     licencias_disponibles  = serializers.SerializerMethodField()
     licencia_precio_partner = serializers.SerializerMethodField()
     licencia_precio_venta = serializers.SerializerMethodField()
+    licencia_precio_venta_p1m = serializers.SerializerMethodField()
     licencia_moneda = serializers.SerializerMethodField()
     licencia_modalidad_base = serializers.SerializerMethodField()
     licencia_numero_parte = serializers.SerializerMethodField()
@@ -754,29 +755,44 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     color_estado = serializers.SerializerMethodField()
     empresa_cliente = serializers.SerializerMethodField()
-    precio_sobrescrito = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoLicencia
         fields = '__all__'
+        read_only_fields = (
+            'modalidad_snapshot',
+            'moneda_snapshot',
+            'precio_unitario_snapshot',
+            'nombre_snapshot',
+            'proveedor_snapshot',
+        )
 
-    def get_tipo_modalidad_label(self, obj):
-        return obj.get_tipo_modalidad_display()
+    def get_modalidad_snapshot_label(self, obj):
+        return obj.get_modalidad_snapshot_display()
+
+    def get_moneda_snapshot_label(self, obj):
+        return obj.get_moneda_snapshot_display()
 
     def get_nombre_licencia(self, obj):
-        return obj.licencia.nombre
+        # Prioriza el snapshot inmutable sobre el catalogo vivo (Fase 1 SSOT).
+        if obj.nombre_snapshot:
+            return obj.nombre_snapshot
+        return obj.licencia.nombre if obj.licencia else None
 
     def get_proveedor_licencia(self, obj):
-        return obj.licencia.proveedor
-
-    def get_tipo_moneda_label(self, obj):
-        return obj.get_tipo_moneda_display()
+        if obj.proveedor_snapshot:
+            return obj.proveedor_snapshot
+        return obj.licencia.proveedor if obj.licencia else None
 
     def get_licencia_precio_partner(self, obj):
         return float(obj.licencia.precio_partner) if obj.licencia and obj.licencia.precio_partner is not None else None
 
     def get_licencia_precio_venta(self, obj):
         return float(obj.licencia.precio_venta) if obj.licencia and obj.licencia.precio_venta is not None else None
+
+    def get_licencia_precio_venta_p1m(self, obj):
+        valor = getattr(obj.licencia, 'precio_venta_p1m', None) if obj.licencia else None
+        return float(valor) if valor is not None else None
 
     def get_licencia_moneda(self, obj):
         return obj.licencia.moneda if obj.licencia else None
@@ -789,16 +805,6 @@ class ContratoLicenciaSerializer(serializers.ModelSerializer):
 
     def get_licencia_descripcion(self, obj):
         return obj.licencia.descripcion if obj.licencia else None
-
-    def get_precio_sobrescrito(self, obj):
-        if not obj.licencia:
-            return False
-        try:
-            precio_catalogo = Decimal(str(obj.licencia.precio_venta))
-            precio_contrato = Decimal(str(obj.precio_unitario))
-        except (InvalidOperation, TypeError, ValueError):
-            return False
-        return precio_contrato != precio_catalogo
 
     def get_licencias_disponibles(self, obj):
         """
@@ -1541,8 +1547,8 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
 
         total = 0.0
         for licencia in licencias:
-            subtotal_origen = Decimal(str(licencia.precio_unitario)) * Decimal(licencia.cantidad)
-            moneda_origen = getattr(licencia, "tipo_moneda", None) or moneda_cobro
+            subtotal_origen = Decimal(str(licencia.precio_unitario_snapshot)) * Decimal(licencia.cantidad)
+            moneda_origen = getattr(licencia, "moneda_snapshot", None) or moneda_cobro
             if moneda_origen == moneda_cobro:
                 total += float(subtotal_origen)
                 continue

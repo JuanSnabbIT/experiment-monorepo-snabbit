@@ -37,7 +37,7 @@ const store: CustomStore = configureStore({
                 ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
             },
         }).concat(middlewares),
-    devTools: process.env.NODE_ENV === 'development',
+    devTools: import.meta.env.DEV,
 });
 
 store.asyncReducers = {};

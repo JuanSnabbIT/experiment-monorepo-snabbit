@@ -160,20 +160,18 @@ const DetalleLicencia = () => {
                                     <div>
                                         <dt className='text-zinc-500'>Modalidad</dt>
                                         <dd className='font-medium'>
-                                            {licencia.tipo_modalidad === 'otros'
-                                                ? licencia.otro_tipo
-                                                : licencia.tipo_modalidad_label}
+                                            {licencia.modalidad_snapshot_label}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className='text-zinc-500'>Moneda</dt>
                                         <dd className='font-medium'>
-                                            {licencia.tipo_moneda_label}
+                                            {licencia.moneda_snapshot_label}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className='text-zinc-500'>Precio unitario</dt>
-                                        <dd className='font-medium'>{licencia.precio_unitario}</dd>
+                                        <dd className='font-medium'>{licencia.precio_unitario_snapshot}</dd>
                                     </div>
                                     <div>
                                         <dt className='text-zinc-500'>Cupos (usados / total)</dt>

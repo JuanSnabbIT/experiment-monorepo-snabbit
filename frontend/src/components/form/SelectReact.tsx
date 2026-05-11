@@ -150,7 +150,7 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
         newValue: SingleValue<TSelectOption> | MultiValue<TSelectOption> | null,
     ) => {
         if (typeof onChange === 'function') {
-            onChange(newValue as any);
+            onChange(newValue as any, {} as any);
         }
     };
 

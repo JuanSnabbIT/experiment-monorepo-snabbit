@@ -1261,26 +1261,7 @@ class ContratoLicencia(ModeloBaseHistorico):
         on_delete=models.CASCADE,
         related_name="licencia_contratos",
     )
-    tipo_modalidad = models.CharField(
-        max_length=20,
-        choices=TIPO_MODALIDAD_LICENCIA,
-        verbose_name="Tipo de Modalidad",
-        default="otros",
-    )
-    otro_tipo = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        verbose_name="Otro Tipo de Modalidad",
-    )
     cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad de Licencias")
-    precio_unitario = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-        verbose_name="Precio Unitario",
-    )
-    tipo_moneda = models.CharField(max_length=3, choices=TIPO_MONEDA_LICENCIA, default="USD")
     fecha_inicio = models.DateField(blank=True, null=True, verbose_name="Fecha de Inicio")
     fecha_fin = models.DateField(blank=True, null=True, verbose_name="Fecha de Fin")
     partner = models.BooleanField(default=True, verbose_name="Partner")
@@ -1289,6 +1270,38 @@ class ContratoLicencia(ModeloBaseHistorico):
         choices=ESTADOS_CONTRATO_LICENCIA,
         default="activa",
         verbose_name="Estado",
+    )
+    # --- Snapshot inmutable derivado de `licencia` al crear (Fase 1 SSOT). ---
+    # Estos campos son la unica fuente de pricing/modalidad de la linea de
+    # licencia en el contrato. Si el catalogo `Licencia` cambia, las lineas
+    # ya creadas mantienen los valores historicos congelados aqui. Se pueblan
+    # automaticamente en `save()` cuando estan vacios.
+    modalidad_snapshot = models.CharField(
+        max_length=16,
+        choices=TIPO_MODALIDAD_BASE_LICENCIA,
+        verbose_name="Modalidad (snapshot)",
+    )
+    moneda_snapshot = models.CharField(
+        max_length=3,
+        choices=TIPO_MONEDA_LICENCIA,
+        verbose_name="Moneda (snapshot)",
+    )
+    precio_unitario_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Precio unitario (snapshot)",
+    )
+    nombre_snapshot = models.CharField(
+        max_length=255,
+        verbose_name="Nombre (snapshot)",
+        help_text="Nombre congelado del catalogo `Licencia` al crear la linea.",
+    )
+    proveedor_snapshot = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Proveedor (snapshot)",
+        help_text="Proveedor congelado del catalogo `Licencia` al crear la linea.",
     )
     usuarios = models.ManyToManyField(
         "empresas.UsuarioEmpresa",
@@ -1307,11 +1320,13 @@ class ContratoLicencia(ModeloBaseHistorico):
         if not fecha_base:
             return None
 
-        if self.tipo_modalidad in ("anual", "p1y-a", "p1y-m"):
+        # Modalidad anual (P1Y): el periodo se reinicia cada aniversario.
+        if self.modalidad_snapshot == "P1Y":
             rd = relativedelta(date.today(), fecha_base)
             bloques = rd.years
             return fecha_base + relativedelta(years=bloques)
 
+        # P1M / PAGO_UNICO: la ventana de edicion arranca en la fecha base.
         return fecha_base
 
     @property
@@ -1413,13 +1428,32 @@ class ContratoLicencia(ModeloBaseHistorico):
         elif self.estado == "vencida":
             self.estado = "activa"
 
+    def _poblar_snapshot_desde_catalogo(self):
+        """Congela modalidad/moneda/precio del catalogo `Licencia` al crear.
+
+        Solo se ejecuta si los campos snapshot estan vacios (al alta). Una vez
+        seteados son inmutables: si el catalogo cambia, la linea de contrato
+        mantiene los valores historicos.
+        """
+        if not self.licencia_id:
+            return
+        if not self.modalidad_snapshot:
+            self.modalidad_snapshot = self.licencia.modalidad_base
+        if not self.moneda_snapshot:
+            self.moneda_snapshot = self.licencia.moneda
+        if self.precio_unitario_snapshot is None:
+            self.precio_unitario_snapshot = (
+                self.licencia.precio_partner if self.partner else self.licencia.precio_venta
+            )
+        if not self.nombre_snapshot:
+            self.nombre_snapshot = self.licencia.nombre or ""
+        if not self.proveedor_snapshot:
+            self.proveedor_snapshot = self.licencia.proveedor or ""
+
     def clean(self):
         super().clean()
         if not self.contrato_id:
             return
-
-        if self.tipo_moneda != self.contrato.moneda_cobro:
-            self.tipo_moneda = self.contrato.moneda_cobro
 
         if self.pk:
             original = ContratoLicencia.objects.get(pk=self.pk).cantidad
@@ -1441,12 +1475,14 @@ class ContratoLicencia(ModeloBaseHistorico):
                 )
 
     def save(self, *args, **kwargs):
+        self._poblar_snapshot_desde_catalogo()
         self._actualizar_estado_automatico()
         self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.licencia.nombre} ({self.cantidad}) en {self.contrato}"
+        nombre = self.nombre_snapshot or (self.licencia.nombre if self.licencia_id else "?")
+        return f"{nombre} ({self.cantidad}) en {self.contrato}"
 
 
 class UsuarioVinculadoLicencia(ModeloBaseHistorico):

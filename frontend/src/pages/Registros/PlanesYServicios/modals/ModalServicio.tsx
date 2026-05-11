@@ -86,7 +86,7 @@ const validationSchema = Yup.object({
                 const currency = (this.parent as { tipo_moneda?: string }).tipo_moneda;
                 const raw = value.toString().replace(',', '.');
                 const [, decimalPart] = raw.split('.');
-                const maxDecimals = CURRENCY_DECIMALS[currency] ?? 2;
+                const maxDecimals = currency !== undefined ? (CURRENCY_DECIMALS[currency] ?? 2) : 2;
                 return !decimalPart || decimalPart.length <= maxDecimals;
             },
         ),

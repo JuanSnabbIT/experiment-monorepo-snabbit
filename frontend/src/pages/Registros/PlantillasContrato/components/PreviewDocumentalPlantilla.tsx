@@ -407,12 +407,6 @@ const PreviewDocumentalPlantilla = ({
         const sectionContent =
             item.seccion.tipo === 'firmas' ? (
                 <ZonaFirmaReferencia isFocused={isFocused} isDimmed={isDimmed} />
-            ) : item.seccion.tipo === 'identificacion_cliente' ? (
-                <ZonaIdentificacionClienteReferencia
-                    etiquetas={etiquetas}
-                    isFocused={isFocused}
-                    isDimmed={isDimmed}
-                />
             ) : (
                 <SeccionPreview
                     seccion={item.seccion}
@@ -434,7 +428,7 @@ const PreviewDocumentalPlantilla = ({
             );
         }
 
-        if (item.seccion.tipo === 'firmas' || item.seccion.tipo === 'identificacion_cliente') {
+        if (item.seccion.tipo === 'firmas') {
             if (options?.attachFocusRef) {
                 return (
                     <div key={item.seccion.id} ref={focusRef}>

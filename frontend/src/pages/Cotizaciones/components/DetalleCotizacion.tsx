@@ -222,7 +222,7 @@ const DetalleCotizacion = () => {
 
     // Polling para refrescar estado después de acciones asíncronas (como enviar correo)
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: ReturnType<typeof setInterval>;
         if (refrescandoEstado) {
             let attempts = 0;
             refetch();

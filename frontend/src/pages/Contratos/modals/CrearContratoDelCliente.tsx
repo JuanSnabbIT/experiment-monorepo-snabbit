@@ -569,13 +569,9 @@ function CrearContratoDelCliente({
                     alcance_comercial,
                     licencias: licFormik.values.licencias.map((lic) => ({
                         licencia_id: lic.licencia_id,
-                        tipo_modalidad: lic.tipo_modalidad,
-                        otro_tipo: lic.otro_tipo ?? null,
                         cantidad: lic.cantidad,
-                        precio_unitario: lic.precio_unitario,
                         fecha_inicio: lic.fecha_inicio ?? null,
                         fecha_fin: lic.fecha_fin ?? null,
-                        tipo_moneda: lic.tipo_moneda,
                     })),
                     condiciones_especiales: licFormik.values.condiciones_especiales,
                     cotizaciones_ids:
@@ -678,7 +674,7 @@ function CrearContratoDelCliente({
         return acc + convertCurrency(subtotal, servicio?.tipo_moneda, monedaContrato, tipoCambio);
     }, 0);
     const totalLicenciasSeleccionadas = licFormik.values.licencias.reduce(
-        (acc, item) => acc + item.cantidad * item.precio_unitario,
+        (acc, item) => acc + item.cantidad * getLicenciaPrecioPartner(item.licencia_id),
         0,
     );
     const totalCotizacionesSeleccionadas = cotizacionesSeleccionadas.reduce((acc, cotizacionId) => {
@@ -734,7 +730,7 @@ function CrearContratoDelCliente({
         }
 
         const indexSinPrecio = licFormik.values.licencias.findIndex(
-            (lic) => Number(lic.precio_unitario || 0) <= 0,
+            (lic) => getLicenciaPrecioPartner(lic.licencia_id) <= 0,
         );
         if (indexSinPrecio >= 0) {
             setLicenciasStepError(
@@ -815,6 +811,12 @@ function CrearContratoDelCliente({
     const getLicenciaNombre = (licId?: number) =>
         listaLicencias.find((l) => l.id === licId)?.nombre ?? '';
 
+    const getLicenciaPrecioPartner = (licId?: number): number =>
+        listaLicencias.find((l) => l.id === licId)?.precio_partner ?? 0;
+
+    const getLicenciaTipoMoneda = (licId?: number): 'CLP' | 'USD' | 'UF' =>
+        ((listaLicencias.find((l) => l.id === licId)?.moneda as 'CLP' | 'USD' | 'UF' | undefined) ?? monedaContrato) as 'CLP' | 'USD' | 'UF';
+
     const getLicenciaModalidadLabel = (licId?: number) => {
         const licencia = listaLicencias.find((item) => item.id === licId);
         if (!licencia) {
@@ -844,7 +846,7 @@ function CrearContratoDelCliente({
             licFormik.values.licencias.every((lic) => Number(lic.cantidad || 0) > 0),
         precioValido:
             licFormik.values.licencias.length > 0 &&
-            licFormik.values.licencias.every((lic) => Number(lic.precio_unitario || 0) > 0),
+            licFormik.values.licencias.every((lic) => getLicenciaPrecioPartner(lic.licencia_id) > 0),
         vigenciaCompleta:
             licFormik.values.licencias.length > 0 &&
             licFormik.values.licencias.every((lic) => Boolean(lic.fecha_inicio && lic.fecha_fin)),
@@ -1594,7 +1596,7 @@ function CrearContratoDelCliente({
                                                 </Td>
                                                 <Td>
                                                     {formatCurrencyByMoneda(
-                                                        lic.cantidad * lic.precio_unitario,
+                                                        lic.cantidad * getLicenciaPrecioPartner(lic.licencia_id),
                                                         monedaContrato,
                                                     )}
                                                 </Td>
@@ -1987,12 +1989,8 @@ function CrearContratoDelCliente({
                                                     </span>
                                                     <div className='text-xs text-zinc-500'>
                                                         {formatCurrencyByMoneda(
-                                                            lic.precio_unitario,
-                                                            (lic.tipo_moneda ||
-                                                                monedaContrato) as
-                                                                | 'CLP'
-                                                                | 'UF'
-                                                                | 'USD',
+                                                            getLicenciaPrecioPartner(lic.licencia_id),
+                                                            getLicenciaTipoMoneda(lic.licencia_id),
                                                         )}{' '}
                                                         c/u
                                                     </div>
@@ -2001,12 +1999,8 @@ function CrearContratoDelCliente({
                                                     <div>{lic.cantidad} cupos</div>
                                                     <div className='text-xs'>
                                                         {formatCurrencyByMoneda(
-                                                            lic.cantidad * lic.precio_unitario,
-                                                            (lic.tipo_moneda ||
-                                                                monedaContrato) as
-                                                                | 'CLP'
-                                                                | 'UF'
-                                                                | 'USD',
+                                                            lic.cantidad * getLicenciaPrecioPartner(lic.licencia_id),
+                                                            getLicenciaTipoMoneda(lic.licencia_id),
                                                         )}
                                                     </div>
                                                 </div>

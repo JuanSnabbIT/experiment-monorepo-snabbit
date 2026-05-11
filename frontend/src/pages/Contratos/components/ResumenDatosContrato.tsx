@@ -486,10 +486,10 @@ const ResumenDatosContrato = ({ contrato }: IResumenDatosContratoProps) => {
                                     <Tr key={lic.id}>
                                         <Td className='font-medium'>{lic.nombre_licencia}</Td>
                                         <Td>{lic.proveedor_licencia || '—'}</Td>
-                                        <Td>{lic.tipo_modalidad_label}</Td>
+                                        <Td>{lic.modalidad_snapshot_label}</Td>
                                         <Td className='text-center'>{lic.cantidad}</Td>
                                         <Td className='text-right'>
-                                            {formatCurrency(lic.precio_unitario, moneda)}
+                                            {formatCurrency(lic.precio_unitario_snapshot, moneda)}
                                         </Td>
                                     </Tr>
                                 ))}

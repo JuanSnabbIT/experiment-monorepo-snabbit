@@ -7,7 +7,6 @@ import { ITabVisitasProps } from './contrato.types';
 const TabVisitas = ({
     detalleContratoEmpresaCliente,
     puedeEditar,
-    listaVisitas,
 }: ITabVisitasProps) => {
     const visitasPlanMensuales = detalleContratoEmpresaCliente.items_comerciales.reduce(
         (acc, item) => acc + (item.snapshot_num_visitas_mensuales ?? item.num_visitas_mensuales ?? 0),

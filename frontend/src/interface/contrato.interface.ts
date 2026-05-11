@@ -270,11 +270,16 @@ export interface IContratoCondicionEspecial {
 
 export interface IContratoLicencia {
     id: number;
-    tipo_modalidad_label: string;
     nombre_licencia: string;
     proveedor_licencia: string;
-    tipo_moneda_label: string;
     licencias_disponibles: number;
+    licencia_precio_partner: number | null;
+    licencia_precio_venta: number | null;
+    licencia_precio_venta_p1m: number | null;
+    licencia_moneda: string | null;
+    licencia_modalidad_base: string | null;
+    licencia_numero_parte: string | null;
+    licencia_descripcion: string | null;
     fecha_inicio_edicion: string | null;
     fecha_fin_edicion: string | null;
     dias_hasta_fin_edicion: number | null;
@@ -290,12 +295,14 @@ export interface IContratoLicencia {
     color_estado: 'emerald' | 'red' | 'amber' | 'zinc';
     fecha_creacion: string;
     fecha_modificacion: string;
-    tipo_modalidad: string;
-    otro_tipo: null | string;
     cantidad: number;
-    precio_unitario: string;
-    precio_sobrescrito: boolean;
-    tipo_moneda: string;
+    modalidad_snapshot: string;
+    modalidad_snapshot_label: string;
+    moneda_snapshot: string;
+    moneda_snapshot_label: string;
+    precio_unitario_snapshot: string;
+    nombre_snapshot: string;
+    proveedor_snapshot: string;
     fecha_inicio: null | string;
     fecha_fin: null | string;
     partner: boolean;

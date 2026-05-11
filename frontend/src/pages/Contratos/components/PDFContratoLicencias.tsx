@@ -96,11 +96,11 @@ function PDFContratoLicencias({
                                 <div className='ml-8'>
                                     Valor Fijo:{' '}
                                     {contrato.contrato_licencias.length > 0 &&
-                                        contrato.contrato_licencias[0].tipo_moneda === 'CLP' &&
+                                        contrato.contrato_licencias[0].moneda_snapshot === 'CLP' &&
                                         '$'}
                                     {Number(servicio.precio_unitario)}
                                     {contrato.contrato_licencias.length > 0 &&
-                                        contrato.contrato_licencias[0].tipo_moneda === 'USD' &&
+                                        contrato.contrato_licencias[0].moneda_snapshot === 'USD' &&
                                         'USD'}
                                 </div>
                             </Fragment>
@@ -120,15 +120,13 @@ function PDFContratoLicencias({
                                 </div>
                                 <div className='ml-8'>
                                     Modalidad:{' '}
-                                    {licencia.tipo_modalidad != 'otros'
-                                        ? licencia.tipo_modalidad_label
-                                        : licencia.otro_tipo}
+                                    {licencia.modalidad_snapshot_label}
                                 </div>
                                 <div className='ml-8'>Cantidad: {licencia.cantidad}</div>
                                 <div className='ml-8'>
-                                    Valor Unitario: {licencia.tipo_moneda === 'CLP' && '$'}
-                                    {Number(licencia.precio_unitario).toLocaleString('es-ES')}{' '}
-                                    {licencia.tipo_moneda === 'USD' && 'USD'}
+                                    Valor Unitario: {licencia.moneda_snapshot === 'CLP' && '$'}
+                                    {Number(licencia.precio_unitario_snapshot).toLocaleString('es-ES')}{' '}
+                                    {licencia.moneda_snapshot === 'USD' && 'USD'}
                                 </div>
                             </Fragment>
                         ))

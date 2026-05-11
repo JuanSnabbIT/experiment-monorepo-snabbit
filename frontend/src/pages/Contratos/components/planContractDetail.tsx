@@ -11,7 +11,7 @@ import type {
     IServicio,
     IServicioAlcanceItem,
 } from '@/interface/contrato.interface';
-import { useState } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 
 export interface IPlanComponentContractDetail {
     key: string;
@@ -280,7 +280,7 @@ export const PlanServiceDetailModal = ({
 }) => {
     if (!component) return null;
     return (
-        <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen as Dispatch<SetStateAction<boolean>>}>
             <ModalHeader>{component.nombre}</ModalHeader>
             <ModalBody className='space-y-3 pb-5'>
                 {component.categoriaLabel && (

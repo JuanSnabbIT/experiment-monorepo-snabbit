@@ -84,7 +84,7 @@ const ListaPlantillas = () => {
                             </CardHeaderChild>
                         </CardHeader>
                     <CardBody>
-                        {error && (
+                        {!!error && (
                             <Alert color='red' icon='HeroExclamationTriangle' className='mb-4'>
                                 No se pudieron cargar las plantillas. Intenta recargar la página.
                             </Alert>

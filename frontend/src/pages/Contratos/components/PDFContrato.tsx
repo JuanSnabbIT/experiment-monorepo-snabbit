@@ -24,7 +24,7 @@ function PDFContrato() {
         if (!id) return;
         setIsLoading(true);
         try {
-            const baseUrl = process.env.VITE_API_URL ?? '';
+            const baseUrl = import.meta.env.VITE_API_URL ?? '';
             const response = await fetch(`${baseUrl}/api/contratos/${id}/pdf/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });

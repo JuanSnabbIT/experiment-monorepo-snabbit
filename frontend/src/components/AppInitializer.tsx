@@ -66,7 +66,7 @@ const AppInitializer: FC<AppInitializerProps> = ({ children, loadingComponent })
             if (isTokenExpired(access, 30)) {
                 try {
                     const response = await axios.post(
-                        `${process.env.VITE_API_URL}/auth/jwt/refresh/`,
+                        `${import.meta.env.VITE_API_URL}/auth/jwt/refresh/`,
                         { refresh },
                     );
 
@@ -89,7 +89,7 @@ const AppInitializer: FC<AppInitializerProps> = ({ children, loadingComponent })
 
             // El access token parece válido, verificar con el backend
             try {
-                await axios.get(`${process.env.VITE_API_URL}/auth/users/me/`, {
+                await axios.get(`${import.meta.env.VITE_API_URL}/auth/users/me/`, {
                     headers: { Authorization: `Bearer ${access}` },
                 });
                 // Token válido

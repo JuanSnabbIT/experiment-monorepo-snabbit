@@ -3,6 +3,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
+import { IContratoItemComercial } from '@/interface/contrato.interface';
 import { useState } from 'react';
 import AgregarServiciosyPlanesContrato from '../modals/AgregarServiciosyPlanesContrato';
 import { ITabServiciosProps } from './contrato.types';
@@ -100,31 +101,6 @@ const TabServicios = ({
             ? detalleContratoEmpresaCliente.items_comerciales
             : detalleContratoEmpresaCliente.contrato_servicios;
 
-    // Helpers de conversión: un item es "convertible" si su moneda propia ya
-    // coincide con moneda_cobro del contrato, o si el backend pudo entregar
-    // subtotal_en_moneda_cobro. Si subtotal_en_moneda_cobro es null y la moneda
-    // difiere, no podemos representar su aporte en moneda del contrato.
-    const monedaCobro = detalleContratoEmpresaCliente.moneda_cobro;
-    const getItemMonedaPropia = (item: (typeof itemsServicios)[number]): 'CLP' | 'UF' | 'USD' =>
-        'moneda' in item && item.moneda
-            ? (item.moneda as 'CLP' | 'UF' | 'USD')
-            : monedaCobro;
-    const isItemConvertible = (item: (typeof itemsServicios)[number]): boolean => {
-        if (item.subtotal_en_moneda_cobro != null) return true;
-        return getItemMonedaPropia(item) === monedaCobro;
-    };
-    const getItemTotalEnMonedaCobro = (
-        item: (typeof itemsServicios)[number],
-    ): number | null => {
-        if (item.subtotal_en_moneda_cobro != null) {
-            return Number(item.subtotal_en_moneda_cobro);
-        }
-        if (getItemMonedaPropia(item) === monedaCobro) {
-            return Number(item.subtotal ?? 0);
-        }
-        return null;
-    };
-
     // Separar addons del plan principal (solo aplica a items_comerciales)
     const addonItems = itemsServicios.filter(
         (item) => 'es_addon' in item && (item as { es_addon: boolean }).es_addon,
@@ -133,15 +109,15 @@ const TabServicios = ({
         (item) => !('es_addon' in item) || !(item as { es_addon: boolean }).es_addon,
     );
 
-    const itemsNoConvertibles = itemsServicios.filter((item) => !isItemConvertible(item));
-    const totalServicios = itemsServicios.reduce((sum, servicio) => {
-        const aporte = getItemTotalEnMonedaCobro(servicio);
-        return aporte == null ? sum : sum + aporte;
-    }, 0);
+    const totalServicios = itemsServicios.reduce(
+        (sum, servicio) =>
+            sum + Number(servicio.subtotal_en_moneda_cobro ?? servicio.subtotal ?? 0),
+        0,
+    );
 
     const formaPago = detalleContratoEmpresaCliente.forma_pago_contractual;
-    const periodoSufijo = formaPago === 'anual' ? '/año' : formaPago === 'mensual' ? '/mes' : '';
-    const periodoLabel = formaPago === 'anual' ? 'anual' : formaPago === 'mensual' ? 'mensual' : 'único';
+    const periodoSufijo = formaPago === 'anual' ? '/a├▒o' : formaPago === 'mensual' ? '/mes' : '';
+    const periodoLabel = formaPago === 'anual' ? 'anual' : formaPago === 'mensual' ? 'mensual' : '├║nico';
 
     const buildDetailFromItem = (
         contServ: (typeof itemsServicios)[number],
@@ -221,13 +197,12 @@ const TabServicios = ({
                                             )
                                           : false;
 
-                                const itemConvertible = isItemConvertible(contServ);
                                 const usesConvertedSubtotal =
                                     contServ.subtotal_en_moneda_cobro != null;
                                 const subtotal = Number(
                                     contServ.subtotal_en_moneda_cobro ?? contServ.subtotal ?? 0,
                                 );
-                                // itemOwnMoneda: moneda propia del ítem (para precio unitario)
+                                // itemOwnMoneda: moneda propia del ├¡tem (para precio unitario)
                                 const itemOwnMoneda: 'CLP' | 'UF' | 'USD' =
                                     'moneda' in contServ && contServ.moneda
                                         ? (contServ.moneda as 'CLP' | 'UF' | 'USD')
@@ -301,37 +276,30 @@ const TabServicios = ({
                                                     <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
                                                         {periodoLabel === 'anual' ? 'Total anual' : `Subtotal ${periodoLabel}`}
                                                     </div>
-                                                    {itemConvertible ? (
-                                                        <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                            {formatSubtotalCurrency(subtotal, itemMoneda)}
-                                                        </div>
-                                                    ) : (
-                                                        <Tooltip text={`Tipo de cambio ${itemOwnMoneda}→${monedaCobro} no disponible. Subtotal nativo: ${formatSubtotalCurrency(Number(contServ.subtotal ?? 0), itemOwnMoneda)}`}>
-                                                            <Badge color='amber' variant='outline'>
-                                                                Conversión no disponible
-                                                            </Badge>
-                                                        </Tooltip>
-                                                    )}
+                                                    <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                        {formatSubtotalCurrency(subtotal, itemMoneda)}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
 
                                         {esPlan && (() => {
-                                            const planPrice = Number(contServ.precio_unitario_contratado || 0);
-                                            const planPriceAnual = contServ.precio_unitario_anual_contratado
-                                                ? Number(contServ.precio_unitario_anual_contratado)
+                                            const planItem = contServ as IContratoItemComercial;
+                                            const planPrice = Number(planItem.precio_unitario_contratado || 0);
+                                            const planPriceAnual = planItem.precio_unitario_anual_contratado
+                                                ? Number(planItem.precio_unitario_anual_contratado)
                                                 : null;
                                             // Equivalente anual por unidad en moneda propia del item
                                             // = subtotal (ya es total_anual del backend) / cantidad
                                             const planUnitAnualEquiv =
-                                                planPrice > 0 && Number(contServ.cantidad || 1) > 0
-                                                    ? Number(contServ.subtotal || 0) / Number(contServ.cantidad || 1)
+                                                planPrice > 0 && Number(planItem.cantidad || 1) > 0
+                                                    ? Number(planItem.subtotal || 0) / Number(planItem.cantidad || 1)
                                                     : 0;
                                             const visitasIncluidas =
-                                                contServ.snapshot_num_visitas_mensuales ?? contServ.num_visitas_mensuales;
+                                                planItem.snapshot_num_visitas_mensuales ?? planItem.num_visitas_mensuales;
                                             const planDetalle = componentesPlan[0] ?? null;
 
-                                            // Totales ya calculados por el backend según forma_pago_contractual:
+                                            // Totales ya calculados por el backend seg├║n forma_pago_contractual:
                                             // subtotal               = total en moneda propia del item
                                             // subtotal_en_moneda_cobro = total convertido a moneda del contrato
                                             const planTotal = Number(
@@ -373,14 +341,14 @@ const TabServicios = ({
                                                                                 {formatSubtotalCurrency(planPriceAnual, itemOwnMoneda)}
                                                                             </div>
                                                                             <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
-                                                                                {itemOwnMoneda} / año
+                                                                                {itemOwnMoneda} / a├▒o
                                                                             </div>
                                                                             <div className='mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'>
-                                                                                {planPrice > 0 ? `${formatSubtotalCurrency(planPrice, itemOwnMoneda)} /mes` : '—'}
+                                                                                {planPrice > 0 ? `${formatSubtotalCurrency(planPrice, itemOwnMoneda)} /mes` : 'ÔÇö'}
                                                                             </div>
                                                                         </>
                                                                     ) : (
-                                                                        // Contrato anual SIN precio de descuento — factura mensual × 12
+                                                                        // Contrato anual SIN precio de descuento ÔÇö factura mensual ├ù 12
                                                                         <>
                                                                             <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
                                                                                 Precio mensual
@@ -389,7 +357,7 @@ const TabServicios = ({
                                                                                 {planPrice > 0 ? formatSubtotalCurrency(planPrice, itemOwnMoneda) : 'Sin precio'}
                                                                             </div>
                                                                             <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
-                                                                                {planPrice > 0 ? itemOwnMoneda : '—'}
+                                                                                {planPrice > 0 ? itemOwnMoneda : 'ÔÇö'}
                                                                             </div>
                                                                             {planUnitAnualEquiv > 0 && (
                                                                                 <div className='mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700'>
@@ -397,23 +365,23 @@ const TabServicios = ({
                                                                                         Facturado anualmente
                                                                                     </div>
                                                                                     <div className='mt-1 text-sm font-semibold text-zinc-700 dark:text-zinc-200'>
-                                                                                        {formatSubtotalCurrency(planUnitAnualEquiv, itemOwnMoneda)} /año
+                                                                                        {formatSubtotalCurrency(planUnitAnualEquiv, itemOwnMoneda)} /a├▒o
                                                                                     </div>
                                                                                 </div>
                                                                             )}
                                                                         </>
                                                                     )
                                                                 ) : (
-                                                                    // Contrato mensual o pago único
+                                                                    // Contrato mensual o pago ├║nico
                                                                     <>
                                                                         <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
-                                                                            {formaPago === 'pago_unico' ? 'Precio único' : 'Precio mensual'}
+                                                                            {formaPago === 'pago_unico' ? 'Precio ├║nico' : 'Precio mensual'}
                                                                         </div>
                                                                         <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
                                                                             {planPrice > 0 ? formatSubtotalCurrency(planPrice, itemOwnMoneda) : 'Sin precio'}
                                                                         </div>
                                                                         <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
-                                                                            {planPrice > 0 ? itemOwnMoneda : '—'}
+                                                                            {planPrice > 0 ? itemOwnMoneda : 'ÔÇö'}
                                                                         </div>
                                                                     </>
                                                                 )}
@@ -430,7 +398,7 @@ const TabServicios = ({
                                                                             Servicios incluidos
                                                                         </div>
                                                                         <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-300'>
-                                                                            Una vista rápida de lo que ofrece este plan.
+                                                                            Una vista r├ípida de lo que ofrece este plan.
                                                                         </p>
                                                                     </div>
                                                                     <span className='rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'>
@@ -451,7 +419,7 @@ const TabServicios = ({
                                                                     </div>
                                                                 ) : (
                                                                     <div className='mt-4 rounded-2xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
-                                                                        Este plan aún no tiene servicios asociados.
+                                                                        Este plan a├║n no tiene servicios asociados.
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -506,15 +474,15 @@ const TabServicios = ({
                                                                     </p>
                                                                     <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
                                                                         {formaPago === 'anual' && planPriceAnual && planPriceAnual > 0
-                                                                            ? `${formatSubtotalCurrency(planPriceAnual, itemOwnMoneda)} /año c/u`
+                                                                            ? `${formatSubtotalCurrency(planPriceAnual, itemOwnMoneda)} /a├▒o c/u`
                                                                             : planPrice > 0
                                                                               ? `${formatSubtotalCurrency(planPrice, itemOwnMoneda)} /mes c/u`
-                                                                              : '—'}
+                                                                              : 'ÔÇö'}
                                                                     </p>
                                                                 </div>
                                                                 <div className='flex-shrink-0 text-right'>
                                                                     <p className='text-xs text-zinc-400 dark:text-zinc-500'>
-                                                                        ×{contServ.cantidad || 1}
+                                                                        ├ù{contServ.cantidad || 1}
                                                                     </p>
                                                                     <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
                                                                         {formatSubtotalCurrency(
@@ -554,12 +522,12 @@ const TabServicios = ({
                                                                                         <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
                                                                                             {addonPrecio > 0
                                                                                                 ? `${formatSubtotalCurrency(addonPrecio, addonOwnMoneda)} /mes c/u`
-                                                                                                : '—'}
+                                                                                                : 'ÔÇö'}
                                                                                         </p>
                                                                                     </div>
                                                                                     <div className='flex-shrink-0 text-right'>
                                                                                         <p className='text-xs text-zinc-400 dark:text-zinc-500'>
-                                                                                            ×{addon.cantidad || 1}
+                                                                                            ├ù{addon.cantidad || 1}
                                                                                         </p>
                                                                                         <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
                                                                                             {formatSubtotalCurrency(
@@ -599,26 +567,17 @@ const TabServicios = ({
                         </div>
 
 
-                        <div className='flex flex-col gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800'>
-                            {itemsNoConvertibles.length > 0 && (
-                                <Alert color='amber' variant='outline' icon='HeroExclamationTriangle'>
-                                    {itemsNoConvertibles.length === 1
-                                        ? '1 item no se pudo convertir a la moneda del contrato y fue omitido del total referencial.'
-                                        : `${itemsNoConvertibles.length} items no se pudieron convertir a la moneda del contrato y fueron omitidos del total referencial.`}
-                                </Alert>
-                            )}
-                            <div className='flex justify-end'>
-                                <div className='rounded-2xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/20'>
-                                    <div className='text-[11px] uppercase tracking-wide text-blue-600 dark:text-blue-300'>
-                                        Total referencial {periodoLabel}
-                                    </div>
-                                    <div className='text-lg font-semibold text-blue-700 dark:text-blue-200'>
-                                        {formatSubtotalCurrency(
-                                            totalServicios,
-                                            detalleContratoEmpresaCliente.moneda_cobro,
-                                        )}
-                                        {periodoSufijo}
-                                    </div>
+                        <div className='flex justify-end border-t border-zinc-200 pt-4 dark:border-zinc-800'>
+                            <div className='rounded-2xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/20'>
+                                <div className='text-[11px] uppercase tracking-wide text-blue-600 dark:text-blue-300'>
+                                    Total referencial {periodoLabel}
+                                </div>
+                                <div className='text-lg font-semibold text-blue-700 dark:text-blue-200'>
+                                    {formatSubtotalCurrency(
+                                        totalServicios,
+                                        detalleContratoEmpresaCliente.moneda_cobro,
+                                    )}
+                                    {periodoSufijo}
                                 </div>
                             </div>
                         </div>
