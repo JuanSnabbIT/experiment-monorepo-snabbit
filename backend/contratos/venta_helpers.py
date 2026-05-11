@@ -203,29 +203,6 @@ def resolver_cuotas_venta(
     return cuotas_normalizadas
 
 
-def construir_resumen_cuotas_venta(total_contrato, cuotas_venta):
-    total_decimal = _to_decimal(total_contrato)
-    cuotas = []
-    for cuota in cuotas_venta or []:
-        porcentaje = _to_decimal(cuota.get("porcentaje"))
-        monto = cuantizar_monto((total_decimal * porcentaje) / Decimal("100"), "CLP")
-        cuotas.append(
-            {
-                "orden": int(cuota.get("orden") or len(cuotas) + 1),
-                "porcentaje": float(
-                    porcentaje.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                ),
-                "monto": float(monto),
-                "hito_pago_tipo": cuota.get("hito_pago_tipo"),
-                "hito_pago_descripcion": cuota.get("hito_pago_descripcion")
-                or HITO_PAGO_VENTA_LABELS.get(cuota.get("hito_pago_tipo"), ""),
-                "hito_pago_label": cuota.get("hito_pago_descripcion")
-                or HITO_PAGO_VENTA_LABELS.get(cuota.get("hito_pago_tipo"), ""),
-            }
-        )
-    return cuotas
-
-
 def construir_resumen_cuotas_venta_por_moneda(total_contrato, moneda, cuotas_venta):
     total_decimal = _to_decimal(total_contrato)
     cuotas = []

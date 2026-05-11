@@ -1462,10 +1462,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
                 float(servicio.precio_unitario) * servicio.cantidad
                 for servicio in obj.contrato_servicios.all()
             )
-        total_licencias = sum(
-            float(licencia.precio_unitario) * licencia.cantidad
-            for licencia in obj.contrato_licencias.all()
-        )
+        total_licencias = self._calcular_total_licencias_en_moneda_cobro(obj)
         return total_servicios + total_licencias
 
     def get_contrato_anterior_detalle(self, obj):
@@ -1511,10 +1508,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         total_mensual = sum(float(item.total_mensual) for item in obj.items_comerciales.all())
         total_anual = sum(float(item.total_anual) for item in obj.items_comerciales.all())
         total_pago_unico = sum(float(item.total_pago_unico) for item in obj.items_comerciales.all())
-        total_licencias = sum(
-            float(licencia.precio_unitario) * licencia.cantidad
-            for licencia in obj.contrato_licencias.all()
-        )
+        total_licencias = self._calcular_total_licencias_en_moneda_cobro(obj)
         return {
             "tipo_resumen": obj.tipo,
             "moneda": obj.moneda_cobro,
@@ -1525,6 +1519,46 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             "total_licencias": total_licencias,
             "total_contrato": self.get_total_contrato(obj),
         }
+
+    def _calcular_total_licencias_en_moneda_cobro(self, obj):
+        """
+        Suma las licencias del contrato convertidas a moneda_cobro.
+        Si una licencia no se puede convertir (tasa indisponible), se omite
+        del total y se registra para diagnóstico futuro.
+        """
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+
+        licencias = list(obj.contrato_licencias.all())
+        if not licencias:
+            return 0.0
+
+        moneda_cobro = obj.moneda_cobro
+        # Cargamos las tasas una sola vez para todo el cálculo.
+        dolar, uf = obtener_tipos_cambio_actuales()
+
+        total = 0.0
+        for licencia in licencias:
+            subtotal_origen = Decimal(str(licencia.precio_unitario)) * Decimal(licencia.cantidad)
+            moneda_origen = getattr(licencia, "tipo_moneda", None) or moneda_cobro
+            if moneda_origen == moneda_cobro:
+                total += float(subtotal_origen)
+                continue
+            convertido = convertir_precio_item_safe(
+                subtotal_origen,
+                moneda_origen=moneda_origen,
+                moneda_destino=moneda_cobro,
+                dolar_observado=dolar,
+                valor_uf=uf,
+            )
+            if convertido is not None:
+                total += float(convertido)
+            # Si la conversión falla, omitimos: el frontend recibirá un total
+            # consistente en moneda_cobro y deberá señalar items no convertibles
+            # mediante subtotal_en_moneda_cobro=null en cada licencia.
+        return total
 
 class EnvioContratoFirmaUsuarioSerializer(serializers.ModelSerializer):
     class Meta:

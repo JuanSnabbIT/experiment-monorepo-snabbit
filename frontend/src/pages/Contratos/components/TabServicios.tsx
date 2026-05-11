@@ -1,6 +1,8 @@
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Tooltip from '@/components/ui/Tooltip';
 import { useState } from 'react';
 import AgregarServiciosyPlanesContrato from '../modals/AgregarServiciosyPlanesContrato';
 import { ITabServiciosProps } from './contrato.types';
@@ -98,6 +100,31 @@ const TabServicios = ({
             ? detalleContratoEmpresaCliente.items_comerciales
             : detalleContratoEmpresaCliente.contrato_servicios;
 
+    // Helpers de conversión: un item es "convertible" si su moneda propia ya
+    // coincide con moneda_cobro del contrato, o si el backend pudo entregar
+    // subtotal_en_moneda_cobro. Si subtotal_en_moneda_cobro es null y la moneda
+    // difiere, no podemos representar su aporte en moneda del contrato.
+    const monedaCobro = detalleContratoEmpresaCliente.moneda_cobro;
+    const getItemMonedaPropia = (item: (typeof itemsServicios)[number]): 'CLP' | 'UF' | 'USD' =>
+        'moneda' in item && item.moneda
+            ? (item.moneda as 'CLP' | 'UF' | 'USD')
+            : monedaCobro;
+    const isItemConvertible = (item: (typeof itemsServicios)[number]): boolean => {
+        if (item.subtotal_en_moneda_cobro != null) return true;
+        return getItemMonedaPropia(item) === monedaCobro;
+    };
+    const getItemTotalEnMonedaCobro = (
+        item: (typeof itemsServicios)[number],
+    ): number | null => {
+        if (item.subtotal_en_moneda_cobro != null) {
+            return Number(item.subtotal_en_moneda_cobro);
+        }
+        if (getItemMonedaPropia(item) === monedaCobro) {
+            return Number(item.subtotal ?? 0);
+        }
+        return null;
+    };
+
     // Separar addons del plan principal (solo aplica a items_comerciales)
     const addonItems = itemsServicios.filter(
         (item) => 'es_addon' in item && (item as { es_addon: boolean }).es_addon,
@@ -106,11 +133,11 @@ const TabServicios = ({
         (item) => !('es_addon' in item) || !(item as { es_addon: boolean }).es_addon,
     );
 
-    const totalServicios = itemsServicios.reduce(
-        (sum, servicio) =>
-            sum + Number(servicio.subtotal_en_moneda_cobro ?? servicio.subtotal ?? 0),
-        0,
-    );
+    const itemsNoConvertibles = itemsServicios.filter((item) => !isItemConvertible(item));
+    const totalServicios = itemsServicios.reduce((sum, servicio) => {
+        const aporte = getItemTotalEnMonedaCobro(servicio);
+        return aporte == null ? sum : sum + aporte;
+    }, 0);
 
     const formaPago = detalleContratoEmpresaCliente.forma_pago_contractual;
     const periodoSufijo = formaPago === 'anual' ? '/año' : formaPago === 'mensual' ? '/mes' : '';
@@ -194,6 +221,7 @@ const TabServicios = ({
                                             )
                                           : false;
 
+                                const itemConvertible = isItemConvertible(contServ);
                                 const usesConvertedSubtotal =
                                     contServ.subtotal_en_moneda_cobro != null;
                                 const subtotal = Number(
@@ -273,9 +301,17 @@ const TabServicios = ({
                                                     <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
                                                         {periodoLabel === 'anual' ? 'Total anual' : `Subtotal ${periodoLabel}`}
                                                     </div>
-                                                    <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                        {formatSubtotalCurrency(subtotal, itemMoneda)}
-                                                    </div>
+                                                    {itemConvertible ? (
+                                                        <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                            {formatSubtotalCurrency(subtotal, itemMoneda)}
+                                                        </div>
+                                                    ) : (
+                                                        <Tooltip text={`Tipo de cambio ${itemOwnMoneda}→${monedaCobro} no disponible. Subtotal nativo: ${formatSubtotalCurrency(Number(contServ.subtotal ?? 0), itemOwnMoneda)}`}>
+                                                            <Badge color='amber' variant='outline'>
+                                                                Conversión no disponible
+                                                            </Badge>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -563,17 +599,26 @@ const TabServicios = ({
                         </div>
 
 
-                        <div className='flex justify-end border-t border-zinc-200 pt-4 dark:border-zinc-800'>
-                            <div className='rounded-2xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/20'>
-                                <div className='text-[11px] uppercase tracking-wide text-blue-600 dark:text-blue-300'>
-                                    Total referencial {periodoLabel}
-                                </div>
-                                <div className='text-lg font-semibold text-blue-700 dark:text-blue-200'>
-                                    {formatSubtotalCurrency(
-                                        totalServicios,
-                                        detalleContratoEmpresaCliente.moneda_cobro,
-                                    )}
-                                    {periodoSufijo}
+                        <div className='flex flex-col gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800'>
+                            {itemsNoConvertibles.length > 0 && (
+                                <Alert color='amber' variant='outline' icon='HeroExclamationTriangle'>
+                                    {itemsNoConvertibles.length === 1
+                                        ? '1 item no se pudo convertir a la moneda del contrato y fue omitido del total referencial.'
+                                        : `${itemsNoConvertibles.length} items no se pudieron convertir a la moneda del contrato y fueron omitidos del total referencial.`}
+                                </Alert>
+                            )}
+                            <div className='flex justify-end'>
+                                <div className='rounded-2xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/20'>
+                                    <div className='text-[11px] uppercase tracking-wide text-blue-600 dark:text-blue-300'>
+                                        Total referencial {periodoLabel}
+                                    </div>
+                                    <div className='text-lg font-semibold text-blue-700 dark:text-blue-200'>
+                                        {formatSubtotalCurrency(
+                                            totalServicios,
+                                            detalleContratoEmpresaCliente.moneda_cobro,
+                                        )}
+                                        {periodoSufijo}
+                                    </div>
                                 </div>
                             </div>
                         </div>

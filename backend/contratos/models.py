@@ -552,7 +552,30 @@ class Servicio(ModeloBase):
         )
 
     def get_precio_por_moneda(self, moneda):
-        return self.precio
+        """
+        Devuelve el precio del servicio convertido a la moneda solicitada.
+
+        Si `moneda` es la misma del precio o si las tasas de cambio no están
+        disponibles, devuelve `self.precio` sin convertir. La conversión usa
+        las tasas vigentes obtenidas mediante currency_utils.
+        """
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+
+        moneda_origen = self.tipo_moneda or "CLP"
+        if not moneda or moneda == moneda_origen:
+            return self.precio
+        dolar, uf = obtener_tipos_cambio_actuales()
+        convertido = convertir_precio_item_safe(
+            self.precio,
+            moneda_origen=moneda_origen,
+            moneda_destino=moneda,
+            dolar_observado=dolar,
+            valor_uf=uf,
+        )
+        return convertido if convertido is not None else self.precio
 
     @property
     def precio_clp(self):
@@ -829,7 +852,30 @@ class PlanServicio(ModeloBaseHistorico):
         return "\n".join(bloques)
 
     def get_precio_por_moneda(self, moneda):
-        return self.precio
+        """
+        Devuelve el precio del plan convertido a la moneda solicitada.
+
+        Si `moneda` es la misma del precio o si las tasas de cambio no están
+        disponibles, devuelve `self.precio` sin convertir. La conversión usa
+        las tasas vigentes obtenidas mediante currency_utils.
+        """
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+
+        moneda_origen = self.tipo_moneda or "CLP"
+        if not moneda or moneda == moneda_origen:
+            return self.precio
+        dolar, uf = obtener_tipos_cambio_actuales()
+        convertido = convertir_precio_item_safe(
+            self.precio,
+            moneda_origen=moneda_origen,
+            moneda_destino=moneda,
+            dolar_observado=dolar,
+            valor_uf=uf,
+        )
+        return convertido if convertido is not None else self.precio
 
     @property
     def precio_clp(self):
