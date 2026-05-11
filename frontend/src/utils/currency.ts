@@ -32,7 +32,7 @@ export const formatCurrency = (
     if (currency === '3' || currency === 'UF') {
         return `${formatPrice(value, 2, 2)} UF`;
     }
-    return `$ ${formatPrice(value, 0, 0)}`;
+    return `$ ${formatPrice(value, 0, 0)} CLP`;
 };
 
 export const convertCurrency = (

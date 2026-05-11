@@ -55,7 +55,7 @@ const PlanCard = ({ plan }: IPlanCardProps) => {
                     </div>
                     <div className='ml-auto flex-shrink-0 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-right dark:border-zinc-800 dark:bg-zinc-900'>
                         <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
-                            Precio
+                            Precio mensual
                         </div>
                         <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
                             {primaryPrice?.label ?? 'Sin precio'}
@@ -63,6 +63,19 @@ const PlanCard = ({ plan }: IPlanCardProps) => {
                         <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
                             {primaryPrice?.currency ?? 'Sin moneda'}
                         </div>
+                        {plan.precio_anual && Number(plan.precio_anual) > 0 && (
+                            <div className='mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700'>
+                                <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-400 dark:text-zinc-500'>
+                                    Precio anual
+                                </div>
+                                <div className='mt-1 text-lg font-semibold text-emerald-600 dark:text-emerald-400'>
+                                    {formatPriceLabel(
+                                        primaryPrice?.currency ?? 'CLP',
+                                        plan.precio_anual,
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </CardHeader>
@@ -102,24 +115,14 @@ const PlanCard = ({ plan }: IPlanCardProps) => {
                     )}
                 </div>
 
-                <div className='grid gap-3 sm:grid-cols-2'>
-                    <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
-                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
-                            Visitas presenciales
-                        </div>
-                        <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
-                            {plan.num_visitas_mensuales != null
-                                ? `${plan.num_visitas_mensuales} / mes`
-                                : 'No aplica'}
-                        </div>
+                <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
+                    <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                        Visitas presenciales
                     </div>
-                    <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
-                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
-                            Conflictos detectados
-                        </div>
-                        <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
-                            {plan.alcance_conflictos?.length || 0}
-                        </div>
+                    <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                        {plan.num_visitas_mensuales != null
+                            ? `${plan.num_visitas_mensuales} / mes`
+                            : 'No aplica'}
                     </div>
                 </div>
 

@@ -8,6 +8,7 @@ import type {
     ICotizacionVinculadaResumen,
     ICuotaVenta,
 } from '@/interface/contrato.interface';
+import { formatCurrency } from '@/utils/currency';
 import {
     ContractTextBlock,
     ContractTextList,
@@ -50,29 +51,9 @@ const formatFecha = (fecha: string | null | undefined): string => {
     });
 };
 
-const formatCurrency = (
-    value?: number | string | null,
-    currency: 'CLP' | 'UF' | 'USD' = 'USD',
-) => {
-    const amount = Number(value || 0);
-    if (currency === 'UF') {
-        return `${new Intl.NumberFormat('es-CL', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(amount)} UF`;
-    }
-    return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: currency === 'USD' ? 2 : 0,
-    }).format(amount);
-};
-
 const normalizeCurrency = (currency?: string | null): 'CLP' | 'UF' | 'USD' => {
-    if (currency === '1') return 'USD';
-    if (currency === '2') return 'CLP';
-    if (currency === '3') return 'UF';
-    if (currency === 'CLP' || currency === 'UF' || currency === 'USD') return currency;
+    if (currency === '1' || currency === 'USD') return 'USD';
+    if (currency === '3' || currency === 'UF') return 'UF';
     return 'CLP';
 };
 

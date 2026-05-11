@@ -751,7 +751,16 @@ class PlanServicio(ModeloBaseHistorico):
     )
     activo = models.BooleanField(default=True)
     es_vigente = models.BooleanField(default=True)
-    precio = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    precio = models.DecimalField(
+        max_digits=14, decimal_places=4, default=0,
+        verbose_name="Precio mensual",
+    )
+    precio_anual = models.DecimalField(
+        max_digits=14, decimal_places=4,
+        null=True, blank=True,
+        verbose_name="Precio anual con descuento",
+        help_text="Precio total por año con descuento. Si es null, se calcula como precio × 12.",
+    )
     tipo_moneda = models.CharField(
         max_length=3,
         choices=TIPO_MONEDA_LICENCIA,
@@ -969,7 +978,16 @@ class ContratoItemComercial(ModeloBaseHistorico):
         blank=True,
         null=True,
     )
-    precio_unitario_contratado = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    precio_unitario_contratado = models.DecimalField(
+        max_digits=14, decimal_places=4, default=0,
+        verbose_name="Precio unitario contratado (mensual)",
+    )
+    precio_unitario_anual_contratado = models.DecimalField(
+        max_digits=14, decimal_places=4,
+        null=True, blank=True,
+        verbose_name="Precio unitario anual contratado",
+        help_text="Precio anual con descuento acordado. Si es null, se usa precio_unitario_contratado × 12.",
+    )
     total_mensual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     total_anual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     total_pago_unico = models.DecimalField(max_digits=14, decimal_places=4, default=0)
@@ -1010,7 +1028,10 @@ class ContratoItemComercial(ModeloBaseHistorico):
         precio = Decimal(self.precio_unitario_contratado or 0)
         self.total_pago_unico = precio * cantidad
         self.total_mensual = precio * cantidad * veces
-        self.total_anual = self.total_mensual * Decimal("12")
+        if self.precio_unitario_anual_contratado:
+            self.total_anual = Decimal(self.precio_unitario_anual_contratado) * cantidad * veces
+        else:
+            self.total_anual = self.total_mensual * Decimal("12")
 
     def clean(self):
         super().clean()
@@ -1041,6 +1062,8 @@ class ContratoItemComercial(ModeloBaseHistorico):
                 self.moneda = getattr(referencia, "tipo_moneda", None)
             if not self.precio_unitario_contratado:
                 self.precio_unitario_contratado = referencia.get_precio_por_moneda(self.moneda)
+            if self.precio_unitario_anual_contratado is None:
+                self.precio_unitario_anual_contratado = getattr(referencia, "precio_anual", None)
             if not self.veces_por_mes:
                 self.veces_por_mes = getattr(referencia, "veces_por_mes_default", 1) or 1
             if self.num_visitas_mensuales is None:

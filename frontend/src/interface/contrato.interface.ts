@@ -399,6 +399,7 @@ export interface IContratoItemComercial {
     forma_pago: 'mensual' | 'anual' | 'pago_unico';
     moneda: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado: string;
+    precio_unitario_anual_contratado?: string | null;
     total_mensual: string;
     total_anual: string;
     total_pago_unico: string;
@@ -440,6 +441,7 @@ export interface IPlanServicio {
     activo?: boolean;
     es_vigente?: boolean;
     precio?: string;
+    precio_anual?: string | null;
     tipo_moneda?: string;
     veces_por_mes_default?: number;
     num_visitas_mensuales?: number | null;
@@ -710,6 +712,7 @@ export interface IContratoItemComercialPayload {
     forma_pago?: 'mensual' | 'anual' | 'pago_unico';
     moneda?: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado?: number;
+    precio_unitario_anual_contratado?: number | null;
     es_addon?: boolean;
 }
 

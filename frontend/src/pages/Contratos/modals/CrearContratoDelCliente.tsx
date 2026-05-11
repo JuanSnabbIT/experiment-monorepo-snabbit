@@ -132,11 +132,13 @@ const formatCurrencyByMoneda = (
         }).format(value)} UF`;
     }
 
-    return new Intl.NumberFormat('es-CL', {
+    const formatted = new Intl.NumberFormat('es-CL', {
         style: 'currency',
         currency: moneda,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: moneda === 'USD' ? 1 : 0,
     }).format(value);
+
+    return `${formatted} ${moneda}`;
 };
 
 const getTotalPorFormaPagoContractual = (
@@ -296,6 +298,7 @@ function CrearContratoDelCliente({
         plan_id: null,
         plan_cantidad: 1,
         plan_precio_unitario: 0,
+        plan_precio_unitario_anual: null,
         plan_num_visitas_mensuales: null,
         servicios: [],
     };
@@ -528,6 +531,10 @@ function CrearContratoDelCliente({
                                             cantidad: seleccionPlan.plan_cantidad,
                                             precio_unitario_contratado:
                                                 seleccionPlan.plan_precio_unitario,
+                                            ...(seleccionPlan.plan_precio_unitario_anual != null && {
+                                                precio_unitario_anual_contratado:
+                                                    seleccionPlan.plan_precio_unitario_anual,
+                                            }),
                                             ...(seleccionPlan.plan_num_visitas_mensuales != null && {
                                                 num_visitas_mensuales:
                                                     seleccionPlan.plan_num_visitas_mensuales,
@@ -649,11 +656,13 @@ function CrearContratoDelCliente({
     const totalPlanSeleccionado =
         seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
             ? convertCurrency(
-                  getTotalPorFormaPagoContractual(
-                      seleccionPlan.plan_precio_unitario,
-                      seleccionPlan.plan_cantidad,
-                      formaPagoContractual,
-                  ),
+                  formaPagoContractual === 'anual' && seleccionPlan.plan_precio_unitario_anual
+                      ? seleccionPlan.plan_precio_unitario_anual * seleccionPlan.plan_cantidad
+                      : getTotalPorFormaPagoContractual(
+                            seleccionPlan.plan_precio_unitario,
+                            seleccionPlan.plan_cantidad,
+                            formaPagoContractual,
+                        ),
                   planSeleccionadoResumen?.tipo_moneda,
                   monedaContrato,
                   tipoCambio,

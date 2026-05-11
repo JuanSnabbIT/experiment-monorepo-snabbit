@@ -38,6 +38,7 @@ interface IFormularioPlan {
     servicios_ids: number[];
     tipo_moneda: string;
     precio: string;
+    precio_anual: string;
     num_visitas_mensuales: string;
     clausulas_especiales: string;
 }
@@ -51,6 +52,7 @@ const validationSchema = Yup.object({
     servicios_ids: Yup.array().of(Yup.number()).min(1, 'Debe incluir al menos un servicio'),
     tipo_moneda: Yup.string().required(),
     precio: Yup.number().nullable().typeError('Debe ser un numero'),
+    precio_anual: Yup.number().nullable().typeError('Debe ser un numero'),
     num_visitas_mensuales: Yup.number()
         .nullable()
         .min(0, 'Debe ser mayor o igual a 0')
@@ -95,6 +97,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
             servicios_ids: plan?.servicios?.map((s) => s.id) || [],
             tipo_moneda: plan?.tipo_moneda || 'CLP',
             precio: plan?.precio || '',
+            precio_anual: plan?.precio_anual || '',
             num_visitas_mensuales: plan?.num_visitas_mensuales != null ? String(plan.num_visitas_mensuales) : '',
             clausulas_especiales: plan?.clausulas_especiales || '',
         },
@@ -106,6 +109,7 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                     descripcion: values.descripcion,
                     servicios_ids: values.servicios_ids,
                     precio: values.precio || undefined,
+                    precio_anual: values.precio_anual ? Number(values.precio_anual) : null,
                     tipo_moneda: values.tipo_moneda,
                     num_visitas_mensuales:
                         values.num_visitas_mensuales !== ''
@@ -336,6 +340,38 @@ const ModalPlanServicio = ({ isOpen, setIsOpen, plan }: IModalPlanServicioProps)
                                 Equiv. referencial: ≈ {precioEquivs}
                             </div>
                         )}
+                    </div>
+
+                    {/* Precio anual con descuento */}
+                    <div>
+                        <div className='mb-2 flex items-center justify-between'>
+                            <Label htmlFor='precio_anual'>Precio anual con descuento</Label>
+                            <span className='text-xs text-zinc-400'>Opcional</span>
+                        </div>
+                        <div className='flex gap-2'>
+                            <div className='w-28 shrink-0'>
+                                <Input value={formik.values.tipo_moneda} disabled />
+                            </div>
+                            <div className='flex-1'>
+                                <Validation
+                                    isValid={formik.isValid}
+                                    isTouched={formik.touched.precio_anual}
+                                    invalidFeedback={formik.errors.precio_anual}>
+                                    <Input
+                                        id='precio_anual'
+                                        name='precio_anual'
+                                        type='number'
+                                        placeholder={`${Number(formik.values.precio || 0) * 12} (sin descuento)`}
+                                        value={formik.values.precio_anual}
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </Validation>
+                            </div>
+                        </div>
+                        <div className='mt-1 text-xs text-zinc-400'>
+                            Si se deja vacío, el precio anual será precio mensual × 12.
+                        </div>
                     </div>
 
                     <div>

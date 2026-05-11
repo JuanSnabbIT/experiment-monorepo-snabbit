@@ -1,4 +1,5 @@
 import Button from '@/components/ui/Button';
+import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import type {
     ICaracteristicaServicio,
@@ -306,6 +307,7 @@ export const PlanServiceDetailModal = ({
 export const PlanIncludedServicesDetail = ({
     components,
     title = 'Servicios incluidos',
+    compact = false,
 }: {
     components: IPlanComponentContractDetail[];
     title?: string;
@@ -324,29 +326,38 @@ export const PlanIncludedServicesDetail = ({
                     if (!v) setSelected(null);
                 }}
             />
-            <div className='mt-4'>
-                <div className='mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
-                    {title} ({components.length})
-                </div>
-                <div className='divide-y divide-zinc-100 rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800'>
-                    {components.map((component) => (
-                        <div
-                            key={component.key}
-                            className='flex items-center justify-between px-3 py-2.5 first:rounded-t-xl last:rounded-b-xl hover:bg-zinc-50 dark:hover:bg-zinc-900/40'>
-                            <span className='text-sm text-zinc-800 dark:text-zinc-200'>
-                                {component.nombre}
-                            </span>
-                            <Button
-                                color='zinc'
-                                variant='plain'
-                                icon='HeroEye'
-                                size='sm'
-                                onClick={() => setSelected(component)}
-                            />
+            <Card className='rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30'>
+                <CardHeader className='border-b border-zinc-200 dark:border-zinc-800'>
+                    <div className='flex flex-wrap items-center justify-between gap-2'>
+                        <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {title}
                         </div>
-                    ))}
-                </div>
-            </div>
+                        <div className='text-xs uppercase tracking-wide text-zinc-500'>
+                            {components.length}
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardBody className={compact ? 'p-0' : 'p-0'}>
+                    <div className='divide-y divide-zinc-100 rounded-3xl dark:divide-zinc-800'>
+                        {components.map((component) => (
+                            <div
+                                key={component.key}
+                                className='flex items-center justify-between px-3 py-2.5 first:rounded-t-3xl last:rounded-b-3xl hover:bg-zinc-50 dark:hover:bg-zinc-900/40'>
+                                <span className='text-sm text-zinc-800 dark:text-zinc-200'>
+                                    {component.nombre}
+                                </span>
+                                <Button
+                                    color='zinc'
+                                    variant='plain'
+                                    icon='HeroEye'
+                                    size='sm'
+                                    onClick={() => setSelected(component)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </CardBody>
+            </Card>
         </>
     );
 };

@@ -33,11 +33,7 @@ const formatCurrencyByMoneda = (
         return `${formatPrice(value, 2, 2)} UF`;
     }
 
-    return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP',
-        maximumFractionDigits: 0,
-    }).format(Number(value ?? 0));
+    return `${formatPrice(value, 0, 0)} CLP`;
 };
 
 // ── Opción especial para modo personalizado ──
@@ -127,6 +123,7 @@ const SelectorPlanServicios = ({
                 plan_id: null,
                 plan_cantidad: 1,
                 plan_precio_unitario: 0,
+                plan_precio_unitario_anual: null,
                 servicios: value.servicios,
             });
             return;
@@ -144,6 +141,9 @@ const SelectorPlanServicios = ({
             plan_id: nuevoPlanId,
             plan_cantidad: value.plan_cantidad || 1,
             plan_precio_unitario: parsePrecio(nuevoPlan?.precio),
+            plan_precio_unitario_anual: nuevoPlan?.precio_anual
+                ? parsePrecio(nuevoPlan.precio_anual)
+                : null,
             plan_num_visitas_mensuales: nuevoPlan?.num_visitas_mensuales ?? null,
             servicios: addonsRestantes,
         });
@@ -272,6 +272,7 @@ const SelectorPlanServicios = ({
                                         plan_id: null,
                                         plan_cantidad: 1,
                                         plan_precio_unitario: 0,
+                                        plan_precio_unitario_anual: null,
                                         servicios: [],
                                     })
                                 }>
@@ -361,27 +362,40 @@ const SelectorPlanServicios = ({
                                         {value.plan_cantidad}
                                     </span>
                                 </div>
-                                <div className='mt-2 flex items-center justify-between'>
-                                    <span>{contractPaymentMode === 'anual' ? 'Total mensual del plan' : 'Total del plan'}</span>
-                                    <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                        {formatCurrencyByMoneda(planSubtotal, planSeleccionado?.tipo_moneda)}
-                                    </span>
-                                </div>
-                                {contractPaymentMode === 'anual' && (
-                                    <div className='mt-2 flex items-center justify-between'>
-                                        <span>Total anual del plan</span>
-                                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                            {formatCurrencyByMoneda(totalPlan, planSeleccionado?.tipo_moneda)}
-                                        </span>
-                                    </div>
-                                )}
-                                {contractCurrency && (
-                                    <div className='mt-2 flex items-center justify-between'>
-                                        <span>{contractPaymentMode === 'anual' ? `Total anual (${contractCurrency})` : `Total (${contractCurrency})`}</span>
-                                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                            {formatCurrencyByMoneda(totalPlanConvertido, contractCurrency)}
-                                        </span>
-                                    </div>
+                                {contractPaymentMode === 'anual' ? (
+                                    <>
+                                        <div className='mt-2 flex items-center justify-between'>
+                                            <span>Total anual del plan</span>
+                                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                {formatCurrencyByMoneda(totalPlan, planSeleccionado?.tipo_moneda)}
+                                            </span>
+                                        </div>
+                                        {contractCurrency && (
+                                            <div className='mt-2 flex items-center justify-between'>
+                                                <span>Total anual ({contractCurrency})</span>
+                                                <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                    {formatCurrencyByMoneda(totalPlanConvertido, contractCurrency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className='mt-2 flex items-center justify-between'>
+                                            <span>Total mensual del plan</span>
+                                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                {formatCurrencyByMoneda(planSubtotal, planSeleccionado?.tipo_moneda)}
+                                            </span>
+                                        </div>
+                                        {contractCurrency && (
+                                            <div className='mt-2 flex items-center justify-between'>
+                                                <span>Total ({contractCurrency})</span>
+                                                <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                    {formatCurrencyByMoneda(totalPlanConvertido, contractCurrency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -440,27 +454,40 @@ const SelectorPlanServicios = ({
                                         {formatCurrencyByMoneda(totalAddonsBase, contractCurrency || 'CLP')}
                                     </span>
                                 </div>
-                                <div className='mt-2 flex items-center justify-between'>
-                                    <span>{contractPaymentMode === 'anual' ? 'Total mensual' : 'Total'}</span>
-                                    <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                        {formatCurrencyByMoneda(totalAddonsBase, contractCurrency || 'CLP')}
-                                    </span>
-                                </div>
-                                {contractPaymentMode === 'anual' && (
-                                    <div className='mt-2 flex items-center justify-between'>
-                                        <span>Total anual</span>
-                                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                            {formatCurrencyByMoneda(totalAddons, contractCurrency || 'CLP')}
-                                        </span>
-                                    </div>
-                                )}
-                                {contractCurrency && (
-                                    <div className='mt-2 flex items-center justify-between'>
-                                        <span>Convertido ({contractCurrency})</span>
-                                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                            {formatCurrencyByMoneda(totalAddonsConvertidos, contractCurrency)}
-                                        </span>
-                                    </div>
+                                {contractPaymentMode === 'anual' ? (
+                                    <>
+                                        <div className='mt-2 flex items-center justify-between'>
+                                            <span>Total anual</span>
+                                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                {formatCurrencyByMoneda(totalAddons, contractCurrency || 'CLP')}
+                                            </span>
+                                        </div>
+                                        {contractCurrency && (
+                                            <div className='mt-2 flex items-center justify-between'>
+                                                <span>Convertido ({contractCurrency})</span>
+                                                <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                    {formatCurrencyByMoneda(totalAddonsConvertidos, contractCurrency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className='mt-2 flex items-center justify-between'>
+                                            <span>Total mensual</span>
+                                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                {formatCurrencyByMoneda(totalAddonsBase, contractCurrency || 'CLP')}
+                                            </span>
+                                        </div>
+                                        {contractCurrency && (
+                                            <div className='mt-2 flex items-center justify-between'>
+                                                <span>Convertido ({contractCurrency})</span>
+                                                <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                    {formatCurrencyByMoneda(totalAddonsConvertidos, contractCurrency)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -605,17 +632,18 @@ const SelectorPlanServicios = ({
                                                     </div>
                                                 </div>
                                                 <div className='mt-3 rounded-lg border-t border-zinc-200 pt-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
-                                                    <div className='flex items-center justify-between'>
-                                                        <span>{contractPaymentMode === 'anual' ? 'Total mensual' : 'Total'}</span>
-                                                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                            {formatCurrencyByMoneda(subtotalServicio, servicio?.tipo_moneda)}
-                                                        </span>
-                                                    </div>
-                                                    {contractPaymentMode === 'anual' && (
-                                                        <div className='mt-2 flex items-center justify-between'>
+                                                    {contractPaymentMode === 'anual' ? (
+                                                        <div className='flex items-center justify-between'>
                                                             <span>Total anual</span>
                                                             <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
                                                                 {formatCurrencyByMoneda(totalServicio, servicio?.tipo_moneda)}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className='flex items-center justify-between'>
+                                                            <span>Total mensual</span>
+                                                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                {formatCurrencyByMoneda(subtotalServicio, servicio?.tipo_moneda)}
                                                             </span>
                                                         </div>
                                                     )}

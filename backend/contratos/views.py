@@ -227,6 +227,10 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             or item.get("precio_unitario")
             or referencia.precio
         )
+        precio_anual_unitario = (
+            item.get("precio_unitario_anual_contratado")
+            or getattr(referencia, "precio_anual", None)
+        )
         forma_pago = item.get("forma_pago") or contrato.forma_pago_contractual
         cantidad = item.get("cantidad") or 1
         veces_por_mes = item.get("veces_por_mes") or getattr(referencia, "veces_por_mes_default", 1) or 1
@@ -249,6 +253,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             forma_pago=forma_pago,
             moneda=moneda,
             precio_unitario_contratado=precio_unitario,
+            precio_unitario_anual_contratado=precio_anual_unitario,
             num_visitas_mensuales=item.get("num_visitas_mensuales"),
             es_addon=bool(item.get("es_addon", es_addon)),
             orden=orden,

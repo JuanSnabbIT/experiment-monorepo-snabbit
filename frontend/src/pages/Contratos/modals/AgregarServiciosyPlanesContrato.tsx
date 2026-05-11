@@ -22,6 +22,7 @@ const SELECCION_VACIA: ISeleccionPlanServicios = {
     plan_id: null,
     plan_cantidad: 1,
     plan_precio_unitario: 0,
+    plan_precio_unitario_anual: null,
     plan_num_visitas_mensuales: null,
     servicios: [],
 };
@@ -41,6 +42,9 @@ function mapItemsComercialesToSeleccion(
             plan_id: itemPlan.plan_version.id,
             plan_cantidad: itemPlan.cantidad,
             plan_precio_unitario: Number(itemPlan.precio_unitario_contratado),
+            plan_precio_unitario_anual: itemPlan.precio_unitario_anual_contratado
+                ? Number(itemPlan.precio_unitario_anual_contratado)
+                : null,
             plan_num_visitas_mensuales: itemPlan.num_visitas_mensuales ?? null,
             servicios: addons.map((a) => ({
                 servicio_id: a.servicio_version!.id,
@@ -59,6 +63,7 @@ function mapItemsComercialesToSeleccion(
             plan_id: null,
             plan_cantidad: 1,
             plan_precio_unitario: 0,
+            plan_precio_unitario_anual: null,
             plan_num_visitas_mensuales: null,
             servicios: serviciosItems.map((s) => ({
                 servicio_id: s.servicio_version!.id,
@@ -87,6 +92,9 @@ function buildAlcanceComercialPayload(
                 version_id: seleccion.plan_id,
                 cantidad: seleccion.plan_cantidad,
                 precio_unitario_contratado: seleccion.plan_precio_unitario,
+                ...(seleccion.plan_precio_unitario_anual != null && {
+                    precio_unitario_anual_contratado: seleccion.plan_precio_unitario_anual,
+                }),
                 ...(seleccion.plan_num_visitas_mensuales != null && {
                     num_visitas_mensuales: seleccion.plan_num_visitas_mensuales,
                 }),

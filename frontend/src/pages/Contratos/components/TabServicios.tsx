@@ -53,6 +53,30 @@ const formatSubtotalCurrency = (
     }).format(amount)} CLP`;
 };
 
+// Formato limpio para precios de plan: "279.000 CLP", "83,26 UF" (sin $ prefijo)
+const formatPrecio = (value: number, currency: 'CLP' | 'UF' | 'USD' = 'CLP') => {
+    const amount = Number(value || 0);
+
+    if (currency === 'UF') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount)} UF`;
+    }
+
+    if (currency === 'USD') {
+        return `${new Intl.NumberFormat('es-CL', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(amount)} USD`;
+    }
+
+    return `${new Intl.NumberFormat('es-CL', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount)} CLP`;
+};
+
 const TabServicios = ({
     detalleContratoEmpresaCliente,
     listaContentType,
@@ -206,42 +230,35 @@ const TabServicios = ({
 
                                 return (
                                     <div
-                                        className='rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30'
+                                        className={`rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30${esPlan ? ' xl:col-span-2' : ''}`}
                                         key={contServ.id}>
                                         {/* Encabezado: badge + nombre + (ojo) + subtotal */}
                                         <div className='flex flex-wrap items-start justify-between gap-3'>
                                             <div className='min-w-0 flex-1'>
-                                                <div className='flex flex-wrap items-center gap-1.5'>
-                                                    <Badge
-                                                        color={esServicio ? 'blue' : 'emerald'}
-                                                        variant='outline'>
-                                                        {esServicio ? 'Servicio' : 'Plan'}
-                                                    </Badge>
-                                                    {usesConvertedSubtotal &&
-                                                        itemOwnMoneda !== itemMoneda && (
-                                                            <Badge
-                                                                color='amber'
-                                                                variant='outline'>
-                                                                {itemOwnMoneda} → {itemMoneda}
-                                                            </Badge>
-                                                        )}
-                                                </div>
                                                 <div className='mt-2 flex items-center gap-1.5'>
-                                                    <div className='text-lg font-semibold text-zinc-900 dark:text-zinc-50'>
-                                                        {contServ.nombre}
-                                                    </div>
-                                                    {hasTopLevelDetail && (
-                                                        <Button
-                                                            color='zinc'
-                                                            variant='plain'
-                                                            icon='HeroEye'
-                                                            size='sm'
-                                                            onClick={() =>
-                                                                setSelectedDetail(
-                                                                    buildDetailFromItem(contServ),
-                                                                )
-                                                            }
-                                                        />
+                                                    {esPlan ? (
+                                                        <span className='rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'>
+                                                            Plan de servicio
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <div className='text-lg font-semibold text-zinc-900 dark:text-zinc-50'>
+                                                                {contServ.nombre}
+                                                            </div>
+                                                            {hasTopLevelDetail && (
+                                                                <Button
+                                                                    color='zinc'
+                                                                    variant='plain'
+                                                                    icon='HeroEye'
+                                                                    size='sm'
+                                                                    onClick={() =>
+                                                                        setSelectedDetail(
+                                                                            buildDetailFromItem(contServ),
+                                                                        )
+                                                                    }
+                                                                />
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                                 {esServicio && sg.categoria_label && (
@@ -250,176 +267,301 @@ const TabServicios = ({
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className='rounded-2xl bg-zinc-50 px-4 py-3 text-right dark:bg-zinc-900/60'>
-                                                <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
-                                                    {periodoLabel === 'anual' ? 'Total anual' : `Subtotal ${periodoLabel}`}
+                                            {/* Para items de plan el total se muestra en el Resumen de cobro interior */}
+                                            {!esPlan && (
+                                                <div className='rounded-2xl bg-zinc-50 px-4 py-3 text-right dark:bg-zinc-900/60'>
+                                                    <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
+                                                        {periodoLabel === 'anual' ? 'Total anual' : `Subtotal ${periodoLabel}`}
+                                                    </div>
+                                                    <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                        {formatSubtotalCurrency(subtotal, itemMoneda)}
+                                                    </div>
                                                 </div>
-                                                <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                    {formatSubtotalCurrency(subtotal, itemMoneda)}
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
 
-                                        {/* Cantidad / Precio unitario / Referencia */}
-                                        <dl className='mt-4 grid gap-3 sm:grid-cols-3 text-sm'>
-                                            <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40'>
-                                                <dt className='text-[11px] uppercase tracking-wide text-zinc-500'>
-                                                    Cantidad
-                                                </dt>
-                                                <dd className='mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                                                    {contServ.cantidad}
-                                                </dd>
-                                            </div>
+                                        {esPlan && (() => {
+                                            const planPrice = Number(contServ.precio_unitario_contratado || 0);
+                                            const planPriceAnual = contServ.precio_unitario_anual_contratado
+                                                ? Number(contServ.precio_unitario_anual_contratado)
+                                                : null;
+                                            // Equivalente anual por unidad en moneda propia del item
+                                            // = subtotal (ya es total_anual del backend) / cantidad
+                                            const planUnitAnualEquiv =
+                                                planPrice > 0 && Number(contServ.cantidad || 1) > 0
+                                                    ? Number(contServ.subtotal || 0) / Number(contServ.cantidad || 1)
+                                                    : 0;
+                                            const visitasIncluidas =
+                                                contServ.snapshot_num_visitas_mensuales ?? contServ.num_visitas_mensuales;
+                                            const planDetalle = componentesPlan[0] ?? null;
 
-                                            <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40'>
-                                                <dt className='text-[11px] uppercase tracking-wide text-zinc-500'>
-                                                    Precio unitario
-                                                </dt>
-                                                <dd className='mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                                                    {formatCurrency(
-                                                        Number(
-                                                            'precio_unitario_contratado' in contServ
-                                                                ? contServ.precio_unitario_contratado
-                                                                : contServ.precio_unitario || 0,
-                                                        ),
-                                                        itemOwnMoneda,
-                                                    )}
-                                                    {formaPago === 'anual' && (
-                                                        <span className='ml-0.5 text-[10px] font-normal text-zinc-400'>
-                                                            /mes
-                                                        </span>
-                                                    )}
-                                                </dd>
-                                                {usesConvertedSubtotal &&
-                                                    itemOwnMoneda !== itemMoneda && (
-                                                        <dd className='mt-0.5 text-[10px] text-zinc-400'>
-                                                            precio en {itemOwnMoneda}
-                                                        </dd>
-                                                    )}
-                                            </div>
+                                            // Totales ya calculados por el backend según forma_pago_contractual:
+                                            // subtotal               = total en moneda propia del item
+                                            // subtotal_en_moneda_cobro = total convertido a moneda del contrato
+                                            const planTotal = Number(
+                                                contServ.subtotal_en_moneda_cobro ?? contServ.subtotal ?? 0,
+                                            );
+                                            const addonsTotalAnual = addonItems.reduce(
+                                                (sum, addon) =>
+                                                    sum + Number(addon.subtotal_en_moneda_cobro ?? addon.subtotal ?? 0),
+                                                0,
+                                            );
+                                            const grandTotal = planTotal + addonsTotalAnual;
 
-                                            <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40'>
-                                                <dt className='text-[11px] uppercase tracking-wide text-zinc-500'>
-                                                    Referencia
-                                                </dt>
-                                                <dd className='mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                                                    {'catalogo_version_id' in contServ &&
-                                                    contServ.catalogo_version_id
-                                                        ? `#${contServ.catalogo_version_id}`
-                                                        : 'object_id' in contServ
-                                                          ? `#${contServ.object_id}`
-                                                          : 'Sin referencia'}
-                                                </dd>
-                                            </div>
-                                        </dl>
+                                            return (
+                                                <div className='mt-5 grid gap-4 xl:grid-cols-2'>
+                                                    {/* IZQUIERDA: plan card (PlanCard-style) */}
+                                                    <div className='overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
+                                                        {/* Header */}
+                                                        <div className='flex items-end justify-between gap-4 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800'>
+                                                            <div className='min-w-0 flex-1'>
+                                                                <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                                                    Plan de servicio
+                                                                </div>
+                                                                <h3 className='mt-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                    {contServ.nombre}
+                                                                </h3>
+                                                                <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-400'>
+                                                                    {componentesPlan.length} servicios incluidos
+                                                                </p>
+                                                            </div>
+                                                            <div className='ml-auto flex-shrink-0 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-right dark:border-zinc-800 dark:bg-zinc-900'>
+                                                                {formaPago === 'anual' ? (
+                                                                    planPriceAnual && planPriceAnual > 0 ? (
+                                                                        // Contrato anual CON precio de descuento configurado
+                                                                        <>
+                                                                            <div className='text-[10px] uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-400'>
+                                                                                Precio anual
+                                                                            </div>
+                                                                            <div className='mt-2 text-3xl font-semibold text-emerald-700 dark:text-emerald-400'>
+                                                                                {formatSubtotalCurrency(planPriceAnual, itemOwnMoneda)}
+                                                                            </div>
+                                                                            <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
+                                                                                {itemOwnMoneda} / año
+                                                                            </div>
+                                                                            <div className='mt-2 border-t border-zinc-200 pt-2 text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500'>
+                                                                                {planPrice > 0 ? `${formatSubtotalCurrency(planPrice, itemOwnMoneda)} /mes` : '—'}
+                                                                            </div>
+                                                                        </>
+                                                                    ) : (
+                                                                        // Contrato anual SIN precio de descuento — factura mensual × 12
+                                                                        <>
+                                                                            <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
+                                                                                Precio mensual
+                                                                            </div>
+                                                                            <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                                {planPrice > 0 ? formatSubtotalCurrency(planPrice, itemOwnMoneda) : 'Sin precio'}
+                                                                            </div>
+                                                                            <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
+                                                                                {planPrice > 0 ? itemOwnMoneda : '—'}
+                                                                            </div>
+                                                                            {planUnitAnualEquiv > 0 && (
+                                                                                <div className='mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700'>
+                                                                                    <div className='text-[10px] text-zinc-400 dark:text-zinc-500'>
+                                                                                        Facturado anualmente
+                                                                                    </div>
+                                                                                    <div className='mt-1 text-sm font-semibold text-zinc-700 dark:text-zinc-200'>
+                                                                                        {formatSubtotalCurrency(planUnitAnualEquiv, itemOwnMoneda)} /año
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    )
+                                                                ) : (
+                                                                    // Contrato mensual o pago único
+                                                                    <>
+                                                                        <div className='text-[10px] uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400'>
+                                                                            {formaPago === 'pago_unico' ? 'Precio único' : 'Precio mensual'}
+                                                                        </div>
+                                                                        <div className='mt-2 text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                            {planPrice > 0 ? formatSubtotalCurrency(planPrice, itemOwnMoneda) : 'Sin precio'}
+                                                                        </div>
+                                                                        <div className='mt-1 text-sm text-zinc-500 dark:text-zinc-400'>
+                                                                            {planPrice > 0 ? itemOwnMoneda : '—'}
+                                                                        </div>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
 
-                                        {/* Plan: servicios incluidos compactos con ojo */}
-                                        {esPlan && (
-                                            <PlanIncludedServicesDetail
-                                                components={componentesPlan}
-                                            />
-                                        )}
+                                                        {/* Body */}
+                                                        <div className='flex flex-col gap-4 px-6 py-4'>
+                                                            {/* Servicios incluidos */}
+                                                            <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900'>
+                                                                <div className='flex items-center justify-between gap-3'>
+                                                                    <div>
+                                                                        <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                                                            Servicios incluidos
+                                                                        </div>
+                                                                        <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-300'>
+                                                                            Una vista rápida de lo que ofrece este plan.
+                                                                        </p>
+                                                                    </div>
+                                                                    <span className='rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'>
+                                                                        {componentesPlan.length} servicios
+                                                                    </span>
+                                                                </div>
+                                                                {componentesPlan.length > 0 ? (
+                                                                    <div className='mt-4 flex max-h-56 flex-col items-start gap-2 overflow-y-auto pr-2'>
+                                                                        {componentesPlan.map((component) => (
+                                                                            <Badge
+                                                                                key={component.key}
+                                                                                color='emerald'
+                                                                                variant='outline'
+                                                                                className='inline-flex max-w-full whitespace-normal text-[11px]'>
+                                                                                {component.nombre}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className='mt-4 rounded-2xl border border-dashed border-zinc-200 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400'>
+                                                                        Este plan aún no tiene servicios asociados.
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Visitas presenciales */}
+                                                            <div className='rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950'>
+                                                                <div className='text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                                                    Visitas presenciales
+                                                                </div>
+                                                                <div className='mt-3 text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                    {visitasIncluidas != null
+                                                                        ? `${visitasIncluidas} / mes`
+                                                                        : 'No aplica'}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Footer */}
+                                                            <div className='flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-800'>
+                                                                <Button
+                                                                    variant='solid'
+                                                                    color='violet'
+                                                                    size='sm'
+                                                                    icon='HeroEye'
+                                                                    onClick={() => {
+                                                                        if (planDetalle) {
+                                                                            setSelectedDetail(planDetalle);
+                                                                        }
+                                                                    }}
+                                                                    isDisable={!planDetalle}>
+                                                                    Ver detalle
+                                                                </Button>
+
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* DERECHA: resumen financiero */}
+                                                    <Card className='h-fit rounded-3xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950'>
+                                                        <CardHeader className='border-b border-zinc-100 px-5 py-3 dark:border-zinc-800'>
+                                                            <CardHeaderChild>
+                                                                <span className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                    Resumen de cobro
+                                                                </span>
+                                                            </CardHeaderChild>
+                                                        </CardHeader>
+                                                        <CardBody className='divide-y divide-zinc-100 px-5 py-0 dark:divide-zinc-800'>
+                                                            {/* Fila del plan */}
+                                                            <div className='flex items-start justify-between gap-3 py-3'>
+                                                                <div className='min-w-0 flex-1'>
+                                                                    <p className='text-sm font-medium text-zinc-800 dark:text-zinc-200'>
+                                                                        Plan: {contServ.nombre}
+                                                                    </p>
+                                                                    <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                                                                        {formaPago === 'anual' && planPriceAnual && planPriceAnual > 0
+                                                                            ? `${formatSubtotalCurrency(planPriceAnual, itemOwnMoneda)} /año c/u`
+                                                                            : planPrice > 0
+                                                                              ? `${formatSubtotalCurrency(planPrice, itemOwnMoneda)} /mes c/u`
+                                                                              : '—'}
+                                                                    </p>
+                                                                </div>
+                                                                <div className='flex-shrink-0 text-right'>
+                                                                    <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+                                                                        ×{contServ.cantidad || 1}
+                                                                    </p>
+                                                                    <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                        {formatSubtotalCurrency(
+                                                                            planTotal,
+                                                                            detalleContratoEmpresaCliente.moneda_cobro,
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Addons */}
+                                                            {addonItems.length > 0 && (
+                                                                <div className='py-3'>
+                                                                    <p className='mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+                                                                        Addons:
+                                                                    </p>
+                                                                    <div className='space-y-3'>
+                                                                        {addonItems.map((addon) => {
+                                                                            const addonOwnMoneda: 'CLP' | 'UF' | 'USD' =
+                                                                                'moneda' in addon && addon.moneda
+                                                                                    ? (addon.moneda as 'CLP' | 'UF' | 'USD')
+                                                                                    : detalleContratoEmpresaCliente.moneda_cobro;
+                                                                            const addonPrecio = Number(
+                                                                                'precio_unitario_contratado' in addon
+                                                                                    ? addon.precio_unitario_contratado
+                                                                                    : addon.precio_unitario || 0,
+                                                                            );
+                                                                            const addonTotal = Number(addon.subtotal_en_moneda_cobro ?? addon.subtotal ?? 0);
+                                                                            return (
+                                                                                <div
+                                                                                    key={addon.id}
+                                                                                    className='flex items-start justify-between gap-3'>
+                                                                                    <div className='min-w-0 flex-1'>
+                                                                                        <p className='text-sm text-zinc-800 dark:text-zinc-200'>
+                                                                                            {addon.nombre}
+                                                                                        </p>
+                                                                                        <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                                                                                            {addonPrecio > 0
+                                                                                                ? `${formatSubtotalCurrency(addonPrecio, addonOwnMoneda)} /mes c/u`
+                                                                                                : '—'}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                    <div className='flex-shrink-0 text-right'>
+                                                                                        <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+                                                                                            ×{addon.cantidad || 1}
+                                                                                        </p>
+                                                                                        <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                                            {formatSubtotalCurrency(
+                                                                                                addonTotal,
+                                                                                                detalleContratoEmpresaCliente.moneda_cobro,
+                                                                                            )}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Total */}
+                                                            <div className='flex items-center justify-between py-3'>
+                                                                <span className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                                                    Total cobro:
+                                                                </span>
+                                                                <span className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                                    {formatSubtotalCurrency(
+                                                                        grandTotal,
+                                                                        detalleContratoEmpresaCliente.moneda_cobro,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        </CardBody>
+                                                    </Card>
+                                                </div>
+                                            );
+                                        })()}
 
                                     </div>
                                 );
                             })}
                         </div>
-                        {addonItems.length > 0 && (
-                            <Card className='rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30'>
-                                <CardHeader className='border-b border-zinc-200 pb-3 dark:border-zinc-800'>
-                                    <div className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                                        Servicios agregados ({addonItems.length})
-                                    </div>
-                                </CardHeader>
-                                <CardBody className='space-y-3 py-4'>
-                                    <div className='divide-y divide-zinc-100 rounded-3xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800'>
-                                        {addonItems.map((addon) => {
-                                            const addonUsesConverted =
-                                                'subtotal_en_moneda_cobro' in addon &&
-                                                addon.subtotal_en_moneda_cobro != null;
-                                            const addonMoneda: 'CLP' | 'UF' | 'USD' =
-                                                addonUsesConverted
-                                                    ? detalleContratoEmpresaCliente.moneda_cobro
-                                                    : 'moneda' in addon && addon.moneda
-                                                      ? (addon.moneda as 'CLP' | 'UF' | 'USD')
-                                                      : detalleContratoEmpresaCliente.moneda_cobro;
-                                            const addonSubtotal = Number(
-                                                addonUsesConverted
-                                                    ? (addon as { subtotal_en_moneda_cobro: number }).subtotal_en_moneda_cobro
-                                                    : addon.subtotal || 0,
-                                            );
-                                            const addonSg = (addon.servicio_generico ?? {}) as {
-                                                incluye?: string | null;
-                                                no_incluye?: string | null;
-                                                clausulas_especiales?: string | null;
-                                                descripcion?: string | null;
-                                            };
-                                            const hasAddonDetail = Boolean(
-                                                addonSg.incluye ||
-                                                    addonSg.no_incluye ||
-                                                    addonSg.clausulas_especiales ||
-                                                    addonSg.descripcion,
-                                            );
-                                            return (
-                                                <div
-                                                    key={addon.id}
-                                                    className='flex items-center justify-between px-3 py-3 first:rounded-t-3xl last:rounded-b-3xl hover:bg-zinc-50 dark:hover:bg-zinc-900/40'>
-                                                    <div className='min-w-0'>
-                                                        <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
-                                                            {addon.nombre}
-                                                        </p>
-                                                        <p className='mt-1 text-xs text-zinc-500 dark:text-zinc-400'>
-                                                            {addon.cantidad ?? 1} × {formatCurrency(
-                                                                Number(
-                                                                    'precio_unitario_contratado' in addon
-                                                                        ? addon.precio_unitario_contratado
-                                                                        : addon.precio_unitario || 0,
-                                                                ),
-                                                                addonMoneda,
-                                                            )}
-                                                        </p>
-                                                        {addonUsesConverted &&
-                                                            'moneda' in addon &&
-                                                            addon.moneda &&
-                                                            addon.moneda !== addonMoneda && (
-                                                                <p className='mt-0.5 text-xs text-zinc-400'>
-                                                                    ≈ {formatSubtotalCurrency(
-                                                                        Number(addon.subtotal ?? 0),
-                                                                        addon.moneda as 'CLP' | 'UF' | 'USD',
-                                                                    )}
-                                                                </p>
-                                                            )}
-                                                    </div>
-                                                    <div className='text-right'>
-                                                        <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                                                            {formatSubtotalCurrency(addonSubtotal, addonMoneda)}
-                                                        </p>
-                                                        {formaPago === 'anual' && (
-                                                            <p className='mt-0.5 text-xs text-zinc-400'>
-                                                                Total anual: {formatSubtotalCurrency(addonSubtotal * 12, addonMoneda)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    {hasAddonDetail && (
-                                                        <Button
-                                                            color='zinc'
-                                                            variant='plain'
-                                                            icon='HeroEye'
-                                                            size='sm'
-                                                            onClick={() =>
-                                                                setSelectedDetail(
-                                                                    buildDetailFromItem(addon),
-                                                                )
-                                                            }
-                                                        />
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        )}
+
 
                         <div className='flex justify-end border-t border-zinc-200 pt-4 dark:border-zinc-800'>
                             <div className='rounded-2xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/20'>
