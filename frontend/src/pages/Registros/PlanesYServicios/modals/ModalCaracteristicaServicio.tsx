@@ -80,7 +80,8 @@ const ModalCaracteristicaServicio = ({
         if (!isOpen) {
             formik.resetForm();
         }
-    }, [formik, isOpen]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
 
     return (
         <Modal isStaticBackdrop isOpen={isOpen} setIsOpen={setIsOpen}>
