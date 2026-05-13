@@ -1,8 +1,11 @@
 from datetime import date
 from decimal import Decimal
+import logging
 import uuid
 
 from dateutil.relativedelta import relativedelta
+
+logger = logging.getLogger(__name__)
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -74,6 +77,18 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         help_text="Si se activa, no se puede enviar a aprobacion del cliente sin tener al menos un NDA firmado.",
     )
 
+    snapshot_total_venta = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Snapshot total venta",
+        help_text=(
+            "Total de venta congelado al enviar a aprobación del cliente (en moneda_cobro). "
+            "Solo aplica para contratos de tipo 'venta'."
+        ),
+    )
+
     plantilla = models.ForeignKey(
         "contratos.PlantillaContrato",
         on_delete=models.SET_NULL,
@@ -120,16 +135,25 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
         ]
 
     def clean(self):
-        if self.fecha_inicio > date.today():
-            raise ValidationError("La fecha de inicio no puede estar en el futuro.")
         if self.fecha_fin and self.fecha_fin < self.fecha_inicio:
             raise ValidationError("La fecha de fin no puede ser anterior a la fecha de inicio.")
 
+    _ESTADOS_NO_AUTO_FINALIZABLES = ("borrador", "cambios_solicitados", "cancelado", "finalizado")
+
     def actualizar_estado(self):
+        if self.estado in self._ESTADOS_NO_AUTO_FINALIZABLES:
+            return
         if self.fecha_fin and self.fecha_fin < date.today():
+            logger.info(
+                "Contrato %s: estado '%s' → 'finalizado' (fecha_fin=%s)",
+                self.pk,
+                self.estado,
+                self.fecha_fin,
+            )
             self.estado = "finalizado"
 
     def save(self, *args, **kwargs):
+        self.clean()
         self.actualizar_estado()
         super().save(*args, **kwargs)
 
@@ -159,6 +183,71 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
 
     def __str__(self):
         return f"Contrato: {self.empresa_prestadora} <-> {self.empresa_cliente} ({self.estado})"
+
+
+ESTADOS_CUOTA_PAGO = [
+    ("pendiente", "Pendiente"),
+    ("facturada", "Facturada"),
+    ("pagada", "Pagada"),
+]
+
+HITO_PAGO_CUOTA_CHOICES = [
+    ("inicio", "Inicio"),
+    ("entrega_intermedia", "Entrega intermedia"),
+    ("entrega_final", "Entrega final"),
+    ("personalizado", "Personalizado"),
+]
+
+
+class ContratoCuotaPago(ModeloBase):
+    """Schedule de pago desacoplado del contrato. Reemplaza el JSONField cuotas_venta."""
+
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="cuotas_pago",
+    )
+    numero_cuota = models.PositiveSmallIntegerField(
+        verbose_name="Número de cuota",
+        help_text="Orden de la cuota dentro del schedule (1, 2, 3, ...).",
+    )
+    porcentaje = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        verbose_name="Porcentaje",
+        help_text="Porcentaje del total del contrato que corresponde a esta cuota (0–100).",
+    )
+    hito_pago_tipo = models.CharField(
+        max_length=30,
+        choices=HITO_PAGO_CUOTA_CHOICES,
+        default="inicio",
+        verbose_name="Tipo de hito",
+    )
+    hito_pago_descripcion = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Descripción del hito",
+    )
+    fecha_vencimiento = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Fecha de vencimiento",
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS_CUOTA_PAGO,
+        default="pendiente",
+        verbose_name="Estado",
+    )
+
+    class Meta:
+        ordering = ["numero_cuota"]
+        verbose_name = "Cuota de pago"
+        verbose_name_plural = "Cuotas de pago"
+
+    def __str__(self):
+        return f"Cuota {self.numero_cuota} ({self.porcentaje}%) — {self.contrato}"
 
 
 class EnvioContratoFirmaUsuario(ModeloBase):
@@ -199,6 +288,28 @@ class EnvioContratoAprobacion(ModeloBase):
     deprecado = models.BooleanField(default=False)
     fecha_deprecacion = models.DateTimeField(blank=True, null=True)
     motivo_deprecacion = models.CharField(max_length=255, blank=True, null=True)
+
+
+class EnvioResumenContrato(ModeloBase):
+    """Envío de enlace público para que el cliente consulte el resumen de su contrato activo."""
+    contrato = models.ForeignKey(
+        "contratos.ContratoEmpresaCliente",
+        on_delete=models.CASCADE,
+        related_name="envios_resumen",
+    )
+    destinatario = models.ForeignKey(
+        "contratos.UsuarioVinculadoContrato",
+        on_delete=models.SET_NULL,
+        related_name="envios_resumen",
+        null=True,
+        blank=True,
+    )
+    uuid = models.UUIDField(unique=True, default=uuid.uuid4)
+    activo = models.BooleanField(default=True)
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"ResumenContrato {self.contrato_id} - {self.uuid}"
 
 
 class UsuarioVinculadoContrato(ModeloBase):
@@ -982,6 +1093,7 @@ class ContratoItemComercial(ModeloBaseHistorico):
     TIPO_ORIGEN_CHOICES = (
         ("servicio", "Servicio"),
         ("plan", "Plan"),
+        ("addon_licencia", "Addon de Licencia"),
     )
 
     contrato = models.ForeignKey(
@@ -1028,11 +1140,11 @@ class ContratoItemComercial(ModeloBaseHistorico):
         max_digits=14, decimal_places=4, default=0,
         verbose_name="Precio unitario contratado (mensual)",
     )
-    precio_unitario_anual_contratado = models.DecimalField(
-        max_digits=14, decimal_places=4,
+    descuento_anual_porcentaje = models.DecimalField(
+        max_digits=5, decimal_places=2,
         null=True, blank=True,
-        verbose_name="Precio unitario anual contratado",
-        help_text="Precio anual con descuento acordado. Si es null, se usa precio_unitario_contratado × 12.",
+        verbose_name="Descuento anual (%)",
+        help_text="Porcentaje de descuento sobre precio_unitario_contratado*12 para pago anual. Null = sin descuento.",
     )
     total_mensual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     total_anual = models.DecimalField(max_digits=14, decimal_places=4, default=0)
@@ -1074,13 +1186,27 @@ class ContratoItemComercial(ModeloBaseHistorico):
         precio = Decimal(self.precio_unitario_contratado or 0)
         self.total_pago_unico = precio * cantidad
         self.total_mensual = precio * cantidad * veces
-        if self.precio_unitario_anual_contratado:
-            self.total_anual = Decimal(self.precio_unitario_anual_contratado) * cantidad * veces
+        base_anual = self.total_mensual * Decimal("12")
+        if self.descuento_anual_porcentaje:
+            factor = Decimal("1") - (Decimal(self.descuento_anual_porcentaje) / Decimal("100"))
+            self.total_anual = base_anual * factor
         else:
-            self.total_anual = self.total_mensual * Decimal("12")
+            self.total_anual = base_anual
 
     def clean(self):
         super().clean()
+        # Validar separacion de flujos por tipo de contrato.
+        if self.contrato_id:
+            tipo_contrato = self.contrato.tipo
+            if tipo_contrato == "licencia" and self.tipo_origen in ("servicio", "plan"):
+                raise ValidationError(
+                    "Un contrato de tipo 'Licenciamiento' no puede contener servicios ni planes. "
+                    "Use tipo_origen 'addon_licencia' para add-ons de licencia."
+                )
+            if tipo_contrato == "servicios" and self.tipo_origen == "addon_licencia":
+                raise ValidationError(
+                    "Los add-ons de licencia solo aplican a contratos de tipo 'Licenciamiento'."
+                )
         if self.tipo_origen == "servicio" and not self.servicio_version_id:
             raise ValidationError("Debe indicar la version del servicio.")
         if self.tipo_origen == "plan" and not self.plan_version_id:
@@ -1108,8 +1234,15 @@ class ContratoItemComercial(ModeloBaseHistorico):
                 self.moneda = getattr(referencia, "tipo_moneda", None)
             if not self.precio_unitario_contratado:
                 self.precio_unitario_contratado = referencia.get_precio_por_moneda(self.moneda)
-            if self.precio_unitario_anual_contratado is None:
-                self.precio_unitario_anual_contratado = getattr(referencia, "precio_anual", None)
+            if self.descuento_anual_porcentaje is None:
+                precio_anual = getattr(referencia, "precio_anual", None)
+                precio_mensual = getattr(referencia, "precio", None) or self.precio_unitario_contratado
+                if precio_anual and precio_mensual:
+                    precio_anual_d = Decimal(str(precio_anual))
+                    precio_base_12 = Decimal(str(precio_mensual)) * Decimal("12")
+                    if precio_base_12 > 0 and precio_anual_d < precio_base_12:
+                        descuento = (precio_base_12 - precio_anual_d) / precio_base_12 * Decimal("100")
+                        self.descuento_anual_porcentaje = descuento.quantize(Decimal("0.01"))
             if not self.veces_por_mes:
                 self.veces_por_mes = getattr(referencia, "veces_por_mes_default", 1) or 1
             if self.num_visitas_mensuales is None:
@@ -1165,38 +1298,10 @@ class ContratoServicio(ModeloBaseHistorico):
     )
 
     def sync_item_comercial(self):
-        referencia = self.servicio_generico
-        if referencia is None or not self.contrato_id:
-            return None
-
-        tipo_origen = "plan" if isinstance(referencia, PlanServicio) else "servicio"
-        defaults = {
-            "tipo_origen": tipo_origen,
-            "servicio_version": referencia if tipo_origen == "servicio" else None,
-            "plan_version": referencia if tipo_origen == "plan" else None,
-            "catalogo_version_id": referencia.pk,
-            "snapshot_nombre": referencia.nombre,
-            "snapshot_descripcion": getattr(referencia, "descripcion", None),
-            "snapshot_incluye": getattr(referencia, "incluye", None),
-            "snapshot_no_incluye": getattr(referencia, "no_incluye", None),
-            "snapshot_clausulas": getattr(referencia, "clausulas_especiales", None),
-            "cantidad": self.cantidad,
-            "veces_por_mes": getattr(referencia, "veces_por_mes_default", 1) or 1,
-            "forma_pago": self.contrato.forma_pago_contractual,
-            "moneda": getattr(referencia, "tipo_moneda", self.contrato.moneda_cobro),
-            "precio_unitario_contratado": self.precio_unitario
-            or referencia.precio,
-        }
-        item = self.item_comercial
-        if item is None:
-            item = ContratoItemComercial.objects.create(contrato=self.contrato, **defaults)
-        else:
-            for field, value in defaults.items():
-                setattr(item, field, value)
-            item.contrato = self.contrato
-            item.save()
-        self.item_comercial = item
-        return item
+        # LEGACY READ-ONLY — este método queda sin efecto (FASE 6).
+        # ContratoServicio ya no sincroniza hacia ContratoItemComercial.
+        # Se conserva para no romper llamadas externas existentes hasta que se elimine en F9.
+        return None
 
     def save(self, *args, **kwargs):
         if isinstance(self.servicio_generico, Servicio):
@@ -1204,10 +1309,8 @@ class ContratoServicio(ModeloBaseHistorico):
         elif isinstance(self.servicio_generico, PlanServicio):
             self.content_type = ContentType.objects.get_for_model(PlanServicio)
 
+        # LEGACY READ-ONLY — no sincronizar hacia ContratoItemComercial (FASE 6).
         super().save(*args, **kwargs)
-        if self.contrato_id and self.object_id:
-            self.sync_item_comercial()
-            super().save(update_fields=["item_comercial", "fecha_modificacion"])
 
     def __str__(self):
         return f"{self.servicio_generico} ({self.cantidad}) en {self.contrato}"
@@ -1454,6 +1557,12 @@ class ContratoLicencia(ModeloBaseHistorico):
         super().clean()
         if not self.contrato_id:
             return
+
+        # Validar tipo de contrato (FASE 2: separacion de flujos).
+        if self.contrato.tipo != "licencia":
+            raise ValidationError(
+                "Solo se pueden agregar licencias a contratos de tipo 'Licenciamiento'."
+            )
 
         if self.pk:
             original = ContratoLicencia.objects.get(pk=self.pk).cantidad
@@ -1852,6 +1961,8 @@ TIPO_SECCION_CHOICES = [
     ("identificacion_cliente", "Identificación del Cliente"),
     ("firmas", "Firmas"),
     ("libre", "Sección Libre"),
+    ("titulo", "Título"),
+    ("subtitulo", "Subtítulo"),
 ]
 
 SLOT_DOCUMENTAL_CHOICES = [

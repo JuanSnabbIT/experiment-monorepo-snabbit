@@ -22,7 +22,7 @@ const SELECCION_VACIA: ISeleccionPlanServicios = {
     plan_id: null,
     plan_cantidad: 1,
     plan_precio_unitario: 0,
-    plan_precio_unitario_anual: null,
+    plan_descuento_anual_porcentaje: null,
     plan_num_visitas_mensuales: null,
     servicios: [],
 };
@@ -42,8 +42,8 @@ function mapItemsComercialesToSeleccion(
             plan_id: itemPlan.plan_version.id,
             plan_cantidad: itemPlan.cantidad,
             plan_precio_unitario: Number(itemPlan.precio_unitario_contratado),
-            plan_precio_unitario_anual: itemPlan.precio_unitario_anual_contratado
-                ? Number(itemPlan.precio_unitario_anual_contratado)
+            plan_descuento_anual_porcentaje: itemPlan.descuento_anual_porcentaje
+                ? Number(itemPlan.descuento_anual_porcentaje)
                 : null,
             plan_num_visitas_mensuales: itemPlan.num_visitas_mensuales ?? null,
             servicios: addons.map((a) => ({
@@ -63,7 +63,7 @@ function mapItemsComercialesToSeleccion(
             plan_id: null,
             plan_cantidad: 1,
             plan_precio_unitario: 0,
-            plan_precio_unitario_anual: null,
+            plan_descuento_anual_porcentaje: null,
             plan_num_visitas_mensuales: null,
             servicios: serviciosItems.map((s) => ({
                 servicio_id: s.servicio_version!.id,
@@ -92,8 +92,8 @@ function buildAlcanceComercialPayload(
                 version_id: seleccion.plan_id,
                 cantidad: seleccion.plan_cantidad,
                 precio_unitario_contratado: seleccion.plan_precio_unitario,
-                ...(seleccion.plan_precio_unitario_anual != null && {
-                    precio_unitario_anual_contratado: seleccion.plan_precio_unitario_anual,
+                ...(seleccion.plan_descuento_anual_porcentaje != null && {
+                    descuento_anual_porcentaje: seleccion.plan_descuento_anual_porcentaje,
                 }),
                 ...(seleccion.plan_num_visitas_mensuales != null && {
                     num_visitas_mensuales: seleccion.plan_num_visitas_mensuales,
@@ -179,6 +179,7 @@ function AgregarServiciosyPlanesContrato({
                         value={seleccion}
                         onChange={setSeleccion}
                         contractCurrency={contrato.moneda_cobro}
+                        contractPaymentMode={contrato.forma_pago_contractual}
                     />
                     <div className='mt-6 flex justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700'>
                         <Button color='red' onClick={() => setIsOpen(false)}>

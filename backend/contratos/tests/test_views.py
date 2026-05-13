@@ -146,6 +146,22 @@ class ContratoMultiTenancyTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.contrato.id)
 
+    def test_usuario_otra_empresa_no_ve_contratos_ajenos(self):
+        """Un usuario de otra empresa no debe ver el contrato de empresa_prestadora."""
+        self.client.force_authenticate(user=self.user_otro)
+        response = self.client.get("/api/contratos/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [c["id"] for c in response.data]
+        self.assertNotIn(self.contrato.id, ids)
+
+    def test_usuario_sin_sucursal_recibe_lista_vacia(self):
+        """Sin PersonalizacionUsuario.sucursal_principal, get_queryset() retorna none()."""
+        self.personalizacion.sucursal_principal = None
+        self.personalizacion.save()
+        response = self.client.get("/api/contratos/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list(response.data), [])
+
 
 class FacturaContratoListTest(ContratoAPITestBase):
     def test_list_facturas_contrato_sin_datos_devuelve_lista_vacia(self):
@@ -375,23 +391,23 @@ class PlantillaContratoReordenarTest(ContratoAPITestBase):
 
         self.assertEqual(
             self.seccion_intro.slot_documental,
-            "entre_operacion_y_condiciones",
+            "antes_alcance",
         )
-        self.assertEqual(self.seccion_intro.orden_en_slot, 1)
+        self.assertEqual(self.seccion_intro.orden_en_slot, 2)
         self.assertEqual(self.seccion_intro.orden, 2)
 
         self.assertEqual(
             self.seccion_operacion.slot_documental,
-            "entre_operacion_y_condiciones",
+            "antes_alcance",
         )
-        self.assertEqual(self.seccion_operacion.orden_en_slot, 2)
+        self.assertEqual(self.seccion_operacion.orden_en_slot, 3)
         self.assertEqual(self.seccion_operacion.orden, 3)
 
         self.assertEqual(
             self.seccion_condiciones.slot_documental,
-            "entre_operacion_y_condiciones",
+            "antes_alcance",
         )
-        self.assertEqual(self.seccion_condiciones.orden_en_slot, 3)
+        self.assertEqual(self.seccion_condiciones.orden_en_slot, 4)
         self.assertEqual(self.seccion_condiciones.orden, 4)
 
     def test_usuario_sin_personalizacion_ve_lista_vacia(self):
@@ -551,12 +567,9 @@ class ContratoCRUDTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
                         "cantidad": 5,
-                        "precio_unitario": "15000.00",
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
-                        "tipo_moneda": "USD",
                     }
                 ],
             },
@@ -570,6 +583,7 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(licencia_contrato.fecha_fin, date.today() + timedelta(days=30))
 
     def test_crear_completo_usa_precio_catalogo_si_no_se_indica_precio(self):
+        self.licencia.precio_partner = 12000
         self.licencia.precio_venta = 12000
         self.licencia.moneda = "USD"
         self.licencia.save()
@@ -587,7 +601,6 @@ class ContratoCRUDTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
                         "cantidad": 5,
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
@@ -600,12 +613,13 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Completo con Licencia Catalogo")
         licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
-        self.assertEqual(float(licencia_contrato.precio_unitario), 12000.0)
-        self.assertEqual(licencia_contrato.tipo_moneda, "USD")
+        self.assertEqual(float(licencia_contrato.precio_unitario_snapshot), 12000.0)
+        self.assertEqual(licencia_contrato.moneda_snapshot, "USD")
 
     def test_crear_completo_usa_modalidad_catalogo_y_ignora_payload(self):
         self.licencia.modalidad_base = "P1Y"
         self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
+        self.licencia.precio_partner = 15000
         self.licencia.precio_venta = 15000
         self.licencia.moneda = "USD"
         self.licencia.save()
@@ -623,9 +637,7 @@ class ContratoCRUDTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "anual",
                         "cantidad": 5,
-                        "precio_unitario": "15000.00",
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=30)).isoformat(),
                     }
@@ -637,9 +649,9 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Completo con Modalidad Catalogo")
         licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
-        self.assertEqual(licencia_contrato.tipo_modalidad, "p1y-m")
-        self.assertEqual(float(licencia_contrato.precio_unitario), 15000.0)
-        self.assertEqual(licencia_contrato.tipo_moneda, "USD")
+        self.assertEqual(licencia_contrato.modalidad_snapshot, "P1Y")
+        self.assertEqual(float(licencia_contrato.precio_unitario_snapshot), 15000.0)
+        self.assertEqual(licencia_contrato.moneda_snapshot, "USD")
 
     def test_crear_completo_tipo_licencia_rechaza_si_no_hay_licencias(self):
         response = self.client.post(
@@ -661,7 +673,7 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("licencias", response.data)
 
-    def test_crear_completo_licencia_normaliza_moneda_del_contrato(self):
+    def test_crear_completo_licencia_usa_moneda_catalogo(self):
         self.licencia.precio_venta = 20000
         self.licencia.moneda = "USD"
         self.licencia.modalidad_base = "P1M"
@@ -674,17 +686,14 @@ class ContratoCRUDTest(ContratoAPITestBase):
                     "empresa_cliente": self.empresa_cliente.id,
                     "fecha_inicio": date.today().isoformat(),
                     "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
-                    "nombre": "Contrato Licencia Moneda Normalizada",
+                    "nombre": "Contrato Licencia Moneda Catalogo",
                     "tipo": "licencia",
                     "moneda_cobro": "CLP",
                 },
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "otros",
                         "cantidad": 1,
-                        "precio_unitario": "20000.00",
-                        "tipo_moneda": "USD",
                     }
                 ],
             },
@@ -692,39 +701,10 @@ class ContratoCRUDTest(ContratoAPITestBase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Licencia Moneda Normalizada")
+        contrato = ContratoEmpresaCliente.objects.get(nombre="Contrato Licencia Moneda Catalogo")
         licencia_contrato = ContratoLicencia.objects.get(contrato=contrato, licencia=self.licencia)
-        self.assertEqual(licencia_contrato.tipo_modalidad, "p1m-m")
-        self.assertEqual(licencia_contrato.tipo_moneda, "CLP")
-
-    def test_crear_completo_rechaza_precio_unitario_no_positivo(self):
-        self.licencia.precio_venta = 15000
-        self.licencia.save()
-
-        response = self.client.post(
-            "/api/contratos/crear-completo/",
-            {
-                "contrato": {
-                    "empresa_cliente": self.empresa_cliente.id,
-                    "fecha_inicio": date.today().isoformat(),
-                    "fecha_fin": (date.today() + timedelta(days=365)).isoformat(),
-                    "nombre": "Contrato Licencia Precio Invalido",
-                    "tipo": "licencia",
-                },
-                "licencias": [
-                    {
-                        "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
-                        "cantidad": 1,
-                        "precio_unitario": 0,
-                    }
-                ],
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("licencias", response.data)
+        self.assertEqual(licencia_contrato.modalidad_snapshot, "P1M")
+        self.assertEqual(licencia_contrato.moneda_snapshot, "USD")
 
 
 class ContratoVentaCotizacionesTest(ContratoAPITestBase):
@@ -1033,12 +1013,9 @@ class ContratoVentaCotizacionesTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
                         "cantidad": 3,
-                        "precio_unitario": "9900.00",
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=60)).isoformat(),
-                        "tipo_moneda": "USD",
                     }
                 ]
             },
@@ -1057,12 +1034,9 @@ class ContratoVentaCotizacionesTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
                         "cantidad": 3,
-                        "precio_unitario": "9900.00",
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": "2026-99-99",
-                        "tipo_moneda": "USD",
                     }
                 ]
             },
@@ -1110,6 +1084,69 @@ class ContratoVentaCotizacionesTest(ContratoAPITestBase):
         self.assertEqual(item_serializado["precio_unitario_origen"], "2.00")
         self.assertEqual(item_serializado["precio_unitario"], 80.0)
 
+    def test_enviar_aprobacion_venta_sin_cotizaciones_retorna_400(self):
+        """Un contrato tipo venta sin cotizaciones aceptadas no puede enviarse a aprobacion."""
+        contrato_sin_cotizaciones = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Venta Sin Cotizaciones",
+            estado="borrador",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+        )
+
+        response = self.client.post(
+            f"/api/contratos/{contrato_sin_cotizaciones.id}/enviar-aprobacion/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "cotizaci",
+            str(response.data.get("detail", "")).lower(),
+        )
+
+    def test_enviar_aprobacion_venta_con_cotizacion_pendiente_retorna_400(self):
+        """Un contrato tipo venta con cotizaciones pero ninguna 'aceptada' debe retornar 400."""
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Venta Cotizacion Pendiente",
+            estado="borrador",
+            tipo="venta",
+            moneda_cobro="CLP",
+            forma_pago_contractual="pago_unico",
+        )
+        cotizacion_pendiente = Cotizacion.objects.create(
+            nombre="Cotizacion pendiente",
+            empresa=self.empresa_prestadora,
+            cliente=self.empresa_cliente,
+            estado="pendiente",
+            tipo_moneda="2",
+            contrato=contrato,
+        )
+        ItemCotizacion.objects.create(
+            cotizacion=cotizacion_pendiente,
+            nombre="Item pendiente",
+            cantidad=1,
+            precio_unitario=50000,
+            tipo_moneda="2",
+        )
+
+        response = self.client.post(
+            f"/api/contratos/{contrato.id}/enviar-aprobacion/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(
+            "cotizaci",
+            str(response.data.get("detail", "")).lower(),
+        )
+
 
 class ContratoBorradorLicenciaConsistenciaTest(ContratoAPITestBase):
     def setUp(self):
@@ -1138,10 +1175,12 @@ class ContratoBorradorLicenciaConsistenciaTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("licencias", response.data)
 
-    def test_actualizar_borrador_licencia_deriva_modalidad_y_normaliza_moneda(self):
+    def test_actualizar_borrador_licencia_aplica_snapshot_catalogo(self):
         self.licencia.modalidad_base = "P1Y"
         self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
+        self.licencia.precio_partner = 9900
         self.licencia.precio_venta = 9900
+        self.licencia.moneda = "USD"
         self.licencia.save()
 
         response = self.client.put(
@@ -1150,10 +1189,7 @@ class ContratoBorradorLicenciaConsistenciaTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "anual",
                         "cantidad": 2,
-                        "precio_unitario": "9900.00",
-                        "tipo_moneda": "CLP",
                     }
                 ]
             },
@@ -1165,29 +1201,9 @@ class ContratoBorradorLicenciaConsistenciaTest(ContratoAPITestBase):
             contrato=self.contrato_licencia,
             licencia=self.licencia,
         )
-        self.assertEqual(vinculada.tipo_modalidad, "p1y-m")
-        self.assertEqual(vinculada.tipo_moneda, "USD")
-
-    def test_actualizar_borrador_rechaza_precio_unitario_no_positivo(self):
-        self.licencia.precio_venta = 100
-        self.licencia.save()
-
-        response = self.client.put(
-            f"/api/contratos/{self.contrato_licencia.id}/actualizar-borrador/",
-            {
-                "licencias": [
-                    {
-                        "licencia_id": self.licencia.id,
-                        "cantidad": 1,
-                        "precio_unitario": 0,
-                    }
-                ]
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("licencias", response.data)
+        self.assertEqual(vinculada.modalidad_snapshot, "P1Y")
+        self.assertEqual(vinculada.moneda_snapshot, "USD")
+        self.assertEqual(float(vinculada.precio_unitario_snapshot), 9900.0)
 
 
 class CatalogoServiciosAPITest(ContratoAPITestBase):
@@ -1476,8 +1492,6 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="p1y-m",
-            precio_unitario="100.00",
             fecha_inicio=date.today(),
             fecha_fin=date.today() + timedelta(days=30),
             estado="activa",
@@ -1493,11 +1507,8 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
                     {
                         "id": contrato_licencia.id,
                         "cantidad": 4,
-                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
-                        "precio_unitario": str(contrato_licencia.precio_unitario),
                         "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=90)).isoformat(),
-                        "tipo_moneda": contrato_licencia.tipo_moneda,
                     }
                 ],
                 "eliminar_licencias": [],
@@ -1513,7 +1524,7 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
         contrato_licencia.refresh_from_db()
         self.assertEqual(contrato_licencia.fecha_fin, date.today() + timedelta(days=90))
 
-    def test_actualizar_contrato_ignora_modalidad_payload_y_normaliza_moneda(self):
+    def test_actualizar_contrato_aplica_snapshot_catalogo(self):
         self.contrato.moneda_cobro = "CLP"
         self.contrato.tipo = "licencia"
         self.contrato.save(update_fields=["moneda_cobro", "tipo"])
@@ -1521,15 +1532,13 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
         self.licencia.modalidad_base = "P1Y"
         self.licencia.modalidad_anual_forma_pago = "PAGO_MENSUAL"
         self.licencia.precio_venta = 11000
+        self.licencia.moneda = "USD"
         self.licencia.save()
 
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="perpetua",
-            precio_unitario="11000.00",
-            tipo_moneda="USD",
             fecha_inicio=date.today(),
             fecha_fin=date.today() + timedelta(days=30),
             estado="activa",
@@ -1544,10 +1553,7 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "id": contrato_licencia.id,
-                        "tipo_modalidad": "perpetua",
-                        "tipo_moneda": "USD",
                         "cantidad": 3,
-                        "precio_unitario": "12000.00",
                     }
                 ],
                 "eliminar_licencias": [],
@@ -1561,8 +1567,8 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         contrato_licencia.refresh_from_db()
-        self.assertEqual(contrato_licencia.tipo_modalidad, "p1y-m")
-        self.assertEqual(contrato_licencia.tipo_moneda, "CLP")
+        self.assertEqual(contrato_licencia.modalidad_snapshot, "P1Y")
+        self.assertEqual(contrato_licencia.moneda_snapshot, "USD")
 
     def test_actualizar_contrato_tipo_licencia_rechaza_quedar_sin_licencias(self):
         self.contrato.tipo = "licencia"
@@ -1572,9 +1578,6 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=1,
-            tipo_modalidad="p1m-m",
-            precio_unitario="100.00",
-            tipo_moneda="USD",
             estado="activa",
         )
 
@@ -1597,42 +1600,6 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("licencias", response.data)
 
-    def test_actualizar_contrato_rechaza_precio_unitario_no_positivo(self):
-        contrato_licencia = ContratoLicencia.objects.create(
-            contrato=self.contrato,
-            licencia=self.licencia,
-            cantidad=1,
-            tipo_modalidad="p1m-m",
-            precio_unitario="100.00",
-            tipo_moneda="USD",
-            estado="activa",
-        )
-
-        response = self.client.put(
-            f"/api/contratos/{self.contrato.id}/actualizar/",
-            {
-                "contrato": {"nombre": self.contrato.nombre},
-                "visitas": [],
-                "eliminar_visitas": [],
-                "licencias": [
-                    {
-                        "id": contrato_licencia.id,
-                        "cantidad": 2,
-                        "precio_unitario": 0,
-                    }
-                ],
-                "eliminar_licencias": [],
-                "condiciones_especiales": [],
-                "eliminar_condiciones": [],
-                "usuarios_vinculados": [],
-                "eliminar_usuarios": [],
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("licencias", response.data)
-
     def test_actualizar_contrato_acepta_fechas_string_en_nueva_licencia(self):
         response = self.client.put(
             f"/api/contratos/{self.contrato.id}/actualizar/",
@@ -1643,12 +1610,9 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
                 "licencias": [
                     {
                         "licencia_id": self.licencia.id,
-                        "tipo_modalidad": "p1y-m",
                         "cantidad": 2,
-                        "precio_unitario": "12000.00",
                         "fecha_inicio": date.today().isoformat(),
                         "fecha_fin": (date.today() + timedelta(days=45)).isoformat(),
-                        "tipo_moneda": "USD",
                     }
                 ],
                 "eliminar_licencias": [],
@@ -2402,7 +2366,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2420,7 +2383,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2440,7 +2402,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2460,8 +2421,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=2,
-            tipo_modalidad="p1y-m",
-            precio_unitario="100.00",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2476,11 +2435,8 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
                     {
                         "id": contrato_licencia.id,
                         "cantidad": 4,
-                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
-                        "precio_unitario": str(contrato_licencia.precio_unitario),
                         "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
                         "fecha_fin": contrato_licencia.fecha_fin,
-                        "tipo_moneda": contrato_licencia.tipo_moneda,
                     }
                 ],
                 "eliminar_licencias": [],
@@ -2501,8 +2457,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
-            precio_unitario="100.00",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2517,11 +2471,8 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
                     {
                         "id": contrato_licencia.id,
                         "cantidad": 2,
-                        "tipo_modalidad": contrato_licencia.tipo_modalidad,
-                        "precio_unitario": str(contrato_licencia.precio_unitario),
                         "fecha_inicio": contrato_licencia.fecha_inicio.isoformat(),
                         "fecha_fin": contrato_licencia.fecha_fin,
-                        "tipo_moneda": contrato_licencia.tipo_moneda,
                     }
                 ],
                 "eliminar_licencias": [],
@@ -2535,32 +2486,11 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_detalle_licencia_incluye_bandera_precio_sobrescrito(self):
-        self.licencia.precio_venta = 120
-        self.licencia.save()
-        contrato_licencia = ContratoLicencia.objects.create(
-            contrato=self.contrato,
-            licencia=self.licencia,
-            cantidad=2,
-            tipo_modalidad="p1m-m",
-            precio_unitario="150.00",
-            tipo_moneda="USD",
-            fecha_inicio=date.today(),
-            estado="activa",
-        )
-
-        response = self.client.get(f"/api/contrato-licencias/{contrato_licencia.id}/")
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("precio_sobrescrito", response.data)
-        self.assertTrue(response.data["precio_sobrescrito"])
-
     def test_patch_licencia_permite_aumentar_cupos_fuera_de_ventana(self):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2580,7 +2510,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today() - timedelta(days=40),
             estado="activa",
         )
@@ -2598,7 +2527,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2618,7 +2546,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2636,7 +2563,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2665,7 +2591,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2682,7 +2607,6 @@ class ContratoLicenciaReglasViewTest(ContratoAPITestBase):
             contrato=self.contrato,
             licencia=self.licencia,
             cantidad=3,
-            tipo_modalidad="p1y-m",
             fecha_inicio=date.today(),
             estado="activa",
         )
@@ -2720,3 +2644,66 @@ class MetricasDashboardTest(ContratoAPITestBase):
         self.assertIn("contratos_activos", resumen)
         self.assertIn("contratos_vencidos", resumen)
         self.assertIn("firmas_pendientes", resumen)
+
+
+class SeparacionFlujosLicenciaServiciosTest(ContratoAPITestBase):
+    """
+    FASE 2 — Tests de separacion de flujos: contratos licencia vs servicios.
+
+    Verifica que las guardias de tipo impiden mezclar items de flujos distintos
+    tanto a nivel de API (B1) como a nivel de modelo (A2, A3).
+    """
+
+    def _crear_contrato_licencia(self):
+        return ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            fecha_fin=date.today() + timedelta(days=365),
+            nombre="Contrato Licencia Test",
+            estado="borrador",
+            tipo="licencia",
+        )
+
+    def test_crear_licencia_en_contrato_servicios_retorna_400(self):
+        """B1: POST de ContratoLicencia en contrato tipo=servicios debe retornar 400."""
+        response = self.client.post(
+            f"/api/contratos/{self.contrato.id}/licencias/",
+            {"licencia": self.licencia.id, "cantidad": 1},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_crear_licencia_en_contrato_licencia_retorna_201(self):
+        """B1: POST de ContratoLicencia en contrato tipo=licencia debe retornar 201."""
+        contrato_lic = self._crear_contrato_licencia()
+        response = self.client.post(
+            f"/api/contratos/{contrato_lic.id}/licencias/",
+            {"licencia": self.licencia.id, "cantidad": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_contrato_licencia_clean_rechaza_contrato_tipo_servicios(self):
+        """A2: ContratoLicencia.clean() debe lanzar ValidationError si contrato.tipo != licencia."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        cl = ContratoLicencia(
+            contrato=self.contrato,  # tipo=servicios
+            licencia=self.licencia,
+            cantidad=1,
+        )
+        with self.assertRaises(DjangoValidationError):
+            cl.clean()
+
+    def test_item_servicio_en_contrato_licencia_lanza_validation_error(self):
+        """A3: ContratoItemComercial.clean() debe rechazar tipo_origen=servicio en contrato tipo=licencia."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        contrato_lic = self._crear_contrato_licencia()
+        item = ContratoItemComercial(
+            contrato=contrato_lic,
+            tipo_origen="servicio",
+        )
+        with self.assertRaises(DjangoValidationError):
+            item.clean()

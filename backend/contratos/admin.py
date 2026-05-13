@@ -83,10 +83,11 @@ class ContratoLicenciaInline(admin.TabularInline):
     model = ContratoLicencia
     extra = 1
     fields = [
-        'licencia', 'tipo_modalidad', 'otro_tipo',
-        'cantidad', 'precio_unitario', 'tipo_moneda',
+        'licencia', 'modalidad_snapshot',
+        'cantidad', 'precio_unitario_snapshot', 'moneda_snapshot',
         'fecha_inicio', 'fecha_fin', 'partner'
     ]
+    readonly_fields = ['modalidad_snapshot', 'precio_unitario_snapshot', 'moneda_snapshot']
 
 
 class ContratoCondicionEspecialInline(admin.TabularInline):
@@ -155,10 +156,10 @@ class UsuarioVinculadoLicenciaInline(admin.TabularInline):
 @admin.register(ContratoLicencia)
 class ContratoLicenciaAdmin(admin.ModelAdmin):
     list_display = (
-        'contrato', 'licencia', 'tipo_modalidad', 'cantidad',
+        'contrato', 'licencia', 'modalidad_snapshot', 'cantidad',
         'fecha_inicio', 'fecha_fin', 'partner'
     )
-    list_filter = ('tipo_modalidad', 'partner')
+    list_filter = ('modalidad_snapshot', 'partner')
     search_fields = (
         'contrato__nombre',
         'contrato__empresa_cliente__nombre',

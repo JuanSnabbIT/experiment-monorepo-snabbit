@@ -60,6 +60,14 @@ export interface IUsuarioEmpresa {
     usuario: number;
     sucursal: number;
     grupos: number[];
+    // Datos previsionales (opcionales) para contratos laborales
+    afp?: string | null;
+    sistema_salud?: 'fonasa' | 'isapre' | 'otro' | null;
+    nombre_isapre?: string | null;
+    // Datos bancarios (opcionales)
+    banco?: string | null;
+    tipo_cuenta_bancaria?: 'corriente' | 'vista' | 'ahorro' | 'rut' | null;
+    numero_cuenta_bancaria?: string | null;
 }
 
 export interface IUltimasActividadesUsuarioEmpresa {

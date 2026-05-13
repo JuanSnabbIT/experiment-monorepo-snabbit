@@ -6,12 +6,10 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert, showAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
-import ContratoPreviewModal from './ContratoPreviewModal';
-import ResumenDatosContrato from './ResumenDatosContrato';
+import ContratoFirmaExperience from './ContratoFirmaExperience';
 
 dayjs.locale('es');
 
@@ -23,14 +21,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
     const [error, setError] = useState<string | null>(null);
     const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
-
-    const sigCanvas = useRef<SignatureCanvas | null>(null);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const [signatureMode, setSignatureMode] = useState<'draw' | 'upload'>('draw');
-    const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const [haVistoPreview, setHaVistoPreview] = useState(false);
-    const [hasSignature, setHasSignature] = useState(false);
+    const [pdfError, setPdfError] = useState<string | null>(null);
 
     const pdfEndpoint = useMemo(
         () => (uuid ? `/api/public/contrato-firma/${uuid}/pdf/` : null),
@@ -58,6 +49,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
     const loadPdf = useCallback(async () => {
         if (!pdfEndpoint) return;
         setPdfLoading(true);
+        setPdfError(null);
         try {
             const response = await ApiService.fetchData<Blob>({
                 url: pdfEndpoint,
@@ -73,7 +65,9 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
                 return window.URL.createObjectURL(blob);
             });
         } catch (requestError: unknown) {
-            toast.error(getErrorMessage(requestError));
+            const msg = getErrorMessage(requestError);
+            setPdfError(msg);
+            toast.error(msg);
         } finally {
             setPdfLoading(false);
         }
@@ -105,56 +99,19 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
         document.body.removeChild(link);
     };
 
-    const handleSignatureUpload = (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const maxSize = 1024 * 1024;
-        if (file.size > maxSize) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            const result = typeof reader.result === 'string' ? reader.result : null;
-            setUploadedSignature(result);
-        };
-        reader.readAsDataURL(file);
+    const abrirPdf = () => {
+        if (!pdfObjectUrl) return;
+        window.open(pdfObjectUrl, '_blank', 'noopener,noreferrer');
     };
 
-    const handleClosePreview = () => {
-        setHaVistoPreview(true);
-    };
-
-    const verificarPreviewAntes = async (): Promise<boolean> => {
-        if (haVistoPreview) return true;
-        toast.info('Debes revisar el documento completo antes de continuar.');
-        setPreviewOpen(true);
-        return false;
-    };
-
-    const firmarContrato = async () => {
+    const handleSubmitFirma = async (firma: string) => {
         if (!uuid || !detalle?.puede_firmar) return;
-
-        const puedeProceeder = await verificarPreviewAntes();
-        if (!puedeProceeder) return;
-
-        let firma: string | null = null;
-        if (signatureMode === 'upload') {
-            if (!uploadedSignature) {
-                toast.error('Sube una imagen de tu firma antes de continuar.');
-                return;
-            }
-            firma = uploadedSignature;
-        } else {
-            if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
-                toast.error('Dibuja tu firma en el recuadro antes de continuar.');
-                return;
-            }
-            firma = sigCanvas.current.toDataURL('image/png');
-        }
 
         const nombreContrato = detalle?.contrato?.nombre ?? 'este contrato';
         const confirmado = await confirmAlert({
-            title: '¿Confirmar firma?',
-            text: `Estás a punto de firmar "${nombreContrato}". Esta acción queda registrada y no puede deshacerse.`,
-            confirmText: 'Sí, firmar',
+            title: 'Â¿Confirmar firma?',
+            text: `EstÃ¡s a punto de firmar "${nombreContrato}". Esta acciÃ³n queda registrada y no puede deshacerse.`,
+            confirmText: 'SÃ­, firmar',
             cancelText: 'Cancelar',
             icon: 'question',
             confirmColor: '#0f766e',
@@ -177,7 +134,7 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
             await fetchDetalle();
             await loadPdf();
             await showAlert({
-                title: '¡Contrato firmado!',
+                title: 'Â¡Contrato firmado!',
                 text: 'Tu firma fue registrada correctamente. Puedes descargar el PDF firmado.',
                 icon: 'success',
                 confirmText: 'Cerrar',
@@ -224,210 +181,18 @@ const FirmarContratoYAcuerdoConfidencialidad = () => {
         <div className='min-h-screen bg-gray-100 py-10 print:bg-white print:py-0 dark:bg-zinc-900'>
             <div className='mx-auto max-w-6xl px-4 lg:px-8'>
                 <div className='overflow-hidden rounded-xl bg-white shadow-lg print:rounded-none print:shadow-none dark:bg-zinc-800'>
-                    <div className='space-y-5 p-6 sm:p-8'>
-                        {/* Sección 1: Cabecera */}
-                        <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
-                            <div className='flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between'>
-                                <div className='min-w-0'>
-                                    <div className='flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
-                                        <Icon icon='HeroPencilSquare' className='h-4 w-4' />
-                                        Firma contractual
-                                    </div>
-                                    <h1 className='mt-2 text-2xl font-bold text-gray-900 dark:text-zinc-100'>
-                                        Firma del contrato
-                                    </h1>
-                                    <p className='mt-1 text-sm text-gray-500 dark:text-zinc-400'>
-                                        Revisa el documento y registra tu firma para aceptar el
-                                        contrato.
-                                    </p>
-                                </div>
-
-                                <div className='flex flex-col items-start gap-3 sm:items-end'>
-                                    <Button
-                                        icon='HeroDocumentArrowDown'
-                                        onClick={descargarPdf}
-                                        isDisable={!pdfObjectUrl && !pdfLoading}>
-                                        Descargar PDF
-                                    </Button>
-                                    {detalle.destinatario && (
-                                        <div className='rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-zinc-900 dark:text-zinc-300'>
-                                            <span className='font-medium text-gray-900 dark:text-zinc-100'>
-                                                Destinatario:
-                                            </span>{' '}
-                                            {detalle.destinatario.nombre} (
-                                            {detalle.destinatario.email})
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* Sección 2: Resumen de datos del contrato */}
-                        <ResumenDatosContrato contrato={detalle.contrato} />
-
-                        <div className='flex justify-center'>
-                            <Button
-                                variant='outline'
-                                icon='HeroDocumentText'
-                                onClick={() => setPreviewOpen(true)}>
-                                Ver documento completo
-                            </Button>
-                        </div>
-
-                        <ContratoPreviewModal
-                            isOpen={previewOpen}
-                            setIsOpen={setPreviewOpen}
-                            contrato={detalle.contrato}
-                            secciones={detalle.secciones_generadas ?? []}
-                            onClose={handleClosePreview}
+                    <div className='p-6 sm:p-8'>
+                        <ContratoFirmaExperience
+                            detalle={detalle}
+                            mode='public'
+                            pdfObjectUrl={pdfObjectUrl}
+                            pdfLoading={pdfLoading}
+                            pdfError={pdfError}
+                            onDownloadPdf={descargarPdf}
+                            onOpenPdf={abrirPdf}
+                            onSubmitFirma={handleSubmitFirma}
+                            isSubmitting={submitting}
                         />
-
-                        {/* Sección 3: Firma */}
-                        <section className='rounded-lg border border-gray-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900'>
-                            <div className='mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-                                <div>
-                                    <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
-                                        Firma del cliente
-                                    </p>
-                                    <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
-                                        Aceptación final
-                                    </h2>
-                                </div>
-
-                                {detalle.firmado && (
-                                    <span className='inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700'>
-                                        Firmado
-                                    </span>
-                                )}
-                            </div>
-
-                            {detalle.firmado ? (
-                                <div className='space-y-4'>
-                                    <div className='rounded-md border border-green-100 bg-green-50/70 px-4 py-4 text-sm leading-6 text-green-800 dark:border-green-900/50 dark:bg-green-950/20 dark:text-green-200'>
-                                        Este contrato fue firmado el{' '}
-                                        {detalle.fecha_firma
-                                            ? dayjs(detalle.fecha_firma).format(
-                                                  'DD/MM/YYYY HH:mm',
-                                              )
-                                            : 'sin fecha registrada'}
-                                        .
-                                    </div>
-                                    {detalle.firma && (
-                                        <div className='overflow-hidden rounded-md border border-gray-100 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/60'>
-                                            <p className='mb-3 text-sm font-medium text-gray-900 dark:text-zinc-100'>
-                                                Firma registrada
-                                            </p>
-                                            <img
-                                                src={detalle.firma}
-                                                alt='Firma registrada'
-                                                className='max-h-28 w-auto object-contain'
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className='space-y-4'>
-                                    <div className='rounded-md border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm leading-6 text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-200'>
-                                        Tu firma en imagen confirma la aceptación del contrato y
-                                        de los acuerdos de confidencialidad.
-                                    </div>
-                                    <div className='flex flex-wrap gap-2'>
-                                        <Button
-                                            variant={
-                                                signatureMode === 'draw' ? 'solid' : 'outline'
-                                            }
-                                            onClick={() => setSignatureMode('draw')}>
-                                            Dibujar firma
-                                        </Button>
-                                        <Button
-                                            variant={
-                                                signatureMode === 'upload' ? 'solid' : 'outline'
-                                            }
-                                            onClick={() => setSignatureMode('upload')}>
-                                            Subir imagen
-                                        </Button>
-                                    </div>
-                                    {signatureMode === 'draw' ? (
-                                        <div className='relative overflow-hidden rounded-md border border-gray-200 bg-white dark:border-zinc-700'>
-                                            {!hasSignature && (
-                                                <div className='pointer-events-none absolute inset-0 flex items-center justify-center'>
-                                                    <span className='select-none text-sm text-gray-300 dark:text-zinc-600'>
-                                                        Dibuje su firma aquí
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <SignatureCanvas
-                                                ref={(ref) => {
-                                                    sigCanvas.current = ref;
-                                                }}
-                                                penColor='black'
-                                                onBegin={() => setHasSignature(true)}
-                                                canvasProps={{
-                                                    height: 220,
-                                                    className: 'w-full bg-white',
-                                                }}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className='space-y-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40'>
-                                            <input
-                                                ref={fileInputRef}
-                                                type='file'
-                                                accept='image/png,image/jpeg'
-                                                className='hidden'
-                                                onChange={handleSignatureUpload}
-                                            />
-                                            <Button
-                                                icon='HeroArrowUpTray'
-                                                onClick={() => fileInputRef.current?.click()}>
-                                                Seleccionar imagen
-                                            </Button>
-                                            <p className='text-xs text-gray-500 dark:text-zinc-400'>
-                                                Usa una imagen PNG o JPG de hasta 1 MB.
-                                            </p>
-                                            {uploadedSignature && (
-                                                <div className='rounded-md border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900'>
-                                                    <img
-                                                        src={uploadedSignature}
-                                                        alt='Firma cargada'
-                                                        className='max-h-28 w-auto object-contain'
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    <div className='flex flex-wrap gap-3'>
-                                        {signatureMode === 'draw' ? (
-                                            <Button
-                                                onClick={() => {
-                                                    sigCanvas.current?.clear();
-                                                    setHasSignature(false);
-                                                }}>
-                                                Limpiar
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                onClick={() => setUploadedSignature(null)}>
-                                                Quitar imagen
-                                            </Button>
-                                        )}
-                                        <Button
-                                            variant='solid'
-                                            icon='HeroCheck'
-                                            isLoading={submitting}
-                                            isDisable={!detalle.puede_firmar}
-                                            onClick={firmarContrato}>
-                                            Firmar contrato
-                                        </Button>
-                                    </div>
-                                    {!detalle.puede_firmar && (
-                                        <p className='text-sm text-gray-500 dark:text-zinc-400'>
-                                            Este enlace ya no admite una firma nueva.
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                        </section>
                     </div>
                 </div>
             </div>

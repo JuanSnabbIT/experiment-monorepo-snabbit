@@ -49,3 +49,13 @@ class ContratoFirmaPublicSerializer(serializers.Serializer):
     destinatario = DestinatarioContratoPublicSerializer(read_only=True, allow_null=True)
     contrato = serializers.JSONField(read_only=True)
     secciones_generadas = serializers.ListField(read_only=True)
+
+
+class ContratoResumenPublicSerializer(serializers.Serializer):
+    """Serializa los datos del resumen público de un contrato activo."""
+    uuid = serializers.UUIDField(read_only=True)
+    activo = serializers.BooleanField(read_only=True)
+    fecha_envio = serializers.DateTimeField(read_only=True, allow_null=True)
+    destinatario = DestinatarioContratoPublicSerializer(read_only=True, allow_null=True)
+    contrato = serializers.JSONField(read_only=True)
+    secciones_generadas = serializers.ListField(read_only=True)

@@ -29,6 +29,16 @@ export interface ICuotaVenta {
     hito_pago_label?: string;
 }
 
+export interface IContratoCuotaPago {
+    id: number;
+    numero_cuota: number;
+    porcentaje: string;
+    hito_pago_tipo: 'inicio' | 'entrega_intermedia' | 'entrega_final' | 'personalizado';
+    hito_pago_descripcion: string;
+    fecha_vencimiento?: string | null;
+    estado: 'pendiente' | 'facturada' | 'pagada';
+}
+
 export interface ICotizacionVinculadaResumen {
     id: number;
     numero_cotizacion: string;
@@ -81,6 +91,7 @@ export interface IContratoEmpresaCliente {
     forma_pago_contractual: 'mensual' | 'anual' | 'pago_unico';
     forma_pago_venta?: 'contado' | 'cuotas' | null;
     cuotas_venta?: ICuotaVenta[];
+    cuotas_pago?: IContratoCuotaPago[];
     tipo_label: string;
     destinatario_principal?: IVinculoContrato | null;
     ultimo_envio_aprobacion?: IContratoAprobacionEstado | null;
@@ -95,6 +106,7 @@ export interface IContratoEmpresaCliente {
     plantilla_version_usada?: string | null;
     dias_aviso_termino?: number;
     requiere_nda?: boolean;
+    snapshot_total_venta?: string | null;
 }
 
 export interface IEmpresaContrato {
@@ -251,6 +263,20 @@ export interface IContratoPublicoFirma {
 
 export interface IContratoFirmaPreview extends IContratoPublicoFirma {}
 
+export interface IContratoResumenPublico {
+    uuid: string;
+    activo: boolean;
+    fecha_envio: string | null;
+    destinatario: {
+        id: number;
+        nombre: string;
+        email: string;
+        es_externo: boolean;
+    } | null;
+    contrato: IContratoEmpresaCliente;
+    secciones_generadas: ISeccionContratoGenerada[];
+}
+
 export interface IContratoCondicionEspecial {
     id: number;
     contrato: number;
@@ -386,6 +412,25 @@ export interface IContratoPlanComponenteSnapshot {
     clausulas_especiales?: string | null;
 }
 
+export interface IDetalleCobro {
+    moneda_item: 'CLP' | 'UF' | 'USD';
+    moneda_cobro: 'CLP' | 'UF' | 'USD';
+    forma_pago_contractual: 'mensual' | 'anual' | 'pago_unico';
+    precio_unitario: number;
+    cantidad: number;
+    veces_por_mes: number;
+    descuento_anual_porcentaje: string | null;
+    subtotal_mensual: number;
+    subtotal_anual: number;
+    subtotal_pago_unico: number;
+    subtotal_cobro: number;
+    subtotal_convertido: number | null;
+    estado_conversion: 'misma_moneda' | 'convertido' | 'sin_tipo_cambio';
+    dolar_observado: number | null;
+    valor_uf: number | null;
+    fecha_tipo_cambio: string;
+}
+
 export interface IContratoItemComercial {
     id: number;
     contrato: number;
@@ -406,7 +451,7 @@ export interface IContratoItemComercial {
     forma_pago: 'mensual' | 'anual' | 'pago_unico';
     moneda: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado: string;
-    precio_unitario_anual_contratado?: string | null;
+    descuento_anual_porcentaje?: string | null;
     total_mensual: string;
     total_anual: string;
     total_pago_unico: string;
@@ -417,6 +462,7 @@ export interface IContratoItemComercial {
     subtotal_en_moneda_cobro: number | null;
     tipo_item: 'servicio' | 'plan';
     servicio_generico: IPlanServicio | IServicio | Record<string, unknown>;
+    detalle_cobro?: IDetalleCobro;
 }
 
 export interface IContratoServicio {
@@ -719,7 +765,7 @@ export interface IContratoItemComercialPayload {
     forma_pago?: 'mensual' | 'anual' | 'pago_unico';
     moneda?: 'CLP' | 'UF' | 'USD';
     precio_unitario_contratado?: number;
-    precio_unitario_anual_contratado?: number | null;
+    descuento_anual_porcentaje?: number | null;
     es_addon?: boolean;
 }
 

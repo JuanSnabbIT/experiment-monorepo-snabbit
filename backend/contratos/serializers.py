@@ -4,6 +4,7 @@ from dateutil.relativedelta import relativedelta
 from decimal import Decimal, InvalidOperation
 from contratos.models import (
     ContratoEmpresaCliente,
+    ContratoCuotaPago,
     EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
@@ -40,6 +41,20 @@ from .venta_helpers import (
     resolver_cuotas_venta,
     resolver_forma_pago_venta,
 )
+
+
+class ContratoCuotaPagoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContratoCuotaPago
+        fields = [
+            "id",
+            "numero_cuota",
+            "porcentaje",
+            "hito_pago_tipo",
+            "hito_pago_descripcion",
+            "fecha_vencimiento",
+            "estado",
+        ]
 
 
 # Serializador para CaracteristicaServicio
@@ -457,6 +472,7 @@ class ContratoItemComercialSerializer(serializers.ModelSerializer):
     nombre = serializers.CharField(source='snapshot_nombre', read_only=True)
     subtotal = serializers.SerializerMethodField()
     subtotal_en_moneda_cobro = serializers.SerializerMethodField()
+    detalle_cobro = serializers.SerializerMethodField()
     tipo_item = serializers.CharField(source='tipo_origen', read_only=True)
     servicio_generico = serializers.SerializerMethodField()
 
@@ -486,7 +502,12 @@ class ContratoItemComercialSerializer(serializers.ModelSerializer):
         if moneda_item == moneda_cobro:
             return float(obj.total_para_forma_pago_contractual)
 
-        dolar, uf = obtener_tipos_cambio_actuales()
+        # FASE 7 — Reutilizar tasas del contexto si ya fueron cargadas por el serializer padre.
+        tipos_cambio = self.context.get('tipos_cambio')
+        if tipos_cambio is not None:
+            dolar, uf = tipos_cambio
+        else:
+            dolar, uf = obtener_tipos_cambio_actuales()
         convertido = convertir_precio_item_safe(
             obj.total_para_forma_pago_contractual,
             moneda_origen=moneda_item,
@@ -495,6 +516,66 @@ class ContratoItemComercialSerializer(serializers.ModelSerializer):
             valor_uf=uf,
         )
         return float(convertido) if convertido is not None else None
+
+    def get_detalle_cobro(self, obj):
+        # Bloque de transparencia de conversion por item: moneda original, tasas, estado.
+        # Reutiliza tipos_cambio del contexto (FASE 7) para no llamar a la API externa dos veces.
+        from contratos.currency_utils import (
+            convertir_precio_item_safe,
+            obtener_tipos_cambio_actuales,
+        )
+        from datetime import date as _date
+
+        contrato = obj.contrato
+        moneda_item = obj.moneda or "CLP"
+        moneda_cobro = contrato.moneda_cobro if contrato else moneda_item
+        forma_pago = contrato.forma_pago_contractual if contrato else obj.forma_pago
+
+        # FASE 7 — Reutilizar tasas del contexto si ya fueron cargadas por el serializer padre.
+        tipos_cambio = self.context.get('tipos_cambio')
+        if tipos_cambio is not None:
+            dolar, uf = tipos_cambio
+        else:
+            dolar, uf = obtener_tipos_cambio_actuales()
+
+        subtotal_cobro = float(obj.total_para_forma_pago_contractual)
+
+        if moneda_item == moneda_cobro:
+            subtotal_convertido = subtotal_cobro
+            estado_conversion = "misma_moneda"
+        else:
+            convertido = convertir_precio_item_safe(
+                obj.total_para_forma_pago_contractual,
+                moneda_origen=moneda_item,
+                moneda_destino=moneda_cobro,
+                dolar_observado=dolar,
+                valor_uf=uf,
+            )
+            if convertido is not None:
+                subtotal_convertido = float(convertido)
+                estado_conversion = "convertido"
+            else:
+                subtotal_convertido = None
+                estado_conversion = "sin_tipo_cambio"
+
+        return {
+            "moneda_item": moneda_item,
+            "moneda_cobro": moneda_cobro,
+            "forma_pago_contractual": forma_pago,
+            "precio_unitario": float(obj.precio_unitario_contratado or 0),
+            "cantidad": obj.cantidad,
+            "veces_por_mes": obj.veces_por_mes,
+            "descuento_anual_porcentaje": str(obj.descuento_anual_porcentaje) if obj.descuento_anual_porcentaje else None,
+            "subtotal_mensual": float(obj.total_mensual),
+            "subtotal_anual": float(obj.total_anual),
+            "subtotal_pago_unico": float(obj.total_pago_unico),
+            "subtotal_cobro": subtotal_cobro,
+            "subtotal_convertido": subtotal_convertido,
+            "estado_conversion": estado_conversion,
+            "dolar_observado": float(dolar) if dolar else None,
+            "valor_uf": float(uf) if uf else None,
+            "fecha_tipo_cambio": _date.today().isoformat(),
+        }
 
     def get_servicio_generico(self, obj):
         if obj.tipo_origen == 'plan' and obj.plan_version_id:
@@ -572,7 +653,12 @@ class ContratoServicioSerializer(serializers.ModelSerializer):
         if moneda_item == moneda_cobro:
             return float(monto)
 
-        dolar, uf = obtener_tipos_cambio_actuales()
+        # FASE 7 — Reutilizar tasas del contexto si ya fueron cargadas por el serializer padre.
+        tipos_cambio = self.context.get('tipos_cambio')
+        if tipos_cambio is not None:
+            dolar, uf = tipos_cambio
+        else:
+            dolar, uf = obtener_tipos_cambio_actuales()
         convertido = convertir_precio_item_safe(
             monto,
             moneda_origen=moneda_item,
@@ -1310,6 +1396,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     contrato_licencias = ContratoLicenciaSerializer(many=True, read_only=True)
     contrato_condiciones_especiales = ContratoCondicionEspecialSerializer(many=True, read_only=True)
     cotizaciones_vinculadas = CotizacionVinculadaResumenSerializer(many=True, read_only=True)
+    cuotas_pago = ContratoCuotaPagoSerializer(many=True, read_only=True)
     # La relación ManyToMany mediante el modelo intermedio se accede mediante el related_name "vinculos_contrato"
     vinculos_contrato = UsuarioVinculadoContratoSerializer(many=True, read_only=True)
     firmas_confidencialidad = AcuerdoConfidencialidadContratoSerializer(many=True, read_only=True)
@@ -1333,6 +1420,16 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContratoEmpresaCliente
         fields = '__all__'
+
+    def to_representation(self, instance):
+        # FASE 7 — Memoización de tipos de cambio por request.
+        # El contexto es un dict compartido entre todas las instancias del serializer
+        # en una misma request (incluido listados many=True), por lo que la llamada
+        # a obtener_tipos_cambio_actuales() ocurre una sola vez por request.
+        if 'tipos_cambio' not in self.context:
+            from contratos.currency_utils import obtener_tipos_cambio_actuales
+            self.context['tipos_cambio'] = obtener_tipos_cambio_actuales()
+        return super().to_representation(instance)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -1386,8 +1483,8 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             return False
         tiene_contenido_comercial = (
             obj.items_comerciales.exists()
-            or obj.contrato_servicios.exists()
             or (obj.tipo == "venta" and obj.cotizaciones_vinculadas.exists())
+            # LEGACY: contrato_servicios ya no se escribe (FASE 6), no se cuenta como contenido comercial nuevo.
         )
         if not tiene_contenido_comercial:
             return False
@@ -1462,8 +1559,23 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             except ValueError:
                 return 0
         if obj.items_comerciales.exists():
-            total_servicios = float(obj.total_items_comerciales)
+            # FASE 7 — Pasar tasas pre-cargadas a consolidar_totales_items para evitar
+            # una llamada adicional a obtener_tipos_cambio_actuales() desde el modelo.
+            from contratos.currency_utils import consolidar_totales_items
+            tipos_cambio = self.context.get('tipos_cambio')
+            dolar, uf = tipos_cambio if tipos_cambio is not None else (None, None)
+            convertido = consolidar_totales_items(
+                obj.items_comerciales.all(), obj.moneda_cobro, dolar=dolar, uf=uf
+            )
+            if convertido is not None:
+                total_servicios = float(convertido)
+            else:
+                total_servicios = float(
+                    sum(item.total_para_forma_pago_contractual for item in obj.items_comerciales.all())
+                )
         else:
+            # LEGACY READ-ONLY — fallback a contrato_servicios históricos (FASE 6).
+            # Solo aplica a contratos migrados antes de la introducción de ContratoItemComercial.
             total_servicios = sum(
                 float(servicio.precio_unitario) * servicio.cantidad
                 for servicio in obj.contrato_servicios.all()
@@ -1515,6 +1627,14 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         total_anual = sum(float(item.total_anual) for item in obj.items_comerciales.all())
         total_pago_unico = sum(float(item.total_pago_unico) for item in obj.items_comerciales.all())
         total_licencias = self._calcular_total_licencias_en_moneda_cobro(obj)
+        # FASE 7 — Exponer tasa vigente al frontend para el resumen de cobro.
+        tipos_cambio_rc = self.context.get('tipos_cambio')
+        if tipos_cambio_rc is not None:
+            dolar_rc, uf_rc = tipos_cambio_rc
+        else:
+            from contratos.currency_utils import obtener_tipos_cambio_actuales
+            dolar_rc, uf_rc = obtener_tipos_cambio_actuales()
+        from datetime import date as _date
         return {
             "tipo_resumen": obj.tipo,
             "moneda": obj.moneda_cobro,
@@ -1524,6 +1644,9 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             "total_pago_unico": total_pago_unico,
             "total_licencias": total_licencias,
             "total_contrato": self.get_total_contrato(obj),
+            "dolar_observado": float(dolar_rc) if dolar_rc else None,
+            "valor_uf": float(uf_rc) if uf_rc else None,
+            "fecha_tipo_cambio": _date.today().isoformat(),
         }
 
     def _calcular_total_licencias_en_moneda_cobro(self, obj):
@@ -1542,8 +1665,12 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             return 0.0
 
         moneda_cobro = obj.moneda_cobro
-        # Cargamos las tasas una sola vez para todo el cálculo.
-        dolar, uf = obtener_tipos_cambio_actuales()
+        # FASE 7 — Reutilizar tasas del contexto si ya fueron cargadas por to_representation.
+        tipos_cambio = self.context.get('tipos_cambio')
+        if tipos_cambio is not None:
+            dolar, uf = tipos_cambio
+        else:
+            dolar, uf = obtener_tipos_cambio_actuales()
 
         total = 0.0
         for licencia in licencias:
@@ -1565,6 +1692,35 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             # consistente en moneda_cobro y deberá señalar items no convertibles
             # mediante subtotal_en_moneda_cobro=null en cada licencia.
         return total
+
+    def _sync_cuotas_pago(self, contrato, cuotas_venta):
+        """Sincroniza ContratoCuotaPago desde la lista normalizada de cuotas_venta."""
+        ContratoCuotaPago.objects.filter(contrato=contrato).delete()
+        for cuota in cuotas_venta or []:
+            hito_tipo = cuota.get("hito_pago_tipo") or "inicio"
+            hito_desc = cuota.get("hito_pago_descripcion") or hito_tipo.replace("_", " ").title()
+            ContratoCuotaPago.objects.create(
+                contrato=contrato,
+                numero_cuota=int(cuota.get("orden") or 1),
+                porcentaje=cuota.get("porcentaje") or 0,
+                hito_pago_tipo=hito_tipo,
+                hito_pago_descripcion=hito_desc,
+                estado="pendiente",
+            )
+
+    def create(self, validated_data):
+        cuotas_venta = validated_data.get("cuotas_venta", [])
+        contrato = super().create(validated_data)
+        if cuotas_venta:
+            self._sync_cuotas_pago(contrato, cuotas_venta)
+        return contrato
+
+    def update(self, instance, validated_data):
+        cuotas_venta = validated_data.get("cuotas_venta")
+        contrato = super().update(instance, validated_data)
+        if cuotas_venta is not None:
+            self._sync_cuotas_pago(contrato, cuotas_venta)
+        return contrato
 
 class EnvioContratoFirmaUsuarioSerializer(serializers.ModelSerializer):
     class Meta:

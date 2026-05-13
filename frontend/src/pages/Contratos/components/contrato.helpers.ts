@@ -94,12 +94,8 @@ export function buildUpdatePayload(
             contrato.contrato_licencias.map((l) => ({
                 id: l.id,
                 cantidad: l.cantidad,
-                tipo_modalidad: l.tipo_modalidad,
-                otro_tipo: l.otro_tipo,
-                precio_unitario: Number(l.precio_unitario),
                 fecha_inicio: l.fecha_inicio,
                 fecha_fin: l.fecha_fin,
-                tipo_moneda: l.tipo_moneda,
             })),
         eliminar_licencias: overrides?.eliminar_licencias ?? [],
         condiciones_especiales:

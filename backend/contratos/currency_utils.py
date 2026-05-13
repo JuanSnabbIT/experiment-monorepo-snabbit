@@ -146,7 +146,12 @@ def obtener_tipos_cambio_actuales(
 # Consolidación de totales de una lista de items
 # ---------------------------------------------------------------------------
 
-def consolidar_totales_items(items, moneda_cobro: str) -> Optional[Decimal]:
+def consolidar_totales_items(
+    items,
+    moneda_cobro: str,
+    dolar: Optional[Decimal] = None,
+    uf: Optional[Decimal] = None,
+) -> Optional[Decimal]:
     """
     Suma los totales de una lista de ContratoItemComercial convirtiéndolos todos
     a `moneda_cobro` antes de sumar.
@@ -162,6 +167,8 @@ def consolidar_totales_items(items, moneda_cobro: str) -> Optional[Decimal]:
     Args:
         items: Iterable de ContratoItemComercial.
         moneda_cobro: Moneda destino del contrato ('CLP', 'USD', 'UF').
+        dolar: Tasa USD→CLP pre-cargada (FASE 7). Si None, se obtiene internamente.
+        uf: Tasa UF→CLP pre-cargada (FASE 7). Si None, se obtiene internamente.
 
     Returns:
         Decimal con la suma en moneda_cobro, o None si no hay items convertibles.
@@ -172,7 +179,9 @@ def consolidar_totales_items(items, moneda_cobro: str) -> Optional[Decimal]:
         logger.warning("consolidar_totales_items: moneda_cobro no válida: %r", moneda_cobro)
         return None
 
-    dolar, uf = obtener_tipos_cambio_actuales()
+    # Si no se pasan tasas, obtenerlas ahora (para llamadas desde modelos o sin contexto).
+    if dolar is None and uf is None:
+        dolar, uf = obtener_tipos_cambio_actuales()
 
     total = Decimal("0")
     hay_items_validos = False

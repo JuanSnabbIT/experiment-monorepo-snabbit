@@ -4,6 +4,7 @@ import html
 from html.parser import HTMLParser
 from io import BytesIO
 
+from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (
     Image,
     PageBreak,
@@ -19,7 +20,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib import colors
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, cm
 
 from .venta_helpers import construir_resumen_venta_contrato, normalizar_moneda
 
@@ -254,6 +255,77 @@ def _append_plan_component_rows(data_items, item, estilo_bullet):
             )
 
 
+def _make_contract_canvas_class(config: dict):
+    """
+    Retorna una clase Canvas con header, footer y watermark BORRADOR.
+
+    config keys:
+        nombre_empresa (str): Nombre de la empresa prestadora.
+        nombre_contrato (str): Nombre del contrato (para el footer).
+        es_borrador (bool): Si True, agrega marca de agua diagonal "BORRADOR".
+    """
+
+    class _ContractCanvas(rl_canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            rl_canvas.Canvas.__init__(self, *args, **kwargs)
+            self._saved_page_states = []
+
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self._draw_page_elements(num_pages)
+                rl_canvas.Canvas.showPage(self)
+            rl_canvas.Canvas.save(self)
+
+        def _draw_page_elements(self, page_count):
+            self.saveState()
+            width, height = LETTER
+
+            # ── Marca de agua BORRADOR ───────────────────────────────────────
+            if config.get("es_borrador"):
+                self.translate(width / 2, height / 2)
+                self.rotate(45)
+                self.setFont("Times-Bold", 80)
+                self.setFillGray(0.85)
+                self.setFillAlpha(0.07)
+                self.drawCentredString(0, 0, "BORRADOR")
+                self.restoreState()
+                self.saveState()
+
+            # ── Cabecera (header) ────────────────────────────────────────────
+            header_y = height - 36
+            self.setFont("Times-Bold", 9)
+            self.setFillGray(0.3)
+            self.drawString(54, header_y, html.unescape(config.get("nombre_empresa", "")))
+            self.setFont("Times-Roman", 8)
+            self.setFillGray(0.5)
+            nombre_contrato = config.get("nombre_contrato", "")
+            self.drawRightString(width - 54, header_y, nombre_contrato[:60])
+
+            # Línea separadora del header
+            self.setStrokeGray(0.7)
+            self.setLineWidth(0.5)
+            self.line(54, header_y - 5, width - 54, header_y - 5)
+
+            # ── Pie de página (footer) ───────────────────────────────────────
+            footer_y = 24
+            current_page = len(self._saved_page_states)
+            self.setFont("Times-Roman", 8)
+            self.setFillGray(0.5)
+            self.drawCentredString(
+                width / 2, footer_y, f"Página {current_page} de {page_count}"
+            )
+
+            self.restoreState()
+
+    return _ContractCanvas
+
+
 def generar_contrato_desde_plantilla(
     contrato,
     *,
@@ -354,6 +426,31 @@ def generar_contrato_desde_plantilla(
         bold=True,
     )
 
+    # Estilos para tipos de sección titulo/subtitulo (sin cuerpo)
+    estilo_sec_titulo = ParagraphStyle(
+        "sec_titulo",
+        parent=estilo_normal,
+        fontSize=14,
+        leading=18,
+        alignment=TA_CENTER,
+        spaceBefore=14,
+        spaceAfter=6,
+        bold=True,
+        textColor=colors.HexColor("#1a1a1a"),
+    )
+
+    estilo_sec_subtitulo = ParagraphStyle(
+        "sec_subtitulo",
+        parent=estilo_normal,
+        fontSize=12,
+        leading=15,
+        alignment=TA_LEFT,
+        spaceBefore=10,
+        spaceAfter=4,
+        bold=True,
+        textColor=colors.HexColor("#333333"),
+    )
+
     estilo_parrafo = ParagraphStyle(
         "parrafo_plantilla",
         parent=estilo_normal,
@@ -390,9 +487,17 @@ def generar_contrato_desde_plantilla(
         pagesize=LETTER,
         rightMargin=54,
         leftMargin=54,
-        topMargin=54,
+        topMargin=72,
         bottomMargin=54,
     )
+
+    # Canvas con header/footer/watermark
+    _canvas_config = {
+        "nombre_empresa": nombre_empresa,
+        "nombre_contrato": contrato.nombre or "Contrato",
+        "es_borrador": getattr(contrato, "estado", None) not in ("activo", "en_firma", "finalizado"),
+    }
+    _canvas_class = _make_contract_canvas_class(_canvas_config)
 
     elementos = []
 
@@ -495,7 +600,17 @@ def generar_contrato_desde_plantilla(
     for seccion in secciones_contenido:
         tipo = seccion.seccion_plantilla.tipo if seccion.seccion_plantilla else "libre"
 
-        if tipo == "encabezado":
+        if tipo == "titulo":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_sec_titulo,
+            ))
+        elif tipo == "subtitulo":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_sec_subtitulo,
+            ))
+        elif tipo == "encabezado":
             elementos.append(Paragraph(
                 _safe_paragraph_text(seccion.titulo),
                 estilo_titulo,
@@ -506,7 +621,7 @@ def generar_contrato_desde_plantilla(
                 ))
             elementos.append(Spacer(1, 10))
         else:
-            # clausula, condiciones_generales, libre
+            # clausula, condiciones_generales, libre, identificacion_cliente
             if seccion.titulo:
                 elementos.append(Paragraph(
                     f"<b>{_safe_paragraph_text(seccion.titulo)}</b>",
@@ -803,14 +918,14 @@ def generar_contrato_desde_plantilla(
         for lic in licencias:
             nombre_lic = lic.licencia.nombre if lic.licencia else "—"
             proveedor = lic.licencia.proveedor if lic.licencia else "—"
-            modalidad = lic.get_tipo_modalidad_display()
-            moneda_lic = lic.tipo_moneda or moneda
+            modalidad = lic.get_modalidad_snapshot_display()
+            moneda_lic = lic.moneda_snapshot or moneda
             if moneda_lic == "CLP":
-                precio_str = f"${float(lic.precio_unitario or 0):,.0f}"
+                precio_str = f"${float(lic.precio_unitario_snapshot or 0):,.0f}"
             elif moneda_lic == "UF":
-                precio_str = f"{float(lic.precio_unitario or 0):,.2f} UF"
+                precio_str = f"{float(lic.precio_unitario_snapshot or 0):,.2f} UF"
             else:
-                precio_str = f"US${float(lic.precio_unitario or 0):,.2f}"
+                precio_str = f"US${float(lic.precio_unitario_snapshot or 0):,.2f}"
 
             data_lic.append([
                 Paragraph(html.escape(nombre_lic), estilo_tabla_celda),
@@ -951,7 +1066,7 @@ def generar_contrato_desde_plantilla(
         ]))
         elementos.append(tabla_firmas)
 
-    doc.build(elementos)
+    doc.build(elementos, canvasmaker=_canvas_class)
     buffer.seek(0)
     return buffer.getvalue()
 

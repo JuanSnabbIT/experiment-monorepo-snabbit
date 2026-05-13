@@ -1,3 +1,4 @@
+import logging
 from celery import shared_task
 from datetime import date, timedelta
 from contratos.models import (
@@ -13,17 +14,27 @@ from core.tasks import send_email_task
 from dateutil.relativedelta import relativedelta
 import os
 
+logger = logging.getLogger(__name__)
+
 
 @shared_task
 def actualizar_contratos_vencidos():
-    """Busca contratos vencidos y los marca como finalizados."""
-    contratos_vencidos = ContratoEmpresaCliente.objects.filter(fecha_fin__lt=date.today(), estado='activo')
-    count = contratos_vencidos.count()
-    for contrato in contratos_vencidos:
-        contrato.estado = 'finalizado'
-        contrato.save()
-        print(f"Contrato {contrato.id} finalizado automáticamente.")
-    return f"Se han finalizado {count} contratos vencidos."
+    """Busca contratos vencidos y los marca como finalizados via actualizar_estado()."""
+    _ESTADOS_EXCLUIDOS = ("borrador", "cambios_solicitados", "cancelado", "finalizado")
+    candidatos = ContratoEmpresaCliente.objects.filter(
+        fecha_fin__lt=date.today(),
+    ).exclude(estado__in=_ESTADOS_EXCLUIDOS)
+
+    finalizados = 0
+    for contrato in candidatos:
+        try:
+            contrato.save()  # save() → clean() → actualizar_estado() → estado='finalizado'
+            finalizados += 1
+        except Exception:
+            logger.exception("Error al finalizar contrato %s automáticamente.", contrato.pk)
+
+    logger.info("actualizar_contratos_vencidos: %d contratos finalizados.", finalizados)
+    return f"Se han finalizado {finalizados} contratos vencidos."
 
 
 @shared_task

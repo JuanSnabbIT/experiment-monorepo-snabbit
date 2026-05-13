@@ -47,6 +47,7 @@ import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrato.types';
 import SelectorPlanServicios from '../components/SelectorPlanServicios';
+import CrearContratoTrabajadorWizard from './CrearContratoTrabajadorWizard';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
 
 // Tipos
@@ -279,6 +280,17 @@ function CrearContratoDelCliente({
     tipoFijo,
     licenciasIniciales,
 }: ICrearContratoDelClienteProps = {}) {
+    // Si es contrato de trabajador, delegamos a un wizard especializado
+    if (tipoFijo === 'trabajador') {
+        return (
+            <CrearContratoTrabajadorWizard
+                detalleCliente={detalleClienteProp}
+                externalIsOpen={externalIsOpen}
+                onExternalClose={onExternalClose}
+            />
+        );
+    }
+
     const navigate = useNavigate();
     const { detalleCliente: detalleClienteStore } = useAppSelector((state) => state.empresa);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
@@ -298,7 +310,7 @@ function CrearContratoDelCliente({
         plan_id: null,
         plan_cantidad: 1,
         plan_precio_unitario: 0,
-        plan_precio_unitario_anual: null,
+        plan_descuento_anual_porcentaje: null,
         plan_num_visitas_mensuales: null,
         servicios: [],
     };
@@ -516,7 +528,9 @@ function CrearContratoDelCliente({
                           };
 
                 const alcance_comercial: IContratoBorradorPayload['alcance_comercial'] =
-                    seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0
+                    values.tipo === 'licencia'
+                        ? { modo: 'vacio' as const }
+                        : seleccionPlan.plan_id !== null || seleccionPlan.servicios.length > 0
                         ? {
                               modo:
                                   seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
@@ -531,9 +545,9 @@ function CrearContratoDelCliente({
                                             cantidad: seleccionPlan.plan_cantidad,
                                             precio_unitario_contratado:
                                                 seleccionPlan.plan_precio_unitario,
-                                            ...(seleccionPlan.plan_precio_unitario_anual != null && {
-                                                precio_unitario_anual_contratado:
-                                                    seleccionPlan.plan_precio_unitario_anual,
+                                            ...(seleccionPlan.plan_descuento_anual_porcentaje != null && {
+                                                descuento_anual_porcentaje:
+                                                    seleccionPlan.plan_descuento_anual_porcentaje,
                                             }),
                                             ...(seleccionPlan.plan_num_visitas_mensuales != null && {
                                                 num_visitas_mensuales:
@@ -614,9 +628,7 @@ function CrearContratoDelCliente({
     const esVenta = formik.values.tipo === 'venta' || tipoFijo === 'venta';
     const esServicios =
         formik.values.tipo === 'servicios' ||
-        formik.values.tipo === 'licencia' ||
-        tipoFijo === 'servicios' ||
-        tipoFijo === 'licencia';
+        tipoFijo === 'servicios';
 
     useEffect(() => {
         if (!esVenta) return;
@@ -652,8 +664,8 @@ function CrearContratoDelCliente({
     const totalPlanSeleccionado =
         seleccionPlan.modo === 'plan' && seleccionPlan.plan_id
             ? convertCurrency(
-                  formaPagoContractual === 'anual' && seleccionPlan.plan_precio_unitario_anual
-                      ? seleccionPlan.plan_precio_unitario_anual * seleccionPlan.plan_cantidad
+                  formaPagoContractual === 'anual' && seleccionPlan.plan_descuento_anual_porcentaje != null
+                      ? seleccionPlan.plan_precio_unitario * 12 * (1 - seleccionPlan.plan_descuento_anual_porcentaje / 100) * seleccionPlan.plan_cantidad
                       : getTotalPorFormaPagoContractual(
                             seleccionPlan.plan_precio_unitario,
                             seleccionPlan.plan_cantidad,
@@ -781,6 +793,10 @@ function CrearContratoDelCliente({
             }
             setStep(esVenta ? 6 : 7);
         } else if (step === 6) {
+            if (esVenta && cotizacionesSeleccionadas.length === 0) {
+                toast.error('Debes seleccionar al menos una cotización aceptada para continuar.');
+                return;
+            }
             setStep(7);
         }
     };

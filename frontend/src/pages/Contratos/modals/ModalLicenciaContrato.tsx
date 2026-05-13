@@ -42,14 +42,10 @@ interface IModalLicenciaContratoProps {
 
 interface IFormValues {
     licencia_id: string;
-    tipo_modalidad: string;
-    otro_tipo: string;
     cantidad: number;
     precio_partner: number;
-    precio_unitario: number;
     fecha_inicio: string;
     fecha_fin: string;
-    tipo_moneda: string;
 }
 
 interface ICreateCatalogFormValues {
@@ -65,21 +61,17 @@ interface ICreateCatalogFormValues {
     activo: boolean;
 }
 
-const deriveTipoModalidad = (licencia?: ILicencia): string => {
-    if (!licencia) {
-        return '';
-    }
-    if (licencia.modalidad_base === 'P1M') {
-        return 'p1m-m';
-    }
+const describirModalidadCatalogo = (licencia?: ILicencia): string => {
+    if (!licencia) return '';
+    if (licencia.modalidad_base === 'P1M') return 'Mensual (P1M)';
     if (licencia.modalidad_base === 'P1Y') {
-        return licencia.modalidad_anual_forma_pago === 'PAGO_MENSUAL' ? 'p1y-m' : 'p1y-a';
+        const sufijo =
+            licencia.modalidad_anual_forma_pago === 'PAGO_MENSUAL' ? ' - pago mensual' : '';
+        return `Anual (P1Y)${sufijo}`;
     }
-    if (licencia.modalidad_base === 'PAGO_UNICO') {
-        return 'perpetua';
-    }
-    return 'otros';
-};
+    if (licencia.modalidad_base === 'PAGO_UNICO') return 'Pago unico';
+    return licencia.modalidad_base ?? '';
+};;
 
 type TLicenciaSelectOption = TSelectOption & {
     licencia?: ILicencia;
@@ -106,35 +98,22 @@ function ModalLicenciaContrato({
         enableReinitialize: true,
         initialValues: {
             licencia_id: editItem?.licencia_id?.toString() ?? '',
-            tipo_modalidad: editItem?.tipo_modalidad ?? '',
-            otro_tipo: editItem?.otro_tipo ?? '',
             cantidad: editItem?.cantidad ?? 1,
             precio_partner: 0,
-            precio_unitario: editItem?.precio_unitario ?? 0,
             fecha_inicio: editItem?.fecha_inicio ?? '',
             fecha_fin: editItem?.fecha_fin ?? '',
-            tipo_moneda: editItem?.tipo_moneda ?? contractCurrency ?? 'USD',
         },
         validationSchema: Yup.object({
             licencia_id: isEditing
                 ? Yup.string().notRequired()
                 : Yup.string().required('Selecciona una licencia del catalogo'),
-            tipo_modalidad: Yup.string().required('Requerido'),
             cantidad: Yup.number().min(1, 'Minimo 1').required('Requerido'),
-            precio_unitario: Yup.number()
-                .moreThan(0, 'Debe ser mayor a 0')
-                .required('Requerido'),
-            tipo_moneda: Yup.string().required('Requerido'),
         }),
         onSubmit: (values) => {
             const payload = {
-                tipo_modalidad: values.tipo_modalidad,
-                otro_tipo: values.otro_tipo || null,
                 cantidad: values.cantidad,
-                precio_unitario: values.precio_unitario,
                 fecha_inicio: values.fecha_inicio || null,
                 fecha_fin: values.fecha_fin || null,
-                tipo_moneda: values.tipo_moneda,
             };
 
             if (isEditing) {
@@ -217,13 +196,7 @@ function ModalLicenciaContrato({
                 catalogFormik.resetForm();
 
                 formik.setFieldValue('licencia_id', licenciaCreada.id.toString());
-                formik.setFieldValue('tipo_modalidad', deriveTipoModalidad(licenciaCreada));
                 formik.setFieldValue('precio_partner', Number(licenciaCreada.precio_partner || 0));
-                formik.setFieldValue('precio_unitario', Number(licenciaCreada.precio_venta || 0));
-                formik.setFieldValue(
-                    'tipo_moneda',
-                    contractCurrency || licenciaCreada.moneda || 'USD',
-                );
 
                 toast.success(`Licencia "${licenciaCreada.nombre}" creada`, { autoClose: 1500 });
             } catch (error: unknown) {
@@ -254,7 +227,7 @@ function ModalLicenciaContrato({
     );
 
     const getLicenciaOptionModalidad = (licencia?: ILicencia) =>
-        licencia ? deriveTipoModalidad(licencia) : '';
+        licencia ? describirModalidadCatalogo(licencia) : '';
 
     const licenciaSelectComponents = {
         Input: ({ selectProps, innerRef, innerProps }: any) => {
@@ -297,38 +270,11 @@ function ModalLicenciaContrato({
         if (!selectedLicencia) {
             return;
         }
-
-        const tipoModalidad = deriveTipoModalidad(selectedLicencia);
-        if (formik.values.tipo_modalidad !== tipoModalidad) {
-            formik.setFieldValue('tipo_modalidad', tipoModalidad);
-        }
-
         const precioPartner = Number(selectedLicencia.precio_partner || 0);
         if (formik.values.precio_partner !== precioPartner) {
             formik.setFieldValue('precio_partner', precioPartner);
         }
-
-        if (!isEditing) {
-            const precioVenta = Number(selectedLicencia.precio_venta || 0);
-            if (formik.values.precio_unitario !== precioVenta) {
-                formik.setFieldValue('precio_unitario', precioVenta);
-            }
-        }
-
-        const monedaObjetivo = contractCurrency || selectedLicencia.moneda || 'USD';
-        if (formik.values.tipo_moneda !== monedaObjetivo) {
-            formik.setFieldValue('tipo_moneda', monedaObjetivo);
-        }
-    }, [contractCurrency, formik, isEditing, selectedLicencia]);
-
-    useEffect(() => {
-        if (!contractCurrency) {
-            return;
-        }
-        if (formik.values.tipo_moneda !== contractCurrency) {
-            formik.setFieldValue('tipo_moneda', contractCurrency);
-        }
-    }, [contractCurrency, formik, formik.values.tipo_moneda]);
+    }, [formik, selectedLicencia]);
 
     const currentLicenciaLabel =
         listaLicencias.find((l) => l.id.toString() === formik.values.licencia_id)?.nombre ??
@@ -359,8 +305,8 @@ function ModalLicenciaContrato({
         }));
 
     const precioCatalogo = Number(selectedLicencia?.precio_venta || 0);
-    const precioSobrescrito =
-        !!selectedLicencia && Number(formik.values.precio_unitario || 0) !== precioCatalogo;
+    const monedaCatalogo = selectedLicencia?.moneda ?? contractCurrency ?? '';
+    const modalidadCatalogo = describirModalidadCatalogo(selectedLicencia);
 
     return (
         <Modal isOpen={isOpen} setIsOpen={onClose}>
@@ -649,20 +595,9 @@ function ModalLicenciaContrato({
                     )}
 
                     <div>
-                        <Label htmlFor='tipo_modalidad'>Modalidad</Label>
-                        <Input name='tipo_modalidad' value={formik.values.tipo_modalidad} disabled />
+                        <Label htmlFor='modalidad_catalogo'>Modalidad (catalogo)</Label>
+                        <Input name='modalidad_catalogo' value={modalidadCatalogo} disabled />
                     </div>
-                    {formik.values.tipo_modalidad === 'otros' && (
-                        <div>
-                            <Label htmlFor='otro_tipo'>Detalle de modalidad</Label>
-                            <Input
-                                name='otro_tipo'
-                                value={formik.values.otro_tipo}
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                            />
-                        </div>
-                    )}
 
                     <div>
                         <Label htmlFor='precio_partner'>Precio partner</Label>
@@ -691,30 +626,17 @@ function ModalLicenciaContrato({
                             </Validation>
                         </div>
                         <div>
-                            <Label htmlFor='precio_unitario'>Precio venta</Label>
-                            <Validation
-                                isValid={formik.isValid}
-                                isTouched={formik.touched.precio_unitario}
-                                invalidFeedback={formik.errors.precio_unitario}>
-                                <Input
-                                    name='precio_unitario'
-                                    type='number'
-                                    value={formik.values.precio_unitario}
-                                    onChange={formik.handleChange}
-                                    onBlur={formik.handleBlur}
-                                    step='0.01'
-                                />
-                            </Validation>
-                            {selectedLicencia && (
-                                <div className='mt-1 text-xs text-zinc-500'>
-                                    Referencia catalogo: {precioCatalogo}
-                                </div>
-                            )}
-                            {precioSobrescrito && (
-                                <div className='mt-1 text-xs text-amber-600'>
-                                    Ajustado respecto al catalogo.
-                                </div>
-                            )}
+                            <Label htmlFor='precio_unitario_catalogo'>Precio venta (catalogo)</Label>
+                            <Input
+                                name='precio_unitario_catalogo'
+                                type='number'
+                                value={precioCatalogo}
+                                disabled
+                                step='0.01'
+                            />
+                            <div className='mt-1 text-xs text-zinc-500'>
+                                Snapshot tomado al crear la linea contractual.
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor='fecha_inicio'>Fecha inicio</Label>
@@ -737,10 +659,10 @@ function ModalLicenciaContrato({
                     </div>
 
                     <div>
-                        <Label htmlFor='tipo_moneda'>Moneda contractual</Label>
-                        <Input name='tipo_moneda' value={formik.values.tipo_moneda} disabled />
+                        <Label htmlFor='moneda_catalogo'>Moneda contractual</Label>
+                        <Input name='moneda_catalogo' value={monedaCatalogo} disabled />
                         <div className='mt-1 text-xs text-zinc-500'>
-                            Alineada automaticamente a la moneda del contrato.
+                            Tomada del catalogo de la licencia al momento del snapshot.
                         </div>
                     </div>
                 </div>

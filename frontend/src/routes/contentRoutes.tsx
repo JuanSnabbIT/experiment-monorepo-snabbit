@@ -164,8 +164,11 @@ const FirmarContratoYAcuerdoConfidencialidad = lazy(
 const ResponderCotizacionPublica = lazy(
     () => import('@/pages/Cotizaciones/ResponderCotizacionPublica'),
 );
-const ResponderContratoPublico = lazy(
-    () => import('@/pages/Contratos/components/ResponderContratoPublico'),
+const ResponderContratoPublicoV2 = lazy(
+    () => import('@/pages/Contratos/components/ResponderContratoPublicoV2'),
+);
+const ResumenContratoPublico = lazy(
+    () => import('@/pages/Contratos/ResumenContratoPublico'),
 );
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
@@ -204,8 +207,18 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: authPages.responderContratoPublico.to,
-        element: <ResponderContratoPublico />,
+        element: <ResponderContratoPublicoV2 />,
         authority: authPages.responderContratoPublico.authority,
+    },
+    {
+        path: authPages.firmarContratoYAcuerdo.to,
+        element: <FirmarContratoYAcuerdoConfidencialidad />,
+        authority: authPages.firmarContratoYAcuerdo.authority,
+    },
+    {
+        path: authPages.resumenContratoPublico.to,
+        element: <ResumenContratoPublico />,
+        authority: authPages.resumenContratoPublico.authority,
     },
     {
         path: authPages.responderCotizacionPublica.to,

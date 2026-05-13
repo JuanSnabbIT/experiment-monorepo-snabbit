@@ -96,6 +96,23 @@ class UsuarioEmpresa(ModeloBase):
     estado = models.CharField(max_length=1, choices=ESTADO_USUARIO_EMPRESA, default="1")
     grupos = models.ManyToManyField(Group, blank=True)
 
+    # Datos previsionales (opcionales) para contratos laborales
+    afp = models.CharField(max_length=50, blank=True, null=True, verbose_name="AFP")
+    sistema_salud = models.CharField(
+        max_length=20, choices=SISTEMA_SALUD, blank=True, null=True,
+        verbose_name="Sistema de salud",
+    )
+    nombre_isapre = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="Nombre de la Isapre",
+    )
+
+    # Datos bancarios (opcionales) para pago de remuneraciones
+    banco = models.CharField(max_length=100, blank=True, null=True)
+    tipo_cuenta_bancaria = models.CharField(
+        max_length=20, choices=TIPO_CUENTA_BANCARIA, blank=True, null=True,
+    )
+    numero_cuenta_bancaria = models.CharField(max_length=50, blank=True, null=True)
+
     class Meta:
         verbose_name = "Usuario de la Empresa"
         verbose_name_plural = "Usuarios de la Empresa"

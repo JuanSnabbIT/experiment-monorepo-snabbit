@@ -12,11 +12,13 @@ from .flow_helpers import get_client_ip
 from .flow_helpers import actualizar_pdf_firmado_envio
 from .flow_helpers import construir_pdf_contrato
 from .flow_helpers import construir_pdf_desde_payload
+from .flow_helpers import construir_snapshot_contrato
 from .flow_helpers import validar_firma_imagen
-from .models import EnvioContratoAprobacion, EnvioContratoFirmaUsuario
+from .models import EnvioContratoAprobacion, EnvioContratoFirmaUsuario, EnvioResumenContrato
 from .public_serializers import (
     ContratoAprobacionPublicSerializer,
     ContratoFirmaPublicSerializer,
+    ContratoResumenPublicSerializer,
     SeccionGeneradaPublicSerializer,
 )
 
@@ -351,6 +353,8 @@ class PublicContratoFirmaDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        contrato = envio.usuario.contrato
+
         # Preferir secciones del snapshot (congelado al enviar) para integridad documental.
         snapshot = envio.snapshot_contrato or {}
         if snapshot.get("secciones_generadas"):
@@ -497,3 +501,91 @@ class PublicFirmarContratoView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class PublicContratoResumenDetailView(APIView):
+    """GET /api/public/contrato-resumen/<uuid>/ — Resumen público del contrato activo."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        envio = EnvioResumenContrato.objects.select_related(
+            "contrato",
+            "destinatario__usuario__usuario",
+        ).filter(uuid=token).first()
+
+        if not envio:
+            return Response(
+                {"detail": "Enlace no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not envio.activo:
+            return Response(
+                {"detail": "Este enlace ya no está activo."},
+                status=status.HTTP_410_GONE,
+            )
+
+        contrato = envio.contrato
+        secciones_generadas = []
+        try:
+            from .motor_plantillas import generar_secciones_contrato
+            secciones_qs = generar_secciones_contrato(contrato)
+            secciones_generadas = SeccionGeneradaPublicSerializer(
+                secciones_qs, many=True
+            ).data
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "Error generando secciones para resumen público (silencioso)."
+            )
+
+        contrato_payload = construir_snapshot_contrato(contrato)
+
+        data = {
+            "uuid": envio.uuid,
+            "activo": envio.activo,
+            "fecha_envio": envio.fecha_envio,
+            "destinatario": _destinatario_payload(envio.destinatario),
+            "contrato": contrato_payload,
+            "secciones_generadas": list(secciones_generadas),
+        }
+
+        serializer = ContratoResumenPublicSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PublicContratoResumenPDFView(APIView):
+    """GET /api/public/contrato-resumen/<uuid>/pdf/ — PDF del contrato activo (generado en tiempo real)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        envio = EnvioResumenContrato.objects.select_related("contrato").filter(
+            uuid=token
+        ).first()
+
+        if not envio:
+            return Response(
+                {"detail": "Enlace no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not envio.activo:
+            return Response(
+                {"detail": "Este enlace ya no está activo."},
+                status=status.HTTP_410_GONE,
+            )
+
+        try:
+            pdf_bytes = construir_pdf_contrato(envio.contrato)
+        except Exception as exc:
+            return Response(
+                {"detail": f"No se pudo generar el PDF: {exc}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        nombre = f"Contrato_{envio.contrato.id}.pdf"
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{nombre}"'
+        return response

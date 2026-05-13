@@ -356,7 +356,15 @@ const ResumenDatosContrato = ({ contrato }: IResumenDatosContratoProps) => {
     const condiciones = contrato.contrato_condiciones_especiales ?? [];
     const usarItemsComerciales = itemsComerciales.length > 0;
     const resumenComercial = contrato.resumen_comercial;
-    const cuotasVenta = resumenComercial?.cuotas_venta_resumen ?? [];
+    // Priorizar cuotas desde el modelo desacoplado (FASE 5); fallback al resumen JSON legacy
+    const cuotasVenta = (contrato.cuotas_pago && contrato.cuotas_pago.length > 0)
+        ? contrato.cuotas_pago.map((c) => ({
+              orden: c.numero_cuota,
+              porcentaje: parseFloat(c.porcentaje),
+              hito_pago_tipo: c.hito_pago_tipo,
+              hito_pago_descripcion: c.hito_pago_descripcion,
+          }))
+        : resumenComercial?.cuotas_venta_resumen ?? [];
     const tipoContrato = contrato.tipo;
 
     return (

@@ -76,6 +76,13 @@ export const authPages = {
         icon: 'HeroDocumentDuplicate',
         authority: [],
     },
+    resumenContratoPublico: {
+        id: 'resumenContratoPublico',
+        to: '/contrato/public/resumen/:uuid',
+        text: 'Resumen Contrato',
+        icon: 'HeroDocumentText',
+        authority: [],
+    },
 };
 
 export const Pages = {

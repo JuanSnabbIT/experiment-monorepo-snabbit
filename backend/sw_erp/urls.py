@@ -45,6 +45,7 @@ urlpatterns = [
     path("api/", include("contratos.urls")),
     path('api/', include('retroalimentacion.urls')),
     path("api/", include("notificaciones.urls")),
+    path("api/", include("rrhh.urls")),
     path("metrics/", exports.ExportToDjangoView, name="prometheus-metrics"),
 ]
 

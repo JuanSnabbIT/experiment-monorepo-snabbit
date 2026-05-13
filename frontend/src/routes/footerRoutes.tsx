@@ -12,6 +12,7 @@ const footerRoutes: RouteProps[] = [
     { path: authPages.retroalimentacionOTV3.to, element: null },
     { path: authPages.responderCotizacionPublica.to, element: null },
     { path: authPages.responderContratoPublico.to, element: null },
+    { path: authPages.resumenContratoPublico.to, element: null },
 
     // Inventariar Bodega
     { path: Pages.bodega.subPages.inventariarTomaInventario.to, element: null },

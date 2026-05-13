@@ -35,6 +35,8 @@ from contratos.public_views import (
     PublicFirmarContratoView,
     PublicRechazarDefinitivoContratoView,
     PublicRechazarContratoView,
+    PublicContratoResumenDetailView,
+    PublicContratoResumenPDFView,
 )
 
 # Router principal para contratos
@@ -124,6 +126,16 @@ urlpatterns = (
             'public/contrato-firma/<uuid:token>/firmar/',
             PublicFirmarContratoView.as_view(),
             name='public-contrato-firma-firmar'
+        ),
+        path(
+            'public/contrato-resumen/<uuid:token>/',
+            PublicContratoResumenDetailView.as_view(),
+            name='public-contrato-resumen-detail'
+        ),
+        path(
+            'public/contrato-resumen/<uuid:token>/pdf/',
+            PublicContratoResumenPDFView.as_view(),
+            name='public-contrato-resumen-pdf'
         ),
         path(
             'acuerdos-por-envio/<uuid:uuid>/',

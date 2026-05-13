@@ -7,6 +7,7 @@ from django.db import models
 from django.conf import settings
 from contratos.models import (
     ContratoEmpresaCliente,
+    ContratoCuotaPago,
     EnvioContratoAprobacion,
     EnvioContratoFirmaUsuario,
     UsuarioVinculadoContrato,
@@ -64,6 +65,7 @@ from .serializers import (
     EtiquetaPlantillaSerializer,
     SeccionContratoGeneradaSerializer,
     ContratoMatchingSerializer,
+    ContratoCuotaPagoSerializer,
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
@@ -96,7 +98,7 @@ from .flow_helpers import (
     preparar_documento_contrato,
     validar_firma_imagen,
 )
-from .venta_helpers import obtener_errores_conversion_cotizaciones
+from .venta_helpers import obtener_errores_conversion_cotizaciones, resumir_cotizaciones_venta
 import json
 import os
 from dotenv import load_dotenv
@@ -139,6 +141,57 @@ def _aplicar_orden_secciones(qs, orden_por_id):
     with transaction.atomic():
         for seccion_id, orden in orden_por_id.items():
             qs.filter(id=seccion_id).update(orden=orden)
+
+
+def _aplicar_orden_por_slot(qs, secciones_data):
+    """Formato nuevo: persiste slot_documental + orden_en_slot y deriva orden global."""
+    from contratos.models import SLOT_DOCUMENTAL_ORDER
+
+    def sort_key(item):
+        slot = item.get("slot_documental", "despues_condiciones")
+        try:
+            slot_idx = SLOT_DOCUMENTAL_ORDER.index(slot)
+        except ValueError:
+            slot_idx = len(SLOT_DOCUMENTAL_ORDER)
+        return (slot_idx, item.get("orden_en_slot", 0))
+
+    sorted_data = sorted(secciones_data, key=sort_key)
+    with transaction.atomic():
+        for global_orden, item in enumerate(sorted_data, start=1):
+            sec_id = item["id"]
+            slot = item.get("slot_documental", "despues_condiciones")
+            orden_en_slot = item.get("orden_en_slot", 1)
+            qs.filter(id=sec_id).update(
+                slot_documental=slot,
+                orden_en_slot=orden_en_slot,
+                orden=global_orden,
+            )
+
+
+def _asignar_slots_desde_orden(qs, plantilla, orden_por_id):
+    """Formato legacy: guarda orden + deriva slot_documental y orden_en_slot según bloques."""
+    from contratos.models import SLOT_DOCUMENTAL_ORDER
+
+    def _slot_for_orden(orden):
+        if orden < plantilla.orden_bloque_alcance:
+            return "antes_alcance"
+        elif orden < plantilla.orden_bloque_operacion:
+            return "entre_alcance_y_operacion"
+        elif orden < plantilla.orden_bloque_condiciones:
+            return "entre_operacion_y_condiciones"
+        else:
+            return "despues_condiciones"
+
+    conteo_por_slot = {slot: 0 for slot in SLOT_DOCUMENTAL_ORDER}
+    with transaction.atomic():
+        for sec_id, orden in sorted(orden_por_id.items(), key=lambda x: x[1]):
+            slot = _slot_for_orden(orden)
+            conteo_por_slot[slot] += 1
+            qs.filter(id=sec_id).update(
+                orden=orden,
+                slot_documental=slot,
+                orden_en_slot=conteo_por_slot[slot],
+            )
 
 
 
@@ -227,10 +280,17 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             or item.get("precio_unitario")
             or referencia.precio
         )
-        precio_anual_unitario = (
-            item.get("precio_unitario_anual_contratado")
-            or getattr(referencia, "precio_anual", None)
-        )
+        descuento_anual = item.get("descuento_anual_porcentaje")
+        # Si el frontend no envio un descuento explicito, derivar desde catalogo
+        if descuento_anual is None:
+            precio_anual_cat = getattr(referencia, "precio_anual", None)
+            precio_mensual = precio_unitario or getattr(referencia, "precio", None)
+            if precio_anual_cat and precio_mensual:
+                from decimal import Decimal
+                base_12 = Decimal(str(precio_mensual)) * Decimal("12")
+                precio_anual_d = Decimal(str(precio_anual_cat))
+                if base_12 > 0 and precio_anual_d < base_12:
+                    descuento_anual = float((base_12 - precio_anual_d) / base_12 * Decimal("100"))
         forma_pago = item.get("forma_pago") or contrato.forma_pago_contractual
         cantidad = item.get("cantidad") or 1
         veces_por_mes = item.get("veces_por_mes") or getattr(referencia, "veces_por_mes_default", 1) or 1
@@ -253,23 +313,13 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             forma_pago=forma_pago,
             moneda=moneda,
             precio_unitario_contratado=precio_unitario,
-            precio_unitario_anual_contratado=precio_anual_unitario,
+            descuento_anual_porcentaje=descuento_anual,
             num_visitas_mensuales=item.get("num_visitas_mensuales"),
             es_addon=bool(item.get("es_addon", es_addon)),
             orden=orden,
         )
 
-        content_type = ContentType.objects.get_for_model(
-            PlanServicio if tipo_origen == "plan" else Servicio
-        )
-        ContratoServicio.objects.create(
-            contrato=contrato,
-            content_type=content_type,
-            object_id=referencia.pk,
-            cantidad=cantidad,
-            precio_unitario=precio_unitario,
-            item_comercial=item_comercial,
-        )
+        # LEGACY READ-ONLY — ya no se crea ContratoServicio al crear items comerciales (FASE 6).
         return item_comercial
 
     def _reemplazar_alcance_comercial(self, contrato, alcance_data):
@@ -280,6 +330,23 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             return []
 
         modo = alcance_data.get("modo", "vacio")
+
+        # Guardia de flujo: contratos de tipo licencia no aceptan servicios ni planes.
+        if contrato.tipo == "licencia" and modo != "vacio":
+            tipos_invalidos = {"servicio", "plan"}
+            todos_items = (
+                ([alcance_data.get("plan")] if alcance_data.get("plan") else [])
+                + (alcance_data.get("items") or [])
+                + (alcance_data.get("servicios") or [])
+                + (alcance_data.get("addons") or [])
+            )
+            if any(i.get("tipo_origen") in tipos_invalidos for i in todos_items if i):
+                raise serializers.ValidationError(
+                    {"alcance": [
+                        "Un contrato de tipo 'Licenciamiento' no puede contener servicios ni planes."
+                    ]}
+                )
+
         creados = []
         orden = 0
 
@@ -382,31 +449,6 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
         return cantidad_normalizada
 
-    def _normalizar_precio_unitario_licencia(
-        self,
-        value,
-        *,
-        licencia,
-        precio_actual=None,
-    ):
-        precio = value
-        if precio in (None, "") and precio_actual not in (None, ""):
-            precio = precio_actual
-        if precio in (None, ""):
-            precio = licencia.precio_venta
-
-        try:
-            precio_normalizado = Decimal(str(precio))
-        except (TypeError, ValueError, InvalidOperation):
-            raise serializers.ValidationError(
-                {"precio_unitario": ["Debe ser un numero mayor a 0."]}
-            )
-
-        if precio_normalizado <= 0:
-            raise serializers.ValidationError({"precio_unitario": ["Debe ser mayor a 0."]})
-
-        return precio_normalizado
-
     def _build_campos_licencia_contrato(
         self,
         *,
@@ -415,41 +457,30 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         item,
         fecha_inicio_default=None,
         fecha_fin_default=None,
-        precio_actual=None,
         cantidad_default=1,
         partner_default=True,
-        otro_tipo_default=None,
     ):
+        """Construye campos editables de ContratoLicencia.
+
+        El snapshot (modalidad/moneda/precio_unitario) se autopobla en
+        ``ContratoLicencia.save()`` desde el catalogo de la licencia, asi
+        que aqui solo se manejan los campos editables por el usuario.
+        """
+        del contrato, licencia  # contexto preservado por compatibilidad de firma
         fechas_normalizadas = self._normalizar_fechas_licencia(
             item,
             fecha_inicio_default=fecha_inicio_default,
             fecha_fin_default=fecha_fin_default,
         )
-        tipo_modalidad = self._obtener_tipo_modalidad_desde_licencia(licencia)
-        otro_tipo = (
-            item.get("otro_tipo", otro_tipo_default)
-            if tipo_modalidad == "otros"
-            else None
-        )
         cantidad = self._normalizar_cantidad_licencia(
             item.get("cantidad"),
             default=cantidad_default,
         )
-        precio_unitario = self._normalizar_precio_unitario_licencia(
-            item.get("precio_unitario"),
-            licencia=licencia,
-            precio_actual=precio_actual,
-        )
 
         return {
-            "tipo_modalidad": tipo_modalidad,
-            "otro_tipo": otro_tipo,
             "cantidad": cantidad,
-            "precio_unitario": precio_unitario,
             "fecha_inicio": fechas_normalizadas["fecha_inicio"],
             "fecha_fin": fechas_normalizadas["fecha_fin"],
-            # Moneda de licencia siempre alineada a la moneda del contrato.
-            "tipo_moneda": contrato.moneda_cobro,
             "partner": item.get("partner", partner_default),
         }
 
@@ -465,17 +496,6 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 ]
             }
         )
-
-    def _obtener_tipo_modalidad_desde_licencia(self, licencia):
-        if licencia.modalidad_base == "P1M":
-            return "p1m-m"
-        if licencia.modalidad_base == "P1Y":
-            if licencia.modalidad_anual_forma_pago == "PAGO_MENSUAL":
-                return "p1y-m"
-            return "p1y-a"
-        if licencia.modalidad_base == "PAGO_UNICO":
-            return "perpetua"
-        return "otros"
 
     def _reemplazar_licencias(self, contrato, licencias_data):
         ContratoLicencia.objects.filter(contrato=contrato).delete()
@@ -860,15 +880,8 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 contrato_anterior=contrato_original,
             )
 
-            # Duplicar servicios genéricos
-            for cs in ContratoServicio.objects.filter(contrato=contrato_original):
-                ContratoServicio.objects.create(
-                    contrato=nuevo_contrato,
-                    content_type=cs.content_type,
-                    object_id=cs.object_id,
-                    cantidad=cs.cantidad,
-                    precio_unitario=cs.precio_unitario,
-                )
+            # LEGACY READ-ONLY — ContratoServicio no se duplica en renovación (FASE 6).
+            # El alcance comercial se duplica via ContratoItemComercial.
 
             # Duplicar visitas
             for cv in ContratoVisita.objects.filter(contrato=contrato_original):
@@ -879,17 +892,18 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     cantidad=cv.cantidad,
                 )
 
-            # Duplicar licencias (sin fechas, para revisión)
+            # Duplicar licencias (sin fechas, para revisión).
+            # Propagamos el snapshot del contrato original para preservar
+            # continuidad de precio/modalidad/moneda en el contrato renovado.
             for cl in ContratoLicencia.objects.filter(contrato=contrato_original):
                 ContratoLicencia.objects.create(
                     contrato=nuevo_contrato,
                     licencia=cl.licencia,
-                    tipo_modalidad=cl.tipo_modalidad,
-                    otro_tipo=cl.otro_tipo,
                     cantidad=cl.cantidad,
-                    precio_unitario=cl.precio_unitario,
-                    tipo_moneda=cl.tipo_moneda,
                     partner=cl.partner,
+                    modalidad_snapshot=cl.modalidad_snapshot,
+                    moneda_snapshot=cl.moneda_snapshot,
+                    precio_unitario_snapshot=cl.precio_unitario_snapshot,
                 )
 
             # Duplicar condiciones especiales
@@ -1028,18 +1042,12 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                             item=item,
                             fecha_inicio_default=cl.fecha_inicio,
                             fecha_fin_default=cl.fecha_fin,
-                            precio_actual=cl.precio_unitario,
                             cantidad_default=cl.cantidad,
                             partner_default=cl.partner,
-                            otro_tipo_default=cl.otro_tipo,
                         )
-                        cl.tipo_modalidad = campos_licencia["tipo_modalidad"]
-                        cl.otro_tipo = campos_licencia["otro_tipo"]
                         cl.cantidad = campos_licencia["cantidad"]
-                        cl.precio_unitario = campos_licencia["precio_unitario"]
                         cl.fecha_inicio = campos_licencia["fecha_inicio"]
                         cl.fecha_fin = campos_licencia["fecha_fin"]
-                        cl.tipo_moneda = campos_licencia["tipo_moneda"]
                         cl.partner = campos_licencia["partner"]
                         cl.save()
                     except serializers.ValidationError as e:
@@ -1385,6 +1393,112 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    # ── Cuotas de pago (schedule desacoplado) ─────────────────────────
+
+    @action(detail=True, methods=["get", "post", "put"], url_path="cuotas")
+    def cuotas(self, request, pk=None):
+        """
+        GET  → lista las cuotas de pago del contrato.
+        POST → reemplaza el schedule completo (recibe lista de cuotas).
+        PUT  → alias de POST (reemplaza todo el schedule).
+        """
+        contrato = self.get_object()
+
+        if request.method == "GET":
+            cuotas = ContratoCuotaPago.objects.filter(contrato=contrato)
+            return Response(
+                ContratoCuotaPagoSerializer(cuotas, many=True).data,
+                status=status.HTTP_200_OK,
+            )
+
+        # POST / PUT — reemplaza el schedule completo
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        cuotas_data = request.data.get("cuotas", [])
+        if not isinstance(cuotas_data, list):
+            return Response(
+                {"detail": 'El campo "cuotas" debe ser una lista.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from .venta_helpers import normalizar_cuotas_venta
+        try:
+            cuotas_normalizadas = normalizar_cuotas_venta(cuotas_data, require_hitos=False)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar suma 100%
+        if cuotas_normalizadas:
+            total = sum(c["porcentaje"] for c in cuotas_normalizadas)
+            if abs(total - 100.0) > 0.01:
+                return Response(
+                    {"detail": "La suma de porcentajes debe ser exactamente 100."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        with transaction.atomic():
+            ContratoCuotaPago.objects.filter(contrato=contrato).delete()
+            for cuota in cuotas_normalizadas:
+                hito_tipo = cuota.get("hito_pago_tipo") or "inicio"
+                hito_desc = cuota.get("hito_pago_descripcion") or hito_tipo.replace("_", " ").title()
+                ContratoCuotaPago.objects.create(
+                    contrato=contrato,
+                    numero_cuota=cuota["orden"],
+                    porcentaje=cuota["porcentaje"],
+                    hito_pago_tipo=hito_tipo,
+                    hito_pago_descripcion=hito_desc,
+                    estado="pendiente",
+                )
+            # Sincronizar JSONField legado para backward compat
+            contrato.cuotas_venta = cuotas_normalizadas
+            contrato.forma_pago_venta = "cuotas" if cuotas_normalizadas else "contado"
+            contrato.save(update_fields=["cuotas_venta", "forma_pago_venta"])
+
+        cuotas_resultado = ContratoCuotaPago.objects.filter(contrato=contrato)
+        return Response(
+            ContratoCuotaPagoSerializer(cuotas_resultado, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["delete"], url_path=r"cuotas/(?P<cuota_id>\d+)")
+    def cuota_eliminar(self, request, pk=None, cuota_id=None):
+        """Elimina una cuota individual del schedule."""
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        cuota = ContratoCuotaPago.objects.filter(id=cuota_id, contrato=contrato).first()
+        if not cuota:
+            return Response({"detail": "Cuota no encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        cuota.delete()
+        # Re-sincronizar JSONField legado
+        cuotas_restantes = list(
+            ContratoCuotaPago.objects.filter(contrato=contrato).values(
+                "numero_cuota", "porcentaje", "hito_pago_tipo", "hito_pago_descripcion"
+            )
+        )
+        contrato.cuotas_venta = [
+            {
+                "orden": c["numero_cuota"],
+                "porcentaje": float(c["porcentaje"]),
+                "hito_pago_tipo": c["hito_pago_tipo"],
+                "hito_pago_descripcion": c["hito_pago_descripcion"],
+            }
+            for c in cuotas_restantes
+        ]
+        contrato.forma_pago_venta = "cuotas" if cuotas_restantes else "contado"
+        contrato.save(update_fields=["cuotas_venta", "forma_pago_venta"])
+
+        cuotas_resultado = ContratoCuotaPago.objects.filter(contrato=contrato)
+        return Response(
+            ContratoCuotaPagoSerializer(cuotas_resultado, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=['put'], url_path='editar-servicios-genericos')
     def editar_servicios_genericos(self, request, pk=None):
         """
@@ -1459,17 +1573,8 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                 cantidad = item.get("cantidad", 1)
                 precio_unitario = item.get("precio_unitario", 0)
 
-                # Crear la nueva relación en la tabla intermedia
-                legado = ContratoServicio.objects.create(
-                    contrato=contrato,
-                    content_type=ct,
-                    object_id=object_id,
-                    cantidad=cantidad,
-                    precio_unitario=precio_unitario
-                )
-                if legado.item_comercial_id and legado.item_comercial.orden != orden:
-                    legado.item_comercial.orden = orden
-                    legado.item_comercial.save(update_fields=["orden", "fecha_modificacion"])
+                # LEGACY READ-ONLY — el path por content_type/object_id ya no crea ContratoServicio (FASE 6).
+                # Este bloque sólo procesa payloads sin tipo_origen; se ignora la creación legada.
 
         contrato.refresh_from_db()
         serializer = ContratoEmpresaClienteSerializer(contrato)
@@ -1506,6 +1611,148 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             self._reemplazar_alcance_comercial(contrato, alcance_data)
+
+        contrato.refresh_from_db()
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="agregar-item-comercial")
+    def agregar_item_comercial(self, request, pk=None):
+        """
+        Agrega un ContratoItemComercial al contrato SIN reemplazar los existentes.
+
+        Payload:
+        {
+            "tipo_origen": "servicio" | "plan",
+            "version_id": <id>,           // version del catalogo
+            "cantidad": 1,
+            "veces_por_mes": 1,
+            "descuento_anual_porcentaje": 0.0,  // opcional
+            "es_addon": false
+        }
+        """
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        item_data = request.data
+        if not item_data.get("tipo_origen") and not item_data.get("version_id"):
+            return Response(
+                {"detail": "Se requiere 'tipo_origen' y 'version_id'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        orden_actual = ContratoItemComercial.objects.filter(contrato=contrato).count()
+        with transaction.atomic():
+            self._crear_item_comercial_desde_payload(contrato, item_data, orden=orden_actual)
+
+        contrato.refresh_from_db()
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="agregar-licencia")
+    def agregar_licencia(self, request, pk=None):
+        """
+        Agrega un ContratoLicencia al contrato SIN reemplazar los existentes.
+
+        Payload:
+        {
+            "licencia_id": <id>,
+            "cantidad": 1,
+            "partner": true,
+            "fecha_inicio": "YYYY-MM-DD",  // opcional
+            "fecha_fin": "YYYY-MM-DD"      // opcional
+        }
+        """
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        licencia_id = request.data.get("licencia_id")
+        if not licencia_id:
+            return Response(
+                {"detail": "Se requiere 'licencia_id'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        licencia = Licencia.objects.filter(pk=licencia_id).first()
+        if not licencia:
+            return Response(
+                {"detail": f"Licencia {licencia_id} no encontrada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            campos = self._build_campos_licencia_contrato(
+                contrato=contrato,
+                licencia=licencia,
+                item=request.data,
+                cantidad_default=1,
+                partner_default=True,
+            )
+            with transaction.atomic():
+                ContratoLicencia.objects.create(
+                    contrato=contrato,
+                    licencia=licencia,
+                    **campos,
+                )
+        except DjangoValidationError as exc:
+            return Response(
+                exc.message_dict if hasattr(exc, "message_dict") else {"detail": exc.messages},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        contrato.refresh_from_db()
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"eliminar-item/(?P<item_id>\d+)",
+    )
+    def eliminar_item_comercial(self, request, pk=None, item_id=None):
+        """Elimina un ContratoItemComercial del contrato por su ID."""
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        eliminado, _ = ContratoItemComercial.objects.filter(
+            pk=item_id, contrato=contrato
+        ).delete()
+        if not eliminado:
+            return Response(
+                {"detail": f"Item {item_id} no encontrado en este contrato."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        contrato.refresh_from_db()
+        serializer = ContratoEmpresaClienteSerializer(contrato)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"eliminar-licencia/(?P<licencia_id>\d+)",
+    )
+    def eliminar_contrato_licencia(self, request, pk=None, licencia_id=None):
+        """Elimina un ContratoLicencia del contrato por su ID."""
+        contrato = self.get_object()
+        bloqueo = self._validar_contrato_editable(contrato)
+        if bloqueo:
+            return bloqueo
+
+        eliminado, _ = ContratoLicencia.objects.filter(
+            pk=licencia_id, contrato=contrato
+        ).delete()
+        if not eliminado:
+            return Response(
+                {"detail": f"ContratoLicencia {licencia_id} no encontrada en este contrato."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         contrato.refresh_from_db()
         serializer = ContratoEmpresaClienteSerializer(contrato)
@@ -1576,6 +1823,19 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="enviar-aprobacion")
     def enviar_aprobacion(self, request, pk=None):
         contrato = self.get_object()
+        if contrato.estado not in ("borrador", "cambios_solicitados"):
+            return Response(
+                {"detail": "Solo se puede enviar a aprobacion desde borrador o cambios solicitados."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if contrato.tipo == "venta":
+            if not contrato.cotizaciones_vinculadas.filter(estado="aceptada").exists():
+                return Response(
+                    {"detail": "Un contrato de venta debe tener al menos una cotización aceptada vinculada antes de enviarlo a aprobación."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if not contrato.secciones_generadas.exists():
             return Response(
                 {
@@ -1584,11 +1844,6 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                         "Genera el documento desde la plantilla antes de enviarlo a aprobación."
                     )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if contrato.estado not in ("borrador", "cambios_solicitados"):
-            return Response(
-                {"detail": "Solo se puede enviar a aprobacion desde borrador o cambios solicitados."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1618,8 +1873,23 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         envio.save(update_fields=["enviado", "fecha_envio"])
         enviar_correo_aprobacion(envio)
 
+        update_fields = ["estado", "fecha_modificacion"]
+        if contrato.tipo == "venta":
+            try:
+                resumen = resumir_cotizaciones_venta(
+                    list(contrato.cotizaciones_vinculadas.filter(estado="aceptada").prefetch_related("items")),
+                    contrato.moneda_cobro,
+                    strict=True,
+                )
+                contrato.snapshot_total_venta = resumen["total_contrato"]
+                update_fields.append("snapshot_total_venta")
+            except ValueError as exc:
+                return Response(
+                    {"detail": f"No se puede calcular el total de venta: {exc}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         contrato.estado = "en_aprobacion_cliente"
-        contrato.save(update_fields=["estado", "fecha_modificacion"])
+        contrato.save(update_fields=update_fields)
         return Response(
             EnvioContratoAprobacionSerializer(envio).data,
             status=status.HTTP_201_CREATED,
@@ -2221,6 +2491,10 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         contrato_pk = self.kwargs.get('contrato_pk')
         contrato = ContratoEmpresaCliente.objects.get(pk=contrato_pk)
+        if contrato.tipo != 'licencia':
+            raise serializers.ValidationError(
+                {"detail": "Solo se pueden agregar licencias a contratos de tipo 'Licenciamiento'."}
+            )
         serializer.save(contrato=contrato)
 
     def partial_update(self, request, *args, **kwargs):
@@ -3476,11 +3750,12 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="reordenar")
     def reordenar(self, request, plantilla_pk=None):
-        """Reordena secciones y posición de bloques demo.
-        Body: {
-            "secciones": [{ "id": 1, "orden": 1 }, { "id": 2, "orden": 2 }],
-            "bloques": { "alcance": 3, "operacion": 5, "condiciones": 7 }
-        }
+        """Reordena secciones. Soporta dos formatos:
+        - Slot: [{"id": N, "slot_documental": "antes_alcance", "orden_en_slot": 1}, ...]
+          Persiste slot + orden_en_slot y deriva orden global por posición en SLOT_DOCUMENTAL_ORDER.
+        - Legacy: [{"id": N, "orden": N}, ...]
+          Persiste orden y auto-asigna slot_documental + orden_en_slot según orden_bloque_* de la plantilla.
+        Opcionalmente: {"bloques": {"alcance": N, "operacion": N, "condiciones": N}}
         """
         secciones_data = request.data.get("secciones", [])
         bloques_data = request.data.get("bloques", {})
@@ -3491,16 +3766,21 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Detectar formato: slot-based si algún ítem tiene slot_documental
+        es_formato_slot = any("slot_documental" in item for item in secciones_data)
+
         qs = SeccionPlantilla.objects.filter(plantilla_id=plantilla_pk)
         ids_plantilla = set(qs.values_list("id", flat=True))
         ids_recibidos = []
 
-        orden_por_id = {}
         for item in secciones_data:
             sec_id = item.get("id")
-            orden = item.get("orden")
-
-            if sec_id is None or orden is None:
+            if sec_id is None:
+                return Response(
+                    {"detail": "Cada elemento debe tener 'id'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not es_formato_slot and item.get("orden") is None:
                 return Response(
                     {"detail": "Cada elemento debe tener 'id' y 'orden'."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -3516,7 +3796,6 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             ids_recibidos.append(sec_id)
-            orden_por_id[sec_id] = orden
 
         if set(ids_recibidos) != ids_plantilla:
             return Response(
@@ -3537,7 +3816,12 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
                 bloque_fields[f"orden_bloque_{bloque_key}"] = valor
 
         with transaction.atomic():
-            _aplicar_orden_secciones(qs, orden_por_id)
+            if es_formato_slot:
+                _aplicar_orden_por_slot(qs, secciones_data)
+            else:
+                plantilla = PlantillaContrato.objects.get(id=plantilla_pk)
+                orden_por_id = {item["id"]: item["orden"] for item in secciones_data}
+                _asignar_slots_desde_orden(qs, plantilla, orden_por_id)
             if bloque_fields:
                 PlantillaContrato.objects.filter(id=plantilla_pk).update(**bloque_fields)
 

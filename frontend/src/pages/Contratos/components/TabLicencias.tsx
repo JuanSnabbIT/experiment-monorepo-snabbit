@@ -83,13 +83,9 @@ const TabLicencias = ({
             licencias: detalleContratoEmpresaCliente.contrato_licencias.map((cl) => ({
                 id: cl.id,
                 licencia_id: cl.licencia,
-                tipo_modalidad: cl.tipo_modalidad,
-                otro_tipo: cl.otro_tipo,
                 cantidad: cl.cantidad,
-                precio_unitario: Number(cl.precio_unitario),
                 fecha_inicio: cl.fecha_inicio,
                 fecha_fin: cl.fecha_fin,
-                tipo_moneda: cl.tipo_moneda,
             })),
         });
         setEditandoSeccion(true);

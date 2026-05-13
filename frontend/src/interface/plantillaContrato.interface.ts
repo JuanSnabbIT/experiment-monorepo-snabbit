@@ -23,7 +23,7 @@ export interface ISeccionPlantilla {
     id: number;
     plantilla: number;
     titulo: string;
-    tipo: 'encabezado' | 'clausula' | 'condiciones_generales' | 'firmas' | 'libre';
+    tipo: 'encabezado' | 'clausula' | 'condiciones_generales' | 'firmas' | 'libre' | 'titulo' | 'subtitulo';
     contenido_template: string;
     orden: number;
     es_editable_en_contrato: boolean;

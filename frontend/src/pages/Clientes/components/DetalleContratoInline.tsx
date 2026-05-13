@@ -196,12 +196,8 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                 licencias: contrato.contrato_licencias.map((lic) => ({
                     id: lic.id,
                     cantidad: lic.cantidad,
-                    otro_tipo: lic.otro_tipo,
-                    precio_unitario: Number(lic.precio_unitario),
-                    tipo_modalidad: lic.tipo_modalidad,
                     fecha_inicio: lic.fecha_inicio,
                     fecha_fin: lic.fecha_fin,
-                    tipo_moneda: lic.tipo_moneda,
                 })),
                 eliminar_condiciones: [],
                 condiciones_especiales: contrato.contrato_condiciones_especiales.map(

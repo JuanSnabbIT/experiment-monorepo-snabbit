@@ -75,6 +75,8 @@ export const TIPOS_SECCION = [
     { value: 'identificacion_cliente', label: 'Identificación del Cliente' },
     { value: 'firmas', label: 'Firmas' },
     { value: 'libre', label: 'Sección Libre' },
+    { value: 'titulo', label: 'Título' },
+    { value: 'subtitulo', label: 'Subtítulo' },
 ];
 
 export const SLOT_DOCUMENTAL = [

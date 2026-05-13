@@ -19,8 +19,8 @@ export interface ISeleccionPlanServicios {
     plan_cantidad: number;
     /** Precio unitario del plan */
     plan_precio_unitario: number;
-    /** Precio anual con descuento del plan (null si no tiene descuento anual) */
-    plan_precio_unitario_anual: number | null;
+    /** Descuento porcentual anual del plan (null si no tiene descuento anual) */
+    plan_descuento_anual_porcentaje: number | null;
     /** Visitas presenciales mensuales incluidas en el plan (pre-fill desde PlanServicio) */
     plan_num_visitas_mensuales?: number | null;
     /** Servicios agregados como addon (modo plan) o seleccionados (modo personalizado) */
@@ -67,13 +67,9 @@ export interface IContratoEdicion {
     licencias: {
         id?: number;
         licencia_id?: number;
-        tipo_modalidad: string;
-        otro_tipo: string | null;
         cantidad: number;
-        precio_unitario: number;
         fecha_inicio: string | null;
         fecha_fin: string | null;
-        tipo_moneda: string;
     }[];
     // CONTRATO CONDICIONES ESPECIALES
     eliminar_condiciones: number[];

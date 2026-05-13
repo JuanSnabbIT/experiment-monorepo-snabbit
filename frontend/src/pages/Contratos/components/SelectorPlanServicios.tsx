@@ -123,7 +123,7 @@ const SelectorPlanServicios = ({
                 plan_id: null,
                 plan_cantidad: 1,
                 plan_precio_unitario: 0,
-                plan_precio_unitario_anual: null,
+                plan_descuento_anual_porcentaje: null,
                 servicios: value.servicios,
             });
             return;
@@ -141,9 +141,14 @@ const SelectorPlanServicios = ({
             plan_id: nuevoPlanId,
             plan_cantidad: value.plan_cantidad || 1,
             plan_precio_unitario: parsePrecio(nuevoPlan?.precio),
-            plan_precio_unitario_anual: nuevoPlan?.precio_anual
-                ? parsePrecio(nuevoPlan.precio_anual)
-                : null,
+            plan_descuento_anual_porcentaje: (() => {
+                const pm = parsePrecio(nuevoPlan?.precio);
+                const pa = nuevoPlan?.precio_anual ? parsePrecio(nuevoPlan.precio_anual) : null;
+                if (!pm || !pa) return null;
+                const base12 = pm * 12;
+                if (base12 <= 0 || pa >= base12) return null;
+                return Math.round(((base12 - pa) / base12) * 10000) / 100;
+            })(),
             plan_num_visitas_mensuales: nuevoPlan?.num_visitas_mensuales ?? null,
             servicios: addonsRestantes,
         });
@@ -272,7 +277,7 @@ const SelectorPlanServicios = ({
                                         plan_id: null,
                                         plan_cantidad: 1,
                                         plan_precio_unitario: 0,
-                                        plan_precio_unitario_anual: null,
+                                        plan_descuento_anual_porcentaje: null,
                                         servicios: [],
                                     })
                                 }>

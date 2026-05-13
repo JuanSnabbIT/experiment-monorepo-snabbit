@@ -519,7 +519,7 @@ function ContratoDocumentoRenderer({
                         {licencias.map((licencia) => (
                             <div key={licencia.id} className='rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
                                 <p className='font-medium text-gray-900 dark:text-zinc-100'>{licencia.nombre_licencia}</p>
-                                <p className='text-sm text-gray-500 dark:text-zinc-400'>{licencia.tipo_modalidad_label}</p>
+                                <p className='text-sm text-gray-500 dark:text-zinc-400'>{licencia.modalidad_snapshot_label}</p>
                             </div>
                         ))}
                     </div>

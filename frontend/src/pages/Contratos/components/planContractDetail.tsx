@@ -347,8 +347,8 @@ export const PlanIncludedServicesDetail = ({
                                     {component.nombre}
                                 </span>
                                 <Button
-                                    color='zinc'
-                                    variant='plain'
+                                    color='violet'
+                                    variant='solid'
                                     icon='HeroEye'
                                     size='sm'
                                     onClick={() => setSelected(component)}

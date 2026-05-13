@@ -4,6 +4,7 @@ import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Dropdown, { DropdownItem, DropdownMenu, DropdownToggle } from '@/components/ui/Dropdown';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { ESTADOS_CONTRATO, TIPO_CONTRATO } from '@/constants/contrato.constant';
@@ -72,6 +73,7 @@ function TablaDeContratosDelCliente({ detalleCliente }: ITablaDeContratosDelClie
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [filtroEstado, setFiltroEstado] = useState<TSelectOption | null>(null);
     const [filtroTipo, setFiltroTipo] = useState<TSelectOption | null>(null);
+    const [wizardAbierto, setWizardAbierto] = useState<null | 'comercial' | 'trabajador'>(null);
 
     // ── RTK Query ──
     const { data: contratos = [], isLoading } = useGetContratosPorEmpresaClienteQuery(
@@ -337,7 +339,38 @@ function TablaDeContratosDelCliente({ detalleCliente }: ITablaDeContratosDelClie
                                     placeholder='Tipo...'
                                 />
                             </div>
-                            <CrearContratoDelCliente detalleCliente={detalleCliente} />
+                            <Dropdown>
+                                <DropdownToggle>
+                                    <Button variant='solid' color='blue' icon='HeroPlus'>
+                                        Nuevo contrato
+                                    </Button>
+                                </DropdownToggle>
+                                <DropdownMenu>
+                                    <DropdownItem
+                                        onClick={() => setWizardAbierto('comercial')}>
+                                        Contrato comercial (servicios / licencia / venta)
+                                    </DropdownItem>
+                                    <DropdownItem
+                                        onClick={() => setWizardAbierto('trabajador')}>
+                                        Contrato laboral (trabajador)
+                                    </DropdownItem>
+                                </DropdownMenu>
+                            </Dropdown>
+                            {wizardAbierto === 'comercial' && (
+                                <CrearContratoDelCliente
+                                    detalleCliente={detalleCliente}
+                                    externalIsOpen
+                                    onExternalClose={() => setWizardAbierto(null)}
+                                />
+                            )}
+                            {wizardAbierto === 'trabajador' && (
+                                <CrearContratoDelCliente
+                                    detalleCliente={detalleCliente}
+                                    tipoFijo='trabajador'
+                                    externalIsOpen
+                                    onExternalClose={() => setWizardAbierto(null)}
+                                />
+                            )}
                         </div>
                     </CardHeaderChild>
                 </CardHeader>

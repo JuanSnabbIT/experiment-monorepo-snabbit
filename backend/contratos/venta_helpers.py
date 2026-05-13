@@ -161,7 +161,23 @@ def resolver_cuotas_venta(
     )
     cuotas_base = cuotas_venta
     if cuotas_base is None and contrato is not None:
-        cuotas_base = getattr(contrato, "cuotas_venta", None)
+        # Priorizar modelo desacoplado ContratoCuotaPago si tiene registros
+        try:
+            cuotas_qs = contrato.cuotas_pago.all()
+            if cuotas_qs.exists():
+                cuotas_base = [
+                    {
+                        "orden": c.numero_cuota,
+                        "porcentaje": float(c.porcentaje),
+                        "hito_pago_tipo": c.hito_pago_tipo,
+                        "hito_pago_descripcion": c.hito_pago_descripcion,
+                    }
+                    for c in cuotas_qs
+                ]
+        except Exception:
+            pass
+        if cuotas_base is None:
+            cuotas_base = getattr(contrato, "cuotas_venta", None)
 
     cuotas_normalizadas = normalizar_cuotas_venta(
         cuotas_base,

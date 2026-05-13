@@ -291,7 +291,11 @@ def generar_secciones_contrato(contrato):
             resultado.append(existente)
             continue
 
-        contenido = renderizar_seccion(seccion.contenido_template, contrato, etiquetas_map)
+        # Tipos titulo/subtitulo no tienen cuerpo de texto — no interpolar etiquetas
+        if seccion.tipo in ('titulo', 'subtitulo'):
+            contenido = ''
+        else:
+            contenido = renderizar_seccion(seccion.contenido_template, contrato, etiquetas_map)
 
         if existente:
             existente.contenido_renderizado = contenido

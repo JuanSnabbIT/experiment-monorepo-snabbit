@@ -6,12 +6,14 @@ import {
     IContratoAprobacionEstado,
     IContratoBorradorPayload,
     IContratoCondicionEspecial,
+    IContratoCuotaPago,
     IContratoEmpresaCliente,
     IContratoFirmaEstado,
     IContratoFirmaPreview,
     IContratoHistorialEvento,
     IContratoLicencia,
     IContratoMatching,
+    IContratoResumenPublico,
     IContratoServicio,
     IContratoVinculadoPorUsuario,
     IContratoVisita,
@@ -1009,6 +1011,120 @@ const contratoApi = RtkQueryService.injectEndpoints({
                 method: 'get',
             }),
         }),
+
+        // ─── Cuotas de pago (schedule desacoplado) ───
+        getCuotasPago: builder.query<IContratoCuotaPago[], number | string>({
+            query: (contratoId) => ({
+                url: `/api/contratos/${contratoId}/cuotas/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [{ type: 'Contrato', id: Number(id) }],
+        }),
+
+        setCuotasPago: builder.mutation<
+            IContratoCuotaPago[],
+            { id: number | string; cuotas: Omit<IContratoCuotaPago, 'id' | 'estado'>[] }
+        >({
+            query: ({ id, cuotas }) => ({
+                url: `/api/contratos/${id}/cuotas/`,
+                method: 'put',
+                data: { cuotas },
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+            ],
+        }),
+
+        // ─── Endpoints resolutores (FASE 9) ───────────────────────────────────
+
+        agregarItemComercial: builder.mutation<
+            IContratoEmpresaCliente,
+            {
+                id: number | string;
+                tipo_origen: 'servicio' | 'plan';
+                version_id: number;
+                cantidad?: number;
+                veces_por_mes?: number;
+                descuento_anual_porcentaje?: number | null;
+                es_addon?: boolean;
+            }
+        >({
+            query: ({ id, ...data }) => ({
+                url: `/api/contratos/${id}/agregar-item-comercial/`,
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoServicios',
+            ],
+        }),
+
+        agregarLicencia: builder.mutation<
+            IContratoEmpresaCliente,
+            {
+                id: number | string;
+                licencia_id: number;
+                cantidad?: number;
+                partner?: boolean;
+                fecha_inicio?: string | null;
+                fecha_fin?: string | null;
+            }
+        >({
+            query: ({ id, ...data }) => ({
+                url: `/api/contratos/${id}/agregar-licencia/`,
+                method: 'post',
+                data,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoLicencias',
+            ],
+        }),
+
+        eliminarItemComercial: builder.mutation<
+            IContratoEmpresaCliente,
+            { id: number | string; itemId: number | string }
+        >({
+            query: ({ id, itemId }) => ({
+                url: `/api/contratos/${id}/eliminar-item/${itemId}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoServicios',
+            ],
+        }),
+
+        eliminarContratoLicencia: builder.mutation<
+            IContratoEmpresaCliente,
+            { id: number | string; licenciaId: number | string }
+        >({
+            query: ({ id, licenciaId }) => ({
+                url: `/api/contratos/${id}/eliminar-licencia/${licenciaId}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'Contrato', id: Number(id) },
+                'Contratos',
+                'ContratoLicencias',
+            ],
+        }),
+
+        // ── Resumen público del contrato ──
+        getContratoResumenPublico: builder.query<IContratoResumenPublico, string>({
+            query: (uuid) => ({
+                url: `/api/public/contrato-resumen/${uuid}/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, uuid) => [
+                { type: 'Contrato', id: `resumen-${uuid}` },
+            ],
+        }),
     }),
 });
 
@@ -1099,6 +1215,15 @@ export const {
     // Matching OT-Contrato
     useGetContratosActivosClienteQuery,
     useGetProximoPeriodoFacturaQuery,
+    // Cuotas de pago
+    useGetCuotasPagoQuery,
+    useSetCuotasPagoMutation,
+    // Endpoints resolutores (FASE 9)
+    useAgregarItemComercialMutation,
+    useAgregarLicenciaMutation,
+    useEliminarItemComercialMutation,
+    useEliminarContratoLicenciaMutation,
+    useGetContratoResumenPublicoQuery,
 } = contratoApi;
 
 export default contratoApi;

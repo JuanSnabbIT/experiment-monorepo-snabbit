@@ -100,10 +100,10 @@ class ContratoEmpresaClienteModelTest(TestCase):
         self.assertEqual(contrato.estado, "activo")
 
     def test_constraint_fecha_fin_mayor_igual_fecha_inicio(self):
-        """El constraint de BD impide fecha_fin < fecha_inicio."""
-        from django.db import IntegrityError
+        """El constraint impide fecha_fin < fecha_inicio (ValidationError via clean() en save())."""
+        from django.core.exceptions import ValidationError
 
-        with self.assertRaises(IntegrityError):
+        with self.assertRaises(ValidationError):
             ContratoEmpresaCliente.objects.create(
                 empresa_prestadora=self.empresa_prestadora,
                 empresa_cliente=self.empresa_cliente,
@@ -146,6 +146,33 @@ class ContratoEmpresaClienteModelTest(TestCase):
 
         serializer = ContratoItemComercialSerializer(item)
         self.assertEqual(serializer.data["subtotal"], 1200.0)
+
+    def test_item_comercial_descuento_anual_porcentaje_aplica_en_total_anual(self):
+        """Con descuento_anual_porcentaje=10 y precio=100, total_anual = 100*12*0.90 = 1080."""
+        contrato = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            nombre="Contrato Descuento",
+            forma_pago_contractual="anual",
+        )
+        servicio = Servicio.objects.create(nombre="Soporte TI v2", categoria="soporte")
+        item = ContratoItemComercial.objects.create(
+            contrato=contrato,
+            tipo_origen="servicio",
+            servicio_version=servicio,
+            snapshot_nombre="Soporte TI v2",
+            cantidad=1,
+            veces_por_mes=1,
+            forma_pago="anual",
+            moneda="CLP",
+            precio_unitario_contratado=100,
+            descuento_anual_porcentaje=10,
+        )
+        item.recalcular_totales()
+        self.assertAlmostEqual(float(item.total_anual), 1080.0, places=2)
+        # total_mensual no cambia con el descuento anual
+        self.assertAlmostEqual(float(item.total_mensual), 100.0, places=2)
 
 
 class CatalogoModelTest(TestCase):
@@ -241,13 +268,14 @@ class ContratoLicenciaModelTest(TestCase):
         self.licencia_catalogo = Licencia.objects.create(
             nombre="Microsoft 365",
             proveedor="Microsoft",
+            modalidad_base="P1Y",
+            precio_venta=100,
         )
 
     def test_modalidad_anual_pago_mensual_reabre_solo_por_bloque_anual(self):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="p1y-m",
             cantidad=3,
             fecha_inicio=date.today() - timedelta(days=40),
         )
@@ -262,7 +290,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="p1y-m",
             cantidad=3,
             fecha_inicio=date.today() - timedelta(days=40),
         )
@@ -275,7 +302,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="p1y-m",
             cantidad=3,
             fecha_inicio=date.today() - timedelta(days=40),
         )
@@ -287,7 +313,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=2,
             fecha_inicio=date.today(),
         )
@@ -304,7 +329,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=2,
             fecha_inicio=date.today(),
         )
@@ -315,7 +339,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=2,
             fecha_inicio=date.today(),
         )
@@ -333,7 +356,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=2,
             fecha_inicio=date.today(),
         )
@@ -353,7 +375,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=3,
             fecha_inicio=date.today(),
         )
@@ -380,18 +401,17 @@ class ContratoLicenciaModelTest(TestCase):
         licencia_catalogo_adicional = Licencia.objects.create(
             nombre="Google Workspace",
             proveedor="Google",
+            modalidad_base="P1Y",
         )
         contrato_licencia_uno = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=3,
             fecha_inicio=date.today(),
         )
         contrato_licencia_dos = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=licencia_catalogo_adicional,
-            tipo_modalidad="anual",
             cantidad=3,
             fecha_inicio=date.today(),
         )
@@ -418,7 +438,6 @@ class ContratoLicenciaModelTest(TestCase):
         contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="anual",
             cantidad=2,
             fecha_inicio=date.today(),
         )
@@ -456,6 +475,106 @@ class ContratoLicenciaModelTest(TestCase):
         self.assertIn('correo_persona', form.errors)
 
 
+class ContratoItemComercialDetalleCobro(TestCase):
+    """Tests para el campo detalle_cobro en ContratoItemComercialSerializer."""
+
+    def setUp(self):
+        self.empresa_prestadora = Empresa.objects.create(nombre="Prestadora DC")
+        self.empresa_cliente = Empresa.objects.create(nombre="Cliente DC")
+        self.servicio = Servicio.objects.create(nombre="Servicio Test DC", categoria="soporte")
+        self.contrato_clp = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            nombre="Contrato CLP",
+            forma_pago_contractual="mensual",
+            moneda_cobro="CLP",
+        )
+
+    def _crear_item(self, contrato, moneda="CLP", precio=100, cantidad=1, veces=1, descuento=None):
+        item = ContratoItemComercial.objects.create(
+            contrato=contrato,
+            tipo_origen="servicio",
+            servicio_version=self.servicio,
+            snapshot_nombre="Servicio Test DC",
+            cantidad=cantidad,
+            veces_por_mes=veces,
+            forma_pago=contrato.forma_pago_contractual,
+            moneda=moneda,
+            precio_unitario_contratado=precio,
+            descuento_anual_porcentaje=descuento,
+        )
+        item.recalcular_totales()
+        item.save()
+        return item
+
+    def test_misma_moneda(self):
+        """Item CLP en contrato CLP: estado_conversion=misma_moneda, subtotal_convertido==subtotal_cobro."""
+        item = self._crear_item(self.contrato_clp, moneda="CLP", precio=100)
+        serializer = ContratoItemComercialSerializer(item)
+        dc = serializer.data["detalle_cobro"]
+        self.assertEqual(dc["estado_conversion"], "misma_moneda")
+        self.assertEqual(dc["subtotal_convertido"], dc["subtotal_cobro"])
+        self.assertEqual(dc["moneda_item"], "CLP")
+        self.assertEqual(dc["moneda_cobro"], "CLP")
+
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales", return_value=(1000, None))
+    def test_convertido_usd_a_clp(self, mock_tasa):
+        """Item USD en contrato CLP con tasa disponible: estado_conversion=convertido."""
+        item = self._crear_item(self.contrato_clp, moneda="USD", precio=10)
+        serializer = ContratoItemComercialSerializer(item)
+        dc = serializer.data["detalle_cobro"]
+        self.assertEqual(dc["estado_conversion"], "convertido")
+        self.assertIsNotNone(dc["subtotal_convertido"])
+        self.assertEqual(dc["moneda_item"], "USD")
+        self.assertEqual(dc["moneda_cobro"], "CLP")
+        self.assertAlmostEqual(dc["subtotal_convertido"], 10000.0, places=0)
+
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales", return_value=(None, None))
+    def test_sin_tipo_cambio(self, mock_tasa):
+        """Item USD en contrato CLP sin tasa disponible: estado_conversion=sin_tipo_cambio."""
+        item = self._crear_item(self.contrato_clp, moneda="USD", precio=10)
+        serializer = ContratoItemComercialSerializer(item)
+        dc = serializer.data["detalle_cobro"]
+        self.assertEqual(dc["estado_conversion"], "sin_tipo_cambio")
+        self.assertIsNone(dc["subtotal_convertido"])
+
+    def test_anual_con_descuento(self):
+        """descuento_anual_porcentaje=10, forma_pago anual: subtotal_anual = mensual*12*0.9."""
+        contrato_anual = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            nombre="Contrato Anual DC",
+            forma_pago_contractual="anual",
+            moneda_cobro="CLP",
+        )
+        item = self._crear_item(contrato_anual, moneda="CLP", precio=100, descuento=10)
+        serializer = ContratoItemComercialSerializer(item)
+        dc = serializer.data["detalle_cobro"]
+        self.assertAlmostEqual(dc["subtotal_mensual"], 100.0, places=2)
+        self.assertAlmostEqual(dc["subtotal_anual"], 1080.0, places=2)
+        self.assertAlmostEqual(dc["subtotal_cobro"], 1080.0, places=2)
+        self.assertEqual(dc["forma_pago_contractual"], "anual")
+
+    def test_pago_unico(self):
+        """forma_pago pago_unico: subtotal_cobro == subtotal_pago_unico."""
+        contrato_unico = ContratoEmpresaCliente.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            empresa_cliente=self.empresa_cliente,
+            fecha_inicio=date.today(),
+            nombre="Contrato Unico DC",
+            forma_pago_contractual="pago_unico",
+            moneda_cobro="CLP",
+        )
+        item = self._crear_item(contrato_unico, moneda="CLP", precio=500, cantidad=2)
+        serializer = ContratoItemComercialSerializer(item)
+        dc = serializer.data["detalle_cobro"]
+        self.assertEqual(dc["forma_pago_contractual"], "pago_unico")
+        self.assertAlmostEqual(dc["subtotal_cobro"], dc["subtotal_pago_unico"], places=2)
+        self.assertAlmostEqual(dc["subtotal_pago_unico"], 1000.0, places=2)
+
+
 class NotificacionVentanaLicenciaTaskTest(TestCase):
     def setUp(self):
         self.empresa_prestadora = Empresa.objects.create(nombre="Prestadora Ventana")
@@ -491,11 +610,11 @@ class NotificacionVentanaLicenciaTaskTest(TestCase):
         self.licencia_catalogo = Licencia.objects.create(
             nombre="Licencia Correo",
             proveedor="Microsoft",
+            modalidad_base="P1Y",
         )
         self.contrato_licencia = ContratoLicencia.objects.create(
             contrato=self.contrato,
             licencia=self.licencia_catalogo,
-            tipo_modalidad="p1y-m",
             cantidad=5,
             fecha_inicio=date.today(),
             estado="activa",
