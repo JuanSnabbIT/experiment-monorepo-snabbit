@@ -1,4 +1,4 @@
-python manage.py makemigrations core cuentas empresas calendario items activos bodegas visitas vacaciones recursos cotizaciones rendiciones contratos retroalimentacion ordentrabajov2 ordentrabajov3 notificaciones
+python manage.py makemigrations core cuentas empresas calendario items activos bodegas visitas vacaciones recursos cotizaciones rendiciones contratos retroalimentacion ordentrabajov2 ordentrabajov3 notificaciones rrhh
 
 
 
