@@ -1,0 +1,2341 @@
+{
+  "etiquetas": [
+    {
+      "id": 11,
+      "clave": "domicilio_cliente",
+      "nombre_display": "Domicilio del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.direccion_principal",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 13,
+      "clave": "email_cliente",
+      "nombre_display": "Email del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.email",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 12,
+      "clave": "giro_cliente",
+      "nombre_display": "Giro del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.giro",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 9,
+      "clave": "nombre_cliente",
+      "nombre_display": "Nombre del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.nombre",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 15,
+      "clave": "representante_cliente",
+      "nombre_display": "Representante Legal Cliente",
+      "categoria": "cliente",
+      "origen_dato": "representante_cliente.usuario.get_nombre_completo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 10,
+      "clave": "rut_cliente",
+      "nombre_display": "RUT del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.rut_empresa",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 16,
+      "clave": "rut_representante_cliente",
+      "nombre_display": "RUT Representante Cliente",
+      "categoria": "cliente",
+      "origen_dato": "representante_cliente.rut",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 14,
+      "clave": "telefono_cliente",
+      "nombre_display": "Teléfono del Cliente",
+      "categoria": "cliente",
+      "origen_dato": "empresa_cliente.telefono",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 22,
+      "clave": "dias_aviso_termino",
+      "nombre_display": "Días de Aviso para Término",
+      "categoria": "contrato",
+      "origen_dato": "contrato.dias_aviso_termino",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 17,
+      "clave": "fecha_contrato",
+      "nombre_display": "Fecha del Contrato",
+      "categoria": "contrato",
+      "origen_dato": "contrato.fecha_inicio",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 20,
+      "clave": "fecha_fin",
+      "nombre_display": "Fecha de Término",
+      "categoria": "contrato",
+      "origen_dato": "contrato.fecha_fin",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 19,
+      "clave": "fecha_inicio",
+      "nombre_display": "Fecha de Inicio",
+      "categoria": "contrato",
+      "origen_dato": "contrato.fecha_inicio",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 18,
+      "clave": "lugar_firma",
+      "nombre_display": "Lugar de Firma",
+      "categoria": "contrato",
+      "origen_dato": "contrato.lugar_firma",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 23,
+      "clave": "renovacion_automatica",
+      "nombre_display": "Renovación Automática",
+      "categoria": "contrato",
+      "origen_dato": "contrato.renovacion_automatica",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 21,
+      "clave": "vigencia_meses",
+      "nombre_display": "Vigencia en Meses",
+      "categoria": "contrato",
+      "origen_dato": "calculado:vigencia_meses",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 27,
+      "clave": "dia_facturacion",
+      "nombre_display": "Día de Facturación",
+      "categoria": "economico",
+      "origen_dato": "contrato.dia_facturacion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 26,
+      "clave": "forma_pago",
+      "nombre_display": "Forma de Pago",
+      "categoria": "economico",
+      "origen_dato": "contrato.get_forma_pago_contractual_display",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 24,
+      "clave": "moneda",
+      "nombre_display": "Moneda",
+      "categoria": "economico",
+      "origen_dato": "contrato.get_moneda_cobro_display",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 25,
+      "clave": "valor_total",
+      "nombre_display": "Valor Total",
+      "categoria": "economico",
+      "origen_dato": "contrato.total_items_comerciales",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 8,
+      "clave": "cargo_representante_proveedor",
+      "nombre_display": "Cargo Representante Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "representante_proveedor.cargo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 3,
+      "clave": "domicilio_proveedor",
+      "nombre_display": "Domicilio del Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "empresa_prestadora.direccion_principal",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 4,
+      "clave": "fantasia_proveedor",
+      "nombre_display": "Nombre Fantasía Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "empresa_prestadora.nombre_fantasia",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 5,
+      "clave": "giro_proveedor",
+      "nombre_display": "Giro del Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "empresa_prestadora.giro",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 1,
+      "clave": "nombre_proveedor",
+      "nombre_display": "Nombre del Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "empresa_prestadora.nombre",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 6,
+      "clave": "representante_proveedor",
+      "nombre_display": "Representante Legal Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "representante_proveedor.usuario.get_nombre_completo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 2,
+      "clave": "rut_proveedor",
+      "nombre_display": "RUT del Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "empresa_prestadora.rut_empresa",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 7,
+      "clave": "rut_representante_proveedor",
+      "nombre_display": "RUT Representante Proveedor",
+      "categoria": "proveedor",
+      "origen_dato": "representante_proveedor.rut",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 29,
+      "clave": "descripcion_servicio",
+      "nombre_display": "Descripción del Servicio",
+      "categoria": "servicio",
+      "origen_dato": "items_comerciales[0].snapshot_descripcion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 30,
+      "clave": "incluye_servicio",
+      "nombre_display": "Lo que Incluye",
+      "categoria": "servicio",
+      "origen_dato": "items_comerciales[0].snapshot_incluye",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 31,
+      "clave": "no_incluye_servicio",
+      "nombre_display": "Lo que No Incluye",
+      "categoria": "servicio",
+      "origen_dato": "items_comerciales[0].snapshot_no_incluye",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 28,
+      "clave": "nombre_plan",
+      "nombre_display": "Nombre del Plan/Servicio",
+      "categoria": "servicio",
+      "origen_dato": "items_comerciales[0].snapshot_nombre",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 60,
+      "clave": "afp",
+      "nombre_display": "AFP",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.afp",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 63,
+      "clave": "banco",
+      "nombre_display": "Banco",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.banco",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 58,
+      "clave": "bono_colacion",
+      "nombre_display": "Bono colacion",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.bono_colacion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 57,
+      "clave": "bono_movilizacion",
+      "nombre_display": "Bono movilizacion",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.bono_movilizacion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 45,
+      "clave": "cargo",
+      "nombre_display": "Cargo",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.cargo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 44,
+      "clave": "celular_trabajador",
+      "nombre_display": "Celular trabajador",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.celular",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 34,
+      "clave": "domicilio_empresa",
+      "nombre_display": "Domicilio empresa",
+      "categoria": "trabajador",
+      "origen_dato": "empresa.direccion_principal",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 40,
+      "clave": "domicilio_trabajador",
+      "nombre_display": "Domicilio trabajador",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.direccion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 39,
+      "clave": "email_trabajador",
+      "nombre_display": "Email trabajador",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.email",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 43,
+      "clave": "estado_civil",
+      "nombre_display": "Estado civil",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.estado_civil",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 66,
+      "clave": "fecha_firma",
+      "nombre_display": "Fecha de firma",
+      "categoria": "trabajador",
+      "origen_dato": "firma.fecha_firma",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 42,
+      "clave": "fecha_nacimiento",
+      "nombre_display": "Fecha de nacimiento",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.fecha_nacimiento",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 53,
+      "clave": "fecha_termino",
+      "nombre_display": "Fecha de termino",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.fecha_termino",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 46,
+      "clave": "funciones",
+      "nombre_display": "Funciones",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.funciones",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 59,
+      "clave": "gratificacion_legal",
+      "nombre_display": "Gratificacion legal",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.gratificacion_legal",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 51,
+      "clave": "horario_detalle",
+      "nombre_display": "Detalle de horario",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.horario_detalle",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 50,
+      "clave": "horas_semanales",
+      "nombre_display": "Horas semanales",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.horas_semanales",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 49,
+      "clave": "jornada_label",
+      "nombre_display": "Jornada",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.jornada",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 47,
+      "clave": "lugar_trabajo",
+      "nombre_display": "Lugar de trabajo",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.lugar_trabajo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 41,
+      "clave": "nacionalidad",
+      "nombre_display": "Nacionalidad",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.nacionalidad",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 32,
+      "clave": "nombre_empresa",
+      "nombre_display": "Nombre empresa empleadora",
+      "categoria": "trabajador",
+      "origen_dato": "empresa.nombre",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 62,
+      "clave": "nombre_isapre",
+      "nombre_display": "Nombre Isapre",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.nombre_isapre",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 37,
+      "clave": "nombre_trabajador",
+      "nombre_display": "Nombre trabajador",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.nombre_completo",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 65,
+      "clave": "numero_cuenta",
+      "nombre_display": "Numero de cuenta bancaria",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.numero_cuenta",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 35,
+      "clave": "representante_legal",
+      "nombre_display": "Representante legal",
+      "categoria": "trabajador",
+      "origen_dato": "empresa.representante_legal",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 33,
+      "clave": "rut_empresa",
+      "nombre_display": "RUT empresa empleadora",
+      "categoria": "trabajador",
+      "origen_dato": "empresa.rut_empresa",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 36,
+      "clave": "rut_representante",
+      "nombre_display": "RUT representante legal",
+      "categoria": "trabajador",
+      "origen_dato": "empresa.rut_representante",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 38,
+      "clave": "rut_trabajador",
+      "nombre_display": "RUT trabajador",
+      "categoria": "trabajador",
+      "origen_dato": "trabajador.rut",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 61,
+      "clave": "sistema_salud",
+      "nombre_display": "Sistema de salud",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.sistema_salud",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 54,
+      "clave": "sueldo_base",
+      "nombre_display": "Sueldo bruto",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.sueldo_base",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 55,
+      "clave": "sueldo_liquido",
+      "nombre_display": "Sueldo liquido",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.sueldo_liquido",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 56,
+      "clave": "sueldo_liquido_palabras",
+      "nombre_display": "Sueldo liquido en palabras",
+      "categoria": "trabajador",
+      "origen_dato": "remuneracion.sueldo_liquido_palabras",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 52,
+      "clave": "tiempo_colacion",
+      "nombre_display": "Minutos de colacion",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.tiempo_colacion",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 48,
+      "clave": "tipo_contrato_label",
+      "nombre_display": "Tipo de contrato",
+      "categoria": "trabajador",
+      "origen_dato": "contrato.tipo_contrato",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 64,
+      "clave": "tipo_cuenta",
+      "nombre_display": "Tipo de cuenta bancaria",
+      "categoria": "trabajador",
+      "origen_dato": "prevision.tipo_cuenta",
+      "descripcion": null,
+      "valor_default": null,
+      "empresa_prestadora_rut": null
+    }
+  ],
+  "caracteristicas": [
+    {
+      "id": 7,
+      "nombre": "Activación básica",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 62,
+      "nombre": "Administración de VPN",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 55,
+      "nombre": "Administración de agentes",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 72,
+      "nombre": "Administración de cluster y nodos",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 46,
+      "nombre": "Administración de recursos Azure",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 66,
+      "nombre": "Administración de sistema operativo",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 59,
+      "nombre": "Ajustes de rendimiento",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 29,
+      "nombre": "Alineación y calibración",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 44,
+      "nombre": "Almacenamiento cloud de terceros",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 12,
+      "nombre": "Alta/baja/modificación de usuarios",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 13,
+      "nombre": "Asignación de permisos y roles",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 38,
+      "nombre": "Aumento de capacidad de empalme",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 49,
+      "nombre": "Backup y continuidad operativa",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 58,
+      "nombre": "Cacería avanzada continua",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 34,
+      "nombre": "Canalización y puntos eléctricos",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 78,
+      "nombre": "Capacitación a usuario final",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 15,
+      "nombre": "Capacitación inicial",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 42,
+      "nombre": "Capacitación inicial de uso",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 39,
+      "nombre": "Certificaciones externas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 18,
+      "nombre": "Configuración básica/avanzada",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 11,
+      "nombre": "Configuración de cuentas de empresa",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 30,
+      "nombre": "Configuración de enlace",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 22,
+      "nombre": "Configuración de firewall",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 41,
+      "nombre": "Configuración de grabación",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 14,
+      "nombre": "Configuración funcional de software empresarial",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 50,
+      "nombre": "Desarrollo de aplicaciones",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 69,
+      "nombre": "Desarrollo de aplicaciones",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 76,
+      "nombre": "Desarrollo de microservicios",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 21,
+      "nombre": "Equipamiento no contemplado en propuesta",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 53,
+      "nombre": "Gestión de políticas de seguridad",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 47,
+      "nombre": "Gestión de usuarios y permisos",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 74,
+      "nombre": "Gestión operativa de despliegues",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 3,
+      "nombre": "Informe técnico post-servicio",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 79,
+      "nombre": "Informe técnico post-servicio",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 40,
+      "nombre": "Instalación de cámaras y NVR/DVR",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 17,
+      "nombre": "Instalación de equipos de red",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 6,
+      "nombre": "Instalación de software",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 45,
+      "nombre": "Integraciones avanzadas no solicitadas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 10,
+      "nombre": "Integraciones complejas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 65,
+      "nombre": "Licenciamiento del fabricante",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 52,
+      "nombre": "Licencias de terceros",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 80,
+      "nombre": "Licencias de terceros",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 51,
+      "nombre": "Migraciones complejas no planificadas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 70,
+      "nombre": "Migraciones complejas no planificadas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 16,
+      "nombre": "Migraciones masivas de datos OneDrive",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 43,
+      "nombre": "Monitoreo activo 24/7",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 54,
+      "nombre": "Monitoreo de alertas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 48,
+      "nombre": "Monitoreo y alertas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 68,
+      "nombre": "Monitoreo y backup operativo",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 28,
+      "nombre": "Montaje de antenas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 20,
+      "nombre": "Obra civil mayor",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 5,
+      "nombre": "Obras civiles/eléctricas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 33,
+      "nombre": "Obras en altura especializadas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 73,
+      "nombre": "Observabilidad y monitoreo",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 36,
+      "nombre": "Ordenamiento de alimentación",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 9,
+      "nombre": "Parametrización avanzada",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 67,
+      "nombre": "Parches y actualizaciones",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 32,
+      "nombre": "Permisos municipales/propietario",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 23,
+      "nombre": "Políticas de seguridad base",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 35,
+      "nombre": "Protecciones eléctricas básicas",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 19,
+      "nombre": "Pruebas de conectividad",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 31,
+      "nombre": "Pruebas de throughput y estabilidad",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 25,
+      "nombre": "Pruebas de validación y hardening inicial",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 60,
+      "nombre": "Recableado físico",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 64,
+      "nombre": "Rediseño integral de arquitectura",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 4,
+      "nombre": "Reemplazo de componentes fuera de garantía",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 61,
+      "nombre": "Reemplazo de hardware",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 75,
+      "nombre": "Refactor de aplicaciones no cloud-native",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 24,
+      "nombre": "Reglas de acceso",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 57,
+      "nombre": "Reglas y alertas iniciales",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 56,
+      "nombre": "Reporte técnico periódico",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 27,
+      "nombre": "Respuesta forense avanzada",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 63,
+      "nombre": "Revisión de eventos y reportes",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 26,
+      "nombre": "SOC 24/7",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 71,
+      "nombre": "Soporte a software de terceros sin contrato",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 77,
+      "nombre": "Soporte de vendor externo sin acuerdo",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 81,
+      "nombre": "Soporte evolutivo posterior sin contrato",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 2,
+      "nombre": "Soporte presencial",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 1,
+      "nombre": "Soporte remoto",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 8,
+      "nombre": "Verificación funcional",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 37,
+      "nombre": "Verificación operativa",
+      "descripcion": "",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    }
+  ],
+  "servicios": [
+    {
+      "id": 15,
+      "nombre": "Administración de Cluster Kubernetes",
+      "descripcion": "Operación y administración de cluster Kubernetes para despliegue, disponibilidad y continuidad de cargas productivas.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "3.4000",
+      "tipo_moneda": "UF",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Administración de cluster y nodos\nPolíticas de seguridad base\nObservabilidad y monitoreo\nGestión operativa de despliegues",
+      "no_incluye": "Refactor de aplicaciones no cloud-native\nDesarrollo de microservicios\nSoporte de vendor externo sin acuerdo",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Administración de cluster y nodos",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Políticas de seguridad base",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Observabilidad y monitoreo",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Gestión operativa de despliegues",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Refactor de aplicaciones no cloud-native",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Desarrollo de microservicios",
+          "modo": "no_incluye",
+          "orden": 6
+        },
+        {
+          "caracteristica_nombre": "Soporte de vendor externo sin acuerdo",
+          "modo": "no_incluye",
+          "orden": 7
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 9,
+      "nombre": "Administración de Entorno Azure Cloud",
+      "descripcion": "Operación y administración de recursos en Azure (identidad, compute, red, backup, monitoreo y control de costos).",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "2.8000",
+      "tipo_moneda": "UF",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Administración de recursos Azure\nGestión de usuarios y permisos\nMonitoreo y alertas\nBackup y continuidad operativa",
+      "no_incluye": "Desarrollo de aplicaciones\nMigraciones complejas no planificadas\nLicencias de terceros",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Administración de recursos Azure",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Gestión de usuarios y permisos",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Monitoreo y alertas",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Backup y continuidad operativa",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Desarrollo de aplicaciones",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Migraciones complejas no planificadas",
+          "modo": "no_incluye",
+          "orden": 6
+        },
+        {
+          "caracteristica_nombre": "Licencias de terceros",
+          "modo": "no_incluye",
+          "orden": 7
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 12,
+      "nombre": "Administración de Red Cloud-Managed Cisco Meraki",
+      "descripcion": "Administración de infraestructura Meraki (switching, wireless, seguridad y políticas) en operación continua.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "80000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración básica/avanzada\nReglas de acceso\nMonitoreo de alertas\nAjustes de rendimiento",
+      "no_incluye": "Recableado físico\nReemplazo de hardware",
+      "clausulas_especiales": "Cambios de topología requieren aprobación y plan de implementación.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración básica/avanzada",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Reglas de acceso",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Monitoreo de alertas",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Ajustes de rendimiento",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Recableado físico",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Reemplazo de hardware",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 11,
+      "nombre": "Administración de SIEM Microsoft Sentinel",
+      "descripcion": "Operación de Sentinel para correlación de eventos, reglas analíticas, alertamiento y visibilidad de seguridad.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "2.4000",
+      "tipo_moneda": "UF",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración básica/avanzada\nReglas y alertas iniciales\nVerificación operativa",
+      "no_incluye": "SOC 24/7\nRespuesta forense avanzada\nCacería avanzada continua",
+      "clausulas_especiales": "Costos de ingesta y retencion de logs son del cliente",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración básica/avanzada",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Reglas y alertas iniciales",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Verificación operativa",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "SOC 24/7",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Respuesta forense avanzada",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Cacería avanzada continua",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 10,
+      "nombre": "Administración de Seguridad Endpoint (Kaspersky)",
+      "descripcion": "Gestión de plataforma Kaspersky para protección de endpoints, políticas, actualizaciones y respuesta operativa inicial.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "65000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Gestión de políticas de seguridad\nMonitoreo de alertas\nAdministración de agentes\nReporte técnico periódico",
+      "no_incluye": "Respuesta forense avanzada",
+      "clausulas_especiales": "Requiere inventario actualizado de equipos y acceso administrativo del cliente.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Gestión de políticas de seguridad",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Monitoreo de alertas",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Administración de agentes",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Reporte técnico periódico",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Respuesta forense avanzada",
+          "modo": "no_incluye",
+          "orden": 5
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 13,
+      "nombre": "Administración de Seguridad Perimetral Fortinet",
+      "descripcion": "Operación de firewalls Fortinet para control perimetral, VPN, políticas de acceso y continuidad de seguridad.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "2.1000",
+      "tipo_moneda": "UF",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración de firewall\nAdministración de VPN\nPruebas de validación y hardening inicial\nRevisión de eventos y reportes\nLicenciamiento del fabricante",
+      "no_incluye": "Rediseño integral de arquitectura\nSOC 24/7",
+      "clausulas_especiales": "Cambios de reglas en producción se ejecutan con validación previa del cliente",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración de firewall",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Administración de VPN",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Pruebas de validación y hardening inicial",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Revisión de eventos y reportes",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Rediseño integral de arquitectura",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "SOC 24/7",
+          "modo": "no_incluye",
+          "orden": 6
+        },
+        {
+          "caracteristica_nombre": "Licenciamiento del fabricante",
+          "modo": "incluye",
+          "orden": 7
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 14,
+      "nombre": "Administración de VPS Linux",
+      "descripcion": "Provisionamiento, hardening, operación y mantenimiento de servidores VPS Linux en producción.",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "2.2000",
+      "tipo_moneda": "UF",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Administración de sistema operativo\nGestión de usuarios y permisos\nParches y actualizaciones\nMonitoreo y backup operativo",
+      "no_incluye": "Desarrollo de aplicaciones\nMigraciones complejas no planificadas\nSoporte a software de terceros sin contrato",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Administración de sistema operativo",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Gestión de usuarios y permisos",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Parches y actualizaciones",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Monitoreo y backup operativo",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Desarrollo de aplicaciones",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Migraciones complejas no planificadas",
+          "modo": "no_incluye",
+          "orden": 6
+        },
+        {
+          "caracteristica_nombre": "Soporte a software de terceros sin contrato",
+          "modo": "no_incluye",
+          "orden": 7
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 3,
+      "nombre": "Configuración de Cuentas Empresa y Software",
+      "descripcion": "Configuración de cuentas corporativas y parametrización de software, incluyendo correo empresa, usuarios, permisos, perfiles y políticas operativas.",
+      "categoria": "soporte",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "48000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración de cuentas de empresa\nAlta/baja/modificación de usuarios\nAsignación de permisos y roles\nConfiguración funcional de software empresarial\nMigraciones masivas de datos OneDrive",
+      "no_incluye": "Capacitación inicial",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración de cuentas de empresa",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Alta/baja/modificación de usuarios",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Asignación de permisos y roles",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Configuración funcional de software empresarial",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Capacitación inicial",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Migraciones masivas de datos OneDrive",
+          "modo": "incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 16,
+      "nombre": "Desarrollo de Software a Medida",
+      "descripcion": "Análisis, diseño, desarrollo, pruebas y despliegue de soluciones de software según requerimientos del cliente.",
+      "categoria": "desarrollo",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "95000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración básica/avanzada\nCapacitación a usuario final\nInforme técnico post-servicio",
+      "no_incluye": "Licencias de terceros\nSoporte evolutivo posterior sin contrato",
+      "clausulas_especiales": "Trabajo por alcance y entregables; cambios de alcance se gestionan por control de cambios.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración básica/avanzada",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Capacitación a usuario final",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Informe técnico post-servicio",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Licencias de terceros",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Soporte evolutivo posterior sin contrato",
+          "modo": "no_incluye",
+          "orden": 5
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 8,
+      "nombre": "Implementación de CCTV",
+      "descripcion": "Instalación y puesta en marcha de sistema CCTV con cámaras, grabador y acceso de visualización según requerimiento.",
+      "categoria": "mantencion",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "150000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Instalación de cámaras y NVR/DVR\nConfiguración de grabación\nCapacitación inicial de uso\nAlmacenamiento cloud de terceros",
+      "no_incluye": "Monitoreo activo 24/7\nIntegraciones avanzadas no solicitadas",
+      "clausulas_especiales": "Retención de grabaciones depende de capacidad de almacenamiento contratada.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Instalación de cámaras y NVR/DVR",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Configuración de grabación",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Capacitación inicial de uso",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Monitoreo activo 24/7",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Almacenamiento cloud de terceros",
+          "modo": "incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Integraciones avanzadas no solicitadas",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 4,
+      "nombre": "Implementación de Redes LAN/Wifi",
+      "descripcion": "Diseño e implementación de red cableada e inalámbrica para operación empresarial, con segmentación y validación de conectividad.",
+      "categoria": "mantencion",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "160000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Instalación de equipos de red\nConfiguración básica/avanzada\nPruebas de conectividad",
+      "no_incluye": "Obra civil mayor\nEquipamiento no contemplado en propuesta",
+      "clausulas_especiales": "Requiere levantamiento técnico previo",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Instalación de equipos de red",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Configuración básica/avanzada",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Pruebas de conectividad",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Obra civil mayor",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Equipamiento no contemplado en propuesta",
+          "modo": "no_incluye",
+          "orden": 5
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 5,
+      "nombre": "Implementación de Seguridad Perimetral",
+      "descripcion": "Implementación y puesta en marcha de seguridad perimetral (firewall/UTM, políticas de acceso, VPN y reglas base).",
+      "categoria": "datacenter",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "190000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Configuración de firewall\nPolíticas de seguridad base\nReglas de acceso\nPruebas de validación y hardening inicial",
+      "no_incluye": "SOC 24/7\nRespuesta forense avanzada",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Configuración de firewall",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Políticas de seguridad base",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Reglas de acceso",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Pruebas de validación y hardening inicial",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "SOC 24/7",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Respuesta forense avanzada",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 7,
+      "nombre": "Instalaciones Eléctricas para Infraestructura TI",
+      "descripcion": "Implementación eléctrica de soporte para equipos TI, telecomunicaciones y seguridad, con criterios de seguridad y continuidad.",
+      "categoria": "mantencion",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "175000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Canalización y puntos eléctricos\nProtecciones eléctricas básicas\nOrdenamiento de alimentación\nVerificación operativa",
+      "no_incluye": "Aumento de capacidad de empalme\nObra civil mayor\nCertificaciones externas",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Canalización y puntos eléctricos",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Protecciones eléctricas básicas",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Ordenamiento de alimentación",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Verificación operativa",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Aumento de capacidad de empalme",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Obra civil mayor",
+          "modo": "no_incluye",
+          "orden": 6
+        },
+        {
+          "caracteristica_nombre": "Certificaciones externas",
+          "modo": "no_incluye",
+          "orden": 7
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 6,
+      "nombre": "Instalación de Antenas Punto a Punto",
+      "descripcion": "Instalación, alineación y configuración de enlaces inalámbricos punto a punto para interconexión de sedes.",
+      "categoria": "mantencion",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "210000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Montaje de antenas\nAlineación y calibración\nConfiguración de enlace\nPruebas de throughput y estabilidad",
+      "no_incluye": "Permisos municipales/propietario\nObras en altura especializadas",
+      "clausulas_especiales": null,
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Montaje de antenas",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Alineación y calibración",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Configuración de enlace",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Pruebas de throughput y estabilidad",
+          "modo": "incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Permisos municipales/propietario",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Obras en altura especializadas",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 2,
+      "nombre": "Instalación de Software",
+      "descripcion": "Instalacion inicial de aplicaciones empresariales y herramientas de usuario en equipos o servidores, con validacion de funcionamiento.",
+      "categoria": "soporte",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "40000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Instalación de software\nActivación básica\nVerificación funcional",
+      "no_incluye": "Informe técnico post-servicio\nParametrización avanzada\nIntegraciones complejas",
+      "clausulas_especiales": "Clausulas especiales: Licencias y suscripciones de terceros no incluidas.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Instalación de software",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Activación básica",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Verificación funcional",
+          "modo": "incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Informe técnico post-servicio",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Parametrización avanzada",
+          "modo": "no_incluye",
+          "orden": 5
+        },
+        {
+          "caracteristica_nombre": "Integraciones complejas",
+          "modo": "no_incluye",
+          "orden": 6
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 1,
+      "nombre": "Soporte Técnico de Hardware",
+      "descripcion": "Diagnostico, mantención preventiva/correctiva y continuidad operativa de estaciones, servidores y periféricos.",
+      "categoria": "soporte",
+      "activo": true,
+      "es_vigente": true,
+      "precio": "55000.0000",
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Soporte remoto\nSoporte presencial",
+      "no_incluye": "Informe técnico post-servicio\nReemplazo de componentes fuera de garantía\nObras civiles/eléctricas",
+      "clausulas_especiales": "Atención en horario hábil; soporte fuera de horario se cotiza como adicional.",
+      "version": 1,
+      "alcance_items": [
+        {
+          "caracteristica_nombre": "Soporte remoto",
+          "modo": "incluye",
+          "orden": 1
+        },
+        {
+          "caracteristica_nombre": "Soporte presencial",
+          "modo": "incluye",
+          "orden": 2
+        },
+        {
+          "caracteristica_nombre": "Informe técnico post-servicio",
+          "modo": "no_incluye",
+          "orden": 3
+        },
+        {
+          "caracteristica_nombre": "Reemplazo de componentes fuera de garantía",
+          "modo": "no_incluye",
+          "orden": 4
+        },
+        {
+          "caracteristica_nombre": "Obras civiles/eléctricas",
+          "modo": "no_incluye",
+          "orden": 5
+        }
+      ],
+      "empresa_prestadora_rut": null
+    }
+  ],
+  "licencias": [
+    {
+      "id": 1,
+      "nombre": "Microsoft 365 Business Basic",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "0.00",
+      "precio_venta": "0.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 2,
+      "nombre": "Microsoft 365 Business Standard",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "0.00",
+      "precio_venta": "0.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 3,
+      "nombre": "Microsoft Copilot para Microsoft 365",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "0.00",
+      "precio_venta": "0.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 4,
+      "nombre": "Microsoft Power BI Pro",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "113.00",
+      "precio_venta": "1400.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 6,
+      "nombre": "Microsoft Teams Enterprise",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "10.00",
+      "precio_venta": "100.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 5,
+      "nombre": "Microsoft Teams Essentials",
+      "proveedor": "Microsoft",
+      "descripcion": "",
+      "numero_parte": null,
+      "modalidad_base": "PAGO_UNICO",
+      "modalidad_anual_forma_pago": null,
+      "precio_partner": "30.00",
+      "precio_venta": "290.00",
+      "moneda": "USD",
+      "activo": true,
+      "empresa_prestadora_rut": null
+    }
+  ],
+  "planes": [
+    {
+      "id": 2,
+      "nombre": "Plan Basico Infraestructura",
+      "descripcion": "Cobertura inicial para infraestructura de red y circuito cerrado de vigilancia en sitio.",
+      "version": 1,
+      "activo": true,
+      "es_vigente": true,
+      "precio": "279000.0000",
+      "precio_anual": null,
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "num_visitas_mensuales": 2,
+      "formas_pago_permitidas": [],
+      "incluye": "Implementacion de redes LAN/Wifi e implementacion de CCTV en esquema base.",
+      "no_incluye": "Antenas punto a punto, obras electricas complejas y rediseno completo de infraestructura.",
+      "clausulas_especiales": null,
+      "detalles_servicio": [
+        {
+          "servicio_nombre": "Implementación de Redes LAN/Wifi",
+          "orden": 1,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        },
+        {
+          "servicio_nombre": "Implementación de CCTV",
+          "orden": 2,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 3,
+      "nombre": "Plan Basico Seguridad y Gestion",
+      "descripcion": "Cobertura base para seguridad perimetral y administracion centralizada de red corporativa.",
+      "version": 1,
+      "activo": true,
+      "es_vigente": true,
+      "precio": "299000.0000",
+      "precio_anual": null,
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "num_visitas_mensuales": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Seguridad perimetral, seguridad endpoint y gestion de red cloud-managed.",
+      "no_incluye": "Operacion avanzada SIEM, Kubernetes y servicios cloud fuera de alcance basico.",
+      "clausulas_especiales": null,
+      "detalles_servicio": [
+        {
+          "servicio_nombre": "Implementación de Seguridad Perimetral",
+          "orden": 1,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        },
+        {
+          "servicio_nombre": "Administración de Seguridad Endpoint (Kaspersky)",
+          "orden": 2,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        },
+        {
+          "servicio_nombre": "Administración de Red Cloud-Managed Cisco Meraki",
+          "orden": 3,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        }
+      ],
+      "empresa_prestadora_rut": null
+    },
+    {
+      "id": 1,
+      "nombre": "Plan Basico Soporte TI",
+      "descripcion": "Cobertura base para incidencias de usuario final y configuracion inicial de estaciones.",
+      "version": 1,
+      "activo": true,
+      "es_vigente": true,
+      "precio": "129000.0000",
+      "precio_anual": null,
+      "tipo_moneda": "CLP",
+      "veces_por_mes_default": 1,
+      "num_visitas_mensuales": 1,
+      "formas_pago_permitidas": [],
+      "incluye": "Soporte de hardware, instalacion de software y configuracion de cuentas empresariales.",
+      "no_incluye": "Proyectos de red avanzada, datacenter o desarrollo a medida.",
+      "clausulas_especiales": null,
+      "detalles_servicio": [
+        {
+          "servicio_nombre": "Soporte Técnico de Hardware",
+          "orden": 1,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        },
+        {
+          "servicio_nombre": "Instalación de Software",
+          "orden": 2,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        },
+        {
+          "servicio_nombre": "Configuración de Cuentas Empresa y Software",
+          "orden": 3,
+          "obligatorio": true,
+          "cantidad_default": 1,
+          "veces_por_mes_default": 1
+        }
+      ],
+      "empresa_prestadora_rut": null
+    }
+  ],
+  "plantilla_servicios": {
+    "titulo": "CONTRATO DE SERVICIOS TECNOLOGICOS Y ASESORIAS",
+    "descripcion": "Plantilla base de contrato de servicios tecnológicos y asesorías generada por seed.",
+    "version": 1,
+    "tipo_contrato": "servicios",
+    "activa": true,
+    "requiere_nda": false,
+    "orden_bloque_alcance": 1000,
+    "orden_bloque_operacion": 2000,
+    "orden_bloque_condiciones": 3000,
+    "secciones": [
+      {
+        "titulo": "Cláusula de Confidencialidad",
+        "tipo": "clausula",
+        "contenido_template": "[nombre_proveedor] se compromete a mantener reserva respecto a todos los asuntos que lleguen a su conocimiento, directa o indirectamente, respecto de las técnicas, costos de producción, clientes, negocios o asuntos de  [nombre_cliente], o de sus proveedores y clientes, de cualquier naturaleza que sean y a no divulgar información del desempeño de sus servicios ni a retirar cualquier tipo de documentos, equipos, o elementos de propiedad de [nombre_cliente].",
+        "orden": 4,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "PRIMERO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "[nombre_proveedor], es una sociedad de Responsabilidad Limitada, dedicada a la prestación de servicios en las áreas de gestiones empresariales, contabilidad, selección de personal y servicios tecnológicos, que cuenta con un grupo de profesionales altamente capacitados en cada una de sus áreas, para otorgar la completa tranquilidad que nuestros clientes necesitan. El compromiso es con nuestros clientes.",
+        "orden": 5,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "SEGUNDO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "Por cliente se entiende a la persona natural o jurídica que suscribe el presente contrato, en virtud al cual se le hace prestación de servicios antes suscritos.",
+        "orden": 6,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "TERCERO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "[nombre_proveedor], se obliga a disponer y mantener personal suficiente y calificado para brindar el servicio contratado. Sin perjuicio de lo anterior, [nombre_proveedor], podrá modificar su planta de profesionales, asignando un nuevo trabajador a la atención del CLIENTE.",
+        "orden": 7,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "CUARTO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "El CLIENTE se obliga a pagar a [nombre_proveedor], por concepto de honorarios derivados de la prestación de servicios contratados, la suma establecida en la cláusula 3 de su plan seleccionado y en las fechas pactadas en la misma clausula.",
+        "orden": 8,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "QUINTO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "[nombre_proveedor], se compromete a mantener en estricta confidencialidad toda información inherente a los servicios administrativos-contables y/o asesorías tecnológicas otorgados al CLIENTE cumpliendo con la normativa vigente y el Código de Ética que resguarda el secreto profesional. Además, se anexa a este contrato un acuerdo de confidencialidad que será firmado entre [nombre_proveedor] y el CLIENTE.",
+        "orden": 9,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "SEXTO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "La vigencia del contrato será de un año y se renovará automáticamente si ninguna de las partes avisa a la otra por escrito su intención de no renovarlo por lo menos 60 días antes de su fecha de vencimiento, si se desea dar de baja de los servicios, deberá ser previo aviso como se ha señalado anteriormente con 60 días de anticipación al término que se señale, cancelándose estas últimas mensualidades.\n El valor del contrato será modificado si las condiciones de los servicios originales pactados en el presente contrato cambiarán generando un nuevo contrato o un anexo a este documento.",
+        "orden": 10,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "SEPTIMO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "Todos los servicios que no se encuentren especificados en este contrato, se entienden como servicios adicionales y serán facturados como adicionales, previa cotización y confirmación por el CLIENTE. Asimismo, si cambian las condiciones pactadas en este contrato, se realizarán anexos de contrato con el detalle de los nuevos servicios y valores adicionales.",
+        "orden": 11,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "OCTAVO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "De haber término del contrato deben estar canceladas en su totalidad las mensualidades hasta la fecha de término, cualquier irregularidad en el término del presente contrato dará derecho a [nombre_proveedor] a aplicar medidas compensatorias.",
+        "orden": 12,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      },
+      {
+        "titulo": "NOVENO",
+        "tipo": "condiciones_generales",
+        "contenido_template": "EL CLIENTE, da Fe de conocer las condiciones y términos del contrato entre su prestador de servicios [nombre_proveedor].",
+        "orden": 13,
+        "slot_documental": null,
+        "orden_en_slot": null,
+        "es_editable_en_contrato": true,
+        "es_obligatoria": true
+      }
+    ]
+  }
+}

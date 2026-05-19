@@ -1,174 +1,177 @@
 {
-    "folders": [
-        {
-            "path": "."
-        }
-    ],
-    "settings": {
-        // --- Copilot: Habilitar uso de archivos de instrucciones ---
-        "github.copilot.chat.codeGeneration.useInstructionFiles": true,
-
-        // --- Instrucciones para generación de código ---
-        "github.copilot.chat.codeGeneration.instructions": [
-            {
-                "text": "Asegúrate de seguir las buenas prácticas de desarrollo: código seguro, eficiente y fácil de mantener. Divide en funciones/clases cuando mejore legibilidad. Incluye comentarios en partes complejas. Sigue las convenciones de este monorepo (Django + DRF + React + TypeScript)."
-            },
-            {
-                "file": "AGENTS.md"
-            },
-            {
-                "file": ".github\\copilot-instructions.md"
-            },
-            {
-                "file": ".github\\instructions\\backend-guide.md"
-            },
-            {
-                "file": ".github\\instructions\\typescript.instructions.md"
-            },
-            {
-                "file": ".github\\instructions\\frontend-patterns.md"
-            },
-            {
-                "file": ".github\\instructions\\rtk-query-best-practices.md"
-            },
-            {
-                "file": ".github\\instructions\\visual-consistency.md"
-            },
-            {
-                "file": ".github\\instructions\\test.instructions.md"
-            }
-        ],
-
-        // --- Instrucciones para mensajes de commit ---
-        "github.copilot.chat.commitMessageGeneration.instructions": [
-            {
-                "text": "Usa mensajes de commit en español. Sigue el formato: tipo(scope): descripción corta. Tipos permitidos: feat, fix, refactor, docs, test, chore. Ejemplo: 'feat(ordentrabajov2): agregar endpoint de cierre de OT'."
-            }
-        ],
-
-        // --- Instrucciones para revisión de código ---
-        "github.copilot.chat.reviewSelection.instructions": [
-            {
-                "text": "Revisa que el código siga las buenas prácticas de este proyecto. Verifica: multi-tenancy (filtro por empresa), migraciones pendientes, uso correcto de RTK Query (sin refetch manual), componentes de tema_base, interfaces con prefijo I, y manejo de errores con getErrorMessage."
-            },
-            {
-                "file": "AGENTS.md"
-            },
-            {
-                "file": ".github\\copilot-instructions.md"
-            },
-            {
-                "file": ".github\\instructions\\backend-guide.md"
-            },
-            {
-                "file": ".github\\instructions\\typescript.instructions.md"
-            },
-            {
-                "file": ".github\\instructions\\frontend-patterns.md"
-            },
-            {
-                "file": ".github\\instructions\\rtk-query-best-practices.md"
-            },
-            {
-                "file": ".github\\instructions\\visual-consistency.md"
-            },
-            {
-                "file": ".github\\instructions\\deployment.md"
-            },
-            {
-                "file": ".github\\instructions\\test.instructions.md"
-            }
-        ],
-
-        // --- Copilot: Configuración general ---
-        "github.copilot.chat.customInstructionsInSystemMessage": true,
-        "github.copilot.chat.localeOverride": "es",
-        "github.copilot.chat.codesearch.enabled": true,
-        "github.copilot.chat.agent.thinkingTool": true,
-        "github.copilot.nextEditSuggestions.enabled": true,
-        "github.copilot.enable": {
-            "*": true,
-            "plaintext": true,
-            "markdown": true,
-            "scminput": false
-        },
-        "chat.agent.maxRequests": 50,
-
-        // --- Terminal ---
-        "terminal.integrated.profiles.windows": {
-            "Command Prompt (ENV)": {
-                "path": "C:\\Windows\\System32\\cmd.exe",
-                "args": ["/K", "C:\\ProgramData\\anaconda3\\Scripts\\activate ENV"]
-            },
-            "PowerShell (ENV)": {
-                "source": "PowerShell",
-                "args": [
-                    "-NoExit",
-                    "-Command",
-                    "& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
-                ]
-            },
-            "PowerShell": {
-                "source": "PowerShell",
-                "args": []
-            }
-        },
-        "terminal.integrated.defaultProfile.windows": "PowerShell (ENV)",
-        "terminal.integrated.automationProfile.windows": {
-            "source": "PowerShell",
-            "args": [
-                "-NoExit",
-                "-Command",
-                "& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
-            ]
-        },
-
-        // --- Formateo automático ---
-        "editor.formatOnSave": true,
-        "[python]": {
-            "editor.defaultFormatter": "ms-python.python"
-        },
-        "[typescript]": {
-            "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-        "[typescriptreact]": {
-            "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-        "[json]": {
-            "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-
-        // --- Python: intérprete y activación de entorno en terminal ---
-        "python.defaultInterpreterPath": "${env:USERPROFILE}\\.conda\\envs\\ENV\\python.exe",
-        "python.condaPath": "conda",
-        "python.terminal.activateEnvironment": false,
-
-        // --- Git ---
-        "git.autofetch": true,
-
-        // --- Exclusiones del explorador ---
-        "files.exclude": {
-            "**/.git": true,
-            "**/.svn": true,
-            "**/.hg": true,
-            "**/CVS": true,
-            "**/.DS_Store": true,
-            "**/Thumbs.db": true,
-            "**/__pycache__": true,
-            "frontend/dist/": true,
-            "frontend/node_modules/": true,
-            "tema_base/fyr-vite/node_modules/": true
-        },
-
-        // --- Exclusiones de búsqueda ---
-        "search.exclude": {
-            "**/node_modules": true,
-            "**/__pycache__": true,
-            "**/migrations": true,
-            "frontend/dist/": true,
-            "tema_base/": true,
-            "backend/celerybeat-schedule": true,
-            "**/*.code-search": true
-        }
-    }
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"github.copilot.chat.codeGeneration.useInstructionFiles": true,
+		"github.copilot.chat.codeGeneration.instructions": [
+			{
+				"text": "Asegúrate de seguir las buenas prácticas de desarrollo: código seguro, eficiente y fácil de mantener. Divide en funciones/clases cuando mejore legibilidad. Incluye comentarios en partes complejas. Sigue las convenciones de este monorepo (Django + DRF + React + TypeScript)."
+			},
+			{
+				"file": "AGENTS.md"
+			},
+			{
+				"file": ".github\\copilot-instructions.md"
+			},
+			{
+				"file": ".github\\instructions\\backend-guide.md"
+			},
+			{
+				"file": ".github\\instructions\\typescript.instructions.md"
+			},
+			{
+				"file": ".github\\instructions\\frontend-patterns.md"
+			},
+			{
+				"file": ".github\\instructions\\rtk-query-best-practices.md"
+			},
+			{
+				"file": ".github\\instructions\\visual-consistency.md"
+			},
+			{
+				"file": ".github\\instructions\\test.instructions.md"
+			}
+		],
+		"github.copilot.chat.commitMessageGeneration.instructions": [
+			{
+				"text": "Usa mensajes de commit en español. Sigue el formato: tipo(scope): descripción corta. Tipos permitidos: feat, fix, refactor, docs, test, chore. Ejemplo: 'feat(ordentrabajov2): agregar endpoint de cierre de OT'."
+			}
+		],
+		"github.copilot.chat.reviewSelection.instructions": [
+			{
+				"text": "Revisa que el código siga las buenas prácticas de este proyecto. Verifica: multi-tenancy (filtro por empresa), migraciones pendientes, uso correcto de RTK Query (sin refetch manual), componentes de tema_base, interfaces con prefijo I, y manejo de errores con getErrorMessage."
+			},
+			{
+				"file": "AGENTS.md"
+			},
+			{
+				"file": ".github\\copilot-instructions.md"
+			},
+			{
+				"file": ".github\\instructions\\backend-guide.md"
+			},
+			{
+				"file": ".github\\instructions\\typescript.instructions.md"
+			},
+			{
+				"file": ".github\\instructions\\frontend-patterns.md"
+			},
+			{
+				"file": ".github\\instructions\\rtk-query-best-practices.md"
+			},
+			{
+				"file": ".github\\instructions\\visual-consistency.md"
+			},
+			{
+				"file": ".github\\instructions\\deployment.md"
+			},
+			{
+				"file": ".github\\instructions\\test.instructions.md"
+			}
+		],
+		"github.copilot.chat.customInstructionsInSystemMessage": true,
+		"github.copilot.chat.localeOverride": "es",
+		"github.copilot.chat.codesearch.enabled": true,
+		"github.copilot.chat.agent.thinkingTool": true,
+		"github.copilot.nextEditSuggestions.enabled": true,
+		"github.copilot.enable": {
+			"*": true,
+			"plaintext": true,
+			"markdown": true,
+			"scminput": false
+		},
+		"chat.agent.maxRequests": 50,
+		"terminal.integrated.profiles.windows": {
+			"Command Prompt (ENV)": {
+				"path": "C:\\Windows\\System32\\cmd.exe",
+				"args": [
+					"/K",
+					"C:\\ProgramData\\anaconda3\\Scripts\\activate ENV"
+				]
+			},
+			"PowerShell (ENV)": {
+				"source": "PowerShell",
+				"args": [
+					"-NoExit",
+					"-Command",
+					"& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
+				]
+			},
+			"PowerShell": {
+				"source": "PowerShell",
+				"args": []
+			}
+		},
+		"terminal.integrated.defaultProfile.windows": "PowerShell (ENV)",
+		"terminal.integrated.automationProfile.windows": {
+			"source": "PowerShell",
+			"args": [
+				"-NoExit",
+				"-Command",
+				"& 'C:\\ProgramData\\anaconda3\\shell\\condabin\\conda-hook.ps1'; conda activate ENV"
+			]
+		},
+		"editor.formatOnSave": true,
+		"[python]": {
+			"editor.defaultFormatter": "ms-python.python"
+		},
+		"[typescript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"[typescriptreact]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"[json]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"python.defaultInterpreterPath": "${env:USERPROFILE}\\.conda\\envs\\ENV\\python.exe",
+		"python.condaPath": "conda",
+		"python.terminal.activateEnvironment": false,
+		"git.autofetch": true,
+		"files.exclude": {
+			"**/.git": true,
+			"**/.svn": true,
+			"**/.hg": true,
+			"**/CVS": true,
+			"**/.DS_Store": true,
+			"**/Thumbs.db": true,
+			"**/__pycache__": true,
+			"frontend/dist/": true,
+			"frontend/node_modules/": true,
+			"tema_base/fyr-vite/node_modules/": true
+		},
+		"search.exclude": {
+			"**/node_modules": true,
+			"**/__pycache__": true,
+			"**/migrations": true,
+			"frontend/dist/": true,
+			"tema_base/": true,
+			"backend/celerybeat-schedule": true,
+			"**/*.code-search": true
+		},
+		"mcp": {
+			"servers": {
+				"stitch": {
+					"url": "https://stitch.googleapis.com/mcp",
+					"type": "http",
+					"headers": {
+						"Accept": "application/json",
+						"X-Goog-Api-Key": "AQ.Ab8RN6K7BESUJ0UP_mncURZOhwpqJWxKpMCGpE8qrfT4zaxdFw"
+					}
+				}
+			},
+			"inputs": []
+		},
+		"chat.mcp.serverSampling": {
+			"erp-snabbit.code-workspace: stitch": {
+				"allowedModels": [
+					"copilot/auto",
+					"copilotcli/claude-sonnet-4.6"
+				]
+			}
+		}
+	}
 }
