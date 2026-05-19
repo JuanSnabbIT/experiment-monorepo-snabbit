@@ -47,7 +47,7 @@ import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrato.types';
 import SelectorPlanServicios from '../components/SelectorPlanServicios';
-import CrearContratoTrabajadorWizard from './CrearContratoTrabajadorWizard';
+import ContenidoWizardTrabajador from '../components/trabajador/ContenidoWizardTrabajador';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
 
 // Tipos
@@ -280,17 +280,6 @@ function CrearContratoDelCliente({
     tipoFijo,
     licenciasIniciales,
 }: ICrearContratoDelClienteProps = {}) {
-    // Si es contrato de trabajador, delegamos a un wizard especializado
-    if (tipoFijo === 'trabajador') {
-        return (
-            <CrearContratoTrabajadorWizard
-                detalleCliente={detalleClienteProp}
-                externalIsOpen={externalIsOpen}
-                onExternalClose={onExternalClose}
-            />
-        );
-    }
-
     const navigate = useNavigate();
     const { detalleCliente: detalleClienteStore } = useAppSelector((state) => state.empresa);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
@@ -629,6 +618,7 @@ function CrearContratoDelCliente({
     const esServicios =
         formik.values.tipo === 'servicios' ||
         tipoFijo === 'servicios';
+    const esLaboral = formik.values.tipo === 'trabajador' || tipoFijo === 'trabajador';
 
     useEffect(() => {
         if (!esVenta) return;
@@ -676,6 +666,9 @@ function CrearContratoDelCliente({
                   tipoCambio,
               )
             : 0;
+    const getLicenciaPrecioPartner = (licId?: number): number =>
+        listaLicencias.find((l) => l.id === licId)?.precio_partner ?? 0;
+
     const totalServiciosSeleccionados = seleccionPlan.servicios.reduce((acc, item) => {
         const servicio = serviciosCatalogo.find((sc) => sc.id === item.servicio_id);
         const subtotal = getTotalPorFormaPagoContractual(
@@ -693,7 +686,17 @@ function CrearContratoDelCliente({
         const cotizacion = cotizacionesDisponibles.find(
             (item: ICotizacionVinculadaResumen) => item.id === cotizacionId,
         );
-        return acc + Number(cotizacion?.total_convertido ?? 0);
+        if (!cotizacion) return acc;
+        const total =
+            cotizacion.total_convertido != null
+                ? Number(cotizacion.total_convertido)
+                : convertCurrency(
+                      Number(cotizacion.total_estimado || 0),
+                      cotizacion.tipo_moneda,
+                      monedaContrato,
+                      tipoCambio,
+                  );
+        return acc + total;
     }, 0);
 
     const handleClose = () => {
@@ -827,9 +830,6 @@ function CrearContratoDelCliente({
     const getLicenciaNombre = (licId?: number) =>
         listaLicencias.find((l) => l.id === licId)?.nombre ?? '';
 
-    const getLicenciaPrecioPartner = (licId?: number): number =>
-        listaLicencias.find((l) => l.id === licId)?.precio_partner ?? 0;
-
     const getLicenciaTipoMoneda = (licId?: number): 'CLP' | 'USD' | 'UF' =>
         ((listaLicencias.find((l) => l.id === licId)?.moneda as 'CLP' | 'USD' | 'UF' | undefined) ?? monedaContrato) as 'CLP' | 'USD' | 'UF';
 
@@ -924,9 +924,18 @@ function CrearContratoDelCliente({
                 size='lg'
                 isScrollable>
                 <ModalHeader>
-                    <Badge className='text-xl'>Crear Contrato</Badge>
+                    <Badge className='text-xl'>
+                        {esLaboral ? 'Crear contrato laboral' : 'Crear Contrato'}
+                    </Badge>
                 </ModalHeader>
-                <ModalBody>
+                {esLaboral ? (
+                    <ContenidoWizardTrabajador
+                        detalleCliente={detalleCliente}
+                        initialNombre={formik.values.nombre}
+                        onClose={handleClose}
+                    />
+                ) : (<>
+                <ModalBody isScrollable>
                     <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} esVenta={esVenta} />
 
                     {/* Paso 1: Datos básicos */}
@@ -968,10 +977,8 @@ function CrearContratoDelCliente({
                                                 (con) => con.value === formik.values.tipo,
                                             )}
                                             onChange={(e) => {
-                                                formik.setFieldValue(
-                                                    'tipo',
-                                                    (e as TSelectOption).value,
-                                                );
+                                                const value = (e as TSelectOption).value;
+                                                formik.setFieldValue('tipo', value);
                                             }}
                                             placeholder='Seleccione un tipo'
                                             noOptionsMessage={(e) => `No existe ${e.inputValue}`}
@@ -1088,7 +1095,9 @@ function CrearContratoDelCliente({
                             <div>
                                 <Label htmlFor='dias_aviso_termino'>
                                     Días de aviso previo{' '}
-                                    <Tooltip text='Días antes del vencimiento en que el sistema enviará notificaciones automáticas al cliente y al equipo interno.'>
+                                    <Tooltip text={!formik.values.fecha_fin
+                                        ? 'La opción está bloqueada hasta que definas una fecha de término.'
+                                        : 'Días antes del vencimiento en que el sistema enviará notificaciones automáticas al cliente y al equipo interno.'}>
                                         <Icon icon='HeroInformationCircle' className='inline-block h-4 w-4 cursor-help text-zinc-400' />
                                     </Tooltip>
                                 </Label>
@@ -1110,11 +1119,6 @@ function CrearContratoDelCliente({
                                 <p className='mt-1 text-xs text-zinc-500'>
                                     Días de anticipación para notificar el término del contrato.
                                 </p>
-                                {!formik.values.fecha_fin && (
-                                    <p className='mt-1 text-xs text-zinc-500'>
-                                        La opción está bloqueada hasta que definas una fecha de término.
-                                    </p>
-                                )}
                             </div>
                             <div className='flex items-start gap-3 md:col-span-2'>
                                 <Checkbox
@@ -1143,19 +1147,22 @@ function CrearContratoDelCliente({
                                                 La suma de porcentajes debe ser exactamente 100%.
                                             </p>
                                         </div>
-                                        <Button
-                                            size='sm'
-                                            icon='HeroPlus'
-                                            onClick={() =>
-                                                formik.setFieldValue('cuotas_venta', [
-                                                    ...formik.values.cuotas_venta,
-                                                    buildCuotaVenta(
-                                                        formik.values.cuotas_venta.length + 1,
-                                                    ),
-                                                ])
-                                            }>
-                                            Agregar cuota
-                                        </Button>
+                                        <Tooltip text='Agregar cuota'>
+                                            <Button
+                                                size='sm'
+                                                variant='solid'
+                                                color='blue'
+                                                icon='HeroPlus'
+                                                onClick={() =>
+                                                    formik.setFieldValue('cuotas_venta', [
+                                                        ...formik.values.cuotas_venta,
+                                                        buildCuotaVenta(
+                                                            formik.values.cuotas_venta.length + 1,
+                                                        ),
+                                                    ])
+                                                }
+                                            />
+                                        </Tooltip>
                                     </div>
                                     <div className='space-y-3'>
                                         {formik.values.cuotas_venta.map((cuota, index) => (
@@ -1293,22 +1300,26 @@ function CrearContratoDelCliente({
                                                         )}
                                                 </div>
                                                 <div className='flex items-end justify-end'>
-                                                    <Button
-                                                        color='red'
-                                                        isDisable={formik.values.cuotas_venta.length === 1}
-                                                        onClick={() =>
-                                                            formik.setFieldValue(
-                                                                'cuotas_venta',
-                                                                formik.values.cuotas_venta
-                                                                    .filter((_, cuotaIndex) => cuotaIndex !== index)
-                                                                    .map((item, cuotaIndex) => ({
-                                                                        ...item,
-                                                                        orden: cuotaIndex + 1,
-                                                                    })),
-                                                            )
-                                                        }>
-                                                        Eliminar
-                                                    </Button>
+                                                    <Tooltip text='Eliminar cuota'>
+                                                        <Button
+                                                            variant='solid'
+                                                            icon='HeroTrash'
+                                                            size='sm'
+                                                            color='red'
+                                                            isDisable={formik.values.cuotas_venta.length === 1}
+                                                            onClick={() =>
+                                                                formik.setFieldValue(
+                                                                    'cuotas_venta',
+                                                                    formik.values.cuotas_venta
+                                                                        .filter((_, cuotaIndex) => cuotaIndex !== index)
+                                                                        .map((item, cuotaIndex) => ({
+                                                                            ...item,
+                                                                            orden: cuotaIndex + 1,
+                                                                        })),
+                                                                )
+                                                            }
+                                                        />
+                                                    </Tooltip>
                                                 </div>
                                             </div>
                                         ))}
@@ -1618,19 +1629,22 @@ function CrearContratoDelCliente({
                                                 </Td>
                                                 <Td>
                                                     {!esLicenciaInicial(i) && (
-                                                        <Button
-                                                            icon='HeroTrash'
-                                                            size='sm'
-                                                            color='red'
-                                                            onClick={() => {
-                                                                licFormik.setFieldValue(
-                                                                    'licencias',
-                                                                    licFormik.values.licencias.filter(
-                                                                        (_, idx) => idx !== i,
-                                                                    ),
-                                                                );
-                                                            }}
-                                                        />
+                                                        <Tooltip text='Eliminar licencia'>
+                                                            <Button
+                                                                variant='solid'
+                                                                icon='HeroTrash'
+                                                                size='sm'
+                                                                color='red'
+                                                                onClick={() => {
+                                                                    licFormik.setFieldValue(
+                                                                        'licencias',
+                                                                        licFormik.values.licencias.filter(
+                                                                            (_, idx) => idx !== i,
+                                                                        ),
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </Tooltip>
                                                     )}
                                                 </Td>
                                             </Tr>
@@ -1647,9 +1661,9 @@ function CrearContratoDelCliente({
                                     )}
                                 </div>
                             )}
-                            <Button icon='HeroPlus' onClick={() => setModalAddLicencia(true)}>
-                                Agregar licencia
-                            </Button>
+                            <Tooltip text='Agregar licencia'>
+                                <Button variant='solid' color='blue' icon='HeroPlus' onClick={() => setModalAddLicencia(true)} />
+                            </Tooltip>
                         </div>
                     )}
 
@@ -2172,6 +2186,7 @@ function CrearContratoDelCliente({
                         )}
                     </ModalFooterChild>
                 </ModalFooter>
+                </>)}
             </Modal>
 
             <ModalLicenciaContrato
@@ -2193,5 +2208,7 @@ const ResumenItem = ({ label, valor }: { label: string; valor: string }) => (
         <p className='text-sm font-medium'>{valor}</p>
     </div>
 );
+
+
 
 export default CrearContratoDelCliente;

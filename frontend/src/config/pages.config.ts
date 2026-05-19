@@ -83,6 +83,13 @@ export const authPages = {
         icon: 'HeroDocumentText',
         authority: [],
     },
+    firmarContratoTrabajadorPublico: {
+        id: 'firmarContratoTrabajadorPublico',
+        to: '/contrato/public/firma-trabajador/:uuid',
+        text: 'Firmar Contrato Trabajador',
+        icon: 'HeroDocumentCheck',
+        authority: [],
+    },
 };
 
 export const Pages = {
@@ -155,6 +162,13 @@ export const Pages = {
                 text: 'Detalle Contrato',
                 icon: 'HeroDocumentDuplicate',
                 authority: ['staff', 'superadmin'],
+            },
+            detalleContratoTrabajador: {
+                id: 'detalleContratoTrabajador',
+                to: '/rrhh/contrato-trabajador/:contratoId',
+                text: 'Detalle Contrato Trabajador',
+                icon: 'HeroDocumentCheck',
+                authority: ['staff', 'superadmin', 'rrhh'],
             },
             previewFirmaContrato: {
                 id: 'previewFirmaContrato',
@@ -447,21 +461,21 @@ export const Pages = {
     ordenTrabajoV3: {
         id: 'ordenTrabajoV3',
         to: '/orden-trabajo-v3',
-        text: 'OT V3',
+        text: 'Ordenes de Trabajo',
         icon: 'HeroClipboardDocumentCheck',
         authority: ['staff', 'superadmin'],
         subPages: {
             listaOrdenesTrabajoV3: {
                 id: 'listaOrdenesTrabajoV3',
                 to: '/orden-trabajo-v3/lista',
-                text: 'Lista OT V3',
+                text: 'Lista Ordenes de Trabajo',
                 icon: 'HeroClipboardDocumentCheck',
                 authority: ['staff', 'superadmin'],
             },
             detalleOrdenTrabajoV3: {
                 id: 'detalleOrdenTrabajoV3',
                 to: '/orden-trabajo-v3/:id',
-                text: 'Detalle OT V3',
+                text: 'Detalle Orden de Trabajo',
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin', 'tecnico', 'operaciones', 'finanzas'],
             },

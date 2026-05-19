@@ -1,7 +1,0 @@
-##inicia el worker 2do plano
-
-celery -A sw_erp worker --loglevel=info
-
-## inicia el worker 2do plano para programaciones
-
-celery -A sw_erp beat --loglevel=info

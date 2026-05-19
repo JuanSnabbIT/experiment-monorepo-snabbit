@@ -13,6 +13,7 @@ import {
     useGetHistorialContratoLicenciaQuery,
     useGetUsuariosVinculadosLicenciaQuery,
 } from '@/store/slices/contratos/contratoApi';
+import { formatCurrency } from '@/utils/currency';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -171,7 +172,18 @@ const DetalleLicencia = () => {
                                     </div>
                                     <div>
                                         <dt className='text-zinc-500'>Precio unitario</dt>
-                                        <dd className='font-medium'>{licencia.precio_unitario_snapshot}</dd>
+                                        <dd className='font-medium'>
+                                            {formatCurrency(licencia.precio_unitario_snapshot, licencia.moneda_snapshot)}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className='text-zinc-500'>Total</dt>
+                                        <dd className='font-medium'>
+                                            {formatCurrency(
+                                                String(Number(licencia.precio_unitario_snapshot) * licencia.cantidad),
+                                                licencia.moneda_snapshot,
+                                            )}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt className='text-zinc-500'>Cupos (usados / total)</dt>

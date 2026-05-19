@@ -38,6 +38,8 @@ const SeccionForm = ({
     const esFirmas = formik.values.tipo === 'firmas';
     const esIdentificacion = formik.values.tipo === 'identificacion_cliente';
     const esPredeterminada = esFirmas || esIdentificacion;
+    const esTituloOSubtitulo = formik.values.tipo === 'titulo' || formik.values.tipo === 'subtitulo';
+    const esLibre = formik.values.tipo === 'libre';
 
     // Forzar valores canónicos cuando el tipo es firmas
     useEffect(() => {
@@ -77,26 +79,44 @@ const SeccionForm = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [esIdentificacion]);
 
+    // Limpiar contenido_template para tipos título/subtítulo (solo tienen título)
+    useEffect(() => {
+        if (esTituloOSubtitulo && formik.values.contenido_template !== '') {
+            formik.setFieldValue('contenido_template', '');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esTituloOSubtitulo]);
+
+    // Limpiar título para tipo sección libre (solo tiene contenido)
+    useEffect(() => {
+        if (esLibre && formik.values.titulo !== '') {
+            formik.setFieldValue('titulo', '');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esLibre]);
+
     return (
         <div className='flex flex-col gap-4'>
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                <div>
-                    <Label htmlFor={`${idPrefix}-titulo`}>Título</Label>
-                    <Validation
-                        isValid={formik.isValid}
-                        isTouched={formik.touched.titulo}
-                        invalidFeedback={formik.errors.titulo}>
-                        <Input
-                            id={`${idPrefix}-titulo`}
-                            name='titulo'
-                            value={formik.values.titulo}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            disabled={esPredeterminada}
-                        />
-                    </Validation>
-                </div>
-                <div>
+                {!esLibre && (
+                    <div>
+                        <Label htmlFor={`${idPrefix}-titulo`}>Título</Label>
+                        <Validation
+                            isValid={formik.isValid}
+                            isTouched={formik.touched.titulo}
+                            invalidFeedback={formik.errors.titulo}>
+                            <Input
+                                id={`${idPrefix}-titulo`}
+                                name='titulo'
+                                value={formik.values.titulo}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                disabled={esPredeterminada}
+                            />
+                        </Validation>
+                    </div>
+                )}
+                <div className={esLibre ? 'md:col-span-2' : ''}>
                     <Label htmlFor={`${idPrefix}-tipo`}>Tipo</Label>
                     <SelectReact
                         id={`${idPrefix}-tipo`}
@@ -130,6 +150,15 @@ const SeccionForm = ({
                         Muestra los datos identificatorios del cliente con sus etiquetas
                         correspondientes. El contenido se completa automáticamente al generar el
                         documento.
+                    </p>
+                </Alert>
+            ) : esTituloOSubtitulo ? (
+                <Alert color='zinc' variant='outline' className='text-sm'>
+                    <p className='font-semibold'>
+                        {formik.values.tipo === 'titulo' ? 'Título de sección' : 'Subtítulo de sección'}
+                    </p>
+                    <p className='mt-1 text-zinc-500'>
+                        Este bloque solo muestra el texto del campo Título. No lleva contenido adicional.
                     </p>
                 </Alert>
             ) : (

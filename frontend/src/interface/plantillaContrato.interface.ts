@@ -5,7 +5,7 @@ export interface IPlantillaContrato {
     descripcion: string | null;
     version: number;
     activa: boolean;
-    tipo_contrato: 'licencia' | 'venta' | 'servicios';
+    tipo_contrato: 'licencia' | 'venta' | 'servicios' | 'trabajador';
     secciones: ISeccionPlantilla[];
     fecha_creacion: string;
     fecha_modificacion: string;
@@ -53,6 +53,8 @@ export interface ISeccionContratoGenerada {
     contenido_renderizado: string;
     orden: number;
     fue_editado_manualmente: boolean;
+    es_editable_en_contrato: boolean;
+    tipo: string | null;
     fecha_creacion: string;
     fecha_modificacion: string;
 }

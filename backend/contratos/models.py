@@ -88,6 +88,33 @@ class ContratoEmpresaCliente(ModeloBaseHistorico):
             "Solo aplica para contratos de tipo 'venta'."
         ),
     )
+    snapshot_total_servicios = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Snapshot total servicios/licencias",
+        help_text=(
+            "Total congelado al enviar a aprobación del cliente (en moneda_cobro). "
+            "Aplica para contratos de tipo 'servicios' y 'licencia'."
+        ),
+    )
+    snapshot_tasa_dolar = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Snapshot tasa dólar",
+        help_text="Tasa USD→CLP vigente al momento de enviar a aprobación. Usada para congelar conversiones.",
+    )
+    snapshot_tasa_uf = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name="Snapshot valor UF",
+        help_text="Valor UF→CLP vigente al momento de enviar a aprobación. Usada para congelar conversiones.",
+    )
 
     plantilla = models.ForeignKey(
         "contratos.PlantillaContrato",
@@ -1963,7 +1990,23 @@ TIPO_SECCION_CHOICES = [
     ("libre", "Sección Libre"),
     ("titulo", "Título"),
     ("subtitulo", "Subtítulo"),
+    # ── Bloques de datos dinámicos (se posicionan mediante el orden del plantilla) ──
+    ("bloque_servicios", "Bloque: Servicios Contratados"),
+    ("bloque_licencias", "Bloque: Licencias Contratadas"),
+    ("bloque_condiciones_especiales", "Bloque: Condiciones Especiales"),
+    ("bloque_resumen_comercial", "Bloque: Resumen Comercial"),
+    ("bloque_acuerdos", "Bloque: Acuerdos de Confidencialidad"),
 ]
+
+# Tipos de sección cuyos bloques se renderizan dinámicamente desde los datos del
+# contrato (no desde contenido_template). Motor de plantillas ignora su template.
+TIPOS_BLOQUE_DINAMICO = {
+    "bloque_servicios",
+    "bloque_licencias",
+    "bloque_condiciones_especiales",
+    "bloque_resumen_comercial",
+    "bloque_acuerdos",
+}
 
 SLOT_DOCUMENTAL_CHOICES = [
     ("antes_alcance", "Antes de alcance"),
@@ -1993,6 +2036,8 @@ class SeccionPlantilla(ModeloBase):
     contenido_template = models.TextField(
         verbose_name="Contenido con etiquetas",
         help_text="Usa [nombre_etiqueta] para insertar datos dinámicos",
+        blank=True,
+        default='',
     )
     orden = models.PositiveIntegerField(default=0)
     slot_documental = models.CharField(
@@ -2023,6 +2068,7 @@ CATEGORIA_ETIQUETA_CHOICES = [
     ("contrato", "Datos del Contrato"),
     ("servicio", "Datos del Servicio"),
     ("economico", "Datos Económicos"),
+    ("trabajador", "Datos del Trabajador"),
     ("custom", "Personalizada"),
 ]
 
@@ -2078,6 +2124,15 @@ class SeccionContratoGenerada(ModeloBase):
         ContratoEmpresaCliente,
         on_delete=models.CASCADE,
         related_name="secciones_generadas",
+        null=True,
+        blank=True,
+    )
+    contrato_trabajador = models.ForeignKey(
+        "rrhh.ContratoTrabajador",
+        on_delete=models.CASCADE,
+        related_name="secciones_generadas",
+        null=True,
+        blank=True,
     )
     seccion_plantilla = models.ForeignKey(
         SeccionPlantilla,
@@ -2095,6 +2150,28 @@ class SeccionContratoGenerada(ModeloBase):
         ordering = ["orden"]
         verbose_name = "Sección de contrato generada"
         verbose_name_plural = "Secciones de contrato generadas"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(contrato__isnull=False, contrato_trabajador__isnull=True)
+                    | models.Q(contrato__isnull=True, contrato_trabajador__isnull=False)
+                ),
+                name="seccion_generada_uno_de_dos",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if bool(self.contrato_id) == bool(self.contrato_trabajador_id):
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError(
+                "SeccionContratoGenerada debe pertenecer exactamente a uno: contrato (B2B) o contrato_trabajador.",
+            )
 
     def __str__(self):
-        return f"{self.contrato.nombre} → {self.titulo}"
+        if self.contrato_id:
+            return f"{self.contrato.nombre} → {self.titulo}"
+        if self.contrato_trabajador_id:
+            return f"ContratoTrab #{self.contrato_trabajador_id} → {self.titulo}"
+        return self.titulo

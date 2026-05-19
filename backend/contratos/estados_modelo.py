@@ -14,6 +14,7 @@ TIPO_CONTRATO = [
     ('licencia', 'Licenciamiento'),
     ('venta', 'Venta'),
     ('servicios', 'Servicios'),
+    ('trabajador', 'Contrato Laboral'),
 ]
 
 FRECUENCIA_VISITA = [
@@ -118,3 +119,43 @@ CONTENIDO_CANONICO_IDENTIFICACION = (
     "R.U.T del representante: [rut_representante_cliente]\n"
     "E-mail: [email_cliente]"
 )
+
+# ── Contenido canónico para secciones de tipo "condiciones_generales" ──
+# Texto base reutilizado en todos los contratos B2B (servicios, licencia, venta).
+CONTENIDO_CANONICO_CONDICIONES_GENERALES = (
+    "El presente contrato se rige por las leyes de la Republica de Chile. "
+    "Cualquier controversia derivada del mismo sera sometida a la jurisdiccion "
+    "de los tribunales ordinarios de justicia competentes.\n\n"
+    "Las partes declaran conocer y aceptar integra y voluntariamente el "
+    "contenido de este instrumento."
+)
+
+# ── Secciones documentales predeterminadas por tipo de plantilla ──
+# Define qué SeccionPlantilla se crean automáticamente al crear una PlantillaContrato nueva.
+# "trabajador" no incluye identificacion_cliente porque el contrato laboral
+# identifica a las partes en el encabezado (nombre_trabajador / nombre_empresa).
+SECCIONES_PREDETERMINADAS_POR_TIPO = {
+    "servicios": ["identificacion_cliente"],
+    "licencia": ["identificacion_cliente"],
+    "venta": ["identificacion_cliente"],
+    "trabajador": [],
+}
+
+# ── Bloques comerciales requeridos por tipo de contrato ──
+# Define qué dato comercial debe estar presente antes de enviar el contrato a aprobación.
+# Clave: atributo/related_name en ContratoEmpresaCliente.
+BLOQUES_REQUERIDOS_POR_TIPO = {
+    "servicios": ["items_comerciales"],
+    "licencia": ["contrato_licencias"],
+    "venta": ["cotizaciones_vinculadas"],
+    "trabajador": [],
+}
+
+# ── Bloques comerciales opcionales por tipo de contrato ──
+# Aparecen en el PDF si existen datos, pero no bloquean la transición a aprobación.
+BLOQUES_OPCIONALES_POR_TIPO = {
+    "servicios": ["condiciones_especiales", "firmas_confidencialidad"],
+    "licencia": ["items_comerciales", "condiciones_especiales", "firmas_confidencialidad"],
+    "venta": ["condiciones_especiales", "firmas_confidencialidad"],
+    "trabajador": [],
+}

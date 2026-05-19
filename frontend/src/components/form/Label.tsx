@@ -1,12 +1,11 @@
-import React, { FC, HTMLAttributes, ReactNode } from 'react';
 import classNames from 'classnames';
+import { FC, LabelHTMLAttributes, ReactNode } from 'react';
 import Tooltip from '../ui/Tooltip';
 
-interface ILabelProps extends HTMLAttributes<HTMLLabelElement> {
+interface ILabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
     children: ReactNode;
     description?: string;
     className?: string;
-    htmlFor: string;
 }
 const Label: FC<ILabelProps> = (props) => {
     const { children, className, description, ...rest } = props;

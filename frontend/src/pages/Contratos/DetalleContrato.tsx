@@ -338,6 +338,7 @@ const DetalleContrato = () => {
                             {puedeActivar && (
                                 <Button
                                     variant='solid'
+                                    color='emerald'
                                     icon='HeroCheck'
                                     onClick={() => handleCambiarEstado('activo')}>
                                     Activar
@@ -346,6 +347,7 @@ const DetalleContrato = () => {
                             {['borrador', 'cambios_solicitados'].includes(contrato.estado) && (
                                 <Button
                                     variant='solid'
+                                    color='blue'
                                     icon='HeroPaperAirplane'
                                     onClick={handleEnviarAprobacion}>
                                     Enviar a aprobación
@@ -387,6 +389,7 @@ const DetalleContrato = () => {
                             {contrato.estado === 'aprobado_cliente' && (
                                 <Button
                                     variant='solid'
+                                    color='blue'
                                     icon='HeroPencilSquare'
                                     isDisable={!firmaPrestadoraDisponible}
                                     onClick={handleEnviarFirma}>
@@ -420,6 +423,7 @@ const DetalleContrato = () => {
                             {contrato.estado === 'en_firma' && (
                                 <Button
                                     variant='solid'
+                                    color='emerald'
                                     icon='HeroPencilSquare'
                                     onClick={() => setFirmaModalOpen(true)}>
                                     Firmar contrato
@@ -428,6 +432,7 @@ const DetalleContrato = () => {
                             {puedeSuspender && (
                                 <Tooltip text='Suspender contrato'>
                                     <Button
+                                        variant='solid'
                                         color='amber'
                                         icon='HeroPause'
                                         onClick={() => handleCambiarEstado('suspendido')}>
@@ -438,6 +443,8 @@ const DetalleContrato = () => {
                             {puedeFinalizar && (
                                 <Tooltip text='Finalizar contrato'>
                                     <Button
+                                        variant='solid'
+                                        color='amber'
                                         icon='HeroXMark'
                                         onClick={() => handleCambiarEstado('finalizado')}>
                                         Finalizar
@@ -452,6 +459,7 @@ const DetalleContrato = () => {
                             {puedeEditar && (
                                 <Button
                                     variant='solid'
+                                    color='amber'
                                     icon='HeroPencil'
                                     onClick={() => setModalEditarDatos(true)}>
                                     Editar datos
@@ -460,6 +468,7 @@ const DetalleContrato = () => {
                             {puedeEditar && (
                                 <Tooltip text='Eliminar contrato'>
                                     <Button
+                                        variant='solid'
                                         color='red'
                                         icon='HeroTrash'
                                         onClick={() => setModalEliminar(true)}
@@ -643,11 +652,13 @@ const DetalleContrato = () => {
                                 detalleContratoEmpresaCliente={contrato}
                                 puedeEditar={puedeEditar}
                             />
-                            <TabServicios
-                                detalleContratoEmpresaCliente={contrato}
-                                puedeEditar={puedeEditar}
-                                listaContentType={listaContentType}
-                            />
+                            {contrato.tipo !== 'licencia' && (
+                                <TabServicios
+                                    detalleContratoEmpresaCliente={contrato}
+                                    puedeEditar={puedeEditar}
+                                    listaContentType={listaContentType}
+                                />
+                            )}
                             <TabUsuarios
                                 detalleContratoEmpresaCliente={contrato}
                                 puedeEditar={puedeEditar}

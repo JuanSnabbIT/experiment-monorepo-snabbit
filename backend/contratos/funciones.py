@@ -326,6 +326,16 @@ def _make_contract_canvas_class(config: dict):
     return _ContractCanvas
 
 
+def _asegurar_secciones_generadas(contrato):
+    """Asegura que un contrato con plantilla tenga sus secciones generadas actualizadas."""
+    if not contrato.plantilla:
+        return
+
+    from contratos.motor_plantillas import generar_secciones_contrato
+
+    generar_secciones_contrato(contrato)
+
+
 def generar_contrato_desde_plantilla(
     contrato,
     *,
@@ -344,6 +354,7 @@ def generar_contrato_desde_plantilla(
 
     Retorna bytes del PDF.
     """
+    _asegurar_secciones_generadas(contrato)
     secciones = contrato.secciones_generadas.select_related("seccion_plantilla").order_by("orden")
 
     firma_empresa_b64 = None
@@ -364,15 +375,24 @@ def generar_contrato_desde_plantilla(
     nombre_cliente = ""
     rut_cliente = ""
     rep_legal_cliente = ""
+    rut_rep_cliente = ""
+    domicilio_cliente = ""
+    giro_cliente = ""
+    email_cliente = ""
     if contrato.empresa_cliente:
         nombre_cliente = contrato.empresa_cliente.nombre or ""
         rut_cliente = getattr(contrato.empresa_cliente, "rut_empresa", None) or ""
-        reps_cliente = getattr(contrato.empresa_cliente, "representantes_legales", None)
-        if reps_cliente is not None:
-            rep_obj_c = reps_cliente.first()
-            if rep_obj_c:
-                nombre_usuario_c = getattr(rep_obj_c, "nombre_usuario", None) or getattr(rep_obj_c, "nombre", None) or ""
-                rep_legal_cliente = nombre_usuario_c
+        domicilio_cliente = getattr(contrato.empresa_cliente, "direccion_principal", None) or ""
+        giro_cliente = getattr(contrato.empresa_cliente, "giro", None) or ""
+        email_cliente = getattr(contrato.empresa_cliente, "email", None) or ""
+        rep_legal_cliente = getattr(contrato.empresa_cliente, "representante_legal", None) or ""
+        rut_rep_cliente = getattr(contrato.empresa_cliente, "rut_representante", None) or ""
+        if not rep_legal_cliente:
+            reps_cliente = getattr(contrato.empresa_cliente, "representantes_legales", None)
+            if reps_cliente is not None:
+                rep_obj_c = reps_cliente.first()
+                if rep_obj_c:
+                    rep_legal_cliente = getattr(rep_obj_c, "nombre_usuario", None) or getattr(rep_obj_c, "nombre", None) or ""
 
     if not firmante_cliente and rep_legal_cliente:
         firmante_cliente = rep_legal_cliente
@@ -523,30 +543,20 @@ def generar_contrato_desde_plantilla(
     fecha_inicio_str = contrato.fecha_inicio.strftime("%d/%m/%Y") if contrato.fecha_inicio else "—"
     fecha_fin_str = contrato.fecha_fin.strftime("%d/%m/%Y") if contrato.fecha_fin else "Sin fecha de término"
 
-    data_partes = [
-        [
-            Paragraph("<b>Empresa Prestadora</b>", estilo_tabla_celda),
-            Paragraph("<b>Empresa Cliente</b>", estilo_tabla_celda),
-        ],
-        [
-            Paragraph(html.escape(nombre_empresa), estilo_tabla_celda),
-            Paragraph(html.escape(nombre_cliente), estilo_tabla_celda),
-        ],
+    # Tabla EL PRESTADOR
+    data_prestador = [
+        [Paragraph("<b>EL PRESTADOR</b>", estilo_tabla_celda), ""],
+        [Paragraph("Nombre o Raz\u00f3n Social:", estilo_tabla_label), Paragraph(html.escape(nombre_empresa), estilo_tabla_celda)],
     ]
-    if rut_empresa or rut_cliente:
-        data_partes.append([
-            Paragraph(f"RUT: {html.escape(rut_empresa)}", estilo_tabla_label),
-            Paragraph(f"RUT: {html.escape(rut_cliente)}", estilo_tabla_label),
-        ])
-    if rep_legal_empresa or rep_legal_cliente:
-        data_partes.append([
-            Paragraph(f"Rep. Legal: {html.escape(rep_legal_empresa)}", estilo_tabla_label),
-            Paragraph(f"Rep. Legal: {html.escape(rep_legal_cliente)}", estilo_tabla_label),
-        ])
+    if rut_empresa:
+        data_prestador.append([Paragraph("R.U.T:", estilo_tabla_label), Paragraph(html.escape(rut_empresa), estilo_tabla_celda)])
+    if rep_legal_empresa:
+        data_prestador.append([Paragraph("Representante legal:", estilo_tabla_label), Paragraph(html.escape(rep_legal_empresa), estilo_tabla_celda)])
 
-    tabla_partes = Table(data_partes, colWidths=[3.5 * inch, 3.5 * inch])
-    tabla_partes.setStyle(TableStyle([
+    tabla_prestador = Table(data_prestador, colWidths=[2.2 * inch, 4.8 * inch])
+    tabla_prestador.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
+        ("SPAN", (0, 0), (1, 0)),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -555,7 +565,34 @@ def generar_contrato_desde_plantilla(
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
     ]))
-    elementos.append(tabla_partes)
+    elementos.append(tabla_prestador)
+    elementos.append(Spacer(1, 6))
+
+    # Tabla Identificacion de EL CLIENTE
+    data_cliente = [
+        [Paragraph('<b>Identificaci\u00f3n de "EL CLIENTE"</b>', estilo_tabla_celda), ""],
+        [Paragraph("Nombre o Raz\u00f3n Social:", estilo_tabla_label), Paragraph(html.escape(nombre_cliente), estilo_tabla_celda)],
+        [Paragraph("R.U.T:", estilo_tabla_label), Paragraph(html.escape(rut_cliente), estilo_tabla_celda)],
+        [Paragraph("Domicilio:", estilo_tabla_label), Paragraph(html.escape(domicilio_cliente), estilo_tabla_celda)],
+        [Paragraph("Giro o actividad:", estilo_tabla_label), Paragraph(html.escape(giro_cliente), estilo_tabla_celda)],
+        [Paragraph("Representante legal:", estilo_tabla_label), Paragraph(html.escape(rep_legal_cliente), estilo_tabla_celda)],
+        [Paragraph("R.U.T del representante:", estilo_tabla_label), Paragraph(html.escape(rut_rep_cliente), estilo_tabla_celda)],
+        [Paragraph("E-mail:", estilo_tabla_label), Paragraph(html.escape(email_cliente), estilo_tabla_celda)],
+    ]
+
+    tabla_cliente = Table(data_cliente, colWidths=[2.2 * inch, 4.8 * inch])
+    tabla_cliente.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
+        ("SPAN", (0, 0), (1, 0)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elementos.append(tabla_cliente)
     elementos.append(Spacer(1, 6))
 
     # Vigencia
@@ -585,57 +622,7 @@ def generar_contrato_desde_plantilla(
     elementos.append(tabla_vigencia)
     elementos.append(Spacer(1, 18))
 
-    # ── Separar secciones: contenido vs firmas ──────────────────────────────
-    secciones_list = list(secciones)
-    secciones_contenido = []
-    secciones_firmas = []
-    for seccion in secciones_list:
-        tipo = seccion.seccion_plantilla.tipo if seccion.seccion_plantilla else "libre"
-        if tipo == "firmas":
-            secciones_firmas.append(seccion)
-        else:
-            secciones_contenido.append(seccion)
-
-    # ── Secciones de la plantilla (sin firmas) ───────────────────────────────
-    for seccion in secciones_contenido:
-        tipo = seccion.seccion_plantilla.tipo if seccion.seccion_plantilla else "libre"
-
-        if tipo == "titulo":
-            elementos.append(Paragraph(
-                _safe_paragraph_text(seccion.titulo),
-                estilo_sec_titulo,
-            ))
-        elif tipo == "subtitulo":
-            elementos.append(Paragraph(
-                _safe_paragraph_text(seccion.titulo),
-                estilo_sec_subtitulo,
-            ))
-        elif tipo == "encabezado":
-            elementos.append(Paragraph(
-                _safe_paragraph_text(seccion.titulo),
-                estilo_titulo,
-            ))
-            if seccion.contenido_renderizado.strip():
-                elementos.extend(_html_to_flowables(
-                    seccion.contenido_renderizado, estilo_parrafo, estilo_bullet
-                ))
-            elementos.append(Spacer(1, 10))
-        else:
-            # clausula, condiciones_generales, libre, identificacion_cliente
-            if seccion.titulo:
-                elementos.append(Paragraph(
-                    f"<b>{_safe_paragraph_text(seccion.titulo)}</b>",
-                    estilo_subtitulo,
-                ))
-            elementos.extend(_html_to_flowables(
-                seccion.contenido_renderizado, estilo_parrafo, estilo_bullet
-            ))
-            elementos.append(Spacer(1, 6))
-
-    if not secciones_list:
-        elementos.append(Paragraph("(Sin contenido de plantilla)", estilo_parrafo))
-
-    # ── Datos comerciales ────────────────────────────────────────────────────
+    # ── Pre-cargar datos relacionados del contrato ────────────────────────────
     moneda = getattr(contrato, "moneda_cobro", "") or "USD"
 
     def _fmt_moneda(valor):
@@ -656,8 +643,10 @@ def generar_contrato_desde_plantilla(
     condiciones = list(contrato.contrato_condiciones_especiales.select_related("condicion").all())
     acuerdos = list(contrato.firmas_confidencialidad.select_related("acuerdo_base").all())
 
-    # ── Servicios contratados ────────────────────────────────────────────────
-    if items_comerciales:
+    # ── Funciones de bloque dinámico (datos del contrato → PDF) ─────────────────
+    def _render_bloque_servicios():
+        if not items_comerciales:
+            return
         elementos.append(Spacer(1, 14))
         elementos.append(Paragraph("<b>Servicios Contratados</b>", estilo_subtitulo))
 
@@ -736,173 +725,174 @@ def generar_contrato_desde_plantilla(
         elementos.append(tabla_items)
         elementos.append(Spacer(1, 6))
 
-    if contrato.tipo == "venta" and cotizaciones_vinculadas:
-        resumen_venta = construir_resumen_venta_contrato(contrato)
-        detalles_por_id = {
-            detalle["id"]: detalle for detalle in resumen_venta.get("cotizaciones_detalle", [])
-        }
-        elementos.append(Spacer(1, 14))
-        elementos.append(Paragraph("<b>Cotizaciones Vinculadas</b>", estilo_subtitulo))
+        if contrato.tipo == "venta" and cotizaciones_vinculadas:
+            resumen_venta = construir_resumen_venta_contrato(contrato)
+            detalles_por_id = {
+                detalle["id"]: detalle for detalle in resumen_venta.get("cotizaciones_detalle", [])
+            }
+            elementos.append(Spacer(1, 14))
+            elementos.append(Paragraph("<b>Cotizaciones Vinculadas</b>", estilo_subtitulo))
 
-        for cotizacion in cotizaciones_vinculadas:
-            moneda_cotizacion = normalizar_moneda(cotizacion.tipo_moneda)
-            total_cotizacion = cotizacion.calcular_total_estimado
-            detalle_cotizacion = detalles_por_id.get(cotizacion.id, {})
+            for cotizacion in cotizaciones_vinculadas:
+                moneda_cotizacion = normalizar_moneda(cotizacion.tipo_moneda)
+                total_cotizacion = cotizacion.calcular_total_estimado
+                detalle_cotizacion = detalles_por_id.get(cotizacion.id, {})
+                elementos.append(
+                    Paragraph(
+                        (
+                            f"<b>Cotizacion #{cotizacion.numero_cotizacion or cotizacion.id}</b> - "
+                            f"{_safe_paragraph_text(cotizacion.nombre or '')}"
+                        ),
+                        estilo_parrafo,
+                    )
+                )
+                elementos.append(
+                    Paragraph(
+                        f"Moneda original: {_safe_paragraph_text(moneda_cotizacion)} | Total: {_safe_paragraph_text(str(total_cotizacion))}",
+                        estilo_bullet,
+                    )
+                )
+                total_convertido = detalle_cotizacion.get("total_convertido")
+                dolar_observado = detalle_cotizacion.get("dolar_observado")
+                valor_uf = detalle_cotizacion.get("valor_uf")
+                if detalle_cotizacion.get("tiene_items_moneda_mixta"):
+                    monedas_items = ", ".join(detalle_cotizacion.get("monedas_items") or [])
+                    elementos.append(
+                        Paragraph(
+                            (
+                                "Incluye items convertidos desde monedas distintas "
+                                f"({ _safe_paragraph_text(monedas_items) or 'mixtas' })."
+                            ),
+                            estilo_bullet,
+                        )
+                    )
+                if total_convertido is not None:
+                    elementos.append(
+                        Paragraph(
+                            (
+                                f"Total convertido a {_safe_paragraph_text(moneda)}: "
+                                f"{_safe_paragraph_text(str(total_convertido))}"
+                            ),
+                            estilo_bullet,
+                        )
+                    )
+                if dolar_observado is not None:
+                    elementos.append(
+                        Paragraph(
+                            f"Dolar observado al cotizar: {_safe_paragraph_text(str(dolar_observado))}",
+                            estilo_bullet,
+                        )
+                    )
+                if valor_uf is not None:
+                    elementos.append(
+                        Paragraph(
+                            f"Valor UF al cotizar: {_safe_paragraph_text(str(valor_uf))}",
+                            estilo_bullet,
+                        )
+                    )
+
+                data_cotizacion = [
+                    [
+                        Paragraph("<b>Item</b>", estilo_tabla_celda),
+                        Paragraph("<b>Cant.</b>", estilo_tabla_celda),
+                        Paragraph("<b>P. Unitario</b>", estilo_tabla_celda),
+                        Paragraph("<b>Total</b>", estilo_tabla_celda),
+                    ]
+                ]
+                for item in cotizacion.items.all():
+                    nombre_item = item.item_empresa.nombre if item.item_empresa else item.nombre or "Item"
+                    data_cotizacion.append(
+                        [
+                            Paragraph(html.escape(nombre_item), estilo_tabla_celda),
+                            Paragraph(str(item.cantidad or 0), estilo_tabla_celda),
+                            Paragraph(
+                                html.escape(f"{moneda_cotizacion} {item.precio_venta_neta_unitario_moneda_base}"),
+                                estilo_tabla_celda,
+                            ),
+                            Paragraph(
+                                html.escape(f"{moneda_cotizacion} {item.precio_venta_neta_total_moneda_base}"),
+                                estilo_tabla_celda,
+                            ),
+                        ]
+                    )
+
+                tabla_cotizacion = Table(
+                    data_cotizacion,
+                    colWidths=[3 * inch, 0.7 * inch, 1.5 * inch, 1.5 * inch],
+                )
+                tabla_cotizacion.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
+                    ("GRID", (0, 0), (-1, 0), 0.5, colors.HexColor("#cccccc")),
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#cccccc")),
+                    ("ALIGN", (1, 0), (1, -1), "CENTER"),
+                    ("ALIGN", (2, 0), (3, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                elementos.append(tabla_cotizacion)
+                elementos.append(Spacer(1, 6))
+
             elementos.append(
                 Paragraph(
-                    (
-                        f"<b>Cotizacion #{cotizacion.numero_cotizacion or cotizacion.id}</b> - "
-                        f"{_safe_paragraph_text(cotizacion.nombre or '')}"
-                    ),
+                    f"<b>Total consolidado en {html.escape(moneda)}: {_fmt_moneda(resumen_venta['total_contrato'])}</b>",
                     estilo_parrafo,
                 )
             )
+            forma_pago_venta_label = resumen_venta.get("forma_pago_venta_label") or "Contado"
             elementos.append(
                 Paragraph(
-                    f"Moneda original: {_safe_paragraph_text(moneda_cotizacion)} | Total: {_safe_paragraph_text(str(total_cotizacion))}",
+                    f"Forma de pago venta: {_safe_paragraph_text(forma_pago_venta_label)}",
                     estilo_bullet,
                 )
             )
-            total_convertido = detalle_cotizacion.get("total_convertido")
-            dolar_observado = detalle_cotizacion.get("dolar_observado")
-            valor_uf = detalle_cotizacion.get("valor_uf")
-            if detalle_cotizacion.get("tiene_items_moneda_mixta"):
-                monedas_items = ", ".join(detalle_cotizacion.get("monedas_items") or [])
-                elementos.append(
-                    Paragraph(
-                        (
-                            "Incluye items convertidos desde monedas distintas "
-                            f"({ _safe_paragraph_text(monedas_items) or 'mixtas' })."
-                        ),
-                        estilo_bullet,
-                    )
-                )
-            if total_convertido is not None:
-                elementos.append(
-                    Paragraph(
-                        (
-                            f"Total convertido a {_safe_paragraph_text(moneda)}: "
-                            f"{_safe_paragraph_text(str(total_convertido))}"
-                        ),
-                        estilo_bullet,
-                    )
-                )
-            if dolar_observado is not None:
-                elementos.append(
-                    Paragraph(
-                        f"Dolar observado al cotizar: {_safe_paragraph_text(str(dolar_observado))}",
-                        estilo_bullet,
-                    )
-                )
-            if valor_uf is not None:
-                elementos.append(
-                    Paragraph(
-                        f"Valor UF al cotizar: {_safe_paragraph_text(str(valor_uf))}",
-                        estilo_bullet,
-                    )
-                )
-
-            data_cotizacion = [
-                [
-                    Paragraph("<b>Item</b>", estilo_tabla_celda),
-                    Paragraph("<b>Cant.</b>", estilo_tabla_celda),
-                    Paragraph("<b>P. Unitario</b>", estilo_tabla_celda),
-                    Paragraph("<b>Total</b>", estilo_tabla_celda),
-                ]
-            ]
-            for item in cotizacion.items.all():
-                nombre_item = item.item_empresa.nombre if item.item_empresa else item.nombre or "Item"
-                data_cotizacion.append(
+            if resumen_venta.get("forma_pago_venta") == "cuotas":
+                cuotas_rows = [
                     [
-                        Paragraph(html.escape(nombre_item), estilo_tabla_celda),
-                        Paragraph(str(item.cantidad or 0), estilo_tabla_celda),
-                        Paragraph(
-                            html.escape(f"{moneda_cotizacion} {item.precio_venta_neta_unitario_moneda_base}"),
-                            estilo_tabla_celda,
-                        ),
-                        Paragraph(
-                            html.escape(f"{moneda_cotizacion} {item.precio_venta_neta_total_moneda_base}"),
-                            estilo_tabla_celda,
-                        ),
+                        Paragraph("<b>Cuota</b>", estilo_tabla_celda),
+                        Paragraph("<b>%</b>", estilo_tabla_celda),
+                        Paragraph("<b>Hito</b>", estilo_tabla_celda),
+                        Paragraph("<b>Monto</b>", estilo_tabla_celda),
                     ]
+                ]
+                for cuota in resumen_venta.get("cuotas_venta_resumen") or []:
+                    cuotas_rows.append(
+                        [
+                            Paragraph(str(cuota.get("orden") or "1"), estilo_tabla_celda),
+                            Paragraph(f"{cuota.get('porcentaje')}%", estilo_tabla_celda),
+                            Paragraph(
+                                _safe_paragraph_text(
+                                    cuota.get("hito_pago_label")
+                                    or cuota.get("hito_pago_descripcion")
+                                    or "Sin definir"
+                                ),
+                                estilo_tabla_celda,
+                            ),
+                            Paragraph(_fmt_moneda(cuota.get("monto")), estilo_tabla_celda),
+                        ]
+                    )
+                tabla_cuotas = Table(
+                    cuotas_rows,
+                    colWidths=[1.0 * inch, 1.0 * inch, 2.2 * inch, 1.8 * inch],
                 )
-
-            tabla_cotizacion = Table(
-                data_cotizacion,
-                colWidths=[3 * inch, 0.7 * inch, 1.5 * inch, 1.5 * inch],
-            )
-            tabla_cotizacion.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
-                ("GRID", (0, 0), (-1, 0), 0.5, colors.HexColor("#cccccc")),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#cccccc")),
-                ("ALIGN", (1, 0), (1, -1), "CENTER"),
-                ("ALIGN", (2, 0), (3, -1), "RIGHT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            elementos.append(tabla_cotizacion)
+                tabla_cuotas.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                elementos.append(tabla_cuotas)
             elementos.append(Spacer(1, 6))
 
-        elementos.append(
-            Paragraph(
-                f"<b>Total consolidado en {html.escape(moneda)}: {_fmt_moneda(resumen_venta['total_contrato'])}</b>",
-                estilo_parrafo,
-            )
-        )
-        forma_pago_venta_label = resumen_venta.get("forma_pago_venta_label") or "Contado"
-        elementos.append(
-            Paragraph(
-                f"Forma de pago venta: {_safe_paragraph_text(forma_pago_venta_label)}",
-                estilo_bullet,
-            )
-        )
-        if resumen_venta.get("forma_pago_venta") == "cuotas":
-            cuotas_rows = [
-                [
-                    Paragraph("<b>Cuota</b>", estilo_tabla_celda),
-                    Paragraph("<b>%</b>", estilo_tabla_celda),
-                    Paragraph("<b>Hito</b>", estilo_tabla_celda),
-                    Paragraph("<b>Monto</b>", estilo_tabla_celda),
-                ]
-            ]
-            for cuota in resumen_venta.get("cuotas_venta_resumen") or []:
-                cuotas_rows.append(
-                    [
-                        Paragraph(str(cuota.get("orden") or "1"), estilo_tabla_celda),
-                        Paragraph(f"{cuota.get('porcentaje')}%", estilo_tabla_celda),
-                        Paragraph(
-                            _safe_paragraph_text(
-                                cuota.get("hito_pago_label")
-                                or cuota.get("hito_pago_descripcion")
-                                or "Sin definir"
-                            ),
-                            estilo_tabla_celda,
-                        ),
-                        Paragraph(_fmt_moneda(cuota.get("monto")), estilo_tabla_celda),
-                    ]
-                )
-            tabla_cuotas = Table(
-                cuotas_rows,
-                colWidths=[1.0 * inch, 1.0 * inch, 2.2 * inch, 1.8 * inch],
-            )
-            tabla_cuotas.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            elementos.append(tabla_cuotas)
-        elementos.append(Spacer(1, 6))
-
-    # ── Licencias contratadas ────────────────────────────────────────────────
-    if licencias:
+    def _render_bloque_licencias():
+        if not licencias:
+            return
         elementos.append(Spacer(1, 14))
         elementos.append(Paragraph("<b>Licencias Contratadas</b>", estilo_subtitulo))
 
@@ -951,8 +941,9 @@ def generar_contrato_desde_plantilla(
         elementos.append(tabla_lic)
         elementos.append(Spacer(1, 6))
 
-    # ── Condiciones especiales ───────────────────────────────────────────────
-    if condiciones:
+    def _render_bloque_condiciones_especiales():
+        if not condiciones:
+            return
         elementos.append(Spacer(1, 14))
         elementos.append(Paragraph("<b>Condiciones Especiales</b>", estilo_subtitulo))
 
@@ -971,8 +962,9 @@ def generar_contrato_desde_plantilla(
                 ))
             elementos.append(Spacer(1, 4))
 
-    # ── Resumen comercial ────────────────────────────────────────────────────
-    if items_comerciales or (contrato.tipo == "venta" and cotizaciones_vinculadas):
+    def _render_bloque_resumen_comercial():
+        if not (items_comerciales or (contrato.tipo == "venta" and cotizaciones_vinculadas)):
+            return
         total_contrato = (
             construir_resumen_venta_contrato(contrato)["total_contrato"]
             if contrato.tipo == "venta"
@@ -1021,8 +1013,9 @@ def generar_contrato_desde_plantilla(
         elementos.append(tabla_resumen)
         elementos.append(Spacer(1, 6))
 
-    # ── Acuerdos de confidencialidad ─────────────────────────────────────────
-    if acuerdos:
+    def _render_bloque_acuerdos():
+        if not acuerdos:
+            return
         elementos.append(Spacer(1, 14))
         elementos.append(Paragraph("<b>Acuerdos de Confidencialidad</b>", estilo_subtitulo))
 
@@ -1037,8 +1030,7 @@ def generar_contrato_desde_plantilla(
                 elementos.extend(_html_to_flowables(contenido_acuerdo, estilo_parrafo, estilo_bullet))
             elementos.append(Spacer(1, 4))
 
-    # ── Firmas (al final) ────────────────────────────────────────────────────
-    for _seccion in secciones_firmas:
+    def _render_firma_block():
         elementos.append(Spacer(1, 24))
         data_firmas = [
             [
@@ -1065,6 +1057,70 @@ def generar_contrato_desde_plantilla(
             ("BOTTOMPADDING", (0, 0), (-1, -1), 18),
         ]))
         elementos.append(tabla_firmas)
+
+    # ── Loop unificado: todas las secciones en el orden exacto del plantilla ────
+    # Los tipos bloque_* se renderizan desde los datos del contrato.
+    # Los tipos firmas insertan el bloque de firma en su posicion natural.
+    # El resto (titulo, subtitulo, encabezado, clausula, etc.) renderizan contenido.
+    _BLOQUE_DISPATCH = {
+        "bloque_servicios": _render_bloque_servicios,
+        "bloque_licencias": _render_bloque_licencias,
+        "bloque_condiciones_especiales": _render_bloque_condiciones_especiales,
+        "bloque_resumen_comercial": _render_bloque_resumen_comercial,
+        "bloque_acuerdos": _render_bloque_acuerdos,
+    }
+
+    secciones_list = list(secciones)
+    for seccion in secciones_list:
+        tipo = seccion.seccion_plantilla.tipo if seccion.seccion_plantilla else "libre"
+        # identificacion_cliente y encabezado ya se renderizan como tabla_cliente/
+        # tabla_prestador en la cabecera fija del PDF.
+        # firmas se renderiza siempre al final del documento (ver despues del loop).
+        if tipo in {'identificacion_cliente', 'encabezado', 'firmas'}:
+            continue
+        if tipo in _BLOQUE_DISPATCH:
+            _BLOQUE_DISPATCH[tipo]()
+        elif tipo == "titulo":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_sec_titulo,
+            ))
+        elif tipo == "subtitulo":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_sec_subtitulo,
+            ))
+        elif tipo == "encabezado":
+            elementos.append(Paragraph(
+                _safe_paragraph_text(seccion.titulo),
+                estilo_titulo,
+            ))
+            if seccion.contenido_renderizado.strip():
+                elementos.extend(_html_to_flowables(
+                    seccion.contenido_renderizado, estilo_parrafo, estilo_bullet
+                ))
+            elementos.append(Spacer(1, 10))
+        else:
+            # clausula, condiciones_generales, libre, identificacion_cliente
+            contenido_html = (seccion.contenido_renderizado or "").strip()
+            if not seccion.titulo and not contenido_html:
+                continue
+            if seccion.titulo:
+                elementos.append(Paragraph(
+                    f"<b>{_safe_paragraph_text(seccion.titulo)}</b>",
+                    estilo_subtitulo,
+                ))
+            if contenido_html:
+                elementos.extend(_html_to_flowables(
+                    contenido_html, estilo_parrafo, estilo_bullet
+                ))
+            elementos.append(Spacer(1, 6))
+
+    if not secciones_list:
+        elementos.append(Paragraph("(Sin contenido de plantilla)", estilo_parrafo))
+
+    # Bloque de firmas siempre al final del documento, independiente de la plantilla.
+    _render_firma_block()
 
     doc.build(elementos, canvasmaker=_canvas_class)
     buffer.seek(0)

@@ -402,3 +402,49 @@ def construir_resumen_venta_contrato(contrato, *, strict=False):
         "cotizaciones_detalle": resumen["detalles"],
         "errores_conversion": resumen["errores"],
     }
+
+
+def calcular_monto_total_contrato(contrato):
+    """
+    Calcula el monto total de un contrato segun su tipo.
+
+    - venta    : suma cotizaciones vinculadas (construir_resumen_venta_contrato)
+    - licencia : total_items_comerciales + licencias convertidas a moneda_cobro
+    - servicios: total_items_comerciales
+    """
+    tipo = getattr(contrato, "tipo", None)
+
+    if tipo == "venta":
+        try:
+            return Decimal(str(construir_resumen_venta_contrato(contrato)["total_contrato"]))
+        except Exception:
+            return Decimal("0")
+
+    total = Decimal(str(contrato.total_items_comerciales or 0))
+
+    if tipo == "licencia":
+        from contratos.currency_utils import convertir_precio_item_safe, obtener_tipos_cambio_actuales
+        licencias = list(contrato.contrato_licencias.all())
+        if licencias:
+            moneda_cobro = contrato.moneda_cobro
+            dolar, uf = obtener_tipos_cambio_actuales()
+            for licencia in licencias:
+                subtotal = (
+                    Decimal(str(licencia.precio_unitario_snapshot))
+                    * Decimal(str(licencia.cantidad))
+                )
+                moneda_origen = getattr(licencia, "moneda_snapshot", None) or moneda_cobro
+                if moneda_origen == moneda_cobro:
+                    total += subtotal
+                else:
+                    convertido = convertir_precio_item_safe(
+                        subtotal,
+                        moneda_origen=moneda_origen,
+                        moneda_destino=moneda_cobro,
+                        dolar_observado=dolar,
+                        valor_uf=uf,
+                    )
+                    if convertido is not None:
+                        total += Decimal(str(convertido))
+
+    return total

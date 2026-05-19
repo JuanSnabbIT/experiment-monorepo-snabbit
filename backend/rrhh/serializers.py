@@ -34,6 +34,11 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     email_trabajador = serializers.SerializerMethodField()
     rut_trabajador = serializers.SerializerMethodField()
 
+    plantilla_contrato_titulo = serializers.CharField(
+        source="plantilla_contrato.titulo", read_only=True, default=None,
+    )
+    secciones_generadas = serializers.SerializerMethodField()
+
     anexos = AnexoContratoSerializer(many=True, read_only=True)
 
     class Meta:
@@ -74,6 +79,20 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
 
     def get_rut_trabajador(self, obj):
         return obj.usuario_empresa.rut if obj.usuario_empresa else None
+
+    def get_secciones_generadas(self, obj):
+        secciones = obj.secciones_generadas.all().order_by("orden") if hasattr(obj, "secciones_generadas") else []
+        return [
+            {
+                "id": s.id,
+                "titulo": s.titulo,
+                "contenido_renderizado": s.contenido_renderizado,
+                "orden": s.orden,
+                "fue_editado_manualmente": s.fue_editado_manualmente,
+                "seccion_plantilla_id": s.seccion_plantilla_id,
+            }
+            for s in secciones
+        ]
 
 
 class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
@@ -116,6 +135,27 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
 class TrabajadorExistenteSerializer(serializers.Serializer):
     modo = serializers.ChoiceField(choices=[("existente", "existente")])
     usuario_empresa_id = serializers.IntegerField()
+    # Datos previsionales / bancarios / personales (opcionales, actualizan al UE/User)
+    afp = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    sistema_salud = serializers.ChoiceField(
+        choices=[("fonasa", "fonasa"), ("isapre", "isapre"), ("otro", "otro")],
+        required=False, allow_blank=True, allow_null=True,
+    )
+    nombre_isapre = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    banco = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    tipo_cuenta_bancaria = serializers.ChoiceField(
+        choices=[
+            ("corriente", "corriente"),
+            ("vista", "vista"),
+            ("ahorro", "ahorro"),
+            ("rut", "rut"),
+        ],
+        required=False, allow_blank=True, allow_null=True,
+    )
+    numero_cuenta_bancaria = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    nacionalidad = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
+    direccion = serializers.CharField(max_length=250, required=False, allow_blank=True, allow_null=True)
 
 
 class TrabajadorNuevoSerializer(serializers.Serializer):
@@ -126,6 +166,28 @@ class TrabajadorNuevoSerializer(serializers.Serializer):
     rut = serializers.CharField(max_length=20, required=False, allow_blank=True)
     sucursal_id = serializers.IntegerField()
     enviar_invitacion = serializers.BooleanField(default=True)
+    # Datos previsionales / bancarios (en UsuarioEmpresa)
+    afp = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    sistema_salud = serializers.ChoiceField(
+        choices=[("fonasa", "fonasa"), ("isapre", "isapre"), ("otro", "otro")],
+        required=False, allow_blank=True, allow_null=True,
+    )
+    nombre_isapre = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    banco = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    tipo_cuenta_bancaria = serializers.ChoiceField(
+        choices=[
+            ("corriente", "corriente"),
+            ("vista", "vista"),
+            ("ahorro", "ahorro"),
+            ("rut", "rut"),
+        ],
+        required=False, allow_blank=True, allow_null=True,
+    )
+    numero_cuenta_bancaria = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    # Datos personales (en User)
+    nacionalidad = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
+    direccion = serializers.CharField(max_length=250, required=False, allow_blank=True, allow_null=True)
 
 
 class CrearContratoConTrabajadorSerializer(serializers.Serializer):

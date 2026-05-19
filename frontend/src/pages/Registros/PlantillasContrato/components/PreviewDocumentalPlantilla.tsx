@@ -68,6 +68,49 @@ const BLOQUE_LABELS: Record<TBloqueMock, string> = {
     condiciones: 'Condiciones comerciales',
 };
 
+// Bloques generados siempre por el PDF en la cabecera, independiente de la plantilla.
+type TBloqueSistema = {
+    id: string;
+    titulo: string;
+    descripcion: string;
+    contenido_template: string;
+    layout?: 'rows' | 'cols';
+};
+const BLOQUES_SISTEMA_FIJOS: TBloqueSistema[] = [
+    {
+        id: 'sistema-prestador',
+        titulo: 'EL PRESTADOR',
+        descripcion: 'Identificación de la empresa prestadora.',
+        contenido_template:
+            'Nombre o Razón Social: [nombre_empresa_prestadora]\n' +
+            'R.U.T: [rut_empresa_prestadora]\n' +
+            'Representante legal: [representante_legal_empresa]',
+    },
+    {
+        id: 'sistema-cliente',
+        titulo: 'Identificación de "EL CLIENTE"',
+        descripcion: 'Identificación completa del cliente.',
+        contenido_template:
+            'Nombre o Razón Social: [nombre_cliente]\n' +
+            'R.U.T: [rut_cliente]\n' +
+            'Domicilio: [domicilio_cliente]\n' +
+            'Giro o actividad: [giro_cliente]\n' +
+            'Representante legal: [representante_cliente]\n' +
+            'R.U.T del representante: [rut_representante_cliente]\n' +
+            'E-mail: [email_cliente]',
+    },
+    {
+        id: 'sistema-vigencia',
+        titulo: 'Vigencia del contrato',
+        descripcion: 'Fechas y moneda del contrato.',
+        layout: 'cols',
+        contenido_template:
+            'Inicio de vigencia: [fecha_inicio]\n' +
+            'Término de vigencia: [fecha_termino]\n' +
+            'Moneda contractual: [moneda]',
+    },
+];
+
 type PreviewSectionItem = {
     seccion: ISeccionPlantilla;
     isOverride: boolean;
@@ -75,15 +118,17 @@ type PreviewSectionItem = {
 
 type PreviewItem =
     | { kind: 'seccion'; item: PreviewSectionItem }
-    | { kind: 'mock'; bloque: string };
+    | { kind: 'mock'; bloque: string }
+    | { kind: 'sistema'; bloque: TBloqueSistema };
 
 const getSortableSectionId = (sectionId: number) => `sec-${sectionId}`;
 const getMockId = (bloque: string) => `mock-${bloque}`;
 
-const getPreviewItemId = (item: PreviewItem): string =>
-    item.kind === 'seccion'
-        ? getSortableSectionId(item.item.seccion.id)
-        : getMockId(item.bloque);
+const getPreviewItemId = (item: PreviewItem): string => {
+    if (item.kind === 'seccion') return getSortableSectionId(item.item.seccion.id);
+    if (item.kind === 'mock') return getMockId(item.bloque);
+    return item.bloque.id;
+};
 
 /**
  * Construye la lista mixta de secciones + bloques intercalados,
@@ -93,7 +138,13 @@ const buildMixedList = (
     secciones: PreviewSectionItem[],
     plantilla: IPlantillaContrato,
 ): PreviewItem[] => {
-    const items: { orden: number; entry: PreviewItem }[] = [];
+    // Bloques sistema siempre al inicio (valores de orden negativos para que queden primeros).
+    const items: { orden: number; entry: PreviewItem }[] = BLOQUES_SISTEMA_FIJOS.map(
+        (bloque, idx) => ({
+            orden: -(BLOQUES_SISTEMA_FIJOS.length - idx),
+            entry: { kind: 'sistema' as const, bloque },
+        }),
+    );
 
     for (const sec of secciones) {
         items.push({ orden: sec.seccion.orden, entry: { kind: 'seccion', item: sec } });
@@ -125,6 +176,8 @@ const serializeReorderPayload = (items: PreviewItem[]) => {
     let orden = 1;
 
     for (const item of items) {
+        // Bloques sistema: hardcoded en el PDF, no se persisten en BD.
+        if (item.kind === 'sistema') continue;
         if (item.kind === 'seccion') {
             secciones.push({ id: item.item.seccion.id, orden });
         } else {
@@ -401,13 +454,13 @@ const PreviewDocumentalPlantilla = ({
             attachFocusRef?: boolean;
         },
     ) => {
+        // firmas se renderiza como bloque fijo al final del documento.
+        if (item.seccion.tipo === 'firmas') return null;
+
         const isFocused = options?.focused ?? false;
         const isDimmed = options?.dimmed ?? false;
 
-        const sectionContent =
-            item.seccion.tipo === 'firmas' ? (
-                <ZonaFirmaReferencia isFocused={isFocused} isDimmed={isDimmed} />
-            ) : (
+        const sectionContent = (
                 <SeccionPreview
                     seccion={item.seccion}
                     etiquetas={etiquetas}
@@ -428,14 +481,12 @@ const PreviewDocumentalPlantilla = ({
             );
         }
 
-        if (item.seccion.tipo === 'firmas') {
-            if (options?.attachFocusRef) {
-                return (
-                    <div key={item.seccion.id} ref={focusRef}>
-                        {sectionContent}
-                    </div>
-                );
-            }
+        if (options?.attachFocusRef) {
+            return (
+                <div key={item.seccion.id} ref={focusRef}>
+                    {sectionContent}
+                </div>
+            );
         }
 
         return <Fragment key={item.seccion.id}>{sectionContent}</Fragment>;
@@ -474,6 +525,16 @@ const PreviewDocumentalPlantilla = ({
 
     const renderMixedPreview = (items: PreviewItem[]) =>
         items.map((item) => {
+            if (item.kind === 'sistema') {
+                return (
+                    <BloqueSistemaFijo
+                        key={item.bloque.id}
+                        bloque={item.bloque}
+                        etiquetas={etiquetas}
+                        isDimmed={mode === 'focus-section'}
+                    />
+                );
+            }
             if (item.kind === 'mock') {
                 return renderMockBlock(item.bloque, mode === 'focus-section', false);
             }
@@ -487,14 +548,6 @@ const PreviewDocumentalPlantilla = ({
         });
 
     const renderItems = () => {
-        if (previewSectionItems.length === 0) {
-            return (
-                <div className='rounded-lg border border-dashed border-zinc-300 p-10 text-center text-zinc-400 dark:border-zinc-600'>
-                    Esta plantilla no tiene secciones definidas.
-                </div>
-            );
-        }
-
         if (isReorderMode) {
             const allIds = localReorderItems.map(getPreviewItemId);
             return (
@@ -508,6 +561,18 @@ const PreviewDocumentalPlantilla = ({
                         <div className='flex flex-col gap-3'>
                             {localReorderItems.map((reorderItem) => {
                                 const itemId = getPreviewItemId(reorderItem);
+                                if (reorderItem.kind === 'sistema') {
+                                    return (
+                                        <SortableSeccionWrapper
+                                            key={itemId}
+                                            id={itemId}>
+                                            <BloqueSistemaFijo
+                                                bloque={reorderItem.bloque}
+                                                etiquetas={etiquetas}
+                                            />
+                                        </SortableSeccionWrapper>
+                                    );
+                                }
                                 if (reorderItem.kind === 'mock') {
                                     return (
                                         <SortableSeccionWrapper
@@ -544,16 +609,12 @@ const PreviewDocumentalPlantilla = ({
                                 ? 'Ordenar secciones'
                                 : 'Vista previa documental'}
                         </span>
-                        {isReorderMode && (
-                            <Badge color='amber' variant='outline'>
-                                Modo: Reordenar
-                            </Badge>
-                        )}
                     </div>
                     {onModeChange && (
                         <Button
                             size='sm'
-                            variant='outline'
+                            variant='solid'
+                            color={isReorderMode ? 'violet' : 'blue'}
                             icon={isReorderMode ? 'HeroEye' : 'HeroBars3BottomLeft'}
                             onClick={() =>
                                 onModeChange(isReorderMode ? 'general' : 'reorder')
@@ -596,37 +657,11 @@ const PreviewDocumentalPlantilla = ({
                                 </span>
                             </div>
                         </div>
-                        {mockData && (
-                            <div className='mt-5 grid gap-3 text-sm md:grid-cols-3'>
-                                <div className='rounded-md bg-gray-50 px-4 py-3 dark:bg-zinc-800'>
-                                    <span className='block text-xs font-medium text-gray-500 dark:text-zinc-400'>
-                                        Cliente (demo)
-                                    </span>
-                                    <span className='font-semibold text-gray-900 dark:text-zinc-100'>
-                                        {mockData.info.cliente}
-                                    </span>
-                                </div>
-                                <div className='rounded-md bg-gray-50 px-4 py-3 dark:bg-zinc-800'>
-                                    <span className='block text-xs font-medium text-gray-500 dark:text-zinc-400'>
-                                        Moneda
-                                    </span>
-                                    <span className='font-semibold text-gray-900 dark:text-zinc-100'>
-                                        {mockData.info.moneda}
-                                    </span>
-                                </div>
-                                <div className='rounded-md bg-gray-50 px-4 py-3 dark:bg-zinc-800'>
-                                    <span className='block text-xs font-medium text-gray-500 dark:text-zinc-400'>
-                                        Vigencia (demo)
-                                    </span>
-                                    <span className='font-semibold text-gray-900 dark:text-zinc-100'>
-                                        {mockData.info.fecha_inicio} — {mockData.info.fecha_termino}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
+
                     </section>
 
                     {renderItems()}
+                    <ZonaFirmaReferencia />
                 </div>
             </ModalBody>
             <ModalFooter>
@@ -767,6 +802,89 @@ const SeccionPreview = forwardRef<HTMLDivElement, ISeccionPreviewProps>(
 );
 SeccionPreview.displayName = 'SeccionPreview';
 
+const BloqueSistemaFijo = ({
+    bloque,
+    etiquetas,
+    isDimmed,
+}: {
+    bloque: TBloqueSistema;
+    etiquetas: IEtiquetaPlantilla[];
+    isDimmed?: boolean;
+}) => (
+    <section
+        className={`rounded-lg border border-dashed border-blue-300 bg-blue-50/30 p-5 dark:border-blue-700 dark:bg-blue-950/20${
+            isDimmed ? ' opacity-40 pointer-events-none' : ''
+        }`}>
+        <div className='mb-2 flex items-center gap-2'>
+            <Badge color='zinc' variant='solid' className='text-[10px]'>
+                Sistema
+            </Badge>
+            <Icon icon='HeroLockClosed' className='h-3 w-3 text-zinc-400' />
+        </div>
+        <div className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>{bloque.titulo}</div>
+        {bloque.contenido_template ? (
+            bloque.layout === 'cols' ? (
+                (() => {
+                    const cols = bloque.contenido_template.split('\n').map((line) => {
+                        const sepIdx = line.indexOf(': ');
+                        if (sepIdx === -1) return null;
+                        return { label: line.slice(0, sepIdx), value: line.slice(sepIdx + 2) };
+                    }).filter(Boolean) as { label: string; value: string }[];
+                    return (
+                        <table className='mt-2 w-full border-collapse text-sm'>
+                            <thead>
+                                <tr>
+                                    {cols.map((col) => (
+                                        <th
+                                            key={col.label}
+                                            className='border-t border-blue-200/50 pb-1 pt-1.5 pr-6 text-left text-xs font-medium text-zinc-500 dark:border-blue-800/30 dark:text-zinc-400'>
+                                            {col.label}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    {cols.map((col) => (
+                                        <td key={col.label} className='py-1.5 pr-6 align-top'>
+                                            {renderContenidoConChips(col.value, etiquetas)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            </tbody>
+                        </table>
+                    );
+                })()
+            ) : (
+                <table className='mt-2 w-full border-collapse text-sm'>
+                    <tbody>
+                        {bloque.contenido_template.split('\n').map((line, i) => {
+                            const sepIdx = line.indexOf(': ');
+                            if (sepIdx === -1) return null;
+                            const label = line.slice(0, sepIdx);
+                            const value = line.slice(sepIdx + 2);
+                            return (
+                                <tr
+                                    key={i}
+                                    className='border-t border-blue-200/50 dark:border-blue-800/30'>
+                                    <td className='py-1.5 pr-4 align-top text-xs whitespace-nowrap text-zinc-500 dark:text-zinc-400'>
+                                        {label}
+                                    </td>
+                                    <td className='py-1.5 align-top'>
+                                        {renderContenidoConChips(value, etiquetas)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            )
+        ) : (
+            <p className='mt-1 text-xs text-zinc-400 dark:text-zinc-500'>{bloque.descripcion}</p>
+        )}
+    </section>
+);
+
 const BloqueMockPlaceholder = ({ bloque }: { bloque: string }) => (
     <section className='rounded-lg border border-dashed border-blue-200 bg-blue-50/30 p-5 dark:border-blue-800 dark:bg-blue-950/10'>
         <Badge color='blue' variant='outline' className='mb-3 text-[10px]'>
@@ -799,9 +917,12 @@ const BloqueMock = ({
     const wrapperClass = `rounded-lg border border-dashed border-blue-300 bg-blue-50/30 p-5 dark:border-blue-700 dark:bg-blue-950/20${dimClass}`;
 
     const labelBadge = (
-        <Badge color='blue' variant='outline' className='mb-3 text-[10px]'>
-            Datos comerciales (demo)
-        </Badge>
+        <div className='mb-3 flex items-center gap-2'>
+            <Badge color='zinc' variant='solid' className='text-[10px]'>
+                Sistema
+            </Badge>
+            <Icon icon='HeroLockClosed' className='h-3 w-3 text-zinc-400' />
+        </div>
     );
 
     if (bloque === 'alcance') {

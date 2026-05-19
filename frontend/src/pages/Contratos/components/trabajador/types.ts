@@ -9,6 +9,7 @@ export interface IFormValuesContratoTrabajador {
     // Step 1 - Datos basicos
     nombre: string; // referencia interna
     observaciones: string;
+    estado_inicial: 'borrador' | 'pendiente_aceptacion';
 
     // Step 2 - Trabajador
     trab_modo: 'existente' | 'nuevo';
@@ -19,6 +20,10 @@ export interface IFormValuesContratoTrabajador {
     trab_rut: string;
     trab_sucursal_id: number | '';
     trab_enviar_invitacion: boolean;
+    // Datos personales (User) - opcionales
+    trab_nacionalidad: string;
+    trab_fecha_nacimiento: string;
+    trab_direccion: string;
 
     // Step 3 - Terminos laborales
     tipo_contrato: TTipoContrato | '';
@@ -28,10 +33,15 @@ export interface IFormValuesContratoTrabajador {
     funciones: string;
     jornada: TJornadaContrato | '';
     horas_semanales: number | '';
+    horario_detalle: string;
+    tiempo_colacion: number | '';
     lugar_trabajo: string;
+    lugar_firma: string;
+    fecha_firma: string;
 
     // Step 4 - Remuneraciones
     sueldo_base: number | '';
+    sueldo_liquido: number | '';
     moneda: TMonedaContrato;
     gratificacion_legal: boolean;
     bono_movilizacion: number | '';
@@ -42,10 +52,6 @@ export interface IFormValuesContratoTrabajador {
     banco: string;
     tipo_cuenta_bancaria: '' | 'corriente' | 'vista' | 'ahorro' | 'rut';
     numero_cuenta_bancaria: string;
-
-    // Step 5 - Documento
-    archivo_pdf: File | null;
-    estado_inicial: 'borrador' | 'pendiente_aceptacion';
 }
 
 export const TIPO_CONTRATO_OPTIONS = [

@@ -291,8 +291,10 @@ def generar_secciones_contrato(contrato):
             resultado.append(existente)
             continue
 
-        # Tipos titulo/subtitulo no tienen cuerpo de texto — no interpolar etiquetas
-        if seccion.tipo in ('titulo', 'subtitulo'):
+        # Tipos sin cuerpo de texto: titulo, subtitulo y bloques dinámicos
+        # Los bloques dinámicos se renderizan en el PDF desde los datos del contrato.
+        from contratos.models import TIPOS_BLOQUE_DINAMICO
+        if seccion.tipo in ('titulo', 'subtitulo') or seccion.tipo in TIPOS_BLOQUE_DINAMICO:
             contenido = ''
         else:
             contenido = renderizar_seccion(seccion.contenido_template, contrato, etiquetas_map)

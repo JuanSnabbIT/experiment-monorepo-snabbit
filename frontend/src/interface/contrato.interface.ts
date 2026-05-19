@@ -674,6 +674,8 @@ export interface IFacturaContrato {
     nombre_cliente: string;
     nombre_prestadora: string;
     monto_calculado?: string;
+    forma_pago_contractual?: string | null;
+    forma_pago_contractual_label?: string | null;
     fecha_creacion: string;
     fecha_modificacion: string;
 }

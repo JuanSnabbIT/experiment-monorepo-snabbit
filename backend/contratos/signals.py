@@ -133,7 +133,8 @@ def generar_primera_prefactura_al_activar(sender, instance, created, **kwargs):
     if ya_existe:
         return
 
-    monto_total = instance.total_items_comerciales or Decimal("0")
+    from contratos.venta_helpers import calcular_monto_total_contrato
+    monto_total = calcular_monto_total_contrato(instance)
 
     FacturaContrato.objects.create(
         contrato=instance,

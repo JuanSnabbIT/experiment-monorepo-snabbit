@@ -6,11 +6,6 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import Dropdown, {
-    DropdownItem,
-    DropdownMenu,
-    DropdownToggle,
-} from '@/components/ui/Dropdown';
 import { TIPO_CONTRATO, TIPOS_SECCION } from '@/constants/contrato.constant';
 import { ISeccionPlantilla } from '@/interface/plantillaContrato.interface';
 import { useAppDispatch } from '@/store';
@@ -72,11 +67,15 @@ const SeccionCard = ({ seccion, plantillaId, onEdit, onDeleted, onPreviewSection
             <div className='flex shrink-0 gap-2'>
                 <Button
                     size='sm'
+                    color='violet'
+                    variant='solid'
                     icon='HeroEye'
                     onClick={() => onPreviewSection(seccion)}
                 />
                 <Button
                     size='sm'
+                    color='amber'
+                    variant='solid'
                     icon='HeroPencil'
                     onClick={() => onEdit(seccion)}
                 />
@@ -230,31 +229,26 @@ const DetallePlantilla = () => {
                             </div>
                         </div>
                         <div className='flex flex-wrap items-center gap-2'>
-                            <Dropdown>
-                                <DropdownToggle>
-                                    <Button icon='HeroEllipsisVertical'>
-                                        Más acciones
-                                    </Button>
-                                </DropdownToggle>
-                                <DropdownMenu placement='bottom-end'>
-                                    <DropdownItem
-                                        icon='HeroCog6Tooth'
-                                        onClick={() => setConfigModalOpen(true)}>
-                                        Configuración
-                                    </DropdownItem>
-                                    <DropdownItem
-                                        icon='HeroEye'
-                                        onClick={handlePreview}>
-                                        Vista previa
-                                    </DropdownItem>
-                                    <DropdownItem
-                                        icon='HeroDocumentDuplicate'
-                                        onClick={handleDuplicar}>
-                                        Duplicar plantilla
-                                    </DropdownItem>
-                                </DropdownMenu>
-                            </Dropdown>
                             <Button
+                                variant='default'
+                                icon='HeroCog6Tooth'
+                                onClick={() => setConfigModalOpen(true)}>
+                                Configuración
+                            </Button>
+                            <Button
+                                variant='default'
+                                icon='HeroEye'
+                                onClick={handlePreview}>
+                                Vista previa
+                            </Button>
+                            <Button
+                                variant='default'
+                                icon='HeroDocumentDuplicate'
+                                onClick={handleDuplicar}>
+                                Duplicar plantilla
+                            </Button>
+                            <Button
+                                color='blue'
                                 variant='solid'
                                 icon='HeroPlus'
                                 onClick={() => setCreateSectionModalOpen(true)}>

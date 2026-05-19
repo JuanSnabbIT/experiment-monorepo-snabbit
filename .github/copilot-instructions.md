@@ -131,11 +131,12 @@ Cargar: `AGENTS.md` + `jira-guide.md`
 
 ## 6. Contexto Rápido por Dominio
 
-### Órdenes de Trabajo (ordentrabajov2)
-- **Modelos principales:** `OrdenDeTrabajo`, `SoporteTecnico`, `ServicioEnOT`
-- **Estados OT:** pendiente → en_proceso → completada → cerrada → facturada
-- **Guías:** Se vinculan directamente a OT (no a Soporte)
-- **⚠️ IMPORTANTE:** `ordentrabajo` (V1) está DESACTIVADA
+### Órdenes de Trabajo (ordentrabajov3) — VERSION ACTIVA
+- **Modelos principales:** `OrdenDeTrabajoV3`, `TareaOTV3`, `AsignacionTecnicoOTV3`
+- **Estados OT:** borrador → preparacion → en_ejecucion → retroalimentacion → por_facturar → facturada
+- **URL backend:** `/api/v3/ordenes/`
+- **URL frontend:** `/orden-trabajo-v3/`
+- **⚠️ IMPORTANTE:** `ordentrabajov2` está DEPRECADA (rutas desactivadas, modelos conservados)
 
 ### Cotizaciones
 - **Modelos:** `Cotizacion`, `ItemCotizacion`, `SolicitanteCotizacion`

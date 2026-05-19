@@ -3,8 +3,12 @@ import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import { IContratoEmpresaCliente, IEmpresaContrato } from '@/interface/contrato.interface';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
+import { ClientIdentificationSection } from './ContratoDocumentoRenderer';
+import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import { ISeccionContratoGenerada } from '@/interface/plantillaContrato.interface';
+import { formatCurrency } from '@/utils/currency';
 import {
     useGenerarSeccionesContratoMutation,
     useGetDetallePlantillaQuery,
@@ -12,59 +16,332 @@ import {
     useUpdateSeccionGeneradaMutation,
 } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import classNames from 'classnames';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
-const IdentificacionClienteCard = ({ cliente }: { cliente: IEmpresaContrato }) => {
-    const rep = cliente?.representantes_legales?.[0] ?? null;
-    const rows: { label: string; value: string }[] = [
-        { label: 'Nombre o Raz\u00f3n Social', value: cliente?.nombre || '\u2014' },
-        { label: 'R.U.T', value: cliente?.rut_empresa || '' },
-        { label: 'Domicilio', value: cliente?.direccion_principal || '' },
-        { label: 'Giro o actividad', value: '' },
-        { label: 'Representante legal', value: rep?.nombre_usuario ?? '' },
-        { label: 'R.U.T', value: rep?.papeleta?.rut ?? '' },
-        { label: 'E-mail', value: rep?.email_usuario ?? '' },
-    ];
-
-    return (
-        <div className='overflow-hidden rounded-md border border-gray-200 dark:border-zinc-700'>
-            <div className='flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/60'>
-                <Badge color='sky' variant='outline' className='text-xs'>
-                    Secci&oacute;n predeterminada
-                </Badge>
-                <span className='text-sm font-semibold text-gray-800 dark:text-zinc-100'>
-                    1.- Identificaci&oacute;n de &quot;EL CLIENTE&quot;
-                </span>
-            </div>
-            <div>
-                {rows.map((row, i) => (
-                    <div
-                        key={i}
-                        className={`grid grid-cols-[200px,1fr] text-sm${
-                            i > 0 ? ' border-t border-gray-200 dark:border-zinc-700' : ''
-                        }`}>
-                        <div className='border-r border-gray-200 px-3 py-2 font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400'>
-                            {row.label}
-                        </div>
-                        <div className='px-3 py-2 text-gray-900 dark:text-zinc-100'>
-                            {row.value || (
-                                <span className='italic text-gray-300 dark:text-zinc-600'>&mdash;</span>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
 
 interface ITabDocumentoProps {
     contrato: IContratoEmpresaCliente;
     puedeEditar: boolean;
 }
+
+// ── Utilidades ──
+
+const formatFecha = (fecha: string | null | undefined): string => {
+    if (!fecha) return '—';
+    return new Date(fecha).toLocaleDateString('es-CL', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    });
+};
+
+// ── Componente tabla editable para secciones tipo identificacion_cliente ──
+
+interface IIdentificationRow {
+    label: string;
+    value: string;
+}
+
+function parseIdentificationContent(contenido: string): {
+    title: string;
+    rows: IIdentificationRow[];
+} {
+    const lines = contenido.split('\n');
+    const title = lines[0] ?? '';
+    const rows: IIdentificationRow[] = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        const colonIdx = line.indexOf(': ');
+        if (colonIdx >= 0) {
+            rows.push({ label: line.slice(0, colonIdx), value: line.slice(colonIdx + 2) });
+        }
+    }
+    return { title, rows };
+}
+
+function serializeIdentificationContent(
+    title: string,
+    rows: IIdentificationRow[],
+): string {
+    return [title, '', ...rows.map((r) => `${r.label}: ${r.value}`)].join('\n');
+}
+
+const EditableIdentificationTable = ({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (newValue: string) => void;
+}) => {
+    const { title, rows } = parseIdentificationContent(value);
+
+    const handleValueChange = (idx: number, newVal: string) => {
+        const newRows = rows.map((r, i) => (i === idx ? { ...r, value: newVal } : r));
+        onChange(serializeIdentificationContent(title, newRows));
+    };
+
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Identificación
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>{title}</h2>
+            </div>
+            <div className='overflow-hidden rounded-md border border-gray-200 dark:border-zinc-700'>
+                {rows.map((row, i) => (
+                    <div
+                        key={i}
+                        className={`grid grid-cols-[200px,1fr] text-sm${i > 0 ? ' border-t border-gray-200 dark:border-zinc-700' : ''}`}>
+                        <div className='border-r border-gray-200 px-3 py-2 font-medium text-gray-600 dark:border-zinc-700 dark:text-zinc-400'>
+                            {row.label}
+                        </div>
+                        <div className='px-2 py-1'>
+                            <input
+                                type='text'
+                                value={row.value}
+                                onChange={(e) => handleValueChange(i, e.target.value)}
+                                className='w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-gray-900 outline-none transition-colors hover:border-zinc-200 focus:border-blue-400 focus:bg-blue-50/30 dark:text-zinc-100 dark:hover:border-zinc-600 dark:focus:bg-blue-900/10'
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
+// ── Helper: detecta secciones de identificación por tipo o título ──
+const esSeccionIdentificacion = (s: ISeccionContratoGenerada) =>
+    s.tipo === 'identificacion_cliente' ||
+    s.titulo?.toLowerCase().includes('identificaci');
+
+// ── Componente: Firmas (solo lectura) ──
+const FirmasModalSection = ({ contrato }: { contrato: IContratoEmpresaCliente }) => (
+    <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+        <h2 className='mb-6 text-center text-base font-semibold uppercase tracking-wide text-gray-700 dark:text-zinc-400'>
+            Firmas
+        </h2>
+        <div className='grid grid-cols-2 gap-8 text-center'>
+            <div>
+                <div className='mx-auto mb-2 h-16 w-48 border-b border-gray-400 dark:border-zinc-600' />
+                <p className='text-sm font-medium text-gray-800 dark:text-zinc-200'>Empresa Prestadora</p>
+                <p className='text-xs text-gray-500 dark:text-zinc-500'>{contrato.datos_empresa?.nombre || ''}</p>
+            </div>
+            <div>
+                <div className='mx-auto mb-2 h-16 w-48 border-b border-gray-400 dark:border-zinc-600' />
+                <p className='text-sm font-medium text-gray-800 dark:text-zinc-200'>Empresa Cliente</p>
+                <p className='text-xs text-gray-500 dark:text-zinc-500'>{contrato.datos_cliente?.nombre || ''}</p>
+            </div>
+        </div>
+    </section>
+);
+
+// ── Componente: Bloque Servicios (solo lectura) ──
+const BloqueServiciosModal = ({ contrato }: { contrato: IContratoEmpresaCliente }) => {
+    const moneda = contrato.moneda_cobro || 'USD';
+    const items = contrato.items_comerciales ?? [];
+    const servicios = contrato.contrato_servicios ?? [];
+    const todos = [...items, ...servicios];
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Servicios
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    Servicios contratados
+                </h2>
+            </div>
+            {todos.length === 0 ? (
+                <p className='text-sm text-gray-400 dark:text-zinc-500'>Sin servicios registrados.</p>
+            ) : (
+                <div className='space-y-2'>
+                    {todos.map((item, i) => (
+                        <div
+                            key={i}
+                            className='rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <div className='flex items-start justify-between gap-2'>
+                                <p className='font-medium text-gray-900 dark:text-zinc-100'>
+                                    {item.nombre}
+                                </p>
+                                <p className='shrink-0 text-sm text-gray-600 dark:text-zinc-300'>
+                                    {formatCurrency(item.subtotal_en_moneda_cobro ?? item.subtotal, moneda)}
+                                </p>
+                            </div>
+                            <p className='text-xs text-gray-500 dark:text-zinc-400'>
+                                Cantidad: {item.cantidad}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
+// ── Componente: Bloque Licencias (solo lectura) ──
+const BloqueLicenciasModal = ({ contrato }: { contrato: IContratoEmpresaCliente }) => {
+    const licencias = contrato.contrato_licencias ?? [];
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Licencias
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    Licencias contratadas
+                </h2>
+            </div>
+            {licencias.length === 0 ? (
+                <p className='text-sm text-gray-400 dark:text-zinc-500'>Sin licencias registradas.</p>
+            ) : (
+                <div className='space-y-2'>
+                    {licencias.map((licencia) => (
+                        <div
+                            key={licencia.id}
+                            className='rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <p className='font-medium text-gray-900 dark:text-zinc-100'>
+                                {licencia.nombre_licencia}
+                            </p>
+                            <p className='text-sm text-gray-500 dark:text-zinc-400'>
+                                {licencia.modalidad_snapshot_label}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
+// ── Componente: Bloque Condiciones Especiales (solo lectura) ──
+const BloqueCondicionesModal = ({ contrato }: { contrato: IContratoEmpresaCliente }) => {
+    const condiciones = contrato.contrato_condiciones_especiales ?? [];
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Condiciones
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    Condiciones especiales
+                </h2>
+            </div>
+            {condiciones.length === 0 ? (
+                <p className='text-sm text-gray-400 dark:text-zinc-500'>Sin condiciones especiales.</p>
+            ) : (
+                <div className='space-y-3'>
+                    {condiciones.map((condicion) => (
+                        <div
+                            key={condicion.id}
+                            className='rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <p className='font-medium text-gray-900 dark:text-zinc-100'>
+                                {condicion.titulo_personalizado || condicion.titulo_condicion}
+                            </p>
+                            <p className='mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-zinc-300'>
+                                {condicion.detalle_personalizado ||
+                                    condicion.detalle_condicion ||
+                                    condicion.descripcion_condicion}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
+// ── Componente: Bloque Resumen Comercial (solo lectura) ──
+const BloqueResumenComercialModal = ({ contrato }: { contrato: IContratoEmpresaCliente }) => {
+    const moneda = contrato.moneda_cobro || 'USD';
+    const fechaInicio = formatFecha(contrato.fecha_inicio);
+    const fechaFin = formatFecha(contrato.fecha_fin);
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Resumen comercial
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    {contrato.tipo === 'venta'
+                        ? 'Total contractual consolidado'
+                        : 'Total contractual referencial'}
+                </h2>
+            </div>
+            <div className='grid grid-cols-2 gap-3 rounded-md border border-gray-100 bg-gray-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800 md:grid-cols-4'>
+                <div>
+                    <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                        Inicio
+                    </p>
+                    <p className='font-medium text-gray-800 dark:text-zinc-200'>{fechaInicio}</p>
+                </div>
+                <div>
+                    <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                        Término
+                    </p>
+                    <p className='font-medium text-gray-800 dark:text-zinc-200'>{fechaFin}</p>
+                </div>
+                <div>
+                    <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                        Moneda
+                    </p>
+                    <p className='font-medium text-gray-800 dark:text-zinc-200'>{moneda}</p>
+                </div>
+                {contrato.total_contrato != null && contrato.total_contrato > 0 && (
+                    <div>
+                        <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                            Total
+                        </p>
+                        <p className='font-semibold text-emerald-600 dark:text-emerald-400'>
+                            {formatCurrency(contrato.total_contrato, moneda)}
+                        </p>
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+};
+
+// ── Componente: Bloque Acuerdos NDA (solo lectura) ──
+const BloqueAcuerdosModal = ({ contrato }: { contrato: IContratoEmpresaCliente }) => {
+    const acuerdos = contrato.firmas_confidencialidad ?? [];
+    return (
+        <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+            <div className='mb-4'>
+                <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                    Confidencialidad
+                </p>
+                <h2 className='text-lg font-semibold text-gray-900 dark:text-zinc-100'>
+                    Acuerdos asociados
+                </h2>
+            </div>
+            {acuerdos.length === 0 ? (
+                <p className='text-sm text-gray-400 dark:text-zinc-500'>
+                    Sin acuerdos de confidencialidad registrados.
+                </p>
+            ) : (
+                <div className='space-y-3'>
+                    {acuerdos.map((acuerdo) => (
+                        <div
+                            key={acuerdo.id}
+                            className='rounded-md border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <p className='font-medium text-gray-900 dark:text-zinc-100'>
+                                {acuerdo.titulo_acuerdo}
+                            </p>
+                            <p className='mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-zinc-300'>
+                                {acuerdo.contenido_acuerdo}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
 
 const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
     const navigate = useNavigate();
@@ -72,54 +349,14 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
     const { data: plantillaDetalle } = useGetDetallePlantillaQuery(contrato.plantilla ?? 0, {
         skip: !contrato.plantilla,
     });
-    const [generarSecciones, { isLoading: isGenerando }] =
-        useGenerarSeccionesContratoMutation();
+    const [generarSecciones, { isLoading: isGenerando }] = useGenerarSeccionesContratoMutation();
     const [updateSeccion] = useUpdateSeccionGeneradaMutation();
 
-    const [expandidas, setExpandidas] = useState<Set<number>>(new Set());
-    const [editando, setEditando] = useState<number | null>(null);
+    const [seccionModal, setSeccionModal] = useState<ISeccionContratoGenerada | null>(null);
     const [contenidoEdit, setContenidoEdit] = useState('');
 
     const seccionesOrdenadas = [...secciones].sort((a, b) => a.orden - b.orden);
     const tieneEditadasManualmente = secciones.some((s) => s.fue_editado_manualmente);
-
-    const EXPAND_THRESHOLD = 5;
-    const MAX_VISIBLE_SECCIONES_COMPACTAS = 3;
-    const [compactMode, setCompactMode] = useState(false);
-
-    useEffect(() => {
-        if (seccionesOrdenadas.length > EXPAND_THRESHOLD) {
-            setCompactMode(true);
-        }
-    }, [seccionesOrdenadas.length]);
-
-    const seccionesVisibles =
-        compactMode && seccionesOrdenadas.length > EXPAND_THRESHOLD
-            ? seccionesOrdenadas.slice(0, MAX_VISIBLE_SECCIONES_COMPACTAS)
-            : seccionesOrdenadas;
-    const seccionesOcultas =
-        compactMode && seccionesOrdenadas.length > EXPAND_THRESHOLD
-            ? seccionesOrdenadas.length - MAX_VISIBLE_SECCIONES_COMPACTAS
-            : 0;
-
-    const toggleSeccion = (id: number) => {
-        setExpandidas((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const expandirTodas = () => {
-        setExpandidas(new Set(secciones.map((s) => s.id)));
-    };
-
-    const colapsarTodas = () => {
-        setExpandidas(new Set());
-        setEditando(null);
-        setContenidoEdit('');
-    };
 
     const handleRegenerar = async () => {
         // eslint-disable-next-line no-alert
@@ -137,31 +374,46 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
         }
     };
 
-    const handleIniciarEdicion = (seccion: ISeccionContratoGenerada) => {
-        setEditando(seccion.id);
+    const handleAbrirModal = (seccion: ISeccionContratoGenerada) => {
+        setSeccionModal(seccion);
         setContenidoEdit(seccion.contenido_renderizado);
-        setExpandidas((prev) => new Set(prev).add(seccion.id));
     };
 
-    const handleCancelarEdicion = () => {
-        setEditando(null);
+    const handleCerrarModal = () => {
+        setSeccionModal(null);
         setContenidoEdit('');
     };
 
-    const handleGuardarEdicion = async (seccionId: number) => {
+    const handleGuardar = async () => {
+        if (!seccionModal) return;
         try {
             await updateSeccion({
                 contratoId: contrato.id,
-                seccionId,
+                seccionId: seccionModal.id,
                 data: { contenido_renderizado: contenidoEdit },
             }).unwrap();
             toast.success('Sección actualizada');
-            setEditando(null);
-            setContenidoEdit('');
+            handleCerrarModal();
         } catch (error: unknown) {
             toast.error(getErrorMessage(error));
         }
     };
+
+    // Tipos que nunca son editables en el modal (sin texto propio: renderizan desde datos del contrato)
+    const TIPOS_SIEMPRE_READONLY = new Set([
+        'bloque_servicios',
+        'bloque_licencias',
+        'bloque_condiciones_especiales',
+        'bloque_resumen_comercial',
+        'bloque_acuerdos',
+        'firmas',
+        'identificacion_cliente',
+    ]);
+
+    const puedeEditarSeccion = (seccion: ISeccionContratoGenerada) =>
+        puedeEditar &&
+        seccion.es_editable_en_contrato &&
+        !TIPOS_SIEMPRE_READONLY.has(seccion.tipo ?? '');
 
     return (
         <Card>
@@ -217,211 +469,227 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
                 </CardHeaderChild>
             </CardHeader>
             <CardBody className='space-y-4 p-4'>
-                <div className='flex flex-col gap-4'>
-                    {/* Acciones superiores */}
-                    <div className='flex flex-wrap items-center justify-between gap-2'>
-                        <div className='flex gap-2'>
-                            {secciones.length > 0 && (
-                                <>
-                                    <Button
-                                        size='sm'
-                                        variant='outline'
-                                        color='blue'
-                                        className='text-blue-500'
-                                        onClick={expandirTodas}>
-                                        Expandir todas
-                                    </Button>
-                                    <Button
-                                        size='sm'
-                                        variant='outline'
-                                        color='blue'
-                                        className='text-blue-500'
-                                        onClick={colapsarTodas}>
-                                        Colapsar todas
-                                    </Button>
-                                </>
-                            )}
-                            {seccionesOrdenadas.length > EXPAND_THRESHOLD && (
-                                <Button
-                                    size='sm'
-                                    variant='outline'
-                                    color='blue'
-                                    className='text-blue-500'
-                                    onClick={() => setCompactMode((prev) => !prev)}>
-                                    {compactMode ? 'Vista completa' : 'Vista compacta'}
-                                </Button>
-                            )}
-                        </div>
-                        <div className='flex gap-2'>
-                            {contrato.plantilla && (
-                                <Button
-                                    size='sm'
-                                    variant='outline'
-                                    color='blue'
-                                    className='text-blue-500'
-                                    icon='HeroArrowTopRightOnSquare'
-                                    onClick={() =>
-                                        navigate(
-                                            `/registros/plantillas-contrato/${contrato.plantilla}`,
-                                        )
-                                    }>
-                                    Ver plantilla
-                                </Button>
-                            )}
-                            {puedeEditar && secciones.length > 0 && (
-                                <Button
-                                    size='sm'
-                                    variant='outline'
-                                    color='blue'
-                                    className='text-blue-500'
-                                    icon='HeroArrowPath'
-                                    isLoading={isGenerando}
-                                    onClick={handleRegenerar}>
-                                    Regenerar borrador
-                                </Button>
-                            )}
-                        </div>
+                {/* Acciones superiores */}
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                    <div className='flex gap-2'>
+                        {puedeEditar && secciones.length > 0 && (
+                            <Button
+                                size='sm'
+                                variant='outline'
+                                color='blue'
+                                icon='HeroArrowPath'
+                                isLoading={isGenerando}
+                                onClick={handleRegenerar}>
+                                Regenerar borrador
+                            </Button>
+                        )}
                     </div>
+                    <div className='flex gap-2'>
+                        {contrato.plantilla && (
+                            <Button
+                                size='sm'
+                                icon='HeroArrowTopRightOnSquare'
+                                onClick={() =>
+                                    navigate(
+                                        `/registros/plantillas-contrato/${contrato.plantilla}`,
+                                    )
+                                }>
+                                Ver plantilla
+                            </Button>
+                        )}
+                    </div>
+                </div>
 
-                    <IdentificacionClienteCard cliente={contrato.datos_cliente} />
+                {tieneEditadasManualmente && (
+                    <Alert color='amber' icon='HeroExclamationTriangle' variant='outline'>
+                        Hay secciones ajustadas manualmente. Al regenerar, esas secciones se
+                        mantienen y solo se actualizan las demás.
+                    </Alert>
+                )}
 
-                    {tieneEditadasManualmente && (
-                        <Alert color='amber' icon='HeroExclamationTriangle' variant='outline'>
-                            Hay secciones ajustadas manualmente. Al regenerar, esas secciones se
-                            mantienen y solo se actualizan las demás.
-                        </Alert>
-                    )}
+                {isLoading && (
+                    <p className='py-8 text-center text-zinc-500'>Cargando documento...</p>
+                )}
 
-                    {isLoading && (
-                        <p className='py-8 text-center text-zinc-500'>Cargando documento...</p>
-                    )}
+                {!isLoading && secciones.length === 0 && (
+                    <div className='flex flex-col items-center gap-3 rounded-xl border border-dashed border-zinc-300 py-10 text-center dark:border-zinc-700'>
+                        <p className='text-sm text-zinc-500'>
+                            No se encontraron secciones generadas. Puedes regenerar el borrador
+                            para crear las secciones desde la plantilla.
+                        </p>
+                        {puedeEditar && (
+                            <Button
+                                variant='solid'
+                                size='sm'
+                                icon='HeroDocumentText'
+                                isLoading={isGenerando}
+                                onClick={handleRegenerar}>
+                                Generar borrador
+                            </Button>
+                        )}
+                    </div>
+                )}
 
-                    {!isLoading && secciones.length === 0 && (
-                        <div className='flex flex-col items-center gap-3 rounded-xl border border-dashed border-zinc-300 py-10 text-center dark:border-zinc-700'>
-                            <p className='text-sm text-zinc-500'>
-                                No se encontraron secciones generadas. Puedes regenerar el borrador
-                                para crear las secciones desde la plantilla.
-                            </p>
-                            {puedeEditar && (
-                                <Button
-                                    variant='solid'
-                                    size='sm'
-                                    icon='HeroDocumentText'
-                                    isLoading={isGenerando}
-                                    onClick={handleRegenerar}>
-                                    Generar borrador
-                                </Button>
-                            )}
-                        </div>
-                    )}
-
-                    {!isLoading && secciones.length > 0 && (
-                        <div className='flex flex-col gap-2'>
-                            {compactMode && seccionesOcultas > 0 && (
-                                <div className='rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50'>
-                                    Mostrando {MAX_VISIBLE_SECCIONES_COMPACTAS} de {seccionesOrdenadas.length} secciones. {seccionesOcultas} secciones ocultas.
+                {!isLoading && secciones.length > 0 && (
+                    <div className='flex flex-col divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700'>
+                        {seccionesOrdenadas.map((seccion) => (
+                            <div
+                                key={seccion.id}
+                                className='flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/40'>
+                                <span className='w-6 shrink-0 text-right text-xs font-medium text-zinc-400'>
+                                    {seccion.orden}.
+                                </span>
+                                <span className='min-w-0 flex-1 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100'>
+                                    {seccion.titulo}
+                                </span>
+                                <div className='flex shrink-0 items-center gap-2'>
+                                    {!seccion.es_editable_en_contrato && (
+                                        <Badge color='sky' variant='outline' className='text-xs'>
+                                            Sistema
+                                        </Badge>
+                                    )}
+                                    {seccion.fue_editado_manualmente && (
+                                        <Badge color='amber' variant='outline' className='text-xs'>
+                                            Editado
+                                        </Badge>
+                                    )}
+                                    <Tooltip text='Ver detalle'>
+                                        <Button
+                                            size='sm'
+                                            variant='solid'
+                                            color='violet'
+                                            icon='HeroEye'
+                                            onClick={() => handleAbrirModal(seccion)}
+                                        />
+                                    </Tooltip>
                                 </div>
-                            )}
-                            <div className='flex flex-col gap-2 max-h-[520px] overflow-y-auto pr-2'>
-                                {seccionesVisibles.map((seccion) => {
-                                    const estaExpandida = expandidas.has(seccion.id);
-                                    const estaEditando = editando === seccion.id;
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardBody>
 
-                                    return (
-                                        <div
-                                            key={seccion.id}
-                                            className='rounded-lg border border-zinc-200 dark:border-zinc-700'>
-                                            {/* Header colapsable */}
-                                            <div className='flex w-full items-center justify-between gap-3 border-b border-transparent p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'>
-                                                <button
-                                                    type='button'
-                                                    className='flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-300'
-                                                    aria-expanded={estaExpandida}
-                                                    onClick={() => toggleSeccion(seccion.id)}>
-                                                    <span
-                                                        className={classNames(
-                                                            'text-xs transition-transform',
-                                                            estaExpandida && 'rotate-90',
-                                                        )}>
-                                                        ▶
-                                                    </span>
-                                                    <span className='text-sm font-semibold'>
-                                                        {seccion.titulo}
-                                                    </span>
-                                                    {seccion.fue_editado_manualmente && (
-                                                        <Badge
-                                                            variant='outline'
-                                                            color='amber'
-                                                            className='text-xs'>
-                                                            Editado
-                                                        </Badge>
-                                                    )}
-                                                </button>
-                                                {puedeEditar && !estaEditando && (
-                                                    <Button
-                                                        icon='HeroPencil'
-                                                        size='sm'
-                                                        onClick={() => handleIniciarEdicion(seccion)}>
-                                                        Editar
-                                                    </Button>
-                                                )}
-                                            </div>
-
-                                            {/* Contenido expandido */}
-                                            {estaExpandida && (
-                                                <div className='border-t border-zinc-200 p-4 dark:border-zinc-700'>
-                                                    {estaEditando ? (
-                                                        <div className='flex flex-col gap-2'>
-                                                            <Textarea
-                                                                id={`seccion-edit-${seccion.id}`}
-                                                                name={`seccion-edit-${seccion.id}`}
-                                                                value={contenidoEdit}
-                                                                onChange={(e) =>
-                                                                    setContenidoEdit(e.target.value)
-                                                                }
-                                                                rows={8}
-                                                            />
-                                                            <div className='flex justify-end gap-2'>
-                                                                <Button
-                                                                    size='sm'
-                                                                    onClick={handleCancelarEdicion}>
-                                                                    Cancelar
-                                                                </Button>
-                                                                <Button
-                                                                    variant='solid'
-                                                                    size='sm'
-                                                                    onClick={() =>
-                                                                        handleGuardarEdicion(seccion.id)
-                                                                    }>
-                                                                    Guardar cambios
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className='whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300'>
-                                                            {seccion.contenido_renderizado}
-                                                        </div>
-                                                    )}
-                                                </div>
+            {/* Modal de detalle de sección */}
+            <Modal
+                isOpen={seccionModal !== null}
+                setIsOpen={(open) => {
+                    if (!open) handleCerrarModal();
+                }}
+                size='xl'>
+                <ModalHeader>
+                    <div className='flex items-center gap-2'>
+                        <span className='text-base font-semibold'>
+                            {seccionModal?.titulo ?? ''}
+                        </span>
+                        {seccionModal && !seccionModal.es_editable_en_contrato && (
+                            <Badge color='sky' variant='outline' className='text-xs'>
+                                Solo lectura
+                            </Badge>
+                        )}
+                        {seccionModal?.fue_editado_manualmente && (
+                            <Badge color='amber' variant='outline' className='text-xs'>
+                                Editado manualmente
+                            </Badge>
+                        )}
+                    </div>
+                </ModalHeader>
+                <ModalBody>
+                    {seccionModal && (
+                        <div className='mx-auto max-w-4xl py-2'>
+                            {puedeEditarSeccion(seccionModal) ? (
+                                // ── Modo editable ──
+                                esSeccionIdentificacion(seccionModal) ? (
+                                    <EditableIdentificationTable
+                                        value={contenidoEdit}
+                                        onChange={setContenidoEdit}
+                                    />
+                                ) : seccionModal.tipo === 'titulo' ||
+                                  seccionModal.tipo === 'subtitulo' ? (
+                                    <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                                        <p className='mb-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                                            {seccionModal.tipo === 'titulo' ? 'Título' : 'Subtítulo'}
+                                        </p>
+                                        <input
+                                            type='text'
+                                            value={contenidoEdit}
+                                            onChange={(e) => setContenidoEdit(e.target.value)}
+                                            className={`w-full rounded border border-transparent bg-transparent px-1 py-0.5 outline-none transition-colors hover:border-zinc-200 focus:border-blue-400 focus:bg-blue-50/30 dark:hover:border-zinc-600 dark:focus:bg-blue-900/10 ${
+                                                seccionModal.tipo === 'titulo'
+                                                    ? 'text-xl font-bold text-gray-900 dark:text-zinc-100'
+                                                    : 'text-base font-semibold text-gray-800 dark:text-zinc-200'
+                                            }`}
+                                        />
+                                    </section>
+                                ) : (
+                                    <div className='rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                                        <Textarea
+                                            id='seccion-modal-edit'
+                                            name='seccion-modal-edit'
+                                            value={contenidoEdit}
+                                            onChange={(e) => setContenidoEdit(e.target.value)}
+                                            rows={16}
+                                            className='w-full font-mono text-sm'
+                                        />
+                                    </div>
+                                )
+                            ) : (
+                                // ── Modo solo lectura ──
+                                esSeccionIdentificacion(seccionModal) ? (
+                                    <ClientIdentificationSection cliente={contrato.datos_cliente} />
+                                ) : seccionModal.tipo === 'firmas' ? (
+                                    <FirmasModalSection contrato={contrato} />
+                                ) : seccionModal.tipo === 'titulo' ? (
+                                    <section className='rounded-lg border border-gray-200 bg-white p-6 text-center dark:border-zinc-700 dark:bg-zinc-900'>
+                                        <h2 className='text-2xl font-bold text-gray-900 dark:text-zinc-100'>
+                                            {seccionModal.contenido_renderizado || seccionModal.titulo}
+                                        </h2>
+                                    </section>
+                                ) : seccionModal.tipo === 'subtitulo' ? (
+                                    <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                                        <h3 className='text-lg font-semibold text-gray-800 dark:text-zinc-200'>
+                                            {seccionModal.contenido_renderizado || seccionModal.titulo}
+                                        </h3>
+                                    </section>
+                                ) : seccionModal.tipo === 'bloque_servicios' ? (
+                                    <BloqueServiciosModal contrato={contrato} />
+                                ) : seccionModal.tipo === 'bloque_licencias' ? (
+                                    <BloqueLicenciasModal contrato={contrato} />
+                                ) : seccionModal.tipo === 'bloque_condiciones_especiales' ? (
+                                    <BloqueCondicionesModal contrato={contrato} />
+                                ) : seccionModal.tipo === 'bloque_resumen_comercial' ? (
+                                    <BloqueResumenComercialModal contrato={contrato} />
+                                ) : seccionModal.tipo === 'bloque_acuerdos' ? (
+                                    <BloqueAcuerdosModal contrato={contrato} />
+                                ) : (
+                                    <div className='rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                                        <div className='whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-zinc-300'>
+                                            {seccionModal.contenido_renderizado || (
+                                                <em className='text-zinc-400'>Sin contenido</em>
                                             )}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                            {compactMode && seccionesOcultas > 0 && (
-                                <div className='flex justify-end'>
-                                    <Button
-                                        size='sm'
-                                        variant='outline'
-                                        onClick={() => setCompactMode(false)}>
-                                        Ver todas las secciones
-                                    </Button>
-                                </div>
+                                    </div>
+                                )
                             )}
                         </div>
                     )}
-                </div>
-            </CardBody>
+                </ModalBody>
+                <ModalFooter>
+                    <div className='flex w-full items-center justify-end gap-2'>
+                        <Button onClick={handleCerrarModal}>
+                            Cerrar
+                        </Button>
+                        {seccionModal && puedeEditarSeccion(seccionModal) && (
+                            <Button
+                                variant='solid'
+                                color='blue'
+                                icon='HeroCheck'
+                                onClick={handleGuardar}>
+                                Guardar cambios
+                            </Button>
+                        )}
+                    </div>
+                </ModalFooter>
+            </Modal>
         </Card>
     );
 };

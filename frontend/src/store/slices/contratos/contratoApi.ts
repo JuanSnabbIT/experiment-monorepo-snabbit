@@ -871,6 +871,18 @@ const contratoApi = RtkQueryService.injectEndpoints({
             invalidatesTags: ['FacturasContrato', 'FacturasContratoResumen'],
         }),
 
+        recalcularMontoFactura: builder.mutation<IFacturaContrato, number | string>({
+            query: (id) => ({
+                url: `/api/facturas-contrato/${id}/recalcular-monto/`,
+                method: 'post',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'FacturaContrato', id: Number(id) },
+                'FacturasContrato',
+                'FacturasContratoResumen',
+            ],
+        }),
+
         // ═══════════════════════════════════════════════════════
         //  Catálogos: Servicios, Planes, Características (CRUD)
         // ═══════════════════════════════════════════════════════
@@ -1196,6 +1208,7 @@ export const {
     useFinalizarFacturaContratoMutation,
     useAsociarDocumentoFacturaMutation,
     useDeleteFacturaContratoMutation,
+    useRecalcularMontoFacturaMutation,
     // Catálogos CRUD
     useGetCaracteristicasServicioQuery,
     useCreateServicioMutation,

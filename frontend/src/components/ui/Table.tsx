@@ -1,4 +1,5 @@
-import React, {
+import classNames from 'classnames';
+import {
     FC,
     HTMLAttributes,
     ReactNode,
@@ -6,10 +7,9 @@ import React, {
     TdHTMLAttributes,
     ThHTMLAttributes,
 } from 'react';
-import classNames from 'classnames';
 import themeConfig from '../../config/theme.config';
-import { TColors } from '../../types/colors.type';
 import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
 
 interface ITHeadProps extends HTMLAttributes<HTMLTableSectionElement> {
     children: ReactNode;
@@ -55,9 +55,9 @@ export const TFoot: FC<ITFootProps> = (props) => {
     const classes = classNames(className);
 
     return (
-        <thead data-component-name='Table/TFoot' className={classes} {...rest}>
+        <tfoot data-component-name='Table/TFoot' className={classes} {...rest}>
             {children}
-        </thead>
+        </tfoot>
     );
 };
 TFoot.displayName = 'TFoot';
@@ -179,7 +179,7 @@ export interface ITableProps extends TableHTMLAttributes<HTMLTableElement> {
 const Table: FC<ITableProps> = (props) => {
     const { children, className, ...rest } = props;
 
-    const classes = classNames('w-full', className);
+    const classes = classNames('w-full table-fixed', className);
 
     return (
         <table data-component-name='Table' className={classes} {...rest}>

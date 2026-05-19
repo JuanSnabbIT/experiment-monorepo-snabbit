@@ -188,7 +188,7 @@ const Content: FC<IContentProps> = (props) => {
         [`${rounded}`],
         'max-h-full overflow-hidden',
         {
-            'h-full': !!fullScreen,
+            'h-full': !!fullScreen || isScrollable,
             'rounded-none': typeof fullScreen !== 'string' && fullScreen,
             'max-2xl:rounded-none': fullScreen === '2xl',
             'max-xl:rounded-none': fullScreen === 'xl',

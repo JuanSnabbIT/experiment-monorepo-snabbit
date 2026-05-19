@@ -3,6 +3,7 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TabPlanes from './PlanesYServicios/components/TabPlanes';
@@ -22,7 +23,57 @@ const PlanesYServicios = () => {
     const [activeTab, setActiveTab] = useState<TTab>(
         queryTab === 'planes' ? 'planes' : 'servicios',
     );
-    const [showInfo, setShowInfo] = useState(false);
+    const [infoModalOpen, setInfoModalOpen] = useState(false);
+
+    const INFO_CONTENT: Record<TTab, { titulo: string; pasos: { titulo: string; descripcion: string }[] }> = {
+        servicios: {
+            titulo: 'Como funciona Servicios',
+            pasos: [
+                {
+                    titulo: 'Caracteristicas',
+                    descripcion:
+                        'Atributos reutilizables que definen que incluye o no un servicio. Por ejemplo: soporte remoto, backup diario, SLA 4h. Se crean una vez y se asignan a multiples servicios.',
+                },
+                {
+                    titulo: 'Servicios',
+                    descripcion:
+                        'Unidades de trabajo que ofreces a tus clientes. Por ejemplo: Helpdesk, mantencion preventiva, backup en nube. Cada servicio puede tener un precio base, moneda y alcance definido mediante caracteristicas.',
+                },
+                {
+                    titulo: 'Alcance (Incluye / No incluye)',
+                    descripcion:
+                        'Para cada servicio puedes definir que caracteristicas estan incluidas y cuales no. Esto se refleja automaticamente en contratos y cotizaciones.',
+                },
+            ],
+        },
+        planes: {
+            titulo: 'Como funciona Planes',
+            pasos: [
+                {
+                    titulo: 'Que es un Plan',
+                    descripcion:
+                        'Un plan es un paquete comercial que agrupa uno o mas servicios bajo un precio unico. Por ejemplo: Plan Basico TI, Plan Enterprise 24/7, Pack Startup.',
+                },
+                {
+                    titulo: 'Precio y moneda',
+                    descripcion:
+                        'Cada plan tiene un precio mensual (y opcionalmente anual) en CLP, UF o USD. El sistema sugiere un precio base sumando los precios de los servicios incluidos.',
+                },
+                {
+                    titulo: 'Visitas presenciales',
+                    descripcion:
+                        'Puedes definir cuantas visitas tecnicas mensuales incluye el plan. Este dato se usa al generar contratos y programar visitas de soporte.',
+                },
+                {
+                    titulo: 'Alcance heredado',
+                    descripcion:
+                        'El plan hereda automaticamente el alcance de todos sus servicios. Puedes ver que caracteristicas incluye y cuales no desde el detalle del plan.',
+                },
+            ],
+        },
+    };
+
+    const infoActiva = INFO_CONTENT[activeTab];
 
     return (
         <PageWrapper isProtectedRoute name='Planes y Servicios' title='Planes y Servicios'>
@@ -46,43 +97,40 @@ const PlanesYServicios = () => {
                 <SubheaderRight>
                     <Button
                         icon='HeroInformationCircle'
-                        variant={showInfo ? 'solid' : 'outline'}
+                        variant='outline'
                         color='blue'
-                        onClick={() => setShowInfo((value) => !value)}>
+                        onClick={() => setInfoModalOpen(true)}>
                         Como funciona?
                     </Button>
                 </SubheaderRight>
             </Subheader>
+
+            <Modal isOpen={infoModalOpen} setIsOpen={setInfoModalOpen}>
+                <ModalHeader>{infoActiva.titulo}</ModalHeader>
+                <ModalBody>
+                    <div className='flex flex-col gap-5'>
+                        {infoActiva.pasos.map((paso, index) => (
+                            <div key={paso.titulo} className='flex gap-4'>
+                                <div className='flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-sm font-semibold text-blue-500'>
+                                    {index + 1}
+                                </div>
+                                <div className='flex flex-col gap-1'>
+                                    <span className='font-semibold text-zinc-800 dark:text-zinc-200'>
+                                        {paso.titulo}
+                                    </span>
+                                    <span className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                        {paso.descripcion}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </ModalBody>
+            </Modal>
+
             <Container className='h-full w-full'>
                 <Card>
                     <CardBody>
-                        {showInfo && (
-                            <div className='mb-4 flex flex-wrap gap-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400'>
-                                <div className='flex items-start gap-2'>
-                                    <span className='mt-0.5 text-base'>1</span>
-                                    <div>
-                                        <span className='font-semibold text-zinc-800 dark:text-zinc-200'>Caracteristicas</span>
-                                        <span className='ml-1'>Atributos reutilizables que definen que incluye o no un servicio, por ejemplo soporte remoto, backup diario o SLA 4h.</span>
-                                    </div>
-                                </div>
-                                <div className='hidden text-zinc-300 dark:text-zinc-600 sm:flex sm:items-center'>/</div>
-                                <div className='flex items-start gap-2'>
-                                    <span className='mt-0.5 text-base'>2</span>
-                                    <div>
-                                        <span className='font-semibold text-zinc-800 dark:text-zinc-200'>Servicios</span>
-                                        <span className='ml-1'>Unidades de trabajo que ofreces, por ejemplo Helpdesk, mantencion preventiva o backup en nube.</span>
-                                    </div>
-                                </div>
-                                <div className='hidden text-zinc-300 dark:text-zinc-600 sm:flex sm:items-center'>/</div>
-                                <div className='flex items-start gap-2'>
-                                    <span className='mt-0.5 text-base'>3</span>
-                                    <div>
-                                        <span className='font-semibold text-zinc-800 dark:text-zinc-200'>Planes</span>
-                                        <span className='ml-1'>Paquetes comerciales que agrupan servicios, por ejemplo plan basico TI o plan enterprise 24/7.</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                         {activeTab === 'servicios' && <TabServicios />}
                         {activeTab === 'planes' && <TabPlanes />}
                     </CardBody>

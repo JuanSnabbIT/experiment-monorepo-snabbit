@@ -1,9 +1,9 @@
 import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
-import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
     ModalBody,
@@ -309,14 +309,14 @@ function ModalLicenciaContrato({
     const modalidadCatalogo = describirModalidadCatalogo(selectedLicencia);
 
     return (
-        <Modal isOpen={isOpen} setIsOpen={onClose}>
+        <Modal isOpen={isOpen} setIsOpen={onClose} isCentered isScrollable size='lg'>
             <ModalHeader>{isEditing ? 'Editar licencia' : 'Agregar licencia'}</ModalHeader>
             <ModalBody>
                 <div className='flex flex-col gap-4'>
                     {!isEditing && (
-                        <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
-                            <div className='mb-3'>
-                                <Label htmlFor='licencia_id'>Licencia del catalogo</Label>
+                        <div className='flex flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                            <div>
+                                <Badge>Licencia del catalogo</Badge>
                                 <Validation
                                     isValid={formik.isValid}
                                     isTouched={formik.touched.licencia_id}
@@ -341,26 +341,28 @@ function ModalLicenciaContrato({
                                 </Validation>
                             </div>
 
-                            <Button
-                                icon={showCreateCatalogForm ? 'HeroChevronUp' : 'HeroPlus'}
-                                variant='outline'
-                                onClick={() =>
-                                    setShowCreateCatalogForm((current) => !current)
-                                }>
-                                {showCreateCatalogForm
-                                    ? 'Ocultar alta rapida'
-                                    : 'Crear licencia de catalogo'}
-                            </Button>
+                            <div>
+                                <Button
+                                    icon={showCreateCatalogForm ? 'HeroChevronUp' : 'HeroPlus'}
+                                    variant='outline'
+                                    onClick={() =>
+                                        setShowCreateCatalogForm((current) => !current)
+                                    }>
+                                    {showCreateCatalogForm
+                                        ? 'Ocultar alta rapida'
+                                        : 'Crear licencia de catalogo'}
+                                </Button>
+                            </div>
 
                             {showCreateCatalogForm && (
-                                <div className='mt-4 grid gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
+                                <div className='grid gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                     <p className='text-xs text-zinc-500'>
                                         Completa los campos minimos para crear una licencia valida
                                         en el catalogo.
                                     </p>
 
                                     <div>
-                                        <Label htmlFor='nombre'>Nombre</Label>
+                                        <Badge>Nombre</Badge>
                                         <Validation
                                             isValid={catalogFormik.isValid}
                                             isTouched={catalogFormik.touched.nombre}
@@ -376,7 +378,7 @@ function ModalLicenciaContrato({
 
                                     <div className='grid grid-cols-2 gap-3'>
                                         <div>
-                                            <Label htmlFor='modalidad_base'>Modalidad base</Label>
+                                            <Badge>Modalidad base</Badge>
                                             <Validation
                                                 isValid={catalogFormik.isValid}
                                                 isTouched={catalogFormik.touched.modalidad_base}
@@ -413,9 +415,7 @@ function ModalLicenciaContrato({
 
                                         {catalogFormik.values.modalidad_base === 'P1Y' && (
                                             <div>
-                                                <Label htmlFor='modalidad_anual_forma_pago'>
-                                                    Forma de pago anual
-                                                </Label>
+                                                <Badge>Forma de pago anual</Badge>
                                                 <Validation
                                                     isValid={catalogFormik.isValid}
                                                     isTouched={
@@ -459,7 +459,7 @@ function ModalLicenciaContrato({
 
                                     <div className='grid grid-cols-2 gap-3'>
                                         <div>
-                                            <Label htmlFor='precio_partner'>Precio partner</Label>
+                                            <Badge>Precio partner</Badge>
                                             <Validation
                                                 isValid={catalogFormik.isValid}
                                                 isTouched={catalogFormik.touched.precio_partner}
@@ -477,7 +477,7 @@ function ModalLicenciaContrato({
                                             </Validation>
                                         </div>
                                         <div>
-                                            <Label htmlFor='precio_venta'>Precio venta</Label>
+                                            <Badge>Precio venta</Badge>
                                             <Validation
                                                 isValid={catalogFormik.isValid}
                                                 isTouched={catalogFormik.touched.precio_venta}
@@ -498,7 +498,7 @@ function ModalLicenciaContrato({
 
                                     <div className='grid grid-cols-2 gap-3'>
                                         <div>
-                                            <Label htmlFor='moneda'>Moneda</Label>
+                                            <Badge>Moneda</Badge>
                                             <SelectReact
                                                 name='moneda'
                                                 options={[
@@ -524,7 +524,7 @@ function ModalLicenciaContrato({
                                             />
                                         </div>
                                         <div>
-                                            <Label htmlFor='numero_parte'>Numero de parte</Label>
+                                            <Badge>Numero de parte</Badge>
                                             <Input
                                                 name='numero_parte'
                                                 value={catalogFormik.values.numero_parte}
@@ -536,7 +536,7 @@ function ModalLicenciaContrato({
 
                                     <div className='grid grid-cols-2 gap-3'>
                                         <div>
-                                            <Label htmlFor='proveedor'>Proveedor</Label>
+                                            <Badge>Proveedor</Badge>
                                             <Input
                                                 name='proveedor'
                                                 value={catalogFormik.values.proveedor}
@@ -556,7 +556,7 @@ function ModalLicenciaContrato({
                                     </div>
 
                                     <div>
-                                        <Label htmlFor='descripcion'>Descripcion</Label>
+                                        <Badge>Descripcion</Badge>
                                         <Textarea
                                             name='descripcion'
                                             value={catalogFormik.values.descripcion}
@@ -589,29 +589,30 @@ function ModalLicenciaContrato({
 
                     {isEditing && (
                         <div>
-                            <Label htmlFor='licencia_id'>Licencia</Label>
+                            <Badge>Licencia</Badge>
                             <div className='mt-1 font-medium'>{editNombreLicencia ?? 'Sin nombre'}</div>
                         </div>
                     )}
 
-                    <div>
-                        <Label htmlFor='modalidad_catalogo'>Modalidad (catalogo)</Label>
-                        <Input name='modalidad_catalogo' value={modalidadCatalogo} disabled />
-                    </div>
-
-                    <div>
-                        <Label htmlFor='precio_partner'>Precio partner</Label>
-                        <Input
-                            name='precio_partner'
-                            type='number'
-                            value={formik.values.precio_partner}
-                            disabled
-                        />
+                    <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                            <Badge>Modalidad (catalogo)</Badge>
+                            <Input name='modalidad_catalogo' value={modalidadCatalogo} disabled />
+                        </div>
+                        <div>
+                            <Badge>Precio partner</Badge>
+                            <Input
+                                name='precio_partner'
+                                type='number'
+                                value={formik.values.precio_partner}
+                                disabled
+                            />
+                        </div>
                     </div>
 
                     <div className='grid grid-cols-2 gap-3'>
                         <div>
-                            <Label htmlFor='cantidad'>Cantidad</Label>
+                            <Badge>Cantidad</Badge>
                             <Validation
                                 isValid={formik.isValid}
                                 isTouched={formik.touched.cantidad}
@@ -626,7 +627,7 @@ function ModalLicenciaContrato({
                             </Validation>
                         </div>
                         <div>
-                            <Label htmlFor='precio_unitario_catalogo'>Precio venta (catalogo)</Label>
+                            <Badge>Precio venta (catalogo)</Badge>
                             <Input
                                 name='precio_unitario_catalogo'
                                 type='number'
@@ -639,7 +640,7 @@ function ModalLicenciaContrato({
                             </div>
                         </div>
                         <div>
-                            <Label htmlFor='fecha_inicio'>Fecha inicio</Label>
+                            <Badge>Fecha inicio</Badge>
                             <Input
                                 name='fecha_inicio'
                                 type='date'
@@ -648,7 +649,7 @@ function ModalLicenciaContrato({
                             />
                         </div>
                         <div>
-                            <Label htmlFor='fecha_fin'>Fecha fin</Label>
+                            <Badge>Fecha fin</Badge>
                             <Input
                                 name='fecha_fin'
                                 type='date'
@@ -659,7 +660,7 @@ function ModalLicenciaContrato({
                     </div>
 
                     <div>
-                        <Label htmlFor='moneda_catalogo'>Moneda contractual</Label>
+                        <Badge>Moneda contractual</Badge>
                         <Input name='moneda_catalogo' value={monedaCatalogo} disabled />
                         <div className='mt-1 text-xs text-zinc-500'>
                             Tomada del catalogo de la licencia al momento del snapshot.
@@ -670,11 +671,12 @@ function ModalLicenciaContrato({
             <ModalFooter>
                 <ModalFooterChild />
                 <ModalFooterChild>
-                    <Button color='red' onClick={onClose}>
+                    <Button onClick={onClose}>
                         Cancelar
                     </Button>
                     <Button
                         variant='solid'
+                        color='blue'
                         isDisable={
                             isCreatingCatalogo ||
                             formik.isSubmitting ||

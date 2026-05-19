@@ -170,6 +170,12 @@ const ResponderContratoPublicoV2 = lazy(
 const ResumenContratoPublico = lazy(
     () => import('@/pages/Contratos/ResumenContratoPublico'),
 );
+const FirmarContratoTrabajadorPublico = lazy(
+    () => import('@/pages/Contratos/FirmarContratoTrabajadorPublico'),
+);
+const DetalleContratoTrabajador = lazy(
+    () => import('@/pages/Contratos/DetalleContratoTrabajador'),
+);
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
 );
@@ -219,6 +225,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: authPages.resumenContratoPublico.to,
         element: <ResumenContratoPublico />,
         authority: authPages.resumenContratoPublico.authority,
+    },
+    {
+        path: authPages.firmarContratoTrabajadorPublico.to,
+        element: <FirmarContratoTrabajadorPublico />,
+        authority: authPages.firmarContratoTrabajadorPublico.authority,
     },
     {
         path: authPages.responderCotizacionPublica.to,
@@ -627,6 +638,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.empresa.subPages.detalleContrato.to,
         element: <DetalleContrato />,
         authority: Pages.empresa.subPages.detalleContrato.authority,
+    },
+    {
+        path: Pages.empresa.subPages.detalleContratoTrabajador.to,
+        element: <DetalleContratoTrabajador />,
+        authority: Pages.empresa.subPages.detalleContratoTrabajador.authority,
     },
     {
         path: Pages.empresa.subPages.detalleLicencia.to,

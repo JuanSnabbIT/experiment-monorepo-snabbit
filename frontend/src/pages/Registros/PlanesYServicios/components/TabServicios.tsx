@@ -13,6 +13,7 @@ import {
     useGetServiciosQuery,
 } from '@/store/slices/contratos/contratoApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import {
@@ -32,28 +33,6 @@ import TabCaracteristicas from './TabCaracteristicas';
 
 const columnHelper = createColumnHelper<IServicio>();
 
-const formatMoney = (
-    value?: string | number | null,
-    currency: 'CLP' | 'USD' | 'UF' = 'CLP',
-) => {
-    const numeric = Number(value || 0);
-    const decimals = currency === 'USD' ? 1 : currency === 'UF' ? 2 : 0;
-    const formatted = new Intl.NumberFormat('es-CL', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-    }).format(numeric);
-
-    if (currency === 'CLP') {
-        return `$${formatted}`;
-    }
-    return `${formatted} ${currency}`;
-};
-
-const truncateText = (value?: string | null, max = 120) => {
-    if (!value) return '-';
-    return value.length > max ? `${value.slice(0, max)}...` : value;
-};
-
 const TabServicios = () => {
     const { data: servicios = [] } = useGetServiciosQuery();
     const [deleteServicio] = useDeleteServicioMutation();
@@ -63,6 +42,8 @@ const TabServicios = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<IServicio | undefined>();
     const [offCanvasOpen, setOffCanvasOpen] = useState(false);
+    const [detalleOpen, setDetalleOpen] = useState(false);
+    const [detalleItem, setDetalleItem] = useState<IServicio | undefined>();
 
     const handleEdit = (item: IServicio) => {
         setSelectedItem(item);
@@ -72,6 +53,11 @@ const TabServicios = () => {
     const handleCreate = () => {
         setSelectedItem(undefined);
         setModalOpen(true);
+    };
+
+    const handleVerDetalle = (item: IServicio) => {
+        setDetalleItem(item);
+        setDetalleOpen(true);
     };
 
     const handleDelete = async (item: IServicio) => {
@@ -91,35 +77,30 @@ const TabServicios = () => {
 
     const columns = [
         columnHelper.accessor('nombre', {
+            cell: (info) => <span className='font-medium'>{info.getValue()}</span>,
+            header: 'Nombre',
+            size: 180,
+        }),
+        columnHelper.accessor('descripcion', {
             cell: (info) => {
-                const descripcionCompleta = info.row.original.descripcion;
-                const descripcionTruncada = truncateText(descripcionCompleta);
-                const estaTruncada = (descripcionCompleta?.length ?? 0) > 120;
-
+                const value = info.getValue();
+                if (!value) return <span className='text-zinc-400'>—</span>;
                 return (
-                    <div className='space-y-1'>
-                        <div className='font-medium'>{info.getValue()}</div>
-                        {estaTruncada ? (
-                            <Tooltip text={descripcionCompleta ?? ''}>
-                                <div className='cursor-help text-sm text-zinc-500'>
-                                    {descripcionTruncada}
-                                </div>
-                            </Tooltip>
-                        ) : (
-                            <div className='text-sm text-zinc-500'>
-                                {descripcionTruncada}
-                            </div>
-                        )}
-                    </div>
+                    <Tooltip text={value}>
+                        <span className='line-clamp-2 cursor-help text-sm text-zinc-500 dark:text-zinc-400'>
+                            {value}
+                        </span>
+                    </Tooltip>
                 );
             },
-            header: 'Servicio',
+            header: 'Descripcion',
+            enableSorting: false,
             size: 280,
         }),
         columnHelper.accessor('categoria_label', {
             cell: (info) => <Badge color='blue'>{info.getValue()}</Badge>,
             header: 'Categoria',
-            size: 130,
+            size: 140,
         }),
         columnHelper.display({
             id: 'precio_base',
@@ -127,38 +108,28 @@ const TabServicios = () => {
                 const { precio, tipo_moneda } = info.row.original;
                 const amount = Number(precio || 0);
                 if (amount <= 0) return <span className='text-zinc-400'>Sin precio</span>;
-                if (tipo_moneda === 'UF')
-                    return <span className='font-medium'>{formatMoney(precio, 'UF')}</span>;
-                if (tipo_moneda === 'USD')
-                    return <span className='font-medium'>{formatMoney(precio, 'USD')}</span>;
-                return <span className='font-medium'>${formatMoney(precio)}</span>;
+                return <span className='font-medium'>{formatCurrency(precio, tipo_moneda)}</span>;
             },
             header: 'Precio',
             size: 140,
         }),
         columnHelper.display({
-            id: 'alcance',
-            cell: (info) => (
-                <ScopeSummary
-                    serviceItems={info.row.original.alcance_caracteristicas}
-                    includeText={info.row.original.incluye}
-                    excludeText={info.row.original.no_incluye}
-                    clauseText={info.row.original.clausulas_especiales}
-                    compact
-                />
-            ),
-            header: 'Alcance',
-            enableSorting: false,
-            size: 320,
-        }),
-        columnHelper.display({
             id: 'acciones',
             cell: (info) => (
                 <div className='flex gap-1'>
+                    <Tooltip text='Ver detalle'>
+                        <Button
+                            variant='solid'
+                            color='violet'
+                            icon='HeroEye'
+                            size='sm'
+                            onClick={() => handleVerDetalle(info.row.original)}
+                        />
+                    </Tooltip>
                     <Tooltip text='Editar'>
                         <Button
                             variant='solid'
-                            color='blue'
+                            color='amber'
                             icon='HeroPencil'
                             size='sm'
                             onClick={() => handleEdit(info.row.original)}
@@ -176,7 +147,7 @@ const TabServicios = () => {
                 </div>
             ),
             header: 'Acciones',
-            size: 100,
+            size: 80,
         }),
     ];
 
@@ -219,7 +190,7 @@ const TabServicios = () => {
                 </CardHeader>
                 <CardBody className='z-0'>
                     <div className='overflow-auto'>
-                        <Table className='table-auto'>
+                        <Table className='table-fixed w-full'>
                             <THead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <Tr key={headerGroup.id}>
@@ -227,7 +198,8 @@ const TabServicios = () => {
                                             <Th
                                                 key={header.id}
                                                 isColumnBorder={false}
-                                                className='text-left'>
+                                                className='text-left'
+                                                style={{ width: header.getSize() }}>
                                                 {header.isPlaceholder ? null : (
                                                     <div
                                                         key={header.id}
@@ -269,7 +241,7 @@ const TabServicios = () => {
                                 {table.getRowModel().rows.map((row) => (
                                     <Tr key={row.id}>
                                         {row.getVisibleCells().map((cell) => (
-                                            <Td key={cell.id}>
+                                            <Td key={cell.id} style={{ width: cell.column.getSize() }}>
                                                 {flexRender(
                                                     cell.column.columnDef.cell,
                                                     cell.getContext(),
@@ -297,6 +269,46 @@ const TabServicios = () => {
                 <ModalHeader>Características del catálogo</ModalHeader>
                 <ModalBody>
                     <TabCaracteristicas />
+                </ModalBody>
+            </Modal>
+
+            <Modal isOpen={detalleOpen} setIsOpen={setDetalleOpen} size='lg'>
+                <ModalHeader>
+                    <div className='flex flex-col gap-0.5'>
+                        <span className='text-xl font-semibold'>{detalleItem?.nombre}</span>
+                        {detalleItem?.categoria_label && (
+                            <Badge color='blue' className='w-fit text-xs'>
+                                {detalleItem.categoria_label}
+                            </Badge>
+                        )}
+                    </div>
+                </ModalHeader>
+                <ModalBody>
+                    <div className='flex flex-col gap-6'>
+                        {detalleItem?.descripcion && (
+                            <div>
+                                <p className='mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                    Descripcion
+                                </p>
+                                <p className='text-sm leading-relaxed text-zinc-700 dark:text-zinc-300'>
+                                    {detalleItem.descripcion}
+                                </p>
+                            </div>
+                        )}
+                        <div>
+                            <p className='mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
+                                Alcance
+                            </p>
+                            {detalleItem && (
+                                <ScopeSummary
+                                    serviceItems={detalleItem.alcance_caracteristicas}
+                                    includeText={detalleItem.incluye}
+                                    excludeText={detalleItem.no_incluye}
+                                    clauseText={detalleItem.clausulas_especiales}
+                                />
+                            )}
+                        </div>
+                    </div>
                 </ModalBody>
             </Modal>
         </>

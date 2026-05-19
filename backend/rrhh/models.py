@@ -1,9 +1,12 @@
 """Modelos del modulo RRHH: contratos laborales y anexos."""
 
+from uuid import uuid4
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from core.models import ModeloBaseHistorico
+from core.models import ModeloBase, ModeloBaseHistorico
 
 from .estados_modelo import (
     ESTADO_CONTRATO,
@@ -34,6 +37,10 @@ class ContratoTrabajador(ModeloBaseHistorico):
         related_name="contratos_laborales",
     )
 
+    # Identificador de negocio (mostrado en listas / detalle)
+    nombre = models.CharField(max_length=200, blank=True, null=True)
+    observaciones = models.TextField(blank=True, null=True)
+
     tipo_contrato = models.CharField(max_length=20, choices=TIPO_CONTRATO)
     fecha_inicio = models.DateField()
     fecha_termino = models.DateField(blank=True, null=True)
@@ -43,15 +50,31 @@ class ContratoTrabajador(ModeloBaseHistorico):
 
     jornada = models.CharField(max_length=20, choices=JORNADA_CONTRATO)
     horas_semanales = models.PositiveSmallIntegerField(blank=True, null=True)
+    horario_detalle = models.CharField(max_length=500, blank=True, null=True)
+    tiempo_colacion = models.PositiveIntegerField(default=30, blank=True, null=True)
     lugar_trabajo = models.CharField(max_length=255, blank=True, null=True)
 
     sueldo_base = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    sueldo_liquido = models.DecimalField(
+        max_digits=12, decimal_places=2, blank=True, null=True,
+    )
     moneda = models.CharField(max_length=5, choices=MONEDA_CONTRATO, default="CLP")
     gratificacion_legal = models.BooleanField(default=False)
     bono_movilizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bono_colacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     archivo_pdf = models.FileField(upload_to=archivo_contrato_path, blank=True, null=True)
+
+    plantilla_contrato = models.ForeignKey(
+        "contratos.PlantillaContrato",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="contratos_trabajador",
+    )
+
+    lugar_firma = models.CharField(max_length=255, blank=True, null=True)
+    fecha_firma = models.DateField(blank=True, null=True)
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
     fecha_aceptacion = models.DateTimeField(blank=True, null=True)
@@ -117,3 +140,38 @@ class AnexoContrato(ModeloBaseHistorico):
 
     def __str__(self):
         return f"Anexo {self.tipo} ({self.fecha_efectiva}) - {self.contrato_id}"
+
+
+class EnvioContratoTrabajadorFirma(ModeloBase):
+    """Envio de un contrato laboral para firma publica del trabajador.
+
+    Modelo paralelo a `EnvioContratoFirmaUsuario` (B2B). Aislado por simplicidad:
+    el frontend reutiliza `ContratoFirmaExperience` mapeando el serializer al shape
+    comun `IContratoPublicoFirma`.
+    """
+
+    contrato = models.ForeignKey(
+        ContratoTrabajador,
+        on_delete=models.CASCADE,
+        related_name="envios_firma",
+    )
+    uuid = models.UUIDField(default=uuid4, unique=True, editable=False)
+
+    enviado = models.BooleanField(default=False)
+    fecha_envio = models.DateTimeField(blank=True, null=True)
+
+    firma = models.TextField(blank=True, default="")  # base64 imagen
+    firmado = models.BooleanField(default=False)
+    fecha_firma = models.DateTimeField(blank=True, null=True)
+    ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
+
+    pdf_congelado = models.BinaryField(blank=True, null=True)
+    snapshot_contrato = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Envio de contrato laboral para firma"
+        verbose_name_plural = "Envios de contratos laborales para firma"
+        ordering = ["-fecha_creacion"]
+
+    def __str__(self):
+        return f"EnvioFirmaTrabajador #{self.id} contrato={self.contrato_id} firmado={self.firmado}"

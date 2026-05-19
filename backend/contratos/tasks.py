@@ -101,8 +101,15 @@ def notificar_contratos_por_vencer():
 
 @shared_task
 def generar_facturas_mensuales():
-    """Genera automáticamente prefacturas en borrador para contratos activos
+    """Genera automáticamente prefacturas para contratos activos
     cuyo día de facturación coincide con el día actual.
+
+    Comportamiento por forma_pago_contractual:
+    - mensual   : genera una prefactura cada mes (período = mes anterior).
+    - anual     : genera una prefactura una vez al año, solo en el mes de
+                  inicio del contrato (aniversario). Período = 12 meses anteriores.
+    - pago_unico: excluido. La primera y única prefactura la genera la signal
+                  al activar el contrato.
 
     Se recomienda ejecutar diariamente vía Celery Beat.
     Solo crea la factura si no existe ya una para el mismo período y contrato.
@@ -110,17 +117,28 @@ def generar_facturas_mensuales():
     hoy = date.today()
     dia_hoy = hoy.day
 
+    # pago_unico se excluye: su única prefactura la crea la signal de activación.
     contratos = ContratoEmpresaCliente.objects.filter(
         estado="activo",
         dia_facturacion=dia_hoy,
-    )
+    ).exclude(forma_pago_contractual="pago_unico")
 
     facturas_creadas = 0
 
     for contrato in contratos:
-        # Período = mes anterior completo
-        periodo_fin = hoy.replace(day=1) - timedelta(days=1)
-        periodo_inicio = periodo_fin.replace(day=1)
+        forma_pago = contrato.forma_pago_contractual
+
+        if forma_pago == "anual":
+            # Solo facturar en el mes del aniversario del contrato.
+            if hoy.month != contrato.fecha_inicio.month:
+                continue
+            # Período: 12 meses terminados al fin del mes anterior.
+            periodo_fin = hoy.replace(day=1) - timedelta(days=1)
+            periodo_inicio = periodo_fin.replace(year=periodo_fin.year - 1, day=1)
+        else:
+            # mensual: período = mes anterior completo.
+            periodo_fin = hoy.replace(day=1) - timedelta(days=1)
+            periodo_inicio = periodo_fin.replace(day=1)
 
         # Verificar que no exista ya una factura no-anulada para este período
         ya_existe = FacturaContrato.objects.filter(
@@ -132,6 +150,7 @@ def generar_facturas_mensuales():
         if ya_existe:
             continue
 
+        from contratos.venta_helpers import calcular_monto_total_contrato
         FacturaContrato.objects.create(
             contrato=contrato,
             empresa_prestadora=contrato.empresa_prestadora,
@@ -140,9 +159,9 @@ def generar_facturas_mensuales():
             periodo_inicio=periodo_inicio,
             periodo_fin=periodo_fin,
             fecha_emision=hoy,
-            monto_total=contrato.total_items_comerciales or 0,
+            monto_total=calcular_monto_total_contrato(contrato),
             moneda=contrato.moneda_cobro,
-            comentario=f"Prefactura automática — período {periodo_inicio.strftime('%m/%Y')}",
+            comentario=f"Prefactura automatica - periodo {periodo_inicio.strftime('%m/%Y')}",
         )
         facturas_creadas += 1
 

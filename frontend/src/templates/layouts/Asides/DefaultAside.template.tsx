@@ -334,44 +334,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    {/* Asesorías */}
-                    <AuthorityCheckNav
-                        authority={Pages.ordenTrabajo.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavCollapse
-                            text={Pages.ordenTrabajo.text}
-                            icon={Pages.ordenTrabajo.icon}
-                            to={Pages.ordenTrabajo.to}>
-                            <AuthorityCheckNav
-                                authority={
-                                    Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.authority
-                                }
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.text}
-                                    to={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.to}
-                                    icon={Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.icon}
-                                    id={
-                                        Pages.ordenTrabajo.subPages.listaOrdenesTrabajo.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={
-                                    Pages.ordenTrabajo.subPages.listaVisitasSoporte.authority
-                                }
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.ordenTrabajo.subPages.listaVisitasSoporte.text}
-                                    to={Pages.ordenTrabajo.subPages.listaVisitasSoporte.to}
-                                    icon={Pages.ordenTrabajo.subPages.listaVisitasSoporte.icon}
-                                    id={
-                                        Pages.ordenTrabajo.subPages.listaVisitasSoporte.id
-                                    }></NavItem>
-                            </AuthorityCheckNav>
-                        </NavCollapse>
-                    </AuthorityCheckNav>
-
-                    {/* OT V3 */}
+                    {/* Ordenes de Trabajo (V3 - VERSION ACTIVA) */}
                     <AuthorityCheckNav
                         authority={Pages.ordenTrabajoV3.authority}
                         userAuthority={listaGrupos?.grupos}>

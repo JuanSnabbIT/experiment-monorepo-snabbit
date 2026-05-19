@@ -1276,10 +1276,23 @@ class EtiquetaPlantillaSerializer(serializers.ModelSerializer):
 
 
 class SeccionContratoGeneradaSerializer(serializers.ModelSerializer):
+    es_editable_en_contrato = serializers.SerializerMethodField()
+    tipo = serializers.SerializerMethodField()
+
     class Meta:
         model = SeccionContratoGenerada
         fields = '__all__'
         read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'contrato']
+
+    def get_es_editable_en_contrato(self, obj):
+        if obj.seccion_plantilla_id is None:
+            return True
+        return bool(obj.seccion_plantilla.es_editable_en_contrato)
+
+    def get_tipo(self, obj):
+        if obj.seccion_plantilla_id is None:
+            return None
+        return obj.seccion_plantilla.tipo
 
 
 # Serializadores para cotizaciones vinculadas a contratos de venta
@@ -1421,14 +1434,29 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         model = ContratoEmpresaCliente
         fields = '__all__'
 
+    _ESTADOS_EDITABLES = ('borrador', 'cambios_solicitados')
+
+    def _usar_snapshot(self, obj):
+        """True cuando el contrato ya no es editable y debe mostrar valores congelados."""
+        return obj.estado not in self._ESTADOS_EDITABLES
+
     def to_representation(self, instance):
         # FASE 7 — Memoización de tipos de cambio por request.
-        # El contexto es un dict compartido entre todas las instancias del serializer
-        # en una misma request (incluido listados many=True), por lo que la llamada
-        # a obtener_tipos_cambio_actuales() ocurre una sola vez por request.
+        # Si el contrato está en estado no editable Y tiene tasas congeladas, se inyectan
+        # en el contexto para que TODOS los serializers anidados (items, licencias)
+        # usen automáticamente las tasas del momento de aprobación.
+        # En estado editable se mantiene el comportamiento dinámico original.
         if 'tipos_cambio' not in self.context:
-            from contratos.currency_utils import obtener_tipos_cambio_actuales
-            self.context['tipos_cambio'] = obtener_tipos_cambio_actuales()
+            if self._usar_snapshot(instance) and (
+                instance.snapshot_tasa_dolar is not None or instance.snapshot_tasa_uf is not None
+            ):
+                self.context['tipos_cambio'] = (
+                    instance.snapshot_tasa_dolar,
+                    instance.snapshot_tasa_uf,
+                )
+            else:
+                from contratos.currency_utils import obtener_tipos_cambio_actuales
+                self.context['tipos_cambio'] = obtener_tipos_cambio_actuales()
         return super().to_representation(instance)
 
     def validate(self, attrs):
@@ -1553,6 +1581,13 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         return envio.comentario_respuesta if envio else None
 
     def get_total_contrato(self, obj):
+        # Si el contrato ya no es editable, usar el valor congelado al enviar a aprobación.
+        if self._usar_snapshot(obj):
+            if obj.tipo == "venta" and obj.snapshot_total_venta is not None:
+                return float(obj.snapshot_total_venta)
+            if obj.tipo in ("servicios", "licencia") and obj.snapshot_total_servicios is not None:
+                return float(obj.snapshot_total_servicios)
+        # Estado editable (borrador / cambios_solicitados) → cálculo dinámico.
         if obj.tipo == "venta":
             try:
                 return construir_resumen_venta_contrato(obj)["total_contrato"]
@@ -1627,7 +1662,9 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
         total_anual = sum(float(item.total_anual) for item in obj.items_comerciales.all())
         total_pago_unico = sum(float(item.total_pago_unico) for item in obj.items_comerciales.all())
         total_licencias = self._calcular_total_licencias_en_moneda_cobro(obj)
-        # FASE 7 — Exponer tasa vigente al frontend para el resumen de cobro.
+        # Tasas: si hay snapshot congelado y el contrato no es editable, usarlo.
+        # De lo contrario, usar tasas del contexto (FASE 7) o consultar en tiempo real.
+        usar_snapshot = self._usar_snapshot(obj)
         tipos_cambio_rc = self.context.get('tipos_cambio')
         if tipos_cambio_rc is not None:
             dolar_rc, uf_rc = tipos_cambio_rc
@@ -1635,6 +1672,11 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             from contratos.currency_utils import obtener_tipos_cambio_actuales
             dolar_rc, uf_rc = obtener_tipos_cambio_actuales()
         from datetime import date as _date
+        fecha_tc = (
+            obj.fecha_modificacion.date().isoformat()
+            if usar_snapshot and obj.snapshot_tasa_uf is not None
+            else _date.today().isoformat()
+        )
         return {
             "tipo_resumen": obj.tipo,
             "moneda": obj.moneda_cobro,
@@ -1644,9 +1686,12 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
             "total_pago_unico": total_pago_unico,
             "total_licencias": total_licencias,
             "total_contrato": self.get_total_contrato(obj),
+            "total_congelado": usar_snapshot and (
+                obj.snapshot_total_servicios is not None or obj.snapshot_total_venta is not None
+            ),
             "dolar_observado": float(dolar_rc) if dolar_rc else None,
             "valor_uf": float(uf_rc) if uf_rc else None,
-            "fecha_tipo_cambio": _date.today().isoformat(),
+            "fecha_tipo_cambio": fecha_tc,
         }
 
     def _calcular_total_licencias_en_moneda_cobro(self, obj):
@@ -1744,6 +1789,8 @@ class FacturaContratoSerializer(serializers.ModelSerializer):
     nombre_prestadora = serializers.SerializerMethodField()
     creado_por_nombre = serializers.SerializerMethodField()
     monto_calculado = serializers.SerializerMethodField()
+    forma_pago_contractual = serializers.SerializerMethodField()
+    forma_pago_contractual_label = serializers.SerializerMethodField()
 
     class Meta:
         model = FacturaContrato
@@ -1779,8 +1826,18 @@ class FacturaContratoSerializer(serializers.ModelSerializer):
         contrato = getattr(obj, "contrato", None)
         if contrato is None:
             return "0"
-        total = getattr(contrato, "total_items_comerciales", 0) or 0
-        return str(total)
+        from contratos.venta_helpers import calcular_monto_total_contrato
+        return str(calcular_monto_total_contrato(contrato))
+
+    def get_forma_pago_contractual(self, obj):
+        contrato = getattr(obj, "contrato", None)
+        return getattr(contrato, "forma_pago_contractual", None)
+
+    def get_forma_pago_contractual_label(self, obj):
+        contrato = getattr(obj, "contrato", None)
+        if contrato is None:
+            return None
+        return contrato.get_forma_pago_contractual_display()
 
 
 # ── Serializers para Matching OT → Contrato ──

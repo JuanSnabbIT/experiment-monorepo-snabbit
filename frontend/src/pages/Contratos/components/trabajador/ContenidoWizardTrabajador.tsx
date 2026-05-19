@@ -1,16 +1,18 @@
+// Contenido del wizard de contrato laboral, sin <Modal> wrapper.
+// Pensado para montarse DENTRO del modal unico de creacion de contratos
+// (CrearContratoDelCliente.tsx) cuando el usuario selecciona tipo 'trabajador'.
+//
+// Renderiza: <ModalBody> con Stepper + step actual, y <ModalFooter> con la
+// navegacion. El componente padre debe proveer el <Modal> y <ModalHeader>.
+
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import Textarea from '@/components/form/Textarea';
+import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
-import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
-} from '@/components/ui/Modal';
+import { ModalBody, ModalFooter, ModalFooterChild } from '@/components/ui/Modal';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
-import { useAppSelector } from '@/store';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import {
     useCrearContratoConTrabajadorMutation,
@@ -18,18 +20,22 @@ import {
 import { getErrorMessage } from '@/utils/errorHandlers';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import StepRemuneraciones from '../components/trabajador/StepRemuneraciones';
-import StepTerminosLaborales from '../components/trabajador/StepTerminosLaborales';
-import StepTrabajador from '../components/trabajador/StepTrabajador';
-import { IFormValuesContratoTrabajador } from '../components/trabajador/types';
+import StepRemuneraciones from './StepRemuneraciones';
+import StepTerminosLaborales from './StepTerminosLaborales';
+import StepTrabajador from './StepTrabajador';
+import { IFormValuesContratoTrabajador } from './types';
 
 interface Props {
     detalleCliente?: IRelacionEmpresa;
-    externalIsOpen?: boolean;
-    onExternalClose?: () => void;
+    /** Nombre/referencia interna heredado del paso 1 B2B (ej: "Contrato Juan Perez"). */
+    initialNombre?: string;
+    /** Cierra el modal padre. */
+    onClose: () => void;
+    /** Callback opcional al crearse el contrato. */
+    onSuccess?: () => void;
 }
 
 type TStep = 1 | 2 | 3 | 4 | 5;
@@ -40,6 +46,21 @@ const STEP_LABELS: Record<TStep, string> = {
     3: 'Terminos laborales',
     4: 'Remuneraciones',
     5: 'Revision',
+};
+
+// Campos a validar (y marcar como touched) al intentar avanzar de cada step.
+const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
+    1: ['nombre'],
+    2: [
+        'trab_modo',
+        'trab_usuario_empresa_id',
+        'trab_first_name',
+        'trab_email',
+        'trab_sucursal_id',
+    ],
+    3: ['tipo_contrato', 'fecha_inicio', 'fecha_termino', 'cargo', 'jornada', 'horas_semanales'],
+    4: ['sueldo_base'],
+    5: [],
 };
 
 const validationSchema = Yup.object({
@@ -85,8 +106,8 @@ const validationSchema = Yup.object({
         .min(0, 'No puede ser negativo'),
 });
 
-const initialValues: IFormValuesContratoTrabajador = {
-    nombre: '',
+const buildInitialValues = (initialNombre?: string): IFormValuesContratoTrabajador => ({
+    nombre: initialNombre ?? '',
     observaciones: '',
     trab_modo: 'existente',
     trab_usuario_empresa_id: '',
@@ -124,7 +145,7 @@ const initialValues: IFormValuesContratoTrabajador = {
     estado_inicial: 'borrador',
     lugar_firma: '',
     fecha_firma: '',
-};
+});
 
 const Stepper = ({ step }: { step: TStep }) => (
     <div className='mb-4 flex flex-wrap items-center justify-center gap-1'>
@@ -159,26 +180,12 @@ const Stepper = ({ step }: { step: TStep }) => (
     </div>
 );
 
-const CrearContratoTrabajadorWizard = ({
-    detalleCliente: detalleClienteProp,
-    externalIsOpen,
-    onExternalClose,
+const ContenidoWizardTrabajador = ({
+    detalleCliente,
+    initialNombre,
+    onClose,
+    onSuccess,
 }: Props) => {
-    const { detalleCliente: detalleClienteStore } = useAppSelector((state) => state.empresa);
-    const detalleCliente = detalleClienteProp ?? detalleClienteStore;
-
-    const isControlledExternally = externalIsOpen !== undefined;
-    const [internalIsOpen, setInternalIsOpen] = useState(false);
-    const isOpen = isControlledExternally ? externalIsOpen : internalIsOpen;
-
-    const setIsOpen = (val: boolean) => {
-        if (isControlledExternally) {
-            if (!val && onExternalClose) onExternalClose();
-        } else {
-            setInternalIsOpen(val);
-        }
-    };
-
     const [step, setStep] = useState<TStep>(1);
 
     const empresaClienteId = detalleCliente?.info_cliente.id;
@@ -186,18 +193,17 @@ const CrearContratoTrabajadorWizard = ({
 
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
         empresaClienteId ?? '',
-        { skip: !empresaClienteId || !isOpen },
+        { skip: !empresaClienteId },
     );
 
     const [crearContratoConTrabajador, { isLoading: creandoCT }] =
         useCrearContratoConTrabajadorMutation();
 
     const formik = useFormik<IFormValuesContratoTrabajador>({
-        initialValues,
+        initialValues: buildInitialValues(initialNombre),
         validationSchema,
         onSubmit: async (values) => {
             try {
-                // Construir payload del contrato
                 const contratoPayload: Record<string, unknown> = {
                     nombre: values.nombre || null,
                     observaciones: values.observaciones || null,
@@ -222,7 +228,6 @@ const CrearContratoTrabajadorWizard = ({
                     estado: values.estado_inicial,
                 };
 
-                // Datos opcionales del trabajador (UE/User) que enviamos en ambos modos
                 const trabajadorExtra = {
                     afp: values.afp || undefined,
                     sistema_salud: values.sistema_salud || undefined,
@@ -235,12 +240,9 @@ const CrearContratoTrabajadorWizard = ({
                     direccion: values.trab_direccion || undefined,
                 };
 
+                let resp;
                 if (values.trab_modo === 'existente') {
-                    // Usar el endpoint atomico tambien para 'existente' para que aplique
-                    // los datos previsionales/bancarios/personales al UE/User.
-                    const payload: ICrearContratoConTrabajadorPayload & {
-                        sucursal_id_invalidar?: number;
-                    } = {
+                    const payload: ICrearContratoConTrabajadorPayload = {
                         trabajador: {
                             modo: 'existente',
                             usuario_empresa_id: Number(values.trab_usuario_empresa_id),
@@ -248,38 +250,34 @@ const CrearContratoTrabajadorWizard = ({
                         } as never,
                         contrato: contratoPayload as never,
                     };
-                    const resp = await crearContratoConTrabajador(payload).unwrap();
-                    toast.success('Contrato laboral creado.');
-                    setIsOpen(false);
-                    formik.resetForm();
-                    setStep(1);
-                    return resp;
+                    resp = await crearContratoConTrabajador(payload).unwrap();
+                } else {
+                    const payload: ICrearContratoConTrabajadorPayload & {
+                        sucursal_id_invalidar?: number;
+                    } = {
+                        trabajador: {
+                            modo: 'nuevo',
+                            email: values.trab_email,
+                            first_name: values.trab_first_name,
+                            last_name: values.trab_last_name,
+                            rut: values.trab_rut || undefined,
+                            sucursal_id: Number(values.trab_sucursal_id),
+                            enviar_invitacion: values.trab_enviar_invitacion,
+                            ...trabajadorExtra,
+                        } as never,
+                        contrato: contratoPayload as never,
+                        sucursal_id_invalidar: Number(values.trab_sucursal_id),
+                    };
+                    resp = await crearContratoConTrabajador(payload).unwrap();
                 }
 
-                // Modo nuevo: usar endpoint atomico
-                const payload: ICrearContratoConTrabajadorPayload & {
-                    sucursal_id_invalidar?: number;
-                } = {
-                    trabajador: {
-                        modo: 'nuevo',
-                        email: values.trab_email,
-                        first_name: values.trab_first_name,
-                        last_name: values.trab_last_name,
-                        rut: values.trab_rut || undefined,
-                        sucursal_id: Number(values.trab_sucursal_id),
-                        enviar_invitacion: values.trab_enviar_invitacion,
-                        ...trabajadorExtra,
-                    } as never,
-                    contrato: contratoPayload as never,
-                    sucursal_id_invalidar: Number(values.trab_sucursal_id),
-                };
-                const resp = await crearContratoConTrabajador(payload).unwrap();
                 toast.success(
-                    resp.invitacion_enviada
+                    values.trab_modo === 'nuevo' && resp.invitacion_enviada
                         ? 'Contrato creado e invitacion enviada.'
-                        : 'Contrato creado.',
+                        : 'Contrato laboral creado.',
                 );
-                setIsOpen(false);
+                if (onSuccess) onSuccess();
+                onClose();
                 formik.resetForm();
                 setStep(1);
                 return resp;
@@ -290,20 +288,36 @@ const CrearContratoTrabajadorWizard = ({
         },
     });
 
+    // Si el padre cambia el "nombre" en el paso 1 B2B antes de seleccionar trabajador,
+    // arrastrarlo a este formik para no perder lo escrito.
+    useEffect(() => {
+        if (initialNombre && !formik.values.nombre) {
+            formik.setFieldValue('nombre', initialNombre);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialNombre]);
+
     const renderStep = () => {
         switch (step) {
             case 1:
                 return (
                     <div className='space-y-3'>
                         <div>
-                            <Label htmlFor='nombre'>Nombre contrato</Label>
-                            <Input
-                                id='nombre'
-                                name='nombre'
-                                value={formik.values.nombre}
-                                onChange={formik.handleChange}
-                                onBlur={formik.handleBlur}
-                            />
+                            <Label htmlFor='nombre'>
+                                Nombre contrato <span className='text-red-500'>*</span>
+                            </Label>
+                            <Validation
+                                isValid={!formik.errors.nombre}
+                                isTouched={!!formik.touched.nombre}
+                                invalidFeedback={formik.errors.nombre || ''}>
+                                <Input
+                                    id='nombre'
+                                    name='nombre'
+                                    value={formik.values.nombre}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                />
+                            </Validation>
                         </div>
                         <div>
                             <Label htmlFor='observaciones'>Observaciones</Label>
@@ -409,50 +423,55 @@ const CrearContratoTrabajadorWizard = ({
     const isLast = step === 5;
     const isLoading = creandoCT || formik.isSubmitting;
 
+    const handleNext = async () => {
+        const camposStep = STEP_FIELDS[step];
+        // Marca como touched solo los campos del step actual para mostrar errores.
+        const touchedActualizado = camposStep.reduce<Record<string, boolean>>((acc, f) => {
+            acc[f] = true;
+            return acc;
+        }, {});
+        formik.setTouched({ ...formik.touched, ...touchedActualizado }, true);
+
+        const errores = await formik.validateForm();
+        const erroresEnStep = camposStep.filter((f) => Boolean((errores as Record<string, unknown>)[f]));
+        if (erroresEnStep.length > 0) {
+            toast.error('Completa los campos obligatorios para continuar.');
+            return;
+        }
+        setStep((s) => (s + 1) as TStep);
+    };
+
     return (
         <>
-            {!isControlledExternally && (
-                <Button variant='solid' color='blue' onClick={() => setIsOpen(true)}>
-                    Crear contrato laboral
-                </Button>
-            )}
-            <Modal isOpen={!!isOpen} setIsOpen={(v) => setIsOpen(typeof v === 'function' ? v(!!isOpen) : v)}>
-                <ModalHeader>Nuevo contrato laboral</ModalHeader>
-                <ModalBody>
-                    <Stepper step={step} />
-                    {renderStep()}
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild>
-                        <Button onClick={() => setIsOpen(false)}>Cancelar</Button>
-                    </ModalFooterChild>
-                    <ModalFooterChild>
-                        {step > 1 && (
-                            <Button onClick={() => setStep((s) => (s - 1) as TStep)}>
-                                Atras
-                            </Button>
-                        )}
-                        {!isLast ? (
-                            <Button
-                                variant='solid'
-                                color='blue'
-                                onClick={() => setStep((s) => (s + 1) as TStep)}>
-                                Siguiente
-                            </Button>
-                        ) : (
-                            <Button
-                                variant='solid'
-                                color='blue'
-                                isDisable={isLoading}
-                                onClick={() => formik.handleSubmit()}>
-                                {isLoading ? 'Guardando...' : 'Crear contrato'}
-                            </Button>
-                        )}
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
+            <ModalBody>
+                <Stepper step={step} />
+                {renderStep()}
+            </ModalBody>
+            <ModalFooter>
+                <ModalFooterChild>
+                    <Button onClick={onClose}>Cancelar</Button>
+                </ModalFooterChild>
+                <ModalFooterChild>
+                    {step > 1 && (
+                        <Button onClick={() => setStep((s) => (s - 1) as TStep)}>Atras</Button>
+                    )}
+                    {!isLast ? (
+                        <Button variant='solid' color='blue' onClick={handleNext}>
+                            Siguiente
+                        </Button>
+                    ) : (
+                        <Button
+                            variant='solid'
+                            color='blue'
+                            isDisable={isLoading}
+                            onClick={() => formik.handleSubmit()}>
+                            {isLoading ? 'Guardando...' : 'Crear contrato'}
+                        </Button>
+                    )}
+                </ModalFooterChild>
+            </ModalFooter>
         </>
     );
 };
 
-export default CrearContratoTrabajadorWizard;
+export default ContenidoWizardTrabajador;

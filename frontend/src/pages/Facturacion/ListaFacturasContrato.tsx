@@ -1,12 +1,12 @@
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
+    createColumnHelper,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
@@ -31,13 +31,14 @@ import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { IFacturaContrato } from '@/interface/contrato.interface';
 import { useAppSelector } from '@/store';
 import {
-  useAsociarDocumentoFacturaMutation,
-  useCreateFacturaContratoMutation,
-  useDeleteFacturaContratoMutation,
-  useFinalizarFacturaContratoMutation,
-  useGetFacturasContratoQuery,
-  useGetResumenFacturasContratoQuery,
+    useAsociarDocumentoFacturaMutation,
+    useCreateFacturaContratoMutation,
+    useDeleteFacturaContratoMutation,
+    useFinalizarFacturaContratoMutation,
+    useGetFacturasContratoQuery,
+    useGetResumenFacturasContratoQuery,
 } from '@/store/slices/contratos/contratoApi';
+import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -142,12 +143,13 @@ const ListaFacturasContrato = () => {
                     return `${dayjs(row.periodo_inicio).format('DD/MM/YYYY')} → ${dayjs(row.periodo_fin).format('DD/MM/YYYY')}`;
                 },
             }),
-            columnHelper.accessor('monto_total', {
+            columnHelper.display({
+                id: 'monto',
                 header: 'Monto',
-                cell: (info) => {
-                    const val = Number(info.getValue());
-                    const moneda = info.row.original.moneda_label || 'CLP';
-                    return `${moneda} ${val.toLocaleString('es-CL')}`;
+                cell: ({ row }) => {
+                    const f = row.original;
+                    const valor = f.monto_calculado ?? f.monto_total;
+                    return formatCurrency(valor, f.moneda);
                 },
             }),
             columnHelper.accessor('estado', {

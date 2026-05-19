@@ -31,7 +31,10 @@ from contratos.models import (
     CondicionEspecial,
     PlantillaContrato,
     SeccionPlantilla,
+    SeccionContratoGenerada,
 )
+from contratos.flow_helpers import construir_pdf_contrato
+from contratos.funciones import generar_contrato_desde_plantilla
 from contratos.serializers import ContratoEmpresaClienteSerializer
 from cotizaciones.models import Cotizacion, ItemCotizacion
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
@@ -544,6 +547,93 @@ class ContratoCRUDTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsInstance(response.data, list)
         self.assertGreaterEqual(len(response.data), 1)
+
+    def test_generar_pdf_contrato_regenera_secciones_si_faltan(self):
+        plantilla = PlantillaContrato.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            titulo="Plantilla Test Servicios",
+            descripcion="Plantilla de servicios para tests",
+            tipo_contrato="servicios",
+            es_default=False,
+            activa=True,
+            version=1,
+        )
+        SeccionPlantilla.objects.create(
+            plantilla=plantilla,
+            titulo="Identificación del Cliente",
+            tipo="identificacion_cliente",
+            contenido_template="Nombre: [nombre_cliente]",
+            orden=1,
+            es_editable_en_contrato=False,
+            es_obligatoria=True,
+        )
+
+        self.contrato.plantilla = plantilla
+        self.contrato.plantilla_version_usada = None
+        self.contrato.save(update_fields=["plantilla", "plantilla_version_usada"])
+
+        # Confirmar que no existen secciones generadas antes de la generación.
+        self.assertFalse(self.contrato.secciones_generadas.exists())
+
+        pdf_bytes = construir_pdf_contrato(self.contrato)
+
+        self.assertIsInstance(pdf_bytes, (bytes, bytearray))
+        self.assertGreater(len(pdf_bytes), 0)
+        self.assertTrue(self.contrato.secciones_generadas.exists())
+
+    def test_generar_contrato_desde_plantilla_reordena_secciones_si_hay_cambio(self):
+        plantilla = PlantillaContrato.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            titulo="Plantilla Test Servicios",
+            descripcion="Plantilla de servicios orden test",
+            tipo_contrato="servicios",
+            es_default=False,
+            activa=True,
+            version=1,
+        )
+        seccion_a = SeccionPlantilla.objects.create(
+            plantilla=plantilla,
+            titulo="Primera Sección",
+            tipo="clausula",
+            contenido_template="A",
+            orden=1,
+            es_editable_en_contrato=False,
+            es_obligatoria=True,
+        )
+        seccion_b = SeccionPlantilla.objects.create(
+            plantilla=plantilla,
+            titulo="Segunda Sección",
+            tipo="clausula",
+            contenido_template="B",
+            orden=2,
+            es_editable_en_contrato=False,
+            es_obligatoria=True,
+        )
+
+        self.contrato.plantilla = plantilla
+        self.contrato.plantilla_version_usada = None
+        self.contrato.save(update_fields=["plantilla", "plantilla_version_usada"])
+
+        # Crear secciones generadas en orden inverso para simular un contrato viejo.
+        SeccionContratoGenerada.objects.create(
+            contrato=self.contrato,
+            seccion_plantilla=seccion_a,
+            titulo=seccion_a.titulo,
+            contenido_renderizado="A",
+            orden=2,
+        )
+        SeccionContratoGenerada.objects.create(
+            contrato=self.contrato,
+            seccion_plantilla=seccion_b,
+            titulo=seccion_b.titulo,
+            contenido_renderizado="B",
+            orden=1,
+        )
+
+        generar_contrato_desde_plantilla(self.contrato)
+
+        ordenes = list(self.contrato.secciones_generadas.order_by("orden").values_list("seccion_plantilla_id", flat=True))
+        self.assertEqual(ordenes, [seccion_a.id, seccion_b.id])
 
     def test_filtrar_por_empresa_cliente(self):
         response = self.client.get(
@@ -1786,6 +1876,29 @@ class ContratoVolverABorradorTest(ContratoAPITestBase):
             version_envio=1,
             snapshot_contrato={"id": self.contrato.id, "nombre": self.contrato.nombre},
         )
+        # Requerido para que enviar-aprobacion no rechace el contrato de tipo servicios
+        servicio_test = Servicio.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            nombre="Servicio de prueba",
+            precio=10000,
+            tipo_moneda="CLP",
+        )
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="servicio",
+            servicio_version=servicio_test,
+            snapshot_nombre="Servicio de prueba",
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="CLP",
+        )
+        # Requerido para que enviar-aprobacion no rechace por falta de secciones generadas
+        SeccionContratoGenerada.objects.create(
+            contrato=self.contrato,
+            titulo="Sección de prueba",
+            contenido_renderizado="Contenido de prueba",
+            orden=1,
+        )
 
     def test_volver_a_borrador_depreca_envio_pendiente(self):
         response = self.client.post(f"/api/contratos/{self.contrato.id}/volver-a-borrador/")
@@ -2707,3 +2820,146 @@ class SeparacionFlujosLicenciaServiciosTest(ContratoAPITestBase):
         )
         with self.assertRaises(DjangoValidationError):
             item.clean()
+
+
+class SnapshotTasasCambioTest(ContratoAPITestBase):
+    """
+    Tests de congelamiento de tasas y totales al enviar a aprobacion.
+
+    Verifica que snapshot_tasa_uf, snapshot_tasa_dolar y snapshot_total_servicios
+    se guardan correctamente al llamar enviar-aprobacion en contratos de tipo
+    servicios, y que el serializer usa esos valores congelados en estados
+    post-borrador.
+    """
+
+    def _preparar_contrato_servicios_uf(self):
+        """Crea un contrato tipo=servicios con un item en UF, secciones y destinatario."""
+        # Usar CLP como moneda de cobro para simplificar la conversion: UF*tasa → CLP
+        self.contrato.moneda_cobro = "CLP"
+        self.contrato.save(update_fields=["moneda_cobro", "fecha_modificacion"])
+
+        servicio = Servicio.objects.create(
+            empresa_prestadora=self.empresa_prestadora,
+            nombre="Servicio UF",
+            precio=2,
+            tipo_moneda="UF",
+        )
+        # total_mensual = precio * cantidad (2 UF); se establece manualmente porque
+        # recalcular_totales() no se llama automaticamente en create().
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="servicio",
+            servicio_version=servicio,
+            snapshot_nombre="Servicio UF",
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="UF",
+            precio_unitario_contratado=2,
+            total_mensual=2,
+        )
+        SeccionContratoGenerada.objects.create(
+            contrato=self.contrato,
+            titulo="Seccion generada",
+            contenido_renderizado="Contenido",
+            orden=1,
+        )
+        user_destinatario = User.objects.create_user(
+            email="destinatario@cliente.com",
+            password="testpass123",
+            first_name="Dest",
+            last_name="Test",
+        )
+        usuario_destinatario = UsuarioEmpresa.objects.create(
+            usuario=user_destinatario,
+            sucursal=self.sucursal_cliente,
+        )
+        UsuarioVinculadoContrato.objects.create(
+            usuario=usuario_destinatario,
+            contrato=self.contrato,
+            es_destinatario_principal=True,
+        )
+
+    @patch("contratos.flow_helpers.send_email_task.delay")
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales")
+    def test_enviar_aprobacion_servicios_uf_guarda_snapshot_tasa_y_total(self, mock_tasas, mock_email):
+        """
+        Al enviar a aprobacion un contrato tipo=servicios con item en UF,
+        se deben guardar snapshot_tasa_uf y snapshot_total_servicios.
+        El total congelado debe ser 2 UF * 38000 CLP/UF = 76000 CLP.
+        """
+        self._preparar_contrato_servicios_uf()
+        uf_fijo = 38000
+        mock_tasas.return_value = (None, uf_fijo)
+
+        response = self.client.post(
+            f"/api/contratos/{self.contrato.id}/enviar-aprobacion/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.contrato.refresh_from_db()
+        self.assertEqual(self.contrato.snapshot_tasa_uf, uf_fijo)
+        self.assertIsNotNone(self.contrato.snapshot_total_servicios)
+        # 2 UF * 38000 CLP/UF = 76000 CLP
+        self.assertAlmostEqual(float(self.contrato.snapshot_total_servicios), 76000.0, places=1)
+
+    @patch("contratos.flow_helpers.send_email_task.delay")
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales")
+    def test_serializer_usa_snapshot_en_estado_no_editable(self, mock_tasas, mock_email):
+        """
+        En estado en_aprobacion_cliente, el serializer debe devolver el total
+        congelado (snapshot_total_servicios), no recalcular con la tasa actual.
+        """
+        self._preparar_contrato_servicios_uf()
+        mock_tasas.return_value = (None, 38000)
+
+        self.client.post(f"/api/contratos/{self.contrato.id}/enviar-aprobacion/")
+        self.contrato.refresh_from_db()
+        self.assertEqual(self.contrato.estado, "en_aprobacion_cliente")
+
+        # Simular que la tasa cambio: el serializer debe ignorar la nueva tasa
+        mock_tasas.return_value = (None, 50000)
+        serializer = ContratoEmpresaClienteSerializer(self.contrato)
+        total = serializer.data["total_contrato"]
+
+        # Debe seguir siendo 76000 (congelado), no 100000 (2 UF * 50000)
+        self.assertAlmostEqual(total, 76000.0, places=1)
+
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales")
+    def test_serializer_recalcula_en_estado_borrador(self, mock_tasas):
+        """
+        En estado borrador, el serializer debe calcular dinamicamente con
+        la tasa actual, ignorando snapshots.
+        """
+        self._preparar_contrato_servicios_uf()
+        self.contrato.snapshot_total_servicios = 76000
+        self.contrato.snapshot_tasa_uf = 38000
+        self.contrato.save(
+            update_fields=["snapshot_total_servicios", "snapshot_tasa_uf", "fecha_modificacion"]
+        )
+        self.assertEqual(self.contrato.estado, "borrador")
+
+        mock_tasas.return_value = (None, 50000)
+        serializer = ContratoEmpresaClienteSerializer(self.contrato)
+        total = serializer.data["total_contrato"]
+
+        # En borrador debe recalcular: 2 UF * 50000 = 100000
+        self.assertAlmostEqual(total, 100000.0, places=1)
+
+    @patch("contratos.flow_helpers.send_email_task.delay")
+    @patch("contratos.currency_utils.obtener_tipos_cambio_actuales")
+    def test_snapshot_tasa_dolar_se_guarda_si_esta_disponible(self, mock_tasas, mock_email):
+        """
+        Si obtener_tipos_cambio_actuales retorna un valor para dolar,
+        debe guardarse en snapshot_tasa_dolar.
+        """
+        self._preparar_contrato_servicios_uf()
+        dolar_fijo = 950
+        mock_tasas.return_value = (dolar_fijo, 38000)
+
+        response = self.client.post(
+            f"/api/contratos/{self.contrato.id}/enviar-aprobacion/"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.contrato.refresh_from_db()
+        self.assertEqual(self.contrato.snapshot_tasa_dolar, dolar_fijo)

@@ -1836,6 +1836,20 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        if contrato.tipo == "servicios":
+            if not contrato.items_comerciales.exists():
+                return Response(
+                    {"detail": "Un contrato de servicios debe tener al menos un servicio o plan contratado antes de enviarlo a aprobación."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if contrato.tipo == "licencia":
+            if not contrato.contrato_licencias.exists():
+                return Response(
+                    {"detail": "Un contrato de licenciamiento debe tener al menos una licencia vinculada antes de enviarlo a aprobación."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if not contrato.secciones_generadas.exists():
             return Response(
                 {
@@ -1874,6 +1888,18 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
         enviar_correo_aprobacion(envio)
 
         update_fields = ["estado", "fecha_modificacion"]
+
+        # Congelar tasas de cambio vigentes al momento del envío (aplica a todos los tipos).
+        # Permite que el serializer muestre valores estables post-aprobación.
+        from contratos.currency_utils import obtener_tipos_cambio_actuales, consolidar_totales_items
+        dolar_snapshot, uf_snapshot = obtener_tipos_cambio_actuales()
+        if dolar_snapshot is not None:
+            contrato.snapshot_tasa_dolar = dolar_snapshot
+            update_fields.append("snapshot_tasa_dolar")
+        if uf_snapshot is not None:
+            contrato.snapshot_tasa_uf = uf_snapshot
+            update_fields.append("snapshot_tasa_uf")
+
         if contrato.tipo == "venta":
             try:
                 resumen = resumir_cotizaciones_venta(
@@ -1888,6 +1914,53 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     {"detail": f"No se puede calcular el total de venta: {exc}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        elif contrato.tipo in ("servicios", "licencia"):
+            # Congelar el total en moneda_cobro usando las tasas recién obtenidas.
+            try:
+                from contratos.serializers import ContratoEmpresaClienteSerializer as _Ser
+                total_items = None
+                if contrato.items_comerciales.exists():
+                    total_items = consolidar_totales_items(
+                        contrato.items_comerciales.all(),
+                        contrato.moneda_cobro,
+                        dolar=dolar_snapshot,
+                        uf=uf_snapshot,
+                    )
+                    if total_items is None:
+                        # Fallback suma bruta si no se puede convertir
+                        total_items = sum(
+                            item.total_para_forma_pago_contractual
+                            for item in contrato.items_comerciales.all()
+                        )
+                # Sumar licencias
+                from contratos.currency_utils import convertir_precio_item_safe
+                from decimal import Decimal as _Dec
+                total_licencias = _Dec("0")
+                for lic in contrato.contrato_licencias.all():
+                    subtotal = _Dec(str(lic.precio_unitario_snapshot)) * _Dec(lic.cantidad)
+                    moneda_lic = getattr(lic, "moneda_snapshot", None) or contrato.moneda_cobro
+                    if moneda_lic == contrato.moneda_cobro:
+                        total_licencias += subtotal
+                    else:
+                        convertido = convertir_precio_item_safe(
+                            subtotal,
+                            moneda_origen=moneda_lic,
+                            moneda_destino=contrato.moneda_cobro,
+                            dolar_observado=dolar_snapshot,
+                            valor_uf=uf_snapshot,
+                        )
+                        if convertido is not None:
+                            total_licencias += convertido
+                contrato.snapshot_total_servicios = (total_items or _Dec("0")) + total_licencias
+                update_fields.append("snapshot_total_servicios")
+            except Exception as exc:
+                # No bloquear el envío si falla el snapshot; se registra el error.
+                import logging as _log
+                _log.getLogger(__name__).warning(
+                    "enviar_aprobacion: no se pudo calcular snapshot_total_servicios para contrato %s: %s",
+                    contrato.pk, exc,
+                )
+
         contrato.estado = "en_aprobacion_cliente"
         contrato.save(update_fields=update_fields)
         return Response(
@@ -3449,8 +3522,15 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
 
     # ── Asignar creado_por / actualizado_por ───────────────────
     def perform_create(self, serializer):
+        from contratos.venta_helpers import calcular_monto_total_contrato
         usuario_empresa = obtener_usuario_empresa(self.request.user)
-        serializer.save(creado_por=usuario_empresa, actualizado_por=usuario_empresa)
+        contrato = serializer.validated_data.get("contrato")
+        monto = calcular_monto_total_contrato(contrato) if contrato else 0
+        serializer.save(
+            creado_por=usuario_empresa,
+            actualizado_por=usuario_empresa,
+            monto_total=monto,
+        )
 
     def perform_update(self, serializer):
         usuario_empresa = obtener_usuario_empresa(self.request.user)
@@ -3478,7 +3558,12 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
     # ── Transición: borrador → por_facturar ────────────────────
     @action(detail=True, methods=["post"], url_path="finalizar")
     def finalizar(self, request, pk=None):
-        """Marca la prefactura como lista para facturar."""
+        """Marca la prefactura como lista para facturar.
+
+        Re-calcula monto_total desde los items comerciales actuales del contrato
+        antes de la transicion, garantizando coherencia con monto_calculado.
+        """
+        from contratos.venta_helpers import calcular_monto_total_contrato
         factura = self.get_object()
         if factura.estado != "borrador":
             return Response(
@@ -3487,6 +3572,28 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
             )
         factura.estado = "por_facturar"
         factura.fecha_emision = timezone.now().date()
+        factura.monto_total = calcular_monto_total_contrato(factura.contrato)
+        factura.actualizado_por = obtener_usuario_empresa(request.user)
+        factura.save()
+        return Response(self.get_serializer(factura).data)
+
+    # ── Recalcular monto_total desde items comerciales actuales ─
+    @action(detail=True, methods=["post"], url_path="recalcular-monto")
+    def recalcular_monto(self, request, pk=None):
+        """Sincroniza monto_total con el valor actual del contrato.
+
+        Util para corregir prefacturas cuyo monto_total quedó en 0
+        por haber sido creadas antes de que se agregaran items al contrato.
+        Solo disponible para prefacturas en estado borrador o por_facturar.
+        """
+        from contratos.venta_helpers import calcular_monto_total_contrato
+        factura = self.get_object()
+        if factura.estado == "facturado":
+            return Response(
+                {"detail": "No se puede recalcular una prefactura ya facturada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        factura.monto_total = calcular_monto_total_contrato(factura.contrato)
         factura.actualizado_por = obtener_usuario_empresa(request.user)
         factura.save()
         return Response(self.get_serializer(factura).data)
@@ -3637,20 +3744,24 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        from contratos.estados_modelo import CONTENIDO_CANONICO_IDENTIFICACION
+        from contratos.estados_modelo import (
+            CONTENIDO_CANONICO_IDENTIFICACION,
+            SECCIONES_PREDETERMINADAS_POR_TIPO,
+        )
 
         empresa = _empresa_del_usuario(self.request.user)
         plantilla = serializer.save(empresa_prestadora=empresa)
-        # Crear la sección predeterminada de identificación del cliente
-        SeccionPlantilla.objects.create(
-            plantilla=plantilla,
-            titulo='Identificación del Cliente',
-            tipo='identificacion_cliente',
-            contenido_template=CONTENIDO_CANONICO_IDENTIFICACION,
-            orden=1,
-            es_editable_en_contrato=False,
-            es_obligatoria=True,
-        )
+        secciones_pred = SECCIONES_PREDETERMINADAS_POR_TIPO.get(plantilla.tipo_contrato, [])
+        if 'identificacion_cliente' in secciones_pred:
+            SeccionPlantilla.objects.create(
+                plantilla=plantilla,
+                titulo='Identificación del Cliente',
+                tipo='identificacion_cliente',
+                contenido_template=CONTENIDO_CANONICO_IDENTIFICACION,
+                orden=1,
+                es_editable_en_contrato=False,
+                es_obligatoria=True,
+            )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)

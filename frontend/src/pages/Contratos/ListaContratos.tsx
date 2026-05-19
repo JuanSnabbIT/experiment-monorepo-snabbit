@@ -107,7 +107,9 @@ const ListaContratos = () => {
     });
 
     // ── Estado local de tabla ──
-    const [sorting, setSorting] = useState<SortingState>([]);
+    const [sorting, setSorting] = useState<SortingState>([
+        { id: 'id', desc: true },
+    ]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [filtroEstado, setFiltroEstado] = useState<TSelectOption | null>(null);
     const [filtroTipo, setFiltroTipo] = useState<TSelectOption | null>(null);
@@ -123,6 +125,10 @@ const ListaContratos = () => {
         }
         return resultado;
     }, [contratos, filtroEstado, filtroTipo]);
+
+    const contratosOrdenados = useMemo(() => {
+        return [...contratosFiltrados].sort((a, b) => b.id - a.id);
+    }, [contratosFiltrados]);
 
     // ── Columnas ──
     const columns = useMemo(
@@ -225,7 +231,7 @@ const ListaContratos = () => {
 
     // ── React Table ──
     const table = useReactTable({
-        data: contratosFiltrados,
+        data: contratosOrdenados,
         columns,
         state: { sorting, globalFilter },
         onSortingChange: setSorting,

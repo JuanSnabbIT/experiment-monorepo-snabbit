@@ -38,6 +38,7 @@ import {
 } from '@/store/slices/contratos/contratoApi';
 import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     buildPrefacturaContratoDetailPath,
@@ -68,8 +69,8 @@ const formatDateRange = (start?: string | null, end?: string | null) => {
 };
 
 const formatContratoTotal = (factura: IFacturaContrato) => {
-    const monto = Number(factura.monto_total);
-    return `${factura.moneda_label || 'CLP'} ${monto.toLocaleString('es-CL')}`;
+    const valor = factura.monto_calculado ?? factura.monto_total;
+    return formatCurrency(valor, factura.moneda);
 };
 
 const ListaPrefacturasContrato = () => {
@@ -272,7 +273,7 @@ const ListaPrefacturasContrato = () => {
             columnHelper.accessor('estadoLabel', {
                 header: 'Estado',
                 cell: (info) => (
-                    <Badge color={getPrefacturaEstadoColor(info.row.original.estado)}>
+                    <Badge variant='outline' color={getPrefacturaEstadoColor(info.row.original.estado)}>
                         {info.getValue()}
                     </Badge>
                 ),
@@ -288,8 +289,9 @@ const ListaPrefacturasContrato = () => {
                     <Tooltip text='Ver detalle'>
                         <Button
                             size='sm'
+                            variant='solid'
                             icon='HeroEye'
-                            color='blue'
+                            color='violet'
                             onClick={() => navigate(row.original.detailPath)}
                         />
                     </Tooltip>

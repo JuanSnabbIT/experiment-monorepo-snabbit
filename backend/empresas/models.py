@@ -24,6 +24,8 @@ class Empresa(ModeloBase):
     email = models.EmailField(blank=True, null=True)
     giro = models.CharField(max_length=255, blank=True, null=True, verbose_name="Giro o actividad económica")
     nombre_fantasia = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nombre de fantasía")
+    representante_legal = models.CharField(max_length=255, blank=True, null=True)
+    rut_representante = models.CharField(max_length=20, blank=True, null=True)
     ppm = models.DecimalField(default=1, max_digits=5, decimal_places=2)
     uuid = models.UUIDField(unique=True, editable=False, blank=True, null=True)
 

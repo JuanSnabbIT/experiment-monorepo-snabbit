@@ -1,6 +1,7 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Validation from '@/components/form/Validation';
 import { FormikProps } from 'formik';
 import {
     IFormValuesContratoTrabajador,
@@ -14,18 +15,36 @@ interface Props {
 }
 
 const StepRemuneraciones = ({ formik }: Props) => {
-    const { values, setFieldValue, handleChange, handleBlur } = formik;
+    const { values, errors, touched, setFieldValue, handleChange, handleBlur } = formik;
 
     return (
         <div className='space-y-4'>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
                 <div>
-                    <Label htmlFor='sueldo_base'>Sueldo base</Label>
+                    <Label htmlFor='sueldo_base'>
+                        Sueldo bruto <span className='text-red-500'>*</span>
+                    </Label>
+                    <Validation
+                        isValid={!errors.sueldo_base}
+                        isTouched={!!touched.sueldo_base}
+                        invalidFeedback={errors.sueldo_base || ''}>
+                        <Input
+                            id='sueldo_base'
+                            name='sueldo_base'
+                            type='number'
+                            value={values.sueldo_base}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                        />
+                    </Validation>
+                </div>
+                <div>
+                    <Label htmlFor='sueldo_liquido'>Sueldo liquido (opcional)</Label>
                     <Input
-                        id='sueldo_base'
-                        name='sueldo_base'
+                        id='sueldo_liquido'
+                        name='sueldo_liquido'
                         type='number'
-                        value={values.sueldo_base}
+                        value={values.sueldo_liquido}
                         onChange={handleChange}
                         onBlur={handleBlur}
                     />

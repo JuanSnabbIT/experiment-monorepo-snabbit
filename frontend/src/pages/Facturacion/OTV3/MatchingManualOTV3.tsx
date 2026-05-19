@@ -6,10 +6,12 @@ import Textarea from '@/components/form/Textarea';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
+import Tooltip from '@/components/ui/Tooltip';
 import type { IContratoMatching } from '@/interface/contrato.interface';
 import type { IRelacionEmpresa } from '@/interface/empresas.interface';
 import type {
@@ -437,19 +439,6 @@ const MatchingManualOTV3 = () => {
 
     // Mostrar total de cotización en la moneda de origen de la cotización, si está disponible
     const monedaRender = comparativa?.meta_monedas?.moneda_objetivo ?? monedaPrefactura;
-    const totalEjecutadoVisible = useMemo(
-        () =>
-            visibleItems.reduce(
-                (acumulado, item) => acumulado + Number(item.total || 0),
-                0,
-            ),
-        [visibleItems],
-    );
-    const diferenciaVisible = useMemo(() => {
-        if (!comparativa) return 0;
-        return Number(comparativa.pactado.total || 0) - totalEjecutadoVisible;
-    }, [comparativa, totalEjecutadoVisible]);
-
     const visitasPorContrato = useMemo(() => {
         const visitasRaw = comparativa?.visitas_contrato;
         const porContratoRaw = Array.isArray(visitasRaw?.por_contrato)
@@ -473,6 +462,19 @@ const MatchingManualOTV3 = () => {
         [contractCardsVM.length, cotizacionCardsVM.length],
     );
 
+    // F-05: detecta si algún contrato seleccionado requiere tipo de cambio (UF o USD)
+    const contratoRequiereTipoCambio = useMemo(
+        () =>
+            contratoIds.some((id) => {
+                const contrato = contratosActivosCliente.find((c) => c.id === id);
+                return contrato?.moneda_cobro === 'UF' || contrato?.moneda_cobro === 'USD';
+            }),
+        [contratoIds, contratosActivosCliente],
+    );
+
+    const bloquearPorTipoCambio =
+        contratoRequiereTipoCambio && !tipoCambio && !cargandoTipoCambio;
+
     // ── Totales ──────────────────────────────────────────────────────
     const totales = useMemo(() => {
         let totalFacturar = 0;
@@ -493,6 +495,15 @@ const MatchingManualOTV3 = () => {
         });
         return { totalFacturar, totalExcluido };
     }, [itemsConfig, visibleItems]);
+
+    // Diferencia entre lo que se va a facturar (definido en matching) y lo ejecutado
+    const diferenciaVisible = useMemo(
+        () =>
+            comparativa
+                ? totales.totalFacturar - Number(comparativa.ejecutado.total || 0)
+                : 0,
+        [comparativa, totales.totalFacturar],
+    );
 
     // ── Helpers ──────────────────────────────────────────────────────
     const updateItemConfig = (itemId: string, updates: Partial<IItemPrefacturaV3>) => {
@@ -562,6 +573,22 @@ const MatchingManualOTV3 = () => {
     const handleCrear = async () => {
         if (otIdsSeleccionadas.length === 0) {
             toast.warn('Selecciona al menos una OT');
+            return;
+        }
+
+        // F-02: validar tareas OT marcadas para facturar sin precio asignado
+        const tareasSinPrecio = visibleItems.filter((item) => {
+            if (item.tipo !== 'tarea_ot') return false;
+            const key = `${item.tipo}_${item.id}`;
+            const config = itemsConfig.get(key);
+            const facturar = config?.facturar ?? true;
+            const precio = config?.precioAsignado ?? 0;
+            return facturar && precio <= 0;
+        });
+        if (tareasSinPrecio.length > 0) {
+            toast.warn(
+                `${tareasSinPrecio.length} tarea(s) marcadas para facturar sin precio asignado. Ingresa un precio o desmarca "Facturar".`,
+            );
             return;
         }
 
@@ -851,7 +878,7 @@ const MatchingManualOTV3 = () => {
                         <Card className='lg:col-span-2'>
                             <CardHeader>
                                 <CardHeaderChild>
-                                    Comparativa pactado vs ejecutado
+                                    Items ejecutados en OTs
                                 </CardHeaderChild>
                                 <CardHeaderChild>
                                     {!comparativaCargada && (
@@ -860,6 +887,7 @@ const MatchingManualOTV3 = () => {
                                             color='blue'
                                             icon='HeroCalculator'
                                             isLoading={cargandoComparativa}
+                                            isDisable={bloquearPorTipoCambio}
                                             onClick={handleCargarComparativa}>
                                             Calcular
                                         </Button>
@@ -877,7 +905,13 @@ const MatchingManualOTV3 = () => {
                                 </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
-                                {!comparativaCargada && !cargandoComparativa && (
+                                {bloquearPorTipoCambio && (
+                                    <Alert color='amber' className='mb-3'>
+                                        Uno o más contratos seleccionados usan <strong>UF o USD</strong>, pero no hay tipo de cambio disponible para la fecha seleccionada. El monto calculado puede aparecer en $0. Verifica la fecha de prefactura o ingresa el tipo de cambio manualmente.
+                                    </Alert>
+                                )}
+
+                                {!comparativaCargada && !cargandoComparativa && !bloquearPorTipoCambio && (
                                     <p className='text-sm text-zinc-400'>
                                         Presiona &quot;Calcular&quot; para cargar
                                         la comparativa y los items ejecutados.
@@ -886,18 +920,21 @@ const MatchingManualOTV3 = () => {
 
                                 {comparativa && (
                                     <>
-                                        {/* Resumen totales pactado/ejecutado/diferencia */}
+                                        {/* Resumen totales OT: a facturar / ejecutado / diferencia */}
                                         <div className='mb-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3'>
                                             <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                                 <p className='mb-1 font-semibold text-zinc-500'>
-                                                    Pactado
+                                                    Total a facturar
                                                 </p>
-                                                <p className='text-lg font-bold'>
-                                                    {formatCurrency(
-                                                        comparativa.pactado.total,
-                                                        comparativa.pactado.moneda || monedaRender,
-                                                    )}
+                                                <p className='text-lg font-bold text-blue-600 dark:text-blue-400'>
+                                                    {formatCurrency(totales.totalFacturar, monedaRender)}
                                                 </p>
+                                                {totales.totalExcluido > 0 && (
+                                                    <p className='mt-0.5 text-xs text-zinc-400'>
+                                                        Excluido:{' '}
+                                                        {formatCurrency(totales.totalExcluido, monedaRender)}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                                 <p className='mb-1 font-semibold text-zinc-500'>
@@ -905,10 +942,16 @@ const MatchingManualOTV3 = () => {
                                                 </p>
                                                 <p className='text-lg font-bold'>
                                                     {formatCurrency(
-                                                        totalEjecutadoVisible,
+                                                        Number(comparativa.ejecutado.total || 0),
                                                         comparativa.ejecutado.moneda || monedaRender,
                                                     )}
                                                 </p>
+                                                {allItems.length !== visibleItems.length && (
+                                                    <p className='mt-0.5 text-xs text-zinc-400'>
+                                                        Materiales excluidos del matching:{' '}
+                                                        {allItems.length - visibleItems.length}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                                                 <p className='mb-1 font-semibold text-zinc-500'>
@@ -920,10 +963,7 @@ const MatchingManualOTV3 = () => {
                                                             ? 'text-emerald-600'
                                                             : 'text-red-500'
                                                     }`}>
-                                                    {formatCurrency(
-                                                        diferenciaVisible,
-                                                        monedaRender,
-                                                    )}
+                                                    {formatCurrency(diferenciaVisible, monedaRender)}
                                                 </p>
                                             </div>
                                         </div>
@@ -1111,30 +1151,46 @@ const MatchingManualOTV3 = () => {
                                                                         />
                                                                     </Td>
                                                                     <Td>
-                                                                        <Input
-                                                                            name={`precio-${key}`}
-                                                                            type='number'
-                                                                            placeholder={
-                                                                                monedaRender === 'CLP'
-                                                                                    ? '$'
-                                                                                    : monedaRender
-                                                                            }
-                                                                            value={precioAsignadoValor}
-                                                                            onChange={(e) =>
-                                                                                updateItemConfig(key, {
-                                                                                    precioAsignado:
-                                                                                        e.target.value
-                                                                                            ? Number(
-                                                                                                  e.target.value,
-                                                                                              )
+                                                                        {item.tipo === 'tarea_ot' &&
+                                                                        facturar &&
+                                                                        precioAsignadoValor === 0 ? (
+                                                                            <Tooltip text='Esta tarea no tiene precio. Ingresa un valor o desmarca Facturar.'>
+                                                                                <Input
+                                                                                    name={`precio-${key}`}
+                                                                                    type='number'
+                                                                                    placeholder='$'
+                                                                                    value={precioAsignadoValor}
+                                                                                    onChange={(e) =>
+                                                                                        updateItemConfig(key, {
+                                                                                            precioAsignado: e.target.value
+                                                                                                ? Number(e.target.value)
+                                                                                                : null,
+                                                                                        })
+                                                                                    }
+                                                                                    className='w-24 border-amber-400 px-2 py-1 text-right text-xs'
+                                                                                />
+                                                                            </Tooltip>
+                                                                        ) : (
+                                                                            <Input
+                                                                                name={`precio-${key}`}
+                                                                                type='number'
+                                                                                placeholder={
+                                                                                    monedaRender === 'CLP'
+                                                                                        ? '$'
+                                                                                        : monedaRender
+                                                                                }
+                                                                                value={precioAsignadoValor}
+                                                                                onChange={(e) =>
+                                                                                    updateItemConfig(key, {
+                                                                                        precioAsignado: e.target.value
+                                                                                            ? Number(e.target.value)
                                                                                             : null,
-                                                                                })
-                                                                            }
-                                                                            disabled={
-                                                                                config?.facturar === false
-                                                                            }
-                                                                            className='w-24 px-2 py-1 text-right text-xs'
-                                                                        />
+                                                                                    })
+                                                                                }
+                                                                                disabled={config?.facturar === false}
+                                                                                className='w-24 px-2 py-1 text-right text-xs'
+                                                                            />
+                                                                        )}
                                                                     </Td>
                                                                 </Tr>
                                                             );

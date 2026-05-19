@@ -178,7 +178,6 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
                         {accion === 'ninguna' ? 'F. firma' : 'F. Vinculacion'}
                     </div>
                     <div className='col-span-1 sm:col-span-2 font-bold'>Estado</div>
-                    <div className='col-span-1 sm:col-span-1 font-bold' />
                     {items.map((v, i) => (
                         <Fragment key={v.id}>
                             <div className={classNames('col-span-1 min-w-0 sm:col-span-4', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
@@ -208,34 +207,6 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
                                     {getEstadoFirmaVisual(v).label}
                                 </Badge>
                             </div>
-                            <div className={classNames('col-span-1 min-w-0 sm:col-span-1', i > 0 && 'border-t border-t-zinc-200 pt-1 dark:border-t-zinc-700')}>
-                                {accion === 'enviar' && (
-                                    <Tooltip text='Enviar firma'>
-                                        <Button
-                                            variant='solid'
-                                            color='blue'
-                                            size='sm'
-                                            icon='DuoMail'
-                                            isLoading={enviando}
-                                            onClick={() => handleEnviarFirma(v.id)}
-                                        />
-                                    </Tooltip>
-                                )}
-                                {accion === 'reenviar' && (
-                                    <Tooltip text='Reenviar firma'>
-                                        <Button
-                                            variant='solid'
-                                            color='emerald'
-                                            size='sm'
-                                            icon='DuoOutgoingMail'
-                                            onClick={() => handleReenviarFirma(v.id, v.firma_pendiente!.id)}
-                                        />
-                                    </Tooltip>
-                                )}
-                                {accion === 'ninguna' && (
-                                    <span className='text-xs text-zinc-400'>-</span>
-                                )}
-                            </div>
                         </Fragment>
                     ))}
                 </div>
@@ -248,8 +219,8 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
             <CardHeader className='border-b border-b-black'>
                 <CardHeaderChild><div className='text-xl font-bold text-blue-500'>Usuarios Vinculados</div></CardHeaderChild>
                 <CardHeaderChild>
-                    {puedeEditar && !editandoSeccion && <Tooltip text='Editar Usuarios'><Button variant='outline' color='blue' icon='HeroPlus' className='text-blue-500' onClick={handleEditar}>Gestionar usuarios</Button></Tooltip>}
-                    {editandoSeccion && <><Button icon='HeroXMark' color='red' size='sm' onClick={handleCancelar}>Cancelar</Button><Button icon='HeroCheck' variant='solid' color='emerald' size='sm' isLoading={guardando} onClick={handleGuardar}>Guardar</Button></>}
+                    {puedeEditar && !editandoSeccion && <Tooltip text='Gestionar usuarios'><Button size='sm' icon='HeroEllipsisVertical' onClick={handleEditar} /></Tooltip>}
+                    {editandoSeccion && <><Button variant='solid' icon='HeroXMark' color='red' size='sm' onClick={handleCancelar}>Cancelar</Button><Button icon='HeroCheck' variant='solid' color='emerald' size='sm' isLoading={guardando} onClick={handleGuardar}>Guardar</Button></>}
                 </CardHeaderChild>
             </CardHeader>
             <CardBody className='p-4'>
@@ -259,16 +230,10 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
                         const esInterno = Boolean(usuario.usuario_id);
                         const opcionesFila = getOpcionesFila(index);
                         return <div key={usuario.id ?? `nuevo-${index}`} className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
-                            <div className='mb-3 flex flex-wrap items-center justify-between gap-2'>
-                                <div className='flex flex-wrap items-center gap-2'>
-                                    <Badge variant='outline' color={esInterno ? 'blue' : 'amber'}>{esInterno ? 'Usuario existente' : 'Contacto manual'}</Badge>
-                                    {usuario.es_destinatario_principal && <Badge variant='outline' color='emerald'>Destinatario principal</Badge>}
-                                </div>
-                                <Button color='red' icon='HeroTrash' size='sm' onClick={() => handleEliminarFila(index)}>Quitar</Button>
-                            </div>
-                            <div className='mb-4 flex flex-wrap gap-2'>
+                            <div className='mb-4 flex flex-wrap items-center gap-2'>
                                 <Button size='sm' variant={esInterno ? 'solid' : 'default'} onClick={() => actualizarUsuario(index, { usuario_id: usuario.usuario_id || Number(opcionesFila[0]?.value) || undefined, nombre: null, correo_generico: null })}>Usuario existente</Button>
                                 <Button size='sm' variant={!esInterno ? 'solid' : 'default'} onClick={() => actualizarUsuario(index, { usuario_id: undefined, nombre: '', correo_generico: '' })}>Contacto manual</Button>
+                                <Button className='ml-auto' variant='solid' color='red' icon='HeroTrash' size='sm' onClick={() => handleEliminarFila(index)}>Quitar</Button>
                             </div>
                             {esInterno ? <div className='grid grid-cols-12 gap-4'>
                                 <div className='col-span-12 lg:col-span-7'><div className='mb-1 text-xs font-semibold text-zinc-500'>Usuario del cliente</div><SelectReact name={`usuario-${index}`} options={opcionesFila} value={opcionesFila.find((option) => Number(option.value) === usuario.usuario_id) ?? null} onChange={(option) => actualizarUsuario(index, { usuario_id: Number((option as TSelectOption | null)?.value || 0) })} placeholder='Selecciona un usuario' /></div>
@@ -281,17 +246,7 @@ const TabUsuarios = ({ detalleContratoEmpresaCliente, puedeEditar }: ITabUsuario
                             <div className='mt-4'><Checkbox name={`principal-${index}`} label='Marcar como destinatario principal' checked={Boolean(usuario.es_destinatario_principal)} onChange={() => marcarDestinatarioPrincipal(index)} /></div>
                         </div>;
                     }) : <div className='rounded-lg border border-dashed border-zinc-300 p-4 text-center text-sm text-zinc-500 dark:border-zinc-700'>Sin usuarios vinculados. Agrega un usuario existente o un contacto manual.</div>}
-                    <div className='rounded-lg border border-zinc-200 p-4 dark:border-zinc-700'>
-                        <div className='mb-3 flex flex-wrap items-center justify-between gap-3'>
-                            <div><div className='text-sm font-semibold'>Agregar nuevo vinculo</div><div className='text-xs text-zinc-500'>Puedes agregar usuarios existentes del cliente o un contacto manual.</div></div>
-                            <Button size='sm' variant='outline' color='amber' icon='HeroUserPlus' onClick={() => setUsuarios((prev) => [...prev, { nombre: '', correo_generico: '', tipo_usuario: 'general', es_destinatario_principal: prev.length === 0 }])}>Agregar contacto manual</Button>
-                        </div>
-                        <div className='grid grid-cols-12 gap-3'>
-                            <div className='col-span-12 lg:col-span-8'><SelectReact name='nuevo_usuario' options={opcionesNuevosUsuarios} onChange={(option) => setNuevoUsuario((option as TSelectOption | null)?.value ?? '')} value={opcionesNuevosUsuarios.find((option) => option.value === nuevoUsuario) ?? null} placeholder='Selecciona un usuario del cliente' /></div>
-                            <div className='col-span-12 lg:col-span-4'><Button className='w-full' icon='HeroPlus' onClick={() => { if (!nuevoUsuario.trim()) { toast.error('Selecciona un usuario para agregarlo', { toastId: 'Selecciona un usuario para agregarlo' }); return; } setUsuarios((prev) => [...prev, { usuario_id: Number(nuevoUsuario), tipo_usuario: 'general', es_destinatario_principal: prev.length === 0 }]); setNuevoUsuario(''); }}>Agregar usuario existente</Button></div>
-                        </div>
-                    </div>
-                </div> : <div className='flex flex-col gap-6'>{renderGrupo('Sin envio de firma', sinEnvio, 'enviar')}{renderGrupo('Pendientes de firma', pendientes, 'reenviar')}{renderGrupo('Firmados', firmados, 'ninguna')}{detalleContratoEmpresaCliente.vinculos_contrato.length === 0 && <div className='text-center text-sm text-zinc-500'>Sin usuarios</div>}{detalleContratoEmpresaCliente.vinculos_contrato.length > 0 && <div className='flex flex-wrap gap-2 border-t border-t-zinc-200 pt-3 dark:border-t-zinc-700'><Badge variant='outline' color='zinc'>{detalleContratoEmpresaCliente.vinculos_contrato.length} total</Badge>{sinEnvio.length > 0 && <Badge variant='outline' color='red'>{sinEnvio.length} sin envio</Badge>}{pendientes.length > 0 && <Badge variant='outline' color='amber'>{pendientes.length} pendientes</Badge>}{firmados.length > 0 && <Badge variant='outline' color='emerald'>{firmados.length} firmados</Badge>}</div>}</div>}
+                </div> : <div className='flex flex-col gap-6'>{renderGrupo('Sin envio de firma', sinEnvio, 'enviar')}{renderGrupo('Pendientes de firma', pendientes, 'reenviar')}{renderGrupo('Firmados', firmados, 'ninguna')}{detalleContratoEmpresaCliente.vinculos_contrato.length === 0 && <div className='text-center text-sm text-zinc-500'>Sin usuarios</div>}</div>}
             </CardBody>
         </Card>
     );

@@ -3,6 +3,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
 import { useUpdateContratoMutation } from '@/store/slices/contratos/contratoApi';
+import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { useState } from 'react';
@@ -152,32 +153,33 @@ const TabLicencias = ({
     return (
         <>
             <Card>
-                <CardHeader className='border border-x-0 border-t-0 border-b-black'>
+                <CardHeader className='border border-x-0 border-t-0 border-b-zinc-200 dark:border-b-zinc-700'>
                     <CardHeaderChild>
                         <div className='text-xl font-bold text-blue-500'>Licencias</div>
                     </CardHeaderChild>
                     <CardHeaderChild>
                         {puedeEditar && !editandoSeccion && (
-                            <Tooltip text='Editar Licencias'>
+                            <Tooltip text='Gestionar licencias'>
                                 <Button
-                                    variant='outline'
-                                    color='blue'
-                                    icon='HeroPlus'
-                                    className='text-blue-500'
-                                    onClick={handleEditar}>
-                                    Gestionar licencias
-                                </Button>
+                                    size='sm'
+                                    icon='HeroEllipsisVertical'
+                                    onClick={handleEditar}
+                                />
                             </Tooltip>
                         )}
                         {editandoSeccion && (
                             <>
+                                <Tooltip text='Agregar licencia'>
+                                    <Button
+                                        variant='solid'
+                                        color='blue'
+                                        size='sm'
+                                        icon='HeroPlus'
+                                        onClick={() => setModalLicencia({ isOpen: true })}
+                                    />
+                                </Tooltip>
                                 <Button
                                     variant='solid'
-                                    icon='HeroPlus'
-                                    onClick={() => setModalLicencia({ isOpen: true })}>
-                                    Agregar licencia
-                                </Button>
-                                <Button
                                     icon='HeroXMark'
                                     color='red'
                                     size='sm'
@@ -212,16 +214,49 @@ const TabLicencias = ({
                                     <div
                                         key={lic.id}
                                         className='flex items-center justify-between px-4 py-3'>
-                                        <span className='font-medium'>{lic.nombre_licencia}</span>
-                                        {clienteId && contratoId && (
-                                            <Tooltip text='Ver detalle'>
-                                                <Button
-                                                    icon='HeroEye'
-                                                    size='sm'
-                                                    onClick={() => handleVerDetalle(lic.id)}
-                                                />
-                                            </Tooltip>
-                                        )}
+                                        <div className='flex flex-col gap-0.5'>
+                                            <span className='font-medium'>{lic.nombre_licencia}</span>
+                                            <div className='flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500'>
+                                                <span>
+                                                    <span className='font-medium text-zinc-600 dark:text-zinc-400'>
+                                                        Cantidad:
+                                                    </span>{' '}
+                                                    {lic.cantidad}
+                                                </span>
+
+                                                {lic.modalidad_snapshot_label && (
+                                                    <Badge variant='outline' color='zinc' className='text-xs'>
+                                                        {lic.modalidad_snapshot_label}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className='flex items-center gap-2'>
+                                            {lic.precio_unitario_snapshot && (
+                                                <div className='rounded-lg bg-zinc-50 px-4 py-3 text-right dark:bg-zinc-900/60'>
+                                                    <div className='text-[11px] uppercase tracking-wide text-zinc-500'>
+                                                        Precio unit.
+                                                    </div>
+                                                    <div className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                                                        {formatCurrency(
+                                                            parseFloat(lic.precio_unitario_snapshot),
+                                                            lic.moneda_snapshot,
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {clienteId && contratoId && (
+                                                <Tooltip text='Ver detalle'>
+                                                    <Button
+                                                        variant='solid'
+                                                        color='violet'
+                                                        icon='HeroEye'
+                                                        size='sm'
+                                                        onClick={() => handleVerDetalle(lic.id)}
+                                                    />
+                                                </Tooltip>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -257,6 +292,8 @@ const TabLicencias = ({
                                                 {cl && clienteId && contratoId && (
                                                     <Tooltip text='Ver detalle'>
                                                         <Button
+                                                            variant='solid'
+                                                            color='violet'
                                                             icon='HeroEye'
                                                             size='sm'
                                                             onClick={() =>
@@ -267,6 +304,8 @@ const TabLicencias = ({
                                                 )}
                                                 <Tooltip text='Editar'>
                                                     <Button
+                                                        variant='solid'
+                                                        color='amber'
                                                         icon='HeroPencil'
                                                         size='sm'
                                                         onClick={() =>
@@ -280,6 +319,7 @@ const TabLicencias = ({
                                                 </Tooltip>
                                                 <Tooltip text='Eliminar'>
                                                     <Button
+                                                        variant='solid'
                                                         icon='HeroTrash'
                                                         size='sm'
                                                         color='red'

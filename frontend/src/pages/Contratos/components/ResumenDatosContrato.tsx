@@ -233,52 +233,17 @@ const TablaCotizacionesVenta = ({
     <div className='space-y-4'>
         {cotizaciones.map((cotizacion) => {
             const monedaCotizacion = normalizeCurrency(cotizacion.tipo_moneda);
-            const monedaConvertida = cotizacion.moneda_contrato || monedaContrato;
             return (
                 <div
                     key={cotizacion.id}
                     className='rounded-lg border border-gray-100 bg-gray-50/60 p-4 dark:border-zinc-700 dark:bg-zinc-800/40'>
-                    <div className='mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between'>
-                        <div>
+                    {cotizacion.nombre && (
+                        <div className='mb-4'>
                             <p className='font-semibold text-gray-900 dark:text-zinc-100'>
-                                Cotizacion #{cotizacion.numero_cotizacion || cotizacion.id}
-                            </p>
-                            <p className='text-sm text-gray-500 dark:text-zinc-400'>
-                                {cotizacion.nombre || 'Sin nombre'}
+                                {cotizacion.nombre}
                             </p>
                         </div>
-                        <div className='grid gap-1 text-sm md:text-right'>
-                            <p className='text-gray-500 dark:text-zinc-400'>
-                                Moneda original: {cotizacion.tipo_moneda_label || monedaCotizacion}
-                            </p>
-                            <p className='font-medium text-gray-900 dark:text-zinc-100'>
-                                Total cotizacion:{' '}
-                                {formatCurrency(cotizacion.total_estimado, monedaCotizacion)}
-                            </p>
-                            {cotizacion.total_convertido != null && (
-                                <p className='font-medium text-emerald-700 dark:text-emerald-300'>
-                                    Total convertido:{' '}
-                                    {formatCurrency(cotizacion.total_convertido, monedaConvertida)}
-                                </p>
-                            )}
-                            {cotizacion.dolar_observado != null && (
-                                <p className='text-xs text-gray-500 dark:text-zinc-400'>
-                                    Dolar observado: {formatCurrency(cotizacion.dolar_observado, 'CLP')}
-                                </p>
-                            )}
-                            {cotizacion.valor_uf != null && (
-                                <p className='text-xs text-gray-500 dark:text-zinc-400'>
-                                    Valor UF: {formatCurrency(cotizacion.valor_uf, 'CLP')}
-                                </p>
-                            )}
-                            {cotizacion.tiene_items_moneda_mixta && (
-                                <p className='text-xs text-amber-700 dark:text-amber-300'>
-                                    Incluye items convertidos desde{' '}
-                                    {(cotizacion.monedas_items || []).join(', ') || 'monedas mixtas'}.
-                                </p>
-                            )}
-                        </div>
-                    </div>
+                    )}
 
                     {cotizacion.items.length > 0 ? (
                         <Table>

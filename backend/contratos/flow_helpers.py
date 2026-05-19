@@ -422,8 +422,20 @@ def construir_pdf_desde_payload(
 
 
 def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
-    if contrato.plantilla and contrato.secciones_generadas.exists():
-        return generar_contrato_desde_plantilla(contrato)
+    if contrato.plantilla:
+        # Si el contrato tiene plantilla pero aún no tiene secciones generadas,
+        # intentar regenerarlas para mantener el PDF fiel a la plantilla.
+        from contratos.motor_plantillas import generar_secciones_contrato
+
+        if not contrato.secciones_generadas.exists() or (
+            contrato.plantilla.version
+            and str(contrato.plantilla.version) != str(contrato.plantilla_version_usada or "")
+        ):
+            generar_secciones_contrato(contrato)
+
+        if contrato.secciones_generadas.exists():
+            return generar_contrato_desde_plantilla(contrato)
+
     payload = ContratoEmpresaClienteSerializer(contrato).data
     return construir_pdf_desde_payload(payload)
 
