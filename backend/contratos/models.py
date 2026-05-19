@@ -1409,16 +1409,22 @@ class ContratoLicencia(ModeloBaseHistorico):
     modalidad_snapshot = models.CharField(
         max_length=16,
         choices=TIPO_MODALIDAD_BASE_LICENCIA,
+        blank=True,
+        null=True,
         verbose_name="Modalidad (snapshot)",
     )
     moneda_snapshot = models.CharField(
         max_length=3,
         choices=TIPO_MONEDA_LICENCIA,
+        blank=True,
+        null=True,
         verbose_name="Moneda (snapshot)",
     )
     precio_unitario_snapshot = models.DecimalField(
         max_digits=14,
         decimal_places=2,
+        null=True,
+        blank=True,
         verbose_name="Precio unitario (snapshot)",
     )
     nombre_snapshot = models.CharField(

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd C:\\\\proyectos\\\\Monorepo-ERP-Snabbit\\\\backend; & \"C:\\\\Users\\\\LuisRojasMolina\\\\anaconda3\\\\envs\\\\ENV\\\\python.exe\" manage.py migrate --check 2>&1; echo \"Exit: $LASTEXITCODE\")",
+      "Bash(git rm *)",
+      "Bash(git ls-files *)"
+    ]
+  }
+}
