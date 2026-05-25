@@ -21,4 +21,5 @@ export const TIPO_SEGUIMIENTO_COTIZACION: {
     { value: 'comentario', label: 'Comentario', icon: 'HeroDocumentText', color: 'blue' },
     { value: 'incidencia', label: 'Incidencia', icon: 'HeroExclamationTriangle', color: 'red' },
     { value: 'actualizacion', label: 'Actualizacion', icon: 'HeroArrowPath', color: 'amber' },
+    { value: 'mensaje_email', label: 'Mensaje Email', icon: 'HeroEnvelope', color: 'violet' },
 ];

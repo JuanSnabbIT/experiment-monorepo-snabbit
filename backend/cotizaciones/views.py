@@ -585,6 +585,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         emails_enviados = []
         errores = []
 
+        # Buscar mensaje de email personalizado para esta cotizacion (el mas reciente tiene precedencia)
+        mensaje_personalizado = SeguimientoCotizacion.objects.filter(
+            cotizacion=cotizacion,
+            tipo='mensaje_email',
+        ).order_by('-fecha').first()
+
         try:
             for solicitante, email in solicitantes_con_email:
                 # Regenerar token si ya fue usado (permite reenvíos)
@@ -608,6 +614,10 @@ class CotizacionViewSet(viewsets.ModelViewSet):
                 {'<p><strong>Observaciones:</strong> ' + cotizacion.observaciones + '</p>' if cotizacion.observaciones else ''}
                 <p style="margin-top: 20px;">Puede revisar los detalles y <strong>aprobar o rechazar</strong> esta cotización directamente desde el siguiente enlace:</p>
                 """
+
+                # Sobreescribir cuerpo con mensaje personalizado si existe
+                if mensaje_personalizado:
+                    html_body = f"<p>{mensaje_personalizado.comentario}</p>"
 
                 send_email_task.delay(
                     subject=f"Cotización N°{cotizacion.numero_cotizacion} - {cotizacion.nombre}",

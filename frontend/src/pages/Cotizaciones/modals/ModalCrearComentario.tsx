@@ -1,6 +1,7 @@
 import SelectReact from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -21,18 +22,22 @@ import { toast } from 'react-toastify';
 function ModalCrearComentario({
     cotizacionId,
     onComentarioChange,
+    estadoCotizacion,
 }: {
     cotizacionId: number | undefined;
     onComentarioChange?: () => void;
+    estadoCotizacion?: string;
 }) {
     const dispatch = useAppDispatch();
     const { userMe } = useAppSelector((state) => state.auth);
     const { usuarioEmpresaLogeado } = useAppSelector((state) => state.empresa);
     const [isOpen, setIsOpen] = useState<boolean>(false);
 
-    const tipoOptions = TIPO_SEGUIMIENTO_COTIZACION.filter(
-        (tipo) => tipo.value !== 'actualizacion',
-    );
+    const tipoOptions = TIPO_SEGUIMIENTO_COTIZACION.filter((tipo) => {
+        if (tipo.value === 'actualizacion') return false;
+        if (tipo.value === 'mensaje_email' && estadoCotizacion !== 'pendiente') return false;
+        return true;
+    });
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -97,8 +102,19 @@ function ModalCrearComentario({
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
                                 value={formik.values.comentario}
+                                placeholder={
+                                    formik.values.tipo === 'mensaje_email'
+                                        ? 'Escribe aqui el mensaje que se usara como cuerpo del email al enviar la cotizacion a los solicitantes. Si lo dejas vacio, se usara el mensaje predeterminado.'
+                                        : undefined
+                                }
                             />
                         </Validation>
+                        {formik.values.tipo === 'mensaje_email' && (
+                            <Alert color='violet' className='mt-3'>
+                                Este mensaje reemplazara el cuerpo predeterminado del email al ejecutar
+                                Enviar a Solicitantes.
+                            </Alert>
+                        )}
                     </div>
                     <div className='mt-4'>
                         <Badge>Tipo</Badge>
@@ -118,6 +134,9 @@ function ModalCrearComentario({
                                     formik.setFieldValue('tipo', option?.value);
                                 }}
                                 onBlur={formik.handleBlur}
+                                menuPortalTarget={document.body}
+                                menuPosition='fixed'
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                             />
                         </Validation>
                     </div>

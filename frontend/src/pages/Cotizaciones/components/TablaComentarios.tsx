@@ -135,6 +135,7 @@ const TablaComentarios = ({
                             <ModalCrearComentario
                                 cotizacionId={cotizacion?.id}
                                 onComentarioChange={onComentarioChange}
+                                estadoCotizacion={cotizacion?.estado}
                             />
                         </div>
                     </div>

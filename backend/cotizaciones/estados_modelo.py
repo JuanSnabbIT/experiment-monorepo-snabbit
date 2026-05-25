@@ -25,4 +25,5 @@ TIPO_SEGUIMIENTO_COTIZACION = [
     ('actualizacion', 'Actualizacion'),
     ('aprobacion', 'Aprobación'),
     ('rechazo', 'Rechazo'),
+    ('mensaje_email', 'Mensaje Email'),
 ]
