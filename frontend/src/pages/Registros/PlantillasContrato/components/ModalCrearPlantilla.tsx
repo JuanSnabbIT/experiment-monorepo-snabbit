@@ -18,6 +18,7 @@ import * as Yup from 'yup';
 interface IModalCrearPlantillaProps {
     isOpen: boolean;
     setIsOpen: Dispatch<SetStateAction<boolean>>;
+    onCreated?: (id: number) => void;
 }
 
 const tipoOptions: TSelectOption[] = TIPO_CONTRATO.map((t) => ({
@@ -31,7 +32,7 @@ const validationSchema = Yup.object({
     descripcion: Yup.string().nullable(),
 });
 
-const ModalCrearPlantilla = ({ isOpen, setIsOpen }: IModalCrearPlantillaProps) => {
+const ModalCrearPlantilla = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlantillaProps) => {
     const navigate = useNavigate();
     const [createPlantilla, { isLoading }] = useCreatePlantillaMutation();
 
@@ -51,7 +52,11 @@ const ModalCrearPlantilla = ({ isOpen, setIsOpen }: IModalCrearPlantillaProps) =
                 toast.success('Plantilla creada correctamente');
                 resetForm();
                 setIsOpen(false);
-                navigate(`/registros/plantillas-contrato/${nueva.id}`);
+                if (onCreated) {
+                    onCreated(nueva.id);
+                } else {
+                    navigate(`/registros/plantillas-contrato/${nueva.id}`);
+                }
             } catch (error: unknown) {
                 toast.error(getErrorMessage(error));
             }

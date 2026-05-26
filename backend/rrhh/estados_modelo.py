@@ -18,7 +18,6 @@ JORNADA_CONTRATO = (
 ESTADO_CONTRATO = (
     ("borrador", "Borrador"),
     ("pendiente_aceptacion", "Pendiente aceptacion"),
-    ("en_firma", "En proceso de firma"),
     ("vigente", "Vigente"),
     ("terminado", "Terminado"),
     ("anulado", "Anulado"),
@@ -27,8 +26,7 @@ ESTADO_CONTRATO = (
 # Maquina de transiciones permitidas para ContratoTrabajador
 TRANSICIONES_CONTRATO = {
     "borrador": ["pendiente_aceptacion", "vigente", "anulado"],
-    "pendiente_aceptacion": ["en_firma", "vigente", "anulado"],
-    "en_firma": ["vigente", "anulado"],
+    "pendiente_aceptacion": ["vigente", "anulado"],
     "vigente": ["terminado", "anulado"],
     "terminado": [],
     "anulado": [],

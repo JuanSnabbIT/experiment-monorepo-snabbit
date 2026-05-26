@@ -68,40 +68,6 @@ const StepDocumentoLaboral = ({ formik }: Props) => {
             </div>
 
             <div>
-                <Label htmlFor='estado_inicial'>Estado inicial del contrato</Label>
-                <div className='mt-1 flex flex-col gap-2'>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                        <input
-                            type='radio'
-                            name='estado_inicial'
-                            value='borrador'
-                            checked={values.estado_inicial === 'borrador'}
-                            onChange={() => setFieldValue('estado_inicial', 'borrador')}
-                        />
-                        <span>
-                            <strong>Borrador</strong> - quedara en edicion sin notificar al
-                            trabajador.
-                        </span>
-                    </label>
-                    <label className='flex items-center gap-2 cursor-pointer'>
-                        <input
-                            type='radio'
-                            name='estado_inicial'
-                            value='pendiente_aceptacion'
-                            checked={values.estado_inicial === 'pendiente_aceptacion'}
-                            onChange={() =>
-                                setFieldValue('estado_inicial', 'pendiente_aceptacion')
-                            }
-                        />
-                        <span>
-                            <strong>Pendiente de aceptacion</strong> - el trabajador debera
-                            aceptarlo desde el portal.
-                        </span>
-                    </label>
-                </div>
-            </div>
-
-            <div>
                 <Label htmlFor='plantilla_contrato_id'>Plantilla de contrato (opcional)</Label>
                 <SelectReact
                     id='plantilla_contrato_id'

@@ -2,7 +2,16 @@
 
 from rest_framework import serializers
 
-from .models import AnexoContrato, ContratoTrabajador
+from .models import AnexoContrato, CargoCatalogo, ContratoTrabajador
+
+
+class CargoCatalogoSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de cargos."""
+
+    class Meta:
+        model = CargoCatalogo
+        fields = ("id", "empresa", "nombre", "activo", "fecha_creacion", "fecha_modificacion")
+        read_only_fields = ("fecha_creacion", "fecha_modificacion")
 
 
 class AnexoContratoSerializer(serializers.ModelSerializer):
@@ -33,6 +42,8 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     nombre_trabajador = serializers.SerializerMethodField()
     email_trabajador = serializers.SerializerMethodField()
     rut_trabajador = serializers.SerializerMethodField()
+
+    label_trabajador = serializers.SerializerMethodField()
 
     plantilla_contrato_titulo = serializers.CharField(
         source="plantilla_contrato.titulo", read_only=True, default=None,
@@ -80,6 +91,15 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     def get_rut_trabajador(self, obj):
         return obj.usuario_empresa.rut if obj.usuario_empresa else None
 
+    def get_label_trabajador(self, obj):
+        if not obj.usuario_empresa:
+            return None
+        nombre = self.get_nombre_trabajador(obj) or ""
+        rut = self.get_rut_trabajador(obj)
+        email = self.get_email_trabajador(obj) or ""
+        sufijo = rut if rut else email
+        return f"{nombre} — {sufijo}" if sufijo else nombre
+
     def get_secciones_generadas(self, obj):
         secciones = obj.secciones_generadas.all().order_by("orden") if hasattr(obj, "secciones_generadas") else []
         return [
@@ -124,10 +144,8 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
                 {"fecha_termino": "La fecha de termino debe ser posterior a la fecha de inicio."}
             )
 
-        if jornada in ("parcial", "part_time") and not horas_semanales:
-            raise serializers.ValidationError(
-                {"horas_semanales": "Debe indicar las horas semanales para jornada parcial o part time."}
-            )
+        # horas_semanales es informativo para cualquier jornada; se valida solo
+        # si se pasa un valor invalido, no como requisito obligatorio.
 
         return attrs
 
@@ -206,8 +224,12 @@ class CrearContratoConTrabajadorSerializer(serializers.Serializer):
 
     def validate_contrato(self, value):
         # Validamos campos del contrato sin instancia (sin usuario_empresa aun).
+        # Omitimos la FK 'usuario_empresa' porque aun no existe; la view la
+        # establecera mas adelante con el ue.id real (existente) o el UE recien
+        # creado (nuevo). Validar con un placeholder inválido (e.g. 0) provoca
+        # "Clave primaria \"0\" inválida - objeto no existe.".
         contrato_payload = dict(value)
-        contrato_payload.setdefault("usuario_empresa", 0)  # placeholder
+        contrato_payload.pop("usuario_empresa", None)
         # Solo validamos reglas de negocio (no la FK).
         ser = ContratoTrabajadorWriteSerializer(data=contrato_payload, partial=True)
         ser.is_valid(raise_exception=True)

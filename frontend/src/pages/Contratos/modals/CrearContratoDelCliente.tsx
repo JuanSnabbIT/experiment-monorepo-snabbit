@@ -45,9 +45,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import ContenidoWizardTrabajador from '../../RRHH/components/trabajador/ContenidoWizardTrabajador';
 import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrato.types';
 import SelectorPlanServicios from '../components/SelectorPlanServicios';
-import ContenidoWizardTrabajador from '../components/trabajador/ContenidoWizardTrabajador';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
 
 // Tipos

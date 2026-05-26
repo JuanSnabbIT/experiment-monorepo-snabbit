@@ -135,6 +135,12 @@ const ListaPlantillasContrato = lazy(
 const DetallePlantillaContrato = lazy(
     () => import('@/pages/Registros/PlantillasContrato/DetallePlantilla'),
 );
+const ListaPlantillasContratoV2 = lazy(
+    () => import('@/pages/Registros/PlantillasContratoV2/ListaPlantillasV2'),
+);
+const EditorPlantillaContratoV2 = lazy(
+    () => import('@/pages/Registros/PlantillasContratoV2/EditorPlantillaV2'),
+);
 const DetalleUsuarioCliente = lazy(() => import('@/pages/Clientes/DetalleUsuarioCliente'));
 const PDFContrato = lazy(() => import('@/pages/Contratos/components/PDFContrato'));
 const ListaCompras = lazy(() => import('@/pages/Bodegas/Compra/ListaCompra'));
@@ -170,11 +176,11 @@ const ResponderContratoPublicoV2 = lazy(
 const ResumenContratoPublico = lazy(
     () => import('@/pages/Contratos/ResumenContratoPublico'),
 );
-const FirmarContratoTrabajadorPublico = lazy(
-    () => import('@/pages/Contratos/FirmarContratoTrabajadorPublico'),
-);
 const DetalleContratoTrabajador = lazy(
-    () => import('@/pages/Contratos/DetalleContratoTrabajador'),
+    () => import('@/pages/RRHH/DetalleContratoTrabajador'),
+);
+const ListaContratosTrabajador = lazy(
+    () => import('@/pages/RRHH/ListaContratosTrabajador'),
 );
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
@@ -225,11 +231,6 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: authPages.resumenContratoPublico.to,
         element: <ResumenContratoPublico />,
         authority: authPages.resumenContratoPublico.authority,
-    },
-    {
-        path: authPages.firmarContratoTrabajadorPublico.to,
-        element: <FirmarContratoTrabajadorPublico />,
-        authority: authPages.firmarContratoTrabajadorPublico.authority,
     },
     {
         path: authPages.responderCotizacionPublica.to,
@@ -406,6 +407,16 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.registros.subPages.detallePlantillaContrato.to,
         element: <DetallePlantillaContrato />,
         authority: Pages.registros.subPages.detallePlantillaContrato.authority,
+    },
+    {
+        path: Pages.registros.subPages.listaPlantillasContratoV2.to,
+        element: <ListaPlantillasContratoV2 />,
+        authority: Pages.registros.subPages.listaPlantillasContratoV2.authority,
+    },
+    {
+        path: Pages.registros.subPages.editorPlantillaContratoV2.to,
+        element: <EditorPlantillaContratoV2 />,
+        authority: Pages.registros.subPages.editorPlantillaContratoV2.authority,
     },
 
     // empresas
@@ -640,9 +651,14 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.empresa.subPages.detalleContrato.authority,
     },
     {
-        path: Pages.empresa.subPages.detalleContratoTrabajador.to,
+        path: Pages.rrhh.subPages.listaContratosTrabajador.to,
+        element: <ListaContratosTrabajador />,
+        authority: Pages.rrhh.subPages.listaContratosTrabajador.authority,
+    },
+    {
+        path: Pages.rrhh.subPages.detalleContratoTrabajador.to,
         element: <DetalleContratoTrabajador />,
-        authority: Pages.empresa.subPages.detalleContratoTrabajador.authority,
+        authority: Pages.rrhh.subPages.detalleContratoTrabajador.authority,
     },
     {
         path: Pages.empresa.subPages.detalleLicencia.to,

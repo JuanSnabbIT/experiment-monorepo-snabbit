@@ -185,6 +185,15 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.registros.subPages.listaPlantillasContrato.icon}
                                     id={Pages.registros.subPages.listaPlantillasContrato.id}></NavItem>
                             </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.registros.subPages.listaPlantillasContratoV2.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.registros.subPages.listaPlantillasContratoV2.text}
+                                    to={Pages.registros.subPages.listaPlantillasContratoV2.to}
+                                    icon={Pages.registros.subPages.listaPlantillasContratoV2.icon}
+                                    id={Pages.registros.subPages.listaPlantillasContratoV2.id}></NavItem>
+                            </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
 
@@ -503,6 +512,18 @@ const DefaultAsideTemplate = () => {
                                     id={Pages.vacaciones.subPages.dashboardVacaciones.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
+                    </AuthorityCheckNav>
+
+                    {/* Contratos Laborales */}
+                    <AuthorityCheckNav
+                        authority={Pages.rrhh.subPages.listaContratosTrabajador.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavItem
+                            text={Pages.rrhh.subPages.listaContratosTrabajador.text}
+                            to={Pages.rrhh.subPages.listaContratosTrabajador.to}
+                            icon={Pages.rrhh.subPages.listaContratosTrabajador.icon}
+                            id={Pages.rrhh.subPages.listaContratosTrabajador.id}
+                        />
                     </AuthorityCheckNav>
 
                     {/* <NavCollapse  text={"Empresas"} icon={'HeroDocument'} to={'/empresas'}>

@@ -290,12 +290,15 @@ Despues de cambios, verificar:
 
 ## Constraints
 
-- NO usar `style={{}}` inline salvo para valores que Tailwind no puede expresar (ej. `width: calc(...)`)
-- NO crear componentes UI nuevos — usar y extender los existentes
+### Restricciones Globales
 - NO modificar `tema_base/fyr-vite/` (es read-only)
-- NO hardcodear colores como `text-blue-500` cuando debe venir de `themeConfig.themeColor`
-- SIEMPRE incluir soporte dark mode en nuevas clases de color o fondo
-- SIEMPRE usar `classNames()` de la libreria `classnames` para composicion de clases
+- NO crear componentes UI nuevos — usar y extender los existentes
+- SIEMPRE incluir soporte dark mode en nuevas clases de color o fondo (ej. `bg-white dark:bg-zinc-900`)
+
+### Restricciones de Implementacion
+- NO usar `style={{}}` inline, excepto para valores especificos como `width: calc(...)` o propiedades CSS no soportadas por Tailwind
+- NO hardcodear colores como `text-blue-500` cuando debe venir de `themeConfig.themeColor` (ej. usar `` [`text-${themeConfig.themeColor}-500`] ``)
+- SIEMPRE usar `classNames()` de la libreria `classnames` para composicion de clases (ej. `classNames('base', { 'active': cond }, className)`)
 
 ## Imports canonicos
 

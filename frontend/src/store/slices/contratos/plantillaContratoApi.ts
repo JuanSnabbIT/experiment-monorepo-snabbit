@@ -105,17 +105,17 @@ const plantillaContratoApi = RtkQueryService.injectEndpoints({
             {
                 plantillaId: number | string;
                 secciones: { id: number; orden: number }[];
-                bloques: {
-                    alcance: number;
-                    operacion: number;
-                    condiciones: number;
+                bloques?: {
+                    alcance?: number;
+                    operacion?: number;
+                    condiciones?: number;
                 };
             }
         >({
             query: ({ plantillaId, secciones, bloques }) => ({
                 url: `/api/plantillas-contrato/${plantillaId}/secciones/reordenar/`,
                 method: 'post',
-                data: { secciones, bloques },
+                data: bloques ? { secciones, bloques } : { secciones },
             }),
             invalidatesTags: (_result, _error, { plantillaId }) => [
                 { type: 'PlantillasContrato', id: Number(plantillaId) },

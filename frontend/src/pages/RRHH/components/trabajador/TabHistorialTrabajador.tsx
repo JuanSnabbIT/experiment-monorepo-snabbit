@@ -10,7 +10,6 @@ interface ITabHistorialProps {
 const ESTADO_LABEL: Record<string, string> = {
     borrador: 'Borrador',
     pendiente_aceptacion: 'Pendiente aceptacion',
-    en_firma: 'En firma',
     vigente: 'Vigente',
     terminado: 'Terminado',
     anulado: 'Anulado',

@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan · Modal Contratos Laborales · ERP Snabbit</title>
+<style>
+:root {
+  --bg: #0c0c12;
+  --surface: #13131c;
+  --surface2: #1a1a26;
+  --surface3: #21212f;
+  --border: #272736;
+  --border2: #32324a;
+  --text: #ddddf0;
+  --text-muted: #7878a0;
+  --text-dim: #4a4a68;
+  --accent: #4d7cfe;
+  --accent-hover: #6b93ff;
+  --accent-dim: #1e2d5a;
+  --green: #2ecc91;
+  --green-dim: #133d28;
+  --amber: #f5a623;
+  --amber-dim: #3d2b0a;
+  --red: #e05252;
+  --red-dim: #3a1212;
+  --purple: #9b72f5;
+  --purple-dim: #271a4a;
+  --cyan: #4ecdc4;
+  --cyan-dim: #0e2e2c;
+  --font: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.65;
+  padding: 0 0 100px;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* ──── LAYOUT ──── */
+.page { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+/* ──── HEADER ──── */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 40px 0 32px;
+  margin-bottom: 48px;
+}
+.header-inner { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 20px;
+  font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  padding: 3px 10px; margin-bottom: 16px; text-transform: uppercase;
+}
+h1 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 8px; }
+.subtitle { color: var(--text-muted); font-size: 14px; }
+.meta { display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap; }
+.meta-item { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+/* ──── TOC ──── */
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 48px;
+}
+.toc-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+.toc-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.toc-link {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 4px 12px; font-size: 12px; color: var(--text);
+  transition: all .15s;
+}
+.toc-link:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ──── SECTIONS ──── */
+.section { margin-bottom: 60px; }
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+}
+.section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+h2 { font-size: 20px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 20px; }
+h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+
+/* ──── TIMELINE ──── */
+.timeline-wrap { overflow-x: auto; padding-bottom: 8px; }
+.timeline-svg-wrap { min-width: 900px; }
+
+/* ──── DATA FLOW ──── */
+.flow-wrap { overflow-x: auto; }
+
+/* ──── GAP TABLE ──── */
+.gap-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
+.gap-table th {
+  text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border2);
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.gap-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.gap-table tr:last-child td { border-bottom: none; }
+.gap-table tr:hover td { background: var(--surface); }
+.badge-ok { color: var(--green); font-weight: 600; }
+.badge-fail { color: var(--red); font-weight: 600; }
+.badge-warn { color: var(--amber); font-weight: 600; }
+
+/* ──── RISK TABLE ──── */
+.risk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.risk-table th {
+  text-align: left; padding: 9px 14px; background: var(--surface2);
+  border-bottom: 2px solid var(--border2);
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.risk-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.risk-table tr:last-child td { border-bottom: none; }
+.prob-high { color: var(--red); background: var(--red-dim); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.prob-med  { color: var(--amber); background: var(--amber-dim); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.prob-low  { color: var(--green); background: var(--green-dim); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+
+/* ──── CODE ──── */
+.code-block {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.code-lang { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); }
+.code-file { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+pre {
+  padding: 18px 20px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  tab-size: 4;
+}
+/* Syntax tokens */
+.kw  { color: #c792ea; }   /* keywords */
+.fn  { color: #82aaff; }   /* functions/methods */
+.str { color: #c3e88d; }   /* strings */
+.num { color: #f78c6c; }   /* numbers */
+.cmt { color: #546e7a; font-style: italic; }   /* comments */
+.cls { color: #ffcb6b; }   /* class names */
+.dec { color: #89ddff; }   /* decorators/builtins */
+.op  { color: #89ddff; }   /* operators */
+.var { color: #eeffff; }   /* variables */
+.typ { color: #4ec9b0; }   /* types */
+
+/* ──── MOCKUPS ──── */
+.mockup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+.mockup-wrap {
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.mockup-bar {
+  background: var(--surface2);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; color: var(--text-muted); font-weight: 600;
+}
+.mockup-dot { width: 8px; height: 8px; border-radius: 50%; }
+.mockup-body { padding: 16px; }
+
+/* Modal simulation */
+.sim-modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.sim-modal-header {
+  background: var(--surface2);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sim-modal-title { font-weight: 700; font-size: 13px; }
+.sim-close { width: 20px; height: 20px; background: var(--border2); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); font-size: 10px; }
+.sim-stepper { display: flex; align-items: center; gap: 4px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+.sim-step { padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.sim-step-active { background: var(--accent); color: #fff; }
+.sim-step-done { background: var(--accent-dim); color: var(--accent); }
+.sim-step-pending { background: var(--surface3); color: var(--text-muted); }
+.sim-connector { width: 16px; height: 1px; background: var(--border2); flex-shrink: 0; }
+.sim-connector-done { background: var(--accent); }
+.sim-body { padding: 14px 16px; }
+.sim-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; margin-top: 10px; }
+.sim-label:first-child { margin-top: 0; }
+.sim-select {
+  width: 100%; padding: 6px 10px; background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text); font-size: 11px; display: flex; align-items: center; justify-content: space-between;
+}
+.sim-select-arrow { color: var(--text-muted); font-size: 9px; }
+.sim-input {
+  width: 100%; padding: 6px 10px; background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text); font-size: 11px;
+}
+.sim-input-autofill {
+  width: 100%; padding: 6px 10px; background: var(--surface3);
+  border: 1px solid #3a5a30;
+  border-radius: 6px; color: var(--green); font-size: 11px;
+}
+.sim-checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--accent-dim); border: 1px solid var(--accent);
+  border-radius: 6px; margin-top: 10px; cursor: pointer;
+}
+.sim-checkbox { width: 14px; height: 14px; border-radius: 3px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; flex-shrink: 0; }
+.sim-checkbox-label { font-size: 11px; font-weight: 600; color: var(--accent); }
+.sim-checkbox-hint { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+.sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sim-cards { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.sim-card {
+  padding: 6px 10px; border-radius: 6px; border: 1.5px solid var(--border2);
+  font-size: 10px; font-weight: 600; cursor: pointer; transition: all .1s; background: var(--surface3);
+}
+.sim-card-active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.sim-row { display: flex; gap: 8px; margin-top: 4px; }
+.sim-days { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.sim-day {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; border: 1.5px solid var(--border2); cursor: pointer;
+  background: var(--surface3); color: var(--text-muted);
+}
+.sim-day-active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.sim-turno-block {
+  background: var(--surface3); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 8px 10px; margin-top: 6px;
+}
+.sim-turno-title { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.sim-footer { padding: 10px 16px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+.sim-btn { padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.sim-btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text); }
+.sim-btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+.sim-tag { display: inline-flex; align-items: center; gap: 4px; background: var(--surface3); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 7px; font-size: 10px; color: var(--text-muted); }
+.sim-alert-box {
+  background: var(--amber-dim); border: 1px solid var(--amber);
+  border-radius: 6px; padding: 8px 12px; font-size: 11px; color: var(--amber);
+  margin-top: 10px; display: flex; gap: 8px; align-items: flex-start;
+}
+.sim-info { margin-top: 6px; font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.sim-info-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+/* ──── PHASES ──── */
+.phase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.phase-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.phase-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+}
+.phase-a::before { background: var(--purple); }
+.phase-b::before { background: var(--accent); }
+.phase-c::before { background: var(--green); }
+.phase-d::before { background: var(--cyan); }
+.phase-e::before { background: var(--amber); }
+.phase-f::before { background: var(--red); }
+
+.phase-letter {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; margin-bottom: 8px;
+}
+.phase-a .phase-letter { background: var(--purple-dim); color: var(--purple); }
+.phase-b .phase-letter { background: var(--accent-dim); color: var(--accent); }
+.phase-c .phase-letter { background: var(--green-dim); color: var(--green); }
+.phase-d .phase-letter { background: var(--cyan-dim); color: var(--cyan); }
+.phase-e .phase-letter { background: var(--amber-dim); color: var(--amber); }
+.phase-f .phase-letter { background: var(--red-dim); color: var(--red); }
+
+.phase-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.phase-scope { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+.phase-dep { font-size: 10px; color: var(--text-dim); margin-bottom: 10px; }
+.phase-dep strong { color: var(--text-muted); }
+.phase-items { list-style: none; }
+.phase-items li {
+  font-size: 12px; padding: 3px 0;
+  display: flex; gap: 6px; align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+}
+.phase-items li:last-child { border-bottom: none; }
+.phase-items li::before { content: '–'; color: var(--text-dim); flex-shrink: 0; margin-top: 1px; }
+.phase-files { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+.file-tag {
+  font-size: 10px; font-family: var(--mono);
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 2px 7px; color: var(--text-muted);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════ HEADER ═════════════════════════════ -->
+<div class="header">
+  <div class="header-inner">
+    <div class="badge">
+      <span>●</span> Plan de Implementación
+    </div>
+    <h1>Modal Creación de Contratos Laborales</h1>
+    <div class="subtitle">ERP Snabbit · Módulo RRHH · Wizard <code style="font-family:var(--mono);background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:12px;">CrearContratoTrabajadorWizard</code></div>
+    <div class="meta">
+      <div class="meta-item"><span class="dot"></span> Fecha: 22 mayo 2026</div>
+      <div class="meta-item"><span class="dot" style="background:var(--green)"></span> Alcance: Frontend + Backend</div>
+      <div class="meta-item"><span class="dot" style="background:var(--amber)"></span> Pasos afectados: 2 (Trabajador), 3 (Contrato), 4 (Jornada)</div>
+      <div class="meta-item"><span class="dot" style="background:var(--purple)"></span> Modelos nuevos: CargoCatalogo, TurnoPredefinido</div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- ═══════════════════════════════════════════════ TOC ══════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Contenido</div>
+  <div class="toc-list">
+    <a href="#timeline" class="toc-link">1 · Timeline</a>
+    <a href="#dataflow" class="toc-link">2 · Data Flow</a>
+    <a href="#gaps" class="toc-link">3 · Gap Analysis</a>
+    <a href="#mockups" class="toc-link">4 · Mockups</a>
+    <a href="#risks" class="toc-link">5 · Riesgos</a>
+    <a href="#snippets" class="toc-link">6 · Snippets</a>
+    <a href="#checklist" class="toc-link">7 · Checklist</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ TIMELINE ═════════════════════════════ -->
+<div class="section" id="timeline">
+  <div class="section-label">Sección 1</div>
+  <h2>Timeline de Implementación</h2>
+
+  <div class="timeline-wrap">
+    <div class="timeline-svg-wrap">
+      <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:system-ui,sans-serif;">
+        <!-- BG -->
+        <rect width="960" height="280" fill="#0c0c12"/>
+
+        <!-- ── LANE LABELS ── -->
+        <text x="14" y="76" font-size="9" fill="#4a4a68" font-weight="700" letter-spacing="1">BACKEND</text>
+        <text x="14" y="176" font-size="9" fill="#4a4a68" font-weight="700" letter-spacing="1">FRONTEND</text>
+
+        <!-- ── LANE LINES ── -->
+        <line x1="55" y1="88" x2="950" y2="88" stroke="#272736" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="55" y1="188" x2="950" y2="188" stroke="#272736" stroke-width="1" stroke-dasharray="4 3"/>
+
+        <!-- ══ FASE A · Backend modelos ══ -->
+        <rect x="60" y="52" width="150" height="64" rx="8" fill="#21212f" stroke="#9b72f5" stroke-width="1.5"/>
+        <rect x="60" y="52" width="4" height="64" rx="2" fill="#9b72f5"/>
+        <text x="74" y="70" font-size="11" fill="#9b72f5" font-weight="800">A</text>
+        <text x="88" y="70" font-size="11" fill="#ddddf0" font-weight="700">Backend: Modelos</text>
+        <text x="74" y="84" font-size="9" fill="#7878a0">+ CargoCatalogo</text>
+        <text x="74" y="95" font-size="9" fill="#7878a0">+ TurnoPredefinido</text>
+        <text x="74" y="106" font-size="9" fill="#7878a0">+ campos CT</text>
+
+        <!-- ══ FASE B · Backend serializers ══ -->
+        <rect x="250" y="52" width="155" height="64" rx="8" fill="#21212f" stroke="#4d7cfe" stroke-width="1.5"/>
+        <rect x="250" y="52" width="4" height="64" rx="2" fill="#4d7cfe"/>
+        <text x="264" y="70" font-size="11" fill="#4d7cfe" font-weight="800">B</text>
+        <text x="278" y="70" font-size="11" fill="#ddddf0" font-weight="700">Backend: Lógica</text>
+        <text x="264" y="84" font-size="9" fill="#7878a0">serializers nuevos campos</text>
+        <text x="264" y="95" font-size="9" fill="#7878a0">enviar_al_empleador</text>
+        <text x="264" y="106" font-size="9" fill="#7878a0">empresa en modo nuevo</text>
+
+        <!-- Arrow A → B -->
+        <line x1="211" y1="84" x2="248" y2="84" stroke="#4d7cfe" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+
+        <!-- ══ FASE F · Interfaces RTK ══ -->
+        <rect x="450" y="152" width="150" height="64" rx="8" fill="#21212f" stroke="#e05252" stroke-width="1.5"/>
+        <rect x="450" y="152" width="4" height="64" rx="2" fill="#e05252"/>
+        <text x="464" y="170" font-size="11" fill="#e05252" font-weight="800">F</text>
+        <text x="478" y="170" font-size="11" fill="#ddddf0" font-weight="700">Interfaces + RTK</text>
+        <text x="464" y="184" font-size="9" fill="#7878a0">IContratoTrabajador</text>
+        <text x="464" y="195" font-size="9" fill="#7878a0">nuevos campos</text>
+        <text x="464" y="206" font-size="9" fill="#7878a0">mutation payload</text>
+
+        <!-- ══ FASE C · StepTrabajador ══ -->
+        <rect x="450" y="52" width="148" height="64" rx="8" fill="#21212f" stroke="#2ecc91" stroke-width="1.5"/>
+        <rect x="450" y="52" width="4" height="64" rx="2" fill="#2ecc91"/>
+        <text x="464" y="70" font-size="11" fill="#2ecc91" font-weight="800">C</text>
+        <text x="478" y="70" font-size="11" fill="#ddddf0" font-weight="700">StepTrabajador</text>
+        <text x="464" y="84" font-size="9" fill="#7878a0">label Nombre - RUT</text>
+        <text x="464" y="95" font-size="9" fill="#7878a0">checkbox empleador</text>
+        <text x="464" y="106" font-size="9" fill="#7878a0">SweetAlert</text>
+
+        <!-- Arrow B → C -->
+        <path d="M 405 84 Q 430 84 450 84" stroke="#2ecc91" stroke-width="1.5" fill="none" marker-end="url(#arr-green)"/>
+
+        <!-- ══ FASE D · StepTerminos ══ -->
+        <rect x="640" y="52" width="152" height="64" rx="8" fill="#21212f" stroke="#4ecdc4" stroke-width="1.5"/>
+        <rect x="640" y="52" width="4" height="64" rx="2" fill="#4ecdc4"/>
+        <text x="654" y="70" font-size="11" fill="#4ecdc4" font-weight="800">D</text>
+        <text x="668" y="70" font-size="11" fill="#ddddf0" font-weight="700">StepTerminos</text>
+        <text x="654" y="84" font-size="9" fill="#7878a0">cargo SelectCreatable</text>
+        <text x="654" y="95" font-size="9" fill="#7878a0">selector meses</text>
+        <text x="654" y="106" font-size="9" fill="#7878a0">auto-fill lugar_trabajo</text>
+
+        <!-- Arrow B → D (parallel) -->
+        <path d="M 405 84 Q 520 84 640 84" stroke="#4ecdc4" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-cyan)"/>
+
+        <!-- ══ FASE E · StepJornada ══ -->
+        <rect x="640" y="152" width="152" height="64" rx="8" fill="#21212f" stroke="#f5a623" stroke-width="1.5"/>
+        <rect x="640" y="152" width="4" height="64" rx="2" fill="#f5a623"/>
+        <text x="654" y="170" font-size="11" fill="#f5a623" font-weight="800">E</text>
+        <text x="668" y="170" font-size="11" fill="#ddddf0" font-weight="700">StepJornada</text>
+        <text x="654" y="184" font-size="9" fill="#7878a0">días de semana</text>
+        <text x="654" y="195" font-size="9" fill="#7878a0">horas todos los tipos</text>
+        <text x="654" y="206" font-size="9" fill="#7878a0">turnos rotativos UI</text>
+
+        <!-- Arrow B → E (parallel) -->
+        <path d="M 405 84 Q 520 84 640 184" stroke="#f5a623" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-amber)"/>
+
+        <!-- ══ VERIFY ══ -->
+        <rect x="820" y="102" width="124" height="56" rx="8" fill="#1a1a26" stroke="#272736" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="882" y="125" font-size="11" fill="#7878a0" font-weight="700" text-anchor="middle">Verificación</text>
+        <text x="882" y="140" font-size="9" fill="#4a4a68" text-anchor="middle">lint + build + tests</text>
+        <text x="882" y="152" font-size="9" fill="#4a4a68" text-anchor="middle">smoke manual</text>
+
+        <!-- Arrows to verify -->
+        <line x1="791" y1="84" x2="830" y2="125" stroke="#272736" stroke-width="1.5" marker-end="url(#arr-dim)"/>
+        <line x1="791" y1="184" x2="830" y2="140" stroke="#272736" stroke-width="1.5" marker-end="url(#arr-dim)"/>
+        <line x1="598" y1="184" x2="818" y2="140" stroke="#272736" stroke-width="1.5" marker-end="url(#arr-dim)"/>
+
+        <!-- ── PARALLEL BRACE label ── -->
+        <text x="617" y="32" font-size="9" fill="#4a4a68" text-anchor="middle">paralelo</text>
+        <line x1="450" y1="36" x2="793" y2="36" stroke="#4a4a68" stroke-width="1" stroke-dasharray="3 3"/>
+
+        <!-- ── LEGENDS ── -->
+        <rect x="60" y="244" width="10" height="10" rx="2" fill="#9b72f5"/>
+        <text x="76" y="253" font-size="9" fill="#7878a0">Bloqueante</text>
+        <line x1="140" y1="249" x2="165" y2="249" stroke="#4d7cfe" stroke-width="1.5"/>
+        <text x="170" y="253" font-size="9" fill="#7878a0">Secuencial</text>
+        <line x1="240" y1="249" x2="265" y2="249" stroke="#7878a0" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="270" y="253" font-size="9" fill="#7878a0">Paralelo</text>
+
+        <!-- ── ARROW MARKERS ── -->
+        <defs>
+          <marker id="arr-blue" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#4d7cfe"/>
+          </marker>
+          <marker id="arr-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#2ecc91"/>
+          </marker>
+          <marker id="arr-cyan" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#4ecdc4"/>
+          </marker>
+          <marker id="arr-amber" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#f5a623"/>
+          </marker>
+          <marker id="arr-dim" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#4a4a68"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Phase cards -->
+  <div class="phase-grid">
+    <div class="phase-card phase-a">
+      <div class="phase-letter">A</div>
+      <div class="phase-name">Backend — Modelos</div>
+      <div class="phase-scope">Independiente · Ejecutar primero</div>
+      <ul class="phase-items">
+        <li>Nuevo modelo <code>CargoCatalogo</code> (nombre, empresa FK, activo)</li>
+        <li>Nuevo modelo <code>TurnoPredefinido</code> (nombre, hora_entrada, hora_salida)</li>
+        <li>Campos en <code>ContratoTrabajador</code>: <code>dias_semana</code> JSONField, <code>turnos_detalle</code> JSONField, <code>cantidad_meses</code> SmallInt</li>
+        <li>Crear migración</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">rrhh/models.py</span>
+        <span class="file-tag">rrhh/migrations/</span>
+      </div>
+    </div>
+    <div class="phase-card phase-b">
+      <div class="phase-letter">B</div>
+      <div class="phase-name">Backend — Lógica</div>
+      <div class="phase-scope">Depende de A</div>
+      <ul class="phase-items">
+        <li>Endpoints <code>GET /cargos-catalogo/</code> y <code>GET /turnos-predefinidos/</code></li>
+        <li><code>enviar_al_empleador</code> bool en <code>CrearContratoConTrabajadorSerializer</code></li>
+        <li><code>empresa_cliente_id</code> en modo nuevo trabajador</li>
+        <li>En <code>crear-con-trabajador</code>: enviar correo a empresa si flag activo</li>
+        <li>Exponer nuevos campos en serializers read/write</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">rrhh/serializers.py</span>
+        <span class="file-tag">rrhh/views.py</span>
+        <span class="file-tag">rrhh/urls.py</span>
+      </div>
+    </div>
+    <div class="phase-card phase-c">
+      <div class="phase-letter">C</div>
+      <div class="phase-name">StepTrabajador.tsx</div>
+      <div class="phase-scope">Depende de B</div>
+      <ul class="phase-items">
+        <li>Label selector: <code>"Nombre Apellido - RUT"</code></li>
+        <li>Checkbox "Enviar al empleador" (default true, modo existente)</li>
+        <li>SweetAlert al desmarcar + pasar email empresa al wizard state</li>
+        <li>Modo nuevo: agregar selector Empresa antes de Sucursal</li>
+        <li>Modo nuevo: eliminar "Enviar invitación al trabajador"</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">StepTrabajador.tsx</span>
+      </div>
+    </div>
+    <div class="phase-card phase-d">
+      <div class="phase-letter">D</div>
+      <div class="phase-name">StepTerminosLaborales.tsx</div>
+      <div class="phase-scope">Paralela a C</div>
+      <ul class="phase-items">
+        <li><code>cargo</code>: Input → SelectCreatable (desde <code>useGetCargosCatalogoQuery</code>)</li>
+        <li>Plazo fijo: <code>cantidad_meses</code> SelectCreatable (1–24)</li>
+        <li>Cálculo automático de <code>fecha_termino</code> desde inicio + meses</li>
+        <li><code>lugar_trabajo</code>: pre-fill desde dirección de sucursal (wizard state)</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">StepTerminosLaborales.tsx</span>
+      </div>
+    </div>
+    <div class="phase-card phase-e">
+      <div class="phase-letter">E</div>
+      <div class="phase-name">StepJornada.tsx</div>
+      <div class="phase-scope">Paralela a C y D</div>
+      <ul class="phase-items">
+        <li><code>horas_semanales</code> SelectCreatable en todos los tipos de jornada</li>
+        <li>Multi-selector días de semana (L–D) para todos los tipos</li>
+        <li>Turnos rotativos: UI de hasta 3 alternativas (desde <code>useGetTurnosPredefinidosQuery</code>)</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">StepJornada.tsx</span>
+      </div>
+    </div>
+    <div class="phase-card phase-f">
+      <div class="phase-letter">F</div>
+      <div class="phase-name">Interfaces + RTK</div>
+      <div class="phase-scope">Paralela a C/D/E</div>
+      <ul class="phase-items">
+        <li>Agregar <code>dias_semana</code>, <code>turnos_detalle</code>, <code>cantidad_meses</code>, <code>enviar_al_empleador</code> a <code>IContratoTrabajador</code></li>
+        <li>Agregar <code>useGetCargosCatalogoQuery</code> y <code>useGetTurnosPredefinidosQuery</code></li>
+        <li>Actualizar payload de <code>crearContratoConTrabajador</code> mutation</li>
+      </ul>
+      <div class="phase-files">
+        <span class="file-tag">rrhh.interface.ts</span>
+        <span class="file-tag">contratoTrabajadorApi.ts</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ DATA FLOW ════════════════════════════ -->
+<div class="section" id="dataflow">
+  <div class="section-label">Sección 2</div>
+  <h2>Data Flow entre Componentes</h2>
+
+  <div class="flow-wrap">
+    <svg viewBox="0 0 960 460" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:700px;font-family:system-ui,sans-serif;">
+      <rect width="960" height="460" fill="#0c0c12"/>
+
+      <!-- ═══ ROW 0: Backend APIs ═══ -->
+      <rect x="30" y="20" width="130" height="40" rx="7" fill="#21212f" stroke="#9b72f5" stroke-width="1.2"/>
+      <text x="95" y="36" text-anchor="middle" font-size="9" fill="#9b72f5" font-weight="700">CargoCatalogo API</text>
+      <text x="95" y="48" text-anchor="middle" font-size="8" fill="#7878a0">GET /cargos-catalogo/</text>
+
+      <rect x="180" y="20" width="130" height="40" rx="7" fill="#21212f" stroke="#9b72f5" stroke-width="1.2"/>
+      <text x="245" y="36" text-anchor="middle" font-size="9" fill="#9b72f5" font-weight="700">TurnoPredefinido API</text>
+      <text x="245" y="48" text-anchor="middle" font-size="8" fill="#7878a0">GET /turnos-predefinidos/</text>
+
+      <rect x="680" y="20" width="130" height="40" rx="7" fill="#21212f" stroke="#9b72f5" stroke-width="1.2"/>
+      <text x="745" y="36" text-anchor="middle" font-size="9" fill="#9b72f5" font-weight="700">UsuariosCliente API</text>
+      <text x="745" y="48" text-anchor="middle" font-size="8" fill="#7878a0">GET /usuarios-cliente/</text>
+
+      <!-- ═══ ROW 1: Wizard State (Formik) ═══ -->
+      <rect x="340" y="20" width="220" height="50" rx="8" fill="#1e1e2a" stroke="#4d7cfe" stroke-width="1.8"/>
+      <text x="450" y="38" text-anchor="middle" font-size="11" fill="#4d7cfe" font-weight="800">Wizard State (Formik)</text>
+      <text x="450" y="52" text-anchor="middle" font-size="9" fill="#7878a0">IFormValuesContratoTrabajador</text>
+
+      <!-- ═══ ROW 2: Steps ═══ -->
+      <!-- StepTrabajador -->
+      <rect x="30" y="120" width="175" height="100" rx="8" fill="#21212f" stroke="#2ecc91" stroke-width="1.5"/>
+      <rect x="30" y="120" width="175" height="4" rx="2" fill="#2ecc91"/>
+      <text x="117" y="139" text-anchor="middle" font-size="10" fill="#2ecc91" font-weight="700">StepTrabajador</text>
+      <text x="44" y="154" font-size="8.5" fill="#7878a0">· empresa seleccionada → email</text>
+      <text x="44" y="166" font-size="8.5" fill="#7878a0">· sucursal → direccion</text>
+      <text x="44" y="178" font-size="8.5" fill="#7878a0">· enviar_al_empleador bool</text>
+      <text x="44" y="190" font-size="8.5" fill="#7878a0">· label "Nombre - RUT"</text>
+      <text x="44" y="202" font-size="8.5" fill="#7878a0">· modo existente / nuevo</text>
+
+      <!-- StepTerminosLaborales -->
+      <rect x="230" y="120" width="175" height="100" rx="8" fill="#21212f" stroke="#4ecdc4" stroke-width="1.5"/>
+      <rect x="230" y="120" width="175" height="4" rx="2" fill="#4ecdc4"/>
+      <text x="317" y="139" text-anchor="middle" font-size="10" fill="#4ecdc4" font-weight="700">StepTerminosLaborales</text>
+      <text x="244" y="154" font-size="8.5" fill="#7878a0">· cargo (SelectCreatable)</text>
+      <text x="244" y="166" font-size="8.5" fill="#7878a0">· tipo_contrato</text>
+      <text x="244" y="178" font-size="8.5" fill="#7878a0">· cantidad_meses (si plazo_fijo)</text>
+      <text x="244" y="190" font-size="8.5" fill="#7878a0">· fecha_termino (calculada)</text>
+      <text x="244" y="202" font-size="8.5" fill="#7878a0">· lugar_trabajo (auto-fill)</text>
+
+      <!-- StepJornada -->
+      <rect x="430" y="120" width="175" height="100" rx="8" fill="#21212f" stroke="#f5a623" stroke-width="1.5"/>
+      <rect x="430" y="120" width="175" height="4" rx="2" fill="#f5a623"/>
+      <text x="517" y="139" text-anchor="middle" font-size="10" fill="#f5a623" font-weight="700">StepJornada</text>
+      <text x="444" y="154" font-size="8.5" fill="#7878a0">· jornada tipo</text>
+      <text x="444" y="166" font-size="8.5" fill="#7878a0">· horas_semanales (todos tipos)</text>
+      <text x="444" y="178" font-size="8.5" fill="#7878a0">· dias_semana[ ] JSONField</text>
+      <text x="444" y="190" font-size="8.5" fill="#7878a0">· turnos_detalle[ ] (si turnos)</text>
+
+      <!-- StepRemuneraciones, Prevision, Revision (unchanged) -->
+      <rect x="630" y="120" width="290" height="45" rx="8" fill="#161620" stroke="#272736" stroke-width="1.2"/>
+      <text x="775" y="139" text-anchor="middle" font-size="9" fill="#4a4a68" font-weight="600">StepRemuneraciones · StepPrevisionBanco · StepRevision</text>
+      <text x="775" y="152" text-anchor="middle" font-size="8" fill="#32324a">sin cambios en este alcance</text>
+
+      <!-- ═══ ROW 3: Formik onSubmit ═══ -->
+      <rect x="300" y="270" width="250" height="44" rx="8" fill="#1a1a26" stroke="#4d7cfe" stroke-width="1.5"/>
+      <text x="425" y="288" text-anchor="middle" font-size="10" fill="#4d7cfe" font-weight="700">formik.onSubmit()</text>
+      <text x="425" y="303" text-anchor="middle" font-size="8.5" fill="#7878a0">buildPayload() → ICrearContratoConTrabajadorPayload</text>
+
+      <!-- ═══ ROW 4: RTK Mutation ═══ -->
+      <rect x="300" y="350" width="250" height="44" rx="8" fill="#21212f" stroke="#4d7cfe" stroke-width="1.5"/>
+      <text x="425" y="368" text-anchor="middle" font-size="10" fill="#4d7cfe" font-weight="700">crearContratoConTrabajador()</text>
+      <text x="425" y="383" text-anchor="middle" font-size="8.5" fill="#7878a0">POST /api/rrhh/contratos-trabajador/crear-con-trabajador/</text>
+
+      <!-- ═══ ROW 5: Backend ═══ -->
+      <rect x="160" y="420" width="170" height="32" rx="6" fill="#21212f" stroke="#9b72f5" stroke-width="1.2"/>
+      <text x="245" y="433" text-anchor="middle" font-size="9" fill="#9b72f5">crear/vincular UsuarioEmpresa</text>
+      <text x="245" y="444" text-anchor="middle" font-size="8" fill="#7878a0">si modo == 'nuevo'</text>
+
+      <rect x="355" y="420" width="145" height="32" rx="6" fill="#21212f" stroke="#9b72f5" stroke-width="1.2"/>
+      <text x="427" y="437" text-anchor="middle" font-size="9" fill="#9b72f5">crear ContratoTrabajador</text>
+
+      <rect x="520" y="420" width="185" height="32" rx="6" fill="#21212f" stroke="#2ecc91" stroke-width="1.2"/>
+      <text x="612" y="433" text-anchor="middle" font-size="9" fill="#2ecc91">send_mail(empresa.email)</text>
+      <text x="612" y="444" text-anchor="middle" font-size="8" fill="#7878a0">si enviar_al_empleador == True</text>
+
+      <!-- ══ ARROWS ══ -->
+      <!-- APIs → Steps -->
+      <line x1="95" y1="60" x2="95" y2="120" stroke="#9b72f5" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#df-purple)"/>
+      <text x="60" y="95" font-size="8" fill="#9b72f5">cargos</text>
+      <line x1="245" y1="60" x2="480" y2="120" stroke="#9b72f5" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#df-purple)"/>
+      <text x="300" y="95" font-size="8" fill="#9b72f5">turnos</text>
+      <line x1="745" y1="60" x2="155" y2="120" stroke="#9b72f5" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#df-purple)"/>
+      <text x="680" y="85" font-size="8" fill="#9b72f5">usuarios</text>
+
+      <!-- Step → Wizard state arrows -->
+      <path d="M 117 120 Q 117 80 450 70" stroke="#2ecc91" stroke-width="1.2" fill="none" stroke-dasharray="3 3" marker-end="url(#df-green)"/>
+      <path d="M 317 120 Q 317 80 450 70" stroke="#4ecdc4" stroke-width="1.2" fill="none" stroke-dasharray="3 3" marker-end="url(#df-cyan)"/>
+      <path d="M 517 120 Q 517 80 450 70" stroke="#f5a623" stroke-width="1.2" fill="none" stroke-dasharray="3 3" marker-end="url(#df-amber)"/>
+
+      <!-- sucursal direccion → lugar_trabajo -->
+      <path d="M 117 220 Q 190 240 244 215" stroke="#2ecc91" stroke-width="1.2" fill="none" stroke-dasharray="4 2" marker-end="url(#df-green)"/>
+      <text x="148" y="240" font-size="8" fill="#2ecc91">direccion</text>
+
+      <!-- Steps → onSubmit -->
+      <line x1="205" y1="200" x2="370" y2="270" stroke="#4d7cfe" stroke-width="1.2" marker-end="url(#df-blue)"/>
+      <line x1="317" y1="220" x2="400" y2="270" stroke="#4d7cfe" stroke-width="1.2" marker-end="url(#df-blue)"/>
+      <line x1="517" y1="220" x2="470" y2="270" stroke="#4d7cfe" stroke-width="1.2" marker-end="url(#df-blue)"/>
+
+      <!-- onSubmit → mutation -->
+      <line x1="425" y1="314" x2="425" y2="350" stroke="#4d7cfe" stroke-width="1.5" marker-end="url(#df-blue)"/>
+
+      <!-- mutation → backend -->
+      <line x1="340" y1="394" x2="280" y2="420" stroke="#9b72f5" stroke-width="1.2" marker-end="url(#df-purple)"/>
+      <line x1="425" y1="394" x2="425" y2="420" stroke="#9b72f5" stroke-width="1.2" marker-end="url(#df-purple)"/>
+      <line x1="500" y1="394" x2="570" y2="420" stroke="#2ecc91" stroke-width="1.2" marker-end="url(#df-green)"/>
+
+      <!-- Markers -->
+      <defs>
+        <marker id="df-blue"   markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4d7cfe"/></marker>
+        <marker id="df-green"  markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2ecc91"/></marker>
+        <marker id="df-cyan"   markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4ecdc4"/></marker>
+        <marker id="df-amber"  markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#f5a623"/></marker>
+        <marker id="df-purple" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#9b72f5"/></marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ GAP ANALYSIS ════════════════════════ -->
+<div class="section" id="gaps">
+  <div class="section-label">Sección 3</div>
+  <h2>Gap Analysis — Estado actual vs. Informe</h2>
+
+  <h3>Paso 2 — Trabajador (Existente)</h3>
+  <table class="gap-table">
+    <thead><tr><th>Requerimiento</th><th>Estado actual</th><th>Acción</th></tr></thead>
+    <tbody>
+      <tr><td>Selección jerárquica Empresa→Sucursal→Trabajador</td><td><span class="badge-ok">✓ YA EXISTE</span></td><td>Ninguna</td></tr>
+      <tr><td>Checkbox "Enviar al empleador" (default true)</td><td><span class="badge-fail">✗ No existe en modo existente</span></td><td>Agregar en StepTrabajador (Fase C)</td></tr>
+      <tr><td>Destinatario = email de empresa seleccionada</td><td><span class="badge-fail">✗ No implementado</span></td><td>Backend Fase B + wizard state</td></tr>
+      <tr><td>SweetAlert al desmarcar checkbox</td><td><span class="badge-fail">✗ No existe</span></td><td>Fase C</td></tr>
+      <tr><td>Label trabajador: "Nombre Apellido - RUT"</td><td><span class="badge-warn">⚠ Muestra <code>{nombre} ({email})</code></span></td><td>Cambiar en StepTrabajador (Fase C)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Paso 2 — Trabajador (Nuevo)</h3>
+  <table class="gap-table">
+    <thead><tr><th>Requerimiento</th><th>Estado actual</th><th>Acción</th></tr></thead>
+    <tbody>
+      <tr><td>Selector Empresa antes de Sucursal</td><td><span class="badge-fail">✗ Solo tiene Sucursal</span></td><td>Agregar en modo nuevo (Fase C)</td></tr>
+      <tr><td>Eliminar envío correo al trabajador</td><td><span class="badge-warn">⚠ Campo <code>trab_enviar_invitacion</code> existente</span></td><td>Eliminar campo y lógica (Fase C)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Paso 3 — Contrato (Términos Laborales)</h3>
+  <table class="gap-table">
+    <thead><tr><th>Requerimiento</th><th>Estado actual</th><th>Acción</th></tr></thead>
+    <tbody>
+      <tr><td>Selector cantidad meses para plazo fijo</td><td><span class="badge-fail">✗ No existe</span></td><td>Agregar <code>cantidad_meses</code> SelectCreatable (Fase D)</td></tr>
+      <tr><td>Cálculo automático fecha_termino</td><td><span class="badge-fail">✗ Manual</span></td><td>lógica en onChange (Fase D)</td></tr>
+      <tr><td>Cargo como SelectCreatable</td><td><span class="badge-fail">✗ <code>&lt;Input&gt;</code> texto libre</span></td><td>Cambiar a SelectCreatable + API (Fases A+D)</td></tr>
+      <tr><td>Lugar trabajo auto-fill desde sucursal</td><td><span class="badge-fail">✗ Input manual sin vinculación</span></td><td>Pre-fill desde wizard state (Fase D)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Paso 4 — Jornada</h3>
+  <table class="gap-table">
+    <thead><tr><th>Requerimiento</th><th>Estado actual</th><th>Acción</th></tr></thead>
+    <tbody>
+      <tr><td>Horas semanales en jornada completa</td><td><span class="badge-fail">✗ Solo parcial/part_time, input number</span></td><td>Ampliar a todos los tipos, SelectCreatable (Fase E)</td></tr>
+      <tr><td>Selector días de semana (todos los tipos)</td><td><span class="badge-fail">✗ No existe</span></td><td>Nuevo CheckboxGroup <code>dias_semana</code> (Fases A+E)</td></tr>
+      <tr><td>Turnos rotativos: hasta 3 alternativas + predefinidas</td><td><span class="badge-fail">✗ Solo <code>horario_detalle</code> texto libre</span></td><td>Nueva UI + modelo TurnoPredefinido (Fases A+E)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════ MOCKUPS ══════════════════════════════ -->
+<div class="section" id="mockups">
+<style>
+/* ── Sistema real: zinc palette dark mode ── */
+:root {
+  --z950:#09090b; --z900:#18181b; --z800:#27272a; --z700:#3f3f46;
+  --z600:#52525b; --z500:#71717a; --z400:#a1a1aa; --z300:#d4d4d8;
+  --b5:#3b82f6; --b6:#2563eb;
+  --b5a15:rgba(59,130,246,.15); --b5a30:rgba(59,130,246,.30);
+  --g5:#22c55e; --g5a12:rgba(34,197,94,.12); --g5a35:rgba(34,197,94,.35);
+  --a5:#f59e0b; --a5a15:rgba(245,158,11,.15); --a5a35:rgba(245,158,11,.35);
+}
+/* Bloque contenedor por mockup */
+.mkp-block { margin-bottom:44px; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.mkp-meta { padding:14px 20px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.mkp-pill { background:var(--z800); color:var(--z400); border-radius:20px; padding:2px 10px; font-size:11px; font-weight:700; }
+.mkp-pill-title { font-size:13px; font-weight:600; color:var(--z300); }
+.mkp-badge-new { background:var(--b5a15); color:var(--b5); border:1px solid var(--b5a30); border-radius:20px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.8px; }
+.mkp-desc { margin-left:auto; font-size:11px; color:var(--z500); max-width:340px; text-align:right; }
+/* Stage: fondo oscuro simulando el app */
+.mkp-stage { background:var(--z950); padding:36px 24px; display:flex; justify-content:center; align-items:flex-start; gap:24px; }
+/* Panel anotaciones */
+.mkp-ann-panel { width:196px; flex-shrink:0; padding-top:4px; }
+.mkp-ann-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11.5px; }
+.mkp-ann-title { font-weight:700; color:var(--b5); font-size:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.mkp-ann-body { color:var(--z400); line-height:1.5; }
+.mkp-ann-body code { font-family:var(--mono); font-size:10px; background:var(--z800); padding:1px 4px; border-radius:3px; }
+
+/* ── Modal sistema-real (sysm) ── */
+.sysm { background:var(--z900); border:2px solid var(--z800); border-radius:8px; box-shadow:0 25px 50px -12px rgba(0,0,0,.85); width:540px; flex-shrink:0; }
+.sysm-hdr { display:flex; align-items:center; justify-content:space-between; padding:16px; border-bottom:1px solid var(--z800); }
+.sysm-title { font-size:21px; font-weight:600; color:#fff; }
+.sysm-x { width:30px; height:30px; border:2px solid transparent; border-radius:8px; background:transparent; color:var(--z400); display:flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; }
+.sysm-x:hover { background:var(--z800); color:#fff; }
+/* Stepper */
+.sysm-stepper { display:flex; align-items:center; padding:11px 16px; border-bottom:1px solid var(--z800); overflow-x:auto; gap:0; }
+.sysm-step { font-size:11px; font-weight:600; border-radius:20px; padding:3px 11px; white-space:nowrap; }
+.sysm-step-done { background:var(--b5a15); color:var(--b5); }
+.sysm-step-active { background:var(--b5); color:#fff; }
+.sysm-step-pending { background:var(--z800); color:var(--z500); }
+.sysm-conn { flex:1; height:2px; background:var(--z800); min-width:10px; max-width:28px; }
+.sysm-conn-done { background:var(--b5a30); }
+/* Body */
+.sysm-body { padding:16px; }
+.sysm-field { margin-bottom:12px; }
+.sysm-lbl { display:block; font-size:11px; font-weight:500; color:var(--z400); margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
+.sysm-req { color:#f87171; }
+.sysm-newtag { display:inline-flex; background:var(--b5a15); color:var(--b5); border:1px solid var(--b5a30); border-radius:4px; font-size:9px; font-weight:700; padding:1px 5px; margin-left:4px; text-transform:uppercase; }
+.sysm-newtag-g { background:var(--g5a12); color:var(--g5); border-color:var(--g5a35); }
+/* Select */
+.sysm-sel { display:flex; align-items:center; justify-content:space-between; background:var(--z800); border:2px solid var(--z800); border-radius:8px; min-height:40px; padding:4px 10px; color:var(--z300); font-size:13px; cursor:pointer; transition:border-color .15s; }
+.sysm-sel:hover { border-color:var(--b5); }
+.sysm-sel-on { border-color:var(--b5); background:transparent; }
+.sysm-sel-on svg { color:var(--b5); }
+.sysm-sel svg { color:var(--z500); flex-shrink:0; }
+/* Input */
+.sysm-inp { background:var(--z800); border:2px solid var(--z800); border-radius:8px; min-height:40px; padding:6px 10px; color:var(--z300); font-size:13px; display:flex; align-items:center; width:100%; }
+.sysm-inp-calc { background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.4); color:var(--g5); }
+.sysm-inp-auto { background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.4); color:var(--g5); }
+/* Grid */
+.sysm-g2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+/* Button group tabs */
+.sysm-btngr { display:inline-flex; background:var(--z800); border-radius:8px; padding:3px; gap:2px; margin-bottom:12px; flex-wrap:wrap; }
+.sysm-btngr-btn { background:transparent; border:none; color:var(--z400); border-radius:6px; padding:5px 13px; font-size:12.5px; font-weight:500; cursor:pointer; transition:all .15s; }
+.sysm-btngr-on { background:var(--b5); color:#fff; }
+/* Checkbox */
+.sysm-chk-row { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--z800); border:2px solid var(--z800); border-radius:8px; }
+.sysm-chk { width:28px; height:28px; border:2px solid var(--z600); border-radius:8px; background:transparent; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+.sysm-chk-on { border-color:var(--b5); background:var(--b5); }
+.sysm-chk-text { flex:1; line-height:1.4; }
+/* Hint */
+.sysm-hint { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--z500); margin-top:4px; }
+.sysm-hint-dot { width:5px; height:5px; border-radius:50%; background:var(--b5); flex-shrink:0; }
+/* Footer */
+.sysm-ftr { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--z800); }
+.sysm-ftr-r { display:flex; gap:8px; }
+/* Buttons */
+.sysm-btn { border-radius:8px; padding:6px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; border:2px solid transparent; }
+.sysm-btn-solid { background:var(--b5); border-color:var(--b5); color:#fff; }
+.sysm-btn-solid:hover { background:var(--b6); border-color:var(--b6); }
+.sysm-btn-ghost { background:transparent; border-color:transparent; color:var(--z400); }
+.sysm-btn-ghost:hover { color:var(--b5); }
+.sysm-btn-outline { background:transparent; border-color:var(--z700); color:var(--z300); }
+/* Days toggle */
+.sysm-days { display:flex; gap:6px; margin-top:4px; }
+.sysm-day { width:34px; height:34px; border:2px solid var(--z700); border-radius:8px; background:transparent; color:var(--z400); font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.sysm-day-on { background:var(--b5); border-color:var(--b5); color:#fff; }
+/* Alert */
+.sysm-alert { display:flex; align-items:flex-start; gap:10px; background:var(--a5a15); border:1px solid var(--a5a35); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--z300); margin-top:12px; width:540px; }
+.sysm-alert svg { flex-shrink:0; margin-top:2px; }
+</style>
+
+  <div class="section-label">Sección 4</div>
+  <h2>Mockups — Pantallas Clave</h2>
+  <p style="color:var(--text-muted);margin-bottom:32px;font-size:13px">Simulación con estilos reales del sistema (modo oscuro, zinc-900/800, blue-500, border-2, rounded-lg). Cada pantalla corresponde a un paso nuevo del wizard.</p>
+
+  <!-- ━━━━━━ MOCKUP 1: Paso 2 · Trabajador ━━━━━━ -->
+  <div class="mkp-block">
+    <div class="mkp-meta">
+      <span class="mkp-pill">Paso 2</span>
+      <span class="mkp-pill-title">StepTrabajador</span>
+      <span class="mkp-badge-new">NUEVO</span>
+      <span class="mkp-desc">Checkbox "Enviar al empleador" · selector Nombre + RUT</span>
+    </div>
+    <div class="mkp-stage">
+      <div>
+        <div class="sysm">
+          <div class="sysm-hdr">
+            <span class="sysm-title">Crear Contrato Laboral</span>
+            <button class="sysm-x">✕</button>
+          </div>
+          <div class="sysm-stepper">
+            <span class="sysm-step sysm-step-done">Datos</span>
+            <span class="sysm-conn sysm-conn-done"></span>
+            <span class="sysm-step sysm-step-active">Trabajador</span>
+            <span class="sysm-conn"></span>
+            <span class="sysm-step sysm-step-pending">Contrato</span>
+            <span class="sysm-conn"></span>
+            <span class="sysm-step sysm-step-pending">Jornada</span>
+            <span class="sysm-conn"></span>
+            <span class="sysm-step sysm-step-pending">···</span>
+          </div>
+          <div class="sysm-body">
+            <div class="sysm-btngr">
+              <button class="sysm-btngr-btn sysm-btngr-on">Trabajador existente</button>
+              <button class="sysm-btngr-btn">Crear nuevo</button>
+            </div>
+            <div class="sysm-g2">
+              <div class="sysm-field">
+                <label class="sysm-lbl">Empresa cliente <span class="sysm-req">*</span></label>
+                <div class="sysm-sel">
+                  <span>Empresa ACME SpA</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="sysm-field">
+                <label class="sysm-lbl">Sucursal <span class="sysm-req">*</span></label>
+                <div class="sysm-sel">
+                  <span>Sucursal Santiago Centro</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="sysm-field">
+              <label class="sysm-lbl">Trabajador <span class="sysm-req">*</span> <span class="sysm-newtag">▲ Nombre + RUT</span></label>
+              <div class="sysm-sel sysm-sel-on">
+                <span style="color:#fff">Juan Pérez González — 12.345.678-9</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="sysm-hint"><span class="sysm-hint-dot"></span>Formato: Nombre completo + RUT (serializer actualizado)</div>
+            </div>
+            <div class="sysm-field">
+              <label class="sysm-lbl">Notificación <span class="sysm-newtag">NUEVO</span></label>
+              <div class="sysm-chk-row">
+                <div class="sysm-chk sysm-chk-on">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="sysm-chk-text">
+                  <span style="color:#e4e4e7;font-size:13px;font-weight:500">Enviar al empleador</span>
+                  <div style="font-size:11px;color:#71717a;margin-top:2px">acme@empresa.cl (Empresa ACME SpA)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sysm-ftr">
+            <div></div>
+            <div class="sysm-ftr-r">
+              <button class="sysm-btn sysm-btn-ghost">Cancelar</button>
+              <button class="sysm-btn sysm-btn-solid">Siguiente →</button>
+            </div>
+          </div>
+        </div>
+        <div class="sysm-alert">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span><strong style="color:#f59e0b">SweetAlert</strong> al desmarcar: "¿Confirmas que no se enviará notificación al empleador? El contrato no será comunicado automáticamente."</span>
+        </div>
+      </div>
+      <div class="mkp-ann-panel">
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Checkbox nuevo</div>
+          <div class="mkp-ann-body">Campo <code>enviar_al_empleador</code> en el modelo. Al desmarcar, SweetAlert confirma la decisión.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Label RUT</div>
+          <div class="mkp-ann-body">Selector carga <code>UsuarioEmpresa</code> con label <code>Nombre + RUT</code>. Formato calculado en serializer.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">Sin cambios</div>
+          <div class="mkp-ann-body">Empresa, Sucursal y modo "Crear nuevo" sin modificaciones en esta fase.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━━━ MOCKUP 2: Paso 3 · Contrato ━━━━━━ -->
+  <div class="mkp-block">
+    <div class="mkp-meta">
+      <span class="mkp-pill">Paso 3</span>
+      <span class="mkp-pill-title">StepTerminosLaborales</span>
+      <span class="mkp-badge-new">NUEVO</span>
+      <span class="mkp-desc">Selector de meses · cargo desde catálogo · lugar de trabajo auto-fill</span>
+    </div>
+    <div class="mkp-stage">
+      <div>
+        <div class="sysm">
+          <div class="sysm-hdr">
+            <span class="sysm-title">Crear Contrato Laboral</span>
+            <button class="sysm-x">✕</button>
+          </div>
+          <div class="sysm-stepper">
+            <span class="sysm-step sysm-step-done">Datos</span>
+            <span class="sysm-conn sysm-conn-done"></span>
+            <span class="sysm-step sysm-step-done">Trabajador</span>
+            <span class="sysm-conn sysm-conn-done"></span>
+            <span class="sysm-step sysm-step-active">Contrato</span>
+            <span class="sysm-conn"></span>
+            <span class="sysm-step sysm-step-pending">Jornada</span>
+          </div>
+          <div class="sysm-body">
+            <div class="sysm-field">
+              <label class="sysm-lbl">Tipo de contrato <span class="sysm-req">*</span></label>
+              <div class="sysm-btngr">
+                <button class="sysm-btngr-btn">Indefinido</button>
+                <button class="sysm-btngr-btn sysm-btngr-on">Plazo fijo</button>
+                <button class="sysm-btngr-btn">Obra/faena</button>
+                <button class="sysm-btngr-btn">Honorarios</button>
+                <button class="sysm-btngr-btn">Reemplazo</button>
+              </div>
+            </div>
+            <div class="sysm-g2">
+              <div class="sysm-field">
+                <label class="sysm-lbl">Fecha inicio <span class="sysm-req">*</span></label>
+                <div class="sysm-inp">2026-06-01</div>
+              </div>
+              <div class="sysm-field">
+                <label class="sysm-lbl">Cantidad de meses <span class="sysm-req">*</span> <span class="sysm-newtag">NUEVO</span></label>
+                <div class="sysm-sel sysm-sel-on">
+                  <span style="color:#fff">3 meses</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+              </div>
+              <div class="sysm-field">
+                <label class="sysm-lbl">Fecha término <span class="sysm-newtag sysm-newtag-g">calculada</span></label>
+                <div class="sysm-inp sysm-inp-calc">2026-09-01</div>
+              </div>
+              <div class="sysm-field">
+                <label class="sysm-lbl">Cargo <span class="sysm-req">*</span> <span class="sysm-newtag">NUEVO</span></label>
+                <div class="sysm-sel sysm-sel-on">
+                  <span style="color:#fff">Analista de Sistemas</span>
+                  <span style="font-size:10px;color:#3b82f6;white-space:nowrap">+ crear ▼</span>
+                </div>
+              </div>
+            </div>
+            <div class="sysm-field">
+              <label class="sysm-lbl">Lugar de trabajo <span class="sysm-newtag sysm-newtag-g">auto-fill</span></label>
+              <div class="sysm-inp sysm-inp-auto">Av. Providencia 1234, Santiago</div>
+              <div class="sysm-hint"><span class="sysm-hint-dot" style="background:#22c55e"></span>Pre-llenado desde dirección de Sucursal Santiago Centro (editable)</div>
+            </div>
+          </div>
+          <div class="sysm-ftr">
+            <button class="sysm-btn sysm-btn-outline">← Atrás</button>
+            <div class="sysm-ftr-r">
+              <button class="sysm-btn sysm-btn-ghost">Cancelar</button>
+              <button class="sysm-btn sysm-btn-solid">Siguiente →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mkp-ann-panel">
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Selector meses</div>
+          <div class="mkp-ann-body">Reemplaza campo libre. Opciones 1–24 meses. <code>calcularFechaTermino()</code> calcula la fecha término automáticamente.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Cargo catálogo</div>
+          <div class="mkp-ann-body">SelectReact <code>isCreatable</code> sobre modelo <code>CargoCatalogo</code>. Permite crear al vuelo.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Auto-fill dirección</div>
+          <div class="mkp-ann-body">Se rellena con <code>sucursal.direccion</code>. Campo editable por el usuario.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ━━━━━━ MOCKUP 3: Paso 4 · Jornada ━━━━━━ -->
+  <div class="mkp-block">
+    <div class="mkp-meta">
+      <span class="mkp-pill">Paso 4</span>
+      <span class="mkp-pill-title">StepJornada</span>
+      <span class="mkp-badge-new">NUEVO</span>
+      <span class="mkp-desc">Toggle días de trabajo · horas semanales en todos los tipos de jornada</span>
+    </div>
+    <div class="mkp-stage">
+      <div>
+        <div class="sysm">
+          <div class="sysm-hdr">
+            <span class="sysm-title">Crear Contrato Laboral</span>
+            <button class="sysm-x">✕</button>
+          </div>
+          <div class="sysm-stepper">
+            <span class="sysm-step sysm-step-done">Trabajador</span>
+            <span class="sysm-conn sysm-conn-done"></span>
+            <span class="sysm-step sysm-step-done">Contrato</span>
+            <span class="sysm-conn sysm-conn-done"></span>
+            <span class="sysm-step sysm-step-active">Jornada</span>
+            <span class="sysm-conn"></span>
+            <span class="sysm-step sysm-step-pending">···</span>
+          </div>
+          <div class="sysm-body">
+            <div class="sysm-field">
+              <label class="sysm-lbl">Jornada laboral <span class="sysm-req">*</span></label>
+              <div class="sysm-btngr">
+                <button class="sysm-btngr-btn sysm-btngr-on">Completa</button>
+                <button class="sysm-btngr-btn">Parcial</button>
+                <button class="sysm-btngr-btn">Part time</button>
+                <button class="sysm-btngr-btn">Turnos</button>
+              </div>
+            </div>
+            <div class="sysm-g2">
+              <div class="sysm-field">
+                <label class="sysm-lbl">Horas semanales <span class="sysm-newtag">NUEVO — todos</span></label>
+                <div class="sysm-sel sysm-sel-on">
+                  <span style="color:#fff">40 horas</span>
+                  <span style="font-size:10px;color:#3b82f6;white-space:nowrap">+ crear ▼</span>
+                </div>
+              </div>
+              <div class="sysm-field">
+                <label class="sysm-lbl">Colación (min)</label>
+                <div class="sysm-inp">30</div>
+              </div>
+            </div>
+            <div class="sysm-field">
+              <label class="sysm-lbl">Días de trabajo <span class="sysm-newtag">NUEVO</span></label>
+              <div class="sysm-days">
+                <div class="sysm-day sysm-day-on">L</div>
+                <div class="sysm-day sysm-day-on">M</div>
+                <div class="sysm-day sysm-day-on">X</div>
+                <div class="sysm-day sysm-day-on">J</div>
+                <div class="sysm-day sysm-day-on">V</div>
+                <div class="sysm-day">S</div>
+                <div class="sysm-day">D</div>
+              </div>
+              <div class="sysm-hint"><span class="sysm-hint-dot"></span>Multi-select toggle. Por defecto L–V para jornada Completa.</div>
+            </div>
+            <div style="margin-top:4px;padding:10px 12px;background:#27272a;border:1px dashed #3f3f46;border-radius:8px">
+              <span style="font-size:11px;color:#52525b;font-style:italic">Para tipo <strong style="color:#3f3f46">Turnos rotativos</strong>: se despliega UI adicional con hasta 3 alternativas + opciones predefinidas (Mañana / Tarde / Noche)</span>
+            </div>
+          </div>
+          <div class="sysm-ftr">
+            <button class="sysm-btn sysm-btn-outline">← Atrás</button>
+            <div class="sysm-ftr-r">
+              <button class="sysm-btn sysm-btn-ghost">Cancelar</button>
+              <button class="sysm-btn sysm-btn-solid">Siguiente →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mkp-ann-panel">
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Días toggle</div>
+          <div class="mkp-ann-body">Array <code>dias_trabajo: string[]</code>. Guardado en <code>JornadaLaboral</code>. Default L–V para jornada Completa.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">▲ Horas (todos)</div>
+          <div class="mkp-ann-body">Antes solo para jornada Parcial. Ahora visible en Completa, Part time y Turnos.</div>
+        </div>
+        <div class="mkp-ann-item">
+          <div class="mkp-ann-title">Turnos (sin cambio)</div>
+          <div class="mkp-ann-body">UI de turnos rotativos: oculta hasta seleccionar ese tipo de jornada.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="section" id="risks">
+  <div class="section-label">Sección 5</div>
+  <h2>Tabla de Riesgos</h2>
+
+  <table class="risk-table">
+    <thead>
+      <tr>
+        <th style="width:28%">Riesgo</th>
+        <th style="width:12%">Probabilidad</th>
+        <th style="width:60%">Mitigación</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cálculo de fecha_termino incorrecto</strong> en meses que cambian de año o en meses con diferente número de días (ej. 31 enero + 1 mes = ?)</td>
+        <td><span class="prob-med">MEDIA</span></td>
+        <td>Usar <code>date-fns addMonths()</code> en lugar de lógica manual. Agregar tests con casos borde: ene→feb, dic→ene, año bisiesto. Validar también en backend (<code>ContratoTrabajadorWriteSerializer</code>).</td>
+      </tr>
+      <tr>
+        <td><strong>Catálogo de cargos vacío</strong> en empresas nuevas sin contratos previos: el SelectCreatable no muestra sugerencias</td>
+        <td><span class="prob-high">ALTA</span></td>
+        <td>El campo siempre debe admitir creación libre (<code>isCreatable=true</code>) independientemente de si hay opciones. El catálogo crece con el uso. Documentar al equipo de soporte.</td>
+      </tr>
+      <tr>
+        <td><strong>Regresión en selección de trabajador</strong>: al cambiar el label de <code>{email}</code> a <code>{RUT}</code>, usuarios sin RUT registrado quedarían sin identificador visible</td>
+        <td><span class="prob-med">MEDIA</span></td>
+        <td>Usar RUT como primer fallback, luego email: <code>`${nombre} - ${rut ?? email}`</code>. Verificar en UI que ninguna opción quede vacía.</td>
+      </tr>
+      <tr>
+        <td><strong>Empresa sin email de contacto</strong> configurado al momento de enviar al empleador (campo vacío en BD)</td>
+        <td><span class="prob-med">MEDIA</span></td>
+        <td>En backend, antes de enviar: validar que <code>empresa.email_contacto</code> no sea nulo. Si está vacío, retornar advertencia en respuesta (no error 400). En frontend, mostrar alerta informativa.</td>
+      </tr>
+      <tr>
+        <td><strong>Conflicto de migración</strong> al agregar campos JSON null en tabla con muchos registros en producción PostgreSQL</td>
+        <td><span class="prob-low">BAJA</span></td>
+        <td>Todos los nuevos campos usan <code>null=True, blank=True, default=list/None</code>. La migración no bloquea tabla. Hacer backup previo en producción. Probar en staging primero.</td>
+      </tr>
+      <tr>
+        <td><strong>Estado del wizard no persiste</strong> la dirección de sucursal entre pasos si el usuario navega hacia atrás y cambia la sucursal</td>
+        <td><span class="prob-med">MEDIA</span></td>
+        <td>En <code>StepTerminosLaborales</code>, usar <code>useEffect</code> que observe <code>formik.values.trab_sucursal_id</code>: si cambia y <code>lugar_trabajo</code> aún coincide con la dirección anterior, actualizarlo. Si el usuario lo editó manualmente, no sobreescribir.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SNIPPETS ═════════════════════════════ -->
+<div class="section" id="snippets">
+  <div class="section-label">Sección 6</div>
+  <h2>Snippets de Funciones Críticas</h2>
+
+  <!-- ── 1. Backend modelos ── -->
+  <h3>1 · Nuevos campos en <code>ContratoTrabajador</code> y modelos</h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">Python · Django ORM</span>
+      <span class="code-file">backend/rrhh/models.py</span>
+    </div>
+    <pre><span class="cmt"># Agregar al final de ContratoTrabajador, antes de class Meta</span>
+
+    <span class="cmt"># ── Nuevos campos (Fase A) ──</span>
+    <span class="var">dias_semana</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">JSONField</span>(
+        blank<span class="op">=</span><span class="dec">True</span>, null<span class="op">=</span><span class="dec">True</span>, default<span class="op">=</span>list,
+        help_text<span class="op">=</span><span class="str">"Lista de días: ['lunes','martes',...] "</span>
+    )
+    <span class="var">turnos_detalle</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">JSONField</span>(
+        blank<span class="op">=</span><span class="dec">True</span>, null<span class="op">=</span><span class="dec">True</span>, default<span class="op">=</span>list,
+        help_text<span class="op">=</span><span class="str">"Hasta 3 alternativas: [{nombre, hora_entrada, hora_salida}]"</span>
+    )
+    <span class="var">cantidad_meses</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">PositiveSmallIntegerField</span>(
+        blank<span class="op">=</span><span class="dec">True</span>, null<span class="op">=</span><span class="dec">True</span>,
+        help_text<span class="op">=</span><span class="str">"Solo para plazo_fijo. fecha_termino se calcula en frontend."</span>
+    )
+
+
+<span class="cmt"># ── Nuevos modelos ────────────────────────────────────────────────────────────</span>
+
+<span class="kw">class</span> <span class="cls">CargoCatalogo</span>(<span class="cls">ModeloBase</span>):
+    <span class="str">"""Catálogo de cargos por empresa. Crece con el uso del selector."""</span>
+
+    <span class="var">empresa</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">ForeignKey</span>(
+        <span class="str">"empresas.Empresa"</span>,
+        on_delete<span class="op">=</span>models.CASCADE,
+        related_name<span class="op">=</span><span class="str">"cargos_catalogo"</span>,
+    )
+    <span class="var">nombre</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">CharField</span>(max_length<span class="op">=</span><span class="num">150</span>)
+    <span class="var">activo</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">BooleanField</span>(default<span class="op">=</span><span class="dec">True</span>)
+
+    <span class="kw">class</span> <span class="cls">Meta</span>:
+        unique_together <span class="op">=</span> [(<span class="str">"empresa"</span>, <span class="str">"nombre"</span>)]
+        ordering <span class="op">=</span> [<span class="str">"nombre"</span>]
+
+    <span class="kw">def</span> <span class="fn">__str__</span>(<span class="var">self</span>):
+        <span class="kw">return</span> <span class="var">self</span>.nombre
+
+
+<span class="kw">class</span> <span class="cls">TurnoPredefinido</span>(<span class="cls">ModeloBase</span>):
+    <span class="str">"""Turnos estándar administrables. Seed: Mañana / Tarde / Noche."""</span>
+
+    <span class="var">empresa</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">ForeignKey</span>(
+        <span class="str">"empresas.Empresa"</span>,
+        on_delete<span class="op">=</span>models.CASCADE,
+        related_name<span class="op">=</span><span class="str">"turnos_predefinidos"</span>,
+        null<span class="op">=</span><span class="dec">True</span>, blank<span class="op">=</span><span class="dec">True</span>,
+        help_text<span class="op">=</span><span class="str">"Null = global para todas las empresas"</span>
+    )
+    <span class="var">nombre</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">CharField</span>(max_length<span class="op">=</span><span class="num">100</span>)       <span class="cmt"># "Turno Mañana"</span>
+    <span class="var">hora_entrada</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">TimeField</span>()                <span class="cmt"># 07:00</span>
+    <span class="var">hora_salida</span>  <span class="op">=</span> <span class="var">models</span>.<span class="fn">TimeField</span>()                <span class="cmt"># 15:00</span>
+    <span class="var">activo</span> <span class="op">=</span> <span class="var">models</span>.<span class="fn">BooleanField</span>(default<span class="op">=</span><span class="dec">True</span>)
+
+    <span class="kw">class</span> <span class="cls">Meta</span>:
+        ordering <span class="op">=</span> [<span class="str">"hora_entrada"</span>]</pre>
+  </div>
+
+  <!-- ── 2. Backend views enviar_al_empleador ── -->
+  <h3>2 · Lógica <code>enviar_al_empleador</code> en el ViewSet</h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">Python · DRF ViewSet</span>
+      <span class="code-file">backend/rrhh/views.py — acción crear_con_trabajador</span>
+    </div>
+    <pre><span class="dec">@action</span>(detail<span class="op">=</span><span class="dec">False</span>, methods<span class="op">=</span>[<span class="str">"post"</span>], url_path<span class="op">=</span><span class="str">"crear-con-trabajador"</span>)
+<span class="kw">def</span> <span class="fn">crear_con_trabajador</span>(<span class="var">self</span>, <span class="var">request</span>):
+    <span class="var">ser</span> <span class="op">=</span> <span class="cls">CrearContratoConTrabajadorSerializer</span>(data<span class="op">=</span><span class="var">request</span>.data)
+    <span class="var">ser</span>.<span class="fn">is_valid</span>(raise_exception<span class="op">=</span><span class="dec">True</span>)
+    <span class="var">data</span> <span class="op">=</span> <span class="var">ser</span>.validated_data
+
+    <span class="cmt"># ── 1. Obtener o crear UsuarioEmpresa ─────────────────────────────</span>
+    <span class="kw">with</span> <span class="fn">transaction.atomic</span>():
+        <span class="var">ue</span>, <span class="var">empresa_cliente</span> <span class="op">=</span> <span class="fn">_resolver_usuario_empresa</span>(
+            <span class="var">data</span>[<span class="str">"trabajador"</span>], <span class="var">request</span>.user
+        )
+
+        <span class="cmt"># ── 2. Crear contrato ─────────────────────────────────────────────</span>
+        <span class="var">contrato_data</span> <span class="op">=</span> {<span class="op">**</span><span class="var">data</span>[<span class="str">"contrato"</span>], <span class="str">"usuario_empresa"</span>: <span class="var">ue</span>}
+        <span class="var">contrato_ser</span> <span class="op">=</span> <span class="cls">ContratoTrabajadorWriteSerializer</span>(data<span class="op">=</span><span class="var">contrato_data</span>)
+        <span class="var">contrato_ser</span>.<span class="fn">is_valid</span>(raise_exception<span class="op">=</span><span class="dec">True</span>)
+        <span class="var">contrato</span> <span class="op">=</span> <span class="var">contrato_ser</span>.<span class="fn">save</span>(creado_por<span class="op">=</span><span class="var">request</span>.user)
+
+        <span class="cmt"># ── 3. Notificar al empleador si corresponde ──────────────────────</span>
+        <span class="var">enviar</span> <span class="op">=</span> <span class="var">data</span>.<span class="fn">get</span>(<span class="str">"enviar_al_empleador"</span>, <span class="dec">True</span>)
+        <span class="var">invitacion_enviada</span> <span class="op">=</span> <span class="dec">False</span>
+        <span class="kw">if</span> <span class="var">enviar</span> <span class="kw">and</span> <span class="var">empresa_cliente</span>:
+            <span class="var">email_destino</span> <span class="op">=</span> <span class="fn">getattr</span>(<span class="var">empresa_cliente</span>, <span class="str">"email_contacto"</span>, <span class="dec">None</span>)
+            <span class="kw">if</span> <span class="var">email_destino</span>:
+                <span class="fn">send_contrato_al_empleador</span>.<span class="fn">delay</span>(   <span class="cmt"># Celery task</span>
+                    contrato_id<span class="op">=</span><span class="var">contrato</span>.id,
+                    email_destino<span class="op">=</span><span class="var">email_destino</span>,
+                )
+                <span class="var">invitacion_enviada</span> <span class="op">=</span> <span class="dec">True</span>
+
+    <span class="var">resp_ser</span> <span class="op">=</span> <span class="cls">ContratoTrabajadorSerializer</span>(<span class="var">contrato</span>)
+    <span class="kw">return</span> <span class="cls">Response</span>({
+        <span class="op">**</span><span class="var">resp_ser</span>.data,
+        <span class="str">"invitacion_enviada"</span>: <span class="var">invitacion_enviada</span>,
+    }, status<span class="op">=</span>status.<span class="dec">HTTP_201_CREATED</span>)</pre>
+  </div>
+
+  <!-- ── 3. StepTrabajador label RUT ── -->
+  <h3>3 · Label selector trabajador y checkbox empleador</h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">TypeScript · React</span>
+      <span class="code-file">frontend/src/pages/RRHH/components/trabajador/StepTrabajador.tsx</span>
+    </div>
+    <pre><span class="cmt">// ── Label con Nombre + RUT (con fallback a email) ─────────────────────────────</span>
+<span class="kw">const</span> <span class="var">usuariosOpts</span>: <span class="typ">TSelectOption</span>[] <span class="op">=</span> <span class="var">usuariosCliente</span>.<span class="fn">map</span>((<span class="var">u</span>) <span class="op">=></span> ({
+    value: <span class="cls">String</span>(<span class="var">u</span>.id),
+    label: <span class="str">`${u.nombre_usuario} - ${u.rut_usuario ?? u.email_usuario}`</span>,
+}));
+
+<span class="cmt">// ── Checkbox "Enviar al empleador" con SweetAlert ─────────────────────────────</span>
+<span class="kw">const</span> <span class="fn">handleEnviarEmpleadorChange</span> <span class="op">=</span> <span class="kw">async</span> (<span class="var">checked</span>: <span class="typ">boolean</span>) <span class="op">=></span> {
+    <span class="kw">if</span> (!<span class="var">checked</span>) {
+        <span class="kw">const</span> <span class="var">result</span> <span class="op">=</span> <span class="kw">await</span> <span class="cls">Swal</span>.<span class="fn">fire</span>({
+            title: <span class="str">'¿Confirmar?'</span>,
+            text: <span class="str">'El contrato no será comunicado automáticamente al empleador.'</span>,
+            icon: <span class="str">'warning'</span>,
+            showCancelButton: <span class="dec">true</span>,
+            confirmButtonText: <span class="str">'Sí, no enviar'</span>,
+            cancelButtonText: <span class="str">'Cancelar'</span>,
+            background: <span class="str">'#16161f'</span>,
+            color: <span class="str">'#ddddf0'</span>,
+        });
+        <span class="kw">if</span> (!<span class="var">result</span>.isConfirmed) <span class="kw">return</span>;  <span class="cmt">// Mantener marcado</span>
+    }
+    <span class="fn">setFieldValue</span>(<span class="str">'enviar_al_empleador'</span>, <span class="var">checked</span>);
+};
+
+<span class="cmt">// ── Render checkbox ────────────────────────────────────────────────────────────</span>
+<span class="kw">const</span> <span class="var">emailEmpleador</span> <span class="op">=</span> <span class="var">relacionSeleccionada</span>?.<span class="var">info_cliente</span>?.<span class="var">email_contacto</span>;
+
+<span class="op">&lt;</span><span class="cls">Checkbox</span>
+    id<span class="op">=</span><span class="str">"enviar_al_empleador"</span>
+    name<span class="op">=</span><span class="str">"enviar_al_empleador"</span>
+    checked<span class="op">=</span>{<span class="var">values</span>.enviar_al_empleador}
+    onChange<span class="op">=</span>{(<span class="var">e</span>) <span class="op">=></span> <span class="fn">handleEnviarEmpleadorChange</span>(<span class="var">e</span>.target.checked)}
+    label<span class="op">=</span>{
+        <span class="op">&lt;</span>span<span class="op">&gt;</span>
+            Enviar al empleador
+            {<span class="var">emailEmpleador</span> <span class="op">&amp;&amp;</span> (
+                <span class="op">&lt;</span>span className<span class="op">=</span><span class="str">"text-xs text-zinc-400 ml-2"</span><span class="op">&gt;</span>
+                    ({<span class="var">emailEmpleador</span>})
+                <span class="op">&lt;</span>/span<span class="op">&gt;</span>
+            )}
+        <span class="op">&lt;</span>/span<span class="op">&gt;</span>
+    }
+/<span class="op">&gt;</span></pre>
+  </div>
+
+  <!-- ── 4. Cálculo fecha_termino ── -->
+  <h3>4 · Cálculo automático de <code>fecha_termino</code> desde <code>cantidad_meses</code></h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">TypeScript · React</span>
+      <span class="code-file">frontend/src/pages/RRHH/components/trabajador/StepTerminosLaborales.tsx</span>
+    </div>
+    <pre><span class="kw">import</span> { <span class="fn">addMonths</span>, <span class="fn">format</span>, <span class="fn">parseISO</span> } <span class="kw">from</span> <span class="str">'date-fns'</span>;
+
+<span class="cmt">// ── Función pura, testeable ────────────────────────────────────────────────────</span>
+<span class="kw">const</span> <span class="fn">calcularFechaTermino</span> <span class="op">=</span> (
+    <span class="var">fechaInicio</span>: <span class="typ">string</span>,
+    <span class="var">meses</span>: <span class="typ">number</span>
+): <span class="typ">string</span> <span class="op">=></span> {
+    <span class="kw">const</span> <span class="var">base</span> <span class="op">=</span> <span class="fn">parseISO</span>(<span class="var">fechaInicio</span>);
+    <span class="kw">const</span> <span class="var">resultado</span> <span class="op">=</span> <span class="fn">addMonths</span>(<span class="var">base</span>, <span class="var">meses</span>);
+    <span class="kw">return</span> <span class="fn">format</span>(<span class="var">resultado</span>, <span class="str">'yyyy-MM-dd'</span>);  <span class="cmt">// ISO para el campo date</span>
+};
+
+<span class="cmt">// ── Opciones del selector (1-24 meses) ────────────────────────────────────────</span>
+<span class="kw">const</span> <span class="var">MESES_OPTS</span>: <span class="typ">TSelectOption</span>[] <span class="op">=</span> <span class="cls">Array</span>.<span class="fn">from</span>({ length: <span class="num">24</span> }, (<span class="var">_</span>, <span class="var">i</span>) <span class="op">=></span> ({
+    value: <span class="cls">String</span>(<span class="var">i</span> <span class="op">+</span> <span class="num">1</span>),
+    label: <span class="var">i</span> <span class="op">+</span> <span class="num">1</span> <span class="op">===</span> <span class="num">1</span> ? <span class="str">'1 mes'</span> : <span class="str">`${i + 1} meses`</span>,
+}));
+
+<span class="cmt">// ── En el componente, cuando cambia cantidad_meses ────────────────────────────</span>
+{<span class="var">values</span>.tipo_contrato <span class="op">===</span> <span class="str">'plazo_fijo'</span> <span class="op">&amp;&amp;</span> (
+    <span class="op">&lt;</span><span class="cls">SelectReact</span>
+        name<span class="op">=</span><span class="str">"cantidad_meses"</span>
+        options<span class="op">=</span>{<span class="var">MESES_OPTS</span>}
+        isCreatable          <span class="cmt">// permite ingresar número personalizado</span>
+        placeholder<span class="op">=</span><span class="str">"Duración en meses"</span>
+        value<span class="op">=</span>{<span class="var">MESES_OPTS</span>.<span class="fn">find</span>((<span class="var">o</span>) <span class="op">=></span> <span class="var">o</span>.value <span class="op">===</span> <span class="cls">String</span>(<span class="var">values</span>.cantidad_meses)) <span class="op">??</span> <span class="dec">null</span>}
+        onChange<span class="op">=</span>{(<span class="var">opt</span>) <span class="op">=></span> {
+            <span class="kw">const</span> <span class="var">meses</span> <span class="op">=</span> <span class="cls">Number</span>((<span class="var">opt</span> <span class="kw">as</span> <span class="typ">TSelectOption</span>)?.value);
+            <span class="fn">setFieldValue</span>(<span class="str">'cantidad_meses'</span>, <span class="var">meses</span>);
+            <span class="kw">if</span> (<span class="var">values</span>.fecha_inicio <span class="op">&amp;&amp;</span> <span class="var">meses</span>) {
+                <span class="fn">setFieldValue</span>(
+                    <span class="str">'fecha_termino'</span>,
+                    <span class="fn">calcularFechaTermino</span>(<span class="var">values</span>.fecha_inicio, <span class="var">meses</span>)
+                );
+            }
+        }}
+    /<span class="op">&gt;</span>
+)}</pre>
+  </div>
+
+  <!-- ── 5. Selector días de semana ── -->
+  <h3>5 · Selector multi-días de semana en <code>StepJornada</code></h3>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">TypeScript · React</span>
+      <span class="code-file">frontend/src/pages/RRHH/components/trabajador/StepJornada.tsx</span>
+    </div>
+    <pre><span class="kw">const</span> <span class="var">DIAS_SEMANA</span> <span class="op">=</span> [
+    { key: <span class="str">'lunes'</span>,     label: <span class="str">'L'</span> },
+    { key: <span class="str">'martes'</span>,    label: <span class="str">'M'</span> },
+    { key: <span class="str">'miercoles'</span>, label: <span class="str">'X'</span> },
+    { key: <span class="str">'jueves'</span>,    label: <span class="str">'J'</span> },
+    { key: <span class="str">'viernes'</span>,   label: <span class="str">'V'</span> },
+    { key: <span class="str">'sabado'</span>,    label: <span class="str">'S'</span> },
+    { key: <span class="str">'domingo'</span>,   label: <span class="str">'D'</span> },
+] <span class="kw">as</span> <span class="kw">const</span>;
+
+<span class="cmt">// ── En el componente ──────────────────────────────────────────────────────────</span>
+<span class="kw">const</span> <span class="var">diasActuales</span>: <span class="typ">string</span>[] <span class="op">=</span> <span class="var">values</span>.dias_semana ?? [];
+
+<span class="kw">const</span> <span class="fn">toggleDia</span> <span class="op">=</span> (<span class="var">key</span>: <span class="typ">string</span>) <span class="op">=></span> {
+    <span class="kw">const</span> <span class="var">next</span> <span class="op">=</span> <span class="var">diasActuales</span>.<span class="fn">includes</span>(<span class="var">key</span>)
+        ? <span class="var">diasActuales</span>.<span class="fn">filter</span>((<span class="var">d</span>) <span class="op">=></span> <span class="var">d</span> <span class="op">!==</span> <span class="var">key</span>)
+        : [...<span class="var">diasActuales</span>, <span class="var">key</span>];
+    <span class="fn">setFieldValue</span>(<span class="str">'dias_semana'</span>, <span class="var">next</span>);
+};
+
+<span class="cmt">// ── JSX ───────────────────────────────────────────────────────────────────────</span>
+<span class="op">&lt;</span>div className<span class="op">=</span><span class="str">"flex gap-2"</span><span class="op">&gt;</span>
+    {<span class="var">DIAS_SEMANA</span>.<span class="fn">map</span>(({ key, label }) <span class="op">=></span> (
+        <span class="op">&lt;</span>button
+            key<span class="op">=</span>{key}
+            type<span class="op">=</span><span class="str">"button"</span>
+            onClick<span class="op">=</span>{() <span class="op">=></span> <span class="fn">toggleDia</span>(key)}
+            className<span class="op">=</span>{<span class="fn">classNames</span>(
+                <span class="str">'w-9 h-9 rounded-full border-2 text-xs font-bold transition-all'</span>,
+                <span class="var">diasActuales</span>.<span class="fn">includes</span>(key)
+                    ? <span class="str">'border-blue-500 bg-blue-500/20 text-blue-400'</span>
+                    : <span class="str">'border-zinc-700 text-zinc-500 hover:border-zinc-500'</span>
+            )}<span class="op">&gt;</span>
+            {label}
+        <span class="op">&lt;</span>/button<span class="op">&gt;</span>
+    ))}
+<span class="op">&lt;</span>/div<span class="op">&gt;</span></pre>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ CHECKLIST ═════════════════════════════ -->
+<div class="section" id="checklist">
+  <div class="section-label">Sección 7</div>
+  <h2>Checklist de Verificación Final</h2>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:12px">Backend</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:7px">
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> Migración sin errores: <code>makemigrations rrhh</code></li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> <code>GET /api/rrhh/cargos-catalogo/</code> retorna 200</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> <code>GET /api/rrhh/turnos-predefinidos/</code> retorna seed</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> <code>crear-con-trabajador</code> acepta <code>enviar_al_empleador</code></li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> Modo nuevo acepta <code>empresa_cliente_id</code></li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> Campos <code>dias_semana</code>, <code>turnos_detalle</code>, <code>cantidad_meses</code> serializados</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--green);flex-shrink:0">□</span> Multi-tenancy: filtro por empresa activo en nuevos ViewSets</li>
+      </ul>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:12px">Frontend — Funcional</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:7px">
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Selector trabajador muestra "Nombre - RUT"</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Desmarcar "Enviar al empleador" → SweetAlert aparece</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Plazo fijo 3 meses desde 01/06/2026 → termino 01/09/2026</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Cambiar sucursal en Paso 2 → lugar_trabajo se actualiza en Paso 3</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Modo nuevo: Empresa aparece antes de Sucursal</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Jornada completa: aparece selector horas + días semana</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Turnos rotativos: UI de hasta 3 alternativas disponible</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--accent);flex-shrink:0">□</span> Cargo: selector con opción de crear nuevo</li>
+      </ul>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);margin-bottom:12px">Calidad</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:7px">
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> <code>npm run lint</code> → 0 errores</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> <code>npm run build</code> → sin errores TypeScript</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> <code>npm run prettier:fix</code> aplicado</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> Sin caracteres mojibake en archivos modificados</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> Probar flujo completo modo existente end-to-end</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> Probar flujo completo modo nuevo end-to-end</li>
+        <li style="font-size:12px;display:flex;gap:8px;align-items:flex-start"><span style="color:var(--amber);flex-shrink:0">□</span> Verificar invalidación RTK: lista de contratos actualiza tras crear</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ FOOTER ═══════════════════════════════ -->
+<div style="margin-top:60px;padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+  <div style="font-size:12px;color:var(--text-dim)">ERP Snabbit · RRHH · Plan de Implementación · 22 mayo 2026</div>
+  <div style="display:flex;gap:12px">
+    <span style="font-size:11px;color:var(--text-dim)">Backend: Django 5.1 + DRF</span>
+    <span style="font-size:11px;color:var(--text-dim)">·</span>
+    <span style="font-size:11px;color:var(--text-dim)">Frontend: React 18 + RTK Query</span>
+  </div>
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

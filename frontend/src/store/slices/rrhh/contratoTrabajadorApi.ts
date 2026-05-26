@@ -1,10 +1,7 @@
 import type {
     IContratoTrabajador,
-    IContratoTrabajadorPublicoFirma,
     ICrearContratoConTrabajadorPayload,
     ICrearContratoConTrabajadorResponse,
-    IEnviarFirmaContratoTrabajadorResponse,
-    IFirmarContratoTrabajadorPublicoPayload,
     TEstadoContrato,
     TMotivoTerminoContrato,
 } from '@/interface/rrhh.interface';
@@ -15,6 +12,17 @@ const BASE = '/api/rrhh/contratos-trabajador';
 export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
     overrideExisting: import.meta.env.DEV,
     endpoints: (builder) => ({
+        getContratosTrabajador: builder.query<IContratoTrabajador[], void>({
+            query: () => ({ url: `${BASE}/`, method: 'get' }),
+            providesTags: (result) =>
+                result
+                    ? [
+                          { type: 'ContratoTrabajadorList' as const, id: 'LIST' },
+                          ...result.map((c) => ({ type: 'ContratoTrabajador' as const, id: c.id })),
+                      ]
+                    : [{ type: 'ContratoTrabajadorList' as const, id: 'LIST' }],
+        }),
+
         getContratosTrabajadorPorUsuarioEmpresa: builder.query<IContratoTrabajador[], number | string>({
             query: (usuarioEmpresaId) => ({
                 url: `${BASE}/?usuario_empresa=${usuarioEmpresaId}`,
@@ -126,44 +134,11 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador', id }],
         }),
-
-        enviarFirmaContratoTrabajador: builder.mutation<
-            IEnviarFirmaContratoTrabajadorResponse,
-            number | string
-        >({
-            query: (id) => ({
-                url: `${BASE}/${id}/enviar-firma/`,
-                method: 'post',
-            }),
-            invalidatesTags: (_r, _e, id) => [
-                { type: 'ContratoTrabajador', id },
-                { type: 'ContratoTrabajadorList', id: 'LIST' },
-            ],
-        }),
-
-        getContratoTrabajadorPublicoFirma: builder.query<IContratoTrabajadorPublicoFirma, string>({
-            query: (uuid) => ({
-                url: `/api/rrhh/public/contrato-trabajador-firma/${uuid}/`,
-                method: 'get',
-            }),
-            providesTags: (_r, _e, uuid) => [{ type: 'ContratoTrabajador', id: uuid }],
-        }),
-
-        firmarContratoTrabajadorPublico: builder.mutation<
-            IContratoTrabajadorPublicoFirma,
-            { uuid: string; data: IFirmarContratoTrabajadorPublicoPayload }
-        >({
-            query: ({ uuid, data }) => ({
-                url: `/api/rrhh/public/contrato-trabajador-firma/${uuid}/firmar/`,
-                method: 'patch',
-                data,
-            }),
-            invalidatesTags: (_r, _e, { uuid }) => [{ type: 'ContratoTrabajador', id: uuid }],
-        }),
     }),
 });
 
 export const {
+    useGetContratosTrabajadorQuery,
     useGetContratosTrabajadorPorUsuarioEmpresaQuery,
     useGetContratosTrabajadorPorEmpresaClienteQuery,
     useGetContratoTrabajadorDetalleQuery,
@@ -172,7 +147,4 @@ export const {
     useCambiarEstadoContratoTrabajadorMutation,
     useCrearContratoConTrabajadorMutation,
     useGenerarPdfContratoTrabajadorMutation,
-    useEnviarFirmaContratoTrabajadorMutation,
-    useGetContratoTrabajadorPublicoFirmaQuery,
-    useFirmarContratoTrabajadorPublicoMutation,
 } = contratoTrabajadorApi;

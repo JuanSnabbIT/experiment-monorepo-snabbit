@@ -10,7 +10,6 @@ export const TIPO_CONTRATO = [
     { value: 'licencia', label: 'Licenciamiento' },
     { value: 'venta', label: 'Venta' },
     { value: 'servicios', label: 'Servicios' },
-    { value: 'trabajador', label: 'Contrato laboral (trabajador)' },
 ];
 
 export const FRECUENCIA_VISITA = [

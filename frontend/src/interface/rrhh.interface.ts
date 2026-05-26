@@ -12,7 +12,6 @@ export type TJornadaContrato = 'completa' | 'parcial' | 'part_time' | 'turnos';
 export type TEstadoContrato =
     | 'borrador'
     | 'pendiente_aceptacion'
-    | 'en_firma'
     | 'vigente'
     | 'terminado'
     | 'anulado';
@@ -140,34 +139,4 @@ export interface ICrearContratoConTrabajadorResponse {
     contrato: IContratoTrabajador;
     usuario_empresa_id: number;
     invitacion_enviada: boolean;
-}
-
-export interface IEnviarFirmaContratoTrabajadorResponse {
-    uuid: string;
-    url_firma: string;
-    contrato: IContratoTrabajador;
-}
-
-export interface ISeccionContratoTrabajadorGenerada {
-    titulo: string;
-    contenido: string;
-    orden: number;
-}
-
-export interface IContratoTrabajadorPublicoFirma {
-    uuid: string;
-    puede_firmar: boolean;
-    firmado: boolean;
-    fecha_envio: string | null;
-    fecha_firma: string | null;
-    firma: string | null;
-    destinatario: { nombre: string; email: string } | null;
-    contrato: { datos_empresa?: { nombre?: string }; [key: string]: unknown };
-    secciones_generadas: ISeccionContratoTrabajadorGenerada[];
-}
-
-export interface IFirmarContratoTrabajadorPublicoPayload {
-    firma: string;
-    fecha_firma: string;
-    firmado: boolean;
 }

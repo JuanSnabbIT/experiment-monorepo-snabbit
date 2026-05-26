@@ -1,7 +1,5 @@
 """Modelos del modulo RRHH: contratos laborales y anexos."""
 
-from uuid import uuid4
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -76,6 +74,27 @@ class ContratoTrabajador(ModeloBaseHistorico):
     lugar_firma = models.CharField(max_length=255, blank=True, null=True)
     fecha_firma = models.DateField(blank=True, null=True)
 
+    # Campos adicionales de configuracion
+    enviar_al_empleador = models.BooleanField(
+        default=True,
+        help_text="Si es False, no se envia notificacion al empleador al crear el contrato.",
+    )
+    cantidad_meses = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        help_text="Duracion en meses para contratos a plazo fijo (informativo).",
+    )
+    dias_semana = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Dias de la semana trabajados. Ej: ['L','M','X','J','V'].",
+    )
+    turnos_rotativo = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Turnos rotativos. Lista de objetos con nombre, dias, hora_inicio, hora_fin.",
+    )
+
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
     fecha_aceptacion = models.DateTimeField(blank=True, null=True)
     aceptado_por = models.ForeignKey(
@@ -142,36 +161,22 @@ class AnexoContrato(ModeloBaseHistorico):
         return f"Anexo {self.tipo} ({self.fecha_efectiva}) - {self.contrato_id}"
 
 
-class EnvioContratoTrabajadorFirma(ModeloBase):
-    """Envio de un contrato laboral para firma publica del trabajador.
+class CargoCatalogo(ModeloBase):
+    """Catalogo de cargos por empresa para el asistente de contratos laborales."""
 
-    Modelo paralelo a `EnvioContratoFirmaUsuario` (B2B). Aislado por simplicidad:
-    el frontend reutiliza `ContratoFirmaExperience` mapeando el serializer al shape
-    comun `IContratoPublicoFirma`.
-    """
-
-    contrato = models.ForeignKey(
-        ContratoTrabajador,
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
         on_delete=models.CASCADE,
-        related_name="envios_firma",
+        related_name="cargos_catalogo",
     )
-    uuid = models.UUIDField(default=uuid4, unique=True, editable=False)
-
-    enviado = models.BooleanField(default=False)
-    fecha_envio = models.DateTimeField(blank=True, null=True)
-
-    firma = models.TextField(blank=True, default="")  # base64 imagen
-    firmado = models.BooleanField(default=False)
-    fecha_firma = models.DateTimeField(blank=True, null=True)
-    ip_respuesta = models.GenericIPAddressField(blank=True, null=True)
-
-    pdf_congelado = models.BinaryField(blank=True, null=True)
-    snapshot_contrato = models.JSONField(blank=True, null=True)
+    nombre = models.CharField(max_length=150)
+    activo = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = "Envio de contrato laboral para firma"
-        verbose_name_plural = "Envios de contratos laborales para firma"
-        ordering = ["-fecha_creacion"]
+        unique_together = [("empresa", "nombre")]
+        verbose_name = "Cargo del Catalogo"
+        verbose_name_plural = "Cargos del Catalogo"
+        ordering = ["nombre"]
 
     def __str__(self):
-        return f"EnvioFirmaTrabajador #{self.id} contrato={self.contrato_id} firmado={self.firmado}"
+        return self.nombre

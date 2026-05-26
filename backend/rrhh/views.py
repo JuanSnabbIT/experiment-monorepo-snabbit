@@ -1,30 +1,25 @@
 """ViewSets del modulo RRHH."""
 
-import json
 import os
 from datetime import timedelta
 
-from django.conf import settings
 from django.db import transaction
-from django.http import HttpResponse
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
-from contratos.flow_helpers import get_client_ip, validar_firma_imagen
 from core.models import PersonalizacionUsuario
 from core.tasks import send_email_task
 from cuentas.models import InvitacionEmpresa, User
 from empresas.models import RelacionEmpresa, SucursalEmpresa, UsuarioEmpresa
 
 from .estados_modelo import TRANSICIONES_CONTRATO
-from .models import ContratoTrabajador, EnvioContratoTrabajadorFirma
+from .models import CargoCatalogo, ContratoTrabajador
 from .serializers import (
+    CargoCatalogoSerializer,
     ContratoTrabajadorSerializer,
     ContratoTrabajadorWriteSerializer,
     CrearContratoConTrabajadorSerializer,
@@ -49,6 +44,23 @@ def _empresas_clientes_ids(empresa):
             tipo_relacion="prestador-cliente",
         ).values_list("cliente_id", flat=True)
     )
+
+
+class CargoCatalogoViewSet(viewsets.ModelViewSet):
+    """CRUD para el catalogo de cargos de la empresa."""
+
+    serializer_class = CargoCatalogoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        if not empresa:
+            return CargoCatalogo.objects.none()
+        return CargoCatalogo.objects.filter(empresa=empresa, activo=True)
+
+    def perform_create(self, serializer):
+        empresa = _empresa_actual(self.request)
+        serializer.save(empresa=empresa)
 
 
 class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
@@ -363,6 +375,30 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             ser.is_valid(raise_exception=True)
             contrato = ser.save(creado_por=request.user)
 
+        # Notificacion al empleador (empresa cliente) si corresponde
+        enviar_al_empleador = contrato_data.get("enviar_al_empleador", True)
+        if enviar_al_empleador:
+            try:
+                empresa_cliente = ue.sucursal.empresa if ue.sucursal_id else None
+                email_contacto = getattr(empresa_cliente, "email_contacto", None) if empresa_cliente else None
+                if email_contacto:
+                    nombre_trab = ue.usuario.get_full_name() if ue.usuario_id else "el trabajador"
+                    html_notif = (
+                        f"<p>Se ha creado un nuevo contrato laboral para <strong>{nombre_trab}</strong>.</p>"
+                        f"<p>Contrato: {contrato.nombre or contrato.get_tipo_contrato_display()}</p>"
+                        f"<p>Fecha de inicio: {contrato.fecha_inicio}</p>"
+                    )
+                    transaction.on_commit(
+                        lambda ec=email_contacto: send_email_task.delay(
+                            "Nuevo contrato laboral creado",
+                            [ec],
+                            html_notif,
+                            "Notificacion de Contrato",
+                        )
+                    )
+            except Exception:
+                pass  # No interrumpir la creacion por un fallo de notificacion
+
         return Response(
             {
                 "contrato": ContratoTrabajadorSerializer(contrato).data,
@@ -370,340 +406,4 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
                 "invitacion_enviada": invitacion_enviada,
             },
             status=status.HTTP_201_CREATED,
-        )
-
-    @action(detail=True, methods=["post"], url_path="enviar-firma")
-    def enviar_firma(self, request, pk=None):
-        """Envia el contrato laboral al trabajador para firma publica.
-
-        Transiciona el contrato a 'en_firma' y crea un ``EnvioContratoTrabajadorFirma``
-        con snapshot inmutable del documento. Devuelve la URL publica de firma.
-        """
-        from django.core.files.base import ContentFile
-
-        from contratos.models import PlantillaContrato
-        from contratos.adaptadores import AdaptadorContratoTrabajador
-        from contratos.motor_plantillas_v2 import generar_secciones_v2
-        from contratos.funciones_v2 import generar_contrato_pdf_v2
-
-        contrato = self.get_object()
-
-        if contrato.estado != "pendiente_aceptacion":
-            return Response(
-                {
-                    "detail": (
-                        "Solo se puede enviar a firma desde estado 'pendiente_aceptacion'. "
-                        f"Estado actual: '{contrato.estado}'."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Resolver plantilla si no esta asignada.
-        empresa = (
-            contrato.usuario_empresa.sucursal.empresa
-            if contrato.usuario_empresa and contrato.usuario_empresa.sucursal_id
-            else None
-        )
-        if not contrato.plantilla_contrato_id and empresa:
-            plantilla = PlantillaContrato.objects.filter(
-                empresa_prestadora=empresa,
-                tipo_contrato="trabajador",
-                es_default=True,
-                activa=True,
-            ).first()
-            if plantilla:
-                contrato.plantilla_contrato = plantilla
-                contrato.save(update_fields=["plantilla_contrato", "fecha_modificacion"])
-
-        # Generar/refrescar PDF si no existe.
-        if not contrato.archivo_pdf:
-            if not contrato.plantilla_contrato_id:
-                return Response(
-                    {"detail": "El contrato no tiene plantilla asignada. Genera el PDF primero."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            adaptador = AdaptadorContratoTrabajador(contrato)
-            generar_secciones_v2(adaptador)
-            pdf_bytes = generar_contrato_pdf_v2(adaptador)
-            contrato.archivo_pdf.save(
-                f"contrato_trabajador_{contrato.id}.pdf",
-                ContentFile(pdf_bytes),
-                save=True,
-            )
-
-        # Construir snapshot del contrato para inmutabilidad documental.
-        snapshot = _construir_snapshot_trabajador(contrato)
-
-        with transaction.atomic():
-            envio = EnvioContratoTrabajadorFirma.objects.create(
-                contrato=contrato,
-                enviado=True,
-                fecha_envio=timezone.now(),
-                snapshot_contrato=snapshot,
-                pdf_congelado=(
-                    contrato.archivo_pdf.read() if contrato.archivo_pdf else None
-                ),
-            )
-            contrato.estado = "en_firma"
-            contrato.save(update_fields=["estado", "fecha_modificacion"])
-
-        frontend_url = getattr(settings, "FRONTEND_URL", "").rstrip("/")
-        url_firma = f"{frontend_url}/contrato/public/firma-trabajador/{envio.uuid}/"
-
-        return Response(
-            {
-                "uuid": str(envio.uuid),
-                "url_firma": url_firma,
-                "contrato": ContratoTrabajadorSerializer(contrato).data,
-            },
-            status=status.HTTP_201_CREATED,
-        )
-
-
-# ---------------------------------------------------------------------------
-# Helper: construir snapshot del contrato trabajador para inmutabilidad
-# ---------------------------------------------------------------------------
-
-def _construir_snapshot_trabajador(contrato):
-    """Serializa los datos relevantes del contrato para el snapshot de firma."""
-    secciones_qs = contrato.secciones_generadas.order_by("orden") if hasattr(contrato, "secciones_generadas") else []
-    secciones = [
-        {
-            "id": s.id,
-            "titulo": s.titulo,
-            "contenido_renderizado": s.contenido_renderizado,
-            "orden": s.orden,
-        }
-        for s in secciones_qs
-    ]
-
-    ue = contrato.usuario_empresa
-    trabajador = ue.usuario if ue else None
-    empresa = ue.sucursal.empresa if ue and ue.sucursal_id else None
-
-    return {
-        "tipo_label": "Contrato Laboral",
-        "nombre": contrato.nombre or f"Contrato #{contrato.id}",
-        "fecha_inicio": contrato.fecha_inicio.isoformat() if contrato.fecha_inicio else None,
-        "fecha_termino": contrato.fecha_termino.isoformat() if contrato.fecha_termino else None,
-        "tipo_contrato_label": contrato.get_tipo_contrato_display(),
-        "cargo": contrato.cargo or "",
-        "sueldo_base": str(contrato.sueldo_base) if contrato.sueldo_base else None,
-        "sueldo_liquido": str(contrato.sueldo_liquido) if contrato.sueldo_liquido else None,
-        "moneda": contrato.moneda or "CLP",
-        "datos_empresa": {
-            "nombre": empresa.nombre if empresa else "",
-            "rut": empresa.rut if empresa else "",
-            "direccion": empresa.direccion if empresa else "",
-        },
-        "datos_trabajador": {
-            "nombre": trabajador.get_full_name() if trabajador else "",
-            "email": trabajador.email if trabajador else "",
-            "rut": ue.rut if ue else "",
-        },
-        "secciones_generadas": secciones,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Vistas publicas de firma laboral (sin autenticacion)
-# ---------------------------------------------------------------------------
-
-
-class PublicContratoTrabajadorFirmaDetailView(APIView):
-    """GET /api/public/contrato-trabajador-firma/<uuid:token>/
-
-    Retorna los datos necesarios para que el trabajador revise y firme
-    su contrato. El shape es compatible con ``IContratoPublicoFirma`` del
-    frontend para reutilizar ``ContratoFirmaExperience``.
-    """
-
-    permission_classes = [AllowAny]
-
-    def get(self, request, token):
-        try:
-            envio = EnvioContratoTrabajadorFirma.objects.select_related(
-                "contrato",
-                "contrato__usuario_empresa__usuario",
-                "contrato__usuario_empresa__sucursal__empresa",
-            ).get(uuid=token, enviado=True)
-        except EnvioContratoTrabajadorFirma.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o envio de firma no encontrado."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        contrato = envio.contrato
-        snapshot = envio.snapshot_contrato or {}
-
-        # Preferir secciones del snapshot (congelado al enviar) para integridad documental.
-        if snapshot.get("secciones_generadas"):
-            secciones_data = snapshot["secciones_generadas"]
-        else:
-            secciones_qs = contrato.secciones_generadas.order_by("orden") if hasattr(contrato, "secciones_generadas") else []
-            secciones_data = [
-                {
-                    "id": s.id,
-                    "titulo": s.titulo,
-                    "contenido_renderizado": s.contenido_renderizado,
-                    "orden": s.orden,
-                }
-                for s in secciones_qs
-            ]
-
-        ue = contrato.usuario_empresa
-        trabajador = ue.usuario if ue else None
-
-        data = {
-            "uuid": str(envio.uuid),
-            "puede_firmar": not envio.firmado and contrato.estado == "en_firma",
-            "firmado": envio.firmado,
-            "fecha_envio": envio.fecha_envio.isoformat() if envio.fecha_envio else None,
-            "fecha_emision": envio.fecha_envio.isoformat() if envio.fecha_envio else None,
-            "fecha_firma": envio.fecha_firma.isoformat() if envio.fecha_firma else None,
-            "firma": envio.firma or "",
-            "firma_prestadora_disponible": False,
-            "es_version_enviada": True,
-            "destinatario": {
-                "nombre": trabajador.get_full_name() if trabajador else "",
-                "email": trabajador.email if trabajador else "",
-            },
-            "contrato": snapshot,
-            "secciones_generadas": secciones_data,
-        }
-        return Response(data)
-
-
-class PublicContratoTrabajadorFirmaPDFView(APIView):
-    """GET /api/public/contrato-trabajador-firma/<uuid:token>/pdf/
-
-    Sirve el PDF congelado del envio de firma.
-    """
-
-    permission_classes = [AllowAny]
-
-    def get(self, request, token):
-        try:
-            envio = EnvioContratoTrabajadorFirma.objects.get(uuid=token, enviado=True)
-        except EnvioContratoTrabajadorFirma.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o envio de firma no encontrado."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if not envio.pdf_congelado:
-            return Response(
-                {"detail": "PDF no disponible para este envio."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        pdf_bytes = bytes(envio.pdf_congelado)
-        response = HttpResponse(pdf_bytes, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'inline; filename="contrato_laboral_{envio.contrato_id}.pdf"'
-        )
-        return response
-
-
-class PublicFirmarContratoTrabajadorView(APIView):
-    """PATCH /api/public/contrato-trabajador-firma/<uuid:token>/firmar/
-
-    Recibe la firma del trabajador, la persiste, y transiciona el contrato
-    a estado 'vigente'.
-
-    Payload requerido::
-
-        {
-            "firma": "<base64 de imagen>",
-            "fecha_firma": "<ISO datetime>",
-            "firmado": true
-        }
-    """
-
-    permission_classes = [AllowAny]
-
-    def patch(self, request, token):
-        try:
-            envio = EnvioContratoTrabajadorFirma.objects.select_related("contrato").get(
-                uuid=token, enviado=True
-            )
-        except EnvioContratoTrabajadorFirma.DoesNotExist:
-            return Response(
-                {"detail": "Token no valido o envio de firma no encontrado."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if envio.firmado:
-            return Response(
-                {"detail": "Este enlace ya fue utilizado para firmar."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if envio.contrato.estado != "en_firma":
-            return Response(
-                {
-                    "detail": "El contrato no esta disponible para firma.",
-                    "estado_actual": envio.contrato.estado,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        payload = request.data
-        if not isinstance(payload, dict):
-            try:
-                payload = json.loads(request.body.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                payload = {}
-
-        firma_value = payload.get("firma")
-        fecha_firma_str = payload.get("fecha_firma")
-        firmado_value = payload.get("firmado")
-
-        if firma_value is None or fecha_firma_str is None or firmado_value is None:
-            return Response(
-                {"detail": 'Se requieren los campos "firma", "fecha_firma" y "firmado".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        fecha_firma = parse_datetime(fecha_firma_str)
-        if fecha_firma is None:
-            return Response(
-                {"detail": '"fecha_firma" no es un datetime ISO valido.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            firma_normalizada = validar_firma_imagen(firma_value)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            envio.firma = firma_normalizada
-            envio.fecha_firma = fecha_firma
-            envio.firmado = bool(firmado_value)
-            envio.ip_respuesta = get_client_ip(request)
-            envio.save(update_fields=["firma", "fecha_firma", "firmado", "ip_respuesta"])
-
-            contrato = envio.contrato
-            contrato.estado = "vigente"
-            contrato.fecha_aceptacion = timezone.now()
-
-            # Sincronizar datos al UsuarioEmpresa.
-            ue = contrato.usuario_empresa
-            if contrato.cargo:
-                ue.cargo = contrato.cargo
-            if contrato.fecha_inicio and not ue.fecha_contrato:
-                ue.fecha_contrato = contrato.fecha_inicio
-            ue.save(update_fields=["cargo", "fecha_contrato"])
-
-            contrato.save(update_fields=["estado", "fecha_aceptacion", "fecha_modificacion"])
-
-        return Response(
-            {
-                "uuid": str(envio.uuid),
-                "firmado": envio.firmado,
-                "fecha_firma": envio.fecha_firma.isoformat(),
-            },
-            status=status.HTTP_200_OK,
         )

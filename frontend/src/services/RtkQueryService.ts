@@ -127,6 +127,7 @@ const RtkQueryService = createApi({
         'PrefacturaOTV3',
         'ContratoTrabajador',
         'ContratoTrabajadorList',
+        'CargoCatalogo',
     ] as const,
     endpoints: () => ({}),
 });

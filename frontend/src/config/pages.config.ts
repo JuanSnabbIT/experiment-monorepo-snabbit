@@ -83,13 +83,6 @@ export const authPages = {
         icon: 'HeroDocumentText',
         authority: [],
     },
-    firmarContratoTrabajadorPublico: {
-        id: 'firmarContratoTrabajadorPublico',
-        to: '/contrato/public/firma-trabajador/:uuid',
-        text: 'Firmar Contrato Trabajador',
-        icon: 'HeroDocumentCheck',
-        authority: [],
-    },
 };
 
 export const Pages = {
@@ -162,13 +155,6 @@ export const Pages = {
                 text: 'Detalle Contrato',
                 icon: 'HeroDocumentDuplicate',
                 authority: ['staff', 'superadmin'],
-            },
-            detalleContratoTrabajador: {
-                id: 'detalleContratoTrabajador',
-                to: '/rrhh/contrato-trabajador/:contratoId',
-                text: 'Detalle Contrato Trabajador',
-                icon: 'HeroDocumentCheck',
-                authority: ['staff', 'superadmin', 'rrhh'],
             },
             previewFirmaContrato: {
                 id: 'previewFirmaContrato',
@@ -593,6 +579,44 @@ export const Pages = {
                 text: 'Detalle Plantilla',
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin'],
+            },
+            listaPlantillasContratoV2: {
+                id: 'listaPlantillasContratoV2',
+                to: '/registros/plantillas-contrato-v2',
+                text: 'Plantillas de Contrato v2',
+                icon: 'HeroDocumentMagnifyingGlass',
+                authority: ['staff', 'superadmin'],
+            },
+            editorPlantillaContratoV2: {
+                id: 'editorPlantillaContratoV2',
+                to: '/registros/plantillas-contrato-v2/:plantillaId',
+                text: 'Editor de Plantilla v2',
+                icon: 'HeroDocument',
+                authority: ['staff', 'superadmin'],
+            },
+        },
+    },
+
+    rrhh: {
+        id: 'rrhh',
+        to: '/rrhh',
+        text: 'Recursos Humanos',
+        icon: 'HeroUserGroup',
+        authority: ['staff', 'superadmin', 'rrhh'],
+        subPages: {
+            listaContratosTrabajador: {
+                id: 'listaContratosTrabajador',
+                to: '/rrhh/contratos',
+                text: 'Contratos Laborales',
+                icon: 'HeroDocumentText',
+                authority: ['staff', 'superadmin', 'rrhh'],
+            },
+            detalleContratoTrabajador: {
+                id: 'detalleContratoTrabajador',
+                to: '/rrhh/contratos/:contratoId',
+                text: 'Detalle Contrato Trabajador',
+                icon: 'HeroDocumentCheck',
+                authority: ['staff', 'superadmin', 'rrhh'],
             },
         },
     },

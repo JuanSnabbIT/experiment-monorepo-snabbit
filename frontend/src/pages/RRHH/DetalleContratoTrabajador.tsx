@@ -1,35 +1,38 @@
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, {
-  SubheaderLeft,
-  SubheaderRight,
+    SubheaderLeft,
+    SubheaderRight,
 } from '@/components/layouts/Subheader/Subheader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
-import { useGetContratoTrabajadorDetalleQuery } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import {
+    useGenerarPdfContratoTrabajadorMutation,
+    useGetContratoTrabajadorDetalleQuery,
+} from '@/store/slices/rrhh/contratoTrabajadorApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import CicloVidaContratoLaboral from './components/trabajador/CicloVidaContratoLaboral';
 import TabDatosLaboralesTrabajador from './components/trabajador/TabDatosLaboralesTrabajador';
 import TabDocumentoTrabajador from './components/trabajador/TabDocumentoTrabajador';
-import TabFirmaTrabajador from './components/trabajador/TabFirmaTrabajador';
 import TabHistorialTrabajador from './components/trabajador/TabHistorialTrabajador';
 import TabRemuneracionesTrabajador from './components/trabajador/TabRemuneracionesTrabajador';
 
-type TTabId = 'datos' | 'remuneraciones' | 'documento' | 'historial' | 'firma';
+type TTabId = 'datos' | 'remuneraciones' | 'documento' | 'historial';
 
 const TABS: { id: TTabId; label: string }[] = [
     { id: 'datos', label: 'Datos Laborales' },
     { id: 'remuneraciones', label: 'Remuneraciones' },
     { id: 'documento', label: 'Documento' },
     { id: 'historial', label: 'Historial' },
-    { id: 'firma', label: 'Firma' },
 ];
 
 const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
     borrador: 'zinc',
     pendiente_aceptacion: 'amber',
-    en_firma: 'blue',
     vigente: 'emerald',
     terminado: 'zinc',
     anulado: 'red',
@@ -45,6 +48,8 @@ const DetalleContratoTrabajador = () => {
         isLoading,
         isError,
     } = useGetContratoTrabajadorDetalleQuery(contratoId!, { skip: !contratoId });
+
+    const [generarPdf, { isLoading: generandoPdf }] = useGenerarPdfContratoTrabajadorMutation();
 
     if (!contratoId) {
         return (
@@ -85,6 +90,22 @@ const DetalleContratoTrabajador = () => {
 
     const badgeColor = BADGE_COLOR[contrato.estado] ?? 'zinc';
 
+    const nombreTrabajador = contrato.nombre_trabajador ?? `Trabajador #${contrato.usuario_empresa}`;
+    const iniciales = nombreTrabajador
+        .split(' ')
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? '')
+        .join('');
+
+    const handleGenerarPdf = async () => {
+        try {
+            await generarPdf(contrato.id).unwrap();
+            toast.success('PDF generado correctamente.');
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
     return (
         <PageWrapper isProtectedRoute title={`Contrato Trabajador #${contrato.id}`}>
             <Subheader>
@@ -98,9 +119,60 @@ const DetalleContratoTrabajador = () => {
                         {contrato.estado_label ?? contrato.estado}
                     </Badge>
                 </SubheaderLeft>
-                <SubheaderRight>{null}</SubheaderRight>
+                <SubheaderRight>
+                    <Button
+                        icon='HeroDocumentArrowDown'
+                        isDisable={generandoPdf}
+                        onClick={handleGenerarPdf}>
+                        {generandoPdf ? 'Generando...' : 'Generar PDF'}
+                    </Button>
+                </SubheaderRight>
             </Subheader>
 
+            {/* Hero card — trabajador */}
+            <Container className='pb-0 pt-2'>
+                <Card>
+                    <CardBody className='py-3'>
+                        <div className='flex flex-wrap items-center gap-4'>
+                            <div className='flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-500 text-xl font-bold text-white'>
+                                {iniciales || '?'}
+                            </div>
+                            <div className='min-w-0 flex-1'>
+                                <p className='truncate text-base font-semibold text-zinc-800 dark:text-zinc-100'>
+                                    {nombreTrabajador}
+                                </p>
+                                {contrato.email_trabajador && (
+                                    <p className='truncate text-sm text-zinc-500 dark:text-zinc-400'>
+                                        {contrato.email_trabajador}
+                                    </p>
+                                )}
+                            </div>
+                            <div className='flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400'>
+                                <Badge variant='outline' color='zinc'>
+                                    {contrato.tipo_contrato_label ?? contrato.tipo_contrato}
+                                </Badge>
+                                {contrato.fecha_inicio && (
+                                    <span>Inicio: {contrato.fecha_inicio}</span>
+                                )}
+                                {contrato.fecha_termino && (
+                                    <span>Termino: {contrato.fecha_termino}</span>
+                                )}
+                            </div>
+                        </div>
+                    </CardBody>
+                </Card>
+            </Container>
+
+            {/* Ciclo de vida */}
+            <Container className='pb-0 pt-2'>
+                <Card>
+                    <CardBody className='py-3'>
+                        <CicloVidaContratoLaboral estado={contrato.estado} />
+                    </CardBody>
+                </Card>
+            </Container>
+
+            {/* Tabs */}
             <Container className='pb-0'>
                 <div className='flex gap-1 border-b border-gray-200 dark:border-zinc-700'>
                     {TABS.map((tab) => (
@@ -127,9 +199,6 @@ const DetalleContratoTrabajador = () => {
                 )}
                 {activeTab === 'documento' && <TabDocumentoTrabajador contrato={contrato} />}
                 {activeTab === 'historial' && <TabHistorialTrabajador contrato={contrato} />}
-                {activeTab === 'firma' && (
-                    <TabFirmaTrabajador contratoId={contrato.id} contrato={contrato} />
-                )}
             </Container>
         </PageWrapper>
     );

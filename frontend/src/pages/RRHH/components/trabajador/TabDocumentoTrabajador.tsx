@@ -6,7 +6,6 @@ import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import {
-    useEnviarFirmaContratoTrabajadorMutation,
     useGenerarPdfContratoTrabajadorMutation,
     useUpdateContratoTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
@@ -20,7 +19,6 @@ interface ITabDocumentoProps {
 
 const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const [generarPdf, { isLoading: generando }] = useGenerarPdfContratoTrabajadorMutation();
-    const [enviarFirma, { isLoading: enviando }] = useEnviarFirmaContratoTrabajadorMutation();
     const [updateContrato, { isLoading: actualizando }] = useUpdateContratoTrabajadorMutation();
 
     // Formulario de configuracion del documento
@@ -48,21 +46,6 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
         try {
             await generarPdf(contrato.id).unwrap();
             toast.success('PDF generado correctamente');
-        } catch (err: unknown) {
-            toast.error(getErrorMessage(err));
-        }
-    };
-
-    const handleEnviarFirma = async () => {
-        try {
-            const result = await enviarFirma(contrato.id).unwrap();
-            toast.success('Contrato enviado a firma');
-            if (result.url_firma) {
-                navigator.clipboard
-                    .writeText(result.url_firma)
-                    .then(() => toast.info('URL de firma copiada al portapapeles'))
-                    .catch(() => {});
-            }
         } catch (err: unknown) {
             toast.error(getErrorMessage(err));
         }
@@ -98,9 +81,6 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
         }
     };
 
-    const puedeEnviarFirma =
-        contrato.estado === 'pendiente_aceptacion' || contrato.estado === 'borrador';
-
     return (
         <div className='space-y-4'>
             <Card>
@@ -115,16 +95,6 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                                 isDisable={generando}>
                                 Generar PDF
                             </Button>
-                            {puedeEnviarFirma && (
-                                <Button
-                                    icon='HeroPaperAirplane'
-                                    variant='solid'
-                                    onClick={handleEnviarFirma}
-                                    isLoading={enviando}
-                                    isDisable={enviando}>
-                                    Enviar a firma
-                                </Button>
-                            )}
                             {contrato.archivo_pdf && (
                                 <Button
                                     icon='HeroEye'
@@ -136,11 +106,6 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                         {!contrato.archivo_pdf && (
                             <p className='text-sm text-gray-500 dark:text-zinc-400'>
                                 No hay PDF generado. Usa el boton para generar el documento.
-                            </p>
-                        )}
-                        {contrato.estado === 'en_firma' && (
-                            <p className='text-sm text-amber-600 dark:text-amber-400'>
-                                El contrato esta pendiente de firma del trabajador.
                             </p>
                         )}
                     </div>

@@ -23,6 +23,8 @@ import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import StepJornada from './StepJornada';
+import StepPrevisionBanco from './StepPrevisionBanco';
 import StepRemuneraciones from './StepRemuneraciones';
 import StepTerminosLaborales from './StepTerminosLaborales';
 import StepTrabajador from './StepTrabajador';
@@ -38,14 +40,16 @@ interface Props {
     onSuccess?: () => void;
 }
 
-type TStep = 1 | 2 | 3 | 4 | 5;
+type TStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const STEP_LABELS: Record<TStep, string> = {
     1: 'Datos basicos',
     2: 'Trabajador',
-    3: 'Terminos laborales',
-    4: 'Remuneraciones',
-    5: 'Revision',
+    3: 'Contrato',
+    4: 'Jornada',
+    5: 'Remuneraciones',
+    6: 'Prevision',
+    7: 'Revision',
 };
 
 // Campos a validar (y marcar como touched) al intentar avanzar de cada step.
@@ -58,9 +62,11 @@ const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
         'trab_email',
         'trab_sucursal_id',
     ],
-    3: ['tipo_contrato', 'fecha_inicio', 'fecha_termino', 'cargo', 'jornada', 'horas_semanales'],
-    4: ['sueldo_base'],
-    5: [],
+    3: ['tipo_contrato', 'fecha_inicio', 'fecha_termino', 'cargo'],
+    4: ['jornada', 'horas_semanales', 'hora_inicio', 'hora_fin'],
+    5: ['sueldo_base'],
+    6: [],
+    7: [],
 };
 
 const validationSchema = Yup.object({
@@ -100,6 +106,16 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Requerido para esta jornada'),
         otherwise: (s) => s.notRequired(),
     }),
+    hora_inicio: Yup.string().when('jornada', {
+        is: (v: string) => v !== 'turnos',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    hora_fin: Yup.string().when('jornada', {
+        is: (v: string) => v !== 'turnos',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
+    }),
     sueldo_base: Yup.number()
         .typeError('Debe ser un numero')
         .required('Requerido')
@@ -111,6 +127,7 @@ const buildInitialValues = (initialNombre?: string): IFormValuesContratoTrabajad
     observaciones: '',
     trab_modo: 'existente',
     trab_usuario_empresa_id: '',
+    trab_empresa_cliente_id: '',
     trab_first_name: '',
     trab_last_name: '',
     trab_email: '',
@@ -120,14 +137,20 @@ const buildInitialValues = (initialNombre?: string): IFormValuesContratoTrabajad
     trab_nacionalidad: '',
     trab_fecha_nacimiento: '',
     trab_direccion: '',
+    enviar_al_empleador: true,
     tipo_contrato: '',
     fecha_inicio: '',
     fecha_termino: '',
+    cantidad_meses: '',
     cargo: '',
     funciones: '',
     jornada: '',
     horas_semanales: '',
+    dias_semana: [],
+    turnos_rotativo: [],
     horario_detalle: '',
+    hora_inicio: '09:00',
+    hora_fin: '18:00',
     tiempo_colacion: 30,
     lugar_trabajo: '',
     sueldo_base: '',
@@ -142,14 +165,13 @@ const buildInitialValues = (initialNombre?: string): IFormValuesContratoTrabajad
     banco: '',
     tipo_cuenta_bancaria: '',
     numero_cuenta_bancaria: '',
-    estado_inicial: 'borrador',
     lugar_firma: '',
     fecha_firma: '',
 });
 
 const Stepper = ({ step }: { step: TStep }) => (
-    <div className='mb-4 flex flex-wrap items-center justify-center gap-1'>
-        {([1, 2, 3, 4, 5] as TStep[]).map((k, i) => {
+    <div className='mb-4 flex items-center justify-center gap-1'>
+        {([1, 2, 3, 4, 5, 6, 7] as TStep[]).map((k, i) => {
             const esActual = k === step;
             const esCompletado = k < step;
             return (
@@ -165,13 +187,16 @@ const Stepper = ({ step }: { step: TStep }) => (
                         />
                     )}
                     <div
-                        className={classNames('rounded-full px-3 py-1 text-xs font-medium', {
-                            'bg-blue-500 text-white': esActual,
-                            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300':
-                                esCompletado,
-                            'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500':
-                                !esActual && !esCompletado,
-                        })}>
+                        className={classNames(
+                            'rounded-full px-3 py-1 text-xs font-medium',
+                            {
+                                'bg-blue-500 text-white': esActual,
+                                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300':
+                                    esCompletado,
+                                'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500':
+                                    !esActual && !esCompletado,
+                            },
+                        )}>
                         {STEP_LABELS[k]}
                     </div>
                 </div>
@@ -225,7 +250,7 @@ const ContenidoWizardTrabajador = ({
                     bono_colacion: values.bono_colacion || 0,
                     lugar_firma: values.lugar_firma || null,
                     fecha_firma: values.fecha_firma || null,
-                    estado: values.estado_inicial,
+                    estado: 'borrador',
                 };
 
                 const trabajadorExtra = {
@@ -301,10 +326,11 @@ const ContenidoWizardTrabajador = ({
         switch (step) {
             case 1:
                 return (
-                    <div className='space-y-3'>
+                    <div className='space-y-4'>
                         <div>
                             <Label htmlFor='nombre'>
-                                Nombre contrato <span className='text-red-500'>*</span>
+                                Nombre / referencia interna{' '}
+                                <span className='text-red-500'>*</span>
                             </Label>
                             <Validation
                                 isValid={!formik.errors.nombre}
@@ -313,6 +339,7 @@ const ContenidoWizardTrabajador = ({
                                 <Input
                                     id='nombre'
                                     name='nombre'
+                                    placeholder='Ej: Contrato Juan Perez - Enero 2025'
                                     value={formik.values.nombre}
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
@@ -329,46 +356,6 @@ const ContenidoWizardTrabajador = ({
                                 onBlur={formik.handleBlur}
                             />
                         </div>
-                        <div>
-                            <Label>Estado inicial del contrato</Label>
-                            <div className='mt-1 flex flex-col gap-2 text-sm'>
-                                <label className='flex items-center gap-2 cursor-pointer'>
-                                    <input
-                                        type='radio'
-                                        name='estado_inicial'
-                                        value='borrador'
-                                        checked={formik.values.estado_inicial === 'borrador'}
-                                        onChange={() =>
-                                            formik.setFieldValue('estado_inicial', 'borrador')
-                                        }
-                                    />
-                                    <span>
-                                        <strong>Borrador</strong> — quedara en edicion sin
-                                        notificar al trabajador.
-                                    </span>
-                                </label>
-                                <label className='flex items-center gap-2 cursor-pointer'>
-                                    <input
-                                        type='radio'
-                                        name='estado_inicial'
-                                        value='pendiente_aceptacion'
-                                        checked={
-                                            formik.values.estado_inicial === 'pendiente_aceptacion'
-                                        }
-                                        onChange={() =>
-                                            formik.setFieldValue(
-                                                'estado_inicial',
-                                                'pendiente_aceptacion',
-                                            )
-                                        }
-                                    />
-                                    <span>
-                                        <strong>Pendiente de aceptacion</strong> — el trabajador
-                                        debera aceptarlo desde el portal.
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
                     </div>
                 );
             case 2:
@@ -382,45 +369,119 @@ const ContenidoWizardTrabajador = ({
             case 3:
                 return <StepTerminosLaborales formik={formik} />;
             case 4:
-                return <StepRemuneraciones formik={formik} />;
+                return <StepJornada formik={formik} />;
             case 5:
+                return <StepRemuneraciones formik={formik} />;
+            case 6:
+                return <StepPrevisionBanco formik={formik} />;
+            case 7: {
+                const trabajadorLabel =
+                    formik.values.trab_modo === 'existente'
+                        ? `ID ${formik.values.trab_usuario_empresa_id}`
+                        : `${formik.values.trab_first_name} ${formik.values.trab_last_name}`.trim();
+                const tipoLabel = (
+                    {
+                        indefinido: 'Indefinido',
+                        plazo_fijo: 'Plazo fijo',
+                        honorarios: 'Honorarios',
+                        reemplazo: 'Reemplazo',
+                        obra_o_faena: 'Por obra o faena',
+                    } as Record<string, string>
+                )[formik.values.tipo_contrato] ?? formik.values.tipo_contrato;
+                const jornadaLabel = (
+                    {
+                        completa: 'Jornada completa',
+                        parcial: 'Jornada parcial',
+                        part_time: 'Part time',
+                        turnos: 'Turnos',
+                    } as Record<string, string>
+                )[formik.values.jornada] ?? formik.values.jornada;
                 return (
-                    <div className='space-y-2 text-sm'>
-                        <p>
-                            <strong>Trabajador:</strong>{' '}
-                            {formik.values.trab_modo === 'existente'
-                                ? `Existente (id ${formik.values.trab_usuario_empresa_id})`
-                                : `Nuevo: ${formik.values.trab_first_name} ${formik.values.trab_last_name} <${formik.values.trab_email}>`}
+                    <div className='space-y-3 text-sm'>
+                        <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                            Verifica los datos antes de generar el contrato.
                         </p>
-                        <p>
-                            <strong>Tipo:</strong> {formik.values.tipo_contrato}
-                        </p>
-                        <p>
-                            <strong>Cargo:</strong> {formik.values.cargo}
-                        </p>
-                        <p>
-                            <strong>Jornada:</strong> {formik.values.jornada}
-                        </p>
-                        <p>
-                            <strong>Sueldo:</strong> {formik.values.sueldo_base}{' '}
-                            {formik.values.moneda}
-                        </p>
-                        <p>
-                            <strong>Inicio:</strong> {formik.values.fecha_inicio}
-                            {formik.values.fecha_termino &&
-                                ` / Termino: ${formik.values.fecha_termino}`}
-                        </p>
-                        <p>
-                            <strong>Estado inicial:</strong> {formik.values.estado_inicial}
-                        </p>
+                        <div className='rounded-xl border border-zinc-200 p-3 dark:border-zinc-700'>
+                            <h4 className='mb-2 flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-200'>
+                                <svg className='h-4 w-4 text-blue-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' />
+                                </svg>
+                                Trabajador
+                            </h4>
+                            <dl className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs'>
+                                <dt className='text-zinc-500'>Nombre:</dt>
+                                <dd className='font-medium'>{trabajadorLabel || '—'}</dd>
+                                {formik.values.trab_modo === 'nuevo' && (
+                                    <>
+                                        <dt className='text-zinc-500'>Email:</dt>
+                                        <dd className='font-medium'>{formik.values.trab_email || '—'}</dd>
+                                        <dt className='text-zinc-500'>RUT:</dt>
+                                        <dd className='font-medium'>{formik.values.trab_rut || '—'}</dd>
+                                    </>
+                                )}
+                            </dl>
+                        </div>
+                        <div className='rounded-xl border border-zinc-200 p-3 dark:border-zinc-700'>
+                            <h4 className='mb-2 flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-200'>
+                                <svg className='h-4 w-4 text-blue-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' />
+                                </svg>
+                                Condiciones laborales
+                            </h4>
+                            <dl className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs'>
+                                <dt className='text-zinc-500'>Cargo:</dt>
+                                <dd className='font-medium'>{formik.values.cargo || '—'}</dd>
+                                <dt className='text-zinc-500'>Tipo:</dt>
+                                <dd className='font-medium'>{tipoLabel || '—'}</dd>
+                                <dt className='text-zinc-500'>Jornada:</dt>
+                                <dd className='font-medium'>{jornadaLabel || '—'}</dd>
+                                <dt className='text-zinc-500'>Fecha inicio:</dt>
+                                <dd className='font-medium'>{formik.values.fecha_inicio || '—'}</dd>
+                                {formik.values.fecha_termino && (
+                                    <>
+                                        <dt className='text-zinc-500'>Fecha termino:</dt>
+                                        <dd className='font-medium'>{formik.values.fecha_termino}</dd>
+                                    </>
+                                )}
+                            </dl>
+                        </div>
+                        <div className='rounded-xl border border-zinc-200 p-3 dark:border-zinc-700'>
+                            <h4 className='mb-2 flex items-center gap-1.5 font-semibold text-zinc-700 dark:text-zinc-200'>
+                                <svg className='h-4 w-4 text-blue-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z' />
+                                </svg>
+                                Remuneraciones
+                            </h4>
+                            <dl className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs'>
+                                <dt className='text-zinc-500'>Sueldo base:</dt>
+                                <dd className='font-medium'>
+                                    {formik.values.sueldo_base
+                                        ? `${Number(formik.values.sueldo_base).toLocaleString('es-CL')} ${formik.values.moneda}`
+                                        : '—'}
+                                </dd>
+                                <dt className='text-zinc-500'>Gratificacion:</dt>
+                                <dd className='font-medium'>{formik.values.gratificacion_legal ? 'Legal' : 'No'}</dd>
+                            </dl>
+                        </div>
+                        <div className='flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300'>
+                            <svg className='mt-0.5 h-4 w-4 shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
+                            </svg>
+                            <span>
+                                Al confirmar, el contrato quedara como{' '}
+                                <strong>borrador</strong>. Desde el detalle podras
+                                enviarlo a firma cuando este listo.
+                            </span>
+                        </div>
                     </div>
                 );
+            }
             default:
                 return null;
         }
     };
 
-    const isLast = step === 5;
+    const isLast = step === 7;
     const isLoading = creandoCT || formik.isSubmitting;
 
     const handleNext = async () => {
@@ -443,7 +504,7 @@ const ContenidoWizardTrabajador = ({
 
     return (
         <>
-            <ModalBody>
+            <ModalBody isScrollable>
                 <Stepper step={step} />
                 {renderStep()}
             </ModalBody>
@@ -464,8 +525,9 @@ const ContenidoWizardTrabajador = ({
                             variant='solid'
                             color='blue'
                             isDisable={isLoading}
+                            icon='HeroCheckCircle'
                             onClick={() => formik.handleSubmit()}>
-                            {isLoading ? 'Guardando...' : 'Crear contrato'}
+                            {isLoading ? 'Guardando...' : 'Generar contrato'}
                         </Button>
                     )}
                 </ModalFooterChild>
