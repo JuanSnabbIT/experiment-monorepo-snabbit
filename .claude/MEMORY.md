@@ -8,23 +8,23 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 ## Arquitectura & Patrones
 
-- **[arch-monorepo](memory/arch-monorepo.md)** — Estructura del monorepo Django + React, carpetas clave, convenciones
+- **[arch-monorepo](memory/arch-monorepo.md)** — Estructura física, convenciones, entry points, archivos críticos
 
-- **[multi-tenancy](memory/multi-tenancy.md)** — Patrón obligatorio de filtrado por empresa, `PersonalizacionUsuario`, riesgos de fuga de datos
+- **[multi-tenancy](memory/multi-tenancy.md)** — Patrón obligatorio de filtrado por empresa, `PersonalizacionUsuario`, riesgos de fuga
 
-- **[currency-system](memory/currency-system.md)** — Conversión de monedas (CLP/USD/UF), snapshots, APIs de currency_utils.py
+- **[currency-system](memory/currency-system.md)** — Conversión (CLP/USD/UF), snapshots, APIs de currency_utils.py
 
 ---
 
 ## Módulos Específicos
 
-- **[contratos-b2b](memory/contratos-b2b.md)** — Contratos comerciales, servicios, licencias, plantillas V2
+- **[contratos-b2b](memory/contratos-b2b.md)** — ContratoEmpresaCliente, servicios, licencias, plantillas V2, snapshots
 
-- **[contratos-rrhh](memory/contratos-rrhh.md)** — Contratos laborales, firma digital, estados, transiciones
+- **[contratos-rrhh](memory/contratos-rrhh.md)** — ContratoTrabajador, UsuarioEmpresa, firma digital, anexos
 
-- **[ordenes-trabajo](memory/ordenes-trabajo.md)** — Versiones (V1 desactivada, V2 deprecada, V3 activa), estados, flujos
+- **[ordenes-trabajo](memory/ordenes-trabajo.md)** — V1/V2/V3 (V3 activa), estados, modelos, tags RTK
 
-- **[cotizaciones](memory/cotizaciones.md)** — Sistema de cotizaciones, monedas, aprobación pública, solicitud de cambios
+- **[cotizaciones](memory/cotizaciones.md)** — Estructura, monedas, aprobación pública, solicitud cambios
 
 ---
 
