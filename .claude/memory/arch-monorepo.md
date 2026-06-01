@@ -5,7 +5,6 @@ lastUpdated: 2026-06-01
 relatedFiles:
   - backend/
   - frontend/
-  - tema_base/
   - dev/
   - .github/
   - .claude/
@@ -82,17 +81,17 @@ monorepo_erp/
 │   │   │   └── ...
 │   │   │
 │   │   ├── components/
-│   │   │   ├── ui/                        # 12 componentes base (Fyr theme)
+│   │   │   ├── ui/                        # 12 componentes base (Tailwind + Fyr pattern)
 │   │   │   │   ├── Button.tsx, Card.tsx, Modal.tsx, Table.tsx, ...
-│   │   │   │   └── (READ-ONLY sincronizado desde tema_base)
+│   │   │   │   └── Desarrollados localmente
 │   │   │   │
-│   │   │   ├── form/                      # 9 componentes form
-│   │   │   │   ├── Input.tsx, SelectReact.tsx, Checkbox.tsx, ...
-│   │   │   │   └── (READ-ONLY sincronizado desde tema_base)
+│   │   │   ├── form/                      # 9 componentes form + nuevos (Sprint 21)
+│   │   │   │   ├── Input.tsx, SelectReact.tsx, Checkbox.tsx, FileInput.tsx, RadioCard.tsx ...
+│   │   │   │   └── Desarrollados localmente
 │   │   │   │
 │   │   │   ├── layouts/                   # Wrappers estructurales
 │   │   │   │   ├── PageWrapper.tsx, Subheader.tsx, Container.tsx
-│   │   │   │   └── (READ-ONLY sincronizado desde tema_base)
+│   │   │   │   └── Desarrollados localmente
 │   │   │   │
 │   │   │   ├── icon/                      # Sistema de iconos (Heroicons)
 │   │   │   ├── modals/                    # Modales reutilizables
@@ -135,13 +134,6 @@ monorepo_erp/
 │   ├── vite.config.ts                     # Configuración Vite
 │   ├── package.json                       # Dependencias Node
 │   └── README.md                          # Setup frontend
-│
-├── tema_base/                             # Fyr theme (READ-ONLY) ⭐
-│   └── fyr-vite/                          # Fuente visual (no modificar)
-│       ├── src/components/ui/             # Componentes canónicos
-│       ├── src/components/form/           # Componentes form canónicos
-│       ├── src/components/layouts/        # Layouts canónicos
-│       └── [Sincronizar hacia frontend/ periódicamente]
 │
 ├── dev/                                   # Desarrollo
 │   ├── docs/                              # Documentación VIVA (única permitida)
@@ -210,9 +202,9 @@ monorepo_erp/
 - `backend/contratos/adaptadores.py` — Patrón polimórfico
 
 🔴 **Frontend:**
-- `frontend/src/services/RtkQueryService.ts` — Tags y configuración RTK
+- `frontend/src/services/RtkQueryService.ts` — Tags y configuración RTK (75+ tags)
 - `frontend/src/config/theme.config.ts` — Tema (personalizable)
-- `frontend/src/components/ui/` — Sincronizado desde tema_base (no modificar)
+- `frontend/src/components/` — Componentes desarrollados localmente (UI, form, layouts)
 
 🔴 **Configuración:**
 - `erp-snabbit.code-workspace` — Instrucciones Copilot
@@ -273,7 +265,8 @@ npm run dev  # Vite on http://localhost:5173
 - **Monedas:** CLP, USD, UF (en `contratos/currency_utils.py`)
 - **Órdenes de Trabajo:** V3 activa (V2 deprecada, V1 desactivada)
 - **Plantillas:** V2 con motor polimórfico (contratos B2B + laborales)
-- **Theme:** Fyr (read-only en `tema_base/`, config en `frontend/src/config/theme.config.ts`)
+- **Theme:** Tailwind + Fyr pattern, config en `frontend/src/config/theme.config.ts`
+- **Componentes:** 12 UI + 9 form + 4 layout, desarrollados localmente en `frontend/src/components/`
 - **Documentación viva:** Solo en `dev/docs/` (máx 1 por dominio)
 
 ---

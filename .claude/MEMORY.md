@@ -24,7 +24,9 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 - **[ordenes-trabajo](memory/ordenes-trabajo.md)** — V1/V2/V3 (V3 activa), estados, modelos, tags RTK
 
-- **[cotizaciones](memory/cotizaciones.md)** — Estructura, monedas, aprobación pública, solicitud cambios
+- **[cotizaciones](memory/cotizaciones.md)** — Estructura, monedas, aprobación, solicitud cambios, estados
+
+- **[fcm-notifications](memory/fcm-notifications.md)** — Motor FCM, 17 eventos, Celery, multi-tenancy, token lifecycle
 
 ---
 
@@ -32,9 +34,19 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 - **[rtk-query](memory/rtk-query.md)** — Tags, invalidación, anti-patrón refetch(), deuda técnica documentada
 
-- **[componentes-ui](memory/componentes-ui.md)** — Fyr theme (read-only), 12 componentes base, 9 form, sincronización desde tema_base
+- **[componentes-ui](memory/componentes-ui.md)** — 25 componentes (12 UI + 9 form + 4 layout), Tailwind, Heroicons, FileInput/RadioCard
 
-- **[typescript-conventions](memory/typescript-conventions.md)** — Interfaz con prefijo I, types sin prefijo, strict mode
+- **[typescript-conventions](memory/typescript-conventions.md)** — Interface (prefijo I), Type (prefijo T), strict mode, patrones, errores comunes
+
+## DevOps & Validación
+
+- **[build-testing](memory/build-testing.md)** — Skill `/build-test`, 5 modos, checklist, top 5 errores
+
+- **[deployment](memory/deployment.md)** — Docker, build scripts PowerShell, env vars, production checklist
+
+- **[jira-integration](memory/jira-integration.md)** — Proyecto SEB, scripts Python, workflow (issue → PR → cierre automático)
+
+- **[testing-status](memory/testing-status.md)** — Estado actual (sin cobertura), patrones esperados, requisitos deseados
 
 ---
 
@@ -50,9 +62,9 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 ## Decisiones de Diseño
 
-- **[plantillas-v2-polimorfismo](memory/plantillas-v2-polimorfismo.md)** — Patrón IContratoBase, adaptadores B2B/laboral, NOT_HANDLED sentinel
+- **[plantillas-v2-polimorfismo](memory/plantillas-v2-polimorfismo.md)** — Patrón polimórfico, IContratoBase, adaptadores B2B/laboral, orden resolución etiquetas
 
-- **[snapshot-tasas](memory/snapshot-tasas.md)** — Por qué congelar tasas de cambio al enviar a aprobación, volatilidad en contratos
+- **[snapshot-tasas](memory/snapshot-tasas.md)** — Por qué congelar tasas en aprobación, volatilidad, cuando/cómo usar snapshots, audit trail
 
 ---
 
@@ -110,6 +122,7 @@ Si se conoce históricamente cómo cambió, documenta.
 
 ---
 
-**Última actualización**: 2026-06-01
-**Archivos en memoria**: 13 documentos
+**Última actualización**: 2026-06-01 (FASE 1-4 completadas)
+**Archivos en memoria**: 16 documentos
+**Estructura**: 3 core + 4 módulos + 3 frontend + 4 devops + 2 decisiones = 16 total
 **Próxima revisión sugerida**: 2026-07-01

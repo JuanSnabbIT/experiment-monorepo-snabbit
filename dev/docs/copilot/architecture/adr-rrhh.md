@@ -1217,6 +1217,151 @@ El sistema actual almacena las firmas del trabajador y del empleador como imagen
 
 ---
 
+## ADR-31
+
+**Titulo:** Notificacion push al grupo RRHH cuando un contrato laboral entra en revision
+
+**Estado:** pendiente de implementacion
+
+**Contexto:**
+Cuando un `ContratoTrabajador` transiciona a estado `pendiente_aprobacion` (paso previo a la firma), el equipo de RRHH no recibe ninguna senal del sistema. Deben revisar periodicamente la lista para detectar contratos que requieren su atencion. Esto crea demoras innecesarias en el flujo de aprobacion.
+
+**Decision:** Agregar notificacion push al grupo `rrhh` cada vez que un contrato entra en estado `pendiente_aprobacion`. El evento se dispara desde dos puntos:
+1. `cambiar_estado` cuando `nuevo_estado == 'pendiente_aprobacion'`
+2. `perform_create` cuando el contrato se crea directamente en estado `pendiente_aprobacion`
+
+Nueva constante en `notificaciones/models.py`:
+
+```python
+CONTRATO_LABORAL_REVISION_SOLICITADA = (
+    "contrato_laboral_revision_solicitada",
+    "Contrato laboral enviado a revision",
+)
+```
+
+Nueva funcion en `notificaciones/services.py`:
+
+```python
+def notificar_contrato_laboral_revision_solicitada(contrato, *, usuario_actor=None) -> None:
+    empresa = contrato.usuario_empresa.sucursal.empresa
+    trabajador = str(contrato.usuario_empresa)
+    _disparar_a_grupo(
+        empresa=empresa,
+        grupo=GRUPO_RRHH,
+        tipo=TipoEventoNotificacion.CONTRATO_LABORAL_REVISION_SOLICITADA.value,
+        titulo="Contrato laboral requiere revision",
+        cuerpo=f"El contrato de {trabajador} esta pendiente de aprobacion.",
+        url_destino=f"/rrhh/trabajadores/{contrato.usuario_empresa_id}/?tab=contratos",
+        datos={"contrato_id": contrato.id, "usuario_empresa_id": contrato.usuario_empresa_id},
+        excluir_usuario_id=getattr(usuario_actor, "id", None),
+    )
+```
+
+Hook en `rrhh/views.py` — dentro de `cambiar_estado`, despues de `contrato.save()`:
+
+```python
+if nuevo_estado == "pendiente_aprobacion":
+    from notificaciones.services import notificar_contrato_laboral_revision_solicitada
+    notificar_contrato_laboral_revision_solicitada(contrato, usuario_actor=request.user)
+```
+
+**Alternativas descartadas:**
+- Notificar en cualquier transicion de estado: genera ruido excesivo. Solo `pendiente_aprobacion` exige accion inmediata del equipo RRHH.
+- Signal Django `post_save`: acoplamiento implicito, mas dificil de trazar. El patron establecido en el proyecto usa hooks explicitos en views.
+- Polling desde frontend: innecesario cuando existe la infraestructura FCM ya instalada.
+
+**Consecuencias:**
+- Sin cambio de schema — no requiere migracion.
+- Nueva constante en `TipoEventoNotificacion` (migrations requeridas si el campo `tipo` usa el enum directamente; en este proyecto es `CharField` libre, no requiere migracion).
+- El grupo `rrhh` ya existe como `GRUPO_RRHH = "rrhh"` en `services.py`.
+- Prerequisito: ADR-15 debe estar implementado (el estado se llama `pendiente_aprobacion`, no `pendiente_aceptacion`).
+- La URL destino `/rrhh/trabajadores/{id}/?tab=contratos` es la ruta actual del modulo RRHH.
+
+---
+
+## ADR-32
+
+**Titulo:** Notificacion push al trabajador cuando RRHH revisa su contrato laboral
+
+**Estado:** pendiente de implementacion
+
+**Contexto:**
+Cuando RRHH envia un contrato laboral a la empresa cliente para su revision, el sistema no notifica a RRHH cuando el representante del cliente efectivamente abre y revisa ese contrato. RRHH no sabe si el contrato fue visto o sigue sin leer. Esto genera seguimientos manuales innecesarios (llamadas, correos).
+
+**Decision:** Agregar campo `fecha_primera_revision_cliente` (DateTimeField nullable) a `ContratoTrabajador`. Cuando el usuario de la empresa cliente accede a la vista de revision del contrato por primera vez y el campo esta en `None`, se estampa la fecha y se notifica al grupo `rrhh`. Los accesos posteriores del mismo cliente no generan notificacion adicional.
+
+El hook se ubica en el endpoint que sirve la vista de revision al cliente. Segun la arquitectura actual del modulo, las opciones son:
+- Si la revision usa token publico (como cotizaciones): hook en la view del endpoint publico `GET /api/rrhh/contratos/{token}/revision/`
+- Si la revision es autenticada: hook en `retrieve()` de `ContratoTrabajadorViewSet` verificando que el usuario pertenece a la empresa cliente del contrato
+
+Campo nuevo en `rrhh/models.py`:
+
+```python
+fecha_primera_revision_cliente = models.DateTimeField(
+    null=True,
+    blank=True,
+    verbose_name="Primera revision por empresa cliente",
+    help_text="Fecha en que la empresa cliente abrio la vista de revision del contrato por primera vez.",
+)
+```
+
+Override en la view de revision del cliente (patron con autenticacion):
+
+```python
+def retrieve(self, request, *args, **kwargs):
+    contrato = self.get_object()
+    es_usuario_cliente = (
+        contrato.usuario_empresa.sucursal.empresa_id
+        == getattr(request.user, "empresa_cliente_id", None)
+    )
+    if contrato.fecha_primera_revision_cliente is None and es_usuario_cliente:
+        contrato.fecha_primera_revision_cliente = timezone.now()
+        contrato.save(update_fields=["fecha_primera_revision_cliente"])
+        from notificaciones.services import notificar_contrato_laboral_visto_cliente
+        notificar_contrato_laboral_visto_cliente(contrato, usuario_actor=request.user)
+    return Response(self.get_serializer(contrato).data)
+```
+
+Nueva constante en `notificaciones/models.py`:
+
+```python
+CONTRATO_LABORAL_VISTO_CLIENTE = (
+    "contrato_laboral_visto_cliente",
+    "Contrato laboral visto por empresa cliente",
+)
+```
+
+Nueva funcion en `notificaciones/services.py`:
+
+```python
+def notificar_contrato_laboral_visto_cliente(contrato, *, usuario_actor=None) -> None:
+    empresa = contrato.usuario_empresa.sucursal.empresa
+    trabajador = str(contrato.usuario_empresa)
+    _disparar_a_grupo(
+        empresa=empresa,
+        grupo=GRUPO_RRHH,
+        tipo=TipoEventoNotificacion.CONTRATO_LABORAL_VISTO_CLIENTE.value,
+        titulo="Contrato revisado por la empresa cliente",
+        cuerpo=f"La empresa cliente ha visto el contrato de {trabajador} por primera vez.",
+        url_destino=f"/rrhh/trabajadores/{contrato.usuario_empresa_id}/?tab=contratos",
+        datos={"contrato_id": contrato.id, "usuario_empresa_id": contrato.usuario_empresa_id},
+        excluir_usuario_id=getattr(usuario_actor, "id", None),
+    )
+```
+
+**Alternativas descartadas:**
+- Notificar en cada acceso del cliente sin campo de guarda: spam excesivo si el representante abre el contrato varias veces.
+- Accion manual del cliente "marcar como visto": agrega friccion innecesaria al flujo del cliente externo.
+- Signal `post_save`: acoplamiento implicito; el patron del proyecto usa hooks explicitos en views.
+
+**Consecuencias:**
+- Nueva migracion: campo `fecha_primera_revision_cliente` nullable en `ContratoTrabajador` (additive, sin impacto en datos existentes).
+- El hook exacto depende del endpoint que use la empresa cliente para ver el contrato (publico con token vs autenticado). Debe definirse al implementar.
+- Destinatario: grupo `rrhh` de la empresa prestadora (igual que ADR-31).
+- No tiene prerequisito de ADR-31; son eventos independientes del mismo ciclo de vida del contrato.
+
+---
+
 ## Planes de Implementacion
 
 > Generado desde el backlog de ADRs. Organizado por flujo funcional, nivel de refactorizacion y dependencias.  
