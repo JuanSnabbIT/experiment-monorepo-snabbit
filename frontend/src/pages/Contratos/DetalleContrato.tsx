@@ -307,7 +307,9 @@ const DetalleContrato = () => {
                         </Badge>
                     )}
                 </SubheaderLeft>
-                <SubheaderRight>{null}</SubheaderRight>
+                <SubheaderRight>
+                    <CicloVidaContrato estado={contrato.estado} />
+                </SubheaderRight>
             </Subheader>
 
             {/* ── Ciclo de vida ── */}
@@ -317,23 +319,12 @@ const DetalleContrato = () => {
                     currentPage={`Contrato #${contrato.id}`}
                 />
             </Container>
-            <Container className='pb-0 pt-2'>
-                <CicloVidaContrato estado={contrato.estado} />
-            </Container>
 
-            {/* ── Resumen operativo ── */}
-            <Container className='pb-0 pt-2'>
-                <ResumenContrato contrato={contrato} />
-            </Container>
+            {/* ── Resumen operativo + acciones ── */}
             <Container className='pb-0 pt-2'>
                 <Card>
                     <CardBody className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
-                        <div>
-                            <div className='text-xl font-bold text-blue-500'>
-                                {contrato.nombre}{' '}
-                                <span className='text-base font-medium text-zinc-500'>#{contrato.id}</span>
-                            </div>
-                        </div>
+                        <ResumenContrato contrato={contrato} />
                         <div className='flex flex-wrap items-center gap-2'>
                             {puedeActivar && (
                                 <Button

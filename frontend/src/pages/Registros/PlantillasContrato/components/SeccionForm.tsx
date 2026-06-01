@@ -40,6 +40,7 @@ const SeccionForm = ({
     const esPredeterminada = esFirmas || esIdentificacion;
     const esTituloOSubtitulo = formik.values.tipo === 'titulo' || formik.values.tipo === 'subtitulo';
     const esLibre = formik.values.tipo === 'libre';
+    const esSaltoPagina = formik.values.tipo === 'salto_pagina';
 
     // Forzar valores canónicos cuando el tipo es firmas
     useEffect(() => {
@@ -95,10 +96,21 @@ const SeccionForm = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [esLibre]);
 
+    // Limpiar título y contenido para salto de página; forzar checkboxes
+    useEffect(() => {
+        if (esSaltoPagina) {
+            if (formik.values.titulo !== '') formik.setFieldValue('titulo', '');
+            if (formik.values.contenido_template !== '') formik.setFieldValue('contenido_template', '');
+            if (formik.values.es_editable_en_contrato) formik.setFieldValue('es_editable_en_contrato', false);
+            if (formik.values.es_obligatoria) formik.setFieldValue('es_obligatoria', false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esSaltoPagina]);
+
     return (
         <div className='flex flex-col gap-4'>
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                {!esLibre && (
+                {!esLibre && !esSaltoPagina && (
                     <div>
                         <Label htmlFor={`${idPrefix}-titulo`}>Título</Label>
                         <Validation
@@ -116,7 +128,7 @@ const SeccionForm = ({
                         </Validation>
                     </div>
                 )}
-                <div className={esLibre ? 'md:col-span-2' : ''}>
+                <div className={esLibre || esSaltoPagina ? 'md:col-span-2' : ''}>
                     <Label htmlFor={`${idPrefix}-tipo`}>Tipo</Label>
                     <SelectReact
                         id={`${idPrefix}-tipo`}
@@ -159,6 +171,13 @@ const SeccionForm = ({
                     </p>
                     <p className='mt-1 text-zinc-500'>
                         Este bloque solo muestra el texto del campo Título. No lleva contenido adicional.
+                    </p>
+                </Alert>
+            ) : esSaltoPagina ? (
+                <Alert color='zinc' variant='outline' className='text-sm'>
+                    <p className='font-semibold'>Salto de página</p>
+                    <p className='mt-1 text-zinc-500'>
+                        Inserta un quiebre de página en el documento generado. No lleva título ni contenido.
                     </p>
                 </Alert>
             ) : (

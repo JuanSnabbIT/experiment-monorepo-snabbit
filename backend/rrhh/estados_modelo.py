@@ -26,7 +26,7 @@ ESTADO_CONTRATO = (
 # Maquina de transiciones permitidas para ContratoTrabajador
 TRANSICIONES_CONTRATO = {
     "borrador": ["pendiente_aceptacion", "vigente", "anulado"],
-    "pendiente_aceptacion": ["vigente", "anulado"],
+    "pendiente_aceptacion": ["vigente", "anulado", "borrador"],
     "vigente": ["terminado", "anulado"],
     "terminado": [],
     "anulado": [],

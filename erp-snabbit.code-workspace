@@ -153,6 +153,7 @@
 			"**/*.code-search": true
 		},
 		"mcp": {
+			"inputs": [],
 			"servers": {
 				"stitch": {
 					"url": "https://stitch.googleapis.com/mcp",
@@ -162,8 +163,7 @@
 						"X-Goog-Api-Key": "AQ.Ab8RN6K7BESUJ0UP_mncURZOhwpqJWxKpMCGpE8qrfT4zaxdFw"
 					}
 				}
-			},
-			"inputs": []
+			}
 		},
 		"chat.mcp.serverSampling": {
 			"erp-snabbit.code-workspace: stitch": {

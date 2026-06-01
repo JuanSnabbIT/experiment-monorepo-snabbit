@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 from core.models import ModeloBase, PersonalizacionUsuario
-from cuentas.estados_modelos import *
+from cuentas.estados_modelos import GENEROS, ESTADOS_CIVILES_CHILE, NIVEL_ESTUDIOS
 import uuid
 from django.utils import timezone
 from datetime import timedelta
@@ -60,6 +60,11 @@ class User(AbstractBaseUser, PermissionsMixin, ModeloBase):
     region              = models.IntegerField(default=0)
     provincia           = models.IntegerField(default=0)
     comuna              = models.IntegerField(default=0)
+
+    # Datos de educacion
+    nivel_estudios      = models.CharField(max_length=25, choices=NIVEL_ESTUDIOS, blank=True, default='')
+    titulo_especialidad = models.CharField(max_length=150, blank=True, default='')
+    institucion_educacional = models.CharField(max_length=150, blank=True, default='')
 
     objects = UserManager()
 

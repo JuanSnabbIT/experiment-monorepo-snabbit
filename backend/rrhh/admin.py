@@ -1,7 +1,14 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import AnexoContrato, ContratoTrabajador
+from .models import (
+    AfpCatalogo,
+    AnexoContrato,
+    BancoCatalogo,
+    CargoCatalogo,
+    ContratoTrabajador,
+    EnvioAprobacionEmpleador,
+)
 
 
 @admin.register(ContratoTrabajador)
@@ -30,3 +37,51 @@ class AnexoContratoAdmin(SimpleHistoryAdmin):
     list_display = ("id", "contrato", "tipo", "fecha_efectiva", "estado")
     list_filter = ("tipo", "estado")
     raw_id_fields = ("contrato", "creado_por")
+
+
+@admin.register(CargoCatalogo)
+class CargoCatalogoAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "activo")
+    list_filter = ("activo", "empresa")
+    search_fields = ("nombre", "empresa__nombre")
+    list_editable = ("activo",)
+
+
+@admin.register(AfpCatalogo)
+class AfpCatalogoAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "activo")
+    list_filter = ("activo", "empresa")
+    search_fields = ("nombre",)
+    list_editable = ("activo",)
+
+
+@admin.register(BancoCatalogo)
+class BancoCatalogoAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "activo")
+    list_filter = ("activo", "empresa")
+    search_fields = ("nombre",)
+    list_editable = ("activo",)
+
+
+@admin.register(EnvioAprobacionEmpleador)
+class EnvioAprobacionEmpleadorAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "contrato",
+        "enviado_a",
+        "enviado_por",
+        "decision",
+        "fecha_envio",
+        "fecha_respuesta",
+        "expirado",
+    )
+    list_filter = ("decision", "expirado")
+    search_fields = ("enviado_a", "contrato__id")
+    readonly_fields = (
+        "uuid",
+        "pdf_congelado",
+        "fecha_envio",
+        "fecha_respuesta",
+        "ip_respuesta",
+    )
+    raw_id_fields = ("contrato", "enviado_por")

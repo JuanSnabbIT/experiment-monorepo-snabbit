@@ -1,12 +1,11 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
+import RadioCard from '@/components/form/RadioCard';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
-import classNames from 'classnames';
 import { FormikProps } from 'formik';
-import Swal from 'sweetalert2';
 import { IFormValuesContratoTrabajador } from './types';
 
 interface Props {
@@ -41,12 +40,9 @@ const StepTrabajador = ({
         )?.info_cliente.email ?? null;
 
     // Trabajadores filtrados por sucursal en modo existente
-    const sucursalSeleccionadaNombre = sucursales.find(
-        (s) => s.id === Number(values.trab_sucursal_id),
-    )?.nombre;
     const usuariosFiltrados =
-        values.trab_modo === 'existente' && values.trab_sucursal_id && sucursalSeleccionadaNombre
-            ? usuariosCliente.filter((u) => u.nombre_sucursal === sucursalSeleccionadaNombre)
+        values.trab_modo === 'existente' && values.trab_sucursal_id
+            ? usuariosCliente.filter((u) => u.sucursal === Number(values.trab_sucursal_id))
             : usuariosCliente;
     const usuariosOpts: TSelectOption[] = usuariosFiltrados.map((u) => ({
         value: String(u.id),
@@ -57,85 +53,35 @@ const StepTrabajador = ({
         <div className='space-y-4'>
             {/* Selector de modo como cards */}
             <div>
-                <Label className='mb-2 block'>
-                    Seleccionar trabajador
-                </Label>
+                <Label className='mb-2 block'>Seleccionar trabajador</Label>
                 <p className='mb-3 text-xs text-zinc-500 dark:text-zinc-400'>
                     Elige un trabajador existente o crea uno nuevo.
                 </p>
                 <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                    <button
-                        type='button'
-                        onClick={() => setFieldValue('trab_modo', 'existente')}
-                        className={classNames(
-                            'flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all',
-                            values.trab_modo === 'existente'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-zinc-200 hover:border-blue-300 dark:border-zinc-700 dark:hover:border-blue-600',
-                        )}>
-                        <div
-                            className={classNames(
-                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all',
-                                values.trab_modo === 'existente'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800',
-                            )}>
-                            <svg
-                                className='h-5 w-5'
-                                fill='none'
-                                viewBox='0 0 24 24'
-                                stroke='currentColor'>
-                                <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className='text-sm font-semibold'>Trabajador existente</p>
-                            <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
-                                Buscar entre los trabajadores ya registrados en la empresa.
-                            </p>
-                        </div>
-                    </button>
-                    <button
-                        type='button'
-                        onClick={() => setFieldValue('trab_modo', 'nuevo')}
-                        className={classNames(
-                            'flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-all',
-                            values.trab_modo === 'nuevo'
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-zinc-200 hover:border-blue-300 dark:border-zinc-700 dark:hover:border-blue-600',
-                        )}>
-                        <div
-                            className={classNames(
-                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all',
-                                values.trab_modo === 'nuevo'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800',
-                            )}>
-                            <svg
-                                className='h-5 w-5'
-                                fill='none'
-                                viewBox='0 0 24 24'
-                                stroke='currentColor'>
-                                <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z'
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className='text-sm font-semibold'>Crear nuevo trabajador</p>
-                            <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
-                                Registrar un nuevo trabajador durante la creacion del contrato.
-                            </p>
-                        </div>
-                    </button>
+                    <RadioCard
+                        id='trab_modo_existente'
+                        name='trab_modo'
+                        value='existente'
+                        checked={values.trab_modo === 'existente'}
+                        onChange={() => setFieldValue('trab_modo', 'existente')}
+                        icon='HeroUserCircle'>
+                        <p className='text-sm font-semibold'>Trabajador existente</p>
+                        <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                            Buscar entre los trabajadores ya registrados en la empresa.
+                        </p>
+                    </RadioCard>
+                    <RadioCard
+                        id='trab_modo_nuevo'
+                        name='trab_modo'
+                        value='nuevo'
+                        checked={values.trab_modo === 'nuevo'}
+                        onChange={() => setFieldValue('trab_modo', 'nuevo')}
+                        icon='HeroPlus'>
+                        <p className='text-sm font-semibold'>Crear nuevo trabajador</p>
+                        <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                            Registrar un nuevo trabajador durante la creacion del contrato.
+                        </p>
+                    </RadioCard>
                 </div>
             </div>
 
@@ -179,12 +125,13 @@ const StepTrabajador = ({
                     )}
                     {/* Sucursal — filtra la lista de trabajadores */}
                     <div>
-                        <Label>Sucursal</Label>
+                        <Label>
+                            Sucursal <span className='text-red-500'>*</span>
+                        </Label>
                         <SelectReact
                             name='trab_sucursal_id'
                             options={sucursalesOpts}
-                            placeholder='Filtrar por sucursal (opcional)'
-                            isClearable
+                            placeholder='Selecciona una sucursal'
                             isDisabled={mostrarSelectorEmpresa && !values.trab_empresa_cliente_id}
                             value={
                                 sucursalesOpts.find(
@@ -197,8 +144,17 @@ const StepTrabajador = ({
                                     opt ? Number((opt as TSelectOption).value) : '',
                                 );
                                 setFieldValue('trab_usuario_empresa_id', '');
+                                formik.setFieldTouched('trab_sucursal_id', true, false);
+                                if (opt) {
+                                    formik.setFieldError('trab_sucursal_id', undefined);
+                                }
                             }}
                         />
+                        {touched.trab_sucursal_id && errors.trab_sucursal_id && (
+                            <div className='text-xs text-red-500 mt-1'>
+                                {errors.trab_sucursal_id}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <Label htmlFor='trab_usuario_empresa_id'>
@@ -208,12 +164,15 @@ const StepTrabajador = ({
                             name='trab_usuario_empresa_id'
                             options={usuariosOpts}
                             placeholder={
-                                !mostrarSelectorEmpresa || values.trab_empresa_cliente_id
-                                    ? 'Selecciona un trabajador'
-                                    : 'Primero selecciona una empresa cliente'
+                                mostrarSelectorEmpresa && !values.trab_empresa_cliente_id
+                                    ? 'Primero selecciona una empresa cliente'
+                                    : !values.trab_sucursal_id
+                                      ? 'Primero selecciona una sucursal'
+                                      : 'Selecciona un trabajador'
                             }
                             isDisabled={
-                                mostrarSelectorEmpresa && !values.trab_empresa_cliente_id
+                                (mostrarSelectorEmpresa && !values.trab_empresa_cliente_id) ||
+                                !values.trab_sucursal_id
                             }
                             value={
                                 usuariosOpts.find(
@@ -387,47 +346,6 @@ const StepTrabajador = ({
                     </div>
                 </div>
             )}
-
-            {/* Notificacion al empleador */}
-            <div
-                className={classNames(
-                    'flex items-start gap-3 rounded-xl border-2 p-3 transition-all',
-                    values.enviar_al_empleador
-                        ? 'border-emerald-500/50 bg-emerald-50 dark:bg-emerald-900/10'
-                        : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/30',
-                )}>
-                <input
-                    id='enviar_al_empleador'
-                    type='checkbox'
-                    className='mt-0.5 h-4 w-4 cursor-pointer accent-blue-500'
-                    checked={values.enviar_al_empleador}
-                    onChange={async (e) => {
-                        const nuevoValor = e.target.checked;
-                        if (!nuevoValor) {
-                            const { isConfirmed } = await Swal.fire({
-                                title: 'Desactivar notificacion al empleador',
-                                text: 'No se enviara un correo al contacto del empleador cuando se cree el contrato. ¿Confirmas?',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonText: 'Si, desactivar',
-                                cancelButtonText: 'Cancelar',
-                            });
-                            if (!isConfirmed) return;
-                        }
-                        setFieldValue('enviar_al_empleador', nuevoValor);
-                    }}
-                />
-                <div>
-                    <Label htmlFor='enviar_al_empleador' className='!m-0 cursor-pointer'>
-                        Notificar al empleador al crear el contrato
-                    </Label>
-                    <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
-                        {emailEmpleador
-                            ? `Se enviara a: ${emailEmpleador}`
-                            : 'Se enviara un correo al contacto de la empresa empleadora.'}
-                    </p>
-                </div>
-            </div>
 
             <div>
                 <Label htmlFor='observaciones'>Observaciones</Label>

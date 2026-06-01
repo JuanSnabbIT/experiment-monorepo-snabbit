@@ -77,6 +77,7 @@ export const TIPOS_SECCION = [
     { value: 'libre', label: 'Sección Libre' },
     { value: 'titulo', label: 'Título' },
     { value: 'subtitulo', label: 'Subtítulo' },
+    { value: 'salto_pagina', label: 'Salto de Página' },
 ];
 
 export const SLOT_DOCUMENTAL = [

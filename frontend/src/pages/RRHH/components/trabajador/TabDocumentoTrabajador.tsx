@@ -1,6 +1,5 @@
-import Input from '@/components/form/Input';
-import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
@@ -10,28 +9,40 @@ import {
     useUpdateContratoTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
 interface ITabDocumentoProps {
     contrato: IContratoTrabajador;
 }
 
+/** Fila horizontal: icono + nombre + boton Descargar */
+const PdfFileCard = ({ contrato }: { contrato: IContratoTrabajador }) => {
+    if (!contrato.archivo_pdf) return null;
+    const nombreArchivo = contrato.archivo_pdf.split('/').pop() ?? 'contrato.pdf';
+    return (
+        <div className='flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/50'>
+            <div className='min-w-0 flex-1'>
+                <p className='truncate text-sm font-medium'>{nombreArchivo}</p>
+                <p className='text-xs text-zinc-400 dark:text-zinc-500'>PDF firmado</p>
+            </div>
+            <Button
+                icon='HeroArrowDownTray'
+                size='sm'
+                onClick={() => window.open(contrato.archivo_pdf!, '_blank')}>
+                Descargar
+            </Button>
+        </div>
+    );
+};
+
 const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const [generarPdf, { isLoading: generando }] = useGenerarPdfContratoTrabajadorMutation();
-    const [updateContrato, { isLoading: actualizando }] = useUpdateContratoTrabajadorMutation();
+    const [updateContrato] = useUpdateContratoTrabajadorMutation();
 
-    // Formulario de configuracion del documento
-    const [lugar, setLugar] = useState(contrato.lugar_firma ?? '');
-    const [fecha, setFecha] = useState(contrato.fecha_firma ?? '');
     const [plantillaId, setPlantillaId] = useState<number | ''>(contrato.plantilla_contrato ?? '');
-    const [archivoPdf, setArchivoPdf] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Sincronizar si el contrato cambia (ej: navegacion entre contratos)
     useEffect(() => {
-        setLugar(contrato.lugar_firma ?? '');
-        setFecha(contrato.fecha_firma ?? '');
         setPlantillaId(contrato.plantilla_contrato ?? '');
     }, [contrato.id]);
 
@@ -42,163 +53,134 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const plantillaSeleccionada =
         plantillasOpciones.find((o) => o.value === String(plantillaId)) ?? null;
 
-    const handleGenerarPdf = async () => {
+    const tienePdf = !!contrato.archivo_pdf;
+    const estado = contrato.estado;
+    const esBorrador = estado === 'borrador';
+    const esPendienteAceptacion = estado === 'pendiente_aceptacion';
+    const esVigente = estado === 'vigente';
+    const esTerminado = estado === 'terminado';
+    const esAnulado = estado === 'anulado';
+
+    const handleGenerarORegenerarPdf = async () => {
         try {
+            if (plantillaId !== contrato.plantilla_contrato) {
+                await updateContrato({
+                    id: contrato.id,
+                    data: { plantilla_contrato: plantillaId || null } as Partial<IContratoTrabajador>,
+                }).unwrap();
+            }
             await generarPdf(contrato.id).unwrap();
-            toast.success('PDF generado correctamente');
-        } catch (err: unknown) {
-            toast.error(getErrorMessage(err));
-        }
-    };
-
-    const handleGuardarConfiguracion = async () => {
-        try {
-            await updateContrato({
-                id: contrato.id,
-                data: {
-                    lugar_firma: lugar || null,
-                    fecha_firma: fecha || null,
-                    plantilla_contrato: plantillaId || null,
-                } as Partial<IContratoTrabajador>,
-            }).unwrap();
-            toast.success('Configuracion guardada');
-        } catch (err: unknown) {
-            toast.error(getErrorMessage(err));
-        }
-    };
-
-    const handleSubirPdf = async () => {
-        if (!archivoPdf) return;
-        const fd = new FormData();
-        fd.append('archivo_pdf', archivoPdf);
-        try {
-            await updateContrato({ id: contrato.id, data: fd }).unwrap();
-            toast.success('PDF subido correctamente');
-            setArchivoPdf(null);
-            if (fileInputRef.current) fileInputRef.current.value = '';
+            toast.success(tienePdf ? 'PDF regenerado correctamente' : 'PDF generado correctamente');
         } catch (err: unknown) {
             toast.error(getErrorMessage(err));
         }
     };
 
     return (
-        <div className='space-y-4'>
-            <Card>
-                <CardHeader>Documento del Contrato</CardHeader>
-                <CardBody>
-                    <div className='space-y-4'>
-                        <div className='flex flex-wrap gap-3'>
-                            <Button
-                                icon='HeroDocumentArrowDown'
-                                onClick={handleGenerarPdf}
-                                isLoading={generando}
-                                isDisable={generando}>
-                                Generar PDF
-                            </Button>
-                            {contrato.archivo_pdf && (
-                                <Button
-                                    icon='HeroEye'
-                                    onClick={() => window.open(contrato.archivo_pdf!, '_blank')}>
-                                    Ver PDF actual
-                                </Button>
-                            )}
-                        </div>
-                        {!contrato.archivo_pdf && (
-                            <p className='text-sm text-gray-500 dark:text-zinc-400'>
-                                No hay PDF generado. Usa el boton para generar el documento.
-                            </p>
-                        )}
-                    </div>
-                </CardBody>
-            </Card>
-
-            <Card>
-                <CardHeader>Configuracion del documento</CardHeader>
-                <CardBody>
-                    <div className='space-y-4'>
+        <Card>
+            <CardHeader>Documento del contrato</CardHeader>
+            <CardBody>
+                {/* Variante A: borrador sin PDF */}
+                {esBorrador && !tienePdf && (
+                    <div className='space-y-3'>
+                        <Alert variant='outline' color='zinc' icon='HeroDocumentText'>
+                            Sin documento generado. Configure la plantilla y genere el borrador.
+                        </Alert>
                         <div>
-                            <Label htmlFor='doc_plantilla'>Plantilla de contrato</Label>
+                            <p className='mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                Plantilla
+                            </p>
                             <SelectReact
                                 id='doc_plantilla'
+                                name='doc_plantilla'
                                 options={plantillasOpciones}
                                 value={plantillaSeleccionada}
                                 onChange={(opt) =>
-                                    setPlantillaId(
-                                        opt ? Number((opt as TSelectOption).value) : '',
-                                    )
+                                    setPlantillaId(opt ? Number((opt as TSelectOption).value) : '')
                                 }
                                 isClearable
-                                placeholder='Usar plantilla default del sistema...'
+                                placeholder='Seleccionar plantilla'
                             />
-                            <p className='mt-1 text-xs text-zinc-500'>
-                                Si no seleccionas una plantilla, se usara la plantilla default de la
-                                empresa.
-                            </p>
-                        </div>
-                        <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-                            <div>
-                                <Label htmlFor='doc_lugar_firma'>Lugar de firma</Label>
-                                <Input
-                                    id='doc_lugar_firma'
-                                    value={lugar}
-                                    onChange={(e) => setLugar(e.target.value)}
-                                    placeholder='Ej: Santiago, Chile'
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor='doc_fecha_firma'>Fecha de firma</Label>
-                                <Input
-                                    id='doc_fecha_firma'
-                                    type='date'
-                                    value={fecha}
-                                    onChange={(e) => setFecha(e.target.value)}
-                                />
-                            </div>
                         </div>
                         <Button
+                            icon='HeroDocumentArrowDown'
                             variant='solid'
-                            onClick={handleGuardarConfiguracion}
-                            isLoading={actualizando}
-                            isDisable={actualizando}>
-                            Guardar configuracion
+                            onClick={handleGenerarORegenerarPdf}
+                            isLoading={generando}
+                            isDisable={generando || !plantillaId}
+                            className='w-full justify-center'>
+                            Generar borrador PDF
                         </Button>
                     </div>
-                </CardBody>
-            </Card>
+                )}
 
-            <Card>
-                <CardHeader>Subir PDF manualmente</CardHeader>
-                <CardBody>
+                {/* Variante B: pendiente_aceptacion */}
+                {esPendienteAceptacion && (
                     <div className='space-y-3'>
-                        <p className='text-sm text-zinc-500 dark:text-zinc-400'>
-                            Puedes subir un PDF firmado manualmente para reemplazar el documento
-                            generado.
-                        </p>
-                        <input
-                            ref={fileInputRef}
-                            type='file'
-                            accept='application/pdf'
-                            onChange={(e) =>
-                                setArchivoPdf(e.target.files ? e.target.files[0] : null)
-                            }
-                            className='block w-full text-sm'
-                        />
-                        {archivoPdf && (
-                            <p className='text-xs text-zinc-500'>
-                                Archivo seleccionado: {archivoPdf.name}
+                        <Alert variant='outline' color='blue' icon='HeroClock'>
+                            Contrato en espera de firma. No regenerar hasta que sea aceptado o rechazado.
+                        </Alert>
+                        <PdfFileCard contrato={contrato} />
+                        <div className='flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800/50'>
+                            <span>Estado firma: <strong>Pendiente de firma</strong></span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Variante C: borrador con PDF o vigente */}
+                {((esBorrador && tienePdf) || esVigente) && (
+                    <div className='space-y-3'>
+                        <PdfFileCard contrato={contrato} />
+                        <div>
+                            <p className='mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                Configuracion
                             </p>
-                        )}
+                            <SelectReact
+                                id='doc_plantilla_c'
+                                name='doc_plantilla_c'
+                                options={plantillasOpciones}
+                                value={plantillaSeleccionada}
+                                onChange={(opt) =>
+                                    setPlantillaId(opt ? Number((opt as TSelectOption).value) : '')
+                                }
+                                isClearable
+                                placeholder='Seleccionar plantilla'
+                                isDisabled={esVigente}
+                            />
+                        </div>
                         <Button
-                            icon='HeroArrowUpTray'
-                            onClick={handleSubirPdf}
-                            isDisable={!archivoPdf || actualizando}
-                            isLoading={actualizando}>
-                            Subir PDF
+                            icon='HeroArrowPath'
+                            variant='solid'
+                            onClick={handleGenerarORegenerarPdf}
+                            isLoading={generando}
+                            isDisable={generando || !plantillaId}
+                            className='w-full justify-center'>
+                            Regenerar PDF
                         </Button>
                     </div>
-                </CardBody>
-            </Card>
-        </div>
+                )}
+
+                {/* Variante D: terminado */}
+                {esTerminado && (
+                    <div className='space-y-3'>
+                        <Alert variant='outline' color='amber' icon='HeroExclamationTriangle'>
+                            Contrato terminado. Solo descarga disponible.
+                        </Alert>
+                        <PdfFileCard contrato={contrato} />
+                    </div>
+                )}
+
+                {/* Variante E: anulado */}
+                {esAnulado && (
+                    <div className='space-y-3'>
+                        <Alert variant='outline' color='red' icon='HeroNoSymbol'>
+                            Contrato anulado. Solo descarga disponible.
+                        </Alert>
+                        <PdfFileCard contrato={contrato} />
+                    </div>
+                )}
+            </CardBody>
+        </Card>
     );
 };
 

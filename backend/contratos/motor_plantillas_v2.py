@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from django.db import models
 
-from contratos.models import EtiquetaPlantilla, SeccionContratoGenerada
+from contratos.models import EtiquetaPlantilla, SeccionContratoGenerada, TIPOS_BLOQUE_DINAMICO
 from contratos.adaptadores import IContratoBase, NOT_HANDLED
 from contratos.motor_plantillas import (
     PATRON_ETIQUETA,
@@ -132,8 +132,13 @@ def generar_secciones_v2(adaptador: IContratoBase) -> list:
             resultado.append(existente)
             continue
 
-        # Tipos titulo/subtitulo no tienen cuerpo de texto.
+        # Tipos estructurales sin cuerpo de texto.
         if seccion.tipo in ("titulo", "subtitulo"):
+            contenido = ""
+        elif seccion.tipo == "salto_pagina":
+            contenido = '<div style="page-break-after:always;border-top:1px dashed #d4d4d8;margin:12px 0;text-align:center"></div>'
+        elif seccion.tipo in TIPOS_BLOQUE_DINAMICO:
+            # Bloques dinámicos: su contenido se genera al emitir el contrato, no desde template.
             contenido = ""
         else:
             contenido = renderizar_seccion_v2(seccion.contenido_template, adaptador, etiquetas_map)

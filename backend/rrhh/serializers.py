@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from .models import AnexoContrato, CargoCatalogo, ContratoTrabajador
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ContratoTrabajador, EnvioAprobacionEmpleador
 
 
 class CargoCatalogoSerializer(serializers.ModelSerializer):
@@ -12,6 +12,24 @@ class CargoCatalogoSerializer(serializers.ModelSerializer):
         model = CargoCatalogo
         fields = ("id", "empresa", "nombre", "activo", "fecha_creacion", "fecha_modificacion")
         read_only_fields = ("fecha_creacion", "fecha_modificacion")
+
+
+class AfpCatalogoSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de AFP."""
+
+    class Meta:
+        model = AfpCatalogo
+        fields = ("id", "nombre", "empresa", "activo")
+        read_only_fields = ("empresa",)
+
+
+class BancoCatalogoSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de bancos."""
+
+    class Meta:
+        model = BancoCatalogo
+        fields = ("id", "nombre", "empresa", "activo")
+        read_only_fields = ("empresa",)
 
 
 class AnexoContratoSerializer(serializers.ModelSerializer):
@@ -42,8 +60,18 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     nombre_trabajador = serializers.SerializerMethodField()
     email_trabajador = serializers.SerializerMethodField()
     rut_trabajador = serializers.SerializerMethodField()
+    telefono_trabajador = serializers.SerializerMethodField()
+    fecha_nacimiento_trabajador = serializers.SerializerMethodField()
+    nacionalidad_trabajador = serializers.SerializerMethodField()
+    direccion_trabajador = serializers.SerializerMethodField()
 
     label_trabajador = serializers.SerializerMethodField()
+
+    datos_previsionales_trabajador = serializers.SerializerMethodField()
+
+    empresa_nombre = serializers.SerializerMethodField()
+    sucursal_nombre = serializers.SerializerMethodField()
+    email_empresa = serializers.SerializerMethodField()
 
     plantilla_contrato_titulo = serializers.CharField(
         source="plantilla_contrato.titulo", read_only=True, default=None,
@@ -79,26 +107,103 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
         return obj.get_motivo_termino_display() if obj.motivo_termino else None
 
     def get_nombre_trabajador(self, obj):
-        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
-        if not usuario:
-            return None
-        return getattr(usuario, "get_nombre", lambda: usuario.get_full_name())()
+        if obj.usuario_empresa:
+            usuario = obj.usuario_empresa.usuario
+            return getattr(
+                usuario,
+                "get_nombre_completo",
+                lambda: (f"{getattr(usuario, 'first_name', '')} {getattr(usuario, 'last_name', '')}").strip()
+                or getattr(usuario, "email", None),
+            )()
+        if obj.datos_trabajador_nuevo:
+            fn = obj.datos_trabajador_nuevo.get("first_name", "")
+            ln = obj.datos_trabajador_nuevo.get("last_name", "")
+            return f"{fn} {ln}".strip() or None
+        return None
 
     def get_email_trabajador(self, obj):
-        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
-        return getattr(usuario, "email", None)
+        if obj.usuario_empresa:
+            usuario = obj.usuario_empresa.usuario
+            return getattr(usuario, "email", None)
+        if obj.datos_trabajador_nuevo:
+            return obj.datos_trabajador_nuevo.get("email")
+        return None
 
     def get_rut_trabajador(self, obj):
-        return obj.usuario_empresa.rut if obj.usuario_empresa else None
+        if obj.usuario_empresa:
+            return obj.usuario_empresa.rut
+        if obj.datos_trabajador_nuevo:
+            return obj.datos_trabajador_nuevo.get("rut")
+        return None
+
+    def get_telefono_trabajador(self, obj):
+        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
+        return getattr(usuario, "celular", None)
+
+    def get_fecha_nacimiento_trabajador(self, obj):
+        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
+        fn = getattr(usuario, "fecha_nacimiento", None)
+        if fn:
+            return fn.strftime("%d/%m/%Y")
+        return None
+
+    def get_nacionalidad_trabajador(self, obj):
+        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
+        return getattr(usuario, "nacionalidad", None)
+
+    def get_direccion_trabajador(self, obj):
+        usuario = obj.usuario_empresa.usuario if obj.usuario_empresa else None
+        return getattr(usuario, "direccion", None)
 
     def get_label_trabajador(self, obj):
-        if not obj.usuario_empresa:
+        if not obj.usuario_empresa and not obj.datos_trabajador_nuevo:
             return None
         nombre = self.get_nombre_trabajador(obj) or ""
         rut = self.get_rut_trabajador(obj)
         email = self.get_email_trabajador(obj) or ""
         sufijo = rut if rut else email
         return f"{nombre} — {sufijo}" if sufijo else nombre
+
+    def get_datos_previsionales_trabajador(self, obj):
+        ue = obj.usuario_empresa
+        if ue:
+            return {
+                "afp": ue.afp,
+                "sistema_salud": ue.sistema_salud,
+                "nombre_isapre": ue.nombre_isapre,
+                "banco": ue.banco,
+                "tipo_cuenta_bancaria": ue.tipo_cuenta_bancaria,
+                "numero_cuenta_bancaria": ue.numero_cuenta_bancaria,
+            }
+        if obj.datos_trabajador_nuevo:
+            d = obj.datos_trabajador_nuevo
+            return {
+                "afp": d.get("afp"),
+                "sistema_salud": d.get("sistema_salud"),
+                "nombre_isapre": d.get("nombre_isapre"),
+                "banco": d.get("banco"),
+                "tipo_cuenta_bancaria": d.get("tipo_cuenta_bancaria"),
+                "numero_cuenta_bancaria": d.get("numero_cuenta_bancaria"),
+            }
+        return {}
+
+    def get_empresa_nombre(self, obj):
+        try:
+            return obj.usuario_empresa.sucursal.empresa.nombre
+        except Exception:
+            return None
+
+    def get_sucursal_nombre(self, obj):
+        try:
+            return obj.usuario_empresa.sucursal.nombre
+        except Exception:
+            return None
+
+    def get_email_empresa(self, obj):
+        try:
+            return obj.usuario_empresa.sucursal.empresa.email
+        except Exception:
+            return None
 
     def get_secciones_generadas(self, obj):
         secciones = obj.secciones_generadas.all().order_by("orden") if hasattr(obj, "secciones_generadas") else []
@@ -120,7 +225,7 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContratoTrabajador
-        exclude = ("creado_por", "aceptado_por", "fecha_aceptacion")
+        exclude = ("creado_por", "aceptado_por", "fecha_aceptacion", "datos_trabajador_nuevo")
 
     def validate(self, attrs):
         instance = getattr(self, "instance", None)
@@ -234,3 +339,88 @@ class CrearContratoConTrabajadorSerializer(serializers.Serializer):
         ser = ContratoTrabajadorWriteSerializer(data=contrato_payload, partial=True)
         ser.is_valid(raise_exception=True)
         return value
+
+
+class EnvioAprobacionEmpleadorSerializer(serializers.ModelSerializer):
+    """Serializer de lectura para EnvioAprobacionEmpleador."""
+
+    decision_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EnvioAprobacionEmpleador
+        fields = (
+            "id",
+            "uuid",
+            "contrato",
+            "enviado_a",
+            "enviado_por",
+            "decision",
+            "decision_label",
+            "motivo_rechazo",
+            "cambios_solicitados",
+            "notificar_trabajador",
+            "fecha_envio",
+            "fecha_respuesta",
+            "ip_respuesta",
+            "expirado",
+        )
+        read_only_fields = fields
+
+    def get_decision_label(self, obj):
+        return obj.get_decision_display()
+
+
+class ContratoAprobacionPublicaSerializer(serializers.ModelSerializer):
+    """Datos minimos del contrato para la vista publica del empleador."""
+
+    tipo_contrato_label = serializers.SerializerMethodField()
+    jornada_label = serializers.SerializerMethodField()
+    nombre_trabajador = serializers.SerializerMethodField()
+    email_trabajador = serializers.SerializerMethodField()
+    empresa_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContratoTrabajador
+        fields = (
+            "id",
+            "tipo_contrato",
+            "tipo_contrato_label",
+            "cargo",
+            "fecha_inicio",
+            "fecha_termino",
+            "jornada",
+            "jornada_label",
+            "sueldo_base",
+            "moneda",
+            "nombre_trabajador",
+            "email_trabajador",
+            "empresa_nombre",
+        )
+
+    def get_tipo_contrato_label(self, obj):
+        return obj.get_tipo_contrato_display()
+
+    def get_jornada_label(self, obj):
+        return obj.get_jornada_display()
+
+    def get_nombre_trabajador(self, obj):
+        if obj.usuario_empresa and obj.usuario_empresa.usuario:
+            usuario = obj.usuario_empresa.usuario
+            return getattr(
+                usuario,
+                "get_nombre_completo",
+                lambda: (f"{getattr(usuario, 'first_name', '')} {getattr(usuario, 'last_name', '')}").strip()
+                or getattr(usuario, "email", None),
+            )()
+        return None
+
+    def get_email_trabajador(self, obj):
+        if obj.usuario_empresa and obj.usuario_empresa.usuario:
+            return obj.usuario_empresa.usuario.email
+        return None
+
+    def get_empresa_nombre(self, obj):
+        try:
+            return obj.usuario_empresa.sucursal.empresa.nombre
+        except Exception:
+            return None

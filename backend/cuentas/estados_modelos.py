@@ -11,3 +11,12 @@ ESTADOS_CIVILES_CHILE = [
     ('viudo', 'Viudo'),
     ('conviviente', 'Conviviente Civil'),
 ]
+
+NIVEL_ESTUDIOS = [
+    ('basica', 'Educacion basica'),
+    ('media', 'Educacion media'),
+    ('tecnico_nivel_medio', 'Tecnico nivel medio'),
+    ('tecnico_nivel_superior', 'Tecnico nivel superior'),
+    ('universitario', 'Universitario'),
+    ('postgrado', 'Postgrado / Magister / Doctorado'),
+]

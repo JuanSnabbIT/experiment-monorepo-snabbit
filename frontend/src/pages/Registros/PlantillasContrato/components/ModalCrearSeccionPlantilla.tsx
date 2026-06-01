@@ -20,7 +20,7 @@ interface IModalCrearSeccionPlantillaProps {
 
 const validationSchema = Yup.object({
     titulo: Yup.string().when('tipo', {
-        is: 'libre',
+        is: (val: string) => val === 'libre' || val === 'salto_pagina',
         then: (schema) => schema.optional(),
         otherwise: (schema) => schema.required('Título requerido'),
     }),

@@ -1,6 +1,6 @@
 import Swal, { SweetAlertIcon, SweetAlertResult } from 'sweetalert2';
 
-const getSweetAlertTheme = (overrides?: {
+export const getSweetAlertTheme = (overrides?: {
     confirmButtonColor?: string;
     cancelButtonColor?: string;
 }) => {

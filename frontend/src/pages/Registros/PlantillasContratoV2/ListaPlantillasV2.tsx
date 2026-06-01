@@ -1,3 +1,5 @@
+import Input from '@/components/form/Input';
+import Select from '@/components/form/Select';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
@@ -10,12 +12,12 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
 import {
-    useDeletePlantillaMutation,
-    useGetPlantillasContratoQuery,
-} from '@/store/slices/contratos/plantillaContratoApi';
+    useDeletePlantillaV2Mutation,
+    useGetPlantillasV2Query,
+} from '@/store/slices/contratos/plantillaContratoV2Api';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ModalCrearPlantilla from '../PlantillasContrato/components/ModalCrearPlantilla';
+import ModalCrearPlantillaV2 from './components/ModalCrearPlantillaV2';
 
 const getTipoLabel = (tipo: string) =>
     TIPO_CONTRATO.find((item) => item.value === tipo)?.label || tipo;
@@ -23,9 +25,19 @@ const getTipoLabel = (tipo: string) =>
 const ListaPlantillasV2 = () => {
     const navigate = useNavigate();
     const [modalOpen, setModalOpen] = useState(false);
+    const [filtroTipo, setFiltroTipo] = useState('');
+    const [busqueda, setBusqueda] = useState('');
 
-    const { data: plantillas, isLoading, error } = useGetPlantillasContratoQuery();
-    const [deletePlantilla] = useDeletePlantillaMutation();
+    const {
+        data: plantillasRaw,
+        isLoading,
+        error,
+    } = useGetPlantillasV2Query(filtroTipo ? { tipo_contrato: filtroTipo } : undefined);
+
+    const plantillas = (plantillasRaw ?? []).filter((p) =>
+        p.titulo.toLowerCase().includes(busqueda.toLowerCase()),
+    );
+    const [deletePlantilla] = useDeletePlantillaV2Mutation();
 
     const handleGestionar = (id: number) => {
         navigate(`/registros/plantillas-contrato-v2/${id}`);
@@ -35,11 +47,30 @@ const ListaPlantillasV2 = () => {
         <PageWrapper>
             <Subheader>
                 <SubheaderLeft>
-                    <div className='flex flex-col gap-0.5'>
-                        <h1 className='text-xl font-bold'>Plantillas de contrato</h1>
-                        <p className='text-sm text-zinc-500 dark:text-zinc-400'>
-                            Gestiona las plantillas base para generar contratos
-                        </p>
+                    <div className='flex items-center gap-3'>
+                        <div className='flex flex-col gap-0.5'>
+                            <h1 className='text-xl font-bold'>Plantillas de contrato</h1>
+                            <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                Gestiona las plantillas base para generar contratos
+                            </p>
+                        </div>
+                        <Select
+                            className='w-44'
+                            value={filtroTipo}
+                            onChange={(e) => setFiltroTipo(e.target.value)}>
+                            <option value=''>Todos los tipos</option>
+                            {TIPO_CONTRATO.map((t) => (
+                                <option key={t.value} value={t.value}>
+                                    {t.label}
+                                </option>
+                            ))}
+                        </Select>
+                        <Input
+                            className='w-52'
+                            placeholder='Buscar por título...'
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                        />
                     </div>
                 </SubheaderLeft>
                 <SubheaderRight>
@@ -91,11 +122,12 @@ const ListaPlantillasV2 = () => {
                             </div>
                         ) : (
                             <div className='overflow-auto'>
-                                <Table className='min-w-[800px]'>
+                                <Table className='min-w-[900px]'>
                                     <THead>
                                         <Tr>
                                             <Th>Título</Th>
                                             <Th>Tipo contrato</Th>
+                                            <Th>Scope</Th>
                                             <Th>Versión</Th>
                                             <Th>Estado</Th>
                                             <Th>Secciones</Th>
@@ -124,6 +156,17 @@ const ListaPlantillasV2 = () => {
                                                     </Badge>
                                                 </Td>
                                                 <Td>
+                                                    {plantilla.empresa_cliente === null ? (
+                                                        <Badge color='emerald' variant='outline'>
+                                                            Global
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge color='cyan' variant='outline'>
+                                                            {plantilla.empresa_cliente_nombre}
+                                                        </Badge>
+                                                    )}
+                                                </Td>
+                                                <Td>
                                                     <Badge variant='outline' color='zinc'>
                                                         v{plantilla.version}
                                                     </Badge>
@@ -137,7 +180,7 @@ const ListaPlantillasV2 = () => {
                                                 </Td>
                                                 <Td>
                                                     <Badge variant='outline' color='amber'>
-                                                        {plantilla.secciones?.length ?? 0}
+                                                        {plantilla.total_secciones ?? 0}
                                                     </Badge>
                                                 </Td>
                                                 <Td>
@@ -152,7 +195,7 @@ const ListaPlantillasV2 = () => {
                                                             />
                                                         </Tooltip>
                                                         <ConfirmarEliminar
-                                                            peticionUrl={`/api/plantillas-contrato/${plantilla.id}/`}
+                                                            peticionUrl={`/api/v2/plantillas-contrato-v2/${plantilla.id}/`}
                                                             nombre={plantilla.titulo}
                                                             onDispatch={() =>
                                                                 deletePlantilla(plantilla.id)
@@ -175,7 +218,7 @@ const ListaPlantillasV2 = () => {
                 </Card>
             </Container>
 
-            <ModalCrearPlantilla
+            <ModalCrearPlantillaV2
                 isOpen={modalOpen}
                 setIsOpen={setModalOpen}
                 onCreated={(id) => navigate(`/registros/plantillas-contrato-v2/${id}`)}

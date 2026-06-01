@@ -1,3 +1,4 @@
+import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
@@ -176,12 +177,12 @@ const ListaContratosTrabajador = () => {
         <PageWrapper isProtectedRoute name='Contratos Laborales' title='Contratos Laborales'>
             <Subheader>
                 <SubheaderLeft>
-                    <input
+                    <Input
                         type='text'
                         value={globalFilter}
                         onChange={(e) => setGlobalFilter(e.target.value)}
                         placeholder='Buscar...'
-                        className='rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+                        name='busqueda'
                     />
                 </SubheaderLeft>
                 <SubheaderRight>

@@ -83,6 +83,13 @@ export const authPages = {
         icon: 'HeroDocumentText',
         authority: [],
     },
+    aprobacionEmpleadorContrato: {
+        id: 'aprobacionEmpleadorContrato',
+        to: '/rrhh/aprobacion-empleador/:uuid',
+        text: 'Aprobacion de Contrato Laboral',
+        icon: 'HeroDocumentCheck',
+        authority: [],
+    },
 };
 
 export const Pages = {

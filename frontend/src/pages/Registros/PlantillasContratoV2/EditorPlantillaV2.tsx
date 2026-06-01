@@ -1,18 +1,19 @@
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { IEtiquetaPlantilla, ISeccionPlantilla } from '@/interface/plantillaContrato.interface';
+import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
+import { ISeccionPlantillaV2 as ISeccionPlantilla } from '@/interface/plantillaContratoV2.interface';
 import {
-    useDuplicarPlantillaMutation,
-    useGetDetallePlantillaQuery,
-    useGetEtiquetasPlantillaQuery,
-    useReordenarSeccionesPlantillaMutation,
-} from '@/store/slices/contratos/plantillaContratoApi';
+    useDuplicarPlantillaV2Mutation,
+    useGetDetallePlantillaV2Query,
+    useGetEtiquetasV2Query,
+    useReordenarSeccionesV2Mutation,
+} from '@/store/slices/contratos/plantillaContratoV2Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import ModalCrearSeccionPlantilla from '../PlantillasContrato/components/ModalCrearSeccionPlantilla';
-import ModalEditarPlantilla from '../PlantillasContrato/components/ModalEditarPlantilla';
+import ModalCrearSeccionV2 from './components/ModalCrearSeccionV2';
+import ModalEditarPlantillaV2 from './components/ModalEditarPlantillaV2';
 import PanelDocumento, { IPanelDocumentoHandle } from './components/PanelDocumento';
 import PanelEstructura from './components/PanelEstructura';
 import PanelEtiquetas from './components/PanelEtiquetas';
@@ -26,17 +27,17 @@ const EditorPlantillaV2 = () => {
         data: plantilla,
         isLoading,
         isError,
-        refetch,
-    } = useGetDetallePlantillaQuery(plantillaId ?? '');
-    const { data: etiquetas = [] } = useGetEtiquetasPlantillaQuery();
-    const [duplicar, { isLoading: isDuplicating }] = useDuplicarPlantillaMutation();
-    const [reordenarSecciones] = useReordenarSeccionesPlantillaMutation();
+    } = useGetDetallePlantillaV2Query(plantillaId ?? '');
+    const { data: etiquetas = [] } = useGetEtiquetasV2Query();
+    const [duplicar, { isLoading: isDuplicating }] = useDuplicarPlantillaV2Mutation();
+    const [reordenarSecciones] = useReordenarSeccionesV2Mutation();
 
     // ─── Estado local ────────────────────────────────────────────────────────
     const [seccionActivaId, setSeccionActivaId] = useState<number | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [modalConfigOpen, setModalConfigOpen] = useState(false);
     const [modalNuevaSeccionOpen, setModalNuevaSeccionOpen] = useState(false);
+    const [hayUnsavedChanges, setHayUnsavedChanges] = useState(false);
     // Orden optimista de secciones (se actualiza al hacer drag-and-drop)
     const [seccionesLocales, setSeccionesLocales] = useState<ISeccionPlantilla[]>([]);
 
@@ -64,7 +65,7 @@ const EditorPlantillaV2 = () => {
     const handleDuplicar = async () => {
         if (!plantillaId) return;
         try {
-            const nueva = await duplicar(plantillaId).unwrap();
+            const nueva = await duplicar(Number(plantillaId)).unwrap();
             toast.success('Plantilla duplicada');
             navigate(`/registros/plantillas-contrato-v2/${nueva.id}`);
         } catch (err: unknown) {
@@ -75,7 +76,7 @@ const EditorPlantillaV2 = () => {
     const handleSeccionCreada = (seccion: ISeccionPlantilla) => {
         setSeccionActivaId(seccion.id);
         setIsEditing(false);
-        refetch();
+        // RTK Query invalida automáticamente via invalidatesTags — no refetch manual
     };
 
     const handleReordenarSecciones = async (nuevasSecciones: ISeccionPlantilla[]) => {
@@ -85,8 +86,8 @@ const EditorPlantillaV2 = () => {
         setSeccionesLocales(nuevasSecciones);
         try {
             await reordenarSecciones({
-                plantillaId,
-                secciones: nuevasSecciones.map((s, i) => ({ id: s.id, orden: i + 1 })),
+                plantillaId: Number(plantillaId),
+                orden: nuevasSecciones.map((s, i) => ({ id: s.id, orden: i + 1 })),
             }).unwrap();
         } catch (err: unknown) {
             // Revertir si falla
@@ -114,6 +115,17 @@ const EditorPlantillaV2 = () => {
             );
         }
     }, [plantilla?.secciones]);
+
+    // Advertir al usuario antes de cerrar/recargar si hay cambios sin guardar
+    useEffect(() => {
+        if (!hayUnsavedChanges) return undefined;
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [hayUnsavedChanges]);
 
     // ─── Render de carga / error ─────────────────────────────────────────────
     if (isLoading) {
@@ -194,6 +206,11 @@ const EditorPlantillaV2 = () => {
                                 Default
                             </Badge>
                         )}
+                        {hayUnsavedChanges && (
+                            <Badge color='amber' variant='solid' className='text-xs'>
+                                Cambios sin guardar
+                            </Badge>
+                        )}
                     </div>
                 </div>
 
@@ -237,15 +254,16 @@ const EditorPlantillaV2 = () => {
             {/* ═══════════════════════════════════════════════════════════════
                 CONTENIDO PRINCIPAL — 3 paneles
             ═══════════════════════════════════════════════════════════════ */}
-            <div className='flex flex-1 overflow-hidden'>
+            <div className='flex min-h-0 flex-1 overflow-hidden'>
                 {/* ── Panel izquierdo: Estructura (260px fijo) ── */}
-                <aside className='w-[260px] shrink-0 overflow-hidden'>
+                <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
                     <PanelEstructura
                         secciones={secciones}
                         seccionActivaId={seccionActivaId}
                         onSelectSeccion={handleSeleccionarSeccion}
                         onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
                         onReordenarSecciones={handleReordenarSecciones}
+                        bloques={plantilla?.bloques_transversales ?? []}
                     />
                 </aside>
 
@@ -262,12 +280,14 @@ const EditorPlantillaV2 = () => {
                         onSelectSeccion={handleSeleccionarSeccion}
                         onStartEditar={() => setIsEditing(true)}
                         onStopEditar={() => setIsEditing(false)}
-                        onSaved={refetch}
+                        onSaved={() => {/* invalidado automáticamente por RTK Query */}}
+                        onDirtyChange={setHayUnsavedChanges}
+                        bloques={plantilla?.bloques_transversales ?? []}
                     />
                 </main>
 
                 {/* ── Panel derecho: Etiquetas (260px fijo) ── */}
-                <aside className='w-[260px] shrink-0 overflow-hidden'>
+                <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
                     <PanelEtiquetas
                         etiquetas={etiquetas as IEtiquetaPlantilla[]}
                         onInsertarEtiqueta={handleInsertarEtiqueta}
@@ -280,13 +300,13 @@ const EditorPlantillaV2 = () => {
             {/* ═══════════════════════════════════════════════════════════════
                 MODALES
             ═══════════════════════════════════════════════════════════════ */}
-            <ModalEditarPlantilla
+            <ModalEditarPlantillaV2
                 isOpen={modalConfigOpen}
                 setIsOpen={setModalConfigOpen}
                 plantilla={plantilla}
             />
 
-            <ModalCrearSeccionPlantilla
+            <ModalCrearSeccionV2
                 isOpen={modalNuevaSeccionOpen}
                 setIsOpen={setModalNuevaSeccionOpen}
                 plantillaId={plantillaId ?? ''}

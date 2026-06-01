@@ -1,6 +1,27 @@
-import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import Checkbox from '@/components/form/Checkbox';
+import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Textarea from '@/components/form/Textarea';
+import Button from '@/components/ui/Button';
+import Card, { CardBody, CardFooter, CardHeader } from '@/components/ui/Card';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
+import {
+    useCreateCargoCatalogoMutation,
+    useGetCargosCatalogoQuery,
+} from '@/store/slices/rrhh/cargoCatalogoApi';
+import { useUpdateContratoTrabajadorMutation } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
+import { useFormik } from 'formik';
+import { useState } from 'react';
+import { toast } from 'react-toastify';
+import {
+    HORAS_SEMANALES_OPTIONS,
+    JORNADA_OPTIONS,
+    MESES_OPTIONS,
+    TIPO_CONTRATO_OPTIONS,
+} from './types';
 
 interface ITabDatosLaboralesProps {
     contrato: IContratoTrabajador;
@@ -8,18 +29,291 @@ interface ITabDatosLaboralesProps {
 
 const Campo = ({ label, value }: { label: string; value: string | number | null | undefined }) => (
     <div>
-        <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+        <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
             {label}
         </p>
-        <p className='mt-0.5 text-sm text-gray-900 dark:text-zinc-100'>{value ?? '—'}</p>
+        <p className='mt-0.5 text-sm text-zinc-900 dark:text-zinc-100'>{value ?? '—'}</p>
     </div>
 );
 
 const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
+    const esBorrador = contrato.estado === 'borrador';
+    const [editando, setEditando] = useState(false);
+
+    const { data: cargosCatalogo = [] } = useGetCargosCatalogoQuery(undefined, { skip: !editando });
+    const [crearCargo] = useCreateCargoCatalogoMutation();
+    const [updateContrato, { isLoading: guardando }] = useUpdateContratoTrabajadorMutation();
+
+    const tieneTermino = !!contrato.fecha_termino;
+
+    const formik = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            cargo: contrato.cargo ?? '',
+            tipo_contrato: contrato.tipo_contrato ?? '',
+            fecha_inicio: contrato.fecha_inicio ?? '',
+            fecha_termino: contrato.fecha_termino ?? '',
+            cantidad_meses: '',
+            jornada: contrato.jornada ?? '',
+            horas_semanales: contrato.horas_semanales ? String(contrato.horas_semanales) : '',
+            lugar_trabajo: contrato.lugar_trabajo ?? '',
+            funciones: contrato.funciones ?? '',
+            es_indefinido: !tieneTermino,
+        },
+        onSubmit: async (values) => {
+            try {
+                const payload: Record<string, unknown> = {
+                    cargo: values.cargo,
+                    tipo_contrato: values.tipo_contrato,
+                    fecha_inicio: values.fecha_inicio,
+                    fecha_termino: values.es_indefinido ? null : (values.fecha_termino || null),
+                    jornada: values.jornada,
+                    horas_semanales: values.horas_semanales ? Number(values.horas_semanales) : null,
+                    lugar_trabajo: values.lugar_trabajo,
+                    funciones: values.funciones,
+                };
+                await updateContrato({ id: contrato.id, data: payload }).unwrap();
+                toast.success('Datos del contrato actualizados');
+                setEditando(false);
+            } catch (err: unknown) {
+                toast.error(getErrorMessage(err));
+            }
+        },
+    });
+
+    const cargoOptions: TSelectOption[] = cargosCatalogo.map((c) => ({
+        value: c.nombre,
+        label: c.nombre,
+    }));
+
+    const handleCrearCargo = async (nombre: string) => {
+        try {
+            await crearCargo({ nombre }).unwrap();
+        } catch {
+            // ignorar — el campo acepta texto libre igual
+        }
+        formik.setFieldValue('cargo', nombre);
+    };
+
+    if (editando) {
+        return (
+            <div className='space-y-4'>
+                <Card>
+                    <CardHeader>
+                        <span>Editar Datos del Contrato</span>
+                    </CardHeader>
+                    <CardBody>
+                        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                            {/* Cargo */}
+                            <div className='sm:col-span-2'>
+                                <Label htmlFor='cargo'>Cargo</Label>
+                                <SelectReact
+                                    id='cargo'
+                                    name='cargo'
+                                    isCreatable
+                                    options={cargoOptions}
+                                    value={
+                                        formik.values.cargo
+                                            ? { value: formik.values.cargo, label: formik.values.cargo }
+                                            : null
+                                    }
+                                    onChange={(opt) => formik.setFieldValue('cargo', (opt as TSelectOption)?.value ?? '')}
+                                    onCreateOption={handleCrearCargo}
+                                    placeholder='Selecciona o escribe un cargo...'
+                                />
+                            </div>
+
+                            {/* Tipo contrato */}
+                            <div>
+                                <Label htmlFor='tipo_contrato'>Tipo de contrato</Label>
+                                <SelectReact
+                                    id='tipo_contrato'
+                                    name='tipo_contrato'
+                                    options={TIPO_CONTRATO_OPTIONS}
+                                    value={
+                                        TIPO_CONTRATO_OPTIONS.find(
+                                            (o) => o.value === formik.values.tipo_contrato,
+                                        ) ?? null
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue('tipo_contrato', (opt as TSelectOption)?.value ?? '')
+                                    }
+                                    placeholder='Tipo...'
+                                />
+                            </div>
+
+                            {/* Fecha inicio */}
+                            <div>
+                                <Label htmlFor='fecha_inicio'>Fecha inicio</Label>
+                                <Input
+                                    id='fecha_inicio'
+                                    name='fecha_inicio'
+                                    type='date'
+                                    value={formik.values.fecha_inicio}
+                                    onChange={formik.handleChange}
+                                />
+                            </div>
+
+                            {/* Contrato indefinido toggle */}
+                            <div className='flex items-center gap-2 sm:col-span-2'>
+                                <Checkbox
+                                    id='es_indefinido'
+                                    name='es_indefinido'
+                                    checked={formik.values.es_indefinido}
+                                    onChange={formik.handleChange}
+                                    label='Contrato indefinido (sin fecha de termino)'
+                                />
+                            </div>
+
+                            {/* Fecha termino */}
+                            {!formik.values.es_indefinido && (
+                                <>
+                                    <div>
+                                        <Label htmlFor='fecha_termino'>Fecha termino</Label>
+                                        <Input
+                                            id='fecha_termino'
+                                            name='fecha_termino'
+                                            type='date'
+                                            value={formik.values.fecha_termino}
+                                            onChange={formik.handleChange}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor='cantidad_meses'>Duracion (meses)</Label>
+                                        <SelectReact
+                                            id='cantidad_meses'
+                                            name='cantidad_meses'
+                                            options={MESES_OPTIONS}
+                                            value={
+                                                MESES_OPTIONS.find(
+                                                    (o) => o.value === String(formik.values.cantidad_meses),
+                                                ) ?? null
+                                            }
+                                            onChange={(opt) => {
+                                                const meses = Number((opt as TSelectOption)?.value ?? 0);
+                                                formik.setFieldValue('cantidad_meses', meses);
+                                                if (meses && formik.values.fecha_inicio) {
+                                                    const ft = dayjs(formik.values.fecha_inicio)
+                                                        .add(meses, 'month')
+                                                        .subtract(1, 'day')
+                                                        .format('YYYY-MM-DD');
+                                                    formik.setFieldValue('fecha_termino', ft);
+                                                }
+                                            }}
+                                            placeholder='Meses...'
+                                            isClearable
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Jornada */}
+                            <div>
+                                <Label htmlFor='jornada'>Jornada</Label>
+                                <SelectReact
+                                    id='jornada'
+                                    name='jornada'
+                                    options={JORNADA_OPTIONS}
+                                    value={
+                                        JORNADA_OPTIONS.find((o) => o.value === formik.values.jornada) ?? null
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue('jornada', (opt as TSelectOption)?.value ?? '')
+                                    }
+                                    placeholder='Jornada...'
+                                />
+                            </div>
+
+                            {/* Horas semanales */}
+                            <div>
+                                <Label htmlFor='horas_semanales'>Horas semanales</Label>
+                                <SelectReact
+                                    id='horas_semanales'
+                                    name='horas_semanales'
+                                    isCreatable
+                                    options={HORAS_SEMANALES_OPTIONS}
+                                    value={
+                                        formik.values.horas_semanales
+                                            ? {
+                                                  value: formik.values.horas_semanales,
+                                                  label: `${formik.values.horas_semanales} hrs`,
+                                              }
+                                            : null
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue(
+                                            'horas_semanales',
+                                            (opt as TSelectOption)?.value ?? '',
+                                        )
+                                    }
+                                    onCreateOption={(val) => formik.setFieldValue('horas_semanales', val)}
+                                    placeholder='Horas...'
+                                    isClearable
+                                />
+                            </div>
+
+                            {/* Lugar de trabajo */}
+                            <div className='sm:col-span-2'>
+                                <Label htmlFor='lugar_trabajo'>Lugar de trabajo</Label>
+                                <Input
+                                    id='lugar_trabajo'
+                                    name='lugar_trabajo'
+                                    value={formik.values.lugar_trabajo}
+                                    onChange={formik.handleChange}
+                                    placeholder='Direccion o descripcion del lugar...'
+                                />
+                            </div>
+
+                            {/* Funciones */}
+                            <div className='sm:col-span-2'>
+                                <Label htmlFor='funciones'>Funciones</Label>
+                                <Textarea
+                                    id='funciones'
+                                    name='funciones'
+                                    value={formik.values.funciones}
+                                    onChange={formik.handleChange}
+                                    rows={4}
+                                    placeholder='Descripcion de funciones...'
+                                />
+                            </div>
+                        </div>
+                    </CardBody>
+                    <CardFooter>
+                        <div className='flex justify-end gap-2'>
+                            <Button
+                                type='button'
+                                onClick={() => setEditando(false)}
+                                isDisable={guardando}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                variant='solid'
+                                type='button'
+                                onClick={() => formik.handleSubmit()}
+                                isLoading={guardando}>
+                                Guardar cambios
+                            </Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className='space-y-4'>
             <Card>
-                <CardHeader>Datos del Contrato</CardHeader>
+                <CardHeader>
+                    <span>Datos del Contrato</span>
+                    {esBorrador && (
+                        <Button
+                            variant='solid'
+                            icon='HeroPencil'
+                            size='sm'
+                            onClick={() => setEditando(true)}
+                        />
+                    )}
+                </CardHeader>
                 <CardBody>
                     <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
                         <Campo label='Cargo' value={contrato.cargo} />
@@ -59,28 +353,30 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                     </div>
                     {contrato.funciones && (
                         <div className='mt-4'>
-                            <p className='text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-zinc-500'>
+                            <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
                                 Funciones
                             </p>
-                            <p className='mt-0.5 whitespace-pre-wrap text-sm text-gray-900 dark:text-zinc-100'>
+                            <p className='mt-0.5 whitespace-pre-wrap text-sm text-zinc-900 dark:text-zinc-100'>
                                 {contrato.funciones}
                             </p>
                         </div>
                     )}
                 </CardBody>
             </Card>
-            <Card>
-                <CardHeader>Datos del Trabajador</CardHeader>
-                <CardBody>
-                    <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
-                        <Campo label='Nombre' value={contrato.nombre_trabajador} />
-                        <Campo label='Email' value={contrato.email_trabajador} />
-                        <Campo label='RUT' value={contrato.rut_trabajador} />
-                    </div>
-                </CardBody>
-            </Card>
+            {(contrato.empresa_nombre || contrato.sucursal_nombre) && (
+                <Card>
+                    <CardHeader>Asignacion Organizacional</CardHeader>
+                    <CardBody>
+                        <div className='grid grid-cols-2 gap-4'>
+                            <Campo label='Empresa' value={contrato.empresa_nombre} />
+                            <Campo label='Sucursal' value={contrato.sucursal_nombre} />
+                        </div>
+                    </CardBody>
+                </Card>
+            )}
         </div>
     );
 };
 
 export default TabDatosLaboralesTrabajador;
+

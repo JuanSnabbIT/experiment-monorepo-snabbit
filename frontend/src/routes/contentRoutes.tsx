@@ -8,6 +8,10 @@ export type IRoutePersonalizadas = RouteProps & {
     authority: string[];
 };
 
+const ContratoAprobacionEmpleador = lazy(
+    () => import('@/pages/RRHH/ContratoAprobacionEmpleador'),
+);
+
 const ConfirmarNuevaPass = lazy(() => import('@/pages/ResetPassword/ConfirmarNuevaPass'));
 const RecuperarPassword = lazy(() => import('@/pages/ResetPassword/RecuperarPassword'));
 const LoginPage = lazy(() => import('@/pages/Login.page'));
@@ -701,6 +705,12 @@ const contentRoutes: IRoutePersonalizadas[] = [
     { path: '/', element: <Home />, authority: [] },
     { path: '/sin-permisos', element: <SinPermisos />, authority: [] },
     { path: '/404', element: <NotFoundPage />, authority: [] },
+
+    {
+        path: authPages.aprobacionEmpleadorContrato.to,
+        element: <ContratoAprobacionEmpleador />,
+        authority: authPages.aprobacionEmpleadorContrato.authority,
+    },
 ];
 
 export default contentRoutes;

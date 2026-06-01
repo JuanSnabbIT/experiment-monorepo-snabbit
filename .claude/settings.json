@@ -1,0 +1,187 @@
+{
+  "description": "Configuración de Claude Code para monorepo ERP Snabbit",
+  "codeGeneration": {
+    "enabled": true,
+    "instructions": [
+      ".claude/CLAUDE.md",
+      ".github/AGENTS.md",
+      ".github/instructions/backend-guide.md",
+      ".github/instructions/frontend-patterns.md",
+      ".github/instructions/typescript.instructions.md",
+      ".github/instructions/currency-system.md",
+      ".github/instructions/motor-plantillas-v2.md"
+    ],
+    "contextMode": "smart"
+  },
+  "codeReview": {
+    "enabled": true,
+    "instructions": [
+      ".claude/CLAUDE.md",
+      ".github/AGENTS.md",
+      ".github/instructions/backend-guide.md",
+      ".github/instructions/frontend-patterns.md",
+      ".github/instructions/rtk-query-best-practices.md",
+      ".github/instructions/visual-consistency.md"
+    ]
+  },
+  "skills": [
+    {
+      "name": "rrhh",
+      "path": ".github/skills/rrhh/SKILL.md",
+      "description": "Contratos laborales, RRHH, firma digital, UsuarioEmpresa"
+    },
+    {
+      "name": "visual-styles",
+      "path": ".github/skills/visual-styles/SKILL.md",
+      "description": "Componentes UI, tema base Fyr, consistencia visual"
+    },
+    {
+      "name": "notificaciones",
+      "path": ".github/skills/notificaciones/SKILL.md",
+      "description": "Sistema de notificaciones, eventos, Celery tasks"
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    ".venv/",
+    "__pycache__/",
+    "*.pyc",
+    ".pytest_cache/",
+    "*.egg-info/",
+    "dist/",
+    "build/",
+    ".git/",
+    ".env",
+    ".env.local",
+    "*.lock",
+    "migrations/",
+    "ordentrabajo/",
+    "ordentrabajov2/"
+  ],
+  "fileEncodings": {
+    "enforceUTF8": true,
+    "enforceBOM": false,
+    "description": "Todos los archivos .py, .ts, .tsx, .js deben ser UTF-8 sin BOM"
+  },
+  "languageSpecific": {
+    "python": {
+      "framework": "Django 5.1.x",
+      "apiFramework": "Django REST Framework",
+      "typeChecker": "none",
+      "formatter": "black",
+      "linter": "flake8"
+    },
+    "typescript": {
+      "version": "5+",
+      "strict": true,
+      "framework": "React 18",
+      "stateManagement": "Redux Toolkit + RTK Query",
+      "formatter": "prettier",
+      "linter": "ESLint (Airbnb + TS)"
+    }
+  },
+  "workspaceRoots": [
+    {
+      "path": "backend",
+      "language": "python",
+      "documentation": ".github/instructions/backend-guide.md"
+    },
+    {
+      "path": "frontend",
+      "language": "typescript",
+      "documentation": ".github/instructions/frontend-patterns.md"
+    }
+  ],
+  "commands": {
+    "backend": {
+      "server": "cd backend && python manage.py runserver 0.0.0.0:8000",
+      "migrate": "cd backend && python manage.py migrate",
+      "makemigrations": "cd backend && python manage.py makemigrations",
+      "test": "cd backend && python manage.py test",
+      "lint": "cd backend && flake8 .",
+      "celery-worker": "celery -A sw_erp worker --loglevel=info",
+      "celery-beat": "celery -A sw_erp beat --loglevel=info"
+    },
+    "frontend": {
+      "dev": "cd frontend && npm run dev",
+      "build": "cd frontend && npm run build",
+      "lint": "cd frontend && npm run lint",
+      "format": "cd frontend && npm run prettier:fix",
+      "test": "cd frontend && npm run test"
+    }
+  },
+  "criticalFiles": [
+    "backend/core/models.py",
+    "backend/core/managers.py",
+    "backend/contratos/models.py",
+    "backend/contratos/currency_utils.py",
+    "backend/contratos/motor_plantillas_v2.py",
+    "backend/contratos/adaptadores.py",
+    "frontend/src/services/RtkQueryService.ts",
+    "frontend/src/config/theme.config.ts",
+    "erp-snabbit.code-workspace",
+    ".github/AGENTS.md",
+    ".claude/CLAUDE.md"
+  ],
+  "documentation": {
+    "entryPoint": ".claude/CLAUDE.md",
+    "memoryIndex": ".claude/MEMORY.md",
+    "liveDocLocation": "dev/docs/",
+    "instructionsLocation": ".github/instructions/",
+    "glossary": ".github/instructions/glossary.md"
+  },
+  "multiTenancy": {
+    "enabled": true,
+    "filterModel": "core.models.PersonalizacionUsuario",
+    "filterField": "sucursal_principal.empresa",
+    "description": "Todos los ViewSets DEBEN filtrar por empresa en get_queryset()"
+  },
+  "currencySystem": {
+    "currencies": ["CLP", "USD", "UF"],
+    "ssotLocation": "backend/contratos/currency_utils.py",
+    "snapshots": {
+      "enabled": true,
+      "fields": [
+        "snapshot_tasa_dolar",
+        "snapshot_tasa_uf",
+        "snapshot_total_venta",
+        "snapshot_total_servicios"
+      ],
+      "description": "Congelar tasas al enviar contrato a aprobación"
+    }
+  },
+  "rtkQuery": {
+    "serviceLocation": "frontend/src/services/RtkQueryService.ts",
+    "antPattern": "manual refetch() post-mutation",
+    "correctPattern": "invalidatesTags in mutation",
+    "technicalDebt": ".github/instructions/rtk-query-best-practices.md"
+  },
+  "templates": {
+    "templatesLocation": "backend/contratos/",
+    "motorV2": "backend/contratos/motor_plantillas_v2.py",
+    "adaptersPattern": "IContratoBase + AdaptadorContratoB2B / AdaptadorContratoTrabajador",
+    "supportedTypes": [
+      "ContratoEmpresaCliente (B2B)",
+      "ContratoTrabajador (RRHH)"
+    ]
+  },
+  "versions": {
+    "django": "5.1.x",
+    "drf": "latest",
+    "react": "18.x",
+    "typescript": "5.x",
+    "vite": "5.x",
+    "nodejs": "22+",
+    "python": "3.12+"
+  },
+  "lastUpdated": "2026-06-01",
+  "maintainer": "JuanSnabbIT",
+  "reminders": [
+    "Multi-tenancy es OBLIGATORIO en todos los ViewSets",
+    "RTK Query: invalidatesTags sí, refetch() no (excepto botones de refresh)",
+    "Currency: usar currency_utils.py, congelar snapshots en aprobación",
+    "Plantillas V2: patrón polimórfico de adaptadores, NO hardcodear etiquetas",
+    "Documentación: solo en dev/docs/, máximo 1 por dominio",
+    "UTF-8 sin BOM en todos los archivos Python/TypeScript/JSX"
+  ]
+}

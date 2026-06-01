@@ -1,3 +1,4 @@
+import FileInput from '@/components/form/FileInput';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -48,24 +49,14 @@ const StepDocumentoLaboral = ({ formik }: Props) => {
                 </div>
             </div>
 
-            <div>
-                <Label htmlFor='archivo_pdf'>Documento PDF (opcional)</Label>
-                <input
-                    id='archivo_pdf'
-                    name='archivo_pdf'
-                    type='file'
-                    accept='application/pdf'
-                    onChange={(e) =>
-                        setFieldValue('archivo_pdf', e.target.files ? e.target.files[0] : null)
-                    }
-                    className='block w-full text-sm'
-                />
-                {values.archivo_pdf && (
-                    <p className='text-xs text-zinc-500 mt-1'>
-                        Archivo seleccionado: {values.archivo_pdf.name}
-                    </p>
-                )}
-            </div>
+            <FileInput
+                id='archivo_pdf'
+                name='archivo_pdf'
+                label='Documento PDF (opcional)'
+                accept='application/pdf'
+                selectedFile={values.archivo_pdf}
+                onFileSelect={(file) => setFieldValue('archivo_pdf', file)}
+            />
 
             <div>
                 <Label htmlFor='plantilla_contrato_id'>Plantilla de contrato (opcional)</Label>

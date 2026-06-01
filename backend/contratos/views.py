@@ -3968,3 +3968,214 @@ class SeccionContratoGeneradaViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(fue_editado_manualmente=True)
+
+
+# =====================================================================
+# API V2 — Motor de Plantillas V2
+# =====================================================================
+
+from contratos.models import BloqueTransversalContrato, OrdenBloqueTransversalPlantilla
+from contratos.serializers import (
+    BloqueTransversalContratoSerializer,
+    OrdenBloqueTransversalPlantillaSerializer,
+    SeccionPlantillaV2Serializer,
+    PlantillaContratoV2Serializer,
+    PlantillaContratoV2ListSerializer,
+)
+from django.db.models import Q
+
+
+class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
+    """ViewSet V2 para gestion de plantillas de contrato con el editor Slate.
+
+    Soporta el parametro ?scope=wizard&empresa_cliente=<id> para filtrar
+    plantillas en el wizard de creacion de contratos (cliente-especificas
+    primero, luego globales). Sin scope, devuelve todas las plantillas
+    de la empresa prestadora.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            return PlantillaContrato.objects.none()
+
+        scope = self.request.query_params.get("scope")
+        if scope == "wizard":
+            cliente_id = self.request.query_params.get("empresa_cliente")
+            if cliente_id:
+                # Cliente-especificas primero, luego globales
+                return (
+                    PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+                    .filter(
+                        Q(empresa_cliente_id=cliente_id) | Q(empresa_cliente__isnull=True)
+                    )
+                    .filter(activa=True)
+                    .order_by(
+                        # empresa_cliente anotado: NULL va ultimo en ASC => invertir con CASE
+                        # Usamos annotate para traer cliente-especificas primero
+                        models.Case(
+                            models.When(empresa_cliente_id=cliente_id, then=0),
+                            default=1,
+                            output_field=models.IntegerField(),
+                        ),
+                        "tipo_contrato", "titulo",
+                    )
+                )
+            return PlantillaContrato.objects.filter(
+                empresa_prestadora=empresa, activa=True
+            ).order_by("tipo_contrato", "titulo")
+
+        # Listado modulo: todas las plantillas de la empresa (activas e inactivas)
+        qs = PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+        tipo = self.request.query_params.get("tipo_contrato")
+        if tipo:
+            qs = qs.filter(tipo_contrato=tipo)
+        return qs.order_by("tipo_contrato", "titulo")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return PlantillaContratoV2ListSerializer
+        return PlantillaContratoV2Serializer
+
+    def perform_create(self, serializer):
+        empresa = _empresa_del_usuario(self.request.user)
+        serializer.save(empresa_prestadora=empresa)
+
+    @action(detail=True, methods=["post"], url_path="duplicar")
+    def duplicar(self, request, pk=None):
+        """Duplica una plantilla con todas sus secciones y ordenes de bloque."""
+        original = self.get_object()
+        nueva = PlantillaContrato.objects.create(
+            empresa_prestadora=original.empresa_prestadora,
+            titulo=f"{original.titulo} (copia)",
+            descripcion=original.descripcion,
+            version=original.version + 1,
+            tipo_contrato=original.tipo_contrato,
+            empresa_cliente=original.empresa_cliente,
+            orden_bloque_alcance=original.orden_bloque_alcance,
+            orden_bloque_operacion=original.orden_bloque_operacion,
+            orden_bloque_condiciones=original.orden_bloque_condiciones,
+            es_default=False,
+        )
+        for seccion in original.secciones.all():
+            SeccionPlantilla.objects.create(
+                plantilla=nueva,
+                titulo=seccion.titulo,
+                tipo=seccion.tipo,
+                contenido_template=seccion.contenido_template,
+                contenido_template_estructurado=seccion.contenido_template_estructurado,
+                orden=seccion.orden,
+                slot_documental=seccion.slot_documental,
+                es_editable_en_contrato=seccion.es_editable_en_contrato,
+                es_obligatoria=seccion.es_obligatoria,
+            )
+        for orden in original.ordenes_bloques_transversales.all():
+            OrdenBloqueTransversalPlantilla.objects.create(
+                plantilla=nueva,
+                bloque=orden.bloque,
+                posicion=orden.posicion,
+                visible=orden.visible,
+            )
+        serializer = PlantillaContratoV2Serializer(nueva, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="reordenar-secciones")
+    def reordenar_secciones(self, request, pk=None):
+        """Actualiza el campo orden de multiples secciones en una sola llamada.
+
+        Body: [{"id": <int>, "orden": <int>}, ...]
+        """
+        plantilla = self.get_object()
+        items = request.data
+        if not isinstance(items, list):
+            return Response({"detail": "Se esperaba una lista."}, status=400)
+        with transaction.atomic():
+            for item in items:
+                SeccionPlantilla.objects.filter(
+                    id=item.get("id"), plantilla=plantilla
+                ).update(orden=item.get("orden", 0))
+        return Response({"detail": "Orden actualizado."})
+
+    @action(detail=True, methods=["post"], url_path="reordenar-bloques")
+    def reordenar_bloques(self, request, pk=None):
+        """Actualiza posicion y visibilidad de bloques transversales.
+
+        Body: [{"bloque": <int>, "posicion": <int>, "visible": <bool>}, ...]
+        """
+        plantilla = self.get_object()
+        items = request.data
+        if not isinstance(items, list):
+            return Response({"detail": "Se esperaba una lista."}, status=400)
+        with transaction.atomic():
+            for item in items:
+                bloque_id = item.get("bloque")
+                if not bloque_id:
+                    continue
+                OrdenBloqueTransversalPlantilla.objects.update_or_create(
+                    plantilla=plantilla,
+                    bloque_id=bloque_id,
+                    defaults={
+                        "posicion": item.get("posicion", 0),
+                        "visible": item.get("visible", True),
+                    },
+                )
+        serializer = PlantillaContratoV2Serializer(plantilla, context={"request": request})
+        return Response(serializer.data)
+
+
+class BloqueTransversalContratoV2ViewSet(viewsets.ReadOnlyModelViewSet):
+    """Catalogo de bloques transversales disponibles por tipo de contrato.
+
+    Solo lectura — se gestiona via admin o seed command.
+    Soporta ?tipo_contrato=servicios para filtrar.
+    """
+    serializer_class = BloqueTransversalContratoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = BloqueTransversalContrato.objects.filter(activo=True)
+        tipo = self.request.query_params.get("tipo_contrato")
+        if tipo:
+            qs = qs.filter(tipo_contrato=tipo)
+        return qs
+
+
+class EtiquetaPlantillaV2ViewSet(viewsets.ReadOnlyModelViewSet):
+    """Etiquetas de plantilla filtradas por empresa y tipo de contrato.
+
+    Soporta ?tipo_contrato=servicios para filtrar las etiquetas relevantes.
+    """
+    serializer_class = EtiquetaPlantillaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_del_usuario(self.request.user)
+        if empresa:
+            qs = EtiquetaPlantilla.objects.filter(
+                models.Q(empresa_prestadora__isnull=True)
+                | models.Q(empresa_prestadora=empresa)
+            )
+        else:
+            qs = EtiquetaPlantilla.objects.filter(empresa_prestadora__isnull=True)
+        tipo = self.request.query_params.get("tipo_contrato")
+        if tipo:
+            qs = qs.filter(tipo_contrato=tipo)
+        return qs.order_by("categoria", "nombre_display")
+
+
+class SeccionPlantillaV2ViewSet(viewsets.ModelViewSet):
+    """ViewSet para secciones dentro de una plantilla V2.
+
+    Anidado bajo plantillas-contrato-v2/<plantilla_pk>/secciones-v2/
+    """
+    serializer_class = SeccionPlantillaV2Serializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        plantilla_id = self.kwargs.get("plantilla_pk")
+        return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id).order_by("orden")
+
+    def perform_create(self, serializer):
+        plantilla_id = self.kwargs.get("plantilla_pk")
+        serializer.save(plantilla_id=plantilla_id)

@@ -2,202 +2,246 @@ import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
+import Button from '@/components/ui/Button';
+import ButtonGroup from '@/components/ui/ButtonGroup';
 import { FormikProps } from 'formik';
+import { useState } from 'react';
 import { IFormValuesContratoTrabajador, MONEDA_LABORAL_OPTIONS } from './types';
 
 interface Props {
     formik: FormikProps<IFormValuesContratoTrabajador>;
 }
 
-const SectionTitle = ({
-    icon,
-    title,
-}: {
-    icon: React.ReactNode;
-    title: string;
-}) => (
-    <div className='mb-3 flex items-center gap-2 border-b border-zinc-100 pb-2 dark:border-zinc-800'>
-        <span className='flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'>
-            {icon}
-        </span>
-        <h4 className='text-sm font-semibold'>{title}</h4>
-    </div>
-);
-
 const StepRemuneraciones = ({ formik }: Props) => {
     const { values, errors, touched, setFieldValue, handleChange, handleBlur } = formik;
+
+    const [modoSueldo, setModoSueldo] = useState<'bruto' | 'liquido'>('bruto');
+    const [descuentoOption, setDescuentoOption] = useState('20');
+    const incluirDescuentos = descuentoOption !== 'no';
+    const pctDescuentos = Number(descuentoOption) || 0;
 
     const sueldoBase = Number(values.sueldo_base) || 0;
     const bonoColacion = Number(values.bono_colacion) || 0;
     const bonoMovilizacion = Number(values.bono_movilizacion) || 0;
-    // Gratificacion legal = 25% del sueldo base si aplica
     const gratificacion = values.gratificacion_legal ? Math.round(sueldoBase * 0.25) : 0;
-    const totalBruto = sueldoBase + gratificacion;
-    // Descuentos previsionales estimados (aprox 20%: AFP 10% + salud 7% + cesantia 3%)
-    const descuentos = Math.round(sueldoBase * 0.2);
-    const totalLiquido = Math.max(0, totalBruto - descuentos) + bonoColacion + bonoMovilizacion;
+    const totalBruto = sueldoBase + gratificacion + bonoColacion + bonoMovilizacion;
+    const descuentos = incluirDescuentos ? Math.round(sueldoBase * (pctDescuentos / 100)) : 0;
+    const totalLiquido = Math.max(0, totalBruto - descuentos);
 
-    const fmtCLP = (v: number) =>
-        `$${v.toLocaleString('es-CL')}`;
+    const fmtCLP = (v: number) => `$${v.toLocaleString('es-CL')}`;
+
+    const campMoneda = (
+        <div>
+            <Label htmlFor='moneda'>Moneda</Label>
+            <SelectReact
+                name='moneda'
+                options={MONEDA_LABORAL_OPTIONS}
+                value={MONEDA_LABORAL_OPTIONS.find((o) => o.value === values.moneda) || null}
+                onChange={(opt) =>
+                    setFieldValue('moneda', (opt as TSelectOption)?.value || 'CLP')
+                }
+            />
+        </div>
+    );
 
     return (
-        <div className='space-y-5'>
-            {/* Ingresos imponibles */}
-            <div>
-                <SectionTitle
-                    icon={
-                        <svg
-                            className='h-4 w-4'
-                            fill='none'
-                            viewBox='0 0 24 24'
-                            stroke='currentColor'>
-                            <path
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
-                                strokeWidth={2}
-                                d='M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3'
+        <div className='space-y-4'>
+            {/* Toggle Sueldo Bruto / Sueldo Liquido */}
+            <ButtonGroup className='flex w-full'>
+                <Button
+                    variant={modoSueldo === 'bruto' ? 'solid' : 'outline'}
+                    color={modoSueldo === 'bruto' ? 'blue' : 'zinc'}
+                    isActive={modoSueldo === 'bruto'}
+                    onClick={() => setModoSueldo('bruto')}
+                    className='flex-1'>
+                    Sueldo Bruto
+                </Button>
+                <Button
+                    variant={modoSueldo === 'liquido' ? 'solid' : 'outline'}
+                    color={modoSueldo === 'liquido' ? 'blue' : 'zinc'}
+                    isActive={modoSueldo === 'liquido'}
+                    onClick={() => setModoSueldo('liquido')}
+                    className='flex-1'>
+                    Sueldo Liquido
+                </Button>
+            </ButtonGroup>
+
+            {modoSueldo === 'bruto' ? (
+                <>
+                    {/* Sueldo bruto + Moneda */}
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='sueldo_base'>
+                                Sueldo bruto <span className='text-red-500'>*</span>
+                            </Label>
+                            <Validation
+                                isValid={!errors.sueldo_base}
+                                isTouched={!!touched.sueldo_base}
+                                invalidFeedback={errors.sueldo_base || ''}>
+                                <Input
+                                    id='sueldo_base'
+                                    name='sueldo_base'
+                                    type='number'
+                                    placeholder='0'
+                                    value={values.sueldo_base}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
+                                />
+                            </Validation>
+                        </div>
+                        {campMoneda}
+                    </div>
+
+                    {/* Gratificacion legal + Descuentos legales */}
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='gratificacion_legal'>Gratificacion legal</Label>
+                            <SelectReact
+                                id='gratificacion_legal'
+                                name='gratificacion_legal'
+                                options={[
+                                    { value: 'no', label: 'No aplica' },
+                                    { value: 'si', label: 'Si (25% mensualizado)' },
+                                ]}
+                                value={
+                                    values.gratificacion_legal
+                                        ? { value: 'si', label: 'Si (25% mensualizado)' }
+                                        : { value: 'no', label: 'No aplica' }
+                                }
+                                onChange={(opt) =>
+                                    setFieldValue(
+                                        'gratificacion_legal',
+                                        (opt as TSelectOption)?.value === 'si',
+                                    )
+                                }
                             />
-                        </svg>
-                    }
-                    title='Ingresos imponibles'
-                />
-                <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                    <div>
-                        <Label htmlFor='sueldo_base'>
-                            Sueldo base mensual <span className='text-red-500'>*</span>
-                        </Label>
-                        <Validation
-                            isValid={!errors.sueldo_base}
-                            isTouched={!!touched.sueldo_base}
-                            invalidFeedback={errors.sueldo_base || ''}>
+                        </div>
+                        <div>
+                            <Label htmlFor='descuentos_legales'>Descuentos legales</Label>
+                            <SelectReact
+                                id='descuentos_legales'
+                                name='descuentos_legales'
+                                options={[
+                                    { value: 'no', label: 'No aplica' },
+                                    { value: '10', label: '10%' },
+                                    { value: '15', label: '15%' },
+                                    { value: '20', label: '20%' },
+                                    { value: '25', label: '25%' },
+                                    { value: '30', label: '30%' },
+                                ]}
+                                value={{
+                                    value: descuentoOption,
+                                    label: descuentoOption === 'no' ? 'No aplica' : `${descuentoOption}%`,
+                                }}
+                                onChange={(opt) =>
+                                    setDescuentoOption((opt as TSelectOption)?.value ?? 'no')
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    {/* Bono colacion + Bono movilizacion */}
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='bono_colacion'>Bono colacion</Label>
                             <Input
-                                id='sueldo_base'
-                                name='sueldo_base'
+                                id='bono_colacion'
+                                name='bono_colacion'
                                 type='number'
                                 placeholder='0'
-                                value={values.sueldo_base}
+                                value={values.bono_colacion}
                                 onChange={handleChange}
                                 onBlur={handleBlur}
                             />
-                        </Validation>
-                    </div>
-                    <div>
-                        <Label htmlFor='moneda'>Moneda</Label>
-                        <SelectReact
-                            name='moneda'
-                            options={MONEDA_LABORAL_OPTIONS}
-                            value={
-                                MONEDA_LABORAL_OPTIONS.find((o) => o.value === values.moneda) ||
-                                null
-                            }
-                            onChange={(opt) =>
-                                setFieldValue('moneda', (opt as TSelectOption)?.value || 'CLP')
-                            }
-                        />
-                    </div>
-                    <div className='md:col-span-2'>
-                        <div className='flex items-center gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
-                            <input
-                                id='gratificacion_legal'
-                                type='checkbox'
-                                className='h-4 w-4 accent-blue-500'
-                                checked={values.gratificacion_legal}
-                                onChange={(e) =>
-                                    setFieldValue('gratificacion_legal', e.target.checked)
-                                }
+                        </div>
+                        <div>
+                            <Label htmlFor='bono_movilizacion'>Bono movilizacion</Label>
+                            <Input
+                                id='bono_movilizacion'
+                                name='bono_movilizacion'
+                                type='number'
+                                placeholder='0'
+                                value={values.bono_movilizacion}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                             />
-                            <label
-                                htmlFor='gratificacion_legal'
-                                className='cursor-pointer select-none text-sm'>
-                                Incluye gratificacion legal{' '}
-                                <span className='text-xs text-zinc-500'>
-                                    (25% del sueldo base, maximo legal)
-                                </span>
-                            </label>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Asignaciones no imponibles */}
-            <div>
-                <SectionTitle
-                    icon={
-                        <svg
-                            className='h-4 w-4'
-                            fill='none'
-                            viewBox='0 0 24 24'
-                            stroke='currentColor'>
-                            <path
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
-                                strokeWidth={2}
-                                d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                    {/* Resumen */}
+                    <div className='space-y-1 rounded-xl bg-zinc-50 p-4 text-sm dark:bg-zinc-800/50'>
+                        <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                            <span>Sueldo base</span>
+                            <span>{fmtCLP(sueldoBase)}</span>
+                        </div>
+                        {gratificacion > 0 && (
+                            <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                <span>Gratificacion legal</span>
+                                <span className='text-emerald-600 dark:text-emerald-400'>+{fmtCLP(gratificacion)}</span>
+                            </div>
+                        )}
+                        {bonoColacion > 0 && (
+                            <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                <span>Bono colacion</span>
+                                <span className='text-emerald-600 dark:text-emerald-400'>+{fmtCLP(bonoColacion)}</span>
+                            </div>
+                        )}
+                        {bonoMovilizacion > 0 && (
+                            <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                <span>Bono movilizacion</span>
+                                <span className='text-emerald-600 dark:text-emerald-400'>+{fmtCLP(bonoMovilizacion)}</span>
+                            </div>
+                        )}
+                        <div className='flex justify-between border-t border-zinc-200 pt-1 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400'>
+                            <span>Total bruto</span>
+                            <span className='font-medium text-zinc-800 dark:text-zinc-100'>
+                                {fmtCLP(totalBruto)}
+                            </span>
+                        </div>
+                        {incluirDescuentos && (
+                        <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                            <span>Descuentos legales (~{pctDescuentos}%)</span>
+                            <span className='text-red-500'>-{fmtCLP(descuentos)}</span>
+                        </div>
+                        )}
+                        <div className='mt-1 flex justify-between border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700'>
+                            <span>Liquido</span>
+                            <span className='text-emerald-600 dark:text-emerald-400'>
+                                {fmtCLP(totalLiquido)}
+                            </span>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <>
+                    {/* Sueldo liquido acordado + Moneda */}
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='sueldo_liquido'>
+                                Sueldo liquido acordado <span className='text-red-500'>*</span>
+                            </Label>
+                            <Input
+                                id='sueldo_liquido'
+                                name='sueldo_liquido'
+                                type='number'
+                                placeholder='0'
+                                value={values.sueldo_liquido}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
                             />
-                        </svg>
-                    }
-                    title='Asignaciones no imponibles'
-                />
-                <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                    <div>
-                        <Label htmlFor='bono_colacion'>Asignacion de colacion</Label>
-                        <Input
-                            id='bono_colacion'
-                            name='bono_colacion'
-                            type='number'
-                            placeholder='0'
-                            value={values.bono_colacion}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        </div>
+                        {campMoneda}
                     </div>
-                    <div>
-                        <Label htmlFor='bono_movilizacion'>Asignacion de movilizacion</Label>
-                        <Input
-                            id='bono_movilizacion'
-                            name='bono_movilizacion'
-                            type='number'
-                            placeholder='0'
-                            value={values.bono_movilizacion}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor='sueldo_liquido'>Sueldo liquido (opcional)</Label>
-                        <Input
-                            id='sueldo_liquido'
-                            name='sueldo_liquido'
-                            type='number'
-                            placeholder='Se calcula automaticamente'
-                            value={values.sueldo_liquido}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
-                    </div>
-                </div>
-            </div>
 
-            {/* Totales estimados */}
-            <div className='grid grid-cols-2 gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50'>
-                <div>
-                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                        Total bruto estimado
-                    </p>
-                    <p className='mt-1 text-lg font-bold text-zinc-800 dark:text-zinc-100'>
-                        {fmtCLP(totalBruto)}
-                    </p>
-                </div>
-                <div>
-                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                        Total liquido estimado{' '}
-                        <span className='text-[10px]'>(aprox.)</span>
-                    </p>
-                    <p className='mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400'>
-                        {fmtCLP(totalLiquido)}
-                    </p>
-                </div>
-            </div>
+                    {/* Total simple */}
+                    <div className='flex justify-between rounded-xl bg-zinc-50 p-4 text-sm font-semibold dark:bg-zinc-800/50'>
+                        <span>Total</span>
+                        <span className='text-emerald-600 dark:text-emerald-400'>
+                            {fmtCLP(Number(values.sueldo_liquido) || 0)}
+                        </span>
+                    </div>
+                </>
+            )}
         </div>
     );
 };

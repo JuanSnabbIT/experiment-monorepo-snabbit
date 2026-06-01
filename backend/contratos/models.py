@@ -1958,6 +1958,21 @@ class PlantillaContrato(ModeloBase):
         verbose_name="Plantilla del sistema (no editable)",
     )
 
+    # ── Scope: si se indica, aparece primero en el wizard al crear contrato para ese cliente ──
+    empresa_cliente = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="plantillas_contrato_scoped",
+        verbose_name="Scope empresa cliente (opcional)",
+        help_text=(
+            "Si se completa, esta plantilla aparecerá primero en el wizard "
+            "al crear un contrato para esta empresa cliente. "
+            "No limita el acceso; sólo es un filtro de UX en el wizard."
+        ),
+    )
+
     requiere_nda = models.BooleanField(
         default=False,
         verbose_name="Requiere acuerdo de confidencialidad",
@@ -1996,6 +2011,7 @@ TIPO_SECCION_CHOICES = [
     ("libre", "Sección Libre"),
     ("titulo", "Título"),
     ("subtitulo", "Subtítulo"),
+    ("salto_pagina", "Salto de Página"),
     # ── Bloques de datos dinámicos (se posicionan mediante el orden del plantilla) ──
     ("bloque_servicios", "Bloque: Servicios Contratados"),
     ("bloque_licencias", "Bloque: Licencias Contratadas"),
@@ -2037,13 +2053,22 @@ class SeccionPlantilla(ModeloBase):
         on_delete=models.CASCADE,
         related_name="secciones",
     )
-    titulo = models.CharField(max_length=255, verbose_name="Título de la sección")
+    titulo = models.CharField(max_length=255, blank=True, verbose_name="Título de la sección")
     tipo = models.CharField(max_length=30, choices=TIPO_SECCION_CHOICES, default="clausula")
     contenido_template = models.TextField(
         verbose_name="Contenido con etiquetas",
         help_text="Usa [nombre_etiqueta] para insertar datos dinámicos",
         blank=True,
         default='',
+    )
+    contenido_template_estructurado = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Contenido estructurado (Slate JSON)",
+        help_text=(
+            "Nodos Slate serializados. Source of truth del editor V2. "
+            "El motor PDF usa contenido_template (legacy) generado por serializarSlateAPlantilla()."
+        ),
     )
     orden = models.PositiveIntegerField(default=0)
     slot_documental = models.CharField(
@@ -2058,6 +2083,10 @@ class SeccionPlantilla(ModeloBase):
         verbose_name="¿Editable al crear contrato?",
     )
     es_obligatoria = models.BooleanField(default=True)
+    mostrar_numero = models.BooleanField(
+        default=True,
+        verbose_name="Mostrar número de sección",
+    )
 
     class Meta:
         ordering = ["orden"]
@@ -2181,3 +2210,92 @@ class SeccionContratoGenerada(ModeloBase):
         if self.contrato_trabajador_id:
             return f"ContratoTrab #{self.contrato_trabajador_id} → {self.titulo}"
         return self.titulo
+
+
+# =====================================================================
+# Bloques Transversales (catálogo declarativo, V2)
+# =====================================================================
+
+CODIGO_BLOQUE_TRANSVERSAL_CHOICES = [
+    ('tabla_servicios',        'Tabla de Servicios'),
+    ('identificacion_cliente', 'Identificación del Cliente'),
+    ('tabla_licencias',        'Tabla de Licencias'),
+    ('resumen_comercial',      'Resumen Comercial'),
+    ('tabla_cuotas',           'Tabla de Cuotas'),
+]
+
+
+class BloqueTransversalContrato(ModeloBase):
+    """Catálogo declarativo de bloques genéricos por tipo de contrato.
+
+    Los bloques transversales son secciones read-only en el editor V2 que se
+    renderizan automáticamente desde los datos del contrato (no desde template
+    de texto). Son equivalentes a TIPOS_BLOQUE_DINAMICO del sistema V1, pero
+    expresados en BD para poder ser gestionados y consultados por la API.
+    """
+    tipo_contrato = models.CharField(
+        max_length=20,
+        choices=TIPO_CONTRATO,
+        verbose_name="Tipo de contrato",
+    )
+    codigo = models.CharField(
+        max_length=60,
+        choices=CODIGO_BLOQUE_TRANSVERSAL_CHOICES,
+        verbose_name="Código del bloque",
+    )
+    titulo = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    posicion_default = models.PositiveIntegerField(
+        default=0,
+        help_text="Posición sugerida en el documento (menor = antes)",
+    )
+    editable = models.BooleanField(
+        default=False,
+        help_text="Los bloques transversales nunca son editables; campo reservado para futuro.",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [('tipo_contrato', 'codigo')]
+        ordering = ['tipo_contrato', 'posicion_default']
+        verbose_name = "Bloque transversal"
+        verbose_name_plural = "Bloques transversales"
+
+    def __str__(self):
+        return f"{self.get_tipo_contrato_display()} — {self.titulo}"
+
+
+class OrdenBloqueTransversalPlantilla(ModeloBase):
+    """Asociación entre una PlantillaContrato y un BloqueTransversalContrato.
+
+    Registra la posición y visibilidad del bloque dentro de esa plantilla
+    específica. Si no existe registro, el bloque usa posicion_default del
+    catálogo y se muestra visible.
+    """
+    plantilla = models.ForeignKey(
+        PlantillaContrato,
+        on_delete=models.CASCADE,
+        related_name="ordenes_bloques_transversales",
+    )
+    bloque = models.ForeignKey(
+        BloqueTransversalContrato,
+        on_delete=models.CASCADE,
+        related_name="ordenes_en_plantillas",
+    )
+    posicion = models.PositiveIntegerField(
+        default=0,
+        help_text="Posición del bloque en esta plantilla (override de posicion_default)",
+    )
+    visible = models.BooleanField(
+        default=True,
+        help_text="Si False, el bloque no aparece en el documento generado",
+    )
+
+    class Meta:
+        unique_together = [('plantilla', 'bloque')]
+        ordering = ['posicion']
+        verbose_name = "Orden bloque transversal en plantilla"
+        verbose_name_plural = "Orden bloques transversales en plantillas"
+
+    def __str__(self):
+        return f"{self.plantilla.titulo} → {self.bloque.titulo} (pos={self.posicion})"

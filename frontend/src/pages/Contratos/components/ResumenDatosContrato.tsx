@@ -225,7 +225,7 @@ const TablaServiciosLegacy = ({
 
 const TablaCotizacionesVenta = ({
     cotizaciones,
-    monedaContrato,
+    monedaContrato: _monedaContrato,
 }: {
     cotizaciones: ICotizacionVinculadaResumen[];
     monedaContrato: 'CLP' | 'UF' | 'USD';

@@ -27,6 +27,8 @@ from contratos.models import (
     SeccionPlantilla,
     EtiquetaPlantilla,
     SeccionContratoGenerada,
+    BloqueTransversalContrato,
+    OrdenBloqueTransversalPlantilla,
 )
 
 
@@ -332,3 +334,16 @@ class EtiquetaPlantillaAdmin(admin.ModelAdmin):
 @admin.register(SeccionContratoGenerada)
 class SeccionContratoGeneradaAdmin(admin.ModelAdmin):
     list_display = ["contrato", "titulo", "orden", "fue_editado_manualmente"]
+
+
+@admin.register(BloqueTransversalContrato)
+class BloqueTransversalContratoAdmin(admin.ModelAdmin):
+    list_display = ["tipo_contrato", "codigo", "titulo", "posicion_default", "activo"]
+    list_filter = ["tipo_contrato", "activo"]
+    ordering = ["tipo_contrato", "posicion_default"]
+
+
+@admin.register(OrdenBloqueTransversalPlantilla)
+class OrdenBloqueTransversalPlantillaAdmin(admin.ModelAdmin):
+    list_display = ["plantilla", "bloque", "posicion", "visible"]
+    list_filter = ["visible", "bloque__tipo_contrato"]

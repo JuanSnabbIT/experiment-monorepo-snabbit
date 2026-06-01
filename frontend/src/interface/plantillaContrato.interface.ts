@@ -10,6 +10,7 @@ export interface IPlantillaContrato {
     fecha_creacion: string;
     fecha_modificacion: string;
     es_default: boolean;
+    es_global?: boolean;
     // Posición de bloques demo en el documento
     orden_bloque_alcance: number;
     orden_bloque_operacion: number;
@@ -23,7 +24,7 @@ export interface ISeccionPlantilla {
     id: number;
     plantilla: number;
     titulo: string;
-    tipo: 'encabezado' | 'clausula' | 'condiciones_generales' | 'firmas' | 'libre' | 'titulo' | 'subtitulo';
+    tipo: 'encabezado' | 'clausula' | 'condiciones_generales' | 'identificacion_cliente' | 'firmas' | 'libre' | 'titulo' | 'subtitulo' | 'salto_pagina';
     contenido_template: string;
     orden: number;
     es_editable_en_contrato: boolean;

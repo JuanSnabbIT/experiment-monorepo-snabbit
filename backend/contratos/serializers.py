@@ -1245,14 +1245,27 @@ class SeccionPlantillaSerializer(serializers.ModelSerializer):
         read_only_fields = ['plantilla', 'fecha_creacion', 'fecha_modificacion']
 
     def validate(self, attrs):
-        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS
+        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS, CONTENIDO_CANONICO_IDENTIFICACION
 
         tipo = attrs.get('tipo', getattr(self.instance, 'tipo', None))
 
         if tipo == 'firmas':
             attrs['contenido_template'] = CONTENIDO_CANONICO_FIRMAS
+            attrs['titulo'] = 'Firmas'
             attrs['es_editable_en_contrato'] = False
             attrs['es_obligatoria'] = True
+        elif tipo == 'identificacion_cliente':
+            attrs['contenido_template'] = CONTENIDO_CANONICO_IDENTIFICACION
+            attrs['titulo'] = 'Identificación del Cliente'
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = True
+        elif tipo in ('titulo', 'subtitulo'):
+            attrs['contenido_template'] = ''
+        elif tipo == 'salto_pagina':
+            attrs['titulo'] = ''
+            attrs['contenido_template'] = ''
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = False
         return attrs
 
 
@@ -1891,3 +1904,138 @@ class ContratoMatchingSerializer(serializers.ModelSerializer):
 
     def get_estado_label(self, obj):
         return obj.get_estado_display()
+
+
+# =====================================================================
+# Serializers V2 — Motor de Plantillas V2 (Slate + Bloques Transversales)
+# =====================================================================
+
+from contratos.models import BloqueTransversalContrato, OrdenBloqueTransversalPlantilla
+
+
+class BloqueTransversalContratoSerializer(serializers.ModelSerializer):
+    tipo_contrato_label = serializers.CharField(source="get_tipo_contrato_display", read_only=True)
+    codigo_label = serializers.CharField(source="get_codigo_display", read_only=True)
+
+    class Meta:
+        model = BloqueTransversalContrato
+        fields = [
+            "id", "tipo_contrato", "tipo_contrato_label",
+            "codigo", "codigo_label",
+            "titulo", "descripcion",
+            "posicion_default", "editable", "activo",
+        ]
+        read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+
+class OrdenBloqueTransversalPlantillaSerializer(serializers.ModelSerializer):
+    bloque_detalle = BloqueTransversalContratoSerializer(source="bloque", read_only=True)
+
+    class Meta:
+        model = OrdenBloqueTransversalPlantilla
+        fields = ["id", "plantilla", "bloque", "bloque_detalle", "posicion", "visible"]
+        read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+
+class SeccionPlantillaV2Serializer(serializers.ModelSerializer):
+    """Serializer de SeccionPlantilla con campo Slate incluido."""
+    tipo_label = serializers.CharField(source="get_tipo_display", read_only=True)
+    slot_documental_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SeccionPlantilla
+        fields = [
+            "id", "plantilla", "titulo", "tipo", "tipo_label",
+            "contenido_template", "contenido_template_estructurado",
+            "orden", "slot_documental", "slot_documental_label",
+            "es_editable_en_contrato", "es_obligatoria", "mostrar_numero",
+        ]
+        read_only_fields = ["id", "plantilla", "fecha_creacion", "fecha_modificacion"]
+
+    def get_slot_documental_label(self, obj):
+        if obj.slot_documental:
+            return obj.get_slot_documental_display()
+        return None
+
+    def validate(self, attrs):
+        from contratos.estados_modelo import CONTENIDO_CANONICO_FIRMAS, CONTENIDO_CANONICO_IDENTIFICACION
+
+        tipo = attrs.get('tipo', getattr(self.instance, 'tipo', None))
+
+        if tipo == 'firmas':
+            attrs['contenido_template'] = CONTENIDO_CANONICO_FIRMAS
+            attrs['titulo'] = 'Firmas'
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = True
+        elif tipo == 'identificacion_cliente':
+            attrs['contenido_template'] = CONTENIDO_CANONICO_IDENTIFICACION
+            attrs['titulo'] = 'Identificación del Cliente'
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = True
+        elif tipo in ('titulo', 'subtitulo'):
+            attrs['contenido_template'] = attrs.get('contenido_template', '')
+        elif tipo == 'salto_pagina':
+            attrs['titulo'] = ''
+            attrs['contenido_template'] = ''
+            attrs['contenido_template_estructurado'] = []
+            attrs['es_editable_en_contrato'] = False
+            attrs['es_obligatoria'] = False
+        return attrs
+
+
+class PlantillaContratoV2Serializer(serializers.ModelSerializer):
+    """Serializer completo para el editor V2 de plantillas."""
+    secciones = SeccionPlantillaV2Serializer(many=True, read_only=True)
+    bloques_transversales = OrdenBloqueTransversalPlantillaSerializer(
+        source="ordenes_bloques_transversales", many=True, read_only=True
+    )
+    tipo_contrato_label = serializers.CharField(source="get_tipo_contrato_display", read_only=True)
+    empresa_cliente_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlantillaContrato
+        fields = [
+            "id", "titulo", "descripcion", "version", "activa",
+            "tipo_contrato", "tipo_contrato_label",
+            "empresa_prestadora", "empresa_cliente", "empresa_cliente_nombre",
+            "es_default", "requiere_nda",
+            "orden_bloque_alcance", "orden_bloque_operacion", "orden_bloque_condiciones",
+            "secciones", "bloques_transversales",
+            "fecha_creacion", "fecha_modificacion",
+        ]
+        read_only_fields = [
+            "fecha_creacion", "fecha_modificacion",
+            "empresa_prestadora", "es_default",
+        ]
+
+    def get_empresa_cliente_nombre(self, obj):
+        if obj.empresa_cliente_id:
+            return obj.empresa_cliente.nombre
+        return None
+
+
+class PlantillaContratoV2ListSerializer(serializers.ModelSerializer):
+    """Serializer ligero para listado (sin secciones anidadas)."""
+    tipo_contrato_label = serializers.CharField(source="get_tipo_contrato_display", read_only=True)
+    empresa_cliente_nombre = serializers.SerializerMethodField()
+    total_secciones = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlantillaContrato
+        fields = [
+            "id", "titulo", "descripcion", "version", "activa",
+            "tipo_contrato", "tipo_contrato_label",
+            "empresa_cliente", "empresa_cliente_nombre",
+            "es_default", "requiere_nda",
+            "total_secciones",
+            "fecha_creacion", "fecha_modificacion",
+        ]
+        read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+    def get_empresa_cliente_nombre(self, obj):
+        if obj.empresa_cliente_id:
+            return obj.empresa_cliente.nombre
+        return None
+
+    def get_total_secciones(self, obj):
+        return obj.secciones.count()

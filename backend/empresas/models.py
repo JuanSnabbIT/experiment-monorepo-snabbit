@@ -6,7 +6,10 @@ from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import Group
 from django.db import models
 import uuid
-from .estados_modelo import *
+from .estados_modelo import (
+    ESTADO_USUARIO_EMPRESA, TIPOS_RELACION_EMPRESA,
+    SISTEMA_SALUD, TIPO_CUENTA_BANCARIA, PARENTESCO_CARGA,
+)
 
 
 class Empresa(ModeloBase):
@@ -219,3 +222,26 @@ class UsuarioEmpresa(ModeloBase):
 
 #     def __str__(self):
 #         return f"{self.nombre} de {self.empresa}"
+
+
+class CargaFamiliar(ModeloBase):
+    usuario_empresa = models.ForeignKey(
+        UsuarioEmpresa,
+        on_delete=models.CASCADE,
+        related_name='cargas_familiares',
+    )
+    nombres = models.CharField(max_length=250)
+    apellido_paterno = models.CharField(max_length=150)
+    apellido_materno = models.CharField(max_length=150, blank=True, default='')
+    rut = models.CharField(max_length=20, blank=True, default='')
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    parentesco = models.CharField(max_length=20, choices=PARENTESCO_CARGA)
+    is_activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Carga familiar'
+        verbose_name_plural = 'Cargas familiares'
+        ordering = ['parentesco', 'apellido_paterno']
+
+    def __str__(self):
+        return f"{self.nombres} {self.apellido_paterno} ({self.get_parentesco_display()}) - {self.usuario_empresa}"

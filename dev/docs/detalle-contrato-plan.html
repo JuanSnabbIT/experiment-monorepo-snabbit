@@ -1,0 +1,2512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan · Detalle Contrato Trabajador — Snabbit ERP</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f172a;--bg2:#1e293b;--bg3:#0c1526;--bd:#334155;--bd2:#475569;
+  --blue:#3b82f6;--blue-l:#60a5fa;--blue-d:#1d4ed8;--blue-bg:rgba(59,130,246,.1);
+  --blue-bd:rgba(59,130,246,.3);--txt:#e2e8f0;--muted:#94a3b8;--dim:#64748b;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#a78bfa;--cyan:#22d3ee;
+  --font:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Consolas','Monaco','Courier New',monospace;
+  --r:8px;--rl:12px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:var(--font);font-size:13px;line-height:1.6}
+.nav{position:sticky;top:0;z-index:100;background:rgba(15,23,42,.92);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--bd);padding:0 24px;display:flex;align-items:center;gap:4px;height:44px}
+.nav a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:500;padding:6px 10px;
+  border-radius:6px;transition:all .15s}
+.nav a:hover{color:var(--txt);background:rgba(255,255,255,.06)}
+.nav .logo{font-weight:700;font-size:13px;color:var(--blue-l);margin-right:12px;padding-right:12px;
+  border-right:1px solid var(--bd);white-space:nowrap}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 24px}
+section{margin-bottom:56px}
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.sh-num{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;
+  font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sh-title{font-size:17px;font-weight:700;color:#f8fafc}
+.sh-sub{font-size:12px;color:var(--muted);margin-top:1px}
+.badge{display:inline-flex;align-items:center;gap:6px;background:var(--blue-bg);color:var(--blue-l);
+  border:1px solid var(--blue-bd);border-radius:20px;padding:3px 10px;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.badge-green{background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.3)}
+.badge-amber{background:rgba(245,158,11,.1);color:#fbbf24;border-color:rgba(245,158,11,.3)}
+.badge-red{background:rgba(239,68,68,.1);color:#f87171;border-color:rgba(239,68,68,.3)}
+.badge-zinc{background:rgba(100,116,139,.1);color:#94a3b8;border-color:rgba(100,116,139,.3)}
+.badge-purple{background:rgba(167,139,250,.1);color:var(--purple);border-color:rgba(167,139,250,.3)}
+.doc-header{border-bottom:1px solid var(--bd);padding-bottom:24px;margin-bottom:40px}
+.doc-header h1{font-size:26px;font-weight:800;color:#f8fafc;margin:8px 0 6px}
+.doc-header .meta{display:flex;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:12px;margin-top:10px}
+.meta-item{display:flex;align-items:center;gap:5px}
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:16px}
+/* ── MOCKUP BASE ── */
+.mockups-row{display:flex;flex-direction:column;gap:28px}
+.mockup-card{background:#1a2744;border:1px solid #2a3a5c;border-radius:14px;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);width:100%;max-width:100%;
+  display:flex;flex-direction:column}
+/* Mockups con ancho acotado (otras secciones) */
+.mockups-row .mockup-card[style*="max-width"]{width:auto}
+.mock-header{background:#0e1830;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #1e2d4a}
+.mock-header-title{font-size:11px;font-weight:600;color:#94a3b8}
+.mock-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:10px}
+.mock-body h3{font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:6px}
+.mock-footer{padding:8px 14px;border-top:1px solid #1e2d4a;display:flex;justify-content:flex-end;gap:8px}
+.m-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;border:none;cursor:pointer}
+.m-btn-ghost{background:transparent;color:#94a3b8;border:1px solid #334155}
+.m-btn-prim{background:#3b82f6;color:#fff}
+.m-btn-outline{background:transparent;color:#60a5fa;border:1px solid #3b82f6}
+/* ── TOP BAR ── */
+.mock-topbar{background:#111f38;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #1a2a48}
+.mock-topbar-bc{font-size:9px;color:#475569}
+.mock-topbar-bc b{color:#64748b}
+.mock-topbar-icons{display:flex;gap:8px;color:#475569;font-size:12px}
+/* ── SUBHEADER MOCK ── */
+.mock-subheader{background:#0e1830;padding:7px 12px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #1e2d4a;gap:8px}
+.mock-sh-left{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.mock-sh-right{display:flex;align-items:center;gap:5px}
+/* ── STEPPER PILLS (subheader) ── */
+.mock-steppills{display:flex;align-items:center;gap:0;flex-wrap:nowrap}
+.msp-item{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:12px;
+  font-size:9px;font-weight:600;white-space:nowrap;line-height:1}
+.msp-item.done{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+.msp-item.active{background:#3b82f6;color:#fff;border:1px solid #3b82f6}
+.msp-item.todo{background:transparent;color:#475569;border:1px solid #2a3a52}
+.msp-line{width:10px;height:1px;flex-shrink:0}
+.msp-line.done{background:rgba(59,130,246,.4)}
+.msp-line.todo{background:#2a3a52}
+/* ── HERO STRIP ── */
+.mock-herostrip{background:#111f38;padding:7px 12px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid #1a2a48;gap:8px}
+.mock-herostrip-left{display:flex;flex-direction:column;gap:3px}
+.mock-herostrip-bc{font-size:8px;color:#475569}
+.mock-herostrip-title{display:flex;align-items:center;gap:6px}
+.mock-herostrip-name{font-size:12px;font-weight:700;color:#e2e8f0}
+.mock-metapills{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.mock-metapill{font-size:9px;color:#64748b;background:#0e1830;border:1px solid #1e2d4a;
+  border-radius:5px;padding:1px 7px;white-space:nowrap}
+.mock-metapill b{color:#94a3b8}
+.mock-herostrip-right{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.mock-icon-btn{background:transparent;border:1px solid #334155;border-radius:5px;
+  padding:3px 7px;font-size:10px;color:#94a3b8;display:flex;align-items:center;gap:3px}
+.mock-prim-btn{background:#3b82f6;border:none;border-radius:5px;
+  padding:3px 9px;font-size:10px;font-weight:600;color:#fff;display:flex;align-items:center;gap:3px}
+.mock-title{font-size:12px;font-weight:700;color:#e2e8f0}
+.mock-subtitle{font-size:10px;color:#94a3b8}
+.estado-chip{font-size:9px;font-weight:700;padding:1px 7px;border-radius:10px}
+.chip-borrador{background:rgba(100,116,139,.2);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+.chip-pendiente{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.chip-vigente{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.chip-terminado{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.25)}
+.chip-anulado{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+/* ── HERO WORKER ── */
+.mock-hero{display:flex;align-items:center;gap:10px;background:#0e1830;border-radius:8px;padding:8px 10px}
+.mock-avatar{width:32px;height:32px;border-radius:50%;background:#1d4ed8;color:#fff;
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mock-worker-name{font-size:11px;font-weight:700;color:#e2e8f0}
+.mock-worker-email{font-size:9px;color:#64748b;margin-top:1px}
+.mock-worker-meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.mock-mini-badge{font-size:8px;padding:1px 5px;border-radius:8px}
+/* ── STEPPER ── */
+.mock-stepper{display:flex;align-items:center;justify-content:center;gap:0;padding:8px 10px;
+  background:#0e1830;border-radius:8px}
+.ms-item{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ms-circle{width:18px;height:18px;border-radius:50%;border:1.5px solid;font-size:8px;font-weight:700;
+  display:flex;align-items:center;justify-content:center}
+.ms-circle.done{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.ms-circle.active{background:#3b82f6;border-color:#60a5fa;color:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+.ms-circle.todo{background:transparent;border-color:#334155;color:#64748b}
+.ms-line{width:14px;height:1.5px;margin-top:-15px}
+.ms-line.done{background:#3b82f6}
+.ms-line.todo{background:#334155}
+.ms-label{font-size:7px;font-weight:500;white-space:nowrap;margin-top:2px}
+.ms-label.done{color:#60a5fa}
+.ms-label.active{color:#93c5fd;font-weight:700}
+.ms-label.todo{color:#475569}
+.ms-row{display:flex;align-items:center}
+/* ── TABS ── */
+.mock-tabs{display:flex;gap:0;border-bottom:1px solid #1e2d4a;padding:0 10px}
+.mock-tab{padding:5px 10px;font-size:10px;font-weight:500;color:#64748b;border-bottom:2px solid transparent}
+.mock-tab.active{color:#60a5fa;border-bottom-color:#3b82f6}
+/* ── MINI FIELDS ── */
+.mf-label{font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.mf-input{width:100%;background:#0e1830;border:1px solid #334155;border-radius:5px;
+  padding:5px 8px;color:#e2e8f0;font-size:11px;font-family:var(--mono)}
+.mf-group{margin-bottom:8px}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+/* ── SECTIONS ── */
+.mini-card{background:#0e1830;border:1px solid #334155;border-radius:7px;padding:8px 10px;margin-bottom:8px}
+.mini-card-title{font-size:10px;font-weight:700;color:#e2e8f0;margin-bottom:6px;
+  display:flex;align-items:center;gap:5px}
+.mini-card-icon{font-size:12px;color:#60a5fa}
+/* ── CAMPO DATO ── */
+.data-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.data-field{display:flex;flex-direction:column;gap:1px}
+.data-key{font-size:8px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.data-val{font-size:10px;color:#cbd5e1}
+/* ── DROP ZONE ── */
+.drop-zone{border:1.5px dashed #334155;border-radius:7px;padding:12px 8px;text-align:center;color:#64748b;font-size:10px}
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:14px 10px;color:#475569}
+.empty-state-icon{font-size:22px;margin-bottom:5px}
+.empty-state-msg{font-size:11px;color:#64748b}
+/* ── MOCK GROUP HEADER ── */
+.mock-group-header{font-size:11px;font-weight:700;color:#e2e8f0;
+  padding:4px 12px;background:linear-gradient(90deg,#111f38,transparent);
+  border-left:3px solid #3b82f6;border-radius:0 4px 4px 0;margin:16px 0 8px}
+/* ── INFO NOTE ── */
+.info-note{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);
+  border-radius:6px;padding:6px 8px;font-size:9px;color:#93c5fd;display:flex;gap:5px;align-items:flex-start}
+.warn-note{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+  border-radius:6px;padding:6px 8px;font-size:9px;color:#fbbf24;display:flex;gap:5px;align-items:flex-start}
+/* ── PLANTILLA OPTION ── */
+.plantilla-opt{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 8px;background:#1a2744;border:1px solid #334155;border-radius:6px;margin-bottom:4px;cursor:pointer}
+.plantilla-opt.selected{border-color:#3b82f6;background:#0d1f3a}
+.plantilla-opt-name{font-size:10px;font-weight:600;color:#e2e8f0}
+.plantilla-opt-ico{font-size:13px;color:#334155}
+.plantilla-opt.selected .plantilla-opt-ico{color:#3b82f6}
+/* ── TABLE ── */
+.impl-table{width:100%;border-collapse:collapse;font-size:12px}
+.impl-table th{background:var(--bg3);color:var(--muted);font-size:11px;font-weight:600;
+  text-align:left;padding:8px 12px;border:1px solid var(--bd)}
+.impl-table td{padding:8px 12px;border:1px solid var(--bd);color:var(--txt);vertical-align:top}
+.impl-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.tag-ok{display:inline-block;background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);
+  border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+.tag-wip{display:inline-block;background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.3);
+  border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+.tag-todo{display:inline-block;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.25);
+  border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+.tag-design{display:inline-block;background:rgba(167,139,250,.1);color:#c4b5fd;border:1px solid rgba(167,139,250,.25);
+  border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700}
+/* ── CODE ── */
+.code-block{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);
+  padding:14px 16px;font-family:var(--mono);font-size:12px;color:#93c5fd;overflow-x:auto;margin-top:8px}
+code{font-family:var(--mono);background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px;font-size:11px}
+/* ── SECTION GRID ── */
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.section-grid{grid-template-columns:1fr}.mockup-card{flex:0 0 100%}}
+/* ── VARIANT BLOCK ── */
+.variant-block{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:14px;margin-bottom:14px}
+.vb-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.vb-title{font-size:13px;font-weight:700;color:#f8fafc}
+.vb-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+@media(max-width:760px){.vb-grid{grid-template-columns:1fr}}
+.vb-col-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--bd)}
+.vb-item{font-size:11px;color:var(--muted);display:flex;align-items:flex-start;gap:5px;margin-bottom:3px}
+.vb-item.enabled::before{content:"✓";color:var(--green);font-weight:700;flex-shrink:0;margin-top:1px}
+.vb-item.disabled::before{content:"✕";color:var(--red);flex-shrink:0;margin-top:1px}
+.vb-item.neutral::before{content:"–";color:var(--dim);flex-shrink:0;margin-top:1px}
+/* ── MOCK TAB SECTION LABEL ── */
+.mock-tab-label{font-size:10px;font-weight:600;color:#64748b;margin-bottom:6px;padding:0 2px;
+  display:flex;align-items:center;gap:6px}
+.mock-tab-label b{color:#60a5fa}
+/* ── HISTORIAL TIMELINE ── */
+.hist-timeline{display:flex;flex-direction:column;gap:0}
+.hist-item{display:flex;gap:10px;padding-bottom:10px}
+.hist-item:last-child{padding-bottom:0}
+.hist-dot-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:10px}
+.hist-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid;flex-shrink:0;margin-top:2px}
+.hist-dot.borrador{background:#1e293b;border-color:#64748b}
+.hist-dot.pendiente{background:#f59e0b;border-color:#fbbf24}
+.hist-dot.vigente{background:#10b981;border-color:#34d399}
+.hist-connector{width:1.5px;background:#1e2d4a;flex:1;margin:3px auto}
+.hist-content{flex:1}
+.hist-title{font-size:10px;font-weight:600;color:#e2e8f0}
+.hist-meta{font-size:8px;color:#64748b;margin-top:1px}
+/* ── REMUNERACIONES ── */
+.remun-row{display:flex;justify-content:space-between;align-items:center;
+  padding:4px 8px;border-radius:4px;font-size:10px}
+.remun-row:nth-child(even){background:rgba(255,255,255,.03)}
+.remun-row .rk{color:#94a3b8}
+.remun-row .rv{color:#cbd5e1;font-weight:600;font-family:var(--mono)}
+.remun-row.total .rk{color:#e2e8f0;font-weight:700}
+.remun-row.total .rv{color:#34d399}
+.remun-row.descuento .rv{color:#f87171}
+/* ── ANEXO ROW ── */
+.anexo-row{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 8px;border-radius:5px;border:1px solid #1e2d4a;margin-bottom:4px;background:#0e1830}
+.anexo-tipo{font-size:9px;font-weight:700;color:#e2e8f0}
+.anexo-fechas{font-size:8px;color:#64748b}
+/* ── PDF FILE CARD ── */
+.pdf-file-card{display:flex;align-items:center;gap:8px;background:#0e1830;
+  border:1px solid #334155;border-radius:6px;padding:7px 10px;margin-bottom:8px}
+.pdf-icon{font-size:20px;flex-shrink:0}
+.pdf-info{flex:1}
+.pdf-name{font-size:10px;font-weight:600;color:#e2e8f0}
+.pdf-meta{font-size:8px;color:#64748b;margin-top:1px}
+/* ── STITCH SCREENS GRID ── */
+.stitch-note{background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);
+  border-radius:var(--r);padding:10px 14px;font-size:11px;color:#c4b5fd;margin-bottom:16px;
+  display:flex;align-items:flex-start;gap:8px}
+.stitch-note b{color:#e9d5ff}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="logo">Snabbit ERP</span>
+  <a href="#overview">Visión</a>
+  <a href="#layout">Layout</a>
+  <a href="#header">Header</a>
+  <a href="#stepper">Stepper</a>
+  <a href="#tabs">Tabs</a>
+  <a href="#documento">Documento</a>
+  <a href="#modal-plantilla">Plantilla</a>
+  <a href="#variantes">Variantes</a>
+  <a href="#vencimientos">Vencimientos</a>
+  <a href="#firma-activacion">Firma+Activación</a>
+  <a href="#renovaciones">Renovaciones</a>
+  <a href="#implementacion">Implementación</a>
+</nav>
+
+<div class="wrap">
+
+<!-- DOC HEADER -->
+<div class="doc-header">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="badge badge-purple">RRHH · Contratos</span>
+    <span class="badge">DETALLE PAGE</span>
+    <span class="badge badge-amber">EN PROGRESO</span>
+  </div>
+  <h1>Plan · Detalle Contrato Trabajador</h1>
+  <p style="color:var(--muted);font-size:13px;max-width:680px">
+    Diseño de la página de detalle de un contrato laboral. Basado en 2 pantallas del proyecto Stitch
+    <b style="color:var(--txt)">"RRHH · Contratos Laborales – Snabbit ERP"</b>.
+    Cubre header, stepper de estado, 5 tabs, sección documento (3 variantes), modal plantilla, matriz de acciones por estado, alertas de vencimiento de plazo, flujo de firma y activación (subir PDF firmado → vigente) y gestión de renovaciones/prórrogas.
+  </p>
+  <div class="meta">
+    <span class="meta-item">📐 Fuente: Stitch project <code>9477365587094665350</code></span>
+    <span class="meta-item">📂 Ruta: <code>frontend/src/pages/RRHH/</code></span>
+    <span class="meta-item">🗓 Creado: 2026-04</span>
+  </div>
+</div>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 1 · VISIÓN GENERAL
+────────────────────────────────────────────────── -->
+<section id="overview">
+  <div class="sh">
+    <div class="sh-num">1</div>
+    <div>
+      <div class="sh-title">Visión General</div>
+      <div class="sh-sub">Objetivo, flujo y archivos raíz de la página</div>
+    </div>
+  </div>
+
+  <div class="stitch-note">
+    <span>🎨</span>
+    <div>
+      <b>Pantallas Stitch analizadas:</b><br>
+      <b>Screen 1</b> — <code>d11d8a62ef4a4878bf2cf565a58f36ad</code>: Contrato #1045 BORRADOR — foco en sección Documento (generación PDF, configuración, subida manual) + Modal "Seleccionar Plantilla".<br>
+      <b>Screen 2</b> — <code>fad58bc4173d4e729ca22aac8b00d1d3</code>: Contrato #1043 VIGENTE — foco en tabs "Datos del contrato" + "Datos del trabajador".
+    </div>
+  </div>
+
+  <div class="section-grid">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Objetivo de la pantalla</h3>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:6px">
+        <li style="font-size:12px;color:var(--muted)">📋 Mostrar todos los datos de un contrato laboral vigente</li>
+        <li style="font-size:12px;color:var(--muted)">📄 Gestionar el documento PDF (generar, subir, descargar)</li>
+        <li style="font-size:12px;color:var(--muted)">🔄 Permitir transiciones de estado controladas</li>
+        <li style="font-size:12px;color:var(--muted)">📎 Administrar anexos y ver historial de cambios</li>
+        <li style="font-size:12px;color:var(--muted)">💰 Consultar datos de remuneraciones</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Archivos principales</h3>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">pages/RRHH/DetalleContratoTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/CicloVidaContratoLaboral.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/TabDatosLaboralesTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/TabRemuneracionesTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/TabDocumentoTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/TabAnexosTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/TabHistorialTrabajador.tsx</div>
+        <div style="font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:4px;padding:3px 8px;color:#93c5fd">components/trabajador/ModalCambiarEstadoContrato.tsx</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:12px">Estructura visual de la página</h3>
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:600px">
+      <div style="background:#1a2744;border:1px solid #2a3a5c;border-radius:6px;padding:8px 12px;font-size:11px;color:#60a5fa;font-weight:600">Subheader — Volver | Nombre/ID/Badge | Cambiar Estado | Generar PDF</div>
+      <div style="background:#0e1830;border:1px solid #334155;border-radius:6px;padding:7px 12px;font-size:11px;color:#94a3b8">Hero Card — Avatar | Nombre trabajador | Email | Tipo contrato | Fechas</div>
+      <div style="background:#0e1830;border:1px solid #334155;border-radius:6px;padding:7px 12px;font-size:11px;color:#94a3b8">Ciclo de vida — Borrador → Pendiente aceptación → Vigente → Terminado | Anulado</div>
+      <div style="background:#0e1830;border:1px solid #334155;border-radius:6px;padding:7px 12px;font-size:11px;color:#94a3b8">Tabs — Datos Laborales | Remuneraciones | Documento | Anexos | Historial</div>
+      <div style="background:#0e1830;border:1px solid #334155;border-radius:6px;padding:7px 12px;font-size:11px;color:#94a3b8;margin-left:20px">Contenido del Tab activo</div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+      <!-- ==================================================== -->
+    <!-- Tab 1: DATOS CONTRATO - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 1 · Datos contrat5 estados × 6 tabs = 30 variantes · BORRADOR / PEND. ACEPTACIÓN / VIGENTE / TERMINADO / ANULADO">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <div class="mock-avatar" style="width:22px;height:22px;font-size:8px;flex-shrink:0;background:#334155">ML</div>
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-meta            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab active">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Cargo</div><div class="data-val">Analista de Soporte</div></div><div class="data-field"><div class="data-key">Tipo</div><div class="data-val">Indefinido</div></div><div class="data-field"><div class="data-key">Jornada</div><div class="data-val">Completa · 45h</div></div><div class="data-field"><div class="data-key">Inicio</div><div class="data-val">01/10/2025</div></div><div class="data-field"><div class="data-key">Término</div><div class="data-val" style="color:#475569">–</div></div><div class="data-field"><div class="data-key">Lugar</div><div class="data-val">Sucursal Norte</div></div></div><div class="data-field" style="margin-top:6px;margin-bottom:8px"><div class="data-key">Funciones principales</div><div class="data-val" style="line-height:1.5">Atención y resolución de incidencias técnicas de usuarios internos.</div></div><div style="display:flex;justify-content:flex-end;margin-top:8px"><div class="m-btn m-btn-ghost" style="font-size:10px">Editar datos</div></div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab active">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="info-note" style="margin-bottom:8px">🔒 Datos bloqueados mientras espera firma del trabajador</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px" style="opacity:.7"><div class="data-field"><div class="data-key">Cargo</div><div class="data-val">Ingeniero DevOps</div></div><div class="data-field"><div class="data-key">Tipo</div><div class="data-val">Plazo fijo</div></div><div class="data-field"><div class="data-key">Jornada</div><div class="data-val">Completa · 45h</div></div><div class="data-field"><div class="data-key">Inicio</div><div class="data-val">01/11/2025</div></div><div class="data-field"><div class="data-key">Término</div><div class="data-val">01/11/2026</div></div><div class="data-field"><div class="data-key">Lugar</div><div class="data-val">Casa Matriz</div></div></div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab active">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Cargo</div><div class="data-val">Analista TI</div></div><div class="data-field"><div class="data-key">Tipo</div><div class="data-val">Plazo fijo</div></div><div class="data-field"><div class="data-key">Jornada</div><div class="data-val">Completa · 45h</div></div><div class="data-field"><div class="data-key">Inicio</div><div class="data-val">01/02/2025</div></div><div class="data-field"><div class="data-key">Término</div><div class="data-val">15/02/2026</div></div><div class="data-field"><div class="data-key">Lugar</div><div class="data-val">Casa Matriz</div></div></div><div class="data-field" style="margin-top:6px;margin-bottom:8px"><div class="data-key">Funciones principales</div><div class="data-val" style="line-height:1.5">Soporte técnico nivel 2, gestión de infraestructura y servidores.</div></div><div style="display:flex;justify-content:flex-end;margin-top:8px"><div class="m-btn m-btn-ghost" style="font-size:10px">Editar datos</div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab active">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="warn-note" style="margin-bottom:8px">⚠ Contrato terminado el 28/02/2025. Solo lectura.</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px" style="opacity:.7"><div class="data-field"><div class="data-key">Cargo</div><div class="data-val">Técnico en Redes</div></div><div class="data-field"><div class="data-key">Tipo</div><div class="data-val">Plazo fijo</div></div><div class="data-field"><div class="data-key">Jornada</div><div class="data-val">Completa · 45h</div></div><div class="data-field"><div class="data-key">Inicio</div><div class="data-val">01/03/2024</div></div><div class="data-field"><div class="data-key">Término</div><div class="data-val">28/02/2025</div></div><div class="data-field"><div class="data-key">Lugar</div><div class="data-val">Casa Matriz</div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1039</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/06/2024 · Anulado: 15/03/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab active">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="warn-note" style="margin-bottom:8px;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.06);color:#fca5a5">🚫 Contrato anulado el 15/03/2025. Solo lectura.</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px" style="opacity:.7"><div class="data-field"><div class="data-key">Cargo</div><div class="data-val">Coord. RRHH</div></div><div class="data-field"><div class="data-key">Tipo</div><div class="data-val">Indefinido</div></div><div class="data-field"><div class="data-key">Jornada</div><div class="data-val">Completa · 45h</div></div><div class="data-field"><div class="data-key">Inicio</div><div class="data-val">01/06/2024</div></div><div class="data-field"><div class="data-key">Término</div><div class="data-val" style="color:#475569">–</div></div><div class="data-field"><div class="data-key">Lugar</div><div class="data-val">Sucursal Sur</div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- Tab 2: TRABAJADOR - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 2 · Trabajador</div>
+
+    <!-- BORRADOR -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab active">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val">María López Soto</div></div><div class="data-field"><div class="data-key">RUT</div><div class="data-val">12.345.678-9</div></div><div class="data-field"><div class="data-key">Fecha nacimiento</div><div class="data-val">22/06/1985</div></div><div class="data-field"><div class="data-key">Nacionalidad</div><div class="data-val">Chilena</div></div><div class="data-field"><div class="data-key">Email</div><div class="data-val">m.lopez@techcorp.cl</div></div><div class="data-field"><div class="data-key">Teléfono</div><div class="data-val">+56 9 1234 5678</div></div></div><div class="data-field"><div class="data-key">Dirección</div><div class="data-val">Calle Falsa 123, Santiago</div></div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab active">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val">Carlos Rojas Muñoz</div></div><div class="data-field"><div class="data-key">RUT</div><div class="data-val">15.678.234-K</div></div><div class="data-field"><div class="data-key">Fecha nacimiento</div><div class="data-val">08/11/1992</div></div><div class="data-field"><div class="data-key">Nacionalidad</div><div class="data-val">Chileno</div></div><div class="data-field"><div class="data-key">Email</div><div class="data-val">c.rojas@techcorp.cl</div></div><div class="data-field"><div class="data-key">Teléfono</div><div class="data-val">+56 9 2345 6789</div></div></div><div class="data-field"><div class="data-key">Dirección</div><div class="data-val">Los Olivos 456, Viña del Mar</div></div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab active">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val">Ana Torres García</div></div><div class="data-field"><div class="data-key">RUT</div><div class="data-val">13.567.890-2</div></div><div class="data-field"><div class="data-key">Fecha nacimiento</div><div class="data-val">12/03/1990</div></div><div class="data-field"><div class="data-key">Nacionalidad</div><div class="data-val">Chilena</div></div><div class="data-field"><div class="data-key">Email</div><div class="data-val">a.torres@techcorp.cl</div></div><div class="data-field"><div class="data-key">Teléfono</div><div class="data-val">+56 9 8765 4321</div></div></div><div class="data-field"><div class="data-key">Dirección</div><div class="data-val">Av. Principal 456, Santiago</div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab active">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val">Jorge Mora Fuentes</div></div><div class="data-field"><div class="data-key">RUT</div><div class="data-val">11.234.567-8</div></div><div class="data-field"><div class="data-key">Fecha nacimiento</div><div class="data-val">14/04/1988</div></div><div class="data-field"><div class="data-key">Nacionalidad</div><div class="data-val">Chileno</div></div><div class="data-field"><div class="data-key">Email</div><div class="data-val">j.mora@techcorp.cl</div></div><div class="data-field"><div class="data-key">Teléfono</div><div class="data-val">+56 9 3456 7890</div></div></div><div class="data-field"><div class="data-key">Dirección</div><div class="data-val">Av. Central 789, Concepción</div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1039</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/06/2024 · Anulado: 15/03/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab active">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px"><div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val">Sofía Vargas Cárdenas</div></div><div class="data-field"><div class="data-key">RUT</div><div class="data-val">16.789.012-3</div></div><div class="data-field"><div class="data-key">Fecha nacimiento</div><div class="data-val">30/09/1995</div></div><div class="data-field"><div class="data-key">Nacionalidad</div><div class="data-val">Chilena</div></div><div class="data-field"><div class="data-key">Email</div><div class="data-val">s.vargas@techcorp.cl</div></div><div class="data-field"><div class="data-key">Teléfono</div><div class="data-val">+56 9 4567 8901</div></div></div><div class="data-field"><div class="data-key">Dirección</div><div class="data-val">Pasaje Sur 321, Santiago</div></div></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- Tab 3: REMUNERACIONES - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 3 · Remuneraciones</div>
+
+    <!-- BORRADOR -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab active">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">HABERES</div><div class="remun-row"><span>Sueldo base</span><span>$900.000</span></div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin:6px 0 4px">DESCUENTOS</div><div class="remun-row descuento"><span>AFP (Habitat 11.27%)</span><span>-$101.430</span></div><div class="remun-row descuento"><span>Fonasa 7%</span><span>-$63.000</span></div><div class="remun-row total"><span>Líquido a pagar</span><span>$735.570</span></div><div class="mini-card" style="margin-top:8px;background:#0d1b2e"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">DATOS BANCARIOS</div><div style="font-size:9px;color:#475569;font-style:italic">No registrados</div></div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab active">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="info-note" style="margin-bottom:8px">🔒 Remuneraciones bloqueadas mientras espera firma del trabajador</div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">HABERES</div><div class="remun-row"><span>Sueldo base</span><span>$1.050.000</span></div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin:6px 0 4px">DESCUENTOS</div><div class="remun-row descuento"><span>AFP (Provida 11.27%)</span><span>-$118.335</span></div><div class="remun-row descuento"><span>Fonasa 7%</span><span>-$73.500</span></div><div class="remun-row total"><span>Líquido a pagar</span><span>$858.165</span></div><div class="mini-card" style="margin-top:8px;background:#0d1b2e"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">DATOS BANCARIOS</div><div style="font-size:9px;color:#475569;font-style:italic">No registrados</div></div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab active">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">HABERES</div><div class="remun-row"><span>Sueldo base</span><span>$1.300.000</span></div><div class="remun-row"><span>Bono responsabilidad</span><span>$80.000</span></div><div class="remun-row"><span>Bono movilización</span><span>$30.000</span></div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin:6px 0 4px">DESCUENTOS</div><div class="remun-row descuento"><span>AFP (Capital 11.27%)</span><span>-$146.510</span></div><div class="remun-row descuento"><span>Fonasa 7%</span><span>-$98.000</span></div><div class="remun-row total"><span>Líquido a pagar</span><span>$1.165.490</span></div><div class="mini-card" style="margin-top:8px;background:#0d1b2e"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:5px">DATOS BANCARIOS</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><div class="data-field"><div class="data-key">Banco</div><div class="data-val">Banco Estado</div></div><div class="data-field"><div class="data-key">Tipo cuenta</div><div class="data-val">Cuenta RUT</div></div><div class="data-field"><div class="data-key">Número</div><div class="data-val">14562893</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab active">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">HABERES</div><div class="remun-row"><span>Sueldo base</span><span>$1.200.000</span></div><div class="remun-row"><span>Bono producción</span><span>$40.000</span></div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin:6px 0 4px">DESCUENTOS</div><div class="remun-row descuento"><span>AFP (Cuprum 11.27%)</span><span>-$139.580</span></div><div class="remun-row descuento"><span>Fonasa 7%</span><span>-$87.500</span></div><div class="remun-row total"><span>Líquido a pagar</span><span>$1.012.920</span></div><div class="mini-card" style="margin-top:8px;background:#0d1b2e"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:5px">DATOS BANCARIOS</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><div class="data-field"><div class="data-key">Banco</div><div class="data-val">Scotiabank</div></div><div class="data-field"><div class="data-key">Tipo cuenta</div><div class="data-val">Cuenta Corriente</div></div><div class="data-field"><div class="data-key">Número</div><div class="data-val">09876543</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1039</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/06/2024 · Anulado: 15/03/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab active">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="warn-note" style="margin-bottom:8px;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.06);color:#fca5a5">🚫 Contrato anulado. Solo lectura.</div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">HABERES</div><div class="remun-row"><span>Sueldo base</span><span>$1.100.000</span></div><div style="font-size:9px;font-weight:600;color:#94a3b8;margin:6px 0 4px">DESCUENTOS</div><div class="remun-row descuento"><span>AFP (Modelo 11.27%)</span><span>-$123.970</span></div><div class="remun-row descuento"><span>Fonasa 7%</span><span>-$77.000</span></div><div class="remun-row total"><span>Líquido a pagar</span><span>$899.030</span></div><div class="mini-card" style="margin-top:8px;background:#0d1b2e"><div style="font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:5px">DATOS BANCARIOS</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><div class="data-field"><div class="data-key">Banco</div><div class="data-val">BCI</div></div><div class="data-field"><div class="data-key">Tipo cuenta</div><div class="data-val">Cuenta Ahorro</div></div><div class="data-field"><div class="data-key">Número</div><div class="data-val">12345678</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- Tab 4: DOCUMENTO - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 4 · Documento</div>
+
+    <!-- BORRADOR -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab active">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="font-size:9px;color:#475569;text-align:center;padding:10px 0">📭 Sin documento generado. Configure la plantilla y genere el borrador.</div><div style="margin-top:6px;font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">PLANTILLA</div><div class="plantilla-opt selected"><div class="plantilla-opt-name">Contrato Indefinido</div><div class="plantilla-opt-ico">✓</div></div><div style="display:flex;gap:4px;margin-top:6px"><div class="mock-prim-btn" style="font-size:9px;flex:1">⬇ Generar borrador PDF</div></div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab active">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="info-note" style="margin-bottom:8px">⌛ Contrato en espera de firma. No regenerar hasta que sea aceptado o rechazado.</div><div class="pdf-file-card"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">Contrato_1044_borrador.pdf</div><div class="pdf-meta">PDF firmado</div></div><div class="mock-icon-btn" style="font-size:9px">⬇ Descargar</div></div><div class="info-note" style="margin-top:6px">🔏 Estado firma: <b>Pendiente de firma</b></div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab active">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="pdf-file-card"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">Contrato_1043_firmado.pdf</div><div class="pdf-meta">PDF firmado</div></div><div class="mock-icon-btn" style="font-size:9px">⬇ Descargar</div></div><div style="margin-top:8px;font-size:9px;font-weight:600;color:#94a3b8;margin-bottom:4px">CONFIGURACIÓN</div><div class="plantilla-opt selected"><div class="plantilla-opt-name">Plantilla: Contrato Plazo Fijo</div><div class="plantilla-opt-ico">✓</div></div><div style="display:flex;gap:4px;margin-top:6px"><div class="mock-prim-btn" style="font-size:9px;flex:1">↻ Regenerar PDF</div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab active">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="warn-note" style="margin-bottom:8px">⚠ Contrato terminado. Solo descarga disponible.</div><div class="pdf-file-card"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">Contrato_1041_firmado.pdf</div><div class="pdf-meta">PDF firmado</div></div><div class="mock-icon-btn" style="font-size:9px">⬇ Descargar</div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1039</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/06/2024 · Anulado: 15/03/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab active">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="warn-note" style="margin-bottom:8px;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.06);color:#fca5a5">🚫 Contrato anulado. Solo descarga disponible.</div><div class="pdf-file-card"><div class="pdf-icon">📄</div><div class="pdf-info"><div class="pdf-name">Contrato_1039_firmado.pdf</div><div class="pdf-meta">PDF firmado</div></div><div class="mock-icon-btn" style="font-size:9px">⬇ Descargar</div></div></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- Tab 5: ANEXOS - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 5 · Anexos</div>
+
+    <!-- BORRADOR -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab active">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="info-note" style="margin-bottom:8px">Los anexos no están disponibles en estado Borrador.</div><div style="font-size:9px;color:#475569;text-align:center;padding:12px 0">Sin anexos</div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab active">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="info-note" style="margin-bottom:8px">Los anexos se habilitan cuando el contrato esté Vigente.</div><div style="font-size:9px;color:#475569;text-align:center;padding:12px 0">Sin anexos</div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab active">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:9px;font-weight:600;color:#94a3b8">ANEXOS DEL CONTRATO</div><div class="mock-prim-btn" style="font-size:9px">+ Agregar anexo</div></div><div class="anexo-row"><div class="anexo-tipo">Prórroga</div><div style="font-size:9px;color:var(--txt);margin-bottom:2px">Extensión período prueba</div><div class="anexo-fechas">01/02/2025 → 01/04/2025 · <b>Vigente</b></div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab active">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:9px;font-weight:600;color:#94a3b8">HISTORIAL ANEXOS</div><span style="font-size:8px;padding:1px 6px;border-radius:4px;background:#1e293b;color:#64748b">Solo lectura</span></div><div class="anexo-row"><div class="anexo-tipo">Modificación jornada</div><div style="font-size:9px;color:var(--txt);margin-bottom:2px">Reducción jornada a 30h</div><div class="anexo-fechas">01/06/2024 → 31/08/2024 · <b>Vencido</b></div></div><div class="anexo-row"><div class="anexo-tipo">Prórroga</div><div style="font-size:9px;color:var(--txt);margin-bottom:2px">Extensión 3 meses</div><div class="anexo-fechas">01/09/2024 → 28/02/2025 · <b>Vencido</b></div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1039</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/06/2024 · Anulado: 15/03/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab active">Anexos</div><div class="mock-tab">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:9px;font-weight:600;color:#94a3b8">HISTORIAL ANEXOS</div><span style="font-size:8px;padding:1px 6px;border-radius:4px;background:#1e293b;color:#64748b">Solo lectura</span></div><div class="anexo-row"><div class="anexo-tipo">Cambio cargo</div><div style="font-size:9px;color:var(--txt);margin-bottom:2px">Ascenso a Jefa RRHH</div><div class="anexo-fechas">01/09/2024 → – · <b>Anulado</b></div></div></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- Tab 6: HISTORIAL - 5 estados -->
+    <!-- ==================================================== -->
+    <div class="mock-group-header">Tab 6 · Historial</div>
+
+    <!-- BORRADOR -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-borrador" style="font-size:8px;padding:1px 5px;vertical-align:middle">BORRADOR</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1045</span>
+          <span class="estado-chip chip-borrador">BORRADOR</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item active">● Borrador</div><div class="msp-line todo"></div><div class="msp-item todo">Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / María López</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1045</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Indefinido</b></span>
+            <span class="mock-metapill">Inicio: 01/10/2025 · Sin término</span>
+            
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">👁 Vista previa</div><div class="mock-prim-btn" style="font-size:9px">📨 Enviar aprob. empleador</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab active">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="hist-timeline"><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot borrador"></div></div><div class="hist-content"><div class="hist-title">Contrato creado en borrador</div><div class="hist-meta">01/10/2025 · por admin@techcorp.cl</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- PEND. ACEPTACIÓN -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-pendiente" style="font-size:8px;padding:1px 5px;vertical-align:middle">PEND. ACEPTACIÓN</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1044</span>
+          <span class="estado-chip chip-pendiente">PEND. ACEPTACIÓN</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item active">● Pend. aceptación</div><div class="msp-line todo"></div><div class="msp-item todo">Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Carlos Rojas</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1044</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/11/2025 – 01/11/2026</span>
+            <span class="mock-metapill">Firmas: <b>0/1</b></span><span class="mock-metapill" style="color:#f59e0b">Aprob. empleador: <b>&#9203;</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#dc2626">✕ Cancelar envío</div><span style="font-size:8px;color:#f59e0b;padding:0 4px">⌛ Esperando firma</span>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab active">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="hist-timeline"><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot borrador"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato creado en borrador</div><div class="hist-meta">15/10/2025 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot pendiente"></div></div><div class="hist-content"><div class="hist-title">Contrato enviado a firma del trabajador</div><div class="hist-meta">01/11/2025 · por admin@techcorp.cl</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- VIGENTE -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-vigente" style="font-size:8px;padding:1px 5px;vertical-align:middle">VIGENTE</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1043</span>
+          <span class="estado-chip chip-vigente">VIGENTE</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item active">● Vigente</div><div class="msp-line todo"></div><div class="msp-item todo">Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Ana Torres</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1043</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/02/2025 – 15/02/2026</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px;background:#f59e0b">⏸ Suspender</div><div class="mock-prim-btn" style="font-size:9px;background:#ef4444">✕ Terminar</div><div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab active">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="hist-timeline"><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot borrador"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato creado en borrador</div><div class="hist-meta">10/01/2025 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot pendiente"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato enviado a firma del trabajador</div><div class="hist-meta">25/01/2025 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot vigente"></div></div><div class="hist-content"><div class="hist-title">Contrato aceptado y activado</div><div class="hist-meta">01/02/2025 · firmado por a.torres@techcorp.cl</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- TERMINADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-terminado" style="font-size:8px;padding:1px 5px;vertical-align:middle">TERMINADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1041</span>
+          <span class="estado-chip chip-terminado">TERMINADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item active">● Terminado</div><div class="msp-line todo"></div><div class="msp-item todo">Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Jorge Mora</div>
+          <div class="mock-herostrip-title">
+            <span class="mock-herostrip-name">Contrato #1041</span>
+          </div>
+          <div class="mock-metapills">
+            <span class="mock-metapill">Tipo: <b>Plazo fijo</b></span>
+            <span class="mock-metapill">01/03/2024 – 28/02/2025</span>
+            <span class="mock-metapill">Firmas: <b>1/1</b></span>
+          </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-icon-btn" style="font-size:9px">↻ Renovar</div><div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab active">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="hist-timeline"><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot borrador"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato creado en borrador</div><div class="hist-meta">15/02/2024 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot pendiente"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato enviado a firma del trabajador</div><div class="hist-meta">25/02/2024 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot vigente"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato aceptado y activado</div><div class="hist-meta">01/03/2024 · firmado por j.mora@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot terminado"></div></div><div class="hist-content"><div class="hist-title">Contrato terminado por vencimiento de plazo</div><div class="hist-meta">28/02/2025 · por admin@techcorp.cl</div></div></div></div></div>
+      </div>
+    </div>
+
+    <!-- ANULADO -->
+    <div class="mock-tab-label">Estado: <span class="estado-chip chip-anulado" style="font-size:8px;padding:1px 5px;vertical-align:middle">ANULADO</span></div>
+    <div class="mockup-card">
+      <div class="mock-topbar">
+        <div class="mock-topbar-bc">Empresa / <b>RRHH · Contratos Laborales</b></div>
+        <div class="mock-topbar-icons">🔔 ⚙</div>
+      </div>
+      <div class="mock-subheader">
+        <div class="mock-sh-left">
+          <div class="mock-icon-btn">← Volver</div>
+          <span class="mock-title">#1039</span>
+          <span class="estado-chip chip-anulado">ANULADO</span>
+        </div>
+        <div class="mock-steppills"><div class="msp-item done">✓ Borrador</div><div class="msp-line done"></div><div class="msp-item done">✓ Pend. aceptación</div><div class="msp-line done"></div><div class="msp-item done">✓ Vigente</div><div class="msp-line done"></div><div class="msp-item todo">Terminado</div><div class="msp-line done"></div><div class="msp-item active">● Anulado</div></div>
+      </div>
+      <div class="mock-herostrip">
+        <div class="mock-herostrip-left">
+          <div class="mock-herostrip-bc">Trabajadores / Sofía Vargas</div>
+          <div class="mock-herostrip-title">
+      </div>
+        </div>
+        <div class="mock-herostrip-right" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <div class="mock-prim-btn" style="font-size:9px">📄 PDF</div>
+        </div>
+      </div>
+      <div class="mock-body">
+        <div class="mock-tabs"><div class="mock-tab">Datos contrato</div><div class="mock-tab">Trabajador</div><div class="mock-tab">Remuneraciones</div><div class="mock-tab">Documento</div><div class="mock-tab">Anexos</div><div class="mock-tab active">Historial</div></div>
+        <div class="mini-card" style="margin-top:0;border-radius:0 0 7px 7px;border-top:none"><div class="hist-timeline"><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot borrador"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato creado en borrador</div><div class="hist-meta">20/05/2024 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot pendiente"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato enviado a firma del trabajador</div><div class="hist-meta">28/05/2024 · por admin@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot vigente"></div><div class="hist-connector"></div></div><div class="hist-content"><div class="hist-title">Contrato aceptado y activado</div><div class="hist-meta">01/06/2024 · firmado por s.vargas@techcorp.cl</div></div></div><div class="hist-item"><div class="hist-dot-col"><div class="hist-dot anulado"></div></div><div class="hist-content"><div class="hist-title">Contrato anulado por decisión administrativa</div><div class="hist-meta">15/03/2025 · por admin@techcorp.cl</div></div></div></div></div>
+      </div>
+    </div>
+
+  </div>
+
+               <div class="hist-connector"></div>
+              </div>
+              <div class="hist-content">
+                <div class="hist-title">Enviado a firma del trabajador</div>
+                <div class="hist-meta">31/01/2025 · cambio de estado → Pendiente aceptación</div>
+              </div>
+            </div>
+            <div class="hist-item">
+              <div class="hist-dot-col">
+                <div class="hist-dot vigente"></div>
+              </div>
+              <div class="hist-content">
+                <div class="hist-title">Contrato aceptado y activado</div>
+                <div class="hist-meta">01/02/2025 · firmado por a.torres@techcorp.cl</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>    <div class="hist-dot-col">
+                <div class="hist-dot vigente"></div>
+              </div>
+              <div class="hist-content">
+                <div class="hist-title">Contrato aceptado y activado</div>
+                <div class="hist-meta">01/02/2025 · firmado por a.torres@techcorp.cl</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 3 · HEADER + SUBHEADER
+────────────────────────────────────────────────── -->
+<section id="header">
+  <div class="sh">
+    <div class="sh-num">3</div>
+    <div>
+      <div class="sh-title">Header + Hero Card del Trabajador</div>
+      <div class="sh-sub">Subheader con navegación y acciones · Hero card con info del trabajador</div>
+    </div>
+  </div>
+
+  <div class="section-grid">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Subheader</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Componente <code>Subheader</code> con <code>SubheaderLeft</code> + <code>SubheaderRight</code>.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;color:var(--txt)"><span style="color:var(--blue-l)">SubheaderLeft:</span></div>
+        <ul style="list-style:none;margin-left:12px;display:flex;flex-direction:column;gap:4px">
+          <li style="font-size:12px;color:var(--muted)">• Botón <code>HeroArrowSmallLeft</code> → navigate(-1)</li>
+          <li style="font-size:12px;color:var(--muted)">• Nombre del cargo + <code>#id</code> del contrato</li>
+          <li style="font-size:12px;color:var(--muted)">• Badge de estado (color dinámico)</li>
+        </ul>
+        <div style="font-size:12px;color:var(--txt);margin-top:4px"><span style="color:var(--blue-l)">SubheaderRight:</span></div>
+        <ul style="list-style:none;margin-left:12px;display:flex;flex-direction:column;gap:4px">
+          <li style="font-size:12px;color:var(--muted)">• "Seleccionar plantilla" — solo en estado <code>borrador</code></li>
+          <li style="font-size:12px;color:var(--muted)">• "Cambiar estado" — deshabilitado en <code>terminado/anulado</code></li>
+          <li style="font-size:12px;color:var(--muted)">• "Generar PDF" — siempre visible</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Hero Card del Trabajador</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Card horizontal justo debajo del Subheader.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Avatar</b>: Círculo con iniciales (máx 2 chars), color <code>bg-blue-500</code></div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Nombre:</b> <code>nombre_trabajador</code> o fallback "Trabajador #id"</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Email:</b> <code>email_trabajador</code> (si existe)</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Tipo contrato:</b> Badge outline zinc</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Fechas:</b> Inicio / Término (si existen)</div>
+      </div>
+      <div class="warn-note" style="margin-top:12px">⚠️ <b>Pendiente Stitch:</b> En el diseño, el header también muestra el CARGO debajo del nombre y un chip de tipo contrato. Validar si se muestra cargo en hero o solo en subheader.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:8px">Colores de estado del Badge</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      <span class="estado-chip chip-borrador" style="font-size:12px;padding:4px 12px">borrador → zinc</span>
+      <span class="estado-chip chip-pendiente" style="font-size:12px;padding:4px 12px">pendiente_aceptacion → amber</span>
+      <span class="estado-chip chip-vigente" style="font-size:12px;padding:4px 12px">vigente → emerald</span>
+      <span class="estado-chip chip-terminado" style="font-size:12px;padding:4px 12px">terminado → zinc</span>
+      <span class="estado-chip chip-anulado" style="font-size:12px;padding:4px 12px">anulado → red</span>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 4 · STEPPER (CICLO DE VIDA)
+────────────────────────────────────────────────── -->
+<section id="stepper">
+  <div class="sh">
+    <div class="sh-num">4</div>
+    <div>
+      <div class="sh-title">Stepper — Ciclo de Vida del Contrato</div>
+      <div class="sh-sub">Componente CicloVidaContratoLaboral · 5 estados · flujo lineal + finales divergentes</div>
+    </div>
+  </div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-pendiente">2. pendiente_aceptacion</span> <span style="font-size:11px;color:var(--muted)">Enviado para firma del trabajador</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-vigente">3. vigente</span> <span style="font-size:11px;color:var(--muted)">Contrato activo y firmado</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-terminado">4. terminado</span> <span style="font-size:11px;color:var(--muted)">Finalizó su vigencia (plazo vencido o renovado)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-anulado">5. anulado</span> <span style="font-size:11px;color:var(--muted)">Anulado sin efecto legal</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Transiciones permitidas</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div><span style="color:#94a3b8">borrador →<        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-pendiente">2. pendiente_aceptacion</span> <span style="font-size:11px;color:var(--muted)">Enviado a aprobación del empleador · aguardando respuesta</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-vigente">3. vigente</span> <span style="font-size:11px;color:var(--muted)">Contrato activo y firmado</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-terminado">4. terminado</span> <span style="font-size:11px;color:var(--muted)">Finalizó su vigencia (plazo vencido o renovado)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span class="estado-chip chip-anulado">5. anulado</span> <span style="font-size:11px;color:var(--muted)">Anulado sin efecto legal</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Transiciones permitidas</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div><span style="color:#94a3b8">borrador →</span> <span style="color:#fbbf24">pendiente_aceptacion</span></div>
+        <div><span style="color:#fbbf24">pendiente_aceptacion →</span> <span style="color:#34d399">vigente</span></div>
+        <div><span style="color:#34d399">vigente →</span> <span style="color:#94a3b8">terminado</span></div>
+        <div><span style="color:#94a3b8">borrador →</span> <span style="color:#f87171">anulado</span> (cancelación anticipada)</div>
+        <div><span style="color:#fbbf24">pendiente_aceptacion →</span> <span style="color:#f87171">anulado</span></div>
+        <div><span style="color:#34d399">vigente →</span> <span style="color:#f87171">anulado</span></div>
+        <div style="color:var(--dim);font-style:italic">terminado / anulado → <b>sin transición</b> (estados finales)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Comportamiento del stepper visual</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">El stepper muestra los 5 estados de forma horizontal. Los estados <b style="color:var(--txt)">terminado</b> y <b style="color:var(--txt)">anulado</b> son estados finales alternativos.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Paso completado</div>
+        <div style="font-size:12px;color:var(--muted)">Circle: <code>bg-blue-100 text-blue-700</code> con check icon</div>
+        <div style="font-size:12px;color:var(--muted)">Línea: <code>bg-blue-500</code></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Estado activo</div>
+        <div style="font-size:12px;color:var(--muted)">Circle: <code>bg-blue-500 text-white</code> con glow ring</div>
+        <div style="font-size:12px;color:var(--muted)">Label: <code>font-bold</code></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Estado futuro</div>
+        <div style="font-size:12px;color:var(--muted)">Circle: borde <code>border-zinc-300</code>, color <code>text-zinc-400</code></div>
+        <div style="font-size:12px;color:var(--muted)">Línea: <code>bg-zinc-300 dark:bg-zinc-600</code></div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Estado especial (terminado/anulado)</div>
+        <div style="font-size:12px;color:var(--muted)">Se muestra banner informativo debajo del stepper</div>
+        <div style="font-size:12px;color:var(--muted)"><code>terminado</code>: fondo zinc · <code>anulado</code>: fondo rojo</div>
+      </div>
+    </div>
+    <div class="warn-note" style="margin-top:12px">⚠️ <b>Pendiente:</b> El componente actual solo incluye 3 estados en el array <code>ESTADOS_CICLO</code> (borrador, pendiente_aceptacion, vigente). Falta agregar <b>terminado</b> y <b>anulado</b> al stepper para coincidir con el diseño Stitch.</div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 5 · TABS
+────────────────────────────────────────────────── -->
+<section id="tabs">
+  <div class="sh">
+    <div class="sh-num">5</div>
+    <div>
+      <div class="sh-title">Tabs de Navegación</div>
+      <div class="sh-sub">5 tabs · contenido de cada uno · campos y acciones internas</div>
+    </div>
+  </div>
+
+  <!-- TAB 1: Datos Laborales -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="badge">TAB 1</span>
+      <span class="vb-title">Datos Laborales</span>
+      <span class="tag-ok" style="margin-left:auto">Implementado</span>
+    </div>
+    <div class="section-grid">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Card: Datos del Contrato</div>
+        <div class="vb-grid" style="grid-template-columns:1fr 1fr">
+          <div class="data-field"><div class="data-key">Cargo</div><div class="data-val" style="font-size:12px">contrato.cargo</div></div>
+          <div class="data-field"><div class="data-key">Tipo de contrato</div><div class="data-val" style="font-size:12px">tipo_contrato_label</div></div>
+          <div class="data-field"><div class="data-key">Estado</div><div class="data-val" style="font-size:12px">estado_label</div></div>
+          <div class="data-field"><div class="data-key">Fecha inicio</div><div class="data-val" style="font-size:12px">DD/MM/YYYY</div></div>
+          <div class="data-field"><div class="data-key">Fecha término</div><div class="data-val" style="font-size:12px">"Indefinido" si null</div></div>
+          <div class="data-field"><div class="data-key">Jornada</div><div class="data-val" style="font-size:12px">jornada_label</div></div>
+          <div class="data-field"><div class="data-key">Horas semanales</div><div class="data-val" style="font-size:12px">horas_semanales</div></div>
+          <div class="data-field"><div class="data-key">Lugar de trabajo</div><div class="data-val" style="font-size:12px">lugar_trabajo</div></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">• Campo <b style="color:var(--txt)">Funciones</b>: texto libre, whitespace-pre-wrap (si existe)</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Card: Datos del Trabajador</div>
+        <div class="vb-grid" style="grid-template-columns:1fr 1fr">
+          <div class="data-field"><div class="data-key">Nombre completo</div><div class="data-val" style="font-size:12px">nombre_trabajador</div></div>
+          <div class="data-field"><div class="data-key">RUT / Identificación</div><div class="data-val" style="font-size:12px">rut_trabajador</div></div>
+          <div class="data-field"><div class="data-key">Email</div><div class="data-val" style="font-size:12px">email_trabajador</div></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;margin-top:12px">Card: Asignación Organizacional</div>
+        <div class="vb-grid" style="grid-template-columns:1fr 1fr">
+          <div class="data-field"><div class="data-key">Empresa</div><div class="data-val" style="font-size:12px">empresa.nombre</div></div>
+          <div class="data-field"><div class="data-key">Sucursal</div><div class="data-val" style="font-size:12px">sucursal.nombre</div></div>
+        </div>
+        <div class="warn-note" style="margin-top:10px">⚠️ Card "Asignación Organizacional" visible en Stitch pero pendiente de implementar en <code>TabDatosLaboralesTrabajador.tsx</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Remuneraciones -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="badge">TAB 2</span>
+      <span class="vb-title">Remuneraciones</span>
+      <span class="tag-ok" style="margin-left:auto">Implementado</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">
+      Muestra el resumen de remuneraciones y datos de pago configurados en el wizard.<br>
+      Campos: <code>sueldo_base</code>, <code>moneda</code>, <code>gratificacion_legal</code>, <code>bono_colacion</code>, <code>bono_movilizacion</code>, <code>total_bruto_estimado</code>, <code>tipo_calculo_liquido</code>.
+    </div>
+    <div class="info-note" style="margin-top:10px">ℹ Esta tab no aparece en las pantallas Stitch analizadas. Es una extensión del diseño con los datos capturados en el Step 5 del wizard (Remuneraciones).</div>
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:12px;color:var(--txt);font-weight:600">Lógica de haberes (condicional)</div>
+      <div style="font-size:12px;color:var(--muted)">Los ítems de haberes se muestran <b style="color:var(--txt)">solo si están configurados</b> en el contrato. Si un haber no aplica (valor <code>null</code> o <code>0</code>), no se renderiza la fila.</div>
+      <div class="warn-note" style="margin-top:2px">⚠ Si el contrato solo tiene <code>sueldo_base</code> sin haberes adicionales, la sección Haberes muestra únicamente el <b>Sueldo líquido final</b> — sin desglose de haberes ni descuentos.</div>
+      <div style="font-size:12px;color:var(--txt);font-weight:600;margin-top:6px">Card Datos bancarios</div>
+      <div style="font-size:12px;color:var(--muted)">Segundo card bajo remuneraciones. Muestra los datos de pago asociados al trabajador: <code>banco</code>, <code>tipo_cuenta</code>, <code>numero_cuenta</code>. Se oculta si el trabajador no tiene datos bancarios registrados.</div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Documento -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="badge">TAB 3</span>
+      <span class="vb-title">Documento</span>
+      <span class="tag-ok" style="margin-left:auto">Implementado</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Ver Sección 6 de este plan para el diseño detallado de esta tab y sus variantes.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div class="info-note" style="flex:1;min-width:200px">📋 <b>Sub-variante A:</b> Sin PDF + sin plantilla → Empty state con aviso de requerimiento</div>
+      <div class="info-note" style="flex:1;min-width:200px">📋 <b>Sub-variante B:</b> Sin PDF + con plantilla → Generar PDF disponible + Subir manual</div>
+      <div class="info-note" style="flex:1;min-width:200px">📋 <b>Sub-variante C:</b> Con PDF → Visor/descarga + Regenerar PDF</div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Anexos -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="badge">TAB 4</span>
+      <span class="vb-title">Anexos</span>
+      <span class="tag-wip" style="margin-left:auto">Parcial</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">
+      Lista de anexos al contrato (modificaciones salariales, cambio de jornada, etc.).<br>
+      Componente: <code>TabAnexosTrabajador.tsx</code>
+    </div>
+    <div class="info-note" style="margin-top:10px">ℹ Esta tab no tiene pantalla Stitch de referencia. Pendiente definir diseño de lista + creación de anexos.</div>
+  </div>
+
+  <!-- TAB 5: Historial -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="badge">TAB 5</span>
+      <span class="vb-title">Historial</span>
+      <span class="tag-wip" style="margin-left:auto">Parcial</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">
+      Registro de cambios de estado y acciones sobre el contrato.<br>
+      Componente: <code>TabHistorialTrabajador.tsx</code>
+    </div>
+    <div class="info-note" style="margin-top:10px">ℹ No tiene pantalla Stitch de referencia. Implementar como timeline vertical de eventos con fecha, autor y descripción del cambio.</div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 6 · TAB DOCUMENTO (DETALLE)
+────────────────────────────────────────────────── -->
+<section id="documento">
+  <div class="sh">
+    <div class="sh-num">6</div>
+    <div>
+      <div class="sh-title">Tab Documento — 3 Variantes</div>
+      <div class="sh-sub">Estado vacío · generación por plantilla · PDF existente</div>
+    </div>
+  </div>
+
+  <div class="mockups-row">
+
+    <!-- VARIANTE A: Sin PDF, sin plantilla -->
+    <div class="mockup-card" style="max-width:360px">
+      <div class="mock-header">
+        <span class="mock-header-title">Variante A: Sin PDF + Sin plantilla</span>
+        <span class="estado-chip chip-borrador">BORRADOR</span>
+      </div>
+      <div class="mock-body">
+        <div class="mini-card">
+          <div class="mini-card-title"><span class="mini-card-icon">📄</span> Documento del contrato</div>
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-msg">Aún no se ha generado el documento PDF.</div>
+          </div>
+          <div class="warn-note" style="margin-top:6px">⚠️ Seleccione una plantilla antes de generar el PDF.</div>
+          <div style="display:flex;justify-content:center;margin-top:8px">
+            <div class="m-btn m-btn-prim" style="opacity:.5;font-size:10px">📄 Generar PDF (deshabilitado)</div>
+          </div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">⚙️ Configuración</div>
+          <div class="mf-group"><div class="mf-label">Plantilla</div><div class="mf-input" style="color:#f87171">— Requerida —</div></div>
+          <div class="mf-row">
+            <div class="mf-group"><div class="mf-label">Lugar de firma</div><div class="mf-input">Santiago, Chile</div></div>
+            <div class="mf-group"><div class="mf-label">Fecha de firma</div><div class="mf-input">04/10/2026</div></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><div class="m-btn m-btn-ghost" style="font-size:10px">Guardar</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VARIANTE B: Sin PDF, con plantilla -->
+    <div class="mockup-card" style="max-width:360px">
+      <div class="mock-header">
+        <span class="mock-header-title">Variante B: Sin PDF + Con plantilla</span>
+        <span class="estado-chip chip-borrador">BORRADOR</span>
+      </div>
+      <div class="mock-body">
+        <div class="mini-card">
+          <div class="mini-card-title"><span class="mini-card-icon">📄</span> Documento del contrato</div>
+          <div class="info-note">ℹ El documento se generará usando la plantilla configurada.</div>
+          <div style="display:flex;justify-content:center;margin-top:8px">
+            <div class="m-btn m-btn-prim" style="font-size:10px">📄 Generar PDF</div>
+          </div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">⚙️ Configuración</div>
+          <div class="mf-group"><div class="mf-label">Plantilla</div><div class="mf-input mf-filled">Contrato Indefinido Estándar ✓</div></div>
+          <div class="mf-row">
+            <div class="mf-group"><div class="mf-label">Lugar de firma</div><div class="mf-input">Santiago, Chile</div></div>
+            <div class="mf-group"><div class="mf-label">Fecha de firma</div><div class="mf-input">04/10/2026</div></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><div class="m-btn m-btn-ghost" style="font-size:10px">Guardar</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">📤 Subir documento manualmente</div>
+          <div class="drop-zone">📂 Arrastra el PDF o haz click<br><span style="font-size:9px">Solo .pdf hasta 10MB</span></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px"><div class="m-btn m-btn-ghost" style="font-size:10px;opacity:.5">Subir documento</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VARIANTE C: Con PDF -->
+    <div class="mockup-card" style="max-width:360px">
+      <div class="mock-header">
+        <span class="mock-header-title">Variante C: PDF ya generado</span>
+        <span class="estado-chip chip-vigente">VIGENTE</span>
+      </div>
+      <div class="mock-body">
+        <div class="mini-card">
+          <div class="mini-card-title"><span class="mini-card-icon">✅</span> Documento del contrato</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div class="m-btn m-btn-outline" style="font-size:10px;text-align:center">👁 Ver PDF actual</div>
+            <div class="m-btn m-btn-ghost" style="font-size:10px;text-align:center">🔄 Regenerar PDF</div>
+          </div>
+          <div style="font-size:9px;color:#64748b;margin-top:5px">Última generación: 04/10/2026 · Plantilla: Contrato Indefinido Estándar</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">⚙️ Configuración</div>
+          <div class="mf-group"><div class="mf-label">Plantilla</div><div class="mf-input mf-filled">Contrato Indefinido Estándar</div></div>
+          <div class="mf-row">
+            <div class="mf-group"><div class="mf-label">Lugar de firma</div><div class="mf-input">Santiago, Chile</div></div>
+            <div class="mf-group"><div class="mf-label">Fecha de firma</div><div class="mf-input">04/10/2026</div></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><div class="m-btn m-btn-ghost" style="font-size:10px">Guardar</div></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-card-title">📤 Subir documento manualmente</div>
+          <div class="drop-zone">📂 Reemplazar PDF manualmente<br><span style="font-size:9px">Solo .pdf hasta 10MB</span></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px"><div class="m-btn m-btn-ghost" style="font-size:10px;opacity:.5">Subir documento</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Lógica de variantes — <code>TabDocumentoTrabajador.tsx</code></h3>
+    <div class="code-block">const tienePdf = !!contrato.archivo_pdf;
+const tienePlantilla = !!contrato.plantilla_contrato;
+
+// Variante A: !tienePdf && !tienePlantilla → mostrar warning + generar deshabilitado
+// Variante B: !tienePdf &&  tienePlantilla  → mostrar info + generar habilitado
+// Variante C:  tienePdf                     → mostrar visor + regenerar + subir manual</div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 7 · MODAL SELECCIONAR PLANTILLA
+────────────────────────────────────────────────── -->
+<section id="modal-plantilla">
+  <div class="sh">
+    <div class="sh-num">7</div>
+    <div>
+      <div class="sh-title">Modal — Seleccionar Plantilla</div>
+      <div class="sh-sub">Overlay accesible desde el botón "Seleccionar plantilla" del Subheader (estado borrador)</div>
+    </div>
+  </div>
+
+  <div class="mockups-row">
+    <div class="mockup-card" style="max-width:400px">
+      <div class="mock-header">
+        <span class="mock-header-title">Modal: Seleccionar Plantilla</span>
+        <span style="color:#64748b;font-size:14px;cursor:pointer">✕</span>
+      </div>
+      <div class="mock-body">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">Elige una de las plantillas disponibles para generar el documento del contrato.</div>
+        <div class="plantilla-opt selected">
+          <div class="plantilla-opt-name">Contrato Indefinido Estándar</div>
+          <span class="plantilla-opt-ico">◉</span>
+        </div>
+        <div class="plantilla-opt">
+          <div class="plantilla-opt-name">Contrato Plazo Fijo</div>
+          <span class="plantilla-opt-ico">○</span>
+        </div>
+        <div class="plantilla-opt">
+          <div class="plantilla-opt-name">Contrato por Obra</div>
+          <span class="plantilla-opt-ico">○</span>
+        </div>
+      </div>
+      <div class="mock-footer">
+        <div class="m-btn m-btn-ghost">Cancelar</div>
+        <div class="m-btn m-btn-prim">Confirmar selección</div>
+      </div>
+    </div>
+
+    <div class="card" style="flex:1;min-width:280px">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Especificaciones del Modal</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Trigger:</b> Botón "Seleccionar plantilla" en Subheader (solo si <code>estado === 'borrador'</code>)</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Datos:</b> Query <code>useGetPlantillasContratoQuery()</code> filtradas por <code>tipo_contrato === 'trabajador' && activa</code></div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Selección:</b> Radio group — una sola selección</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Confirmar:</b> Llama <code>updateContrato({ plantilla_contrato: id })</code> + invalida tags + cierra modal</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Pre-selección:</b> La plantilla actualmente configurada aparece marcada al abrir</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">Empty state:</b> Si no hay plantillas activas, mostrar mensaje informativo</div>
+      </div>
+      <div class="warn-note" style="margin-top:12px">⚠️ <b>Pendiente:</b> Este modal no existe aún como componente separado. La selección de plantilla actualmente está dentro del formulario de <code>TabDocumentoTrabajador.tsx</code> como un <code>SelectReact</code>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 8 · VARIANTES POR ESTADO
+────────────────────────────────────────────────── -->
+<section id="variantes">
+  <div class="sh">
+    <div class="sh-num">8</div>
+    <div>
+      <div class="sh-title">Variantes por Estado del Contrato</div>
+      <div class="sh-sub">Qué acciones y secciones están habilitadas según cada estado</div>
+    </div>
+  </div>
+
+  <!-- BORRADOR -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="estado-chip chip-borrador" style="font-size:11px;padding:3px 10px">BORRADOR</span>
+      <span class="vb-title">Estado inicial — edición completa · botón de envío a empleador</span>
+    </div>
+    <div class="vb-grid">
+      <div>
+        <div class="vb-col-title">Herostrip right</div>
+        <div class="vb-item enabled">👁 Vista previa (ghost)</div>
+        <div class="vb-item enabled">📨 Enviar aprob. empleador (primary) — crea <code>EnvioAprobacionEmpleador</code>, envía correo y transiciona a <code>pendiente_aceptacion</code></div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tabs visibles</div>
+        <div class="vb-item enabled">Datos Laborales (lectura)</div>
+        <div class="vb-item enabled">Remuneraciones (lectura)</div>
+        <div class="vb-item enabled">Documento (edición completa)</div>
+        <div class="vb-item enabled">Anexos</div>
+        <div class="vb-item enabled">Historial</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tab Documento</div>
+        <div class="vb-item enabled">Configurar plantilla</div>
+        <div class="vb-item enabled">Lugar y fecha de firma</div>
+        <div class="vb-item enabled">Generar PDF (si plantilla ok)</div>
+        <div class="vb-item enabled">Subir PDF manual</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PENDIENTE ACEPTACIÓN -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="estado-chip chip-pendiente" style="font-size:11px;padding:3px 10px">PENDIENTE ACEPTACIÓN</span>
+      <span class="vb-title">Esperando aprobación del empleador — datos bloqueados</span>
+    </div>
+    <div class="vb-grid">
+      <div>
+        <div class="vb-col-title">Herostrip right / metapills</div>
+        <div class="vb-item enabled">Metapill "Aprob. empleador: ⌛ / ✓ / ✕ / ⚠"</div>
+        <div class="vb-item enabled">Botón "✓ Activar contrato" → habilitado solo si <code>decision=aprobado</code></div>
+        <div class="vb-item disabled">Activar contrato — bloqueado si aprobación pendiente, rechazada o con cambios</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tabs visibles</div>
+        <div class="vb-item enabled">Datos Laborales (lectura)</div>
+        <div class="vb-item enabled">Remuneraciones (lectura)</div>
+        <div class="vb-item enabled">Documento (solo visor)</div>
+        <div class="vb-item enabled">Anexos</div>
+        <div class="vb-item enabled">Historial</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tab Documento</div>
+        <div class="vb-item disabled">Configurar plantilla (bloqueado)</div>
+        <div class="vb-item enabled">Ver / Descargar PDF</div>
+        <div class="vb-item disabled">Subir PDF manual (bloqueado)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIGENTE -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <span class="estado-chip chip-vigente" style="font-size:11px;padding:3px 10px">VIGENTE</span>
+      <span class="vb-title">Contrato activo</span>
+    </div>
+    <div class="vb-grid">
+      <div>
+        <div class="vb-col-title">Acciones Header</div>
+        <div class="vb-item disabled">Botón "Seleccionar plantilla" (oculto)</div>
+        <div class="vb-item enabled">Botón "Cambiar estado"</div>
+        <div class="vb-item enabled">Botón "Generar PDF"</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tabs visibles</div>
+        <div class="vb-item enabled">Datos Laborales (lectura)</div>
+        <div class="vb-item enabled">Remuneraciones (lectura)</div>
+        <div class="vb-item enabled">Documento (solo visor)</div>
+        <div class="vb-item enabled">Anexos (crear permitido)</div>
+        <div class="vb-item enabled">Historial</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tab Documento</div>
+        <div class="vb-item enabled">Ver / Descargar PDF</div>
+        <div class="vb-item enabled">Regenerar PDF</div>
+        <div class="vb-item disabled">Cambiar plantilla (bloqueado)</div>
+        <div class="vb-item enabled">Subir PDF manual</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TERMINADO / ANULADO -->
+  <div class="variant-block">
+    <div class="vb-head">
+      <div style="display:flex;gap:6px">
+        <span class="estado-chip chip-terminado" style="font-size:11px;padding:3px 10px">TERMINADO</span>
+        <span class="estado-chip chip-anulado" style="font-size:11px;padding:3px 10px">ANULADO</span>
+      </div>
+      <span class="vb-title">Estados finales — solo lectura</span>
+    </div>
+    <div class="vb-grid">
+      <div>
+        <div class="vb-col-title">Acciones Header</div>
+        <div class="vb-item disabled">Botón "Seleccionar plantilla" (oculto)</div>
+        <div class="vb-item disabled">Botón "Cambiar estado" (deshabilitado)</div>
+        <div class="vb-item enabled">Botón "Generar PDF" (descarga)</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tabs visibles</div>
+        <div class="vb-item enabled">Datos Laborales (solo lectura)</div>
+        <div class="vb-item enabled">Remuneraciones (solo lectura)</div>
+        <div class="vb-item enabled">Documento (solo visor)</div>
+        <div class="vb-item disabled">Anexos (no crear nuevos)</div>
+        <div class="vb-item enabled">Historial</div>
+      </div>
+      <div>
+        <div class="vb-col-title">Tab Documento</div>
+        <div class="vb-item enabled">Ver / Descargar PDF</div>
+        <div class="vb-item disabled">Regenerar PDF (bloqueado)</div>
+        <div class="vb-item disabled">Cambiar plantilla (bloqueado)</div>
+        <div class="vb-item disabled">Subir PDF manual (bloqueado)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 9 · ESTADO DE IMPLEMENTACIÓN
+────────────────────────────────────────────────── -->
+<section id="implementacion">
+  <div class="sh">
+    <div class="sh-num">9</div>
+    <div>
+      <div class="sh-title">Estado de Implementación</div>
+      <div class="sh-sub">Inventario de componentes — qué está listo, en progreso o pendiente</div>
+    </div>
+  </div>
+
+  <table class="impl-table">
+    <thead>
+      <tr>
+        <th>Componente</th>
+        <th>Archivo</th>
+        <th>Estado</th>
+        <th>Notas</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Página principal</td>
+        <td><code>DetalleContratoTrabajador.tsx</code></td>
+        <td><span class="tag-ok">Implementado</span></td>
+        <td>Subheader, hero card, tabs routing</td>
+      </tr>
+      <tr>
+        <td>Ciclo de vida (stepper)</td>
+        <td><code>CicloVidaContratoLaboral.tsx</code></td>
+        <td><span class="tag-wip">Parcial</span></td>
+        <td>Solo 3 estados. Falta agregar <code>terminado</code> y <code>anulado</code> al stepper visual</td>
+      </tr>
+      <tr>
+        <td>Tab Datos Laborales</td>
+        <td><code>TabDatosLaboralesTrabajador.tsx</code></td>
+        <td><span class="tag-wip">Parcial</span></td>
+        <td>Faltan: Card "Asignación Organizacional" (empresa + sucursal), campo CARGO en el diseño</td>
+      </tr>
+      <tr>
+        <td>Tab Remuneraciones</td>
+        <td><code>TabRemuneracionesTrabajador.tsx</code></td>
+        <td><span class="tag-wip">Parcial</span></td>
+        <td>Revisar campos disponibles en <code>IContratoTrabajador</code></td>
+      </tr>
+      <tr>
+        <td>Tab Documento</td>
+        <td><code>TabDocumentoTrabajador.tsx</code></td>
+        <td><span class="tag-ok">Implementado</span></td>
+        <td>Generación PDF, config (plantilla/lugar/fecha), subida manual. Falta lógica de variantes A/B/C explícita</td>
+      </tr>
+      <tr>
+        <td>Configuración documento</td>
+        <td><code>TabDocumentoTrabajador.tsx</code></td>
+        <td><span class="tag-ok">Implementado</span></td>
+        <td>SelectReact plantilla + inputs lugar/fecha + guardar</td>
+      </tr>
+      <tr>
+        <td>Subida manual PDF</td>
+        <td><code>TabDocumentoTrabajador.tsx</code></td>
+        <td><span class="tag-ok">Implementado</span></td>
+        <td>Input file + mutation <code>subirPdfContratoTrabajador</code></td>
+      </tr>
+      <tr>
+        <td>Modal Seleccionar Plantilla</td>
+        <td>—</td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Diseñado en Stitch. Actualmente la plantilla se selecciona inline en Tab Documento. Crear modal separado + botón en subheader para estado borrador</td>
+      </tr>
+      <tr>
+        <td>Tab Anexos</td>
+        <td><code>TabAnexosTrabajador.tsx</code></td>
+        <td><span class="tag-wip">Parcial</span></td>
+        <td>Sin diseño Stitch de referencia. Pendiente definir lista + crear anexo</td>
+      </tr>
+      <tr>
+        <td>Tab Historial</td>
+        <td><code>TabHistorialTrabajador.tsx</code></td>
+        <td><span class="tag-wip">Parcial</span></td>
+        <td>Pendiente implementar timeline vertical de eventos</td>
+      </tr>
+      <tr>
+        <td>Modal Cambiar Estado</td>
+        <td><code>ModalCambiarEstadoContrato.tsx</code></td>
+        <td><span class="tag-ok">Implementado</span></td>
+        <td>Ver transiciones permitidas en Sección 4</td>
+      </tr>
+      <tr>
+        <td>Control de acciones por estado</td>
+        <td><code>DetalleContratoTrabajador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Implementar ocultar/deshabilitar botones según estado (ver Sección 8)</td>
+      </tr>
+      <tr>
+        <td>Alertas de vencimiento en detalle</td>
+        <td><code>DetalleContratoTrabajador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Banner rojo/amber entre CicloVida y Tabs para contratos plazo fijo vigentes próximos a vencer o ya vencidos (ver Sección 10)</td>
+      </tr>
+      <tr>
+        <td>Endpoint /aceptar mapeado en frontend</td>
+        <td><code>contratoTrabajadorApi.ts</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Mutation <code>aceptarContratoTrabajador</code>. Existe en backend pero no está en el slice RTK Query (ver Sección 11)</td>
+      </tr>
+      <tr>
+        <td>Botón "Activar contrato" (post-aprobación)</td>
+        <td><code>DetalleContratoTrabajador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Reemplaza ModalConfirmarFirmaContrato. Botón inline en el banner de aprobación, habilitado solo si <code>decision=aprobado</code>. Llama <code>POST /aceptar/</code> → vigente (ver Sección 11)</td>
+      </tr>
+      <tr>
+        <td>Banner estado aprobación empleador</td>
+        <td><code>DetalleContratoTrabajador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Alert dinámico en <code>pendiente_aceptacion</code>: ⌛ pendiente (amber) / ✓ aprobado + btn Activar (verde) / ✕ rechazado + motivo (rojo) / ⚠ cambios (amber). Reemplaza banner de firma (ver Sección 11)</td>
+      </tr>
+      <tr>
+        <td>Tab Anexos — lista + crear</td>
+        <td><code>TabAnexosTrabajador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Lista de anexos con tipo/fecha + Modal crear anexo. Para tipo prorroga: mostrar campo nueva_fecha_termino (ver Sección 12)</td>
+      </tr>
+      <tr>
+        <td>Campo nueva_fecha_termino en AnexoContrato</td>
+        <td><code>backend/rrhh/models.py</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Agregar campo DateField null=True al modelo + migración. Usar en perform_create para actualizar contrato.fecha_termino (ver Sección 12)</td>
+      </tr>
+      <tr>
+        <td>Modelo <code>EnvioAprobacionEmpleador</code></td>
+        <td><code>backend/rrhh/models.py</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>uuid, decision (pendiente/aprobado/rechazado/cambios_solicitados), motivo_rechazo, cambios_solicitados (JSONField), notificar_trabajador, expirado. Requiere migración (ver SKILL.md)</td>
+      </tr>
+      <tr>
+        <td>Endpoints aprobación empleador (auth)</td>
+        <td><code>backend/rrhh/views.py</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>POST <code>/{id}/enviar-aprobacion-empleador/</code> + GET <code>/{id}/estado-aprobacion-empleador/</code>. El primero crea EnvioAprobacionEmpleador + envía correo + transiciona estado.</td>
+      </tr>
+      <tr>
+        <td>Vistas públicas aprobación empleador</td>
+        <td><code>backend/rrhh/views.py</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Sin auth. GET + GET /pdf/ + POST /responder/ bajo <code>/api/public/contrato-aprobacion/&lt;uuid&gt;/</code></td>
+      </tr>
+      <tr>
+        <td>Gate de activación por aprobación</td>
+        <td><code>backend/rrhh/views.py</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Validar en <code>POST /aceptar/</code> que si existe <code>EnvioAprobacionEmpleador</code>, su <code>decision=aprobado</code>. Si no hay envío, no aplica gate.</td>
+      </tr>
+      <tr>
+        <td>Página pública <code>ContratoAprobacionEmpleador.tsx</code></td>
+        <td><code>pages/Public/ContratoAprobacionEmpleador.tsx</code></td>
+        <td><span class="tag-todo">Pendiente</span></td>
+        <td>Sin auth. Datos del contrato + 3 botones: Aprobar (SweetAlert + checkbox notif. trabajador por correo) / Rechazar (textarea motivo) / Solicitar cambios (checkboxes + textarea). Ver Sección 11.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top:20px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Próximos pasos prioritarios</h3>
+    <ol style="margin-left:18px;display:flex;flex-direction:column;gap:6px">
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Stepper:</b> Agregar <code>terminado</code> y <code>anulado</code> al array <code>ESTADOS_CICLO</code> de <code>CicloVidaContratoLaboral.tsx</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Tab Datos:</b> Añadir Card "Asignación Organizacional" (empresa + sucursal) en <code>TabDatosLaboralesTrabajador.tsx</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Documento variantes:</b> Implementar lógica A/B/C explícita en <code>TabDocumentoTrabajador.tsx</code> basada en <code>tienePdf</code> y <code>tienePlantilla</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Control por estado:</b> Ocultar botón "Seleccionar plantilla" cuando <code>estado !== 'borrador'</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Modal Plantilla:</b> Crear <code>ModalSeleccionarPlantilla.tsx</code> como componente separado accesible desde Subheader</li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Vencimientos [Sección 10]:</b> Agregar banner de alerta entre <code>CicloVidaContratoLaboral</code> y los tabs para contratos plazo fijo próximos a vencer o vencidos</li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Aprobación empleador — backend [Sección 11]:</b> Modelo <code>EnvioAprobacionEmpleador</code> + migración + endpoints auth + vistas públicas + gate en <code>/aceptar/</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Aprobación empleador — frontend [Sección 11]:</b> Botón <code>📨 Enviar aprob.</code> en herostrip BORRADOR + página pública <code>ContratoAprobacionEmpleador.tsx</code> + banner dinámico PEND.ACEPTACIÓN + RTK Query mutation</li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Activación [Sección 11]:</b> Mapear <code>/aceptar/</code> en RTK Query + banner con botón "Activar contrato" habilitado solo cuando <code>decision=aprobado</code></li>
+      <li style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Prórrogas [Sección 12]:</b> Agregar campo <code>nueva_fecha_termino</code> a <code>AnexoContrato</code> + migración + lógica <code>perform_create</code> + diseño Tab Anexos</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 10 · VENCIMIENTOS Y ALERTAS DE PLAZO
+────────────────────────────────────────────────── -->
+<section id="vencimientos">
+  <div class="sh">
+    <div class="sh-num">10</div>
+    <div>
+      <div class="sh-title">Vencimientos y Alertas de Plazo</div>
+      <div class="sh-sub">Contratos plazo fijo · alertas visuales · acciones antes del vencimiento</div>
+    </div>
+  </div>
+
+  <div class="stitch-note" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3);color:#fbbf24">
+    <span>⚠️</span>
+    <div>
+      <b>Gap no cubierto en versión anterior del plan.</b> La lista de contratos ya colorea en rojo cuando <code>fecha_termino ≤ 30 días</code>, pero el detalle no tiene ningún aviso. No existe task Celery para notificaciones automáticas de vencimiento.
+    </div>
+  </div>
+
+  <div class="section-grid">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Alertas visuales en el detalle</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Aplicar solo a contratos con <code>tipo_contrato === 'plazo_fijo'</code> y <code>fecha_termino != null</code>.</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:8px 10px">
+          <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:3px">🔴 VENCIDO</div>
+          <div style="font-size:11px;color:var(--muted)"><code>fecha_termino &lt; hoy</code> y <code>estado === 'vigente'</code><br>Mensaje: <em>"Este contrato venció el DD/MM/YYYY. Gestiona la renovación o el término."</em></div>
+        </div>
+        <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:8px 10px">
+          <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:3px">🟡 PRÓXIMO A VENCER (≤ 30 días)</div>
+          <div style="font-size:11px;color:var(--muted)"><code>0 &lt; días &lt;= 30</code><br>Mensaje: <em>"Vence en N días (DD/MM/YYYY). Considera renovar o terminar."</em></div>
+        </div>
+        <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:8px 10px">
+          <div style="font-size:11px;font-weight:700;color:#fde68a;margin-bottom:3px">🟠 PRÓXIMO A VENCER (≤ 60 días)</div>
+          <div style="font-size:11px;color:var(--muted)"><code>30 &lt; días &lt;= 60</code><br>Mensaje: <em>"Vence en N días. Planifica la continuidad."</em></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Acciones desde la alerta</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">La alerta incluye botones de acción rápida directamente en el banner.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">"Crear prórroga"</b> → abre modal de anexo tipo <code>prorroga</code> (ver Sección 12)</div>
+        <div style="font-size:12px;color:var(--muted)">• <b style="color:var(--txt)">"Terminar contrato"</b> → abre <code>ModalCambiarEstadoContrato</code> con destino preseleccionado en <code>terminado</code></div>
+        <div style="font-size:12px;color:var(--muted)">• Solo visibles cuando <code>estado === 'vigente'</code></div>
+        <div style="font-size:12px;color:var(--muted)">• Si <code>estado === 'terminado'</code> o <code>'anulado'</code>: no mostrar alerta</div>
+      </div>
+      <div class="warn-note" style="margin-top:12px">⚠️ <b>Pendiente backend:</b> No existe Celery beat task para notificar vencimientos por email. Implementar en <code>backend/rrhh/tasks.py</code> como tarea periódica diaria.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Lógica de alerta — <code>DetalleContratoTrabajador.tsx</code></h3>
+    <div class="code-block">// Calcular días restantes
+const today = dayjs();
+const fechaTermino = contrato.fecha_termino ? dayjs(contrato.fecha_termino) : null;
+const diasRestantes = fechaTermino ? fechaTermino.diff(today, 'day') : null;
+
+const esPlazaFijo = contrato.tipo_contrato === 'plazo_fijo';
+const estaVigente = contrato.estado === 'vigente';
+
+const alertaVencimiento =
+  esPlazaFijo && estaVigente && diasRestantes !== null
+    ? diasRestantes &lt; 0
+      ? 'vencido'
+      : diasRestantes &lt;= 30
+      ? 'critico'
+      : diasRestantes &lt;= 60
+      ? 'proximo'
+      : null
+    : null;
+
+// Ubicación del banner: entre CicloVidaContratoLaboral y los Tabs</div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────
+     SECCIÓN 11 · FLUJO DE FIRMA Y ACTIVACIÓN
+────────────────────────────────────────────────── -->
+<section id="firma-activacion">
+  <div class="sh">
+    <div class="sh-num">11</div>
+    <div>
+      <div class="sh-title">Flujo de Aprobación del Empleador y Activación</div>
+      <div class="sh-sub">borrador → enviar aprob. empleador → pendiente_aceptacion → empleador aprueba (vista pública) → vigente</div>
+    </div>
+  </div>
+
+  <div class="stitch-note" style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3);color:#fbbf24">
+    <span>⚠️</span>
+    <div>
+      <b>Flujo completamente nuevo (2026-05-27).</b> La activación del contrato requiere aprobación previa del empleador via correo + vista pública con token UUID. Solo después de <code>decision=aprobado</code> se habilita el botón de activación interno. El backend ya tiene <code>POST /aceptar/</code> pero necesita el gate de aprobación y los endpoints de la vista pública. Especificación completa en <code>SKILL.md § Flujo de Aprobacion del Empleador</code>.
+    </div>
+  </div>
+
+  <div class="section-grid">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Flujo completo (UX interna + pública)</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#64748b;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">BORRADOR — acción interna:</b> usuario hace clic en <code>📨 Enviar aprob. empleador</code>. Sistema crea <code>EnvioAprobacionEmpleador</code>, envía correo con PDF adjunto y link a la vista pública, transiciona contrato a <code>pendiente_aceptacion</code>.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">PEND. ACEPTACIÓN — acción pública:</b> empleador recibe correo → accede a <code>/contrato-aprobacion-empleador/:uuid</code> → revisa datos del contrato → toma decisión.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Opciones del empleador (via SweetAlert):</b><br>
+            • <b style="color:#34d399">Aprobar</b> → checkbox "Enviar contrato al trabajador por correo" (solo email PDF, sin flujo de firma) + descarga automática del PDF<br>
+            • <b style="color:#f87171">Rechazar</b> → textarea motivo (opcional)<br>
+            • <b style="color:#fbbf24">Solicitar cambios</b> → checkboxes de campos + textarea libre
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Sistema notifica al interno:</b> correo al <code>enviado_por</code> con la decisión del empleador. El banner en el detalle se actualiza.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#10b981;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">5</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--txt)">Si aprobado — acción interna:</b> banner verde + botón "✓ Activar contrato" desbloqueado → <code>POST /aceptar/</code> → estado <code>vigente</code>.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Banner de estado en PEND. ACEPTACIÓN</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:8px 12px">
+          <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:2px">⏳ Esperando respuesta del empleador</div>
+          <div style="font-size:10px;color:#fde68a">El correo fue enviado a <code>empleador@empresa.cl</code>. Se actualizará cuando responda.</div>
+        </div>
+        <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:7px;padding:8px 12px">
+          <div style="font-size:11px;font-weight:700;color:#34d399;margin-bottom:2px">✓ Empleador aprobó el contrato</div>
+          <div style="font-size:10px;color:#6ee7b7;margin-bottom:6px">Aprobado el 27/05/2026. Ya puedes activar el contrato.</div>
+          <div class="m-btn m-btn-prim" style="font-size:10px;display:inline-flex">✓ Activar contrato</div>
+        </div>
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:7px;padding:8px 12px">
+          <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:2px">✕ Empleador rechazó el contrato</div>
+          <div style="font-size:10px;color:#fca5a5">Motivo: "Las condiciones no son acordes al convenio."</div>
+        </div>
+        <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:8px 12px">
+          <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:2px">⚠ Empleador solicitó cambios</div>
+          <div style="font-size:10px;color:#fde68a">Ver campos a revisar en el detalle del envío.</div>
+        </div>
+      </div>
+      <div class="info-note" style="margin-top:8px">ℹ Ubicar entre <code>CicloVidaContratoLaboral</code> y la barra de tabs.</div>
+    </div>
+  </div>
+
+  <div class="section-grid" style="margin-top:16px">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Endpoint <code>POST /aceptar/</code> (sin cambios de contrato)</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Ya existe en backend. <b style="color:var(--txt)">No está mapeado en el frontend</b>. Se agrega gate de aprobación en la validación.</p>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:12px;color:var(--muted)">• Solo acepta contratos en <code>pendiente_aceptacion</code></div>
+        <div style="font-size:12px;color:var(--muted)">• Gate: valida que si existe <code>EnvioAprobacionEmpleador</code>, <code>decision=aprobado</code></div>
+        <div style="font-size:12px;color:var(--muted)">• Registra <code>fecha_aceptacion = now()</code> + <code>aceptado_por = request.user</code></div>
+        <div style="font-size:12px;color:var(--muted)">• Sincroniza <code>cargo</code> y <code>fecha_contrato</code> en <code>UsuarioEmpresa</code></div>
+      </div>
+      <div class="code-block" style="margin-top:10px">// RTK Query — agregar en contratoTrabajadorApi.ts
+aceptarContratoTrabajador: builder.mutation&lt;IContratoTrabajador, number&gt;({
+  query: (id) =&gt; ({ url: `/api/rrhh/contratos-trabajador/${id}/aceptar/`, method: 'post' }),
+  invalidatesTags: (_r, _e, id) =&gt; [
+    { type: 'ContratoTrabajador', id },
+    'ContratoTrabajadorList',
+  ],
+}),</div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Vista pública empleador — estructura</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Ruta frontend: <code>/contrato-aprobacion-empleador/:uuid</code> — sin auth, igual que aprobación de cotizaciones.</p>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)">
+        <div style="background:#1a2744;border:1px solid #2a3a5c;border-radius:5px;padding:5px 8px;color:#60a5fa">Header: datos del contrato (trabajador, cargo, tipo, fechas)</div>
+        <div style="background:#1a2744;border:1px solid #2a3a5c;border-radius:5px;padding:5px 8px;color:#94a3b8">Visor PDF / resumen de campos clave del contrato</div>
+        <div style="display:flex;gap:5px">
+          <div style="flex:1;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:5px;padding:5px 8px;color:#34d399;text-align:center">✓ Aprobar</div>
+          <div style="flex:1;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:5px 8px;color:#f87171;text-align:center">✕ Rechazar</div>
+          <div style="flex:1;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:5px 8px;color:#fbbf24;text-align:center">⚠ Cambios</div>
+        </div>
+      </div>
+      <div class="info-note" style="margin-top:10px">ℹ Cada botón abre SweetAlert. Especificación completa en <code>SKILL.md § Flujo de Aprobacion del Empleador</code>.</div>
+> — Modificación genérica</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Flujo de prórroga / extensión de plazo</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">1</div>
+          <div style="font-size:12px;color:var(--muted)">Desde Tab Anexos o desde el banner de vencimiento → botón <b style="color:var(--txt)">"Crear prórroga"</b></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">2</div>
+          <div style="font-size:12px;color:var(--muted)">Modal <code>ModalCrearAnexoContrato</code>: tipo preseleccionado en <code>prorroga</code>, campo <b>nueva fecha de término</b> + descripción</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">3</div>
+          <div style="font-size:12px;color:var(--muted)">Guardar: crea el <code>AnexoContrato</code> + actualiza <code>contrato.fecha_termino</code> con la nueva fecha</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="width:20px;height:20px;border-radius:50%;background:#10b981;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">4</div>
+          <div style="font-size:12px;color:var(--muted)">El stepper/alerta de vencimiento se actualiza con la nueva fecha. El contrato sigue en estado <code>vigente</code>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-grid" style="margin-top:16px">
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Diseño: Tab Anexos</h3>
+      <div style="background:#1a2744;border:1px solid #2a3a5c;border-radius:10px;overflow:hidden">
+        <div style="background:#0e1830;padding:7px 12px;border-bottom:1px solid #1e2d4a;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;font-weight:600;color:#e2e8f0">Anexos del contrato</span>
+          <div class="m-btn m-btn-prim" style="font-size:10px">+ Agregar anexo</div>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="background:#0e1830;border:1px solid #334155;border-radius:6px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#e2e8f0">Prórroga — Extensión de plazo</div>
+              <div style="font-size:9px;color:#64748b">Nueva fecha término: 31/08/2026 · Creado 01/03/2026</div>
+            </div>
+            <span class="estado-chip chip-vigente" style="font-size:8px">prorroga</span>
+          </div>
+          <div class="empty-state" style="padding:12px 8px">
+            <div class="empty-state-msg" style="font-size:10px">Sin más anexos registrados</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px">Backend: Impacto de la prórroga</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Actualmente <code>AnexoContratoViewSet</code> solo crea el anexo. <b style="color:var(--txt)">Pendiente:</b> al crear un anexo tipo <code>prorroga</code>, actualizar <code>contrato.fecha_termino</code> automáticamente.</p>
+      <div class="code-block"># backend/rrhh/views.py — AnexoContratoViewSet.perform_create
+def perform_create(self, serializer):
+    anexo = serializer.save(creado_por=self.request.user)
+    # Actualizar fecha_termino del contrato si es prorroga
+    if anexo.tipo == 'prorroga' and anexo.nueva_fecha_termino:
+        contrato = anexo.contrato
+        contrato.fecha_termino = anexo.nueva_fecha_termino
+        contrato.save(update_fields=['fecha_termino'])</div>
+      <div class="warn-note" style="margin-top:10px">⚠️ <b>Pendiente:</b> El campo <code>nueva_fecha_termino</code> no existe aún en el modelo <code>AnexoContrato</code>. Requiere migración.</div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+</body>
+</html>

@@ -1,8 +1,12 @@
 """Modelos del modulo RRHH: contratos laborales y anexos."""
 
+import uuid
+from datetime import timedelta
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from core.models import ModeloBase, ModeloBaseHistorico
 
@@ -18,7 +22,8 @@ from .estados_modelo import (
 
 def archivo_contrato_path(instance, filename):
     """Ruta de almacenamiento del PDF del contrato."""
-    return f"rrhh/contratos/{instance.usuario_empresa_id}/{filename}"
+    folder = instance.usuario_empresa_id if instance.usuario_empresa_id else f"pendiente_{instance.pk or 'new'}"
+    return f"rrhh/contratos/{folder}/{filename}"
 
 
 def archivo_anexo_path(instance, filename):
@@ -33,6 +38,17 @@ class ContratoTrabajador(ModeloBaseHistorico):
         "empresas.UsuarioEmpresa",
         on_delete=models.PROTECT,
         related_name="contratos_laborales",
+        null=True,
+        blank=True,
+    )
+
+    # Datos del trabajador nuevo antes de que exista como usuario en el sistema.
+    # Se rellena cuando modo=="nuevo" en el wizard y se limpia al crear el User
+    # durante la aprobacion del contrato.
+    datos_trabajador_nuevo = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Datos del trabajador pendiente de creacion. Se limpia tras la aprobacion.",
     )
 
     # Identificador de negocio (mostrado en listas / detalle)
@@ -125,7 +141,8 @@ class ContratoTrabajador(ModeloBaseHistorico):
         ordering = ["-fecha_inicio", "-fecha_creacion"]
 
     def __str__(self):
-        return f"Contrato {self.tipo_contrato} - {self.usuario_empresa} ({self.estado})"
+        trab = self.usuario_empresa or "(trabajador pendiente)"
+        return f"Contrato {self.tipo_contrato} - {trab} ({self.estado})"
 
 
 class AnexoContrato(ModeloBaseHistorico):
@@ -140,6 +157,7 @@ class AnexoContrato(ModeloBaseHistorico):
     tipo = models.CharField(max_length=30, choices=TIPO_ANEXO)
     fecha_efectiva = models.DateField()
     descripcion = models.TextField()
+    nueva_fecha_termino = models.DateField(null=True, blank=True)
     archivo_pdf = models.FileField(upload_to=archivo_anexo_path, blank=True, null=True)
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
@@ -180,3 +198,102 @@ class CargoCatalogo(ModeloBase):
 
     def __str__(self):
         return self.nombre
+
+
+class AfpCatalogo(ModeloBase):
+    """Catalogo de AFP disponibles. Registros globales (empresa=null) + por empresa."""
+
+    nombre = models.CharField(max_length=100)
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="afp_catalogo",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("nombre", "empresa")]
+        verbose_name = "AFP"
+        verbose_name_plural = "AFPs"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class BancoCatalogo(ModeloBase):
+    """Catalogo de bancos disponibles. Registros globales (empresa=null) + por empresa."""
+
+    nombre = models.CharField(max_length=100)
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="bancos_catalogo",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("nombre", "empresa")]
+        verbose_name = "Banco"
+        verbose_name_plural = "Bancos"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+DECISION_APROBACION = [
+    ("pendiente", "Pendiente"),
+    ("aprobado", "Aprobado"),
+    ("rechazado", "Rechazado"),
+    ("cambios_solicitados", "Cambios solicitados"),
+]
+
+
+class EnvioAprobacionEmpleador(ModeloBase):
+    """Registro de un envio de contrato al empleador para su aprobacion previa."""
+
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    contrato = models.ForeignKey(
+        ContratoTrabajador,
+        on_delete=models.CASCADE,
+        related_name="envios_aprobacion_empleador",
+    )
+    pdf_congelado = models.BinaryField()
+    enviado_a = models.EmailField()
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="envios_aprobacion_empleador_enviados",
+    )
+    decision = models.CharField(max_length=25, choices=DECISION_APROBACION, default="pendiente")
+    motivo_rechazo = models.TextField(null=True, blank=True)
+    cambios_solicitados = models.JSONField(default=list)
+    notificar_trabajador = models.BooleanField(default=False)
+    fecha_envio = models.DateTimeField(auto_now_add=True)
+    fecha_respuesta = models.DateTimeField(null=True, blank=True)
+    ip_respuesta = models.GenericIPAddressField(null=True, blank=True)
+    expirado = models.BooleanField(default=False)
+
+    EXPIRACION_DIAS = 14
+
+    @property
+    def fecha_expiracion(self):
+        return self.fecha_envio + timedelta(days=self.EXPIRACION_DIAS)
+
+    def esta_expirado(self):
+        return self.expirado or timezone.now() > self.fecha_expiracion
+
+    class Meta:
+        verbose_name = "Envio de Aprobacion al Empleador"
+        verbose_name_plural = "Envios de Aprobacion al Empleador"
+        ordering = ["-fecha_envio"]
+
+    def __str__(self):
+        return f"Aprobacion contrato {self.contrato_id} -> {self.enviado_a} ({self.decision})"

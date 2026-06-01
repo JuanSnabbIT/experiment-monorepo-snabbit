@@ -1,4 +1,4 @@
-import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
+import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface'; // V1 compat — mismo shape
 import { useEffect, useMemo, useState } from 'react';
 
 interface IPanelEtiquetasProps {
@@ -17,57 +17,9 @@ const CATEGORIA_LABELS: Record<string, string> = {
     custom: 'Personalizada',
 };
 
-// Iconos SVG para las herramientas de formato
-const IconoTabla = () => (
-    <svg className='h-4 w-4 opacity-60' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-        <path
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth={1.5}
-            d='M3 10h18M3 6h18M3 14h18M3 18h18M8 6v12M16 6v12'
-        />
-    </svg>
-);
-
-const IconoPagina = () => (
-    <svg className='h-4 w-4 opacity-60' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-        <path
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth={1.5}
-            d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-        />
-    </svg>
-);
-
-// Iconos alineacion (representacion simplificada)
-const ICONOS_ALINEACION = [
-    {
-        align: 'left',
-        title: 'Alinear izquierda',
-        path: 'M4 6h16M4 12h10M4 18h14',
-    },
-    {
-        align: 'center',
-        title: 'Centrar',
-        path: 'M4 6h16M7 12h10M6 18h12',
-    },
-    {
-        align: 'right',
-        title: 'Alinear derecha',
-        path: 'M4 6h16M10 12h10M6 18h14',
-    },
-    {
-        align: 'justify',
-        title: 'Justificar',
-        path: 'M4 6h16M4 12h16M4 18h16',
-    },
-];
-
 const PanelEtiquetas = ({
     etiquetas,
     onInsertarEtiqueta,
-    onWrapSelection,
     editingEnabled,
 }: IPanelEtiquetasProps) => {
     // Agrupar por categoria
@@ -84,31 +36,31 @@ const PanelEtiquetas = ({
 
     const categoryKeys = useMemo(() => Object.keys(grouped), [grouped]);
     const [openCategorias, setOpenCategorias] = useState<Record<string, boolean>>({});
+    const [busqueda, setBusqueda] = useState('');
+
+    // Expandir categorias automaticamente mientras se busca
+    useEffect(() => {
+        if (busqueda) {
+            setOpenCategorias(() => {
+                const next: Record<string, boolean> = {};
+                categoryKeys.forEach((cat) => { next[cat] = true; });
+                return next;
+            });
+        }
+    }, [busqueda, categoryKeys]);
 
     useEffect(() => {
         setOpenCategorias((prev) => {
             const next: Record<string, boolean> = {};
             let changed = Object.keys(prev).length !== categoryKeys.length;
-
             categoryKeys.forEach((cat) => {
-                const value = cat in prev ? prev[cat] : true;
+                const value = cat in prev ? prev[cat] : false;
                 next[cat] = value;
                 if (!changed && prev[cat] !== value) changed = true;
             });
-
             return changed ? next : prev;
         });
     }, [categoryKeys]);
-
-    const btnBase = [
-        'flex items-center justify-center rounded border text-xs font-medium transition-colors',
-        'focus:outline-none focus:ring-1 focus:ring-blue-300',
-    ].join(' ');
-
-    const btnEnabled =
-        'border-zinc-200 bg-white text-zinc-700 hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950/20';
-    const btnDisabled =
-        'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600';
 
     return (
         <div className='flex h-full flex-col overflow-hidden border-l border-zinc-200 dark:border-zinc-700'>
@@ -131,10 +83,29 @@ const PanelEtiquetas = ({
                 </svg>
             </div>
 
+            {/* ── Buscador ────────────────────────────────────────────────────── */}
+            <div className='shrink-0 border-b border-zinc-200 px-3 py-2 dark:border-zinc-700'>
+                <input
+                    type='text'
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    placeholder='Buscar etiqueta...'
+                    className='w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 outline-none placeholder:text-zinc-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:placeholder:text-zinc-600 dark:focus:border-blue-500'
+                />
+            </div>
+
             {/* ── Lista de etiquetas por categoria ────────────────────────────── */}
-            <div className='flex-1 overflow-y-auto p-3'>
+            <div className='min-h-0 flex-1 overflow-y-auto p-3'>
                 {Object.entries(grouped).map(([categoria, items]) => {
-                    const isOpen = openCategorias[categoria] ?? true;
+                    const filteredItems = busqueda
+                        ? items.filter(
+                              (et) =>
+                                  et.nombre_display.toLowerCase().includes(busqueda.toLowerCase()) ||
+                                  et.clave.toLowerCase().includes(busqueda.toLowerCase()),
+                          )
+                        : items;
+                    if (filteredItems.length === 0) return null;
+                    const isOpen = openCategorias[categoria] ?? false;
                     return (
                         <div key={categoria} className='mb-4'>
                             <button
@@ -148,7 +119,7 @@ const PanelEtiquetas = ({
                                 className='flex w-full items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-blue-500 dark:hover:bg-zinc-950'>
                                 <span>{CATEGORIA_LABELS[categoria] ?? categoria}</span>
                                 <span className='flex items-center gap-1 text-[11px] text-zinc-400'>
-                                    {items.length}
+                                    {filteredItems.length}
                                     <svg
                                         className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                                         viewBox='0 0 24 24'
@@ -163,7 +134,7 @@ const PanelEtiquetas = ({
                             </button>
                             {isOpen && (
                                 <div className='mt-2 space-y-1'>
-                                    {items.map((et) => (
+                                    {filteredItems.map((et) => (
                                         <div
                                             key={et.id}
                                             draggable={editingEnabled}
@@ -215,147 +186,6 @@ const PanelEtiquetas = ({
                         Haz clic en "Editar" sobre un bloque para habilitar las etiquetas.
                     </p>
                 )}
-            </div>
-
-            {/* ── Separador ───────────────────────────────────────────────────── */}
-            <div className='mx-3 border-t border-zinc-200 dark:border-zinc-700' />
-
-            {/* ── Herramientas de edicion ──────────────────────────────────────── */}
-            <div className='shrink-0 p-3'>
-                <p className='mb-2.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400'>
-                    <span className='h-1.5 w-1.5 rounded-full bg-blue-500' />
-                    Herramientas de edicion
-                </p>
-
-                {/* Fila 1: Formato de texto B I U A */}
-                <div className='mb-2 flex gap-1.5'>
-                    {[
-                        { label: 'B', abre: '<strong>', cierra: '</strong>', title: 'Negrita', cls: 'font-bold' },
-                        { label: 'I', abre: '<em>', cierra: '</em>', title: 'Cursiva', cls: 'italic' },
-                        { label: 'U', abre: '<u>', cierra: '</u>', title: 'Subrayado', cls: 'underline' },
-                        { label: 'A', abre: '<span style="color:#2563eb">', cierra: '</span>', title: 'Color texto', cls: 'text-blue-600' },
-                    ].map(({ label, abre, cierra, title, cls }) => (
-                        <button
-                            key={label}
-                            type='button'
-                            disabled={!editingEnabled}
-                            onClick={() =>
-                                editingEnabled && onWrapSelection?.(abre, cierra)
-                            }
-                            title={title}
-                            className={[
-                                btnBase,
-                                'h-8 w-8',
-                                cls,
-                                editingEnabled ? btnEnabled : btnDisabled,
-                            ].join(' ')}>
-                            {label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Fila 2: Fuente y tamano */}
-                <div className='mb-2 flex gap-1.5'>
-                    <select
-                        disabled={!editingEnabled}
-                        className={[
-                            'flex-1 rounded border px-2 py-1.5 text-[11px]',
-                            editingEnabled
-                                ? 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                : 'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
-                        ].join(' ')}>
-                        <option>Inter (Normal)</option>
-                        <option>Arial</option>
-                        <option>Times New Roman</option>
-                    </select>
-                    <select
-                        disabled={!editingEnabled}
-                        className={[
-                            'w-16 rounded border px-2 py-1.5 text-[11px]',
-                            editingEnabled
-                                ? 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                : 'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
-                        ].join(' ')}>
-                        <option>12px</option>
-                        <option>14px</option>
-                        <option>16px</option>
-                        <option>18px</option>
-                    </select>
-                </div>
-
-                {/* Fila 3: Alineacion */}
-                <div className='mb-2 flex gap-1.5'>
-                    {ICONOS_ALINEACION.map(({ align, title, path }) => (
-                        <button
-                            key={align}
-                            type='button'
-                            disabled={!editingEnabled}
-                            onClick={() =>
-                                editingEnabled &&
-                                onWrapSelection?.(
-                                    `<p style="text-align:${align}">`,
-                                    '</p>',
-                                )
-                            }
-                            title={title}
-                            className={[
-                                btnBase,
-                                'h-8 flex-1',
-                                editingEnabled ? btnEnabled : btnDisabled,
-                            ].join(' ')}>
-                            <svg
-                                className='h-3.5 w-3.5'
-                                fill='none'
-                                viewBox='0 0 24 24'
-                                stroke='currentColor'>
-                                <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d={path}
-                                />
-                            </svg>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Insertar Tabla */}
-                <div className='space-y-1.5'>
-                    <button
-                        type='button'
-                        disabled={!editingEnabled}
-                        onClick={() =>
-                            editingEnabled &&
-                            onInsertarEtiqueta(
-                                '\n| Columna 1 | Columna 2 | Columna 3 |\n|---|---|---|\n| Dato 1 | Dato 2 | Dato 3 |\n',
-                            )
-                        }
-                        className={[
-                            'flex w-full items-center justify-between rounded border px-3 py-2 text-[12px] transition-colors',
-                            editingEnabled
-                                ? 'border-zinc-200 bg-white text-zinc-700 hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                : 'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
-                        ].join(' ')}>
-                        <span>Insertar Tabla</span>
-                        <IconoTabla />
-                    </button>
-
-                    <button
-                        type='button'
-                        disabled={!editingEnabled}
-                        onClick={() =>
-                            editingEnabled && onInsertarEtiqueta('\n[salto_pagina]\n')
-                        }
-                        className={[
-                            'flex w-full items-center justify-between rounded border px-3 py-2 text-[12px] transition-colors',
-                            editingEnabled
-                                ? 'border-zinc-200 bg-white text-zinc-700 hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                : 'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
-                        ].join(' ')}>
-                        <span>Salto de pagina</span>
-                        <IconoPagina />
-                    </button>
-                </div>
             </div>
         </div>
     );

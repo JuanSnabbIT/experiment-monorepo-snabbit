@@ -13,6 +13,7 @@ const headerRoutes: RouteProps[] = [
     { path: authPages.responderCotizacionPublica.to, element: null },
     { path: authPages.responderContratoPublico.to, element: null },
     { path: authPages.resumenContratoPublico.to, element: null },
+    { path: authPages.aprobacionEmpleadorContrato.to, element: null },
     { path: '/404', element: null },
 
     // Inventariar Bodega

@@ -1,7 +1,8 @@
 import Button from '@/components/ui/Button';
 import { TIPOS_SECCION } from '@/constants/contrato.constant';
-import { IEtiquetaPlantilla, ISeccionPlantilla } from '@/interface/plantillaContrato.interface';
-import { useUpdateSeccionPlantillaMutation } from '@/store/slices/contratos/plantillaContratoApi';
+import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
+import { ISeccionPlantillaV2 as ISeccionPlantilla } from '@/interface/plantillaContratoV2.interface';
+import { useUpdateSeccionV2Mutation } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -47,7 +48,7 @@ const PanelEditorSeccion = ({
     const [contenido, setContenido] = useState(seccion.contenido_template ?? '');
     const [titulo, setTitulo] = useState(seccion.titulo ?? '');
     const [isDirty, setIsDirty] = useState(false);
-    const [updateSeccion, { isLoading: isSaving }] = useUpdateSeccionPlantillaMutation();
+    const [updateSeccion, { isLoading: isSaving }] = useUpdateSeccionV2Mutation();
 
     const etiquetasMap = useMemo(() => {
         const map = new Map<string, IEtiquetaPlantilla>();
@@ -65,7 +66,7 @@ const PanelEditorSeccion = ({
     const handleGuardar = useCallback(async () => {
         try {
             await updateSeccion({
-                plantillaId,
+                plantillaId: Number(plantillaId),
                 seccionId: seccion.id,
                 data: { contenido_template: contenido, titulo },
             }).unwrap();
@@ -225,6 +226,13 @@ const PanelEditorSeccion = ({
                                     onChange={(e) => {
                                         setContenido(e.target.value);
                                         setIsDirty(true);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.ctrlKey || e.metaKey) {
+                                            if (e.key === 'b') { e.preventDefault(); wrapSelection('<strong>', '</strong>'); }
+                                            if (e.key === 'i') { e.preventDefault(); wrapSelection('<em>', '</em>'); }
+                                            if (e.key === 'u') { e.preventDefault(); wrapSelection('<u>', '</u>'); }
+                                        }
                                     }}
                                     spellCheck={false}
                                     className='min-h-[260px] w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm leading-relaxed text-zinc-900 shadow-inner outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:focus:border-blue-600 dark:focus:ring-blue-900/30'

@@ -1,7 +1,16 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import {
+    useCrearAfpInlineMutation,
+    useCrearBancoInlineMutation,
+    useGetAfpCatalogoQuery,
+    useGetBancoCatalogoQuery,
+} from '@/store/slices/rrhh/catalogosRrhhApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { FormikProps } from 'formik';
+import { useMemo } from 'react';
+import { toast } from 'react-toastify';
 import {
     IFormValuesContratoTrabajador,
     SISTEMA_SALUD_OPTIONS,
@@ -24,6 +33,38 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 const StepPrevisionBanco = ({ formik }: Props) => {
     const { values, setFieldValue, handleChange, handleBlur } = formik;
 
+    const { data: afpList = [] } = useGetAfpCatalogoQuery();
+    const { data: bancoList = [] } = useGetBancoCatalogoQuery();
+    const [crearAfp] = useCrearAfpInlineMutation();
+    const [crearBanco] = useCrearBancoInlineMutation();
+
+    const afpOptions = useMemo<TSelectOption[]>(
+        () => afpList.map((a) => ({ value: a.nombre, label: a.nombre })),
+        [afpList],
+    );
+    const bancoOptions = useMemo<TSelectOption[]>(
+        () => bancoList.map((b) => ({ value: b.nombre, label: b.nombre })),
+        [bancoList],
+    );
+
+    const handleCrearAfp = async (inputValue: string) => {
+        try {
+            const nuevo = await crearAfp({ nombre: inputValue }).unwrap();
+            setFieldValue('afp', nuevo.nombre);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
+    const handleCrearBanco = async (inputValue: string) => {
+        try {
+            const nuevo = await crearBanco({ nombre: inputValue }).unwrap();
+            setFieldValue('banco', nuevo.nombre);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
     return (
         <div className='space-y-5'>
             {/* Datos previsionales */}
@@ -45,47 +86,55 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                     }
                     title='Datos previsionales (opcional)'
                 />
-                <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                <div className='space-y-3'>
+                    {/* AFP a ancho completo */}
                     <div>
-                        <Label htmlFor='afp'>AFP</Label>
-                        <Input
-                            id='afp'
-                            name='afp'
-                            value={values.afp}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor='sistema_salud'>Sistema de salud</Label>
+                        <Label htmlFor='afp'>AFP *</Label>
                         <SelectReact
-                            name='sistema_salud'
-                            options={SISTEMA_SALUD_OPTIONS}
-                            value={
-                                SISTEMA_SALUD_OPTIONS.find(
-                                    (o) => o.value === values.sistema_salud,
-                                ) || null
-                            }
-                            onChange={(opt) =>
-                                setFieldValue(
-                                    'sistema_salud',
-                                    (opt as TSelectOption)?.value || '',
-                                )
-                            }
+                            name='afp'
+                            options={afpOptions}
+                            value={afpOptions.find((o) => o.value === values.afp) || null}
+                            onChange={(opt) => setFieldValue('afp', (opt as TSelectOption)?.value || '')}
+                            isClearable
+                            isCreatable
+                            onCreateOption={handleCrearAfp}
+                            formatCreateLabel={(v) => `Agregar AFP: "${v}"`}
+                            placeholder='Seleccionar o crear...'
                         />
                     </div>
-                    {values.sistema_salud === 'isapre' && (
-                        <div className='md:col-span-2'>
-                            <Label htmlFor='nombre_isapre'>Nombre Isapre</Label>
-                            <Input
-                                id='nombre_isapre'
-                                name='nombre_isapre'
-                                value={values.nombre_isapre}
-                                onChange={handleChange}
-                                onBlur={handleBlur}
+                    {/* Sistema de salud + ISAPRE en la misma fila */}
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='sistema_salud'>Sistema de salud *</Label>
+                            <SelectReact
+                                name='sistema_salud'
+                                options={SISTEMA_SALUD_OPTIONS}
+                                value={
+                                    SISTEMA_SALUD_OPTIONS.find(
+                                        (o) => o.value === values.sistema_salud,
+                                    ) || null
+                                }
+                                onChange={(opt) =>
+                                    setFieldValue(
+                                        'sistema_salud',
+                                        (opt as TSelectOption)?.value || '',
+                                    )
+                                }
                             />
                         </div>
-                    )}
+                        {values.sistema_salud === 'isapre' && (
+                            <div>
+                                <Label htmlFor='nombre_isapre'>Nombre Isapre</Label>
+                                <Input
+                                    id='nombre_isapre'
+                                    name='nombre_isapre'
+                                    value={values.nombre_isapre}
+                                    onChange={handleChange}
+                                    onBlur={handleBlur}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -111,12 +160,16 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                 <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
                     <div>
                         <Label htmlFor='banco'>Banco</Label>
-                        <Input
-                            id='banco'
+                        <SelectReact
                             name='banco'
-                            value={values.banco}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
+                            options={bancoOptions}
+                            value={bancoOptions.find((o) => o.value === values.banco) || null}
+                            onChange={(opt) => setFieldValue('banco', (opt as TSelectOption)?.value || '')}
+                            isClearable
+                            isCreatable
+                            onCreateOption={handleCrearBanco}
+                            formatCreateLabel={(v) => `Agregar banco: "${v}"`}
+                            placeholder='Seleccionar o crear...'
                         />
                     </div>
                     <div>

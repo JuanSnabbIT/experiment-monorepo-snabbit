@@ -45,7 +45,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
-import ContenidoWizardTrabajador from '../../RRHH/components/trabajador/ContenidoWizardTrabajador';
 import { IContratoEdicion, ISeleccionPlanServicios } from '../components/contrato.types';
 import SelectorPlanServicios from '../components/SelectorPlanServicios';
 import ModalLicenciaContrato from './ModalLicenciaContrato';
@@ -618,7 +617,6 @@ function CrearContratoDelCliente({
     const esServicios =
         formik.values.tipo === 'servicios' ||
         tipoFijo === 'servicios';
-    const esLaboral = formik.values.tipo === 'trabajador' || tipoFijo === 'trabajador';
 
     useEffect(() => {
         if (!esVenta) return;
@@ -925,16 +923,10 @@ function CrearContratoDelCliente({
                 isScrollable>
                 <ModalHeader>
                     <Badge className='text-xl'>
-                        {esLaboral ? 'Crear contrato laboral' : 'Crear Contrato'}
+                        Crear Contrato
                     </Badge>
                 </ModalHeader>
-                {esLaboral ? (
-                    <ContenidoWizardTrabajador
-                        detalleCliente={detalleCliente}
-                        initialNombre={formik.values.nombre}
-                        onClose={handleClose}
-                    />
-                ) : (<>
+                <>
                 <ModalBody isScrollable>
                     <WizardStepper step={step} esServicios={esServicios} esLicencia={esLicencia} esVenta={esVenta} />
 
@@ -2186,7 +2178,7 @@ function CrearContratoDelCliente({
                         )}
                     </ModalFooterChild>
                 </ModalFooter>
-                </>)}
+                </>
             </Modal>
 
             <ModalLicenciaContrato

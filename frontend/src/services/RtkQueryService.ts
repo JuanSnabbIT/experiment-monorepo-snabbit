@@ -127,7 +127,17 @@ const RtkQueryService = createApi({
         'PrefacturaOTV3',
         'ContratoTrabajador',
         'ContratoTrabajadorList',
+        'ContratoTrabajadorHistorial',
         'CargoCatalogo',
+        'AfpCatalogo',
+        'BancoCatalogo',
+        'AnexoContrato',
+        // Plantillas Contrato V2 (Motor Slate)
+        'PlantillaContratoV2',
+        'PlantillaContratoV2List',
+        'SeccionPlantillaV2',
+        'BloqueTransversal',
+        'EtiquetaPlantillaV2',
     ] as const,
     endpoints: () => ({}),
 });

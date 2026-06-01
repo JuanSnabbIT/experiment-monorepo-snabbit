@@ -58,12 +58,18 @@ def generar_contrato_pdf_v2(
     *,
     firma_b64: Optional[str] = None,
     firmante: str = "",
+    forzar_borrador: bool = False,
 ) -> bytes:
     """
     Genera el PDF del contrato representado por ``adaptador``.
 
     * Si la instancia es ``ContratoEmpresaCliente`` → delega 100% al motor v1.
     * Si es ``ContratoTrabajador`` → render simplificado laboral.
+
+    Args:
+        forzar_borrador: Si True, imprime la marca de agua BORRADOR
+            independientemente del estado del contrato (util para vistas
+            previas publicas como la aprobacion del empleador).
     """
     if _es_b2b(adaptador):
         return generar_contrato_desde_plantilla(
@@ -72,7 +78,7 @@ def generar_contrato_pdf_v2(
             firmante_cliente=firmante,
         )
 
-    return _generar_pdf_trabajador(adaptador, firma_b64=firma_b64, firmante=firmante)
+    return _generar_pdf_trabajador(adaptador, firma_b64=firma_b64, firmante=firmante, forzar_borrador=forzar_borrador)
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +90,7 @@ def _generar_pdf_trabajador(
     *,
     firma_b64: Optional[str] = None,
     firmante: str = "",
+    forzar_borrador: bool = False,
 ) -> bytes:
     """Render PDF para contratos laborales."""
 
@@ -190,7 +197,7 @@ def _generar_pdf_trabajador(
     canvas_config = {
         "nombre_empresa": nombre_empresa,
         "nombre_contrato": adaptador.nombre or "Contrato de Trabajo",
-        "es_borrador": adaptador.estado not in ("vigente", "terminado", "pendiente_aceptacion"),
+        "es_borrador": forzar_borrador or adaptador.estado not in ("vigente", "terminado", "pendiente_aceptacion"),
     }
     canvas_class = _make_contract_canvas_class(canvas_config)
 

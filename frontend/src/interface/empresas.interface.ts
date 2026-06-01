@@ -32,6 +32,48 @@ export interface IRelacionEmpresa {
     cliente: number;
 }
 
+export interface ICargaFamiliar {
+    id: number;
+    nombres: string;
+    apellido_paterno: string;
+    apellido_materno: string;
+    rut: string;
+    fecha_nacimiento: string | null;
+    parentesco: 'hijo_a' | 'conyuge' | 'conviviente_civil' | 'padre' | 'madre' | 'otro';
+    parentesco_label: string;
+    is_activo: boolean;
+}
+
+export interface IContratoLaboralHistorial {
+    id: number;
+    tipo_contrato_label: string;
+    estado: string;
+    estado_label: string;
+    fecha_inicio: string;
+    fecha_termino: string | null;
+    archivo_pdf: string | null;
+}
+
+export interface IContratoLaboralVigente {
+    id: number;
+    tipo_contrato: string;
+    tipo_contrato_label: string;
+    jornada: string;
+    jornada_label: string;
+    cargo: string | null;
+    lugar_trabajo: string | null;
+    sueldo_base: string;
+    sueldo_liquido: string | null;
+    moneda: 'CLP' | 'UF' | 'USD';
+    gratificacion_legal: boolean;
+    bono_movilizacion: string;
+    bono_colacion: string;
+    fecha_inicio: string;
+    fecha_termino: string | null;
+    estado: string;
+    estado_label: string;
+}
+
 export interface IUsuarioEmpresa {
     id: number;
     nombre_usuario: string;
@@ -60,14 +102,48 @@ export interface IUsuarioEmpresa {
     usuario: number;
     sucursal: number;
     grupos: number[];
-    // Datos previsionales (opcionales) para contratos laborales
+    // Datos personales desde cuentas.User
+    first_name?: string | null;
+    second_name?: string | null;
+    last_name?: string | null;
+    second_last_name?: string | null;
+    celular?: string | null;
+    genero?: string | null;
+    genero_label?: string | null;
+    fecha_nacimiento?: string | null;
+    estado_civil?: string | null;
+    estado_civil_label?: string | null;
+    nacionalidad?: string | null;
+    direccion?: string | null;
+    region?: number | null;
+    provincia?: number | null;
+    comuna?: number | null;
+    // Nombres resueltos desde bd_ciudades (evitar mostrar IDs crudos en UI)
+    region_nombre?: string | null;
+    provincia_nombre?: string | null;
+    comuna_nombre?: string | null;
+    foto_perfil?: string | null;
+    // Datos previsionales
     afp?: string | null;
     sistema_salud?: 'fonasa' | 'isapre' | 'otro' | null;
+    sistema_salud_label?: string | null;
     nombre_isapre?: string | null;
-    // Datos bancarios (opcionales)
+    // Datos bancarios para pago de remuneraciones
     banco?: string | null;
     tipo_cuenta_bancaria?: 'corriente' | 'vista' | 'ahorro' | 'rut' | null;
+    tipo_cuenta_bancaria_label?: string | null;
     numero_cuenta_bancaria?: string | null;
+    // Datos de educacion desde cuentas.User
+    nivel_estudios?: string | null;
+    nivel_estudios_label?: string | null;
+    titulo_especialidad?: string | null;
+    institucion_educacional?: string | null;
+    // Cargas familiares
+    cargas_familiares?: ICargaFamiliar[];
+    // Historial de contratos laborales RRHH
+    contratos_laborales_historial?: IContratoLaboralHistorial[];
+    // Contrato laboral RRHH vigente
+    contrato_laboral_vigente?: IContratoLaboralVigente | null;
 }
 
 export interface IUltimasActividadesUsuarioEmpresa {

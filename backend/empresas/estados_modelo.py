@@ -20,3 +20,12 @@ TIPO_CUENTA_BANCARIA = (
     ('ahorro', 'Cuenta de ahorro'),
     ('rut', 'Cuenta RUT'),
 )
+
+PARENTESCO_CARGA = [
+    ('hijo_a', 'Hijo/a'),
+    ('conyuge', 'Conyuge'),
+    ('conviviente_civil', 'Conviviente civil'),
+    ('padre', 'Padre'),
+    ('madre', 'Madre'),
+    ('otro', 'Otro'),
+]

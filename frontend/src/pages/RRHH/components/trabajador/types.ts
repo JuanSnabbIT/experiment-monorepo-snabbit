@@ -58,6 +58,10 @@ export interface IFormValuesContratoTrabajador {
     banco: string;
     tipo_cuenta_bancaria: '' | 'corriente' | 'vista' | 'ahorro' | 'rut';
     numero_cuenta_bancaria: string;
+
+    // Step 5 - Documento
+    plantilla_contrato_id: number | '';
+    archivo_pdf: File | null;
 }
 
 export const TIPO_CONTRATO_OPTIONS = [
@@ -65,7 +69,6 @@ export const TIPO_CONTRATO_OPTIONS = [
     { value: 'plazo_fijo', label: 'Plazo fijo' },
     { value: 'honorarios', label: 'Honorarios' },
     { value: 'reemplazo', label: 'Reemplazo' },
-    { value: 'obra_o_faena', label: 'Por obra o faena' },
 ];
 
 export const JORNADA_OPTIONS = [

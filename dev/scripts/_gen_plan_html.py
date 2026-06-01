@@ -1,0 +1,838 @@
+# -*- coding: utf-8 -*-
+"""Genera dev/docs/motor-plantillas-v2-plan.html"""
+import os, sys
+
+OUT = os.path.join(os.path.dirname(__file__), '..', 'docs', 'motor-plantillas-v2-plan.html')
+OUT = os.path.normpath(OUT)
+
+# ── CSS ────────────────────────────────────────────────────────────────────────
+CSS = """
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f172a;--bg2:#1e293b;--bg3:#0c1526;--bd:#334155;--bd2:#475569;
+  --blue:#3b82f6;--blue-l:#60a5fa;--blue-d:#1d4ed8;
+  --blue-bg:rgba(59,130,246,.1);--blue-bd:rgba(59,130,246,.3);
+  --txt:#e2e8f0;--muted:#94a3b8;--dim:#64748b;
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#a78bfa;--cyan:#22d3ee;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:Consolas,Monaco,"Courier New",monospace;
+  --r:8px;--rl:12px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--txt);font-family:var(--font);font-size:13px;line-height:1.6}
+a{color:var(--blue-l);text-decoration:none}
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:rgba(15,23,42,.95);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);
+  padding:0 24px;display:flex;align-items:center;gap:4px;height:44px}
+.nav .logo{font-weight:700;font-size:13px;color:var(--blue-l);
+  margin-right:12px;padding-right:12px;border-right:1px solid var(--bd);white-space:nowrap}
+.nav a{color:var(--muted);font-size:12px;font-weight:500;
+  padding:6px 10px;border-radius:6px;transition:all .15s}
+.nav a:hover{color:var(--txt);background:rgba(255,255,255,.06)}
+/* WRAP */
+.wrap{max-width:1120px;margin:0 auto;padding:32px 24px}
+section{margin-bottom:60px}
+/* SECTION HEADER */
+.sh{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.sh-num{width:28px;height:28px;border-radius:50%;background:var(--blue);
+  color:#fff;font-weight:700;font-size:12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sh-title{font-size:17px;font-weight:700;color:#f8fafc}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;background:var(--blue-bg);
+  color:var(--blue-l);border:1px solid var(--blue-bd);border-radius:20px;
+  padding:3px 10px;font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em}
+.badge-green{background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.3)}
+.badge-amber{background:rgba(245,158,11,.12);color:#fbbf24;border-color:rgba(245,158,11,.3)}
+.badge-red{background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.3)}
+.badge-purple{background:rgba(167,139,250,.12);color:var(--purple);border-color:rgba(167,139,250,.3)}
+.badge-orange{background:rgba(249,115,22,.12);color:#fb923c;border-color:rgba(249,115,22,.3)}
+.badge-cyan{background:rgba(34,211,238,.12);color:#22d3ee;border-color:rgba(34,211,238,.3)}
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:20px}
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#0c1526;color:var(--muted);font-weight:600;text-transform:uppercase;
+  font-size:10px;letter-spacing:.06em;padding:8px 12px;
+  text-align:left;border-bottom:1px solid var(--bd)}
+td{padding:9px 12px;border-bottom:1px solid #1e2d40;color:var(--txt);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+/* CODE */
+.code-wrap{margin:0 0 28px}
+.code-header{display:flex;align-items:center;justify-content:space-between;
+  background:#0c1526;border:1px solid var(--bd);border-bottom:none;
+  border-radius:6px 6px 0 0;padding:8px 14px}
+.code-filename{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.code-block{background:#090e1a;border:1px solid var(--bd);border-radius:0 0 6px 6px;
+  padding:16px;font-family:var(--mono);font-size:12px;
+  overflow-x:auto;line-height:1.75;white-space:pre}
+.kw{color:#c084fc}.str{color:#86efac}.cmt{color:#475569;font-style:italic}
+.typ{color:#67e8f9}.fn{color:#60a5fa}.dec{color:#fbbf24}.val{color:#f97316}
+/* TIMELINE */
+.tl{display:flex;gap:0;overflow-x:auto;padding-bottom:8px;margin-bottom:24px}
+.tl-phase{display:flex;flex-direction:column;align-items:center;min-width:168px;flex:1}
+.tl-box{width:100%;border:1.5px solid var(--bd);border-radius:var(--rl);
+  padding:14px;background:var(--bg2)}
+.tl-num{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.tl-name{font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:6px;line-height:1.3}
+.tl-dur{font-size:10px;color:var(--dim);margin-bottom:10px}
+.tl-items{list-style:none;display:flex;flex-direction:column;gap:3px}
+.tl-items li{font-size:10px;color:var(--muted);display:flex;align-items:flex-start;gap:4px}
+.tl-items li::before{content:"›";color:var(--blue);flex-shrink:0;font-weight:700}
+.tl-arr{display:flex;align-items:flex-start;padding-top:14px;
+  color:#334155;font-size:22px;flex-shrink:0;padding-left:3px;padding-right:3px}
+.ph-be{border-color:#1d4ed8!important}.ph-fe{border-color:#7c3aed!important}
+.ph-ux{border-color:#f97316!important}.ph-qa{border-color:#10b981!important}
+.ph-be .tl-num{color:#60a5fa}.ph-fe .tl-num{color:var(--purple)}
+.ph-ux .tl-num{color:#fb923c}.ph-qa .tl-num{color:#34d399}
+/* MOCKUP SHELL */
+.mockup{background:#141f35;border:1px solid #2a3a5c;border-radius:12px;
+  overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.5);margin-bottom:32px}
+.mock-titlebar{background:#0e1b30;padding:10px 16px;display:flex;
+  align-items:center;justify-content:space-between;border-bottom:1px solid #1e2d4a}
+.mock-titlebar-txt{font-size:11px;font-weight:600;color:#64748b}
+.mock-dots{display:flex;gap:5px}
+.mock-dot{width:10px;height:10px;border-radius:50%}
+.mock-subheader{background:#0e1b30;padding:8px 16px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid #1e2d4a}
+.mock-subheader h2{font-size:13px;font-weight:700;color:#e2e8f0}
+.mock-content{padding:16px}
+.m-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;border:none;cursor:default}
+.m-btn-prim{background:#3b82f6;color:#fff}
+.m-btn-ghost{background:transparent;color:#94a3b8;border:1px solid #334155}
+/* EDITOR 3 COLS */
+.editor-wrap{display:grid;grid-template-columns:200px 1fr 220px;height:540px;overflow:hidden}
+.ed-left{background:#0a1628;border-right:1px solid #1e2d4a;padding:12px 0;
+  display:flex;flex-direction:column;overflow-y:auto}
+.ed-left-title{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;
+  letter-spacing:.06em;padding:0 12px 8px}
+.ed-idx-item{padding:7px 12px;font-size:11px;cursor:default;
+  display:flex;align-items:center;gap:7px;color:#94a3b8;border-left:2px solid transparent}
+.ed-idx-item.active{background:rgba(59,130,246,.1);color:#93c5fd;border-left-color:#3b82f6}
+.ed-idx-item.locked{color:#334155;cursor:not-allowed}
+.ed-idx-num{font-size:9px;font-weight:700;color:#475569;flex-shrink:0}
+.ed-center{background:#131e35;display:flex;flex-direction:column;overflow-y:auto}
+.ed-toolbar{background:#0e1b30;border-bottom:1px solid #1e2d4a;padding:6px 12px;
+  display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap}
+.tb-btn{background:transparent;border:1px solid #1e2d4a;border-radius:4px;
+  min-width:24px;height:24px;font-size:11px;font-weight:700;color:#94a3b8;
+  cursor:default;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+.tb-sep{width:1px;height:20px;background:#1e2d4a;margin:0 2px;flex-shrink:0}
+.ed-doc{padding:20px 24px;flex:1;font-family:Georgia,serif;font-size:13px;line-height:1.85;color:#cbd5e1}
+.ed-sec-title{font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:10px;
+  border-bottom:1px solid #1e2d4a;padding-bottom:6px}
+.etag{background:#1e3a5f;color:#93c5fd;border:1px solid #2a4a7f;border-radius:12px;
+  padding:1px 8px;font-size:11px;font-family:var(--mono);cursor:default;display:inline}
+.locked-block{border:1.5px dashed #334155;border-radius:6px;padding:12px;
+  background:#0a1628;color:#475569;font-size:11px;
+  display:flex;align-items:center;gap:8px;margin:12px 0;cursor:not-allowed}
+.ed-saved{font-size:10px;color:#34d399;display:flex;align-items:center;gap:4px;
+  padding:8px 12px;border-top:1px solid #1e2d4a;flex-shrink:0}
+.ed-right{background:#0a1628;border-left:1px solid #1e2d4a;padding:12px;
+  overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.ed-search{width:100%;background:#0d1829;border:1px solid #1e2d4a;border-radius:6px;
+  padding:5px 10px;color:#e2e8f0;font-size:11px;margin-bottom:10px}
+.acc-header{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 0;border-bottom:1px solid #1e2d4a;cursor:default;margin-bottom:6px}
+.acc-title{font-size:11px;font-weight:600;color:#94a3b8}
+.etag-list{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.etag-small{background:#1e3a5f;color:#93c5fd;border:1px solid #2a4a7f;border-radius:10px;
+  padding:2px 8px;font-size:10px;font-family:var(--mono);cursor:pointer}
+.etag-small:hover{background:#243f6a;border-color:#3b82f6}
+.acc-closed{color:#475569;font-size:11px;font-weight:600;padding:5px 0;
+  border-bottom:1px solid #1e2d4a;cursor:default;
+  display:flex;justify-content:space-between;align-items:center}
+/* MODAL */
+.modal-overlay{background:rgba(0,0,0,.6);padding:24px;border-radius:var(--rl)}
+.modal-box{background:#1e293b;border:1px solid #334155;border-radius:var(--rl);max-width:440px;margin:0 auto}
+.modal-header{padding:16px 20px;border-bottom:1px solid #334155;
+  display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:14px;font-weight:700;color:#f8fafc}
+.modal-body{padding:20px}
+.modal-footer{padding:12px 20px;border-top:1px solid #334155;display:flex;justify-content:flex-end;gap:8px}
+.mf-label{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:5px;display:block}
+.mf-input,.mf-select{width:100%;background:#0f172a;border:1px solid #334155;
+  border-radius:6px;padding:7px 10px;color:#e2e8f0;font-size:12px;margin-bottom:14px}
+.radio-opt{display:flex;align-items:flex-start;gap:10px;padding:10px;
+  border:1px solid #334155;border-radius:6px;margin-bottom:8px;cursor:default}
+.radio-opt.selected{border-color:var(--blue-bd);background:var(--blue-bg)}
+.radio-circle{width:14px;height:14px;border-radius:50%;border:2px solid #475569;
+  flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.radio-circle.on{border-color:#3b82f6}
+.radio-circle.on::after{content:"";width:6px;height:6px;border-radius:50%;background:#3b82f6}
+.radio-label{font-size:12px;font-weight:600;color:#e2e8f0}
+.radio-desc{font-size:11px;color:#64748b;margin-top:2px}
+code{background:#0f172a;border:1px solid #1e2d4a;border-radius:3px;padding:1px 5px;font-family:var(--mono);font-size:11px}
+"""
+
+# ── BODY ───────────────────────────────────────────────────────────────────────
+BODY = """
+<nav class="nav">
+  <span class="logo">Snabbit ERP</span>
+  <a href="#timeline">Timeline</a>
+  <a href="#dataflow">Data Flow</a>
+  <a href="#mockups">Mockups</a>
+  <a href="#riesgos">Riesgos</a>
+  <a href="#snippets">Snippets</a>
+</nav>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<div style="border-bottom:1px solid var(--bd);padding-bottom:28px;margin-bottom:44px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <span class="badge badge-green">V1 intacta en producción</span>
+    <span class="badge">Refactor activo</span>
+    <span class="badge badge-purple">Slate editor</span>
+  </div>
+  <h1 style="font-size:28px;font-weight:800;color:#f8fafc;margin-bottom:6px">Motor de Plantillas de Contrato V2</h1>
+  <p style="color:var(--muted);font-size:13px">Plan de implementación · ERP Snabbit · Mayo 2026</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;max-width:700px">
+    <div class="card" style="border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04)">
+      <div style="font-size:10px;font-weight:700;color:#f87171;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">V1 — Estado actual</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:5px">
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:#f87171;font-size:10px;margin-top:2px">✕</span>Textarea plano, sin rich text</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:#f87171;font-size:10px;margin-top:2px">✕</span>Sin drag&amp;drop para reordenar</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:#f87171;font-size:10px;margin-top:2px">✕</span>Sin panel de etiquetas en UI</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:#f87171;font-size:10px;margin-top:2px">✕</span>Bloques transversales hardcodeados</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:#f87171;font-size:10px;margin-top:2px">✕</span>Sin scope por empresa cliente</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--blue-bd);background:var(--blue-bg)">
+      <div style="font-size:10px;font-weight:700;color:var(--blue-l);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">V2 — Objetivo</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:5px">
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:var(--green);font-size:11px">✓</span>Slate: negrita, listas, H2/H3, undo/redo</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:var(--green);font-size:11px">✓</span>@dnd-kit drag&amp;drop en panel índice</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:var(--green);font-size:11px">✓</span>Etiquetas como chips crisp (void nodes)</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:var(--green);font-size:11px">✓</span>Catálogo declarativo de bloques bloqueados</li>
+        <li style="font-size:12px;color:var(--muted);display:flex;gap:6px"><span style="color:var(--green);font-size:11px">✓</span>Scope global / empresa cliente (filtro wizard)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 1. TIMELINE -->
+<section id="timeline">
+  <div class="sh"><div class="sh-num">1</div><div class="sh-title">Timeline de Fases</div></div>
+  <div class="tl">
+    <div class="tl-phase">
+      <div class="tl-box ph-be">
+        <div class="tl-num">F1 · Backend</div>
+        <div class="tl-name">Cimientos de Modelo</div>
+        <div class="tl-dur">~ 3 días · Bloqueante para todo</div>
+        <ul class="tl-items">
+          <li>Modelo BloqueTransversalContrato</li>
+          <li>FK empresa_cliente en PlantillaContrato</li>
+          <li>JSONField contenido_template_estructurado</li>
+          <li>OrdenBloqueTransversalPlantilla (N:M)</li>
+          <li>Migración + seed idempotente</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tl-arr">→</div>
+    <div class="tl-phase">
+      <div class="tl-box ph-be">
+        <div class="tl-num">F2 · Backend</div>
+        <div class="tl-name">API V2</div>
+        <div class="tl-dur">~ 3 días · Depende de F1</div>
+        <ul class="tl-items">
+          <li>PlantillaContratoV2ViewSet</li>
+          <li>Serializers con etiquetas categorizadas</li>
+          <li>Filtro scope=wizard</li>
+          <li>motor_plantillas_v2 extendido</li>
+          <li>Router /api/v2/ separado</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tl-arr">→</div>
+    <div class="tl-phase">
+      <div class="tl-box ph-fe">
+        <div class="tl-num">F3 · Frontend</div>
+        <div class="tl-name">API Layer</div>
+        <div class="tl-dur">~ 1 día · Depende de F2</div>
+        <ul class="tl-items">
+          <li>plantillaContratoV2Api (RTK Query)</li>
+          <li>Tags separados en RtkQueryService.ts</li>
+          <li>Interfaces TypeScript + tipos Slate</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tl-arr">→</div>
+    <div class="tl-phase">
+      <div class="tl-box ph-fe" style="border-color:#7c3aed;background:rgba(124,58,237,.06)">
+        <div class="tl-num">F4 · Frontend</div>
+        <div class="tl-name">Editor V2 Completo</div>
+        <div class="tl-dur">~ 6 días · Depende de F3 · 4.2+4.3+4.4 paralelos</div>
+        <ul class="tl-items">
+          <li>PanelEstructura + @dnd-kit/sortable</li>
+          <li>PanelDocumento + Slate + void nodes</li>
+          <li>PanelEtiquetas + acordeón categorías</li>
+          <li>ListaPlantillasV2 + modales</li>
+          <li>slatePlantillas.ts (helpers bidir.)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tl-arr">→</div>
+    <div class="tl-phase">
+      <div class="tl-box ph-qa">
+        <div class="tl-num">F5 + F6 · QA / UX</div>
+        <div class="tl-name">Nielsen UX + Tests</div>
+        <div class="tl-dur">~ 2 días · Depende de F4</div>
+        <ul class="tl-items">
+          <li>Autosave indicator + dirty state</li>
+          <li>Atajos Ctrl+B/I/U, undo/redo</li>
+          <li>Tests backend multi-tenancy + motor</li>
+          <li>npm run lint + build</li>
+          <li>E2E manual 7 escenarios</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr>
+        <th>Fase</th><th>Descripción</th><th>Tipo</th><th>Días est.</th><th>Depende de</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><strong>F1</strong></td><td>Modelos BloqueTransversal, FK empresa_cliente, JSONField SeccionPlantilla, migración + seed command idempotente</td><td><span class="badge" style="font-size:10px">Backend</span></td><td style="white-space:nowrap">3d</td><td>—</td></tr>
+        <tr><td><strong>F2</strong></td><td>ViewSets V2, serializers con etiquetas categorizadas, filtro wizard, motor_plantillas_v2 extendido con renderizar_seccion_desde_estructurado</td><td><span class="badge" style="font-size:10px">Backend</span></td><td style="white-space:nowrap">3d</td><td>F1</td></tr>
+        <tr><td><strong>F3</strong></td><td>RTK Query plantillaContratoV2Api, interfaces TypeScript IPlantillaContratoV2 + tipos Slate, tags en RtkQueryService.ts</td><td><span class="badge badge-purple" style="font-size:10px">Frontend</span></td><td style="white-space:nowrap">1d</td><td>F2</td></tr>
+        <tr><td><strong>F4</strong></td><td>Editor 3 columnas: PanelEstructura+dnd-kit, PanelDocumento+Slate, PanelEtiquetas, ListaPlantillasV2, ModalNuevaPlantilla, slatePlantillas.ts</td><td><span class="badge badge-purple" style="font-size:10px">Frontend</span></td><td style="white-space:nowrap">6d</td><td>F3</td></tr>
+        <tr><td><strong>F5</strong></td><td>Heurísticas Nielsen: atajos teclado, autosave indicator, tooltips en bloques bloqueados, confirm modal al eliminar, dirty state guard</td><td><span class="badge badge-orange" style="font-size:10px">UX</span></td><td style="white-space:nowrap">transversal</td><td>F4</td></tr>
+        <tr><td><strong>F6</strong></td><td>Tests backend (multi-tenancy, motor V2, serialización Slate↔legacy), npm run lint + build, E2E manual 7 escenarios incluye regresión V1</td><td><span class="badge badge-green" style="font-size:10px">QA</span></td><td style="white-space:nowrap">2d</td><td>F4</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 2. DATA FLOW -->
+<section id="dataflow">
+  <div class="sh"><div class="sh-num">2</div><div class="sh-title">Diagrama de Flujo de Datos</div></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <svg viewBox="0 0 1060 490" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:system-ui,sans-serif">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/></marker>
+        <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#475569"/></marker>
+        <marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#22c55e"/></marker>
+        <marker id="arr4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#f97316"/></marker>
+      </defs>
+      <rect width="1060" height="490" fill="#0f172a"/>
+
+      <!-- USUARIO -->
+      <rect x="18" y="198" width="80" height="44" rx="6" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="58" y="215" text-anchor="middle" fill="#93c5fd" font-size="14">👤</text>
+      <text x="58" y="231" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="600">Usuario</text>
+
+      <!-- PANEL ESTRUCTURA -->
+      <rect x="148" y="88" width="165" height="44" rx="6" fill="#312e81" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="231" y="107" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">PanelEstructura</text>
+      <text x="231" y="121" text-anchor="middle" fill="#a78bfa" font-size="9">@dnd-kit/sortable</text>
+
+      <!-- PANEL DOCUMENTO -->
+      <rect x="148" y="198" width="165" height="44" rx="6" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
+      <text x="231" y="217" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">PanelDocumento</text>
+      <text x="231" y="231" text-anchor="middle" fill="#93c5fd" font-size="9">Slate + void nodes</text>
+
+      <!-- PANEL ETIQUETAS -->
+      <rect x="148" y="308" width="165" height="44" rx="6" fill="#312e81" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="231" y="327" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">PanelEtiquetas</text>
+      <text x="231" y="341" text-anchor="middle" fill="#a78bfa" font-size="9">acordeón por categoría</text>
+
+      <!-- RTK QUERY -->
+      <rect x="378" y="198" width="155" height="44" rx="6" fill="#0c1526" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="456" y="217" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="700">RTK Query</text>
+      <text x="456" y="231" text-anchor="middle" fill="#475569" font-size="9">plantillaContratoV2Api</text>
+
+      <!-- DJANGO VIEWSET -->
+      <rect x="598" y="198" width="155" height="44" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="676" y="217" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="700">Django ViewSet V2</text>
+      <text x="676" y="231" text-anchor="middle" fill="#475569" font-size="9">PlantillaContratoV2ViewSet</text>
+
+      <!-- MOTOR V2 -->
+      <rect x="598" y="98" width="155" height="44" rx="6" fill="#312e81" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="676" y="117" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Motor V2</text>
+      <text x="676" y="131" text-anchor="middle" fill="#a78bfa" font-size="9">motor_plantillas_v2.py</text>
+
+      <!-- ADAPTADORES -->
+      <rect x="598" y="308" width="155" height="44" rx="6" fill="#1e3a5f" stroke="#475569" stroke-width="1.5"/>
+      <text x="676" y="327" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="700">Adaptadores</text>
+      <text x="676" y="341" text-anchor="middle" fill="#475569" font-size="9">IContratoBase / B2B / RRHH</text>
+
+      <!-- BD BLOQUES -->
+      <rect x="820" y="98" width="170" height="44" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="905" y="117" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">BloqueTransversal</text>
+      <text x="905" y="131" text-anchor="middle" fill="#22c55e" font-size="9">catálogo declarativo (DB)</text>
+
+      <!-- BD PLANTILLA -->
+      <rect x="820" y="198" width="170" height="44" rx="6" fill="#052e16" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="905" y="217" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">PlantillaContrato</text>
+      <text x="905" y="231" text-anchor="middle" fill="#22c55e" font-size="9">+ SeccionPlantilla (DB)</text>
+
+      <!-- REPORTLAB -->
+      <rect x="820" y="308" width="170" height="44" rx="6" fill="#422006" stroke="#f97316" stroke-width="1.5"/>
+      <text x="905" y="327" text-anchor="middle" fill="#fb923c" font-size="10" font-weight="700">ReportLab</text>
+      <text x="905" y="341" text-anchor="middle" fill="#f97316" font-size="9">PDF final (server-side)</text>
+
+      <!-- FLECHAS -->
+      <line x1="98" y1="220" x2="146" y2="220" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="122" y="213" text-anchor="middle" fill="#475569" font-size="9">edita</text>
+
+      <line x1="82" y1="204" x2="146" y2="122" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr)"/>
+      <text x="100" y="158" fill="#475569" font-size="9">reordena</text>
+
+      <line x1="231" y1="308" x2="231" y2="244" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr)"/>
+      <text x="250" y="278" fill="#475569" font-size="9">insertarEtiqueta()</text>
+
+      <line x1="313" y1="220" x2="376" y2="220" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="345" y="213" text-anchor="middle" fill="#475569" font-size="9">autosave JSON · debounce 1.5s</text>
+
+      <line x1="313" y1="110" x2="450" y2="200" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr)"/>
+      <text x="375" y="148" text-anchor="middle" fill="#475569" font-size="9">reordenarSecciones</text>
+
+      <line x1="533" y1="220" x2="596" y2="220" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="565" y="213" text-anchor="middle" fill="#475569" font-size="9">PATCH /api/v2/</text>
+
+      <line x1="676" y1="198" x2="676" y2="144" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr)"/>
+      <text x="700" y="173" fill="#475569" font-size="9">preview-render</text>
+
+      <line x1="753" y1="220" x2="818" y2="220" stroke="#22c55e" stroke-width="1" marker-end="url(#arr3)"/>
+      <text x="786" y="213" text-anchor="middle" fill="#475569" font-size="9">save</text>
+
+      <line x1="753" y1="120" x2="818" y2="120" stroke="#22c55e" stroke-width="1" marker-end="url(#arr3)"/>
+      <text x="786" y="113" text-anchor="middle" fill="#475569" font-size="9">catálogo</text>
+
+      <line x1="676" y1="242" x2="676" y2="306" stroke="#475569" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+      <text x="695" y="276" fill="#475569" font-size="9">PDF flow</text>
+
+      <line x1="753" y1="330" x2="818" y2="330" stroke="#f97316" stroke-width="1" marker-end="url(#arr4)"/>
+      <text x="786" y="323" text-anchor="middle" fill="#475569" font-size="9">generar PDF</text>
+
+      <!-- LEYENDA -->
+      <rect x="20" y="420" width="10" height="10" rx="2" fill="#1d4ed8"/>
+      <text x="35" y="430" fill="#475569" font-size="10">Frontend</text>
+      <rect x="105" y="420" width="10" height="10" rx="2" fill="#312e81"/>
+      <text x="120" y="430" fill="#475569" font-size="10">Motor/Lógica</text>
+      <rect x="210" y="420" width="10" height="10" rx="2" fill="#1e3a5f"/>
+      <text x="225" y="430" fill="#475569" font-size="10">Backend API</text>
+      <rect x="310" y="420" width="10" height="10" rx="2" fill="#052e16"/>
+      <text x="325" y="430" fill="#475569" font-size="10">Base de datos</text>
+      <rect x="415" y="420" width="10" height="10" rx="2" fill="#422006"/>
+      <text x="430" y="430" fill="#475569" font-size="10">PDF / Output</text>
+    </svg>
+  </div>
+</section>
+
+<!-- 3. MOCKUPS -->
+<section id="mockups">
+  <div class="sh"><div class="sh-num">3</div><div class="sh-title">Mockups de Pantallas Clave</div></div>
+
+  <h3 style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">A — Lista de Plantillas V2</h3>
+  <div class="mockup">
+    <div class="mock-titlebar">
+      <div class="mock-dots">
+        <div class="mock-dot" style="background:#ef4444"></div>
+        <div class="mock-dot" style="background:#f59e0b"></div>
+        <div class="mock-dot" style="background:#22c55e"></div>
+      </div>
+      <div class="mock-titlebar-txt">ERP Snabbit · Registros / Plantillas de Contrato V2</div>
+      <div></div>
+    </div>
+    <div class="mock-subheader">
+      <div style="display:flex;align-items:center;gap:10px">
+        <h2>Plantillas de Contrato V2</h2>
+        <span class="badge badge-green" style="font-size:10px">4 plantillas</span>
+      </div>
+      <button class="m-btn m-btn-prim">+ Nueva Plantilla</button>
+    </div>
+    <div class="mock-content">
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+        <select style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 10px;color:#e2e8f0;font-size:11px">
+          <option>Tipo: Todos</option><option>Servicios</option><option>Venta</option><option>Licencia</option><option>Laboral</option>
+        </select>
+        <select style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 10px;color:#e2e8f0;font-size:11px">
+          <option>Scope: Todos</option><option>Global</option><option>Por cliente</option>
+        </select>
+        <input placeholder="&#128269; Buscar plantilla..." style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:5px 10px;color:#e2e8f0;font-size:11px;width:200px">
+      </div>
+      <table>
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Scope</th><th>Versión</th><th>Modificado</th><th>Acciones</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:#e2e8f0">Contrato de Servicios Standard</td>
+            <td><span class="badge" style="font-size:10px">Servicios</span></td>
+            <td><span class="badge badge-green" style="font-size:10px">Global</span></td>
+            <td style="font-family:var(--mono);color:#94a3b8">v1.2</td>
+            <td style="color:#64748b">hace 2d</td>
+            <td><div style="display:flex;gap:5px"><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#9998; Editar</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#8854;</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px;color:#f87171">&#128465;</button></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:#e2e8f0">Contrato Servicios — ACME Corp</td>
+            <td><span class="badge" style="font-size:10px">Servicios</span></td>
+            <td><span class="badge badge-cyan" style="font-size:10px">Cliente: ACME Corp</span></td>
+            <td style="font-family:var(--mono);color:#94a3b8">v1.0</td>
+            <td style="color:#64748b">hace 5d</td>
+            <td><div style="display:flex;gap:5px"><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#9998; Editar</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#8854;</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px;color:#f87171">&#128465;</button></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:#e2e8f0">Contrato de Venta</td>
+            <td><span class="badge badge-purple" style="font-size:10px">Venta</span></td>
+            <td><span class="badge badge-green" style="font-size:10px">Global</span></td>
+            <td style="font-family:var(--mono);color:#94a3b8">v2.1</td>
+            <td style="color:#64748b">hace 1 sem</td>
+            <td><div style="display:flex;gap:5px"><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#9998; Editar</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#8854;</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px;color:#f87171">&#128465;</button></div></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:#e2e8f0">Contrato Laboral Base</td>
+            <td><span class="badge badge-orange" style="font-size:10px">Laboral</span></td>
+            <td><span class="badge badge-green" style="font-size:10px">Global</span></td>
+            <td style="font-family:var(--mono);color:#94a3b8">v1.0</td>
+            <td style="color:#64748b">hace 3d</td>
+            <td><div style="display:flex;gap:5px"><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#9998; Editar</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px">&#8854;</button><button class="m-btn m-btn-ghost" style="padding:3px 8px;font-size:10px;color:#f87171">&#128465;</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3 style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">B — Editor V2 (3 columnas)</h3>
+  <div class="mockup">
+    <div class="mock-titlebar">
+      <div class="mock-dots">
+        <div class="mock-dot" style="background:#ef4444"></div>
+        <div class="mock-dot" style="background:#f59e0b"></div>
+        <div class="mock-dot" style="background:#22c55e"></div>
+      </div>
+      <div class="mock-titlebar-txt">Contrato de Servicios Standard · Editor V2</div>
+      <div style="display:flex;gap:6px">
+        <button class="m-btn m-btn-ghost" style="font-size:10px;padding:3px 8px">&#128065; Preview</button>
+        <button class="m-btn m-btn-prim" style="font-size:10px;padding:3px 10px">Guardar</button>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <div class="ed-left">
+        <div class="ed-left-title">Estructura</div>
+        <div class="ed-idx-item active"><span class="ed-idx-num">01</span>&#128196; Identificación de partes</div>
+        <div class="ed-idx-item locked">&#128274; Tabla de Servicios</div>
+        <div class="ed-idx-item"><span class="ed-idx-num">02</span>&#128196; Vigencia del contrato</div>
+        <div class="ed-idx-item"><span class="ed-idx-num">03</span>&#128196; Condiciones de pago</div>
+        <div class="ed-idx-item locked">&#128274; Identificación cliente</div>
+        <div class="ed-idx-item"><span class="ed-idx-num">04</span>&#128196; Cláusula de confidencialidad</div>
+        <div style="padding:10px 12px;margin-top:auto">
+          <button class="m-btn m-btn-ghost" style="width:100%;font-size:11px;display:flex;justify-content:center">+ Sección</button>
+        </div>
+      </div>
+      <div class="ed-center">
+        <div class="ed-toolbar">
+          <div class="tb-btn" title="Negrita (Ctrl+B)"><strong>B</strong></div>
+          <div class="tb-btn" title="Cursiva (Ctrl+I)"><em>I</em></div>
+          <div class="tb-btn" title="Subrayado (Ctrl+U)" style="text-decoration:underline">U</div>
+          <div class="tb-sep"></div>
+          <div class="tb-btn" style="font-size:9px;width:30px">H2</div>
+          <div class="tb-btn" style="font-size:9px;width:30px">H3</div>
+          <div class="tb-sep"></div>
+          <div class="tb-btn">&#8226;&#9472;</div>
+          <div class="tb-btn">1&#9472;</div>
+          <div class="tb-sep"></div>
+          <div class="tb-btn" title="Deshacer (Ctrl+Z)">&#8617;</div>
+          <div class="tb-btn" title="Rehacer (Ctrl+Y)">&#8618;</div>
+          <span style="margin-left:auto;font-size:10px;color:#475569;display:flex;align-items:center;gap:6px">
+            Contrato de Servicios Standard
+            <span class="badge" style="font-size:9px;padding:2px 7px">Servicios</span>
+            <span class="badge badge-green" style="font-size:9px;padding:2px 7px">Global</span>
+          </span>
+        </div>
+        <div class="ed-doc">
+          <div class="ed-sec-title">1. Identificación de Partes</div>
+          <p>En la ciudad de Santiago, a fecha <span class="etag">[fecha_inicio]</span>, entre <span class="etag">[nombre_prestadora]</span>, RUT <span class="etag">[rut_prestadora]</span>, en adelante "La Empresa", y <span class="etag">[nombre_cliente]</span>, RUT <span class="etag">[rut_cliente]</span>, representada legalmente por <span class="etag">[representante_cliente]</span>, en adelante "El Cliente", se celebra el siguiente contrato de prestación de servicios.</p>
+          <div class="locked-block">&#128274; <strong style="color:#334155">Tabla de Servicios</strong><span style="margin-left:4px">— se generará automáticamente con los servicios del contrato</span></div>
+          <div class="ed-sec-title" style="margin-top:16px">2. Vigencia del Contrato</div>
+          <p>El presente contrato tendrá una vigencia de <span class="etag">[vigencia_meses]</span> meses, contados desde el <span class="etag">[fecha_inicio]</span> hasta el <span class="etag">[fecha_termino]</span>, pudiendo ser renovado por mutuo acuerdo.</p>
+        </div>
+        <div class="ed-saved">&#10003; Guardado hace 3s</div>
+      </div>
+      <div class="ed-right">
+        <input class="ed-search" placeholder="&#128269; Buscar etiqueta..." type="text">
+        <div class="acc-header"><span class="acc-title">&#128100; Cliente</span><span style="color:#475569;font-size:10px">&#9660;</span></div>
+        <div class="etag-list">
+          <span class="etag-small">[nombre_cliente]</span>
+          <span class="etag-small">[rut_cliente]</span>
+          <span class="etag-small">[email_cliente]</span>
+          <span class="etag-small">[direccion_cliente]</span>
+          <span class="etag-small">[telefono_cliente]</span>
+          <span class="etag-small">[representante_cliente]</span>
+        </div>
+        <div class="acc-closed"><span>&#127970; Proveedor</span><span style="font-size:10px">&#9658;</span></div>
+        <div class="acc-closed"><span>&#128203; Contrato</span><span style="font-size:10px">&#9658;</span></div>
+        <div class="acc-closed"><span>&#128176; Económico</span><span style="font-size:10px">&#9658;</span></div>
+        <div class="acc-closed"><span>&#128119; Trabajador</span><span style="font-size:10px">&#9658;</span></div>
+        <div class="acc-closed"><span>&#9881; Custom</span><span style="font-size:10px">&#9658;</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">C — Modal Nueva Plantilla V2</h3>
+  <div class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Nueva Plantilla de Contrato</h3>
+        <button class="m-btn m-btn-ghost" style="padding:2px 8px;font-size:12px">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <label class="mf-label">Nombre de la plantilla</label>
+        <input class="mf-input" placeholder="ej: Contrato de Servicios Standard" value="">
+        <label class="mf-label">Tipo de contrato</label>
+        <select class="mf-select">
+          <option>Servicios</option>
+          <option>Venta</option>
+          <option>Licencia</option>
+          <option>Contrato Laboral</option>
+        </select>
+        <label class="mf-label">Scope de la plantilla</label>
+        <div class="radio-opt selected">
+          <div class="radio-circle on"></div>
+          <div>
+            <div class="radio-label">Global</div>
+            <div class="radio-desc">Disponible para todos los contratos de este tipo</div>
+          </div>
+        </div>
+        <div class="radio-opt">
+          <div class="radio-circle"></div>
+          <div style="flex:1">
+            <div class="radio-label">Para empresa cliente específica</div>
+            <div class="radio-desc">Aparecerá primero en el wizard al crear un contrato para ese cliente</div>
+            <select class="mf-select" style="margin-top:8px;margin-bottom:0;opacity:.5">
+              <option>Seleccionar cliente...</option>
+              <option>ACME Corp</option>
+              <option>Empresa ABC Ltda</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="m-btn m-btn-ghost">Cancelar</button>
+        <button class="m-btn m-btn-prim">Crear Plantilla</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. RIESGOS -->
+<section id="riesgos">
+  <div class="sh"><div class="sh-num">4</div><div class="sh-title">Tabla de Riesgos</div></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>Riesgo</th><th>Probabilidad</th><th>Impacto</th><th>Mitigación</th><th>Área</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;color:#e2e8f0">Incompatibilidad Slate JSON ↔ formato <code>[etiqueta]</code> legacy</td>
+          <td><span class="badge badge-amber" style="font-size:10px">Media</span></td>
+          <td><span class="badge badge-red" style="font-size:10px">Alto</span></td>
+          <td>Tests bidireccionales en F6. <code>contenido_template</code> (texto plano) como source of truth para el motor PDF. Helpers <code>serializarSlateAPlantilla</code> con cobertura.</td>
+          <td><span class="badge" style="font-size:10px">Backend+FE</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;color:#e2e8f0">Performance Slate con documentos &gt;30 secciones</td>
+          <td><span class="badge badge-green" style="font-size:10px">Baja</span></td>
+          <td><span class="badge badge-amber" style="font-size:10px">Medio</span></td>
+          <td>Contratos típicos &lt;15 secciones. Monitorear. Considerar virtualización de secciones si crece.</td>
+          <td><span class="badge badge-purple" style="font-size:10px">Frontend</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;color:#e2e8f0">FK <code>empresa_cliente</code> cross-tenant (integridad referencial)</td>
+          <td><span class="badge badge-amber" style="font-size:10px">Media</span></td>
+          <td><span class="badge badge-red" style="font-size:10px">Alto</span></td>
+          <td>Validar en serializer: <code>empresa_cliente.empresa_prestadora == request.user.prestadora</code>. No es control de acceso, es consistencia de datos.</td>
+          <td><span class="badge" style="font-size:10px">Backend</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;color:#e2e8f0">Invalidación cruzada tags RTK V1 ↔ V2</td>
+          <td><span class="badge badge-amber" style="font-size:10px">Media</span></td>
+          <td><span class="badge badge-amber" style="font-size:10px">Medio</span></td>
+          <td>Tags completamente separados: <code>PlantillaContratoV2*</code> vs <code>PlantillaContrato*</code>. Sin <code>refetch()</code> manual post-mutation.</td>
+          <td><span class="badge badge-purple" style="font-size:10px">Frontend</span></td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;color:#e2e8f0">Bloques transversales hardcodeados en V1 divergen del catálogo V2</td>
+          <td><span class="badge badge-amber" style="font-size:10px">Media</span></td>
+          <td><span class="badge badge-green" style="font-size:10px">Bajo</span></td>
+          <td>Seed idempotente en <code>seed_bloques_transversales</code> compara contra hardcodeados de <code>funciones.py</code>. Audit explícito en F1.</td>
+          <td><span class="badge" style="font-size:10px">Backend</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 5. SNIPPETS -->
+<section id="snippets">
+  <div class="sh"><div class="sh-num">5</div><div class="sh-title">Snippets de Código Críticos</div></div>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <span class="code-filename">backend/contratos/models.py — BloqueTransversalContrato</span>
+      <span class="badge" style="font-size:10px">Python</span>
+    </div>
+    <div class="code-block"><span class="cmt"># Nuevo modelo: catálogo declarativo de bloques transversales por tipo de contrato</span>
+
+<span class="kw">class</span> <span class="typ">BloqueTransversalContrato</span>(<span class="typ">ModeloBase</span>):
+    CODIGOS = [
+        (<span class="str">'tabla_servicios'</span>,         <span class="str">'Tabla de Servicios'</span>),
+        (<span class="str">'identificacion_cliente'</span>,  <span class="str">'Identificación del Cliente'</span>),
+        (<span class="str">'tabla_licencias'</span>,         <span class="str">'Tabla de Licencias'</span>),
+        (<span class="str">'resumen_comercial'</span>,       <span class="str">'Resumen Comercial'</span>),
+        (<span class="str">'tabla_cuotas'</span>,            <span class="str">'Tabla de Cuotas'</span>),
+    ]
+    tipo_contrato    = models.<span class="fn">CharField</span>(max_length=<span class="val">20</span>, choices=TIPO_CONTRATO)
+    codigo           = models.<span class="fn">CharField</span>(max_length=<span class="val">60</span>, choices=CODIGOS)
+    titulo           = models.<span class="fn">CharField</span>(max_length=<span class="val">200</span>)
+    descripcion      = models.<span class="fn">TextField</span>(blank=<span class="val">True</span>)
+    posicion_default = models.<span class="fn">PositiveIntegerField</span>(default=<span class="val">0</span>)
+    editable         = models.<span class="fn">BooleanField</span>(default=<span class="val">False</span>)
+    activo           = models.<span class="fn">BooleanField</span>(default=<span class="val">True</span>)
+
+    <span class="kw">class</span> <span class="typ">Meta</span>:
+        unique_together = [(<span class="str">'tipo_contrato'</span>, <span class="str">'codigo'</span>)]
+        ordering = [<span class="str">'tipo_contrato'</span>, <span class="str">'posicion_default'</span>]
+
+    <span class="kw">def</span> <span class="fn">__str__</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="fn">f</span><span class="str">"{self.get_tipo_contrato_display()} — {self.titulo}"</span>
+</div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <span class="code-filename">frontend/src/utils/slatePlantillas.ts — withEtiquetas plugin</span>
+      <span class="badge badge-purple" style="font-size:10px">TypeScript</span>
+    </div>
+    <div class="code-block"><span class="kw">import</span> { <span class="typ">Element</span>, <span class="typ">Transforms</span> } <span class="kw">from</span> <span class="str">'slate'</span>;
+<span class="kw">import</span> <span class="kw">type</span> { <span class="typ">ReactEditor</span> } <span class="kw">from</span> <span class="str">'slate-react'</span>;
+<span class="kw">import</span> <span class="kw">type</span> { <span class="typ">TNodoEtiqueta</span> } <span class="kw">from</span> <span class="str">'@/interface/plantillaContratoV2.interface'</span>;
+
+<span class="cmt">/** Plugin Slate: marca etiquetas y bloques transversales como nodos void */</span>
+<span class="kw">export function</span> <span class="fn">withEtiquetas</span>(editor: <span class="typ">ReactEditor</span>): <span class="typ">ReactEditor</span> {
+  <span class="kw">const</span> { isVoid, isInline } = editor;
+
+  editor.isVoid = (element: <span class="typ">Element</span>) =&gt;
+    element.type === <span class="str">'etiqueta'</span> || element.type === <span class="str">'bloque_transversal'</span>
+      ? <span class="val">true</span>
+      : isVoid(element);
+
+  editor.isInline = (element: <span class="typ">Element</span>) =&gt;
+    element.type === <span class="str">'etiqueta'</span> ? <span class="val">true</span> : isInline(element);
+
+  <span class="kw">return</span> editor;
+}
+
+<span class="cmt">/** Inserta un chip de etiqueta en la posición actual del cursor */</span>
+<span class="kw">export function</span> <span class="fn">insertarEtiqueta</span>(editor: <span class="typ">ReactEditor</span>, clave: <span class="typ">string</span>): <span class="typ">void</span> {
+  <span class="kw">const</span> nodo: <span class="typ">TNodoEtiqueta</span> = { type: <span class="str">'etiqueta'</span>, clave, children: [{ text: <span class="str">''</span> }] };
+  Transforms.<span class="fn">insertNodes</span>(editor, nodo);
+  Transforms.<span class="fn">move</span>(editor);  <span class="cmt">// mueve cursor después del chip</span>
+}
+</div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <span class="code-filename">backend/contratos/views.py — filtro scope=wizard en get_queryset</span>
+      <span class="badge" style="font-size:10px">Python</span>
+    </div>
+    <div class="code-block"><span class="kw">from</span> django.db.models <span class="kw">import</span> <span class="typ">Case</span>, <span class="typ">When</span>, <span class="typ">Q</span>
+
+<span class="kw">class</span> <span class="typ">PlantillaContratoV2ViewSet</span>(viewsets.<span class="typ">ModelViewSet</span>):
+    permission_classes = [permissions.<span class="typ">IsAuthenticated</span>]
+
+    <span class="kw">def</span> <span class="fn">get_queryset</span>(<span class="kw">self</span>):
+        empresa = <span class="fn">get_empresa_from_user</span>(<span class="kw">self</span>.request.user)  <span class="cmt"># helper de core</span>
+        qs = <span class="typ">PlantillaContrato</span>.objects.<span class="fn">filter</span>(empresa_prestadora=empresa)
+
+        tipo    = <span class="kw">self</span>.request.query_params.<span class="fn">get</span>(<span class="str">'tipo_contrato'</span>)
+        cliente = <span class="kw">self</span>.request.query_params.<span class="fn">get</span>(<span class="str">'empresa_cliente'</span>)
+        scope   = <span class="kw">self</span>.request.query_params.<span class="fn">get</span>(<span class="str">'scope'</span>)
+
+        <span class="kw">if</span> tipo:
+            qs = qs.<span class="fn">filter</span>(tipo_contrato=tipo)
+
+        <span class="kw">if</span> scope == <span class="str">'wizard'</span> <span class="kw">and</span> cliente:
+            <span class="cmt"># Wizard: globales + las del cliente, cliente específico primero</span>
+            qs = qs.<span class="fn">filter</span>(
+                <span class="typ">Q</span>(empresa_cliente__isnull=<span class="val">True</span>) | <span class="typ">Q</span>(empresa_cliente_id=cliente)
+            ).<span class="fn">order_by</span>(
+                <span class="typ">Case</span>(<span class="typ">When</span>(empresa_cliente_id=cliente, then=<span class="val">0</span>), default=<span class="val">1</span>),
+                <span class="str">'nombre'</span>,
+            )
+        <span class="kw">elif</span> cliente:
+            qs = qs.<span class="fn">filter</span>(empresa_cliente_id=cliente)
+
+        <span class="kw">return</span> qs
+</div>
+  </div>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <span class="code-filename">frontend/src/utils/slatePlantillas.ts — serialización bidireccional Slate ↔ legacy</span>
+      <span class="badge badge-purple" style="font-size:10px">TypeScript</span>
+    </div>
+    <div class="code-block"><span class="kw">import</span> <span class="kw">type</span> { <span class="typ">Descendant</span> } <span class="kw">from</span> <span class="str">'slate'</span>;
+
+<span class="cmt">/** Serializa nodos Slate → { json para BD, legacy para motor PDF V1/V2 } */</span>
+<span class="kw">export function</span> <span class="fn">serializarSlateAPlantilla</span>(nodos: <span class="typ">Descendant</span>[]): {
+  json: <span class="typ">string</span>;
+  legacy: <span class="typ">string</span>;
+} {
+  <span class="kw">const</span> legacy = nodos.<span class="fn">map</span>(serializarNodo).<span class="fn">join</span>(<span class="str">'\n'</span>);
+  <span class="kw">return</span> { json: <span class="typ">JSON</span>.<span class="fn">stringify</span>(nodos), legacy };
+}
+
+<span class="kw">function</span> <span class="fn">serializarNodo</span>(nodo: <span class="typ">Descendant</span>): <span class="typ">string</span> {
+  <span class="kw">if</span> (<span class="str">'text'</span> <span class="kw">in</span> nodo) {
+    <span class="kw">let</span> t = nodo.text <span class="kw">as</span> <span class="typ">string</span>;
+    <span class="kw">if</span> ((nodo <span class="kw">as</span> <span class="typ">any</span>).bold)   t = <span class="str">`&lt;strong&gt;${t}&lt;/strong&gt;`</span>;
+    <span class="kw">if</span> ((nodo <span class="kw">as</span> <span class="typ">any</span>).italic) t = <span class="str">`&lt;em&gt;${t}&lt;/em&gt;`</span>;
+    <span class="kw">return</span> t;
+  }
+  <span class="kw">const</span> el = nodo <span class="kw">as</span> <span class="typ">any</span>;
+  <span class="kw">if</span> (el.type === <span class="str">'etiqueta'</span>)           <span class="kw">return</span> <span class="str">`[${el.clave}]`</span>;
+  <span class="kw">if</span> (el.type === <span class="str">'bloque_transversal'</span>) <span class="kw">return</span> <span class="str">''</span>;  <span class="cmt">// render es 100% server-side</span>
+  <span class="kw">if</span> (el.type === <span class="str">'bulleted-list'</span>)
+    <span class="kw">return</span> el.children.<span class="fn">map</span>((li: <span class="typ">any</span>) =&gt;
+      <span class="str">`&lt;li&gt;${li.children.map(serializarNodo).join('')}&lt;/li&gt;`</span>
+    ).<span class="fn">join</span>(<span class="str">''</span>);
+  <span class="kw">return</span> el.children?.<span class="fn">map</span>(serializarNodo).<span class="fn">join</span>(<span class="str">''</span>) ?? <span class="str">''</span>;
+}
+</div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<footer style="border-top:1px solid #1e2d4a;padding:20px 24px;text-align:center;color:#334155;font-size:11px;margin-top:16px">
+  ERP Snabbit &middot; Motor Plantillas V2 &middot; Plan generado Mayo 2026
+  &middot; <span style="color:#475569">V1 se mantiene intacta en producción &middot; Rutas V2 bajo <code>/api/v2/plantillas-contrato/</code></span>
+</footer>
+
+</body>
+</html>
+"""
+
+FULL = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Motor Plantillas V2 — Plan · Snabbit ERP</title>
+<style>{CSS}</style>
+</head>
+{BODY}"""
+
+with open(OUT, 'w', encoding='utf-8') as f:
+    f.write(FULL)
+
+size = os.path.getsize(OUT)
+print(f'OK: {OUT}')
+print(f'Tamaño: {size:,} bytes')
