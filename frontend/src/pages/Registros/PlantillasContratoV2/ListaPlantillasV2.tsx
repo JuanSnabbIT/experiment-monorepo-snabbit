@@ -55,6 +55,7 @@ const ListaPlantillasV2 = () => {
                             </p>
                         </div>
                         <Select
+                            name='filtroTipo'
                             className='w-44'
                             value={filtroTipo}
                             onChange={(e) => setFiltroTipo(e.target.value)}>
@@ -66,6 +67,7 @@ const ListaPlantillasV2 = () => {
                             ))}
                         </Select>
                         <Input
+                            name='busqueda'
                             className='w-52'
                             placeholder='Buscar por título...'
                             value={busqueda}
@@ -161,7 +163,7 @@ const ListaPlantillasV2 = () => {
                                                             Global
                                                         </Badge>
                                                     ) : (
-                                                        <Badge color='cyan' variant='outline'>
+                                                        <Badge color='sky' variant='outline'>
                                                             {plantilla.empresa_cliente_nombre}
                                                         </Badge>
                                                     )}

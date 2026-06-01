@@ -9,7 +9,7 @@ import type {
 } from '@/interface/plantillaContratoV2.interface';
 import { insertarEtiqueta, withEtiquetas } from '@/utils/slatePlantillas';
 import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
-import { createEditor, Editor, Element, Transforms } from 'slate';
+import { createEditor, Descendant, Editor, Element, Transforms } from 'slate';
 import { withHistory } from 'slate-history';
 import {
     Editable,
@@ -253,7 +253,7 @@ const SlateEditorV2 = forwardRef<ISlateEditorV2Handle, ISlateEditorV2Props>(
         return (
             <Slate
                 editor={editor}
-                initialValue={initialValue}
+                initialValue={initialValue as unknown as Descendant[]}
                 onChange={(nodes) => onChange(nodes as TSlateNode[])}>
                 {/* ── Barra de herramientas ─── */}
                 <div className='flex flex-wrap items-center gap-0.5 rounded-t border border-b-0 border-zinc-300 bg-zinc-50 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-800'>
