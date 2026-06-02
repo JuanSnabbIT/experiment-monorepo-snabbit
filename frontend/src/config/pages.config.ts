@@ -625,6 +625,13 @@ export const Pages = {
                 icon: 'HeroDocumentCheck',
                 authority: ['staff', 'superadmin', 'rrhh'],
             },
+            detalleTrabajador: {
+                id: 'detalleTrabajador',
+                to: '/rrhh/trabajadores/:ueId',
+                text: 'Detalle Trabajador',
+                icon: 'HeroUser',
+                authority: ['staff', 'superadmin', 'rrhh'],
+            },
         },
     },
 

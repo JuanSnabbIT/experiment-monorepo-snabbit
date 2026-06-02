@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import ButtonGroup from '@/components/ui/ButtonGroup';
 import { FormikProps } from 'formik';
 import { useState } from 'react';
-import { IFormValuesContratoTrabajador, MONEDA_LABORAL_OPTIONS } from './types';
+import { IFormValuesContratoTrabajador, MONEDA_LABORAL_OPTIONS, TIPO_GRATIFICACION_OPTIONS } from './types';
 
 interface Props {
     formik: FormikProps<IFormValuesContratoTrabajador>;
@@ -23,7 +23,7 @@ const StepRemuneraciones = ({ formik }: Props) => {
     const sueldoBase = Number(values.sueldo_base) || 0;
     const bonoColacion = Number(values.bono_colacion) || 0;
     const bonoMovilizacion = Number(values.bono_movilizacion) || 0;
-    const gratificacion = values.gratificacion_legal ? Math.round(sueldoBase * 0.25) : 0;
+    const gratificacion = values.tipo_gratificacion === 'art_50_mensual' ? Math.round(sueldoBase * 0.25) : 0;
     const totalBruto = sueldoBase + gratificacion + bonoColacion + bonoMovilizacion;
     const descuentos = incluirDescuentos ? Math.round(sueldoBase * (pctDescuentos / 100)) : 0;
     const totalLiquido = Math.max(0, totalBruto - descuentos);
@@ -95,23 +95,20 @@ const StepRemuneraciones = ({ formik }: Props) => {
                     {/* Gratificacion legal + Descuentos legales */}
                     <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
                         <div>
-                            <Label htmlFor='gratificacion_legal'>Gratificacion legal</Label>
+                            <Label htmlFor='tipo_gratificacion'>Gratificacion</Label>
                             <SelectReact
-                                id='gratificacion_legal'
-                                name='gratificacion_legal'
-                                options={[
-                                    { value: 'no', label: 'No aplica' },
-                                    { value: 'si', label: 'Si (25% mensualizado)' },
-                                ]}
+                                id='tipo_gratificacion'
+                                name='tipo_gratificacion'
+                                options={TIPO_GRATIFICACION_OPTIONS}
                                 value={
-                                    values.gratificacion_legal
-                                        ? { value: 'si', label: 'Si (25% mensualizado)' }
-                                        : { value: 'no', label: 'No aplica' }
+                                    TIPO_GRATIFICACION_OPTIONS.find(
+                                        (o) => o.value === values.tipo_gratificacion,
+                                    ) || null
                                 }
                                 onChange={(opt) =>
                                     setFieldValue(
-                                        'gratificacion_legal',
-                                        (opt as TSelectOption)?.value === 'si',
+                                        'tipo_gratificacion',
+                                        (opt as TSelectOption)?.value ?? '',
                                     )
                                 }
                             />

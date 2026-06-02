@@ -2,6 +2,7 @@ import math
 from datetime import date
 
 from core.models import ModeloBase
+from core.validators import validate_rut_chileno
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.models import Group
 from django.db import models
@@ -96,13 +97,32 @@ class UsuarioEmpresa(ModeloBase):
     )
     fecha_ingreso = models.DateField(blank=True, null=True)
     fecha_contrato = models.DateField(blank=True, null=True)
-    cargo = models.CharField(max_length=150, blank=True, null=True)
-    rut = models.CharField(max_length=20, blank=True, null=True, verbose_name="RUT del usuario")
+    cargo = models.CharField(
+        max_length=150,
+        blank=True,
+        null=True,
+        # Cargo vigente del trabajador. Puede cambiar sin afectar contratos historicos.
+        # ContratoTrabajador.cargo registra el cargo al momento de la firma (dato historico, ADR-24).
+    )
+    rut = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="RUT del usuario",
+        validators=[validate_rut_chileno],
+    )
     estado = models.CharField(max_length=1, choices=ESTADO_USUARIO_EMPRESA, default="1")
     grupos = models.ManyToManyField(Group, blank=True)
 
     # Datos previsionales (opcionales) para contratos laborales
-    afp = models.CharField(max_length=50, blank=True, null=True, verbose_name="AFP")
+    afp = models.ForeignKey(
+        "rrhh.AfpCatalogo",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="AFP",
+        related_name="usuarios_empresa",
+    )
     sistema_salud = models.CharField(
         max_length=20, choices=SISTEMA_SALUD, blank=True, null=True,
         verbose_name="Sistema de salud",

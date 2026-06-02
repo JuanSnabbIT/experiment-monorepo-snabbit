@@ -112,7 +112,7 @@ class ContratoTrabajador(ModeloBaseHistorico):
     )
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
-    fecha_aceptacion = models.DateTimeField(blank=True, null=True)
+    fecha_aprobacion = models.DateTimeField(blank=True, null=True)
     aceptado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

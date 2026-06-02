@@ -49,10 +49,10 @@ export interface IFormValuesContratoTrabajador {
     sueldo_base: number | '';
     sueldo_liquido: number | '';
     moneda: TMonedaContrato;
-    gratificacion_legal: boolean;
+    tipo_gratificacion: 'art_47' | 'art_50_mensual' | 'no_aplica' | '';
     bono_movilizacion: number | '';
     bono_colacion: number | '';
-    afp: string;
+    afp: number | null;
     sistema_salud: '' | 'fonasa' | 'isapre' | 'otro';
     nombre_isapre: string;
     banco: string;
@@ -67,14 +67,12 @@ export interface IFormValuesContratoTrabajador {
 export const TIPO_CONTRATO_OPTIONS = [
     { value: 'indefinido', label: 'Indefinido' },
     { value: 'plazo_fijo', label: 'Plazo fijo' },
-    { value: 'honorarios', label: 'Honorarios' },
     { value: 'reemplazo', label: 'Reemplazo' },
 ];
 
 export const JORNADA_OPTIONS = [
     { value: 'completa', label: 'Jornada completa' },
     { value: 'parcial', label: 'Jornada parcial' },
-    { value: 'part_time', label: 'Part time' },
     { value: 'turnos', label: 'Turnos' },
 ];
 
@@ -88,6 +86,12 @@ export const SISTEMA_SALUD_OPTIONS = [
     { value: 'fonasa', label: 'Fonasa' },
     { value: 'isapre', label: 'Isapre' },
     { value: 'otro', label: 'Otro' },
+];
+
+export const TIPO_GRATIFICACION_OPTIONS = [
+    { value: 'art_47', label: 'Gratificacion anual (Art. 47 CT)' },
+    { value: 'art_50_mensual', label: 'Gratificacion mensual garantizada (Art. 50 CT)' },
+    { value: 'no_aplica', label: 'No aplica' },
 ];
 
 export const TIPO_CUENTA_OPTIONS = [
@@ -109,7 +113,6 @@ export const HORAS_SEMANALES_OPTIONS = [
     { value: '36', label: '36 hrs' },
     { value: '40', label: '40 hrs' },
     { value: '44', label: '44 hrs' },
-    { value: '45', label: '45 hrs' },
 ];
 
 export interface ITurnoRotativo {

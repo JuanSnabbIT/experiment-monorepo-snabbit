@@ -65,7 +65,8 @@ export interface IContratoLaboralVigente {
     sueldo_base: string;
     sueldo_liquido: string | null;
     moneda: 'CLP' | 'UF' | 'USD';
-    gratificacion_legal: boolean;
+    tipo_gratificacion?: string | null;
+    tipo_gratificacion_label?: string | null;
     bono_movilizacion: string;
     bono_colacion: string;
     fecha_inicio: string;
@@ -124,7 +125,8 @@ export interface IUsuarioEmpresa {
     comuna_nombre?: string | null;
     foto_perfil?: string | null;
     // Datos previsionales
-    afp?: string | null;
+    afp?: number | null;
+    afp_nombre?: string | null;
     sistema_salud?: 'fonasa' | 'isapre' | 'otro' | null;
     sistema_salud_label?: string | null;
     nombre_isapre?: string | null;

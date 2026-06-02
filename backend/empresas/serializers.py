@@ -73,6 +73,9 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
     sistema_salud_label = serializers.SerializerMethodField()
     tipo_cuenta_bancaria_label = serializers.SerializerMethodField()
 
+    # AFP como FK: exponer nombre legible
+    afp_nombre = serializers.CharField(source="afp.nombre", read_only=True, default=None)
+
     # Cargas familiares
     cargas_familiares = CargaFamiliarSerializer(many=True, read_only=True)
 
@@ -174,7 +177,7 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
 
     def get_contrato_laboral_vigente(self, obj):
         """Retorna el contrato laboral RRHH mas relevante del trabajador."""
-        PRIORIDAD = ["vigente", "pendiente_aceptacion", "borrador"]
+        PRIORIDAD = ["vigente", "pendiente_aprobacion", "borrador"]
         contrato = None
         for estado in PRIORIDAD:
             contrato = obj.contratos_laborales.filter(estado=estado).order_by("-fecha_creacion").first()
@@ -193,7 +196,8 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
             "sueldo_base": str(contrato.sueldo_base),
             "sueldo_liquido": str(contrato.sueldo_liquido) if contrato.sueldo_liquido else None,
             "moneda": contrato.moneda,
-            "gratificacion_legal": contrato.gratificacion_legal,
+            "tipo_gratificacion": getattr(contrato, 'tipo_gratificacion', None),
+            "tipo_gratificacion_label": contrato.get_tipo_gratificacion_display() if hasattr(contrato, 'tipo_gratificacion') else None,
             "bono_movilizacion": str(contrato.bono_movilizacion),
             "bono_colacion": str(contrato.bono_colacion),
             "fecha_inicio": str(contrato.fecha_inicio),

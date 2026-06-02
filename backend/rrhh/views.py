@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -204,8 +205,12 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             return ContratoTrabajador.objects.none()
 
         ids_visibles = [empresa.id, *_empresas_clientes_ids(empresa)]
+        sucursal_ids = list(
+            SucursalEmpresa.objects.filter(empresa_id__in=ids_visibles).values_list("id", flat=True)
+        )
         qs = ContratoTrabajador.objects.filter(
-            usuario_empresa__sucursal__empresa_id__in=ids_visibles,
+            Q(usuario_empresa__sucursal__empresa_id__in=ids_visibles)
+            | Q(usuario_empresa__isnull=True, datos_trabajador_nuevo__sucursal_id__in=sucursal_ids)
         ).select_related("usuario_empresa__usuario", "usuario_empresa__sucursal")
 
         usuario_empresa_id = self.request.query_params.get("usuario_empresa")
@@ -273,9 +278,9 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
     def aceptar(self, request, pk=None):
         contrato = self.get_object()
 
-        if contrato.estado != "pendiente_aceptacion":
+        if contrato.estado != "pendiente_aprobacion":
             return Response(
-                {"detail": "Solo se pueden aceptar contratos en estado 'pendiente_aceptacion'."},
+                {"detail": "Solo se pueden aceptar contratos en estado 'pendiente_aprobacion'."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -288,7 +293,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             )
 
         contrato.estado = "vigente"
-        contrato.fecha_aceptacion = timezone.now()
+        contrato.fecha_aprobacion = timezone.now()
         contrato.aceptado_por = request.user
 
         ue = contrato.usuario_empresa
@@ -558,7 +563,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
         """Crea una copia del contrato en estado borrador.
 
         El nombre del nuevo contrato se recibe en el body como `nombre`.
-        Los documentos PDF, firma, fecha de aceptacion y sueldo liquido NO se copian.
+        Los documentos PDF, firma, fecha de aprobacion y sueldo liquido NO se copian.
         """
         original = self.get_object()
         nombre = (request.data.get("nombre") or "").strip()
@@ -600,7 +605,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
     def enviar_aprobacion_empleador(self, request, pk=None):
         """
         Envia el contrato PDF al empleador para su aprobacion previa.
-        Transiciona el contrato a 'pendiente_aceptacion' y crea EnvioAprobacionEmpleador.
+        Transiciona el contrato a 'pendiente_aprobacion' y crea EnvioAprobacionEmpleador.
         """
         from contratos.servicio_pdf import PlantillaNoDisponibleError, generar_pdf as _generar_pdf
 
@@ -636,8 +641,8 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             enviado_por=request.user,
         )
 
-        # Transicionar contrato a pendiente_aceptacion
-        contrato.estado = "pendiente_aceptacion"
+        # Transicionar contrato a pendiente_aprobacion
+        contrato.estado = "pendiente_aprobacion"
         contrato._change_reason = "[SISTEMA] Enviado a aprobacion del empleador"
         contrato.save(update_fields=["estado", "fecha_modificacion"])
 
@@ -1083,7 +1088,7 @@ class ContratoAprobacionResponderView(APIView):
         )
 
         if decision == "aprobado":
-            if contrato.estado == "pendiente_aceptacion":
+            if contrato.estado == "pendiente_aprobacion":
                 update_fields = ["estado", "fecha_modificacion"]
                 contrato.estado = "vigente"
 
@@ -1212,7 +1217,7 @@ class ContratoAprobacionResponderView(APIView):
 
         elif decision == "rechazado":
             # El rechazo anula el contrato definitivamente (fin del flujo)
-            if contrato.estado in ("pendiente_aceptacion", "borrador"):
+            if contrato.estado in ("pendiente_aprobacion", "borrador"):
                 contrato.estado = "anulado"
                 contrato._change_reason = "[SISTEMA] Contrato rechazado por empleador via vista publica"
                 contrato.save(update_fields=["estado", "fecha_modificacion"])

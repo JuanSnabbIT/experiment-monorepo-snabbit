@@ -2,7 +2,6 @@ import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import {
-    useCrearAfpInlineMutation,
     useCrearBancoInlineMutation,
     useGetAfpCatalogoQuery,
     useGetBancoCatalogoQuery,
@@ -35,26 +34,16 @@ const StepPrevisionBanco = ({ formik }: Props) => {
 
     const { data: afpList = [] } = useGetAfpCatalogoQuery();
     const { data: bancoList = [] } = useGetBancoCatalogoQuery();
-    const [crearAfp] = useCrearAfpInlineMutation();
     const [crearBanco] = useCrearBancoInlineMutation();
 
     const afpOptions = useMemo<TSelectOption[]>(
-        () => afpList.map((a) => ({ value: a.nombre, label: a.nombre })),
+        () => afpList.map((a) => ({ value: String(a.id), label: a.nombre })),
         [afpList],
     );
     const bancoOptions = useMemo<TSelectOption[]>(
         () => bancoList.map((b) => ({ value: b.nombre, label: b.nombre })),
         [bancoList],
     );
-
-    const handleCrearAfp = async (inputValue: string) => {
-        try {
-            const nuevo = await crearAfp({ nombre: inputValue }).unwrap();
-            setFieldValue('afp', nuevo.nombre);
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        }
-    };
 
     const handleCrearBanco = async (inputValue: string) => {
         try {
@@ -93,13 +82,10 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                         <SelectReact
                             name='afp'
                             options={afpOptions}
-                            value={afpOptions.find((o) => o.value === values.afp) || null}
-                            onChange={(opt) => setFieldValue('afp', (opt as TSelectOption)?.value || '')}
+                            value={afpOptions.find((o) => o.value === String(values.afp)) || null}
+                            onChange={(opt) => setFieldValue('afp', (opt as TSelectOption)?.value ? Number((opt as TSelectOption).value) : null)}
                             isClearable
-                            isCreatable
-                            onCreateOption={handleCrearAfp}
-                            formatCreateLabel={(v) => `Agregar AFP: "${v}"`}
-                            placeholder='Seleccionar o crear...'
+                            placeholder='Seleccionar AFP...'
                         />
                     </div>
                     {/* Sistema de salud + ISAPRE en la misma fila */}

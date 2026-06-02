@@ -154,10 +154,10 @@ const initialValues: IFormValuesContratoTrabajador = {
     sueldo_base: '',
     sueldo_liquido: '',
     moneda: 'CLP',
-    gratificacion_legal: false,
+    tipo_gratificacion: '',
     bono_movilizacion: '',
     bono_colacion: '',
-    afp: '',
+    afp: null,
     sistema_salud: '',
     nombre_isapre: '',
     banco: '',
@@ -308,7 +308,7 @@ const CrearContratoTrabajadorWizard = ({
                     sueldo_base: values.sueldo_base || 0,
                     sueldo_liquido: values.sueldo_liquido || null,
                     moneda: values.moneda,
-                    gratificacion_legal: values.gratificacion_legal,
+                    tipo_gratificacion: values.tipo_gratificacion || null,
                     bono_movilizacion: values.bono_movilizacion || 0,
                     bono_colacion: values.bono_colacion || 0,
                     lugar_firma: values.lugar_firma || null,
@@ -776,7 +776,9 @@ const CrearContratoTrabajadorWizard = ({
                                 )}
                                 <dt className='text-zinc-500'>Gratificacion:</dt>
                                 <dd className='font-medium'>
-                                    {formik.values.gratificacion_legal ? 'Legal' : 'No'}
+                                    {formik.values.tipo_gratificacion
+                                        ? ({ art_47: 'Anual (Art.47)', art_50_mensual: 'Mensual (Art.50)', no_aplica: 'No aplica' } as Record<string, string>)[formik.values.tipo_gratificacion] ?? formik.values.tipo_gratificacion
+                                        : '—'}
                                 </dd>
                                 <dt className='text-zinc-500'>AFP / Salud:</dt>
                                 <dd className='font-medium'>

@@ -491,8 +491,8 @@ const DetalleUsuarioCliente = () => {
                                             )}
                                         />
                                         <FilaDato
-                                            label='Gratificacion legal'
-                                            value={contrato.gratificacion_legal ? 'Si' : 'No'}
+                                            label='Gratificacion'
+                                            value={contrato.tipo_gratificacion_label ?? '-'}
                                         />
                                     </div>
                                 )}
@@ -512,7 +512,7 @@ const DetalleUsuarioCliente = () => {
                                         Previsión social
                                     </p>
                                     <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato label='AFP' value={usuario.afp} />
+                                        <FilaDato label='AFP' value={usuario.afp_nombre} />
                                         <FilaDato
                                             label='Sistema de salud'
                                             value={usuario.sistema_salud_label}

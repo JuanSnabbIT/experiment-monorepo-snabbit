@@ -87,7 +87,7 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
             "fecha_creacion",
             "fecha_modificacion",
             "creado_por",
-            "fecha_aceptacion",
+            "fecha_aprobacion",
             "aceptado_por",
         )
 
@@ -225,7 +225,7 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContratoTrabajador
-        exclude = ("creado_por", "aceptado_por", "fecha_aceptacion", "datos_trabajador_nuevo")
+        exclude = ("creado_por", "aceptado_por", "fecha_aprobacion", "datos_trabajador_nuevo")
 
     def validate(self, attrs):
         instance = getattr(self, "instance", None)
