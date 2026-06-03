@@ -1274,11 +1274,15 @@ class PlantillaContratoSerializer(serializers.ModelSerializer):
     tipo_contrato_label = serializers.CharField(
         source='get_tipo_contrato_display', read_only=True,
     )
+    es_global = serializers.SerializerMethodField()
 
     class Meta:
         model = PlantillaContrato
         fields = '__all__'
         read_only_fields = ['fecha_creacion', 'fecha_modificacion', 'empresa_prestadora', 'es_default']
+
+    def get_es_global(self, obj):
+        return obj.empresa_prestadora is None
 
 
 class EtiquetaPlantillaSerializer(serializers.ModelSerializer):

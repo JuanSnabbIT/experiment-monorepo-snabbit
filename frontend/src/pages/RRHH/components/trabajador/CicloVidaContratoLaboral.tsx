@@ -1,17 +1,19 @@
 import classNames from 'classnames';
 
-// Todos los pasos en orden. terminado y anulado son estados finales alternativos.
+// Todos los pasos en orden. terminado, anulado y descartado son estados finales alternativos.
 const ESTADOS_CICLO = [
     { key: 'borrador', label: 'Borrador' },
-    { key: 'pendiente_aceptacion', label: 'Pend. aceptacion' },
+    { key: 'pendiente_aprobacion', label: 'Pend. aprobacion' },
     { key: 'vigente', label: 'Vigente' },
     { key: 'terminado', label: 'Terminado' },
     { key: 'anulado', label: 'Anulado' },
+    { key: 'descartado', label: 'Descartado' },
 ] as const;
 
-// Orden lineal principal: borrador -> pendiente_aceptacion -> vigente -> terminado
-// anulado puede venir desde cualquier estado previo a terminado
-const ORDEN_PRINCIPAL = ['borrador', 'pendiente_aceptacion', 'vigente', 'terminado'];
+// Orden lineal principal: borrador -> pendiente_aprobacion -> vigente -> terminado
+// anulado: solo desde vigente (acto grave)
+// descartado: desde borrador o pendiente_aprobacion (rechazo administrativo)
+const ORDEN_PRINCIPAL = ['borrador', 'pendiente_aprobacion', 'vigente', 'terminado'];
 
 interface ICicloVidaContratoLaboralProps {
     estado: string;
@@ -33,9 +35,10 @@ const XIcon = () => (
 const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContratoLaboralProps) => {
     const est = estado.toLowerCase();
     const esAnulado = est === 'anulado';
+    const esDescartado = est === 'descartado';
     const esAnuladoPorRechazo = esAnulado && rechazado;
 
-    // Para el stepper de 5 pasos, el indice del paso activo en el orden principal
+    // Para el stepper de 4 pasos principales, el indice del paso activo en el orden principal
     const indiceEnOrden = ORDEN_PRINCIPAL.indexOf(est);
 
     return (
@@ -54,21 +57,32 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
                         esActivo = true;
                     } else if (paso.key === 'vigente' || paso.key === 'terminado') {
                         esError = true;
-                    } else {
-                        esCompletado = true;
-                    }
-                } else if (esAnulado) {
-                    // Anulado manualmente: borrador, pendiente, vigente completados
-                    if (paso.key === 'anulado') {
-                        esActivo = true;
-                    } else if (paso.key === 'terminado') {
+                    } else if (paso.key === 'descartado') {
                         esFuturo = true;
                     } else {
                         esCompletado = true;
                     }
+                } else if (esAnulado) {
+                    // Anulado manualmente desde vigente
+                    if (paso.key === 'anulado') {
+                        esActivo = true;
+                    } else if (paso.key === 'terminado' || paso.key === 'descartado') {
+                        esFuturo = true;
+                    } else {
+                        esCompletado = true;
+                    }
+                } else if (esDescartado) {
+                    // Descartado administrativamente desde borrador/pendiente
+                    if (paso.key === 'descartado') {
+                        esActivo = true;
+                    } else if (paso.key === 'borrador' || paso.key === 'pendiente_aprobacion') {
+                        esCompletado = true;
+                    } else {
+                        esFuturo = true;
+                    }
                 } else {
                     const indicePaso = ORDEN_PRINCIPAL.indexOf(paso.key);
-                    if (paso.key === 'anulado') {
+                    if (paso.key === 'anulado' || paso.key === 'descartado') {
                         esFuturo = true;
                     } else if (esMismoEstado) {
                         esActivo = true;
@@ -84,10 +98,14 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
                     if (i === 0) return false;
                     const pasoAnterior = ESTADOS_CICLO[i - 1];
                     if (esAnulado) {
-                        return pasoAnterior.key !== 'terminado';
+                        return pasoAnterior.key !== 'terminado' && pasoAnterior.key !== 'descartado';
+                    }
+                    if (esDescartado) {
+                        // Solo la linea borrador→pendiente esta completada
+                        return pasoAnterior.key === 'borrador';
                     }
                     const indiceAnterior = ORDEN_PRINCIPAL.indexOf(pasoAnterior.key);
-                    if (pasoAnterior.key === 'anulado') return false;
+                    if (pasoAnterior.key === 'anulado' || pasoAnterior.key === 'descartado') return false;
                     return indiceAnterior !== -1 && indiceEnOrden !== -1 && indiceAnterior < indiceEnOrden;
                 })();
 
@@ -115,9 +133,11 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
                                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap',
                                 {
                                     'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700':
-                                        esActivo && !esAnuladoPorRechazo,
+                                        esActivo && !esAnuladoPorRechazo && !esDescartado,
                                     'bg-red-500 text-white ring-2 ring-red-300 dark:ring-red-700':
                                         esActivo && esAnuladoPorRechazo,
+                                    'bg-zinc-400 text-white ring-2 ring-zinc-300 dark:ring-zinc-600':
+                                        esActivo && esDescartado,
                                     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300': esCompletado,
                                     'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500': esFuturo,
                                     'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': esError,

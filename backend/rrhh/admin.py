@@ -8,6 +8,7 @@ from .models import (
     CargoCatalogo,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    TurnoLaboral,
 )
 
 
@@ -61,6 +62,15 @@ class BancoCatalogoAdmin(admin.ModelAdmin):
     list_filter = ("activo", "empresa")
     search_fields = ("nombre",)
     list_editable = ("activo",)
+
+
+@admin.register(TurnoLaboral)
+class TurnoLaboralAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "hora_inicio", "hora_fin", "horas_turno", "activo")
+    list_filter = ("activo", "empresa")
+    search_fields = ("nombre", "empresa__nombre")
+    list_editable = ("activo",)
+    readonly_fields = ("cruza_medianoche", "horas_turno")
 
 
 @admin.register(EnvioAprobacionEmpleador)

@@ -30,18 +30,20 @@ import CrearContratoTrabajadorWizard from './modals/CrearContratoTrabajadorWizar
 // ── Colores de estado ──
 const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
     borrador: 'zinc',
-    pendiente_aceptacion: 'amber',
+    pendiente_aprobacion: 'amber',
     vigente: 'emerald',
     terminado: 'zinc',
     anulado: 'red',
+    descartado: 'zinc',
 };
 
 const OPCIONES_ESTADO: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
-    { value: 'pendiente_aceptacion', label: 'Pendiente aceptacion' },
+    { value: 'pendiente_aprobacion', label: 'Pendiente aprobacion' },
     { value: 'vigente', label: 'Vigente' },
     { value: 'terminado', label: 'Terminado' },
     { value: 'anulado', label: 'Anulado' },
+    { value: 'descartado', label: 'Descartado' },
 ];
 
 const columnHelper = createColumnHelper<IContratoTrabajador>();
@@ -50,9 +52,10 @@ const columnHelper = createColumnHelper<IContratoTrabajador>();
 const ListaContratosTrabajador = () => {
     const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const sucursalPrincipalSeleccionada = personalizacionUsuario?.sucursal_principal;
 
     const { data: contratos = [], isLoading } = useGetContratosTrabajadorQuery(undefined, {
-        skip: !personalizacionUsuario?.empresa,
+        skip: !personalizacionUsuario?.empresa || !sucursalPrincipalSeleccionada,
     });
 
     const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: true }]);
@@ -197,13 +200,27 @@ const ListaContratosTrabajador = () => {
                                 placeholder='Estado...'
                             />
                         </div>
-                        <Button
-                            variant='solid'
-                            color='blue'
-                            icon='HeroPlus'
-                            onClick={() => setWizardOpen(true)}>
-                            Nuevo Contrato
-                        </Button>
+                        <Tooltip
+                            text={
+                                sucursalPrincipalSeleccionada
+                                    ? 'Crear un nuevo contrato laboral'
+                                    : 'Selecciona una sucursal antes de crear un contrato'
+                            }>
+                            <div className='inline-block'>
+                                <Button
+                                    variant='solid'
+                                    color='blue'
+                                    icon='HeroPlus'
+                                    isDisable={!sucursalPrincipalSeleccionada}
+                                    onClick={() => {
+                                        if (sucursalPrincipalSeleccionada) {
+                                            setWizardOpen(true);
+                                        }
+                                    }}>
+                                    Nuevo Contrato
+                                </Button>
+                            </div>
+                        </Tooltip>
                     </div>
                 </SubheaderRight>
             </Subheader>

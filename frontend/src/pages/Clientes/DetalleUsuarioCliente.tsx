@@ -14,21 +14,12 @@ import {
 import { useGetDetalleUsuarioClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { formatRut } from '@/utils/rut.util';
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const formatRut = (rut: string | null | undefined): string => {
-    if (!rut) return 'Sin RUT';
-    const clean = rut.replace(/\./g, '').replace(/-/g, '');
-    if (clean.length < 2) return rut;
-    const body = clean.slice(0, -1);
-    const dv = clean.slice(-1);
-    const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    return `${formatted}-${dv}`;
-};
 
 const calcularEdad = (fecha: string | null | undefined): string => {
     if (!fecha) return '';
@@ -199,7 +190,7 @@ const DetalleUsuarioCliente = () => {
                                     </div>
                                     <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500'>
                                         {usuario.papeleta?.rut && (
-                                            <span>{formatRut(usuario.papeleta.rut)}</span>
+                                            <span>{formatRut(usuario.papeleta.rut) || 'Sin RUT'}</span>
                                         )}
                                         {usuario.cargo && <span>{usuario.cargo}</span>}
                                         {usuario.nombre_sucursal && (
@@ -302,7 +293,7 @@ const DetalleUsuarioCliente = () => {
                                     <div className='flex flex-wrap gap-x-8 gap-y-4'>
                                         <FilaDato
                                             label='RUT'
-                                            value={formatRut(usuario.papeleta?.rut)}
+                                            value={formatRut(usuario.papeleta?.rut) || 'Sin RUT'}
                                         />
                                         <FilaDato
                                             label='Nombres'
@@ -406,20 +397,28 @@ const DetalleUsuarioCliente = () => {
                                 <CardHeaderChild>
                                     <span className='font-semibold'>Contrato laboral vigente</span>
                                 </CardHeaderChild>
-                                {contrato && (
-                                    <CardHeaderChild>
+                                <CardHeaderChild>
+                                    {contrato && (
                                         <Badge
                                             color={
                                                 contrato.estado === 'vigente'
                                                     ? 'emerald'
-                                                    : contrato.estado === 'pendiente_aceptacion'
+                                                    : contrato.estado === 'pendiente_aprobacion'
                                                       ? 'amber'
                                                       : 'zinc'
                                             }>
                                             {contrato.estado_label}
                                         </Badge>
-                                    </CardHeaderChild>
-                                )}
+                                    )}
+                                    <Button
+                                        size='sm'
+                                        variant='outline'
+                                        color='blue'
+                                        icon='HeroArrowTopRightOnSquare'
+                                        onClick={() => navigate(`/rrhh/trabajadores/${usuarioId}`)}>
+                                        Gestionar en RRHH
+                                    </Button>
+                                </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
                                 {!contrato ? (
@@ -652,7 +651,7 @@ const DetalleUsuarioCliente = () => {
                                                                 doc.estado === 'vigente'
                                                                     ? 'emerald'
                                                                     : doc.estado ===
-                                                                        'pendiente_aceptacion'
+                                                                        'pendiente_aprobacion'
                                                                       ? 'amber'
                                                                       : 'zinc'
                                                             }>

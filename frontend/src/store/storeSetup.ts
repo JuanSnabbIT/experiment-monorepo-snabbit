@@ -9,10 +9,17 @@ import {
     PURGE,
     REGISTER,
 } from 'redux-persist';
-import storage from 'redux-persist/lib/storage';
 import { PERSIST_STORE_NAME } from '@/constants/app.constant';
 import rootReducer, { RootState, AsyncReducers } from './rootReducer';
 import RtkQueryService from '@/services/RtkQueryService';
+
+// Implementación directa de localStorage para evitar el problema de resolución CJS→ESM en Vite 8
+// (redux-persist/lib/storage devuelve el namespace del módulo en lugar del default export)
+const storage = {
+    getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+    setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
+    removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const middlewares: any[] = [RtkQueryService.middleware];

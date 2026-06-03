@@ -197,7 +197,7 @@ def _generar_pdf_trabajador(
     canvas_config = {
         "nombre_empresa": nombre_empresa,
         "nombre_contrato": adaptador.nombre or "Contrato de Trabajo",
-        "es_borrador": forzar_borrador or adaptador.estado not in ("vigente", "terminado", "pendiente_aceptacion"),
+        "es_borrador": forzar_borrador or adaptador.estado not in ("vigente", "terminado", "pendiente_aprobacion"),
     }
     canvas_class = _make_contract_canvas_class(canvas_config)
 

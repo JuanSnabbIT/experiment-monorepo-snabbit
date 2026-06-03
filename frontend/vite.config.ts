@@ -21,4 +21,7 @@ export default defineConfig({
             '@': path.join(__dirname, 'src'),
         },
     },
+    optimizeDeps: {
+        include: ['redux-persist'],
+    },
 });

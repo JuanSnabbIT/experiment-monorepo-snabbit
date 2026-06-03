@@ -132,6 +132,8 @@ const RtkQueryService = createApi({
         'AfpCatalogo',
         'BancoCatalogo',
         'AnexoContrato',
+        'TurnoLaboral',
+        'ConfiguracionLaboral',
         // Plantillas Contrato V2 (Motor Slate)
         'PlantillaContratoV2',
         'PlantillaContratoV2List',

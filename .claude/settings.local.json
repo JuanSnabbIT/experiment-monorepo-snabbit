@@ -3,7 +3,37 @@
     "allow": [
       "PowerShell(cd C:\\\\proyectos\\\\Monorepo-ERP-Snabbit\\\\backend; & \"C:\\\\Users\\\\LuisRojasMolina\\\\anaconda3\\\\envs\\\\ENV\\\\python.exe\" manage.py migrate --check 2>&1; echo \"Exit: $LASTEXITCODE\")",
       "Bash(git rm *)",
-      "Bash(git ls-files *)"
+      "Bash(git ls-files *)",
+      "Bash(npm run *)",
+      "Bash(python manage.py migrate rrhh 0014)",
+      "Bash(Find \"C:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend\\\\rrhh\" -name \"*.py\")",
+      "PowerShell(Get-ChildItem \"c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend\\\\\" | Where-Object { $_.Name -match \"venv|env|\\\\.venv|requirements|Pipfile|pyproject\" } | Select-Object Name)",
+      "PowerShell(Get-ChildItem \"c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\\" | Where-Object { $_.Name -match \"venv|\\\\.venv\" } | Select-Object Name, FullName)",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(Get-ChildItem \"C:\\\\Python314\\\\Lib\\\\site-packages\\\\\" | Where-Object { $_.Name -match \"^django\" } | Select-Object -First 3 Name)",
+      "Read(//c/proyectos/**)",
+      "Bash(python -m py_compile backend/rrhh/views.py backend/rrhh/services.py backend/rrhh/models.py)",
+      "Bash(Remove-Item -Recurse -Force node_modules/.vite -ErrorAction SilentlyContinue)",
+      "Bash(node -e \"const p = require\\('./frontend/package.json'\\); console.log\\('vite:', p.devDependencies.vite, 'redux-persist:', p.dependencies['redux-persist']\\)\")",
+      "Bash(node -e \"const p = require\\('./frontend/package.json'\\); const deps = {...p.dependencies, ...p.devDependencies}; console.log\\('vite:', deps.vite, 'redux-persist:', deps['redux-persist']\\)\")",
+      "Bash(python manage.py seed_demo_rrhh)",
+      "PowerShell(python --version)",
+      "PowerShell(python -m pip show django)",
+      "PowerShell(&\"C:\\\\Users\\\\soporte\\\\.conda\\\\envs\\\\ENV\\\\python.exe\" \"C:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend\\\\manage.py\" seed_demo_rrhh)",
+      "Bash(cat)",
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe /tmp/check_templates.py)",
+      "PowerShell(&\"C:\\\\Users\\\\soporte\\\\.conda\\\\envs\\\\ENV\\\\python.exe\" \"C:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend\\\\manage.py\" seed_demo_rrhh 2>&1)",
+      "Bash(xargs grep -l \"export.*useGetPlantillasContratoQuery\")",
+      "Bash(awk '/class PlantillaContratoSerializer/,/^class [A-Z]/' /c/proyectos/experiment-monorepo-snabbit/backend/contratos/serializers.py)",
+      "Bash(Get-ChildItem \"c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend\\\\contratos\\\\migrations\")",
+      "Bash(Sort-Object Name)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(Get-ChildItem -Path \"c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\dev\\\\docs\\\\copilot\\\\plans\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe cleanup_templates.py)",
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe verify_globals.py)",
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe check_all_templates.py)",
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe)"
     ]
   }
 }

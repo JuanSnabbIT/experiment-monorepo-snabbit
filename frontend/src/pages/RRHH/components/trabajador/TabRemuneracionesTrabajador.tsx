@@ -6,7 +6,6 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardFooter, CardHeader } from '@/components/ui/Card';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
 import {
-    useCrearAfpInlineMutation,
     useCrearBancoInlineMutation,
     useGetAfpCatalogoQuery,
     useGetBancoCatalogoQuery,
@@ -41,7 +40,6 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
 
     const { data: afpList = [] } = useGetAfpCatalogoQuery(undefined, { skip: !editando });
     const { data: bancoList = [] } = useGetBancoCatalogoQuery(undefined, { skip: !editando });
-    const [crearAfp] = useCrearAfpInlineMutation();
     const [crearBanco] = useCrearBancoInlineMutation();
     const [updateContrato] = useUpdateContratoTrabajadorMutation();
     const [actualizarDatos] = useActualizarDatosRelacionadosContratoMutation();
@@ -53,12 +51,12 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
             // Remuneraciones del contrato
             sueldo_base: contrato.sueldo_base ?? '',
             moneda: contrato.moneda ?? 'CLP',
-            gratificacion_legal: contrato.gratificacion_legal ?? false,
+            tipo_gratificacion: contrato.tipo_gratificacion ?? 'no_aplica',
             bono_movilizacion: contrato.bono_movilizacion ?? '',
             bono_colacion: contrato.bono_colacion ?? '',
             sueldo_liquido: contrato.sueldo_liquido ?? '',
             // Previsionales
-            afp: prev?.afp ?? '',
+            afp: prev?.afp_id ? String(prev.afp_id) : '',
             sistema_salud: prev?.sistema_salud ?? '',
             nombre_isapre: prev?.nombre_isapre ?? '',
             banco: prev?.banco ?? '',
@@ -74,7 +72,7 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
                     data: {
                         sueldo_base: values.sueldo_base !== '' ? values.sueldo_base : undefined,
                         moneda: values.moneda,
-                        gratificacion_legal: values.gratificacion_legal,
+                        tipo_gratificacion: values.tipo_gratificacion,
                         bono_movilizacion: values.bono_movilizacion !== '' ? values.bono_movilizacion : undefined,
                         bono_colacion: values.bono_colacion !== '' ? values.bono_colacion : undefined,
                         sueldo_liquido: values.sueldo_liquido !== '' ? values.sueldo_liquido : null,
@@ -83,7 +81,7 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
 
                 // 2) Actualizar previsionales / banco
                 const prevPayload: Record<string, unknown> = {};
-                if (values.afp) prevPayload.afp = values.afp;
+                if (values.afp) prevPayload.afp = Number(values.afp);
                 if (values.sistema_salud) prevPayload.sistema_salud = values.sistema_salud;
                 if (values.nombre_isapre) prevPayload.nombre_isapre = values.nombre_isapre;
                 if (values.banco) prevPayload.banco = values.banco;
@@ -103,17 +101,8 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
         },
     });
 
-    const afpOptions: TSelectOption[] = afpList.map((a) => ({ value: a.nombre, label: a.nombre }));
+    const afpOptions: TSelectOption[] = afpList.map((a) => ({ value: String(a.id), label: a.nombre }));
     const bancoOptions: TSelectOption[] = bancoList.map((b) => ({ value: b.nombre, label: b.nombre }));
-
-    const handleCrearAfp = async (nombre: string) => {
-        try {
-            await crearAfp({ nombre }).unwrap();
-        } catch {
-            // ignorar — acepta texto libre igualmente
-        }
-        formik.setFieldValue('afp', nombre);
-    };
 
     const handleCrearBanco = async (nombre: string) => {
         try {
@@ -130,7 +119,7 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
         const sueldoBaseEdit = Number(formik.values.sueldo_base) || 0;
         const bonoColacionEdit = Number(formik.values.bono_colacion) || 0;
         const bonoMovilizacionEdit = Number(formik.values.bono_movilizacion) || 0;
-        const gratificacionEdit = formik.values.gratificacion_legal
+        const gratificacionEdit = formik.values.tipo_gratificacion === 'art_50_mensual'
             ? Math.round(sueldoBaseEdit * 0.25)
             : 0;
         const totalBrutoEdit =
@@ -152,8 +141,9 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
         ];
 
         const GRATIFICACION_OPTIONS = [
-            { value: 'no', label: 'No aplica' },
-            { value: 'si', label: 'Si (25% mensualizado)' },
+            { value: 'no_aplica', label: 'No aplica' },
+            { value: 'art_47', label: 'Anual (Art. 47 CT)' },
+            { value: 'art_50_mensual', label: 'Mensual garantizada (Art. 50 CT)' },
         ];
 
         return (
@@ -204,22 +194,22 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
                                     {/* Gratificacion + Descuentos estimados */}
                                     <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
                                         <div>
-                                            <Label htmlFor='gratificacion_legal'>
-                                                Gratificacion legal
+                                            <Label htmlFor='tipo_gratificacion'>
+                                                Tipo de gratificacion
                                             </Label>
                                             <SelectReact
-                                                id='gratificacion_legal'
-                                                name='gratificacion_legal'
+                                                id='tipo_gratificacion'
+                                                name='tipo_gratificacion'
                                                 options={GRATIFICACION_OPTIONS}
                                                 value={
-                                                    formik.values.gratificacion_legal
-                                                        ? GRATIFICACION_OPTIONS[1]
-                                                        : GRATIFICACION_OPTIONS[0]
+                                                    GRATIFICACION_OPTIONS.find(
+                                                        (o) => o.value === formik.values.tipo_gratificacion,
+                                                    ) ?? GRATIFICACION_OPTIONS[0]
                                                 }
                                                 onChange={(opt) =>
                                                     formik.setFieldValue(
-                                                        'gratificacion_legal',
-                                                        (opt as TSelectOption)?.value === 'si',
+                                                        'tipo_gratificacion',
+                                                        (opt as TSelectOption)?.value ?? 'no_aplica',
                                                     )
                                                 }
                                             />
@@ -341,16 +331,12 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
                                                 <SelectReact
                                                     id='afp'
                                                     name='afp'
-                                                    isCreatable
                                                     isClearable
                                                     options={afpOptions}
                                                     value={
-                                                        formik.values.afp
-                                                            ? {
-                                                                  value: formik.values.afp,
-                                                                  label: formik.values.afp,
-                                                              }
-                                                            : null
+                                                        afpOptions.find(
+                                                            (o) => o.value === formik.values.afp,
+                                                        ) ?? null
                                                     }
                                                     onChange={(opt) =>
                                                         formik.setFieldValue(
@@ -358,8 +344,7 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
                                                             (opt as TSelectOption)?.value ?? '',
                                                         )
                                                     }
-                                                    onCreateOption={handleCrearAfp}
-                                                    placeholder='Selecciona o escribe AFP...'
+                                                    placeholder='Selecciona AFP...'
                                                 />
                                             </div>
                                             <div>
@@ -501,7 +486,8 @@ const TabRemuneracionesTrabajador = ({ contrato, tab }: ITabRemuneracionesProps)
     const sueldoBase = parseFloat(contrato.sueldo_base || '0');
     const bonoColacion = parseFloat(contrato.bono_colacion || '0');
     const bonoMovilizacion = parseFloat(contrato.bono_movilizacion || '0');
-    const gratificacion = contrato.gratificacion_legal ? Math.round(sueldoBase * 0.25) : 0;
+    const gratificacion =
+        contrato.tipo_gratificacion === 'art_50_mensual' ? Math.round(sueldoBase * 0.25) : 0;
     const totalBruto = sueldoBase + gratificacion + bonoColacion + bonoMovilizacion;
     const totalLiquido =
         contrato.sueldo_liquido && contrato.sueldo_liquido !== '0.00'

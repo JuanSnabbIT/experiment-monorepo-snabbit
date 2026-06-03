@@ -10,10 +10,20 @@ import {
     IFormValuesContratoTrabajador,
     MESES_OPTIONS,
 } from './types';
+import { IUsuarioEmpresa } from '@/interface/empresas.interface';
+
+const CAUSAL_REEMPLAZO_OPTIONS: TSelectOption[] = [
+    { value: 'licencia_medica', label: 'Licencia medica' },
+    { value: 'vacaciones', label: 'Vacaciones' },
+    { value: 'prenatal_postnatal', label: 'Pre/postnatal' },
+    { value: 'permiso_sin_goce', label: 'Permiso sin goce de sueldo' },
+    { value: 'otro', label: 'Otro' },
+];
 
 interface Props {
     formik: FormikProps<IFormValuesContratoTrabajador>;
     sucursalDireccion?: string;
+    usuariosCliente?: IUsuarioEmpresa[];
 }
 
 const calcFechaTermino = (fechaInicio: string, meses: number): string => {
@@ -23,7 +33,7 @@ const calcFechaTermino = (fechaInicio: string, meses: number): string => {
     return d.toISOString().slice(0, 10);
 };
 
-const StepTerminosLaborales = ({ formik, sucursalDireccion }: Props) => {
+const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = [] }: Props) => {
     const { values, errors, touched, setFieldValue, setFieldTouched, handleChange, handleBlur } = formik;
 
     const { data: cargos = [] } = useGetCargosCatalogoQuery();
@@ -192,6 +202,64 @@ const StepTerminosLaborales = ({ formik, sucursalDireccion }: Props) => {
                     onBlur={handleBlur}
                 />
             </div>
+
+            {/* Bloque condicional reemplazo */}
+            {values.tipo_contrato === 'reemplazo' && (
+                <div className='rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3 dark:border-amber-800 dark:bg-amber-900/20'>
+                    <p className='text-xs font-semibold text-amber-700 dark:text-amber-400'>
+                        Datos del trabajador reemplazado (Art. 10 CT)
+                    </p>
+                    <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='trab_trabajador_reemplazado_id'>Trabajador reemplazado</Label>
+                            <SelectReact
+                                name='trab_trabajador_reemplazado_id'
+                                options={usuariosCliente.map((u) => ({
+                                    value: String(u.id),
+                                    label: `${u.nombre_usuario} — ${u.papeleta?.rut ?? u.email_usuario}`,
+                                }))}
+                                placeholder='Selecciona el trabajador...'
+                                isClearable
+                                value={
+                                    values.trab_trabajador_reemplazado_id
+                                        ? {
+                                              value: String(values.trab_trabajador_reemplazado_id),
+                                              label: usuariosCliente.find(
+                                                  (u) => u.id === values.trab_trabajador_reemplazado_id,
+                                              )?.nombre_usuario ?? String(values.trab_trabajador_reemplazado_id),
+                                          }
+                                        : null
+                                }
+                                onChange={(opt) =>
+                                    setFieldValue(
+                                        'trab_trabajador_reemplazado_id',
+                                        opt ? Number((opt as TSelectOption).value) : '',
+                                    )
+                                }
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='causal_reemplazo'>
+                                Causal de reemplazo <span className='text-red-500'>*</span>
+                            </Label>
+                            <Validation
+                                isValid={!errors.causal_reemplazo}
+                                isTouched={!!touched.causal_reemplazo}
+                                invalidFeedback={errors.causal_reemplazo || ''}>
+                                <SelectReact
+                                    name='causal_reemplazo'
+                                    options={CAUSAL_REEMPLAZO_OPTIONS}
+                                    placeholder='Selecciona causal...'
+                                    value={CAUSAL_REEMPLAZO_OPTIONS.find((o) => o.value === values.causal_reemplazo) ?? null}
+                                    onChange={(opt) =>
+                                        setFieldValue('causal_reemplazo', opt ? (opt as TSelectOption).value : '')
+                                    }
+                                />
+                            </Validation>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

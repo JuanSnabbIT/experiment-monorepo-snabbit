@@ -11,10 +11,13 @@ from django.utils import timezone
 from core.models import ModeloBase, ModeloBaseHistorico
 
 from .estados_modelo import (
+    CAUSAL_REEMPLAZO,
+    ESTADO_CIVIL,
     ESTADO_CONTRATO,
     JORNADA_CONTRATO,
     MONEDA_CONTRATO,
     MOTIVO_TERMINO_CONTRATO,
+    TIPO_GRATIFICACION,
     TIPO_ANEXO,
     TIPO_CONTRATO,
 )
@@ -52,8 +55,21 @@ class ContratoTrabajador(ModeloBaseHistorico):
     )
 
     # Identificador de negocio (mostrado en listas / detalle)
-    nombre = models.CharField(max_length=200, blank=True, null=True)
+    referencia_interna = models.CharField(max_length=200, blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
+
+    # Campos legales Art. 10 Codigo del Trabajo
+    estado_civil = models.CharField(max_length=20, choices=ESTADO_CIVIL, blank=True, null=True)
+    profesion_u_oficio = models.CharField(max_length=150, blank=True, null=True)
+    sistema_salud_otro = models.CharField(max_length=100, blank=True, null=True)
+    trabajador_reemplazado = models.ForeignKey(
+        "empresas.UsuarioEmpresa",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contratos_de_reemplazo",
+    )
+    causal_reemplazo = models.CharField(max_length=30, choices=CAUSAL_REEMPLAZO, blank=True, null=True)
 
     tipo_contrato = models.CharField(max_length=20, choices=TIPO_CONTRATO)
     fecha_inicio = models.DateField()
@@ -73,7 +89,11 @@ class ContratoTrabajador(ModeloBaseHistorico):
         max_digits=12, decimal_places=2, blank=True, null=True,
     )
     moneda = models.CharField(max_length=5, choices=MONEDA_CONTRATO, default="CLP")
-    gratificacion_legal = models.BooleanField(default=False)
+    tipo_gratificacion = models.CharField(
+        max_length=20,
+        choices=TIPO_GRATIFICACION,
+        default="no_aplica",
+    )
     bono_movilizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bono_colacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
@@ -87,7 +107,7 @@ class ContratoTrabajador(ModeloBaseHistorico):
         related_name="contratos_trabajador",
     )
 
-    lugar_firma = models.CharField(max_length=255, blank=True, null=True)
+    lugar_celebracion_contrato = models.CharField(max_length=255, blank=True, null=True)
     fecha_firma = models.DateField(blank=True, null=True)
 
     # Campos adicionales de configuracion
@@ -126,6 +146,7 @@ class ContratoTrabajador(ModeloBaseHistorico):
     )
     fecha_termino_real = models.DateField(blank=True, null=True)
     observaciones_termino = models.TextField(blank=True, null=True)
+    motivo_anulacion = models.TextField(blank=True, null=True)
 
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -161,6 +182,7 @@ class AnexoContrato(ModeloBaseHistorico):
     archivo_pdf = models.FileField(upload_to=archivo_anexo_path, blank=True, null=True)
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
+    numero_anexo = models.PositiveIntegerField(null=True, blank=True)
 
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -173,7 +195,8 @@ class AnexoContrato(ModeloBaseHistorico):
     class Meta:
         verbose_name = "Anexo de Contrato"
         verbose_name_plural = "Anexos de Contratos"
-        ordering = ["-fecha_efectiva", "-fecha_creacion"]
+        ordering = ["contrato", "numero_anexo", "-fecha_efectiva"]
+        unique_together = [("contrato", "numero_anexo")]
 
     def __str__(self):
         return f"Anexo {self.tipo} ({self.fecha_efectiva}) - {self.contrato_id}"
@@ -212,6 +235,13 @@ class AfpCatalogo(ModeloBase):
         related_name="afp_catalogo",
     )
     activo = models.BooleanField(default=True)
+    tasa_cotizacion = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="Tasa vigente. Ej: 0.1144 para 11.44%. Actualizar tras cada licitacion.",
+    )
 
     class Meta:
         unique_together = [("nombre", "empresa")]
@@ -244,6 +274,92 @@ class BancoCatalogo(ModeloBase):
 
     def __str__(self):
         return self.nombre
+
+
+class ConfiguracionLaboral(ModeloBase):
+    """Parametros legales y valores del modulo RRHH.
+
+    empresa=None → valor legal global (por ley).
+    empresa=X    → override por empresa (casos excepcionales).
+    """
+
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="configuraciones_laborales",
+    )
+    clave = models.CharField(max_length=100)
+    valor = models.DecimalField(max_digits=14, decimal_places=4)
+    descripcion = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        unique_together = [("empresa", "clave")]
+        verbose_name = "Configuracion laboral"
+        verbose_name_plural = "Configuraciones laborales"
+        ordering = ["clave"]
+
+    def __str__(self):
+        ambito = "global" if self.empresa_id is None else f"empresa {self.empresa_id}"
+        return f"{self.clave} = {self.valor} ({ambito})"
+
+
+class TurnoLaboral(ModeloBase):
+    """Catalogo de turnos laborales por empresa. empresa=null → turno global (preset)."""
+
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="turnos_laborales",
+    )
+    nombre = models.CharField(max_length=100)
+    hora_inicio = models.TimeField()
+    hora_fin = models.TimeField()
+    cruza_medianoche = models.BooleanField(
+        default=False,
+        help_text="True cuando hora_fin < hora_inicio. Ej: Noche 22:00-06:00.",
+    )
+    dias_semana = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Dias por defecto del turno. Ej: ['L','M','X','J','V'].",
+    )
+    horas_turno = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Horas por turno. Se calcula automaticamente si no se provee.",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("empresa", "nombre")]
+        verbose_name = "Turno Laboral"
+        verbose_name_plural = "Turnos Laborales"
+        ordering = ["nombre"]
+
+    def save(self, *args, **kwargs):
+        if self.hora_inicio and self.hora_fin and not self.horas_turno:
+            from datetime import datetime, time, timedelta
+            def _to_time(val):
+                if isinstance(val, time):
+                    return val
+                h, m = str(val).split(":")[:2]
+                return time(int(h), int(m))
+            inicio = datetime.combine(datetime.today(), _to_time(self.hora_inicio))
+            fin = datetime.combine(datetime.today(), _to_time(self.hora_fin))
+            if fin <= inicio:
+                fin += timedelta(days=1)
+                self.cruza_medianoche = True
+            self.horas_turno = round((fin - inicio).total_seconds() / 3600, 2)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.hora_inicio}–{self.hora_fin})"
 
 
 DECISION_APROBACION = [

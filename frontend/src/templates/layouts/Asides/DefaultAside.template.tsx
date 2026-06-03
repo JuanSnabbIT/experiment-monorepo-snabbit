@@ -2,7 +2,7 @@ import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityC
 import { Pages } from '@/config/pages.config';
 import CrearClienteEnMenu from '@/pages/Clientes/modals/CrearClienteEnMenu';
 import { listaBodegasThunk, useAppDispatch, useAppSelector } from '@/store';
-import { detalleEmpresaThunk, listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
+import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import { useEffect } from 'react';
 import Aside, { AsideBody } from '../../../components/layouts/Aside/Aside';
 import Nav, {
@@ -24,9 +24,6 @@ const DefaultAsideTemplate = () => {
 
     useEffect(() => {
         if (personalizacionUsuario && personalizacionUsuario.sucursal_principal) {
-            dispatch(
-                detalleEmpresaThunk({ id_empresa: personalizacionUsuario.sucursal_principal }),
-            );
             dispatch(listaBodegasThunk());
         }
         if (personalizacionUsuario && personalizacionUsuario.empresa) {
@@ -514,6 +511,18 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    {/* Trabajadores */}
+                    <AuthorityCheckNav
+                        authority={Pages.rrhh.subPages.listaTrabajadores.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavItem
+                            text={Pages.rrhh.subPages.listaTrabajadores.text}
+                            to={Pages.rrhh.subPages.listaTrabajadores.to}
+                            icon={Pages.rrhh.subPages.listaTrabajadores.icon}
+                            id={Pages.rrhh.subPages.listaTrabajadores.id}
+                        />
+                    </AuthorityCheckNav>
+
                     {/* Contratos Laborales */}
                     <AuthorityCheckNav
                         authority={Pages.rrhh.subPages.listaContratosTrabajador.authority}
@@ -523,6 +532,18 @@ const DefaultAsideTemplate = () => {
                             to={Pages.rrhh.subPages.listaContratosTrabajador.to}
                             icon={Pages.rrhh.subPages.listaContratosTrabajador.icon}
                             id={Pages.rrhh.subPages.listaContratosTrabajador.id}
+                        />
+                    </AuthorityCheckNav>
+
+                    {/* Configuración RRHH */}
+                    <AuthorityCheckNav
+                        authority={Pages.rrhh.subPages.rrhhConfiguracion.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavItem
+                            text={Pages.rrhh.subPages.rrhhConfiguracion.text}
+                            to={Pages.rrhh.subPages.rrhhConfiguracion.to}
+                            icon={Pages.rrhh.subPages.rrhhConfiguracion.icon}
+                            id={Pages.rrhh.subPages.rrhhConfiguracion.id}
                         />
                     </AuthorityCheckNav>
 

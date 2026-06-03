@@ -184,8 +184,8 @@ class AdaptadorContratoTrabajador(IContratoBase):
 
     @property
     def nombre(self) -> str:
-        if self._c.nombre:
-            return self._c.nombre
+        if self._c.referencia_interna:
+            return self._c.referencia_interna
         nombre_t = self._user.get_nombre_completo() if self._user else "Trabajador"
         return f"Contrato de Trabajo - {nombre_t}"
 
@@ -343,7 +343,9 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 "sueldo_liquido_palabras": self._sueldo_en_palabras(self._c.sueldo_liquido),
                 "sueldo_base_palabras": self._sueldo_en_palabras(self._c.sueldo_base),
                 "moneda": self._c.moneda or "",
-                "gratificacion_legal": "Si" if self._c.gratificacion_legal else "No",
+                "tipo_gratificacion": self._c.get_tipo_gratificacion_display() or "",
+                # Compatibilidad con plantillas antiguas que esperan un booleano.
+                "gratificacion_legal": "Si" if self._c.tipo_gratificacion != "no_aplica" else "No",
                 "bono_movilizacion": self._format_decimal(self._c.bono_movilizacion),
                 "bono_colacion": self._format_decimal(self._c.bono_colacion),
             }
@@ -377,7 +379,7 @@ class AdaptadorContratoTrabajador(IContratoBase):
         if prefijo == "firma":
             campo = resto[0] if resto else None
             mapping = {
-                "lugar_firma": self._c.lugar_firma or "",
+                "lugar_firma": self._c.lugar_celebracion_contrato or "",
                 "fecha_firma": self._format_date(self._c.fecha_firma),
             }
             if campo in mapping:

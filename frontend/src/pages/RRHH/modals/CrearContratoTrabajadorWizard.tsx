@@ -12,6 +12,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
+import { useContratoWizard } from '@/hooks/useContratoWizard';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
@@ -22,6 +23,7 @@ import {
     useCrearContratoConTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { validarRut } from '@/utils/rut.util';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
@@ -38,6 +40,7 @@ interface Props {
     detalleCliente?: IRelacionEmpresa;
     externalIsOpen?: boolean;
     onExternalClose?: () => void;
+    contratoId?: number | null;
 }
 
 type TStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -54,23 +57,24 @@ const STEP_LABELS: Record<TStep, string> = {
 
 // Campos a validar (y marcar como touched) al intentar avanzar de cada step.
 const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
-    1: ['trab_empresa_cliente_id', 'nombre'],
+    1: ['trab_empresa_cliente_id', 'referencia_interna'],
     2: [
         'trab_modo',
         'trab_usuario_empresa_id',
         'trab_first_name',
         'trab_email',
         'trab_sucursal_id',
+        'trab_rut',
     ],
-    3: ['tipo_contrato', 'fecha_inicio', 'cargo'],
-    4: ['jornada', 'hora_inicio', 'hora_fin'],
+    3: ['tipo_contrato', 'fecha_inicio', 'cargo', 'causal_reemplazo', 'trab_trabajador_reemplazado_id'],
+    4: ['jornada', 'hora_inicio', 'hora_fin', 'turnos_rotativo'],
     5: ['sueldo_base'],
     6: [],
-    7: ['plantilla_contrato_id'],
+    7: [],
 };
 
 const validationSchema = Yup.object({
-    nombre: Yup.string().required('Requerido'),
+    referencia_interna: Yup.string().required('Requerido'),
     trab_modo: Yup.string().oneOf(['existente', 'nuevo']).required(),
     trab_empresa_cliente_id: Yup.mixed().required('Selecciona una empresa cliente'),
     trab_usuario_empresa_id: Yup.mixed().when('trab_modo', {
@@ -88,6 +92,10 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Requerido'),
         otherwise: (s) => s.notRequired(),
     }),
+    trab_rut: Yup.string().test('rut-valido', 'RUT invalido', (value) => {
+        if (!value || !value.trim()) return true;
+        return validarRut(value);
+    }),
     trab_sucursal_id: Yup.mixed().required('Selecciona una sucursal'),
     tipo_contrato: Yup.string().required('Requerido'),
     fecha_inicio: Yup.string().required('Requerido'),
@@ -98,6 +106,11 @@ const validationSchema = Yup.object({
     }),
     cargo: Yup.string().required('Requerido'),
     jornada: Yup.string().required('Requerido'),
+    turnos_rotativo: Yup.array().when('jornada', {
+        is: 'turnos',
+        then: (s) => s.min(1, 'Selecciona al menos un turno'),
+        otherwise: (s) => s.notRequired(),
+    }),
     horas_semanales: Yup.mixed().notRequired(),
     hora_inicio: Yup.string().when('jornada', {
         is: (v: string) => v !== 'turnos',
@@ -117,11 +130,21 @@ const validationSchema = Yup.object({
             then: (s) => s.min(500000, 'Minimo legal: $500.000 CLP'),
             otherwise: (s) => s.min(0, 'No puede ser negativo'),
         }),
-    plantilla_contrato_id: Yup.mixed().required('Selecciona una plantilla de contrato'),
+    plantilla_contrato_id: Yup.mixed(),
+    causal_reemplazo: Yup.string().when('tipo_contrato', {
+        is: 'reemplazo',
+        then: (s) => s.required('Requerido para contrato de reemplazo'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    sistema_salud_otro: Yup.string().when('sistema_salud', {
+        is: 'otro',
+        then: (s) => s.required('Especifica el sistema de salud'),
+        otherwise: (s) => s.notRequired(),
+    }),
 });
 
 const initialValues: IFormValuesContratoTrabajador = {
-    nombre: '',
+    referencia_interna: '',
     observaciones: '',
     trab_modo: 'existente',
     trab_empresa_cliente_id: '',
@@ -135,6 +158,8 @@ const initialValues: IFormValuesContratoTrabajador = {
     trab_nacionalidad: '',
     trab_fecha_nacimiento: '',
     trab_direccion: '',
+    trab_estado_civil: '',
+    trab_profesion_u_oficio: '',
     enviar_al_empleador: true,
     tipo_contrato: '',
     fecha_inicio: '',
@@ -146,11 +171,16 @@ const initialValues: IFormValuesContratoTrabajador = {
     horas_semanales: '',
     dias_semana: [],
     turnos_rotativo: [],
+    ciclo_rotacion: 'semanal',
     horario_detalle: '',
     hora_inicio: '09:00',
     hora_fin: '18:00',
     tiempo_colacion: 30,
     lugar_trabajo: '',
+    lugar_celebracion_contrato: '',
+    fecha_firma: '',
+    trab_trabajador_reemplazado_id: '',
+    causal_reemplazo: '',
     sueldo_base: '',
     sueldo_liquido: '',
     moneda: 'CLP',
@@ -160,19 +190,17 @@ const initialValues: IFormValuesContratoTrabajador = {
     afp: null,
     sistema_salud: '',
     nombre_isapre: '',
+    sistema_salud_otro: '',
     banco: '',
     tipo_cuenta_bancaria: '',
     numero_cuenta_bancaria: '',
     plantilla_contrato_id: '',
     archivo_pdf: null,
-    lugar_firma: '',
-    fecha_firma: '',
 };
 
 const TIPO_CONTRATO_CARDS = [
     { value: 'indefinido', label: 'Indefinido', desc: 'Sin fecha de término pactada.' },
     { value: 'plazo_fijo', label: 'Plazo fijo', desc: 'Fecha de término determinada.' },
-    { value: 'honorarios', label: 'Honorarios', desc: 'Prestación de servicios.' },
     { value: 'reemplazo', label: 'Reemplazo', desc: 'Cubre ausencia temporal.' },
 ] as const;
 
@@ -239,6 +267,7 @@ const CrearContratoTrabajadorWizard = ({
     detalleCliente: detalleClienteProp,
     externalIsOpen,
     onExternalClose,
+    contratoId,
 }: Props) => {
     const dispatch = useAppDispatch();
     const { detalleCliente: detalleClienteStore, listaMisClientes } = useAppSelector(
@@ -252,6 +281,7 @@ const CrearContratoTrabajadorWizard = ({
     }));
 
     const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery();
+    const wizard = useContratoWizard(contratoId ?? null);
 
     const isControlledExternally = externalIsOpen !== undefined;
     const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -263,6 +293,13 @@ const CrearContratoTrabajadorWizard = ({
         } else {
             setInternalIsOpen(val);
         }
+    };
+
+    const handleClose = () => {
+        setIsOpen(false);
+        formik.resetForm();
+        setStep(1);
+        setStepAttempted(false);
     };
 
     const [step, setStep] = useState<TStep>(1);
@@ -290,7 +327,7 @@ const CrearContratoTrabajadorWizard = ({
             try {
                 // Construir payload del contrato
                 const contratoPayload: Record<string, unknown> = {
-                    nombre: values.nombre || null,
+                    referencia_interna: values.referencia_interna || null,
                     observaciones: values.observaciones || null,
                     tipo_contrato: values.tipo_contrato,
                     fecha_inicio: values.fecha_inicio,
@@ -300,6 +337,7 @@ const CrearContratoTrabajadorWizard = ({
                     jornada: values.jornada,
                     horas_semanales: values.horas_semanales || null,
                     dias_semana: values.dias_semana,
+                    turnos_rotativo: values.turnos_rotativo,
                     horario_detalle: values.horario_detalle || null,
                     tiempo_colacion: values.tiempo_colacion || 30,
                     lugar_trabajo: values.lugar_trabajo || null,
@@ -311,8 +349,13 @@ const CrearContratoTrabajadorWizard = ({
                     tipo_gratificacion: values.tipo_gratificacion || null,
                     bono_movilizacion: values.bono_movilizacion || 0,
                     bono_colacion: values.bono_colacion || 0,
-                    lugar_firma: values.lugar_firma || null,
+                    lugar_celebracion_contrato: values.lugar_celebracion_contrato || null,
                     fecha_firma: values.fecha_firma || null,
+                    estado_civil: values.trab_estado_civil || null,
+                    profesion_u_oficio: values.trab_profesion_u_oficio || null,
+                    sistema_salud_otro: values.sistema_salud_otro || null,
+                    trabajador_reemplazado: values.trab_trabajador_reemplazado_id || null,
+                    causal_reemplazo: values.causal_reemplazo || null,
                     estado: 'borrador',
                 };
 
@@ -321,6 +364,7 @@ const CrearContratoTrabajadorWizard = ({
                     afp: values.afp || undefined,
                     sistema_salud: values.sistema_salud || undefined,
                     nombre_isapre: values.nombre_isapre || undefined,
+                    sistema_salud_otro: values.sistema_salud_otro || undefined,
                     banco: values.banco || undefined,
                     tipo_cuenta_bancaria: values.tipo_cuenta_bancaria || undefined,
                     numero_cuenta_bancaria: values.numero_cuenta_bancaria || undefined,
@@ -448,24 +492,24 @@ const CrearContratoTrabajadorWizard = ({
                                     </div>
                                 )}
                         </div>
-                        {/* Nombre / Referencia interna (required) */}
+                        {/* Referencia interna (required) */}
                         <div>
-                            <Label htmlFor='nombre'>
-                                Nombre / Referencia interna{' '}
+                            <Label htmlFor='referencia_interna'>
+                                Referencia interna{' '}
                                 <span className='text-red-500'>*</span>
                             </Label>
                             <p className='mb-1.5 text-xs text-zinc-500 dark:text-zinc-400'>
                                 Asigna un nombre para identificar internamente este contrato.
                             </p>
                             <Validation
-                                isValid={!formik.errors.nombre}
-                                isTouched={!!formik.touched.nombre}
-                                invalidFeedback={formik.errors.nombre || ''}>
+                                isValid={!formik.errors.referencia_interna}
+                                isTouched={!!formik.touched.referencia_interna}
+                                invalidFeedback={formik.errors.referencia_interna || ''}>
                                 <Input
-                                    id='nombre'
-                                    name='nombre'
+                                    id='referencia_interna'
+                                    name='referencia_interna'
                                     placeholder='Ej: Contrato Juan López — Abril 2026'
-                                    value={formik.values.nombre}
+                                    value={formik.values.referencia_interna}
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
                                 />
@@ -510,7 +554,6 @@ const CrearContratoTrabajadorWizard = ({
                                     const iconMap = {
                                         indefinido: 'HeroClipboardDocumentCheck',
                                         plazo_fijo: 'HeroCalendarDays',
-                                        honorarios: 'HeroDocumentText',
                                         reemplazo: 'HeroArrowPath',
                                     } as const;
                                     return (
@@ -545,12 +588,17 @@ const CrearContratoTrabajadorWizard = ({
                             )}
                         </div>
                         <hr className='border-zinc-200 dark:border-zinc-700' />
-                        <StepTerminosLaborales formik={formik} sucursalDireccion={sucursalDireccion} />
+                        <StepTerminosLaborales formik={formik} sucursalDireccion={sucursalDireccion} usuariosCliente={usuariosCliente} />
                     </div>
                 );
             }
             case 4:
-                return <StepJornada formik={formik} />;
+                return (
+                    <StepJornada
+                        formik={formik}
+                        empresaClienteId={formik.values.trab_empresa_cliente_id}
+                    />
+                );
             case 5:
                 return <StepRemuneraciones formik={formik} />;
             case 6:
@@ -563,13 +611,11 @@ const CrearContratoTrabajadorWizard = ({
                 const tipoLabel = ({
                     indefinido: 'Indefinido',
                     plazo_fijo: 'Plazo fijo',
-                    honorarios: 'Honorarios',
                     reemplazo: 'Reemplazo',
                 } as Record<string, string>)[formik.values.tipo_contrato] ?? formik.values.tipo_contrato;
                 const jornadaLabel = ({
                     completa: 'Jornada completa',
                     parcial: 'Jornada parcial',
-                    part_time: 'Part time',
                     turnos: 'Turnos',
                 } as Record<string, string>)[formik.values.jornada] ?? formik.values.jornada;
                 return (
@@ -716,6 +762,18 @@ const CrearContratoTrabajadorWizard = ({
                                 <dd className='font-medium'>{tipoLabel || '—'}</dd>
                                 <dt className='text-zinc-500'>Jornada:</dt>
                                 <dd className='font-medium'>{jornadaLabel || '—'}</dd>
+                                {formik.values.jornada === 'turnos' && formik.values.turnos_rotativo.length > 0 && (
+                                    <>
+                                        <dt className='text-zinc-500'>Turnos:</dt>
+                                        <dd className='font-medium'>
+                                            {formik.values.turnos_rotativo.map((t) =>
+                                                `${t.nombre} (${t.hora_inicio}–${t.hora_fin})`
+                                            ).join(' · ')}
+                                        </dd>
+                                        <dt className='text-zinc-500'>Ciclo:</dt>
+                                        <dd className='font-medium'>{formik.values.ciclo_rotacion}</dd>
+                                    </>
+                                )}
                                 <dt className='text-zinc-500'>Fecha inicio:</dt>
                                 <dd className='font-medium'>
                                     {formik.values.fecha_inicio || '—'}
@@ -850,7 +908,20 @@ const CrearContratoTrabajadorWizard = ({
                     Crear contrato laboral
                 </Button>
             )}
-            <Modal isOpen={!!isOpen} setIsOpen={(v) => setIsOpen(typeof v === 'function' ? v(!!isOpen) : v)} size='lg' isScrollable>
+            <Modal
+                isOpen={!!isOpen}
+                setIsOpen={(v) => {
+                    const newValue = typeof v === 'function' ? v(!!isOpen) : v;
+                    if (!newValue) {
+                        handleClose();
+                        return;
+                    }
+                    setIsOpen(true);
+                }}
+                size='lg'
+                isScrollable
+                isStaticBackdrop
+            >
                 <ModalHeader>
                     <div>
                         <p className='font-semibold leading-tight'>Nuevo contrato laboral</p>
@@ -862,10 +933,41 @@ const CrearContratoTrabajadorWizard = ({
                 <ModalBody isScrollable>
                     <Stepper step={step} />
                     {renderStep()}
+                    {contratoId && (
+                        <div className='mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/30'>
+                            {wizard.guardando && (
+                                <div className='flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400'>
+                                    <svg className='h-4 w-4 animate-spin' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' />
+                                    </svg>
+                                    <span>Guardando cambios...</span>
+                                </div>
+                            )}
+                            {wizard.éxito && wizard.ultimoGuardado && (
+                                <div className='flex items-center gap-2 text-sm text-green-600 dark:text-green-400'>
+                                    <svg className='h-4 w-4' fill='currentColor' viewBox='0 0 20 20'>
+                                        <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                                    </svg>
+                                    <span>Guardado</span>
+                                </div>
+                            )}
+                            {wizard.error && (
+                                <div className='flex items-center gap-2 text-sm text-red-600 dark:text-red-400'>
+                                    <svg className='h-4 w-4' fill='currentColor' viewBox='0 0 20 20'>
+                                        <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z' clipRule='evenodd' />
+                                    </svg>
+                                    <span>{wizard.error}</span>
+                                    <button onClick={() => wizard.reintentarGuardar()} className='ml-auto text-xs font-medium underline hover:no-underline'>
+                                        Reintentar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild>
-                        <Button onClick={() => setIsOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleClose}>Cancelar</Button>
                     </ModalFooterChild>
                     <ModalFooterChild>
                         {step > 1 && (

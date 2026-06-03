@@ -6,10 +6,12 @@ from .views import (
     AnexoContratoViewSet,
     BancoCatalogoViewSet,
     CargoCatalogoViewSet,
+    ConfiguracionLaboralViewSet,
     ContratoAprobacionPDFView,
     ContratoAprobacionPublicaView,
     ContratoAprobacionResponderView,
     ContratoTrabajadorViewSet,
+    TurnoLaboralViewSet,
 )
 
 router = DefaultRouter()
@@ -37,6 +39,16 @@ router.register(
     r"rrhh/anexos-contrato",
     AnexoContratoViewSet,
     basename="anexos-contrato",
+)
+router.register(
+    r"rrhh/turnos-laborales",
+    TurnoLaboralViewSet,
+    basename="turnos-laborales",
+)
+router.register(
+    r"rrhh/configuracion-laboral",
+    ConfiguracionLaboralViewSet,
+    basename="configuracion-laboral",
 )
 
 urlpatterns = [

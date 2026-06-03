@@ -3,18 +3,17 @@
 export type TTipoContrato =
     | 'indefinido'
     | 'plazo_fijo'
-    | 'honorarios'
-    | 'reemplazo'
-    | 'obra_o_faena';
+    | 'reemplazo';
 
-export type TJornadaContrato = 'completa' | 'parcial' | 'part_time' | 'turnos';
+export type TJornadaContrato = 'completa' | 'parcial' | 'turnos';
 
 export type TEstadoContrato =
     | 'borrador'
-    | 'pendiente_aceptacion'
+    | 'pendiente_aprobacion'
     | 'vigente'
     | 'terminado'
-    | 'anulado';
+    | 'anulado'
+    | 'descartado';
 
 export type TMonedaContrato = 'CLP' | 'UF' | 'USD';
 
@@ -23,7 +22,14 @@ export type TMotivoTerminoContrato =
     | 'mutuo_acuerdo'
     | 'vencimiento_plazo'
     | 'necesidades_empresa'
+    | 'incumplimiento_grave'
+    | 'falta_probidad'
+    | 'inasistencias_injustificadas'
+    | 'abandono_trabajo'
+    | 'caso_fortuito_fuerza_mayor'
     | 'otro';
+
+export type TTipoGratificacion = 'art_47' | 'art_50_mensual' | 'no_aplica';
 
 export type TTipoAnexoContrato =
     | 'modificacion_sueldo'
@@ -32,9 +38,32 @@ export type TTipoAnexoContrato =
     | 'prorroga'
     | 'otro';
 
+export interface ITurnoLaboral {
+    id: number;
+    nombre: string;
+    hora_inicio: string;
+    hora_fin: string;
+    cruza_medianoche: boolean;
+    dias_semana: string[];
+    horas_turno: string | null;
+    activo: boolean;
+    empresa_nombre: string | null;
+    es_global: boolean;
+}
+
+export interface ITurnoLaboralWrite {
+    nombre: string;
+    hora_inicio: string;
+    hora_fin: string;
+    dias_semana: string[];
+    horas_turno?: number;
+    empresa_id?: number;
+}
+
 export interface IAnexoContrato {
     id: number;
     contrato: number;
+    numero_anexo?: number | null;
     tipo: TTipoAnexoContrato;
     tipo_label?: string;
     fecha_efectiva: string;
@@ -68,7 +97,7 @@ export interface IContratoTrabajador {
     sueldo_base: string;
     moneda: TMonedaContrato;
     moneda_label?: string;
-    gratificacion_legal: boolean;
+    tipo_gratificacion: TTipoGratificacion;
     bono_movilizacion: string;
     bono_colacion: string;
 
@@ -76,7 +105,7 @@ export interface IContratoTrabajador {
 
     estado: TEstadoContrato;
     estado_label?: string;
-    fecha_aceptacion: string | null;
+    fecha_aprobacion: string | null;
     aceptado_por: number | null;
 
     motivo_termino: TMotivoTerminoContrato | null;
@@ -88,14 +117,23 @@ export interface IContratoTrabajador {
     fecha_creacion: string;
     fecha_modificacion: string;
 
-    nombre: string | null;
+    referencia_interna: string | null;
     observaciones: string | null;
     sueldo_liquido: string | null;
     horario_detalle: string | null;
     tiempo_colacion: number | null;
-    lugar_firma: string | null;
+    lugar_celebracion_contrato: string | null;
     fecha_firma: string | null;
     plantilla_contrato: number | null;
+
+    // Campos legales Art. 10 CT
+    estado_civil: string | null;
+    estado_civil_label?: string | null;
+    profesion_u_oficio: string | null;
+    sistema_salud_otro: string | null;
+    trabajador_reemplazado: number | null;
+    causal_reemplazo: string | null;
+    causal_reemplazo_label?: string | null;
 
     // Datos derivados (read-only)
     nombre_trabajador?: string | null;
@@ -110,6 +148,7 @@ export interface IContratoTrabajador {
     email_empresa?: string | null;
     datos_previsionales_trabajador?: {
         afp?: string | null;
+        afp_id?: number | null;
         sistema_salud?: 'fonasa' | 'isapre' | 'otro' | null;
         nombre_isapre?: string | null;
         banco?: string | null;

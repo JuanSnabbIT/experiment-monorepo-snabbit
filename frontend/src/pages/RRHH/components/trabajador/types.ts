@@ -7,7 +7,7 @@ import {
 
 export interface IFormValuesContratoTrabajador {
     // Step 1 - Datos basicos
-    nombre: string; // referencia interna
+    referencia_interna: string;
     observaciones: string;
 
     // Step 2 - Trabajador
@@ -25,6 +25,9 @@ export interface IFormValuesContratoTrabajador {
     trab_nacionalidad: string;
     trab_fecha_nacimiento: string;
     trab_direccion: string;
+    // Datos legales Art. 10 CT (solo modo nuevo)
+    trab_estado_civil: string;
+    trab_profesion_u_oficio: string;
 
     // Step 3 - Terminos laborales
     tipo_contrato: TTipoContrato | '';
@@ -37,13 +40,17 @@ export interface IFormValuesContratoTrabajador {
     horas_semanales: number | '';
     dias_semana: string[];
     turnos_rotativo: ITurnoRotativo[];
+    ciclo_rotacion: string;
     horario_detalle: string;
     hora_inicio: string;
     hora_fin: string;
     tiempo_colacion: number | '';
     lugar_trabajo: string;
-    lugar_firma: string;
+    lugar_celebracion_contrato: string;
     fecha_firma: string;
+    // Campos reemplazo (condicional cuando tipo_contrato = 'reemplazo')
+    trab_trabajador_reemplazado_id: number | '';
+    causal_reemplazo: string;
 
     // Step 4 - Remuneraciones
     sueldo_base: number | '';
@@ -55,6 +62,7 @@ export interface IFormValuesContratoTrabajador {
     afp: number | null;
     sistema_salud: '' | 'fonasa' | 'isapre' | 'otro';
     nombre_isapre: string;
+    sistema_salud_otro: string;
     banco: string;
     tipo_cuenta_bancaria: '' | 'corriente' | 'vista' | 'ahorro' | 'rut';
     numero_cuenta_bancaria: string;
@@ -112,7 +120,7 @@ export const HORAS_SEMANALES_OPTIONS = [
     { value: '30', label: '30 hrs' },
     { value: '36', label: '36 hrs' },
     { value: '40', label: '40 hrs' },
-    { value: '44', label: '44 hrs' },
+    { value: '42', label: '42 hrs' },
 ];
 
 export interface ITurnoRotativo {
@@ -122,11 +130,6 @@ export interface ITurnoRotativo {
     hora_fin: string;
 }
 
-export const TURNOS_PREDETERMINADOS: ITurnoRotativo[] = [
-    { nombre: 'Manana', dias: ['L', 'M', 'X', 'J', 'V'], hora_inicio: '07:00', hora_fin: '15:00' },
-    { nombre: 'Tarde', dias: ['L', 'M', 'X', 'J', 'V'], hora_inicio: '15:00', hora_fin: '23:00' },
-    { nombre: 'Noche', dias: ['L', 'M', 'X', 'J', 'V'], hora_inicio: '23:00', hora_fin: '07:00' },
-];
 
 export const DIAS_SEMANA = [
     { key: 'L', label: 'Lunes' },

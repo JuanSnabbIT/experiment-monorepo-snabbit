@@ -88,6 +88,8 @@ ETIQUETAS_TRABAJADOR = [
      "categoria": "trabajador", "origen_dato": "remuneracion.bono_colacion"},
     {"clave": "gratificacion_legal", "nombre_display": "Gratificacion legal",
      "categoria": "trabajador", "origen_dato": "remuneracion.gratificacion_legal"},
+    {"clave": "tipo_gratificacion", "nombre_display": "Tipo de gratificacion",
+     "categoria": "trabajador", "origen_dato": "remuneracion.tipo_gratificacion"},
 
     # --- Prevision ---
     {"clave": "afp", "nombre_display": "AFP",

@@ -26,11 +26,11 @@ const StepDocumentoLaboral = ({ formik }: Props) => {
         <div className='space-y-4'>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
                 <div>
-                    <Label htmlFor='lugar_firma'>Lugar de firma</Label>
+                    <Label htmlFor='lugar_celebracion_contrato'>Lugar de celebracion del contrato</Label>
                     <Input
-                        id='lugar_firma'
-                        name='lugar_firma'
-                        value={values.lugar_firma}
+                        id='lugar_celebracion_contrato'
+                        name='lugar_celebracion_contrato'
+                        value={values.lugar_celebracion_contrato}
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder='Ej: Santiago, Chile'

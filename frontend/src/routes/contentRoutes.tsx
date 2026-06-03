@@ -189,6 +189,12 @@ const ListaContratosTrabajador = lazy(
 const DetalleTrabajador = lazy(
     () => import('@/pages/RRHH/DetalleTrabajador'),
 );
+const ListaTrabajadores = lazy(
+    () => import('@/pages/RRHH/ListaTrabajadores'),
+);
+const ConfiguracionRRHH = lazy(
+    () => import('@/pages/RRHH/ConfiguracionRRHH'),
+);
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
 );
@@ -668,9 +674,19 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.rrhh.subPages.detalleContratoTrabajador.authority,
     },
     {
+        path: Pages.rrhh.subPages.listaTrabajadores.to,
+        element: <ListaTrabajadores />,
+        authority: Pages.rrhh.subPages.listaTrabajadores.authority,
+    },
+    {
         path: Pages.rrhh.subPages.detalleTrabajador.to,
         element: <DetalleTrabajador />,
         authority: Pages.rrhh.subPages.detalleTrabajador.authority,
+    },
+    {
+        path: Pages.rrhh.subPages.rrhhConfiguracion.to,
+        element: <ConfiguracionRRHH />,
+        authority: Pages.rrhh.subPages.rrhhConfiguracion.authority,
     },
     {
         path: Pages.empresa.subPages.detalleLicencia.to,

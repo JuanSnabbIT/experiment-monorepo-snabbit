@@ -56,7 +56,7 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const tienePdf = !!contrato.archivo_pdf;
     const estado = contrato.estado;
     const esBorrador = estado === 'borrador';
-    const esPendienteAceptacion = estado === 'pendiente_aceptacion';
+    const esPendienteAceptacion = estado === 'pendiente_aprobacion';
     const esVigente = estado === 'vigente';
     const esTerminado = estado === 'terminado';
     const esAnulado = estado === 'anulado';
@@ -114,7 +114,7 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                     </div>
                 )}
 
-                {/* Variante B: pendiente_aceptacion */}
+                {/* Variante B: pendiente_aprobacion */}
                 {esPendienteAceptacion && (
                     <div className='space-y-3'>
                         <Alert variant='outline' color='blue' icon='HeroClock'>

@@ -3717,7 +3717,9 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
         empresa = _empresa_del_usuario(self.request.user)
         if not empresa:
             return PlantillaContrato.objects.none()
-        qs = PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+        qs = PlantillaContrato.objects.filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        )
         tipo = self.request.query_params.get("tipo_contrato")
         if tipo:
             qs = qs.filter(tipo_contrato=tipo)

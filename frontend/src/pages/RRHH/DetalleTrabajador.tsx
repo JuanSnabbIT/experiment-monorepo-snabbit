@@ -33,7 +33,7 @@ const TABS: { id: TTab; label: string }[] = [
 
 const BADGE_CONTRATO: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
     borrador: 'zinc',
-    pendiente_aceptacion: 'amber',
+    pendiente_aprobacion: 'amber',
     vigente: 'emerald',
     terminado: 'zinc',
     anulado: 'red',
@@ -246,7 +246,7 @@ const DetalleTrabajador = () => {
                                                         {c.id}
                                                     </span>
                                                 </Td>
-                                                <Td>{c.nombre ?? '\u2014'}</Td>
+                                                <Td>{c.referencia_interna ?? '\u2014'}</Td>
                                                 <Td>
                                                     <Badge variant='outline' color='blue'>
                                                         {c.tipo_contrato_label ?? c.tipo_contrato}

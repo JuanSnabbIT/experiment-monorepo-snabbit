@@ -33,10 +33,17 @@ const AnexoCard = ({ a }: { a: IAnexoContrato }) => (
     <div className='rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800'>
         <div className='flex items-start justify-between gap-2'>
             <div>
-                <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
-                    {a.tipo_label ?? a.tipo}
-                </p>
-                <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                <div className='flex items-center gap-2'>
+                    {a.numero_anexo && (
+                        <span className='shrink-0 rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 text-xs font-bold text-zinc-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-400'>
+                            N°{a.numero_anexo}
+                        </span>
+                    )}
+                    <p className='text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
+                        {a.tipo_label ?? a.tipo}
+                    </p>
+                </div>
+                <p className='mt-0.5 text-xs text-zinc-500 dark:text-zinc-400'>
                     Efectivo:{' '}
                     {a.fecha_efectiva ? dayjs(a.fecha_efectiva).format('DD/MM/YYYY') : '—'}
                     {a.nueva_fecha_termino && (
@@ -70,7 +77,7 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
 
     const estado = contrato.estado;
     const esBorrador = estado === 'borrador';
-    const esPendiente = estado === 'pendiente_aceptacion';
+    const esPendiente = estado === 'pendiente_aprobacion';
     const esVigente = estado === 'vigente';
     const esFinal = estado === 'terminado' || estado === 'anulado';
     const puedeCrear = esVigente;

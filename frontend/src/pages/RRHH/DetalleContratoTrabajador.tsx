@@ -20,6 +20,7 @@ import {
     useGetContratoTrabajadorDetalleQuery,
     useGetEstadoAprobacionEmpleadorQuery,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import { TMotivoTerminoContrato } from '@/interface/rrhh.interface';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import dayjs from 'dayjs';
 import { useState } from 'react';
@@ -30,11 +31,12 @@ import ModalCambiarEstadoContrato from './components/trabajador/ModalCambiarEsta
 import TabAnexosTrabajador from './components/trabajador/TabAnexosTrabajador';
 import TabDatosLaboralesTrabajador from './components/trabajador/TabDatosLaboralesTrabajador';
 import TabDocumentoTrabajador from './components/trabajador/TabDocumentoTrabajador';
+import TabFiniquitoTrabajador from './components/trabajador/TabFiniquitoTrabajador';
 import TabHistorialTrabajador from './components/trabajador/TabHistorialTrabajador';
 import TabRemuneracionesTrabajador from './components/trabajador/TabRemuneracionesTrabajador';
 import TabTrabajadorTrabajador from './components/trabajador/TabTrabajadorTrabajador';
 
-type TTabId = 'datos' | 'trabajador' | 'sueldo' | 'prevision' | 'documento' | 'anexos' | 'historial';
+type TTabId = 'datos' | 'trabajador' | 'sueldo' | 'prevision' | 'documento' | 'anexos' | 'historial' | 'finiquito';
 
 const TABS: { id: TTabId; label: string }[] = [
     { id: 'datos', label: 'Datos contrato' },
@@ -44,14 +46,16 @@ const TABS: { id: TTabId; label: string }[] = [
     { id: 'documento', label: 'Documento' },
     { id: 'anexos', label: 'Anexos' },
     { id: 'historial', label: 'Historial' },
+    { id: 'finiquito', label: 'Finiquito' },
 ];
 
 const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
     borrador: 'zinc',
-    pendiente_aceptacion: 'amber',
+    pendiente_aprobacion: 'amber',
     vigente: 'emerald',
     terminado: 'zinc',
     anulado: 'red',
+    descartado: 'zinc',
 };
 
 const DetalleContratoTrabajador = () => {
@@ -59,6 +63,7 @@ const DetalleContratoTrabajador = () => {
     const { contratoId } = useParams<{ contratoId: string }>();
     const [activeTab, setActiveTab] = useState<TTabId>('datos');
     const [modalEstadoOpen, setModalEstadoOpen] = useState(false);
+    const [estadoDestino, setEstadoDestino] = useState<'terminado' | 'anulado'>('terminado');
     const [modalEnvioOpen, setModalEnvioOpen] = useState(false);
     const [modalCopiaOpen, setModalCopiaOpen] = useState(false);
     const [nombreCopia, setNombreCopia] = useState('');
@@ -84,7 +89,7 @@ const DetalleContratoTrabajador = () => {
         {
             skip:
                 !contratoId ||
-                !['pendiente_aceptacion', 'anulado'].includes(contrato?.estado ?? ''),
+                !['pendiente_aprobacion', 'anulado'].includes(contrato?.estado ?? ''),
         },
     );
 
@@ -127,8 +132,8 @@ const DetalleContratoTrabajador = () => {
 
     const badgeColor = BADGE_COLOR[contrato.estado] ?? 'zinc';
 
-    const contratoTitulo = contrato.nombre
-        ? `${contrato.nombre} #${contrato.id}`
+    const contratoTitulo = contrato.referencia_interna
+        ? `${contrato.referencia_interna} #${contrato.id}`
         : `Contrato #${contrato.id}`;
 
     const nombreTrabajador =
@@ -179,6 +184,22 @@ const DetalleContratoTrabajador = () => {
         }
     };
 
+    const handleConfirmarCambioEstado = async (data: Record<string, string | undefined>) => {
+        try {
+            await cambiarEstado({
+                id: contrato.id,
+                estado: estadoDestino,
+                motivo_termino: data.motivo_termino as TMotivoTerminoContrato | undefined,
+                fecha_termino_real: data.fecha_termino_real,
+                observaciones_termino: data.observaciones_termino,
+            }).unwrap();
+            toast.success(estadoDestino === 'terminado' ? 'Contrato terminado.' : 'Contrato anulado.');
+            setModalEstadoOpen(false);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
     const handleVolverABorrador = async () => {
         try {
             await cambiarEstado({ id: contrato.id, estado: 'borrador' }).unwrap();
@@ -192,7 +213,7 @@ const DetalleContratoTrabajador = () => {
     const rechazadoPorEmpleador = contrato?.estado === 'anulado' && envio?.decision === 'rechazado';
 
     const handleAbrirModalCopia = () => {
-        setNombreCopia(`Copia de ${contrato?.nombre || `contrato #${contratoId}`}`);
+        setNombreCopia(`Copia de ${contrato?.referencia_interna || `contrato #${contratoId}`}`);
         setModalCopiaOpen(true);
     };
 
@@ -290,7 +311,7 @@ const DetalleContratoTrabajador = () => {
                                         </Button>
                                     </>
                                 )}
-                                {contrato.estado === 'pendiente_aceptacion' &&
+                                {contrato.estado === 'pendiente_aprobacion' &&
                                     (envio?.decision === 'cambios_solicitados' ||
                                         envio?.expirado === true) && (
                                         <Button
@@ -306,7 +327,7 @@ const DetalleContratoTrabajador = () => {
                                     <>
                                         <Button
                                             icon='HeroArrowsRightLeft'
-                                            onClick={() => setModalEstadoOpen(true)}>
+                                            onClick={() => { setEstadoDestino('terminado'); setModalEstadoOpen(true); }}>
                                             Terminar / Anular
                                         </Button>
                                         <Button
@@ -356,7 +377,7 @@ const DetalleContratoTrabajador = () => {
                                     icon='HeroArrowsRightLeft'
                                     color='red'
                                     size='sm'
-                                    onClick={() => setModalEstadoOpen(true)}>
+                                    onClick={() => { setEstadoDestino('terminado'); setModalEstadoOpen(true); }}>
                                     Terminar contrato
                                 </Button>
                             </div>
@@ -375,7 +396,7 @@ const DetalleContratoTrabajador = () => {
                                     icon='HeroArrowsRightLeft'
                                     color='red'
                                     size='sm'
-                                    onClick={() => setModalEstadoOpen(true)}>
+                                    onClick={() => { setEstadoDestino('terminado'); setModalEstadoOpen(true); }}>
                                     Terminar contrato
                                 </Button>
                             </div>
@@ -405,7 +426,7 @@ const DetalleContratoTrabajador = () => {
             )}
 
             {/* Banner de estado de aprobacion del empleador */}
-            {contrato.estado === 'pendiente_aceptacion' && envio && (
+            {contrato.estado === 'pendiente_aprobacion' && envio && (
                 <Container className='pb-0 pt-2'>
                     {envio.decision === 'pendiente' && (
                         <Alert variant='outline' color='amber' icon='HeroClock'>
@@ -466,10 +487,16 @@ const DetalleContratoTrabajador = () => {
                 </Container>
             )}
 
+
             {/* Tabs */}
             <Container className='pb-0'>
                 <div className='flex gap-1 border-b border-zinc-200 dark:border-zinc-700'>
-                    {TABS.map((tab) => (
+                    {TABS.filter((tab) => {
+                        if (tab.id === 'finiquito') {
+                            return contrato.estado === 'terminado' || contrato.estado === 'anulado';
+                        }
+                        return true;
+                    }).map((tab) => (
                         <button
                             key={tab.id}
                             type='button'
@@ -487,9 +514,10 @@ const DetalleContratoTrabajador = () => {
             </Container>
 
             <ModalCambiarEstadoContrato
-                contrato={contrato}
                 isOpen={modalEstadoOpen}
-                onClose={() => setModalEstadoOpen(false)}
+                estado={estadoDestino}
+                onConfirm={handleConfirmarCambioEstado}
+                onCancel={() => setModalEstadoOpen(false)}
             />
 
             {/* Modal: enviar aprobacion al empleador */}
@@ -646,6 +674,7 @@ const DetalleContratoTrabajador = () => {
                 {activeTab === 'documento' && <TabDocumentoTrabajador contrato={contrato} />}
                 {activeTab === 'anexos' && <TabAnexosTrabajador contrato={contrato} />}
                 {activeTab === 'historial' && <TabHistorialTrabajador contratoId={contrato.id} />}
+                {activeTab === 'finiquito' && <TabFiniquitoTrabajador contrato={contrato} />}
             </Container>
         </PageWrapper>
     );

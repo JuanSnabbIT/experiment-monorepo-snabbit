@@ -14,12 +14,12 @@ const EmpresaSeleccionada = () => {
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
 
     useEffect(() => {
-        if (personalizacionUsuario?.sucursal_principal) {
+        if (personalizacionUsuario?.empresa) {
             dispatch(
-                detalleEmpresaThunk({ id_empresa: personalizacionUsuario.sucursal_principal }),
+                detalleEmpresaThunk({ id_empresa: personalizacionUsuario.empresa }),
             );
         }
-    }, [dispatch, personalizacionUsuario?.sucursal_principal]);
+    }, [dispatch, personalizacionUsuario?.empresa, personalizacionUsuario?.sucursal_principal]);
 
     return (
         <>

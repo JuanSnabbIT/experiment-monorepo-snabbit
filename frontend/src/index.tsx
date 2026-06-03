@@ -40,7 +40,7 @@ root.render(
             >
                 <AppInitializer loadingComponent={<AppLoader message='Verificando sesión...' />}>
                     <ThemeContextProvider>
-                        <BrowserRouter>
+                        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                             <App />
                         </BrowserRouter>
                     </ThemeContextProvider>

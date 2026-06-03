@@ -196,12 +196,12 @@ class CambiarEstadoContratoTest(APITestCase):
         self.contrato = _contrato_base(ue)
         self.url = f"/api/rrhh/contratos-trabajador/{self.contrato.id}/cambiar-estado/"
 
-    def test_borrador_a_pendiente_aceptacion(self):
+    def test_borrador_a_pendiente_aprobacion(self):
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post(self.url, {"estado": "pendiente_aceptacion"})
+        response = self.client.post(self.url, {"estado": "pendiente_aprobacion"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.contrato.refresh_from_db()
-        self.assertEqual(self.contrato.estado, "pendiente_aceptacion")
+        self.assertEqual(self.contrato.estado, "pendiente_aprobacion")
 
     def test_borrador_a_vigente_directo(self):
         self.client.force_authenticate(user=self.admin)

@@ -1,6 +1,7 @@
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Validation from '@/components/form/Validation';
 import {
     useCrearBancoInlineMutation,
     useGetAfpCatalogoQuery,
@@ -30,7 +31,7 @@ const SectionTitle = ({ icon, title }: { icon: React.ReactNode; title: string })
 );
 
 const StepPrevisionBanco = ({ formik }: Props) => {
-    const { values, setFieldValue, handleChange, handleBlur } = formik;
+    const { values, errors, touched, setFieldValue, handleChange, handleBlur } = formik;
 
     const { data: afpList = [] } = useGetAfpCatalogoQuery();
     const { data: bancoList = [] } = useGetBancoCatalogoQuery();
@@ -118,6 +119,26 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                                     onChange={handleChange}
                                     onBlur={handleBlur}
                                 />
+                            </div>
+                        )}
+                        {values.sistema_salud === 'otro' && (
+                            <div>
+                                <Label htmlFor='sistema_salud_otro'>
+                                    Especifica el sistema de salud <span className='text-red-500'>*</span>
+                                </Label>
+                                <Validation
+                                    isValid={!errors.sistema_salud_otro}
+                                    isTouched={!!touched.sistema_salud_otro}
+                                    invalidFeedback={errors.sistema_salud_otro || ''}>
+                                    <Input
+                                        id='sistema_salud_otro'
+                                        name='sistema_salud_otro'
+                                        value={values.sistema_salud_otro}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                        placeholder='Ej: Mutual de Seguridad'
+                                    />
+                                </Validation>
                             </div>
                         )}
                     </div>

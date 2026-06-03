@@ -5,14 +5,25 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
+import { formatRut } from '@/utils/rut.util';
 import { FormikProps } from 'formik';
-import { IFormValuesContratoTrabajador } from './types';
+import { IFormValuesContratoTrabajador, SISTEMA_SALUD_OPTIONS } from './types';
+import type { IUseContratoWizardReturn } from '@/hooks/useContratoWizard';
+
+const ESTADO_CIVIL_OPTIONS: TSelectOption[] = [
+    { value: 'soltero_a', label: 'Soltero/a' },
+    { value: 'casado_a', label: 'Casado/a' },
+    { value: 'conviviente_civil', label: 'Conviviente civil' },
+    { value: 'divorciado_a', label: 'Divorciado/a' },
+    { value: 'viudo_a', label: 'Viudo/a' },
+];
 
 interface Props {
     formik: FormikProps<IFormValuesContratoTrabajador>;
     usuariosCliente: IUsuarioEmpresa[];
     sucursales: { id: number; nombre: string }[];
     empresasCliente?: IRelacionEmpresa[];
+    wizard?: IUseContratoWizardReturn;
 }
 
 const StepTrabajador = ({
@@ -273,13 +284,21 @@ const StepTrabajador = ({
                     </div>
                     <div>
                         <Label htmlFor='trab_rut'>RUT</Label>
-                        <Input
-                            id='trab_rut'
-                            name='trab_rut'
-                            value={values.trab_rut}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Validation
+                            isValid={!errors.trab_rut}
+                            isTouched={!!touched.trab_rut}
+                            invalidFeedback={errors.trab_rut || ''}>
+                            <Input
+                                id='trab_rut'
+                                name='trab_rut'
+                                value={values.trab_rut}
+                                onChange={handleChange}
+                                onBlur={(event) => {
+                                    handleBlur(event);
+                                    setFieldValue('trab_rut', formatRut(event.target.value));
+                                }}
+                            />
+                        </Validation>
                     </div>
                     <div className='md:col-span-2'>
                         <Label htmlFor='trab_sucursal_id'>
@@ -342,6 +361,29 @@ const StepTrabajador = ({
                             value={values.trab_direccion}
                             onChange={handleChange}
                             onBlur={handleBlur}
+                        />
+                    </div>
+                    {/* Campos legales Art. 10 CT */}
+                    <div>
+                        <Label htmlFor='trab_estado_civil'>Estado civil</Label>
+                        <SelectReact
+                            name='trab_estado_civil'
+                            options={ESTADO_CIVIL_OPTIONS}
+                            placeholder='Selecciona...'
+                            value={ESTADO_CIVIL_OPTIONS.find((o) => o.value === values.trab_estado_civil) ?? null}
+                            onChange={(opt) => setFieldValue('trab_estado_civil', opt ? (opt as TSelectOption).value : '')}
+                            isClearable
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor='trab_profesion_u_oficio'>Profesion u oficio</Label>
+                        <Input
+                            id='trab_profesion_u_oficio'
+                            name='trab_profesion_u_oficio'
+                            value={values.trab_profesion_u_oficio}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            placeholder='Ej: Ingeniero en Sistemas'
                         />
                     </div>
                 </div>

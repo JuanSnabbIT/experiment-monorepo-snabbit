@@ -26,19 +26,23 @@ from .models import (
     AnexoContrato,
     BancoCatalogo,
     CargoCatalogo,
+    ConfiguracionLaboral,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    TurnoLaboral,
 )
 from .serializers import (
     AfpCatalogoSerializer,
     AnexoContratoSerializer,
     BancoCatalogoSerializer,
     CargoCatalogoSerializer,
+    ConfiguracionLaboralSerializer,
     ContratoAprobacionPublicaSerializer,
     ContratoTrabajadorSerializer,
     ContratoTrabajadorWriteSerializer,
     CrearContratoConTrabajadorSerializer,
     EnvioAprobacionEmpleadorSerializer,
+    TurnoLaboralSerializer,
 )
 
 
@@ -60,6 +64,40 @@ def _empresas_clientes_ids(empresa):
             tipo_relacion="prestador-cliente",
         ).values_list("cliente_id", flat=True)
     )
+
+
+def _resolver_empresa_destino(request, prestadora):
+    """Resuelve la empresa destino desde empresa_id del body.
+
+    Acepta la prestadora o cualquiera de sus clientes; en otro caso retorna
+    la prestadora. Usado para catalogos por empresa (turnos, AFP, banco, config).
+    """
+    empresa_id_body = request.data.get("empresa_id")
+    if not empresa_id_body:
+        return prestadora
+    from empresas.models import Empresa
+
+    try:
+        destino = Empresa.objects.get(id=empresa_id_body)
+    except Empresa.DoesNotExist:
+        return prestadora
+    if destino == prestadora or destino.id in _empresas_clientes_ids(prestadora):
+        return destino
+    return prestadora
+
+
+def _validar_empresa_id_param(request, empresa):
+    """Valida que el empresa_id del query param pertenezca a las empresas visibles del usuario.
+
+    Evita IDOR: un usuario no puede consultar datos de empresas que no le pertenecen.
+    Retorna el ID validado o None si el param es inválido/no autorizado.
+    """
+    empresa_id_param = request.query_params.get("empresa_id", "").strip()
+    if not empresa_id_param or not empresa_id_param.isdigit():
+        return None
+    empresa_id = int(empresa_id_param)
+    ids_visibles = ([empresa.id] + _empresas_clientes_ids(empresa)) if empresa else []
+    return empresa_id if empresa_id in ids_visibles else None
 
 
 def _normalizar_valores_json(value):
@@ -91,19 +129,23 @@ class CargoCatalogoViewSet(viewsets.ModelViewSet):
 
 
 class AfpCatalogoViewSet(viewsets.ModelViewSet):
-    """Catalogo de AFP: globales (empresa=null) + por empresa. Solo GET y POST."""
+    """Catalogo de AFP: globales (empresa=null) + por empresa.
+
+    Los registros globales son de solo lectura. PATCH/DELETE solo aplican a
+    registros de empresa.
+    """
 
     serializer_class = AfpCatalogoSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        from django.db.models import Q
-
         empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
         search = self.request.query_params.get("search", "").strip()
+        empresa_filtro = empresa_id_validado or (empresa.id if empresa else None)
         qs = AfpCatalogo.objects.filter(
-            Q(empresa__isnull=True) | Q(empresa=empresa),
+            Q(empresa__isnull=True) | Q(empresa_id=empresa_filtro),
             activo=True,
         )
         if search:
@@ -111,11 +153,9 @@ class AfpCatalogoViewSet(viewsets.ModelViewSet):
         return qs.order_by("nombre")
 
     def perform_create(self, serializer):
-        empresa = _empresa_actual(self.request)
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
         nombre = serializer.validated_data.get("nombre", "").strip()
-        # Evitar duplicados globales / de empresa
-        from django.db.models import Q
-
         existe = AfpCatalogo.objects.filter(
             Q(empresa__isnull=True) | Q(empresa=empresa),
             nombre__iexact=nombre,
@@ -124,21 +164,35 @@ class AfpCatalogoViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError({"nombre": "Ya existe una AFP con ese nombre."})
         serializer.save(empresa=empresa)
 
+    def perform_update(self, serializer):
+        if serializer.instance.empresa_id is None:
+            raise serializers.ValidationError("Las AFP globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa_id is None:
+            raise serializers.ValidationError("Las AFP globales no pueden eliminarse.")
+        instance.delete()
+
 
 class BancoCatalogoViewSet(viewsets.ModelViewSet):
-    """Catalogo de bancos: globales (empresa=null) + por empresa. Solo GET y POST."""
+    """Catalogo de bancos: globales (empresa=null) + por empresa.
+
+    Los registros globales son de solo lectura. PATCH/DELETE solo aplican a
+    registros de empresa.
+    """
 
     serializer_class = BancoCatalogoSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ["get", "post", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        from django.db.models import Q
-
         empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
         search = self.request.query_params.get("search", "").strip()
+        empresa_filtro = empresa_id_validado or (empresa.id if empresa else None)
         qs = BancoCatalogo.objects.filter(
-            Q(empresa__isnull=True) | Q(empresa=empresa),
+            Q(empresa__isnull=True) | Q(empresa_id=empresa_filtro),
             activo=True,
         )
         if search:
@@ -146,10 +200,9 @@ class BancoCatalogoViewSet(viewsets.ModelViewSet):
         return qs.order_by("nombre")
 
     def perform_create(self, serializer):
-        empresa = _empresa_actual(self.request)
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
         nombre = serializer.validated_data.get("nombre", "").strip()
-        from django.db.models import Q
-
         existe = BancoCatalogo.objects.filter(
             Q(empresa__isnull=True) | Q(empresa=empresa),
             nombre__iexact=nombre,
@@ -157,6 +210,120 @@ class BancoCatalogoViewSet(viewsets.ModelViewSet):
         if existe:
             raise serializers.ValidationError({"nombre": "Ya existe un banco con ese nombre."})
         serializer.save(empresa=empresa)
+
+    def perform_update(self, serializer):
+        if serializer.instance.empresa_id is None:
+            raise serializers.ValidationError("Los bancos globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa_id is None:
+            raise serializers.ValidationError("Los bancos globales no pueden eliminarse.")
+        instance.delete()
+
+
+class ConfiguracionLaboralViewSet(viewsets.ModelViewSet):
+    """Parametros legales/laborales: globales (empresa=null) + override por empresa.
+
+    Los parametros globales son de solo lectura. Para crear un override por
+    empresa se hace POST con empresa_id en el body y la misma clave.
+    """
+
+    serializer_class = ConfiguracionLaboralSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
+        empresa_filtro = empresa_id_validado or (empresa.id if empresa else None)
+        return ConfiguracionLaboral.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa_id=empresa_filtro),
+        ).order_by("clave")
+
+    def perform_create(self, serializer):
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
+        clave = serializer.validated_data.get("clave", "").strip()
+        existe = ConfiguracionLaboral.objects.filter(empresa=empresa, clave=clave).first()
+        if existe:
+            raise serializers.ValidationError(
+                {"clave": "Ya existe un parametro con esa clave para esta empresa."}
+            )
+        serializer.save(empresa=empresa)
+
+    def perform_update(self, serializer):
+        if serializer.instance.empresa_id is None:
+            raise serializers.ValidationError("Los parametros globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa_id is None:
+            raise serializers.ValidationError("Los parametros globales no pueden eliminarse.")
+        instance.delete()
+
+
+class TurnoLaboralViewSet(viewsets.ModelViewSet):
+    """Catalogo de turnos laborales: globales (empresa=null) + por empresa."""
+
+    serializer_class = TurnoLaboralSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
+        if empresa_id_validado:
+            qs = TurnoLaboral.objects.filter(
+                Q(empresa__isnull=True) | Q(empresa_id=empresa_id_validado),
+            )
+        else:
+            clientes_ids = _empresas_clientes_ids(empresa)
+            qs = TurnoLaboral.objects.filter(
+                Q(empresa__isnull=True) | Q(empresa=empresa) | Q(empresa_id__in=clientes_ids),
+            )
+        solo_activos = self.request.query_params.get("activos", "true")
+        if solo_activos.lower() == "true":
+            qs = qs.filter(activo=True)
+        return qs.order_by("nombre")
+
+    def perform_create(self, serializer):
+        prestadora = _empresa_actual(self.request)
+
+        # Si se envía empresa_id en el body, usar esa empresa (debe ser cliente de la prestadora)
+        empresa_id_body = self.request.data.get("empresa_id")
+        if empresa_id_body:
+            from empresas.models import Empresa
+            try:
+                empresa_destino = Empresa.objects.get(id=empresa_id_body)
+                es_cliente = RelacionEmpresa.objects.filter(
+                    prestador_servicios=prestadora,
+                    cliente=empresa_destino,
+                    tipo_relacion="prestador-cliente",
+                ).exists()
+                empresa = empresa_destino if (es_cliente or empresa_destino == prestadora) else prestadora
+            except Empresa.DoesNotExist:
+                empresa = prestadora
+        else:
+            empresa = prestadora
+
+        nombre = serializer.validated_data.get("nombre", "").strip()
+        existe = TurnoLaboral.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa=empresa),
+            nombre__iexact=nombre,
+        ).first()
+        if existe:
+            raise serializers.ValidationError({"nombre": "Ya existe un turno con ese nombre."})
+        serializer.save(empresa=empresa)
+
+    def perform_update(self, serializer):
+        if serializer.instance.empresa is None:
+            raise serializers.ValidationError("Los turnos globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa is None:
+            raise serializers.ValidationError("Los turnos globales no pueden eliminarse.")
+        instance.delete()
 
 
 class AnexoContratoViewSet(viewsets.ModelViewSet):
@@ -228,6 +395,8 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
     def cambiar_estado(self, request, pk=None):
+        from .services import RRHHContratosService
+
         contrato = self.get_object()
         nuevo_estado = request.data.get("estado")
 
@@ -237,45 +406,37 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        permitidos = TRANSICIONES_CONTRATO.get(contrato.estado, [])
-        if nuevo_estado not in permitidos:
+        try:
+            # Filtrar claves que ya se pasan como argumentos explícitos para evitar TypeError
+            extra_data = {
+                k: v for k, v in request.data.items()
+                if k not in ("estado", "contrato_id", "nuevo_estado")
+            }
+            contrato = RRHHContratosService.cambiar_estado(
+                contrato_id=pk,
+                nuevo_estado=nuevo_estado,
+                usuario=request.user,
+                **extra_data
+            )
+            return Response(ContratoTrabajadorSerializer(contrato).data)
+        except ValidationError as e:
             return Response(
-                {
-                    "detail": (
-                        f"No se puede cambiar de '{contrato.estado}' a '{nuevo_estado}'."
-                    ),
-                    "transiciones_validas": permitidos,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": str(e), "errors": e.message_dict if hasattr(e, 'message_dict') else {}},
+                status=status.HTTP_400_BAD_REQUEST
             )
-
-        contrato.estado = nuevo_estado
-
-        # Sincronizacion al activar contrato
-        if nuevo_estado == "vigente":
-            ue = contrato.usuario_empresa
-            if contrato.cargo:
-                ue.cargo = contrato.cargo
-            if contrato.fecha_inicio and not ue.fecha_contrato:
-                ue.fecha_contrato = contrato.fecha_inicio
-            ue.save(update_fields=["cargo", "fecha_contrato"])
-
-        if nuevo_estado == "terminado":
-            contrato.fecha_termino_real = (
-                request.data.get("fecha_termino_real") or timezone.now().date()
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error cambiando estado: {str(e)}")
+            return Response(
+                {"detail": "Error al cambiar estado. Intenta nuevamente."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-            motivo = request.data.get("motivo_termino")
-            if motivo:
-                contrato.motivo_termino = motivo
-            observaciones = request.data.get("observaciones_termino")
-            if observaciones is not None:
-                contrato.observaciones_termino = observaciones
-
-        contrato.save()
-        return Response(ContratoTrabajadorSerializer(contrato).data)
 
     @action(detail=True, methods=["post"], url_path="aceptar")
     def aceptar(self, request, pk=None):
+        from .services import RRHHContratosService
+
         contrato = self.get_object()
 
         if contrato.estado != "pendiente_aprobacion":
@@ -284,27 +445,30 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Gate: si existe un envio activo al empleador que aun no fue aprobado, bloquear
-        envio_activo = contrato.envios_aprobacion_empleador.filter(expirado=False).first()
-        if envio_activo and envio_activo.decision != "aprobado":
-            return Response(
-                {"detail": "El empleador aun no ha aprobado el contrato. Aguarda su respuesta o expira el envio."},
-                status=status.HTTP_400_BAD_REQUEST,
+        try:
+            contrato = RRHHContratosService.cambiar_estado_a_vigente(
+                contrato_id=pk,
+                usuario=request.user
             )
-
-        contrato.estado = "vigente"
-        contrato.fecha_aprobacion = timezone.now()
-        contrato.aceptado_por = request.user
-
-        ue = contrato.usuario_empresa
-        if contrato.cargo:
-            ue.cargo = contrato.cargo
-        if contrato.fecha_inicio and not ue.fecha_contrato:
-            ue.fecha_contrato = contrato.fecha_inicio
-        ue.save(update_fields=["cargo", "fecha_contrato"])
-
-        contrato.save()
-        return Response(ContratoTrabajadorSerializer(contrato).data)
+            return Response(ContratoTrabajadorSerializer(contrato).data)
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ContratoTrabajador.DoesNotExist:
+            return Response(
+                {"detail": "Contrato no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error aceptando contrato: {str(e)}")
+            return Response(
+                {"detail": "Error al aceptar. Intenta nuevamente."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=["post"], url_path="generar-pdf")
     def generar_pdf(self, request, pk=None):
@@ -405,8 +569,12 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             ue_changed = []
             for campo in UE_FIELDS:
                 if campo in data:
-                    setattr(ue, campo, data[campo])
-                    ue_changed.append(campo)
+                    if campo == "afp":
+                        ue.afp_id = data[campo] if data[campo] else None
+                        ue_changed.append("afp")
+                    else:
+                        setattr(ue, campo, data[campo])
+                        ue_changed.append(campo)
             if ue_changed:
                 ue.save(update_fields=ue_changed)
 
@@ -473,8 +641,12 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             ue_changed = []
             for f in UE_FIELDS_OPCIONALES:
                 if f in data and data.get(f) not in (None, ""):
-                    setattr(ue, f, data[f])
-                    ue_changed.append(f)
+                    if f == "afp":
+                        ue.afp_id = data[f] if data[f] else None
+                        ue_changed.append("afp")
+                    else:
+                        setattr(ue, f, data[f])
+                        ue_changed.append(f)
             if ue_changed:
                 ue.save(update_fields=ue_changed)
             if user is not None:
@@ -535,7 +707,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
                     nombre_trab = ue.usuario.get_nombre_completo() if ue.usuario_id else "el trabajador"
                     html_notif = (
                         f"<p>Se ha creado un nuevo contrato laboral para <strong>{nombre_trab}</strong>.</p>"
-                        f"<p>Contrato: {contrato.nombre or contrato.get_tipo_contrato_display()}</p>"
+                        f"<p>Contrato: {contrato.referencia_interna or contrato.get_tipo_contrato_display()}</p>"
                         f"<p>Fecha de inicio: {contrato.fecha_inicio}</p>"
                     )
                     transaction.on_commit(
@@ -578,15 +750,15 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             "tipo_contrato", "fecha_inicio", "fecha_termino",
             "cargo", "funciones", "jornada", "horas_semanales",
             "horario_detalle", "tiempo_colacion", "lugar_trabajo",
-            "sueldo_base", "moneda", "gratificacion_legal",
+            "sueldo_base", "moneda", "tipo_gratificacion",
             "bono_movilizacion", "bono_colacion",
-            "plantilla_contrato", "lugar_firma", "observaciones",
+            "plantilla_contrato", "lugar_celebracion_contrato", "observaciones",
             "cantidad_meses", "dias_semana", "turnos_rotativo",
             "enviar_al_empleador",
         ]
 
         nuevo = ContratoTrabajador(
-            nombre=nombre,
+            referencia_interna=nombre,
             estado="borrador",
             creado_por=request.user,
         )
@@ -605,9 +777,9 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
     def enviar_aprobacion_empleador(self, request, pk=None):
         """
         Envia el contrato PDF al empleador para su aprobacion previa.
-        Transiciona el contrato a 'pendiente_aprobacion' y crea EnvioAprobacionEmpleador.
+        REFACTORIZADO: Usa RRHHContratosService.enviar_a_aprobacion_empleador()
         """
-        from contratos.servicio_pdf import PlantillaNoDisponibleError, generar_pdf as _generar_pdf
+        from .services import RRHHContratosService
 
         contrato = self.get_object()
 
@@ -618,68 +790,33 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if contrato.estado not in ("borrador",):
-            return Response(
-                {"detail": "Solo se puede enviar a aprobacion desde estado 'borrador'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Generar PDF (resuelve plantilla, genera secciones, persiste en contrato).
         try:
-            pdf_bytes = _generar_pdf(contrato, persistir=True)
-        except PlantillaNoDisponibleError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Expirar envios anteriores activos
-        contrato.envios_aprobacion_empleador.filter(expirado=False).update(expirado=True)
-
-        # Crear registro de envio
-        envio = EnvioAprobacionEmpleador.objects.create(
-            contrato=contrato,
-            pdf_congelado=pdf_bytes,
-            enviado_a=email_empleador,
-            enviado_por=request.user,
-        )
-
-        # Transicionar contrato a pendiente_aprobacion
-        contrato.estado = "pendiente_aprobacion"
-        contrato._change_reason = "[SISTEMA] Enviado a aprobacion del empleador"
-        contrato.save(update_fields=["estado", "fecha_modificacion"])
-
-        # Enviar correo al empleador
-        frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
-        link_aprobacion = f"{frontend_url}/rrhh/aprobacion-empleador/{envio.uuid}/"
-        nombre_trabajador = (
-            contrato.usuario_empresa.usuario.get_nombre_completo()
-            if contrato.usuario_empresa and contrato.usuario_empresa.usuario_id
-            else "el trabajador"
-        )
-        html_body = (
-            f"<p>Se le solicita revisar y aprobar el contrato laboral de "
-            f"<strong>{nombre_trabajador}</strong>.</p>"
-            f"<p>Cargo: {contrato.cargo or '-'}</p>"
-            f"<p>Tipo: {contrato.get_tipo_contrato_display()}</p>"
-            f"<p>Fecha inicio: {contrato.fecha_inicio}</p>"
-            f"<p>Haga clic en el siguiente enlace para revisar el documento y emitir su respuesta:</p>"
-        )
-        transaction.on_commit(
-            lambda: send_email_task.delay(
-                "Solicitud de aprobacion de contrato laboral",
-                [email_empleador],
-                html_body,
-                "Aprobacion de Contrato",
-                link_aprobacion,
-                "Revisar y aprobar contrato",
+            envio = RRHHContratosService.enviar_a_aprobacion_empleador(
+                contrato_id=pk,
+                email_empleador=email_empleador,
+                usuario=request.user
             )
-        )
 
-        return Response(
-            {
-                "contrato": ContratoTrabajadorSerializer(contrato).data,
-                "envio": EnvioAprobacionEmpleadorSerializer(envio).data,
-            },
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {
+                    "contrato": ContratoTrabajadorSerializer(envio.contrato).data,
+                    "envio": EnvioAprobacionEmpleadorSerializer(envio).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error enviando aprobacion: {str(e)}")
+            return Response(
+                {"detail": "Error al enviar. Intenta nuevamente."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     # ── Helpers para historial ────────────────────────────────────────────────
 
@@ -713,7 +850,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             "lugar_trabajo": "Lugar de trabajo",
             "bono_movilizacion": "Bono movilizacion",
             "bono_colacion": "Bono colacion",
-            "gratificacion_legal": "Gratificacion legal",
+            "tipo_gratificacion": "Tipo de gratificacion",
             "horario_detalle": "Horario detalle",
             "funciones": "Funciones",
             "observaciones": "Observaciones",
@@ -760,7 +897,7 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
             "lugar_trabajo": "Lugar de trabajo",
             "bono_movilizacion": "Bono movilizacion",
             "bono_colacion": "Bono colacion",
-            "gratificacion_legal": "Gratificacion legal",
+            "tipo_gratificacion": "Tipo de gratificacion",
             "horario_detalle": "Horario detalle",
             "funciones": "Funciones",
             "observaciones": "Observaciones",

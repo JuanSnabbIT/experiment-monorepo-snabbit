@@ -1,8 +1,9 @@
 """Serializers del modulo RRHH."""
 
+from core.validators import validate_rut_chileno
 from rest_framework import serializers
 
-from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ContratoTrabajador, EnvioAprobacionEmpleador
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, TurnoLaboral
 
 
 class CargoCatalogoSerializer(serializers.ModelSerializer):
@@ -19,7 +20,7 @@ class AfpCatalogoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AfpCatalogo
-        fields = ("id", "nombre", "empresa", "activo")
+        fields = ("id", "nombre", "empresa", "activo", "tasa_cotizacion")
         read_only_fields = ("empresa",)
 
 
@@ -32,6 +33,42 @@ class BancoCatalogoSerializer(serializers.ModelSerializer):
         read_only_fields = ("empresa",)
 
 
+class ConfiguracionLaboralSerializer(serializers.ModelSerializer):
+    """Serializer para parametros legales/laborales (global + por empresa)."""
+
+    es_global = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ConfiguracionLaboral
+        fields = ("id", "clave", "valor", "descripcion", "empresa", "es_global")
+        read_only_fields = ("empresa",)
+
+    def get_es_global(self, obj):
+        return obj.empresa is None
+
+
+class TurnoLaboralSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de turnos laborales."""
+
+    empresa_nombre = serializers.SerializerMethodField()
+    es_global = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TurnoLaboral
+        fields = (
+            "id", "nombre", "hora_inicio", "hora_fin",
+            "cruza_medianoche", "dias_semana", "horas_turno",
+            "activo", "empresa_nombre", "es_global",
+        )
+        read_only_fields = ("cruza_medianoche", "horas_turno", "empresa_nombre", "es_global")
+
+    def get_empresa_nombre(self, obj):
+        return obj.empresa.nombre if obj.empresa else None
+
+    def get_es_global(self, obj):
+        return obj.empresa is None
+
+
 class AnexoContratoSerializer(serializers.ModelSerializer):
     tipo_label = serializers.SerializerMethodField()
     estado_label = serializers.SerializerMethodField()
@@ -39,7 +76,7 @@ class AnexoContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnexoContrato
         fields = "__all__"
-        read_only_fields = ("fecha_creacion", "fecha_modificacion", "creado_por")
+        read_only_fields = ("fecha_creacion", "fecha_modificacion", "creado_por", "numero_anexo")
 
     def get_tipo_label(self, obj):
         return obj.get_tipo_display()
@@ -168,7 +205,8 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
         ue = obj.usuario_empresa
         if ue:
             return {
-                "afp": ue.afp,
+                "afp": ue.afp.nombre if ue.afp_id else None,
+                "afp_id": ue.afp_id,
                 "sistema_salud": ue.sistema_salud,
                 "nombre_isapre": ue.nombre_isapre,
                 "banco": ue.banco,
@@ -249,8 +287,13 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
                 {"fecha_termino": "La fecha de termino debe ser posterior a la fecha de inicio."}
             )
 
-        # horas_semanales es informativo para cualquier jornada; se valida solo
-        # si se pasa un valor invalido, no como requisito obligatorio.
+        turnos_rotativo = attrs.get("turnos_rotativo") if "turnos_rotativo" in attrs else (
+            instance.turnos_rotativo if instance else []
+        )
+        if jornada == "turnos" and not turnos_rotativo:
+            raise serializers.ValidationError(
+                {"turnos_rotativo": "Los contratos con jornada por turnos requieren al menos un turno definido."}
+            )
 
         return attrs
 
@@ -289,6 +332,11 @@ class TrabajadorNuevoSerializer(serializers.Serializer):
     rut = serializers.CharField(max_length=20, required=False, allow_blank=True)
     sucursal_id = serializers.IntegerField()
     enviar_invitacion = serializers.BooleanField(default=True)
+
+    def validate_rut(self, value):
+        if value:
+            validate_rut_chileno(value)
+        return value
     # Datos previsionales / bancarios (en UsuarioEmpresa)
     afp = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     sistema_salud = serializers.ChoiceField(
@@ -307,6 +355,7 @@ class TrabajadorNuevoSerializer(serializers.Serializer):
         required=False, allow_blank=True, allow_null=True,
     )
     numero_cuenta_bancaria = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    sistema_salud_otro = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     # Datos personales (en User)
     nacionalidad = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
