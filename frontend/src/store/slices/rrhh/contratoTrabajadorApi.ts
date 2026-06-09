@@ -2,6 +2,8 @@ import type {
     IAnexoContrato,
     IContratoTrabajador,
     IContratoTrabajadorHistorialEvento,
+    IContratoTrabajadorSnapshotBlock,
+    IContratoTrabajadorSnapshotUpdatePayload,
     ICrearContratoConTrabajadorPayload,
     ICrearContratoConTrabajadorResponse,
     IEnvioAprobacionEmpleador,
@@ -64,6 +66,17 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
         getContratoTrabajadorDetalle: builder.query<IContratoTrabajador, number | string>({
             query: (id) => ({ url: `${BASE}/${id}/`, method: 'get' }),
             providesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador', id }],
+        }),
+
+        getContratoTrabajadorSnapshotBlock: builder.query<
+            IContratoTrabajadorSnapshotBlock,
+            { id: number | string; path: string }
+        >({
+            query: ({ id, path }) => ({
+                url: `${BASE}/${id}/get-block/?path=${encodeURIComponent(path)}`,
+                method: 'get',
+            }),
+            providesTags: (_r, _e, arg) => [{ type: 'ContratoTrabajador' as const, id: arg.id }],
         }),
 
         createContratoTrabajador: builder.mutation<IContratoTrabajador, FormData | Partial<IContratoTrabajador>>({
@@ -238,6 +251,21 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             ],
         }),
 
+        updateContratoTrabajadorSnapshotBlock: builder.mutation<
+            IContratoTrabajadorSnapshotBlock,
+            IContratoTrabajadorSnapshotUpdatePayload
+        >({
+            query: ({ id, path, value }) => ({
+                url: `${BASE}/${id}/update-block/`,
+                method: 'patch',
+                data: { path, value },
+            }),
+            invalidatesTags: (_r, _e, { id }) => [
+                { type: 'ContratoTrabajador' as const, id },
+                { type: 'ContratoTrabajadorList' as const, id: 'LIST' },
+            ],
+        }),
+
         getHistorialContratoTrabajador: builder.query<IContratoTrabajadorHistorialEvento[], number | string>({
             query: (id) => ({ url: `${BASE}/${id}/historial/`, method: 'get' }),
             providesTags: (_r, _e, id) => [
@@ -262,6 +290,7 @@ export const {
     useGetContratosTrabajadorPorUsuarioEmpresaQuery,
     useGetContratosTrabajadorPorEmpresaClienteQuery,
     useGetContratoTrabajadorDetalleQuery,
+    useGetContratoTrabajadorSnapshotBlockQuery,
     useCreateContratoTrabajadorMutation,
     useUpdateContratoTrabajadorMutation,
     useCambiarEstadoContratoTrabajadorMutation,
@@ -276,6 +305,7 @@ export const {
     useAceptarContratoTrabajadorMutation,
     useResponderAprobacionPublicaMutation,
     useActualizarDatosRelacionadosContratoMutation,
+    useUpdateContratoTrabajadorSnapshotBlockMutation,
     useGetHistorialContratoTrabajadorQuery,
     useCrearCopiaContratoMutation,
 } = contratoTrabajadorApi;

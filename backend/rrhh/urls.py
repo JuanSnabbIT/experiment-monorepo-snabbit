@@ -11,6 +11,7 @@ from .views import (
     ContratoAprobacionPublicaView,
     ContratoAprobacionResponderView,
     ContratoTrabajadorViewSet,
+    NacionalidadCatalogoViewSet,
     TurnoLaboralViewSet,
 )
 
@@ -34,6 +35,11 @@ router.register(
     r"rrhh/banco-catalogo",
     BancoCatalogoViewSet,
     basename="banco-catalogo",
+)
+router.register(
+    r"rrhh/nacionalidad-catalogo",
+    NacionalidadCatalogoViewSet,
+    basename="nacionalidad-catalogo",
 )
 router.register(
     r"rrhh/anexos-contrato",

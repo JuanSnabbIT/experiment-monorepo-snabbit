@@ -8,7 +8,8 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
-import { useGetUsuariosClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetContratosTrabajadorPorEmpresaClienteQuery } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -40,10 +41,13 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
     useEffect(() => {
         if (detalleCliente) {
             setOptionSucursal(
-                detalleCliente.info_cliente.sucursales.map((suc) => ({
-                    value: suc.id.toString(),
-                    label: suc.nombre,
-                })),
+                [
+                    { value: 'ALL', label: 'Todas las sucursales' },
+                    ...detalleCliente.info_cliente.sucursales.map((suc) => ({
+                        value: suc.id.toString(),
+                        label: suc.nombre,
+                    })),
+                ],
             );
         }
     }, [detalleCliente]);
@@ -59,19 +63,32 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
         }
     }, [optionSucursal]);
 
-    const {
-        data: listaUsuariosCliente = [],
-    } = useGetUsuariosClienteQuery(
-        detalleCliente && sucursalSelected
-            ? {
-                  id_empresa: detalleCliente.cliente,
-                  id_sucursal: sucursalSelected.value,
-              }
-            : { id_empresa: '', id_sucursal: '' },
+    const { data: usuariosClienteTodos = [] } = useGetUsuariosTodoElClienteQuery(
+        detalleCliente?.cliente ?? '',
         {
-            skip: !detalleCliente || !sucursalSelected,
+            skip: !detalleCliente?.cliente,
         },
     );
+
+        const { data: contratosLaboralesCliente = [] } = useGetContratosTrabajadorPorEmpresaClienteQuery(
+            detalleCliente?.cliente ?? '',
+            { skip: !detalleCliente?.cliente },
+        );
+
+        const trabajadoresPendientes = useMemo(() => {
+            return contratosLaboralesCliente.filter(
+                (contrato) => contrato.usuario_empresa === null && contrato.datos_trabajador_nuevo,
+            );
+        }, [contratosLaboralesCliente]);
+
+    const listaUsuariosCliente = useMemo(() => {
+        if (!sucursalSelected || sucursalSelected.value === 'ALL') {
+            return usuariosClienteTodos;
+        }
+        return usuariosClienteTodos.filter(
+            (usuario) => usuario.sucursal?.toString() === sucursalSelected.value,
+        );
+    }, [usuariosClienteTodos, sucursalSelected]);
 
     // Filtrar usuarios inactivos localmente
     const usuariosFiltrados = useMemo(() => {
@@ -84,8 +101,9 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
         const total = listaUsuariosCliente.length;
         const activos = listaUsuariosCliente.filter((u) => u.estado === '1').length;
         const inactivos = listaUsuariosCliente.filter((u) => u.estado === '2').length;
-        return { total, activos, inactivos };
-    }, [listaUsuariosCliente]);
+        const pendientes = trabajadoresPendientes.length;
+        return { total, activos, inactivos, pendientes };
+    }, [listaUsuariosCliente, trabajadoresPendientes]);
 
     const columns = [
         columnHelper.accessor('nombre_usuario', {
@@ -196,6 +214,19 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
                             <div>
                                 <p className='text-xs text-zinc-500'>Inactivos</p>
                                 <p className='text-xl font-bold'>{metricas.inactivos}</p>
+                            </div>
+                        </CardBody>
+                    </Card>
+                    <Card>
+                        <CardBody className='flex items-center gap-3 py-3'>
+                            <Icon
+                                icon='HeroClock'
+                                size='text-2xl'
+                                className='text-amber-500'
+                            />
+                            <div>
+                                <p className='text-xs text-zinc-500'>Pendientes</p>
+                                <p className='text-xl font-bold'>{metricas.pendientes}</p>
                             </div>
                         </CardBody>
                     </Card>
@@ -314,6 +345,78 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
                     </div>
                 </CardBody>
             </Card>
+
+            {trabajadoresPendientes.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardHeaderChild>
+                            <Badge className='text-xl'>Trabajadores pendientes de aprobación</Badge>
+                        </CardHeaderChild>
+                    </CardHeader>
+                    <CardBody>
+                        <Table>
+                            <THead>
+                                <Tr>
+                                    <Th>Nombre</Th>
+                                    <Th>Email</Th>
+                                    <Th>RUT</Th>
+                                    <Th>Cargo</Th>
+                                    <Th>Estado</Th>
+                                    <Th>Acciones</Th>
+                                </Tr>
+                            </THead>
+                            <TBody>
+                                {trabajadoresPendientes.map((contrato) => (
+                                    <Tr key={contrato.id}>
+                                        <Td>
+                                            <span className='font-medium'>
+                                                {contrato.nombre_trabajador ||
+                                                    contrato.datos_trabajador_nuevo?.first_name ||
+                                                    '—'}
+                                            </span>
+                                        </Td>
+                                        <Td>
+                                            <span className='text-zinc-500'>
+                                                {contrato.datos_trabajador_nuevo?.email || '—'}
+                                            </span>
+                                        </Td>
+                                        <Td>
+                                            <span className='text-zinc-500'>
+                                                {contrato.rut_trabajador || contrato.datos_trabajador_nuevo?.rut || '—'}
+                                            </span>
+                                        </Td>
+                                        <Td>
+                                            <span className='text-zinc-500'>{contrato.cargo || '—'}</span>
+                                        </Td>
+                                        <Td>
+                                            <Badge
+                                                variant='solid'
+                                                color={contrato.estado === 'borrador' ? 'zinc' : 'amber'}>
+                                                {contrato.estado_label ?? contrato.estado}
+                                            </Badge>
+                                        </Td>
+                                        <Td>
+                                            <Tooltip text='Ver contrato laboral'>
+                                                <Button
+                                                    color='violet'
+                                                    variant='solid'
+                                                    icon='HeroEye'
+                                                    size='sm'
+                                                    onClick={() => {
+                                                        navigate(
+                                                            `/rrhh/contratos/${contrato.id}`,
+                                                        );
+                                                    }}
+                                                />
+                                            </Tooltip>
+                                        </Td>
+                                    </Tr>
+                                ))}
+                            </TBody>
+                        </Table>
+                    </CardBody>
+                </Card>
+            )}
         </div>
     );
 }

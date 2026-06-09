@@ -1,11 +1,11 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
 import classNames from 'classnames';
-import { TInputTypes } from '../../types/input.type';
+import { forwardRef, InputHTMLAttributes } from 'react';
 import themeConfig from '../../config/theme.config';
-import { TRounded } from '../../types/rounded.type';
 import { TBorderWidth } from '../../types/borderWidth.type';
-import { TColors } from '../../types/colors.type';
 import { TColorIntensity } from '../../types/colorIntensities.type';
+import { TColors } from '../../types/colors.type';
+import { TInputTypes } from '../../types/input.type';
+import { TRounded } from '../../types/rounded.type';
 import { IValidationBaseProps } from './Validation';
 
 export type TInputVariants = 'solid';
@@ -86,7 +86,8 @@ const Input = forwardRef<HTMLInputElement, IInputProps>((props, ref) => {
     const inputDimensionClasses = inputDimension[dimension].general;
 
     const classes = classNames(
-        'w-full appearance-none outline-0',
+        'w-full appearance-none outline-0 ring-0',
+        'focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         'text-black dark:text-white',
         'disabled:!opacity-25',
         themeConfig.transition,

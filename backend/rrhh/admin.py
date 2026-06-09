@@ -8,6 +8,7 @@ from .models import (
     CargoCatalogo,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    NacionalidadCatalogo,
     TurnoLaboral,
 )
 
@@ -58,6 +59,14 @@ class AfpCatalogoAdmin(admin.ModelAdmin):
 
 @admin.register(BancoCatalogo)
 class BancoCatalogoAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "activo")
+    list_filter = ("activo", "empresa")
+    search_fields = ("nombre",)
+    list_editable = ("activo",)
+
+
+@admin.register(NacionalidadCatalogo)
+class NacionalidadCatalogoAdmin(admin.ModelAdmin):
     list_display = ("id", "nombre", "empresa", "activo")
     list_filter = ("activo", "empresa")
     search_fields = ("nombre",)

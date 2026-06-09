@@ -1,20 +1,33 @@
+import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import {
     useGenerarPdfContratoTrabajadorMutation,
+    useGetContratoTrabajadorSnapshotBlockQuery,
     useUpdateContratoTrabajadorMutation,
+    useUpdateContratoTrabajadorSnapshotBlockMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
 interface ITabDocumentoProps {
     contrato: IContratoTrabajador;
 }
+
+const SNAPSHOT_BLOCKS = [
+    { path: 'direccion_empresa', label: 'Dirección empresa' },
+    { path: 'representante_legal', label: 'Representante legal' },
+    { path: 'nombre_trabajador', label: 'Nombre trabajador' },
+    { path: 'rut_trabajador', label: 'RUT trabajador' },
+    { path: 'direccion_trabajador', label: 'Dirección trabajador' },
+] as const;
 
 /** Fila horizontal: icono + nombre + boton Descargar */
 const PdfFileCard = ({ contrato }: { contrato: IContratoTrabajador }) => {
@@ -39,12 +52,29 @@ const PdfFileCard = ({ contrato }: { contrato: IContratoTrabajador }) => {
 const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const [generarPdf, { isLoading: generando }] = useGenerarPdfContratoTrabajadorMutation();
     const [updateContrato] = useUpdateContratoTrabajadorMutation();
+    const [updateSnapshotBlock, { isLoading: guardandoBloque }] =
+        useUpdateContratoTrabajadorSnapshotBlockMutation();
 
     const [plantillaId, setPlantillaId] = useState<number | ''>(contrato.plantilla_contrato ?? '');
+    const [blockOpen, setBlockOpen] = useState(false);
+    const [editingPath, setEditingPath] = useState<(typeof SNAPSHOT_BLOCKS)[number]['path'] | ''>('');
+    const [editingValue, setEditingValue] = useState('');
 
     useEffect(() => {
         setPlantillaId(contrato.plantilla_contrato ?? '');
     }, [contrato.id]);
+
+    const { data: remoteBlock } = useGetContratoTrabajadorSnapshotBlockQuery(
+        { id: contrato.id, path: editingPath },
+        { skip: !editingPath || !blockOpen },
+    );
+
+    useEffect(() => {
+        if (!blockOpen || !editingPath) return;
+        const localValue = contrato.snapshot_documento?.[editingPath];
+        const nextValue = remoteBlock?.value ?? localValue ?? '';
+        setEditingValue(nextValue ?? '');
+    }, [blockOpen, editingPath, contrato.snapshot_documento, remoteBlock?.value]);
 
     const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery();
     const plantillasOpciones: TSelectOption[] = todasLasPlantillas
@@ -60,6 +90,40 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
     const esVigente = estado === 'vigente';
     const esTerminado = estado === 'terminado';
     const esAnulado = estado === 'anulado';
+    const snapshotBlocks = useMemo(
+        () =>
+            SNAPSHOT_BLOCKS.map((block) => ({
+                ...block,
+                value: contrato.snapshot_documento?.[block.path] ?? null,
+            })),
+        [contrato.snapshot_documento],
+    );
+
+    const openBlockEditor = (path: (typeof SNAPSHOT_BLOCKS)[number]['path']) => {
+        setEditingPath(path);
+        setBlockOpen(true);
+    };
+
+    const closeBlockEditor = () => {
+        setBlockOpen(false);
+        setEditingPath('');
+        setEditingValue('');
+    };
+
+    const handleSaveBlock = async () => {
+        if (!editingPath) return;
+        try {
+            await updateSnapshotBlock({
+                id: contrato.id,
+                path: editingPath,
+                value: editingValue.trim() === '' ? '' : editingValue.trim(),
+            }).unwrap();
+            toast.success('Bloque actualizado correctamente.');
+            closeBlockEditor();
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err));
+        }
+    };
 
     const handleGenerarORegenerarPdf = async () => {
         try {
@@ -80,6 +144,53 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
         <Card>
             <CardHeader>Documento del contrato</CardHeader>
             <CardBody>
+                <div className='mb-4 space-y-3'>
+                    <div className='flex items-center justify-between gap-3'>
+                        <div>
+                            <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                Snapshot estructurado
+                            </p>
+                            <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                Vista por bloques del documento congelado del contrato.
+                            </p>
+                        </div>
+                        {!esBorrador && (
+                            <Alert variant='outline' color='amber' icon='HeroClock' className='max-w-fit'>
+                                Solo lectura fuera de borrador.
+                            </Alert>
+                        )}
+                    </div>
+
+                    <div className='grid gap-3 md:grid-cols-2'>
+                        {snapshotBlocks.map((block) => (
+                            <div
+                                key={block.path}
+                                className='rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40'>
+                                <div className='flex items-start justify-between gap-3'>
+                                    <div>
+                                        <p className='text-sm font-semibold text-zinc-700 dark:text-zinc-200'>
+                                            {block.label}
+                                        </p>
+                                        <p className='text-xs text-zinc-400 dark:text-zinc-500'>{block.path}</p>
+                                    </div>
+                                    <Button
+                                        size='sm'
+                                        icon='HeroPencilSquare'
+                                        variant='solid'
+                                        color='blue'
+                                        isDisable={!esBorrador}
+                                        onClick={() => openBlockEditor(block.path)}>
+                                        Editar
+                                    </Button>
+                                </div>
+                                <div className='mt-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/60'>
+                                    {block.value || '—'}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Variante A: borrador sin PDF */}
                 {esBorrador && !tienePdf && (
                     <div className='space-y-3'>
@@ -179,6 +290,51 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                         <PdfFileCard contrato={contrato} />
                     </div>
                 )}
+
+                <Modal isOpen={blockOpen} setIsOpen={setBlockOpen}>
+                    <ModalHeader>Editar bloque del snapshot</ModalHeader>
+                    <ModalBody>
+                        <div className='space-y-3'>
+                            <Alert variant='outline' color='zinc' icon='HeroDocumentText'>
+                                TODO RBAC: validar permisos finos por rol antes de editar este bloque.
+                            </Alert>
+                            <div>
+                                <p className='mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                    Path
+                                </p>
+                                <div className='rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800/50'>
+                                    {editingPath || '—'}
+                                </div>
+                            </div>
+                            <div>
+                                <Label htmlFor='snapshot_block_value'>Valor</Label>
+                                <Input
+                                    id='snapshot_block_value'
+                                    name='snapshot_block_value'
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    placeholder='Nuevo valor'
+                                />
+                            </div>
+                            <p className='text-xs text-zinc-400 dark:text-zinc-500'>
+                                Solo se permite editar este snapshot cuando el contrato está en borrador.
+                            </p>
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant='outline' onClick={closeBlockEditor}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant='solid'
+                            color='blue'
+                            onClick={handleSaveBlock}
+                            isLoading={guardandoBloque}
+                            isDisable={guardandoBloque || !editingPath}>
+                            Guardar
+                        </Button>
+                    </ModalFooter>
+                </Modal>
             </CardBody>
         </Card>
     );

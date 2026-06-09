@@ -39,6 +39,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import EliminarInvitacionRechazada from '../InvitacionEmpresa/modals/EliminarInvitacionRechazada';
+import ConfiguracionRRHH from '../RRHH/ConfiguracionRRHH';
 import CrearInvitacionEmpresaDesdeDetalleEmpresa from './modals/CrearInvitacionEmpresaDesdeDetalleEmpresa';
 import CrearSucursal from './modals/CrearSucursal';
 
@@ -848,6 +849,28 @@ function DetalleEmpresa() {
                                     }}>
                                     Invitaciones
                                 </Button>
+                                <Button
+                                    {...(activeComponent === 'ConfiguracionRRHH'
+                                        ? {
+                                              size: 'sm',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                              isActive: true,
+                                              color: 'blue',
+                                              colorIntensity: '500',
+                                              variant: 'solid',
+                                          }
+                                        : {
+                                              size: 'sm',
+                                              color: 'zinc',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                          })}
+                                    onClick={() => {
+                                        setActiveComponent('ConfiguracionRRHH');
+                                    }}>
+                                    Configuración RRHH
+                                </Button>
                             </div>
                         </CardBody>
                     </Card>
@@ -1031,6 +1054,10 @@ function DetalleEmpresa() {
                                 </div>
                             </CardBody>
                         </Card>
+                    )}
+
+                    {activeComponent === 'ConfiguracionRRHH' && detalleEmpresa?.id && (
+                        <ConfiguracionRRHH embedded empresaIdFijo={Number(detalleEmpresa.id)} />
                     )}
                 </div>
             </Container>

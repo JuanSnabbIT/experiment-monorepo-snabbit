@@ -551,7 +551,7 @@ function ComprasEnOT() {
                             {detalleOrdenTrabajo && (
                                 <div className='mt-2'>
                                     <p className='text-sm'>
-                                        Usa el botón de arriba para vincular una compra existente
+                                        Usa el botÃ³n de arriba para vincular una compra existente
                                     </p>
                                 </div>
                             )}
@@ -585,7 +585,7 @@ function ComprasEnOT() {
                         <>
                             <div className='grid grid-cols-2 gap-4'>
                                 <div>
-                                    <Badge>Código</Badge>
+                                    <Badge>CÃ³digo</Badge>
                                     <div className='ml-4'>{selectedCompra.codigo}</div>
                                 </div>
                                 <div>
@@ -627,7 +627,7 @@ function ComprasEnOT() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Badge>Descripción</Badge>
+                                    <Badge>DescripciÃ³n</Badge>
                                     <div className='ml-4'>
                                         {selectedCompra.observaciones || '-'}
                                     </div>

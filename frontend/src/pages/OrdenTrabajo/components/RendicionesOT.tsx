@@ -71,7 +71,7 @@ function RendicionesOT() {
             cell: (info) => (
                 <div>
                     <ConfirmarEliminar
-                        mensaje='¿Esta seguro(a) de querer eliminar el gasto?'
+                        mensaje='Â¿Esta seguro(a) de querer eliminar el gasto?'
                         nombre='Gasto'
                         onDispatch={() => {
                         }}

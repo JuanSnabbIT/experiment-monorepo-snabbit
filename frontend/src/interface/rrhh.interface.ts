@@ -80,6 +80,7 @@ export interface IAnexoContrato {
 export interface IContratoTrabajador {
     id: number;
     usuario_empresa: number | null;
+    snapshot_documento?: Record<string, string | null> | null;
 
     tipo_contrato: TTipoContrato;
     tipo_contrato_label?: string;
@@ -175,6 +176,15 @@ export interface IContratoTrabajador {
         numero_cuenta_bancaria?: string | null;
         [key: string]: unknown;
     } | null;
+}
+
+export interface IContratoTrabajadorSnapshotBlock {
+    path: string;
+    value: string | null;
+}
+
+export interface IContratoTrabajadorSnapshotUpdatePayload extends IContratoTrabajadorSnapshotBlock {
+    id: number | string;
 }
 
 export interface ITrabajadorDatosOpcionales {

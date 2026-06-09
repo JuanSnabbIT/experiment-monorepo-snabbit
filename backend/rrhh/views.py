@@ -1,5 +1,7 @@
 """ViewSets del modulo RRHH."""
 
+import copy
+import logging
 import os
 from datetime import date, timedelta
 
@@ -29,8 +31,10 @@ from .models import (
     ConfiguracionLaboral,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    NacionalidadCatalogo,
     TurnoLaboral,
 )
+from .mixins import JsonBlockMixin
 from .serializers import (
     AfpCatalogoSerializer,
     AnexoContratoSerializer,
@@ -42,8 +46,14 @@ from .serializers import (
     ContratoTrabajadorWriteSerializer,
     CrearContratoConTrabajadorSerializer,
     EnvioAprobacionEmpleadorSerializer,
+    NacionalidadCatalogoSerializer,
+    SnapshotGetBlockSerializer,
+    SnapshotUpdateBlockSerializer,
     TurnoLaboralSerializer,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _empresa_actual(request):
@@ -222,6 +232,53 @@ class BancoCatalogoViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+class NacionalidadCatalogoViewSet(viewsets.ModelViewSet):
+    """Catalogo de nacionalidades: globales (empresa=null) + por empresa.
+
+    Los registros globales son de solo lectura. PATCH/DELETE solo aplican a
+    registros de empresa.
+    """
+
+    serializer_class = NacionalidadCatalogoSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
+        search = self.request.query_params.get("search", "").strip()
+        empresa_filtro = empresa_id_validado or (empresa.id if empresa else None)
+        qs = NacionalidadCatalogo.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa_id=empresa_filtro),
+            activo=True,
+        )
+        if search:
+            qs = qs.filter(nombre__icontains=search)
+        return qs.order_by("nombre")
+
+    def perform_create(self, serializer):
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
+        nombre = serializer.validated_data.get("nombre", "").strip()
+        existe = NacionalidadCatalogo.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa=empresa),
+            nombre__iexact=nombre,
+        ).first()
+        if existe:
+            raise serializers.ValidationError({"nombre": "Ya existe una nacionalidad con ese nombre."})
+        serializer.save(empresa=empresa)
+
+    def perform_update(self, serializer):
+        if serializer.instance.empresa_id is None:
+            raise serializers.ValidationError("Las nacionalidades globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa_id is None:
+            raise serializers.ValidationError("Las nacionalidades globales no pueden eliminarse.")
+        instance.delete()
+
+
 class ConfiguracionLaboralViewSet(viewsets.ModelViewSet):
     """Parametros legales/laborales: globales (empresa=null) + override por empresa.
 
@@ -354,7 +411,7 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
             contrato.save(update_fields=["fecha_termino"])
 
 
-class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
+class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
     """CRUD + transiciones para contratos laborales."""
 
     queryset = ContratoTrabajador.objects.all()
@@ -375,9 +432,13 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
         sucursal_ids = list(
             SucursalEmpresa.objects.filter(empresa_id__in=ids_visibles).values_list("id", flat=True)
         )
+        sucursal_ids_json = [*sucursal_ids, *[str(sid) for sid in sucursal_ids]]
         qs = ContratoTrabajador.objects.filter(
             Q(usuario_empresa__sucursal__empresa_id__in=ids_visibles)
-            | Q(usuario_empresa__isnull=True, datos_trabajador_nuevo__sucursal_id__in=sucursal_ids)
+            | Q(
+                usuario_empresa__isnull=True,
+                datos_trabajador_nuevo__sucursal_id__in=sucursal_ids_json,
+            )
         ).select_related("usuario_empresa__usuario", "usuario_empresa__sucursal")
 
         usuario_empresa_id = self.request.query_params.get("usuario_empresa")
@@ -386,12 +447,87 @@ class ContratoTrabajadorViewSet(viewsets.ModelViewSet):
 
         empresa_cliente_id = self.request.query_params.get("empresa_cliente")
         if empresa_cliente_id:
-            qs = qs.filter(usuario_empresa__sucursal__empresa_id=empresa_cliente_id)
+            sucursales_cliente_ids = list(
+                SucursalEmpresa.objects.filter(empresa_id=empresa_cliente_id).values_list("id", flat=True)
+            )
+            sucursales_cliente_ids_json = [
+                *sucursales_cliente_ids,
+                *[str(sid) for sid in sucursales_cliente_ids],
+            ]
+            qs = qs.filter(
+                Q(usuario_empresa__sucursal__empresa_id=empresa_cliente_id)
+                | Q(
+                    usuario_empresa__isnull=True,
+                    datos_trabajador_nuevo__sucursal_id__in=sucursales_cliente_ids_json,
+                )
+            )
 
         return qs
 
     def perform_create(self, serializer):
         serializer.save(creado_por=self.request.user)
+
+    @action(detail=True, methods=["get"], url_path="get-block")
+    def get_block(self, request, pk=None):
+        """Lee un bloque de snapshot_documento por path validado."""
+        contrato = self.get_object()
+        serializer = SnapshotGetBlockSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        path = serializer.validated_data["path"]
+
+        # TODO(RBAC): validar permisos finos por rol para lectura por path.
+        snapshot = contrato.snapshot_documento or {}
+        try:
+            value = super().get_block(snapshot, path)
+        except KeyError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"path": path, "value": value}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["patch"], url_path="update-block")
+    def update_block(self, request, pk=None):
+        """Actualiza un bloque permitido de snapshot_documento en estado borrador."""
+        contrato = self.get_object()
+
+        if contrato.estado != "borrador":
+            return Response(
+                {"detail": "Solo se puede editar snapshot_documento por bloques en estado borrador."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SnapshotUpdateBlockSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        path = serializer.validated_data["path"]
+        value = serializer.validated_data["value"]
+
+        # TODO(RBAC): validar permisos finos por rol para escritura por path.
+        snapshot_base = contrato.snapshot_documento or {}
+        snapshot_copy = copy.deepcopy(snapshot_base)
+
+        try:
+            old_value = super().get_block(snapshot_base, path)
+            updated_snapshot = super().set_block(snapshot_copy, path, value)
+        except (KeyError, ValueError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        contrato.snapshot_documento = updated_snapshot
+        contrato.save(update_fields=["snapshot_documento", "fecha_modificacion"])
+
+        logger.info(
+            "Snapshot actualizado por bloque",
+            extra={
+                "contrato_id": contrato.id,
+                "usuario_id": getattr(request.user, "id", None),
+                "path": path,
+                "old_value": old_value,
+                "new_value": value,
+            },
+        )
+
+        return Response(
+            {"path": path, "old_value": old_value, "value": value},
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
     def cambiar_estado(self, request, pk=None):

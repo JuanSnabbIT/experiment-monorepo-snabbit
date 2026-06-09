@@ -111,14 +111,21 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                         </div>
                         {values.sistema_salud === 'isapre' && (
                             <div>
-                                <Label htmlFor='nombre_isapre'>Nombre Isapre</Label>
-                                <Input
-                                    id='nombre_isapre'
-                                    name='nombre_isapre'
-                                    value={values.nombre_isapre}
-                                    onChange={handleChange}
-                                    onBlur={handleBlur}
-                                />
+                                <Label htmlFor='nombre_isapre'>
+                                    Nombre Isapre <span className='text-red-500'>*</span>
+                                </Label>
+                                <Validation
+                                    isValid={!errors.nombre_isapre}
+                                    isTouched={!!touched.nombre_isapre}
+                                    invalidFeedback={errors.nombre_isapre || ''}>
+                                    <Input
+                                        id='nombre_isapre'
+                                        name='nombre_isapre'
+                                        value={values.nombre_isapre}
+                                        onChange={handleChange}
+                                        onBlur={handleBlur}
+                                    />
+                                </Validation>
                             </div>
                         )}
                         {values.sistema_salud === 'otro' && (
@@ -167,45 +174,60 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                 <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
                     <div>
                         <Label htmlFor='banco'>Banco</Label>
-                        <SelectReact
-                            name='banco'
-                            options={bancoOptions}
-                            value={bancoOptions.find((o) => o.value === values.banco) || null}
-                            onChange={(opt) => setFieldValue('banco', (opt as TSelectOption)?.value || '')}
-                            isClearable
-                            isCreatable
-                            onCreateOption={handleCrearBanco}
-                            formatCreateLabel={(v) => `Agregar banco: "${v}"`}
-                            placeholder='Seleccionar o crear...'
-                        />
+                        <Validation
+                            isValid={!errors.banco}
+                            isTouched={!!touched.banco}
+                            invalidFeedback={errors.banco || ''}>
+                            <SelectReact
+                                name='banco'
+                                options={bancoOptions}
+                                value={bancoOptions.find((o) => o.value === values.banco) || null}
+                                onChange={(opt) => setFieldValue('banco', (opt as TSelectOption)?.value || '')}
+                                isClearable
+                                isCreatable
+                                onCreateOption={handleCrearBanco}
+                                formatCreateLabel={(v) => `Agregar banco: "${v}"`}
+                                placeholder='Seleccionar o crear...'
+                            />
+                        </Validation>
                     </div>
                     <div>
                         <Label htmlFor='tipo_cuenta_bancaria'>Tipo de cuenta</Label>
-                        <SelectReact
-                            name='tipo_cuenta_bancaria'
-                            options={TIPO_CUENTA_OPTIONS}
-                            value={
-                                TIPO_CUENTA_OPTIONS.find(
-                                    (o) => o.value === values.tipo_cuenta_bancaria,
-                                ) || null
-                            }
-                            onChange={(opt) =>
-                                setFieldValue(
-                                    'tipo_cuenta_bancaria',
-                                    (opt as TSelectOption)?.value || '',
-                                )
-                            }
-                        />
+                        <Validation
+                            isValid={!errors.tipo_cuenta_bancaria}
+                            isTouched={!!touched.tipo_cuenta_bancaria}
+                            invalidFeedback={errors.tipo_cuenta_bancaria || ''}>
+                            <SelectReact
+                                name='tipo_cuenta_bancaria'
+                                options={TIPO_CUENTA_OPTIONS}
+                                value={
+                                    TIPO_CUENTA_OPTIONS.find(
+                                        (o) => o.value === values.tipo_cuenta_bancaria,
+                                    ) || null
+                                }
+                                onChange={(opt) =>
+                                    setFieldValue(
+                                        'tipo_cuenta_bancaria',
+                                        (opt as TSelectOption)?.value || '',
+                                    )
+                                }
+                            />
+                        </Validation>
                     </div>
                     <div className='md:col-span-2'>
                         <Label htmlFor='numero_cuenta_bancaria'>Numero de cuenta</Label>
-                        <Input
-                            id='numero_cuenta_bancaria'
-                            name='numero_cuenta_bancaria'
-                            value={values.numero_cuenta_bancaria}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Validation
+                            isValid={!errors.numero_cuenta_bancaria}
+                            isTouched={!!touched.numero_cuenta_bancaria}
+                            invalidFeedback={errors.numero_cuenta_bancaria || ''}>
+                            <Input
+                                id='numero_cuenta_bancaria'
+                                name='numero_cuenta_bancaria'
+                                value={values.numero_cuenta_bancaria}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                        </Validation>
                     </div>
                 </div>
             </div>

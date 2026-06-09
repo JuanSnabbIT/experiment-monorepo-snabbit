@@ -97,7 +97,7 @@ function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
                             detalleOrdenTrabajo.estado === 'en_proceso' ||
                             detalleOrdenTrabajo.estado === 'completada') && (
                             <ConfirmarEliminar
-                                mensaje={`Estas seguro que deseas eliminar el adjunto ${info.row.original.tipo_label} ¿Desea continuar?`}
+                                mensaje={`Estas seguro que deseas eliminar el adjunto ${info.row.original.tipo_label} Â¿Desea continuar?`}
                                 peticionUrl={`/api/ordenes-de-trabajo/${detalleOrdenTrabajo.id}/archivos-adjuntos/${info.row.original.id}/`}
                                 onDispatch={() => {
                                 }}
@@ -137,7 +137,7 @@ function Adjuntos({ ordenId }: { ordenId: number | undefined }) {
                             <>
                                 {selectedAdjunto.descripcion && (
                                     <div>
-                                        <Badge>Descripción</Badge>
+                                        <Badge>DescripciÃ³n</Badge>
                                         <p className='px-4'>{selectedAdjunto.descripcion}</p>
                                     </div>
                                 )}

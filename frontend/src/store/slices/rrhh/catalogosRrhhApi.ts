@@ -15,8 +15,16 @@ export interface IBancoCatalogo {
     activo: boolean;
 }
 
+export interface INacionalidadCatalogo {
+    id: number;
+    nombre: string;
+    empresa: number | null;
+    activo: boolean;
+}
+
 const AFP_BASE = '/api/rrhh/afp-catalogo';
 const BANCO_BASE = '/api/rrhh/banco-catalogo';
+const NACIONALIDAD_BASE = '/api/rrhh/nacionalidad-catalogo';
 
 const buildCatalogoUrl = (
     base: string,
@@ -104,6 +112,31 @@ export const catalogosRrhhApi = RtkQueryService.injectEndpoints({
             query: (id) => ({ url: `${BANCO_BASE}/${id}/`, method: 'delete' }),
             invalidatesTags: [{ type: 'BancoCatalogo', id: 'LIST' }],
         }),
+
+        getNacionalidadCatalogo: builder.query<
+            INacionalidadCatalogo[],
+            { search?: string; empresa_id?: string | number } | void
+        >({
+            query: (params) => ({
+                url: buildCatalogoUrl(NACIONALIDAD_BASE, params || undefined),
+                method: 'get',
+            }),
+            providesTags: (result) =>
+                result
+                    ? [
+                          { type: 'NacionalidadCatalogo' as const, id: 'LIST' },
+                          ...result.map((n) => ({ type: 'NacionalidadCatalogo' as const, id: n.id })),
+                      ]
+                    : [{ type: 'NacionalidadCatalogo' as const, id: 'LIST' }],
+        }),
+
+        crearNacionalidadInline: builder.mutation<
+            INacionalidadCatalogo,
+            { nombre: string; empresa_id?: number }
+        >({
+            query: (data) => ({ url: `${NACIONALIDAD_BASE}/`, method: 'post', data }),
+            invalidatesTags: [{ type: 'NacionalidadCatalogo' as const, id: 'LIST' }],
+        }),
     }),
 });
 
@@ -116,4 +149,6 @@ export const {
     useCrearBancoInlineMutation,
     useActualizarBancoMutation,
     useEliminarBancoMutation,
+    useGetNacionalidadCatalogoQuery,
+    useCrearNacionalidadInlineMutation,
 } = catalogosRrhhApi;

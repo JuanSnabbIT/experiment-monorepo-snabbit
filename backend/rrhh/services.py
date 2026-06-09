@@ -53,6 +53,43 @@ class RRHHContratosService:
     # =====================================================================
 
     @staticmethod
+    def _build_snapshot_documento(contrato: ContratoTrabajador) -> dict:
+        snapshot = {
+            "razon_social_empresa": None,
+            "rut_empresa": None,
+            "direccion_empresa": None,
+            "representante_legal": None,
+            "nombre_trabajador": None,
+            "rut_trabajador": None,
+            "direccion_trabajador": None,
+        }
+
+        if contrato.usuario_empresa_id:
+            ue = contrato.usuario_empresa
+            usuario = ue.usuario if ue else None
+            empresa = ue.sucursal.empresa if ue and ue.sucursal_id else None
+
+            snapshot["razon_social_empresa"] = getattr(empresa, "nombre", None)
+            snapshot["rut_empresa"] = getattr(empresa, "rut", None)
+            snapshot["direccion_empresa"] = getattr(empresa, "direccion", None)
+            snapshot["representante_legal"] = getattr(empresa, "representante_legal", None)
+            snapshot["nombre_trabajador"] = (
+                usuario.get_nombre_completo()
+                if usuario and hasattr(usuario, "get_nombre_completo")
+                else None
+            )
+            snapshot["rut_trabajador"] = getattr(ue, "rut", None)
+            snapshot["direccion_trabajador"] = getattr(usuario, "direccion", None)
+            return snapshot
+
+        datos = contrato.datos_trabajador_nuevo or {}
+        nombre_nuevo = f"{datos.get('first_name', '')} {datos.get('last_name', '')}".strip()
+        snapshot["nombre_trabajador"] = nombre_nuevo or None
+        snapshot["rut_trabajador"] = datos.get("rut")
+        snapshot["direccion_trabajador"] = datos.get("direccion")
+        return snapshot
+
+    @staticmethod
     @transaction.atomic
     def cambiar_estado_a_vigente(contrato_id: int, usuario) -> ContratoTrabajador:
         """
@@ -356,10 +393,11 @@ class RRHHContratosService:
 
         # Cambio de estado
         contrato.estado = "pendiente_aprobacion"
+        contrato.snapshot_documento = RRHHContratosService._build_snapshot_documento(contrato)
         contrato._change_reason = (
             f"Enviado a aprobación a {email_empleador} por {usuario.id}"
         )
-        contrato.save(update_fields=["estado", "fecha_modificacion"])
+        contrato.save(update_fields=["estado", "snapshot_documento", "fecha_modificacion"])
 
         # Email async (on_commit para garantizar transacción)
         transaction.on_commit(

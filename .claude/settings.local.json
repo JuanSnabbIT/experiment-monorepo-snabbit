@@ -33,7 +33,13 @@
       "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe cleanup_templates.py)",
       "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe verify_globals.py)",
       "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe check_all_templates.py)",
-      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe)"
+      "Bash(/c/Users/soporte/.conda/envs/ENV/python.exe)",
+      "Bash(claude mcp *)",
+      "mcp__stitch__list_projects",
+      "mcp__stitch__list_screens",
+      "mcp__stitch__get_project",
+      "mcp__stitch__get_screen",
+      "Bash(Find c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend -name \"*rrhh*\" -o -name \"*contrato*\")"
     ]
   }
 }

@@ -3,7 +3,17 @@
 from core.validators import validate_rut_chileno
 from rest_framework import serializers
 
-from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, TurnoLaboral
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, NacionalidadCatalogo, TurnoLaboral
+
+
+def _normalize_first_capitalized(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        return None
+    lower = normalized.lower()
+    return f"{lower[:1].upper()}{lower[1:]}"
 
 
 class CargoCatalogoSerializer(serializers.ModelSerializer):
@@ -29,6 +39,15 @@ class BancoCatalogoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BancoCatalogo
+        fields = ("id", "nombre", "empresa", "activo")
+        read_only_fields = ("empresa",)
+
+
+class NacionalidadCatalogoSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de nacionalidades."""
+
+    class Meta:
+        model = NacionalidadCatalogo
         fields = ("id", "nombre", "empresa", "activo")
         read_only_fields = ("empresa",)
 
@@ -126,6 +145,7 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
             "creado_por",
             "fecha_aprobacion",
             "aceptado_por",
+            "snapshot_documento",
         )
 
     def get_tipo_contrato_label(self, obj):
@@ -258,6 +278,51 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
         ]
 
 
+SNAPSHOT_DOCUMENTO_EDITABLE_PATHS: dict[str, tuple[type, ...]] = {
+    "direccion_empresa": (str, type(None)),
+    "representante_legal": (str, type(None)),
+    "nombre_trabajador": (str, type(None)),
+    "rut_trabajador": (str, type(None)),
+    "direccion_trabajador": (str, type(None)),
+}
+
+
+class SnapshotGetBlockSerializer(serializers.Serializer):
+    """Valida lectura de un bloque permitido de snapshot_documento."""
+
+    path = serializers.CharField(required=True, allow_blank=False)
+
+    def validate_path(self, value: str) -> str:
+        if value not in SNAPSHOT_DOCUMENTO_EDITABLE_PATHS:
+            raise serializers.ValidationError("Path no permitido para lectura por bloque.")
+        return value
+
+
+class SnapshotUpdateBlockSerializer(serializers.Serializer):
+    """Valida mutacion de un bloque permitido de snapshot_documento."""
+
+    path = serializers.CharField(required=True, allow_blank=False)
+    value = serializers.JSONField(required=True)
+
+    def validate_path(self, value: str) -> str:
+        if value not in SNAPSHOT_DOCUMENTO_EDITABLE_PATHS:
+            raise serializers.ValidationError("Path no permitido para actualizacion por bloque.")
+        return value
+
+    def validate(self, attrs):
+        path = attrs["path"]
+        value = attrs["value"]
+        expected_types = SNAPSHOT_DOCUMENTO_EDITABLE_PATHS[path]
+
+        if not isinstance(value, expected_types):
+            type_names = ", ".join(t.__name__ for t in expected_types)
+            raise serializers.ValidationError(
+                {"value": f"Tipo invalido para '{path}'. Tipos permitidos: {type_names}"}
+            )
+
+        return attrs
+
+
 class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
     """Serializer de escritura con validaciones de negocio."""
 
@@ -276,6 +341,15 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
         horas_semanales = attrs.get("horas_semanales") if "horas_semanales" in attrs else (
             instance.horas_semanales if instance else None
         )
+        trabajador_reemplazado = attrs.get("trabajador_reemplazado") if "trabajador_reemplazado" in attrs else (
+            instance.trabajador_reemplazado if instance else None
+        )
+        causal_reemplazo = attrs.get("causal_reemplazo") if "causal_reemplazo" in attrs else (
+            instance.causal_reemplazo if instance else None
+        )
+        sueldo_base = attrs.get("sueldo_base") if "sueldo_base" in attrs else (
+            instance.sueldo_base if instance else None
+        )
 
         if tipo == "plazo_fijo" and not fecha_termino:
             raise serializers.ValidationError(
@@ -293,6 +367,21 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
         if jornada == "turnos" and not turnos_rotativo:
             raise serializers.ValidationError(
                 {"turnos_rotativo": "Los contratos con jornada por turnos requieren al menos un turno definido."}
+            )
+
+        if tipo == "reemplazo" and not trabajador_reemplazado:
+            raise serializers.ValidationError(
+                {"trabajador_reemplazado": "Debes indicar el trabajador reemplazado."}
+            )
+
+        if tipo == "reemplazo" and not causal_reemplazo:
+            raise serializers.ValidationError(
+                {"causal_reemplazo": "Debes indicar la causal de reemplazo."}
+            )
+
+        if sueldo_base is not None and sueldo_base <= 0:
+            raise serializers.ValidationError(
+                {"sueldo_base": "El sueldo base debe ser mayor a 0."}
             )
 
         return attrs
@@ -323,13 +412,39 @@ class TrabajadorExistenteSerializer(serializers.Serializer):
     fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
     direccion = serializers.CharField(max_length=250, required=False, allow_blank=True, allow_null=True)
 
+    def validate(self, attrs):
+        sistema_salud = attrs.get("sistema_salud")
+        nombre_isapre = attrs.get("nombre_isapre")
+        sistema_salud_otro = attrs.get("sistema_salud_otro")
+
+        banco = attrs.get("banco")
+        tipo_cuenta = attrs.get("tipo_cuenta_bancaria")
+        numero_cuenta = attrs.get("numero_cuenta_bancaria")
+
+        if sistema_salud == "isapre" and not nombre_isapre:
+            raise serializers.ValidationError({"nombre_isapre": "Requerido cuando sistema_salud es isapre."})
+
+        if sistema_salud == "otro" and not sistema_salud_otro:
+            raise serializers.ValidationError({"sistema_salud_otro": "Requerido cuando sistema_salud es otro."})
+
+        filled_banking_fields = [bool(banco), bool(tipo_cuenta), bool(numero_cuenta)]
+        if any(filled_banking_fields) and not all(filled_banking_fields):
+            raise serializers.ValidationError(
+                {"banco": "Completa banco, tipo de cuenta y numero de cuenta en conjunto."}
+            )
+
+        if "nacionalidad" in attrs:
+            attrs["nacionalidad"] = _normalize_first_capitalized(attrs.get("nacionalidad"))
+
+        return attrs
+
 
 class TrabajadorNuevoSerializer(serializers.Serializer):
     modo = serializers.ChoiceField(choices=[("nuevo", "nuevo")])
     email = serializers.EmailField()
     first_name = serializers.CharField(max_length=150)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    rut = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150)
+    rut = serializers.CharField(max_length=20)
     sucursal_id = serializers.IntegerField()
     enviar_invitacion = serializers.BooleanField(default=True)
 
@@ -357,9 +472,34 @@ class TrabajadorNuevoSerializer(serializers.Serializer):
     numero_cuenta_bancaria = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     sistema_salud_otro = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     # Datos personales (en User)
-    nacionalidad = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
-    fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
-    direccion = serializers.CharField(max_length=250, required=False, allow_blank=True, allow_null=True)
+    nacionalidad = serializers.CharField(max_length=100)
+    fecha_nacimiento = serializers.DateField()
+    direccion = serializers.CharField(max_length=250)
+
+    def validate(self, attrs):
+        sistema_salud = attrs.get("sistema_salud")
+        nombre_isapre = attrs.get("nombre_isapre")
+        sistema_salud_otro = attrs.get("sistema_salud_otro")
+
+        banco = attrs.get("banco")
+        tipo_cuenta = attrs.get("tipo_cuenta_bancaria")
+        numero_cuenta = attrs.get("numero_cuenta_bancaria")
+
+        if sistema_salud == "isapre" and not nombre_isapre:
+            raise serializers.ValidationError({"nombre_isapre": "Requerido cuando sistema_salud es isapre."})
+
+        if sistema_salud == "otro" and not sistema_salud_otro:
+            raise serializers.ValidationError({"sistema_salud_otro": "Requerido cuando sistema_salud es otro."})
+
+        filled_banking_fields = [bool(banco), bool(tipo_cuenta), bool(numero_cuenta)]
+        if any(filled_banking_fields) and not all(filled_banking_fields):
+            raise serializers.ValidationError(
+                {"banco": "Completa banco, tipo de cuenta y numero de cuenta en conjunto."}
+            )
+
+        attrs["nacionalidad"] = _normalize_first_capitalized(attrs.get("nacionalidad"))
+
+        return attrs
 
 
 class CrearContratoConTrabajadorSerializer(serializers.Serializer):

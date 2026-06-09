@@ -64,16 +64,16 @@ function AgregarItemsACompraDT({}) {
     useEffect(() => {
         async function checkCameraPermission() {
             try {
-                // Intentamos solicitar acceso a la cámara
+                // Intentamos solicitar acceso a la cÃ¡mara
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                // Si se concede, detenemos las pistas (para evitar que la cámara quede encendida)
+                // Si se concede, detenemos las pistas (para evitar que la cÃ¡mara quede encendida)
                 stream.getTracks().forEach((track) => track.stop());
                 setHasCameraPermission(true);
             } catch (error) {
-                // Si ocurre algún error (por ejemplo, si se niega el acceso), actualizamos el estado
+                // Si ocurre algÃºn error (por ejemplo, si se niega el acceso), actualizamos el estado
                 setHasCameraPermission(false);
-                toast.error('No se pudo acceder a la cámara', {
-                    toastId: 'No se pudo acceder a la cámara',
+                toast.error('No se pudo acceder a la cÃ¡mara', {
+                    toastId: 'No se pudo acceder a la cÃ¡mara',
                 });
             } finally {
                 setPermissionChecked(true);
@@ -129,7 +129,7 @@ function AgregarItemsACompraDT({}) {
                             navigate(-1);
                         }}></Button>
                     <Badge className='text-xl'>
-                        Agregar Item a la Compra N°{detalleDelDetalleTrabajo?.trabajo_id}
+                        Agregar Item a la Compra NÂ°{detalleDelDetalleTrabajo?.trabajo_id}
                     </Badge>
                 </SubheaderLeft>
             </Subheader>
@@ -207,7 +207,7 @@ function AgregarItemsACompraDT({}) {
                                                                         }
                                                                     } else {
                                                                         toast.error(
-                                                                            'Formato de código de barras no soportado',
+                                                                            'Formato de cÃ³digo de barras no soportado',
                                                                         );
                                                                         setPaused(false);
                                                                     }
@@ -216,18 +216,18 @@ function AgregarItemsACompraDT({}) {
                                                             } else {
                                                                 setPaused(false);
                                                                 toast.error(
-                                                                    'No se detectaron códigos de barras',
+                                                                    'No se detectaron cÃ³digos de barras',
                                                                 );
                                                             }
                                                         }
                                                     }}
                                                     onError={(error) => {
                                                         console.error(
-                                                            'Error en el escáner:',
+                                                            'Error en el escÃ¡ner:',
                                                             error,
                                                         );
                                                         toast.error(
-                                                            'Error al acceder a la cámara.',
+                                                            'Error al acceder a la cÃ¡mara.',
                                                         );
                                                     }}
                                                     constraints={{

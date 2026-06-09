@@ -47,10 +47,6 @@ interface MultiValueRemovePropsExtend extends Partial<MultiValueRemoveProps> {
     data: { isFixed: boolean; isDisabled: boolean };
 }
 
-const components = {
-    DropdownIndicator: null,
-};
-
 interface ISelectReactProps extends TReactSelect, Partial<IValidationBaseProps> {
     borderWidth?: TBorderWidth;
     className?: string;
@@ -115,9 +111,7 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
                 [`dark:hover:border-${color}-${colorIntensity}`],
             ),
             controlFocus: classNames(
-                {
-                    '!border-zinc-300 dark:!border-zinc-800': isValid,
-                },
+                '!border-zinc-300 dark:!border-zinc-800',
                 '!bg-transparent dark:!bg-transparent',
             ),
             validation: classNames({
@@ -186,6 +180,10 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
                 classNames('bg-white dark:bg-black overflow-hidden shadow-lg', [`${rounded}`]),
             group: () => classNames('border-zinc-500/25', '[&:not(:last-child)]:border-b'),
             groupHeading: () => classNames('font-semibold', 'px-1.5', 'pt-1.5', 'pb-0.5'),
+            input: () =>
+                classNames(
+                    '!outline-none !ring-0 focus:!outline-none focus:!ring-0 focus-visible:!outline-none focus-visible:!ring-0',
+                ),
             placeholder: () => classNames('text-black/50', 'dark:text-white/50'),
             indicatorSeparator: () => classNames('rounded', '!bg-zinc-500/50'),
             multiValue: (state: MultiValuePropsExtends): string =>
@@ -211,7 +209,7 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
         ...rest,
     };
 
-    if (isCreatable) return <CreatableSelect components={components} {...reactSelectProps} />;
+    if (isCreatable) return <CreatableSelect {...reactSelectProps} />;
     return <ReactSelect {...reactSelectProps} />;
 };
 

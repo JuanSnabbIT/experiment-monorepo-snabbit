@@ -133,6 +133,33 @@ const RedirectCrearPrefacturaOTV3Legacy = () => {
     const target = `${Pages.facturacion.subPages.matchingManualOTV3.to}${search || ''}`;
     return <Navigate to={target} replace />;
 };
+
+const RedirectLegacyRrhhTrabajadores = () => {
+    const { search } = useLocation();
+    const nextParams = new URLSearchParams(search);
+    nextParams.set('legacy', 'rrhh-trabajadores');
+    nextParams.set('tab', 'trabajadores');
+    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
+    return <Navigate to={target} replace />;
+};
+
+const RedirectLegacyRrhhContratos = () => {
+    const { search } = useLocation();
+    const nextParams = new URLSearchParams(search);
+    nextParams.set('legacy', 'rrhh-contratos');
+    nextParams.set('tab', 'contratos-laborales');
+    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
+    return <Navigate to={target} replace />;
+};
+
+const RedirectLegacyRrhhConfiguracion = () => {
+    const { search } = useLocation();
+    const nextParams = new URLSearchParams(search);
+    nextParams.set('legacy', 'rrhh-configuracion');
+    nextParams.set('tab', 'configuracion-rrhh');
+    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
+    return <Navigate to={target} replace />;
+};
 const ListaPlantillasContrato = lazy(
     () => import('@/pages/Registros/PlantillasContrato/ListaPlantillas'),
 );
@@ -183,17 +210,8 @@ const ResumenContratoPublico = lazy(
 const DetalleContratoTrabajador = lazy(
     () => import('@/pages/RRHH/DetalleContratoTrabajador'),
 );
-const ListaContratosTrabajador = lazy(
-    () => import('@/pages/RRHH/ListaContratosTrabajador'),
-);
 const DetalleTrabajador = lazy(
     () => import('@/pages/RRHH/DetalleTrabajador'),
-);
-const ListaTrabajadores = lazy(
-    () => import('@/pages/RRHH/ListaTrabajadores'),
-);
-const ConfiguracionRRHH = lazy(
-    () => import('@/pages/RRHH/ConfiguracionRRHH'),
 );
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
@@ -665,7 +683,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.rrhh.subPages.listaContratosTrabajador.to,
-        element: <ListaContratosTrabajador />,
+        element: <RedirectLegacyRrhhContratos />,
         authority: Pages.rrhh.subPages.listaContratosTrabajador.authority,
     },
     {
@@ -675,7 +693,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.rrhh.subPages.listaTrabajadores.to,
-        element: <ListaTrabajadores />,
+        element: <RedirectLegacyRrhhTrabajadores />,
         authority: Pages.rrhh.subPages.listaTrabajadores.authority,
     },
     {
@@ -685,7 +703,7 @@ const contentRoutes: IRoutePersonalizadas[] = [
     },
     {
         path: Pages.rrhh.subPages.rrhhConfiguracion.to,
-        element: <ConfiguracionRRHH />,
+        element: <RedirectLegacyRrhhConfiguracion />,
         authority: Pages.rrhh.subPages.rrhhConfiguracion.authority,
     },
     {

@@ -511,41 +511,8 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    {/* Trabajadores */}
-                    <AuthorityCheckNav
-                        authority={Pages.rrhh.subPages.listaTrabajadores.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavItem
-                            text={Pages.rrhh.subPages.listaTrabajadores.text}
-                            to={Pages.rrhh.subPages.listaTrabajadores.to}
-                            icon={Pages.rrhh.subPages.listaTrabajadores.icon}
-                            id={Pages.rrhh.subPages.listaTrabajadores.id}
-                        />
-                    </AuthorityCheckNav>
-
-                    {/* Contratos Laborales */}
-                    <AuthorityCheckNav
-                        authority={Pages.rrhh.subPages.listaContratosTrabajador.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavItem
-                            text={Pages.rrhh.subPages.listaContratosTrabajador.text}
-                            to={Pages.rrhh.subPages.listaContratosTrabajador.to}
-                            icon={Pages.rrhh.subPages.listaContratosTrabajador.icon}
-                            id={Pages.rrhh.subPages.listaContratosTrabajador.id}
-                        />
-                    </AuthorityCheckNav>
-
-                    {/* Configuración RRHH */}
-                    <AuthorityCheckNav
-                        authority={Pages.rrhh.subPages.rrhhConfiguracion.authority}
-                        userAuthority={listaGrupos?.grupos}>
-                        <NavItem
-                            text={Pages.rrhh.subPages.rrhhConfiguracion.text}
-                            to={Pages.rrhh.subPages.rrhhConfiguracion.to}
-                            icon={Pages.rrhh.subPages.rrhhConfiguracion.icon}
-                            id={Pages.rrhh.subPages.rrhhConfiguracion.id}
-                        />
-                    </AuthorityCheckNav>
+                    {/* RRHH legacy removido del menú principal.
+                        El acceso funcional se consolida en Empresa/Cliente y se mantiene compatibilidad por rutas legacy con redirección. */}
 
                     {/* <NavCollapse  text={"Empresas"} icon={'HeroDocument'} to={'/empresas'}>
 						{listaEmpresas.map(empresa => (

@@ -18,7 +18,6 @@ import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
-import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import {
     useCrearContratoConTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
@@ -57,26 +56,36 @@ const STEP_LABELS: Record<TStep, string> = {
 
 // Campos a validar (y marcar como touched) al intentar avanzar de cada step.
 const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
-    1: ['trab_empresa_cliente_id', 'referencia_interna'],
+    1: ['referencia_interna'],
     2: [
         'trab_modo',
         'trab_usuario_empresa_id',
         'trab_first_name',
+        'trab_last_name',
         'trab_email',
         'trab_sucursal_id',
         'trab_rut',
+        'trab_nacionalidad',
+        'trab_fecha_nacimiento',
+        'trab_direccion',
     ],
     3: ['tipo_contrato', 'fecha_inicio', 'cargo', 'causal_reemplazo', 'trab_trabajador_reemplazado_id'],
     4: ['jornada', 'hora_inicio', 'hora_fin', 'turnos_rotativo'],
     5: ['sueldo_base'],
-    6: [],
+    6: [
+        'sistema_salud',
+        'nombre_isapre',
+        'sistema_salud_otro',
+        'banco',
+        'tipo_cuenta_bancaria',
+        'numero_cuenta_bancaria',
+    ],
     7: [],
 };
 
 const validationSchema = Yup.object({
     referencia_interna: Yup.string().required('Requerido'),
     trab_modo: Yup.string().oneOf(['existente', 'nuevo']).required(),
-    trab_empresa_cliente_id: Yup.mixed().required('Selecciona una empresa cliente'),
     trab_usuario_empresa_id: Yup.mixed().when('trab_modo', {
         is: 'existente',
         then: (s) => s.required('Selecciona un trabajador'),
@@ -92,9 +101,38 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Requerido'),
         otherwise: (s) => s.notRequired(),
     }),
-    trab_rut: Yup.string().test('rut-valido', 'RUT invalido', (value) => {
-        if (!value || !value.trim()) return true;
-        return validarRut(value);
+    trab_last_name: Yup.string().when('trab_modo', {
+        is: 'nuevo',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    trab_rut: Yup.string().when('trab_modo', {
+        is: 'nuevo',
+        then: (s) =>
+            s.required('Requerido').test('rut-valido', 'RUT invalido', (value) => {
+                if (!value || !value.trim()) return false;
+                return validarRut(value);
+            }),
+        otherwise: (s) =>
+            s.notRequired().test('rut-valido', 'RUT invalido', (value) => {
+                if (!value || !value.trim()) return true;
+                return validarRut(value);
+            }),
+    }),
+    trab_nacionalidad: Yup.string().when('trab_modo', {
+        is: 'nuevo',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    trab_fecha_nacimiento: Yup.string().when('trab_modo', {
+        is: 'nuevo',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    trab_direccion: Yup.string().when('trab_modo', {
+        is: 'nuevo',
+        then: (s) => s.required('Requerido'),
+        otherwise: (s) => s.notRequired(),
     }),
     trab_sucursal_id: Yup.mixed().required('Selecciona una sucursal'),
     tipo_contrato: Yup.string().required('Requerido'),
@@ -136,11 +174,52 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Requerido para contrato de reemplazo'),
         otherwise: (s) => s.notRequired(),
     }),
+    trab_trabajador_reemplazado_id: Yup.mixed().when('tipo_contrato', {
+        is: 'reemplazo',
+        then: (s) => s.required('Selecciona trabajador reemplazado'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    nombre_isapre: Yup.string().when('sistema_salud', {
+        is: 'isapre',
+        then: (s) => s.required('Requerido para sistema Isapre'),
+        otherwise: (s) => s.notRequired(),
+    }),
     sistema_salud_otro: Yup.string().when('sistema_salud', {
         is: 'otro',
         then: (s) => s.required('Especifica el sistema de salud'),
         otherwise: (s) => s.notRequired(),
     }),
+    banco: Yup.string().test(
+        'banco-completo',
+        'Requerido si completas datos bancarios',
+        function validateBanco(value) {
+            const { tipo_cuenta_bancaria, numero_cuenta_bancaria } =
+                this.parent as IFormValuesContratoTrabajador;
+            const tieneOtros = Boolean(tipo_cuenta_bancaria || numero_cuenta_bancaria);
+            if (!tieneOtros) return true;
+            return Boolean(value && String(value).trim());
+        },
+    ),
+    tipo_cuenta_bancaria: Yup.string().test(
+        'tipo-cuenta-completo',
+        'Requerido si completas datos bancarios',
+        function validateTipoCuenta(value) {
+            const { banco, numero_cuenta_bancaria } = this.parent as IFormValuesContratoTrabajador;
+            const tieneOtros = Boolean(banco || numero_cuenta_bancaria);
+            if (!tieneOtros) return true;
+            return Boolean(value && String(value).trim());
+        },
+    ),
+    numero_cuenta_bancaria: Yup.string().test(
+        'numero-cuenta-completo',
+        'Requerido si completas datos bancarios',
+        function validateNumeroCuenta(value) {
+            const { banco, tipo_cuenta_bancaria } = this.parent as IFormValuesContratoTrabajador;
+            const tieneOtros = Boolean(banco || tipo_cuenta_bancaria);
+            if (!tieneOtros) return true;
+            return Boolean(value && String(value).trim());
+        },
+    ),
 });
 
 const initialValues: IFormValuesContratoTrabajador = {
@@ -275,10 +354,6 @@ const CrearContratoTrabajadorWizard = ({
     );
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
-    const listaMisClientesOpts: TSelectOption[] = listaMisClientes.map((r) => ({
-        value: String(r.info_cliente.id),
-        label: r.info_cliente.nombre,
-    }));
 
     const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery();
     const wizard = useContratoWizard(contratoId ?? null);
@@ -309,10 +384,8 @@ const CrearContratoTrabajadorWizard = ({
 
     // Cargar lista de empresas cliente al abrir el wizard
     useEffect(() => {
-        if (isOpen && personalizacionUsuario?.empresa && listaMisClientes.length === 0) {
-            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
-        }
-    }, [isOpen, personalizacionUsuario, listaMisClientes.length, dispatch]);
+        // TODO RBAC: validar acceso explícito al cliente contextual cuando exista control por roles.
+    }, [isOpen, personalizacionUsuario]);
 
     // Reset del intento al cambiar de paso
     useEffect(() => { setStepAttempted(false); }, [step]);
@@ -428,69 +501,25 @@ const CrearContratoTrabajadorWizard = ({
         },
     });
 
-    // Derivar empresa cliente seleccionada en el form
-    const empresaClienteIdSeleccionada = formik.values.trab_empresa_cliente_id;
-    const relacionSeleccionada =
-        listaMisClientes.find(
-            (r) => String(r.info_cliente.id) === String(empresaClienteIdSeleccionada),
-        ) ?? detalleCliente;
-    
-    // Obtener sucursales de la empresa cliente seleccionada
-    const sucursales = relacionSeleccionada?.info_cliente.sucursales || [];
+    // Empresa cliente de contexto: se toma del detalle actual y no se pide manualmente.
+    const empresaClienteContexto = detalleCliente;
 
-    // Obtener usuarios de la empresa cliente seleccionada
+    // Obtener sucursales de la empresa cliente contextual
+    const sucursales = empresaClienteContexto?.info_cliente.sucursales || [];
+
+    // Obtener usuarios de la empresa cliente contextual
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
-        empresaClienteIdSeleccionada || '',
-        { skip: !empresaClienteIdSeleccionada || !isOpen },
+        empresaClienteContexto?.info_cliente.id || '',
+        { skip: !empresaClienteContexto?.info_cliente.id || !isOpen },
     );
-
-    // Preseleccionar empresa cliente si vino desde un detalleCliente (contexto fijo)
-    useEffect(() => {
-        if (isOpen && detalleCliente?.info_cliente.id && !formik.values.trab_empresa_cliente_id) {
-            formik.setFieldValue('trab_empresa_cliente_id', detalleCliente.info_cliente.id);
-        }
-    }, [isOpen, detalleCliente]);
 
     const renderStep = () => {
         switch (step) {
             case 1:
                 return (
                     <div className='space-y-5'>
-                        {/* Empresa cliente */}
-                        <div>
-                            <Label htmlFor='trab_empresa_cliente_id'>
-                                Empresa cliente <span className='text-red-500'>*</span>
-                            </Label>
-                            <p className='mb-1.5 text-xs text-zinc-500 dark:text-zinc-400'>
-                                La empresa donde el empleado prestará servicios.
-                            </p>
-                            <SelectReact
-                                name='trab_empresa_cliente_id'
-                                options={listaMisClientesOpts}
-                                placeholder='Selecciona empresa cliente...'
-                                value={
-                                    listaMisClientesOpts.find(
-                                        (o) =>
-                                            o.value ===
-                                            String(formik.values.trab_empresa_cliente_id),
-                                    ) ?? null
-                                }
-                                onChange={(opt) => {
-                                    formik.setFieldValue(
-                                        'trab_empresa_cliente_id',
-                                        opt ? (opt as TSelectOption).value : '',
-                                    );
-                                    // Limpiar sucursal y trabajador al cambiar empresa
-                                    formik.setFieldValue('trab_sucursal_id', '');
-                                    formik.setFieldValue('trab_usuario_empresa_id', '');
-                                }}
-                            />
-                            {formik.touched.trab_empresa_cliente_id &&
-                                formik.errors.trab_empresa_cliente_id && (
-                                    <div className='mt-1 text-xs text-red-500'>
-                                        {String(formik.errors.trab_empresa_cliente_id)}
-                                    </div>
-                                )}
+                        <div className='rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-200'>
+                            Empresa cliente: <strong>{empresaClienteContexto?.info_cliente.nombre ?? 'Contexto no disponible'}</strong>
                         </div>
                         {/* Referencia interna (required) */}
                         <div>

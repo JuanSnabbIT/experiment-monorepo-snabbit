@@ -4,11 +4,18 @@ import RadioCard from '@/components/form/RadioCard';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import type { IUseContratoWizardReturn } from '@/hooks/useContratoWizard';
 import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
+import {
+    useCrearNacionalidadInlineMutation,
+    useGetNacionalidadCatalogoQuery,
+} from '@/store/slices/rrhh/catalogosRrhhApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { formatRut } from '@/utils/rut.util';
 import { FormikProps } from 'formik';
-import { IFormValuesContratoTrabajador, SISTEMA_SALUD_OPTIONS } from './types';
-import type { IUseContratoWizardReturn } from '@/hooks/useContratoWizard';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
+import { IFormValuesContratoTrabajador } from './types';
 
 const ESTADO_CIVIL_OPTIONS: TSelectOption[] = [
     { value: 'soltero_a', label: 'Soltero/a' },
@@ -33,6 +40,15 @@ const StepTrabajador = ({
     empresasCliente,
 }: Props) => {
     const { values, errors, touched, setFieldValue, handleChange, handleBlur } = formik;
+    const { data: nacionalidadesCatalogo = [] } = useGetNacionalidadCatalogoQuery();
+    const [crearNacionalidad] = useCrearNacionalidadInlineMutation();
+
+    const normalizarNacionalidad = (value: string): string => {
+        const normalizada = value.trim().replace(/\s+/g, ' ');
+        if (!normalizada) return '';
+        const lower = normalizada.toLocaleLowerCase('es-CL');
+        return `${lower.charAt(0).toLocaleUpperCase('es-CL')}${lower.slice(1)}`;
+    };
 
     const sucursalesOpts: TSelectOption[] = sucursales.map((s) => ({
         value: String(s.id),
@@ -59,6 +75,55 @@ const StepTrabajador = ({
         value: String(u.id),
         label: `${u.nombre_usuario} — ${u.papeleta?.rut ?? u.email_usuario}`,
     }));
+
+    const nacionalidadesUsuarios = useMemo(() => {
+        const únicas = Array.from(
+            new Set(
+                usuariosCliente
+                    .map((u) => u.nacionalidad)
+                    .filter((nacionalidad): nacionalidad is string => !!nacionalidad?.trim())
+                    .map((nacionalidad) => normalizarNacionalidad(nacionalidad)),
+            ),
+        );
+        return únicas.sort((a, b) => a.localeCompare(b, 'es-CL'));
+    }, [usuariosCliente]);
+
+    const nacionalidadesCatalogoNormalizadas = useMemo(
+        () =>
+            nacionalidadesCatalogo
+                .map((item) => normalizarNacionalidad(item.nombre))
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b, 'es-CL')),
+        [nacionalidadesCatalogo],
+    );
+
+    const [nacionalidadesCreadas, setNacionalidadesCreadas] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!values.trab_nacionalidad?.trim()) return;
+        const actual = normalizarNacionalidad(values.trab_nacionalidad);
+        if (!actual) return;
+        setNacionalidadesCreadas((prev) =>
+            prev.includes(actual) ||
+            nacionalidadesUsuarios.includes(actual) ||
+            nacionalidadesCatalogoNormalizadas.includes(actual)
+                ? prev
+                : [...prev, actual],
+        );
+    }, [values.trab_nacionalidad, nacionalidadesUsuarios, nacionalidadesCatalogoNormalizadas]);
+
+    const nacionalidadOptions: TSelectOption[] = useMemo(() => {
+        const merged = Array.from(
+            new Set([
+                ...nacionalidadesCatalogoNormalizadas,
+                ...nacionalidadesUsuarios,
+                ...nacionalidadesCreadas,
+            ]),
+        );
+        return merged
+            .sort((a, b) => a.localeCompare(b, 'es-CL'))
+            .map((item) => ({ value: item, label: item }));
+    }, [nacionalidadesCatalogoNormalizadas, nacionalidadesUsuarios, nacionalidadesCreadas]);
 
     return (
         <div className='space-y-4'>
@@ -255,14 +320,21 @@ const StepTrabajador = ({
                         </Validation>
                     </div>
                     <div>
-                        <Label htmlFor='trab_last_name'>Apellidos</Label>
-                        <Input
-                            id='trab_last_name'
-                            name='trab_last_name'
-                            value={values.trab_last_name}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Label htmlFor='trab_last_name'>
+                            Apellidos <span className='text-red-500'>*</span>
+                        </Label>
+                        <Validation
+                            isValid={!errors.trab_last_name}
+                            isTouched={!!touched.trab_last_name}
+                            invalidFeedback={errors.trab_last_name || ''}>
+                            <Input
+                                id='trab_last_name'
+                                name='trab_last_name'
+                                value={values.trab_last_name}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                        </Validation>
                     </div>
                     <div>
                         <Label htmlFor='trab_email'>
@@ -333,35 +405,92 @@ const StepTrabajador = ({
                         )}
                     </div>
                     <div>
-                        <Label htmlFor='trab_nacionalidad'>Nacionalidad</Label>
-                        <Input
-                            id='trab_nacionalidad'
-                            name='trab_nacionalidad'
-                            value={values.trab_nacionalidad}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Label htmlFor='trab_nacionalidad'>
+                            Nacionalidad <span className='text-red-500'>*</span>
+                        </Label>
+                        <Validation
+                            isValid={!errors.trab_nacionalidad}
+                            isTouched={!!touched.trab_nacionalidad}
+                            invalidFeedback={errors.trab_nacionalidad || ''}>
+                            <SelectReact
+                                name='trab_nacionalidad'
+                                options={nacionalidadOptions}
+                                placeholder='Selecciona o crea nacionalidad'
+                                value={
+                                    values.trab_nacionalidad
+                                        ? {
+                                              value: normalizarNacionalidad(values.trab_nacionalidad),
+                                              label: normalizarNacionalidad(values.trab_nacionalidad),
+                                          }
+                                        : null
+                                }
+                                onChange={(opt) => {
+                                    const value = opt ? (opt as TSelectOption).value : '';
+                                    setFieldValue('trab_nacionalidad', normalizarNacionalidad(value));
+                                }}
+                                isCreatable
+                                onCreateOption={async (inputValue) => {
+                                    const nueva = normalizarNacionalidad(inputValue);
+                                    if (!nueva) return;
+                                    try {
+                                        const creada = await crearNacionalidad({ nombre: nueva }).unwrap();
+                                        const normalizada = normalizarNacionalidad(creada.nombre);
+                                        setNacionalidadesCreadas((prev) =>
+                                            prev.includes(normalizada)
+                                                ? prev
+                                                : [...prev, normalizada],
+                                        );
+                                        setFieldValue('trab_nacionalidad', normalizada);
+                                    } catch (error) {
+                                        setNacionalidadesCreadas((prev) =>
+                                            prev.includes(nueva) ? prev : [...prev, nueva],
+                                        );
+                                        setFieldValue('trab_nacionalidad', nueva);
+                                        toast.error(getErrorMessage(error));
+                                    }
+                                }}
+                                formatCreateLabel={(inputValue) => {
+                                    const preview = normalizarNacionalidad(inputValue);
+                                    return preview ? `Crear "${preview}"` : 'Ingresa una nacionalidad';
+                                }}
+                                isClearable
+                            />
+                        </Validation>
                     </div>
                     <div>
-                        <Label htmlFor='trab_fecha_nacimiento'>Fecha de nacimiento</Label>
-                        <Input
-                            id='trab_fecha_nacimiento'
-                            name='trab_fecha_nacimiento'
-                            type='date'
-                            value={values.trab_fecha_nacimiento}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Label htmlFor='trab_fecha_nacimiento'>
+                            Fecha de nacimiento <span className='text-red-500'>*</span>
+                        </Label>
+                        <Validation
+                            isValid={!errors.trab_fecha_nacimiento}
+                            isTouched={!!touched.trab_fecha_nacimiento}
+                            invalidFeedback={errors.trab_fecha_nacimiento || ''}>
+                            <Input
+                                id='trab_fecha_nacimiento'
+                                name='trab_fecha_nacimiento'
+                                type='date'
+                                value={values.trab_fecha_nacimiento}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                        </Validation>
                     </div>
                     <div className='md:col-span-2'>
-                        <Label htmlFor='trab_direccion'>Direccion</Label>
-                        <Input
-                            id='trab_direccion'
-                            name='trab_direccion'
-                            value={values.trab_direccion}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                        />
+                        <Label htmlFor='trab_direccion'>
+                            Direccion <span className='text-red-500'>*</span>
+                        </Label>
+                        <Validation
+                            isValid={!errors.trab_direccion}
+                            isTouched={!!touched.trab_direccion}
+                            invalidFeedback={errors.trab_direccion || ''}>
+                            <Input
+                                id='trab_direccion'
+                                name='trab_direccion'
+                                value={values.trab_direccion}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                        </Validation>
                     </div>
                     {/* Campos legales Art. 10 CT */}
                     <div>

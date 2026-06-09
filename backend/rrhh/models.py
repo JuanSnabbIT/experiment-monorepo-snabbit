@@ -53,6 +53,11 @@ class ContratoTrabajador(ModeloBaseHistorico):
         blank=True,
         help_text="Datos del trabajador pendiente de creacion. Se limpia tras la aprobacion.",
     )
+    snapshot_documento = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Snapshot estructurado de datos contractuales usado al enviar a aprobacion.",
+    )
 
     # Identificador de negocio (mostrado en listas / detalle)
     referencia_interna = models.CharField(max_length=200, blank=True, null=True)
@@ -270,6 +275,29 @@ class BancoCatalogo(ModeloBase):
         unique_together = [("nombre", "empresa")]
         verbose_name = "Banco"
         verbose_name_plural = "Bancos"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
+class NacionalidadCatalogo(ModeloBase):
+    """Catalogo de nacionalidades disponibles. Registros globales (empresa=null) + por empresa."""
+
+    nombre = models.CharField(max_length=100)
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="nacionalidades_catalogo",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("nombre", "empresa")]
+        verbose_name = "Nacionalidad"
+        verbose_name_plural = "Nacionalidades"
         ordering = ["nombre"]
 
     def __str__(self):

@@ -3,6 +3,7 @@ import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityC
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -23,7 +24,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import CrearEmpresa from './modals/CrearEmpresa';
 import CrearSucursal from './modals/CrearSucursal';
 import EliminarEmpresa from './modals/EliminarEmpresa';
@@ -32,6 +33,7 @@ const columnHelper = createColumnHelper<IEmpresa>();
 
 const ListaEmpresas = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
     const {
         data: listaEmpresas = [],
@@ -39,6 +41,10 @@ const ListaEmpresas = () => {
     } = useGetEmpresasQuery(undefined);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
+
+    const legacySource = searchParams.get('legacy');
+    const legacyTab = searchParams.get('tab');
+    const mostrarAlertaLegacy = Boolean(legacySource?.startsWith('rrhh-'));
 
     useEffect(() => {
         if (personalizacionUsuario) {
@@ -112,6 +118,14 @@ const ListaEmpresas = () => {
             <Container className='h-full w-full'>
                 <Card>
                     <CardBody className='z-0'>
+                        {mostrarAlertaLegacy && (
+                            <Alert variant='outline' color='blue' icon='HeroInformationCircle' className='mb-3'>
+                                Redirección automática desde RRHH legacy. Selecciona una empresa para continuar al flujo actualizado.
+                                {legacyTab && (
+                                    <span className='ml-1 font-medium'>Tab objetivo: {legacyTab}.</span>
+                                )}
+                            </Alert>
+                        )}
                         <div className='overflow-auto'>
                             <Table className='min-w-[600px] table-fixed'>
                                 <THead>

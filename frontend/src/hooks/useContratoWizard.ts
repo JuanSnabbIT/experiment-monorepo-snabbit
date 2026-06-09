@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
 import { useUpdateContratoTrabajadorMutation } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { getErrorMessageWithSuggestion } from '@/utils/getErrorMessageWithSuggestion';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface IContratoWizardState {
   contrato: Record<string, any> | null;
@@ -43,7 +43,7 @@ export const useContratoWizard = (
 
   const [updateContrato] = useUpdateContratoTrabajadorMutation();
   const retryCountRef = useRef(0);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Recuperar cambios del localStorage si existen
   useEffect(() => {

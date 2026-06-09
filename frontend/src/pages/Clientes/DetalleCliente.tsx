@@ -8,14 +8,16 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import TablaContratosLaboralesCliente from './components/TablaContratosLaboralesCliente';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
 import TablaUsuariosDelCliente from './components/TablaUsuariosDelCliente';
 
 const CLIENT_TABS = {
-    usuarios: 'Usuarios',
+    trabajadores: 'Trabajadores',
     contratos: 'Contratos',
     asignaciones: 'Asignaciones de licencias',
+    contratosLaborales: 'Contratos laborales',
 } as const;
 
 type TClientTab = keyof typeof CLIENT_TABS;
@@ -27,10 +29,21 @@ const DetalleCliente = () => {
 
     const activeTab = useMemo<TClientTab>(() => {
         const tab = searchParams.get('tab');
-        if (tab === 'usuarios' || tab === 'contratos' || tab === 'asignaciones') {
+        if (tab === 'usuarios') {
+            return 'trabajadores';
+        }
+        if (tab === 'contratos-laborales') {
+            return 'contratosLaborales';
+        }
+        if (
+            tab === 'trabajadores' ||
+            tab === 'contratos' ||
+            tab === 'asignaciones' ||
+            tab === 'contratosLaborales'
+        ) {
             return tab;
         }
-        return 'usuarios';
+        return 'trabajadores';
     }, [searchParams]);
 
     const setActiveTab = (tab: TClientTab) => {
@@ -101,7 +114,7 @@ const DetalleCliente = () => {
                             </div>
                             <div className='flex flex-row gap-4 overflow-auto'>
                                 <Button
-                                    {...(activeTab === 'usuarios'
+                                    {...(activeTab === 'trabajadores'
                                         ? {
                                               size: 'sm',
                                               rounded: 'rounded-full',
@@ -118,9 +131,9 @@ const DetalleCliente = () => {
                                               className: 'border',
                                           })}
                                     onClick={() => {
-                                        setActiveTab('usuarios');
+                                        setActiveTab('trabajadores');
                                     }}>
-                                    {CLIENT_TABS.usuarios}
+                                    {CLIENT_TABS.trabajadores}
                                 </Button>
                                 <Button
                                     {...(activeTab === 'contratos'
@@ -166,11 +179,33 @@ const DetalleCliente = () => {
                                     }}>
                                     {CLIENT_TABS.asignaciones}
                                 </Button>
+                                <Button
+                                    {...(activeTab === 'contratosLaborales'
+                                        ? {
+                                              size: 'sm',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                              isActive: true,
+                                              color: 'blue',
+                                              colorIntensity: '500',
+                                              variant: 'solid',
+                                          }
+                                        : {
+                                              size: 'sm',
+                                              color: 'zinc',
+                                              rounded: 'rounded-full',
+                                              className: 'border',
+                                          })}
+                                    onClick={() => {
+                                        setActiveTab('contratosLaborales');
+                                    }}>
+                                    {CLIENT_TABS.contratosLaborales}
+                                </Button>
                             </div>
                         </CardBody>
                     </Card>
 
-                    {activeTab === 'usuarios' && (
+                    {activeTab === 'trabajadores' && (
                         <TablaUsuariosDelCliente detalleCliente={detalleCliente} />
                     )}
 
@@ -183,6 +218,10 @@ const DetalleCliente = () => {
                             detalleCliente={detalleCliente}
                             onIrAContratos={() => setActiveTab('contratos')}
                         />
+                    )}
+
+                    {activeTab === 'contratosLaborales' && (
+                        <TablaContratosLaboralesCliente detalleCliente={detalleCliente} />
                     )}
                 </div>
             </Container>

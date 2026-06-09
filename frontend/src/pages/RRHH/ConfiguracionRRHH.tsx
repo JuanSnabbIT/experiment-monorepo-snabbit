@@ -12,6 +12,7 @@ import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { ITurnoLaboral, ITurnoLaboralWrite } from '@/interface/rrhh.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import {
     useCrearAfpInlineMutation,
@@ -33,7 +34,6 @@ import {
     useEliminarTurnoLaboralMutation,
     useGetTurnosLaboralQuery,
 } from '@/store/slices/rrhh/turnoLaboralApi';
-import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import { useEffect, useMemo, useState } from 'react';
@@ -76,6 +76,11 @@ interface ITabProps {
     empresaId: number | null;
 }
 
+interface IConfiguracionRRHHProps {
+    embedded?: boolean;
+    empresaIdFijo?: number | null;
+}
+
 // ── Tab Parámetros ───────────────────────────────────────────────────────────
 const TabParametros = ({ empresaId }: ITabProps) => {
     const { data: params = [], isLoading } = useGetConfiguracionLaboralQuery(
@@ -100,6 +105,7 @@ const TabParametros = ({ empresaId }: ITabProps) => {
     const crearOverride = async (item: IConfiguracionLaboral) => {
         if (!empresaId) return;
         try {
+            // TODO RBAC: validar permiso explicito para crear overrides por empresa.
             await crear({
                 clave: item.clave,
                 valor: item.valor,
@@ -186,6 +192,7 @@ const TabAfp = ({ empresaId }: ITabProps) => {
     const agregar = async () => {
         if (!nuevoNombre.trim() || !empresaId) return;
         try {
+            // TODO RBAC: validar permiso explicito para crear catalogos AFP por empresa.
             await crear({ nombre: nuevoNombre.trim(), empresa_id: empresaId }).unwrap();
             toast.success('AFP agregada.');
             setNuevoNombre('');
@@ -202,6 +209,7 @@ const TabAfp = ({ empresaId }: ITabProps) => {
         });
         if (!ok) return;
         try {
+            // TODO RBAC: validar permiso explicito para eliminar catalogos AFP por empresa.
             await eliminar(id).unwrap();
             toast.success('AFP eliminada.');
         } catch (err) {
@@ -270,6 +278,7 @@ const TabBancos = ({ empresaId }: ITabProps) => {
     const agregar = async () => {
         if (!nuevoNombre.trim() || !empresaId) return;
         try {
+            // TODO RBAC: validar permiso explicito para crear catalogos de banco por empresa.
             await crear({ nombre: nuevoNombre.trim(), empresa_id: empresaId }).unwrap();
             toast.success('Banco agregado.');
             setNuevoNombre('');
@@ -286,6 +295,7 @@ const TabBancos = ({ empresaId }: ITabProps) => {
         });
         if (!ok) return;
         try {
+            // TODO RBAC: validar permiso explicito para eliminar catalogos de banco por empresa.
             await eliminar(id).unwrap();
             toast.success('Banco eliminado.');
         } catch (err) {
@@ -369,9 +379,11 @@ const ModalTurno = ({
         }
         try {
             if (turnoEditar) {
+                // TODO RBAC: validar permiso explicito para editar turnos por empresa.
                 await editar({ id: turnoEditar.id, ...form }).unwrap();
                 toast.success('Turno actualizado.');
             } else {
+                // TODO RBAC: validar permiso explicito para crear turnos por empresa.
                 await crear({ ...form, empresa_id: empresaId }).unwrap();
                 toast.success('Turno creado.');
             }
@@ -445,6 +457,7 @@ const TabTurnos = ({ empresaId }: ITabProps) => {
         });
         if (!ok) return;
         try {
+            // TODO RBAC: validar permiso explicito para eliminar turnos por empresa.
             await eliminar(turno.id).unwrap();
             toast.success('Turno eliminado.');
         } catch (err) {
@@ -579,7 +592,7 @@ const TabCargos = () => {
 };
 
 // ── Página principal ───────────────────────────────────────────────────────────
-const ConfiguracionRRHH = () => {
+const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfiguracionRRHHProps) => {
     const dispatch = useAppDispatch();
     const { listaMisClientes } = useAppSelector((s) => s.empresa);
     const { personalizacionUsuario } = useAppSelector((s) => s.auth);
@@ -587,17 +600,62 @@ const ConfiguracionRRHH = () => {
     const [empresaId, setEmpresaId] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<TTabId>('parametros');
 
+    const empresaIdActiva = empresaIdFijo ?? empresaId;
+
     useEffect(() => {
-        if (personalizacionUsuario?.empresa && listaMisClientes.length === 0) {
+        if (!embedded && personalizacionUsuario?.empresa && listaMisClientes.length === 0) {
             dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
         }
-    }, [personalizacionUsuario?.empresa, listaMisClientes.length, dispatch]);
+    }, [embedded, personalizacionUsuario?.empresa, listaMisClientes.length, dispatch]);
 
     const empresaOpts: TSelectOption[] = listaMisClientes.map((r) => ({
         value: String(r.info_cliente.id),
         label: r.info_cliente.nombre,
     }));
-    const empresaValue = empresaOpts.find((o) => o.value === String(empresaId)) ?? null;
+    const empresaValue = empresaOpts.find((o) => o.value === String(empresaIdActiva)) ?? null;
+
+    const contenidoTabs = (
+        <Card>
+            <CardHeader>
+                <CardHeaderChild>
+                    <CardTitle>
+                        {empresaIdActiva
+                            ? `Configuración de ${empresaValue?.label || 'empresa seleccionada'}`
+                            : 'Configuración global'}
+                    </CardTitle>
+                </CardHeaderChild>
+            </CardHeader>
+            <CardBody>
+                <div className='mb-4 flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700'>
+                    {TABS.map((tab) => (
+                        <button
+                            key={tab.id}
+                            type='button'
+                            onClick={() => setActiveTab(tab.id)}
+                            className={[
+                                'px-4 py-2 text-sm font-medium transition-colors',
+                                activeTab === tab.id
+                                    ? 'border-b-2 border-blue-500 text-blue-500'
+                                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
+                            ].join(' ')}>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {activeTab === 'parametros' && <TabParametros empresaId={empresaIdActiva} />}
+                {activeTab === 'afp' && <TabAfp empresaId={empresaIdActiva} />}
+                {activeTab === 'bancos' && <TabBancos empresaId={empresaIdActiva} />}
+                {activeTab === 'turnos' && <TabTurnos empresaId={empresaIdActiva} />}
+                {activeTab === 'plantillas' && <TabPlantillas empresaId={empresaIdActiva} />}
+                {activeTab === 'cargos' && <TabCargos />}
+            </CardBody>
+        </Card>
+    );
+
+    if (embedded) {
+        return contenidoTabs;
+    }
 
     return (
         <PageWrapper name='Configuración RRHH'>
@@ -610,7 +668,9 @@ const ConfiguracionRRHH = () => {
                         name='empresa_filtro'
                         options={empresaOpts}
                         value={empresaValue}
-                        onChange={(opt) => setEmpresaId(opt ? Number((opt as TSelectOption).value) : null)}
+                        onChange={(opt) =>
+                            setEmpresaId(opt ? Number((opt as TSelectOption).value) : null)
+                        }
                         placeholder='Todas las empresas (global)'
                         isClearable
                         className='w-64'
@@ -619,40 +679,7 @@ const ConfiguracionRRHH = () => {
             </Subheader>
 
             <Container>
-                <Card>
-                    <CardHeader>
-                        <CardHeaderChild>
-                            <CardTitle>
-                                {empresaValue ? `Configuración de ${empresaValue.label}` : 'Configuración global'}
-                            </CardTitle>
-                        </CardHeaderChild>
-                    </CardHeader>
-                    <CardBody>
-                        <div className='mb-4 flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700'>
-                            {TABS.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    type='button'
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={[
-                                        'px-4 py-2 text-sm font-medium transition-colors',
-                                        activeTab === tab.id
-                                            ? 'border-b-2 border-blue-500 text-blue-500'
-                                            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
-                                    ].join(' ')}>
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {activeTab === 'parametros' && <TabParametros empresaId={empresaId} />}
-                        {activeTab === 'afp' && <TabAfp empresaId={empresaId} />}
-                        {activeTab === 'bancos' && <TabBancos empresaId={empresaId} />}
-                        {activeTab === 'turnos' && <TabTurnos empresaId={empresaId} />}
-                        {activeTab === 'plantillas' && <TabPlantillas empresaId={empresaId} />}
-                        {activeTab === 'cargos' && <TabCargos />}
-                    </CardBody>
-                </Card>
+                {contenidoTabs}
             </Container>
         </PageWrapper>
     );
