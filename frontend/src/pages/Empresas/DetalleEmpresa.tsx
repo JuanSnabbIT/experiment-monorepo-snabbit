@@ -34,7 +34,7 @@ import {
 } from '@tanstack/react-table';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
@@ -50,6 +50,8 @@ function DetalleEmpresa() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { id } = useParams();
+    const [searchParamsEmpresa] = useSearchParams();
+
     const { listaInvitaciones } = useAppSelector((state) => state.invitacion);
     const { listaGrupos } = useAppSelector((state) => state.auth);
     const {
@@ -66,7 +68,9 @@ function DetalleEmpresa() {
     const [sortingInvitaciones, setSortingInvitaciones] = useState<SortingState>([]);
     const [globalFilterInvitaciones, setGlobalFilterInvitaciones] = useState<string>('');
     const [isEditing, setIsEditing] = useState<boolean>(false);
-    const [activeComponent, setActiveComponent] = useState<string>('Sucursales');
+    const [activeComponent, setActiveComponent] = useState<string>(
+        searchParamsEmpresa.get('section') ?? 'Sucursales',
+    );
     const [editandoLogo, setEditandoLogo] = useState<boolean>(false);
     const [tempLogo, setTempLogo] = useState<string>('');
     const [tempFirma, setTempFirma] = useState<string>('');

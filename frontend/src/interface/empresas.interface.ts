@@ -73,6 +73,7 @@ export interface IContratoLaboralVigente {
     fecha_termino: string | null;
     estado: string;
     estado_label: string;
+    grupo_turno_snapshot?: import('./rrhh.interface').IGrupoTurnoSnapshot | null;
 }
 
 export interface IUsuarioEmpresa {

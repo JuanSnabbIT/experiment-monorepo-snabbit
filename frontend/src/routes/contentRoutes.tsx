@@ -1,7 +1,7 @@
 import RetroalimentacionOT from '@/pages/OrdenTrabajo/components/RetroalimentacionOT';
 import RetroalimentacionOTV3 from '@/pages/OrdenTrabajoV3/components/RetroalimentacionOTV3';
 import { lazy } from 'react';
-import { Navigate, RouteProps, useLocation } from 'react-router-dom';
+import { Navigate, RouteProps, useLocation, useParams } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
 
 export type IRoutePersonalizadas = RouteProps & {
@@ -134,31 +134,14 @@ const RedirectCrearPrefacturaOTV3Legacy = () => {
     return <Navigate to={target} replace />;
 };
 
-const RedirectLegacyRrhhTrabajadores = () => {
-    const { search } = useLocation();
-    const nextParams = new URLSearchParams(search);
-    nextParams.set('legacy', 'rrhh-trabajadores');
-    nextParams.set('tab', 'trabajadores');
-    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
-    return <Navigate to={target} replace />;
-};
-
-const RedirectLegacyRrhhContratos = () => {
-    const { search } = useLocation();
-    const nextParams = new URLSearchParams(search);
-    nextParams.set('legacy', 'rrhh-contratos');
-    nextParams.set('tab', 'contratos-laborales');
-    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
-    return <Navigate to={target} replace />;
-};
-
-const RedirectLegacyRrhhConfiguracion = () => {
-    const { search } = useLocation();
-    const nextParams = new URLSearchParams(search);
-    nextParams.set('legacy', 'rrhh-configuracion');
-    nextParams.set('tab', 'configuracion-rrhh');
-    const target = `${Pages.empresa.subPages.listaEmpresas.to}?${nextParams.toString()}`;
-    return <Navigate to={target} replace />;
+const RedirectLegacyUsuarioAFicha = () => {
+    const { clienteId, usuarioId } = useParams<{ clienteId: string; usuarioId: string }>();
+    return (
+        <Navigate
+            to={`/empresa/detalle-cliente/${clienteId}/trabajador/${usuarioId}?tipo=confirmado`}
+            replace
+        />
+    );
 };
 const ListaPlantillasContrato = lazy(
     () => import('@/pages/Registros/PlantillasContrato/ListaPlantillas'),
@@ -209,9 +192,6 @@ const ResumenContratoPublico = lazy(
 );
 const DetalleContratoTrabajador = lazy(
     () => import('@/pages/RRHH/DetalleContratoTrabajador'),
-);
-const DetalleTrabajador = lazy(
-    () => import('@/pages/RRHH/DetalleTrabajador'),
 );
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
@@ -682,29 +662,9 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.empresa.subPages.detalleContrato.authority,
     },
     {
-        path: Pages.rrhh.subPages.listaContratosTrabajador.to,
-        element: <RedirectLegacyRrhhContratos />,
-        authority: Pages.rrhh.subPages.listaContratosTrabajador.authority,
-    },
-    {
         path: Pages.rrhh.subPages.detalleContratoTrabajador.to,
         element: <DetalleContratoTrabajador />,
         authority: Pages.rrhh.subPages.detalleContratoTrabajador.authority,
-    },
-    {
-        path: Pages.rrhh.subPages.listaTrabajadores.to,
-        element: <RedirectLegacyRrhhTrabajadores />,
-        authority: Pages.rrhh.subPages.listaTrabajadores.authority,
-    },
-    {
-        path: Pages.rrhh.subPages.detalleTrabajador.to,
-        element: <DetalleTrabajador />,
-        authority: Pages.rrhh.subPages.detalleTrabajador.authority,
-    },
-    {
-        path: Pages.rrhh.subPages.rrhhConfiguracion.to,
-        element: <RedirectLegacyRrhhConfiguracion />,
-        authority: Pages.rrhh.subPages.rrhhConfiguracion.authority,
     },
     {
         path: Pages.empresa.subPages.detalleLicencia.to,
@@ -712,9 +672,14 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.empresa.subPages.detalleLicencia.authority,
     },
     {
-        path: Pages.empresa.subPages.detalleUsuarioCliente.to,
+        path: '/empresa/detalle-cliente/:clienteId/usuario/:usuarioId',
+        element: <RedirectLegacyUsuarioAFicha />,
+        authority: ['staff', 'superadmin'],
+    },
+    {
+        path: Pages.empresa.subPages.fichaDelTrabajador.to,
         element: <DetalleUsuarioCliente />,
-        authority: Pages.empresa.subPages.detalleUsuarioCliente.authority,
+        authority: Pages.empresa.subPages.fichaDelTrabajador.authority,
     },
     {
         path: authPages.firmarContratoYAcuerdo.to,

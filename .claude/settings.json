@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": false
+  },
   "description": "Configuración de Claude Code para monorepo ERP Snabbit",
   "codeGeneration": {
     "enabled": true,
@@ -146,7 +149,11 @@
     "description": "Todos los ViewSets DEBEN filtrar por empresa en get_queryset()"
   },
   "currencySystem": {
-    "currencies": ["CLP", "USD", "UF"],
+    "currencies": [
+      "CLP",
+      "USD",
+      "UF"
+    ],
     "ssotLocation": "backend/contratos/currency_utils.py",
     "snapshots": {
       "enabled": true,

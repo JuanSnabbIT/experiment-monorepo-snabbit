@@ -10,6 +10,7 @@ export const TIPO_CONTRATO = [
     { value: 'licencia', label: 'Licenciamiento' },
     { value: 'venta', label: 'Venta' },
     { value: 'servicios', label: 'Servicios' },
+    { value: 'trabajador', label: 'Contrato Laboral' },
 ];
 
 export const FRECUENCIA_VISITA = [
@@ -69,16 +70,25 @@ export const FORMAS_PAGO_COMERCIALES = [
 ];
 
 export const TIPOS_SECCION = [
-    { value: 'encabezado', label: 'Encabezado' },
-    { value: 'clausula', label: 'Cláusula' },
-    { value: 'condiciones_generales', label: 'Condiciones Generales' },
-    { value: 'identificacion_cliente', label: 'Identificación del Cliente' },
-    { value: 'firmas', label: 'Firmas' },
-    { value: 'libre', label: 'Sección Libre' },
+    { value: 'clausula', label: 'Sección con título y texto' },
     { value: 'titulo', label: 'Título' },
-    { value: 'subtitulo', label: 'Subtítulo' },
-    { value: 'salto_pagina', label: 'Salto de Página' },
+    { value: 'libre', label: 'Bloque de texto' },
+    { value: 'salto_pagina', label: 'Salto de página' },
+    { value: 'firmas', label: 'Firma' },
 ];
+
+// Labels para tipos legacy ya existentes en BD (no disponibles en creación)
+export const TIPOS_SECCION_LABELS_LEGACY: Record<string, string> = {
+    encabezado: 'Encabezado',
+    clausula: 'Sección con título y texto',
+    condiciones_generales: 'Condiciones Generales',
+    identificacion_cliente: 'Identificación del Cliente',
+    firmas: 'Firma',
+    libre: 'Bloque de texto',
+    titulo: 'Título',
+    subtitulo: 'Subtítulo',
+    salto_pagina: 'Salto de página',
+};
 
 export const SLOT_DOCUMENTAL = [
     { value: 'antes_alcance', label: 'Antes de alcance' },

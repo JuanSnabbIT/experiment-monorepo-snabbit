@@ -156,11 +156,31 @@ class RRHHContratosService:
         contrato.estado = "vigente"
         contrato.fecha_aprobacion = timezone.now()
         contrato.aceptado_por = usuario
+        # Snapshot inmutable del grupo de turnos al momento de activar
+        if contrato.grupo_turno_id and not contrato.grupo_turno_snapshot:
+            grupo = contrato.grupo_turno
+            contrato.grupo_turno_snapshot = {
+                "id": grupo.id,
+                "nombre": grupo.nombre,
+                "ciclo": grupo.ciclo,
+                "slots": [
+                    {
+                        "orden": slot.orden,
+                        "turno_id": slot.turno_id,
+                        "nombre": slot.turno.nombre,
+                        "hora_inicio": str(slot.turno.hora_inicio),
+                        "hora_fin": str(slot.turno.hora_fin),
+                        "horas_turno": float(slot.turno.horas_turno) if slot.turno.horas_turno else None,
+                    }
+                    for slot in grupo.slots.select_related("turno").order_by("orden")
+                ],
+            }
         contrato.save(update_fields=[
             "estado",
             "fecha_aprobacion",
             "aceptado_por",
-            "fecha_modificacion"
+            "grupo_turno_snapshot",
+            "fecha_modificacion",
         ])
 
         # Sync UsuarioEmpresa (crítico)
@@ -321,7 +341,7 @@ class RRHHContratosService:
 
         Operación ATÓMICA:
         1. Obtiene contrato con lock
-        2. Valida estado = borrador
+        2. Valida estado = borrador o pendiente_aprobacion
         3. Genera PDF congelado
         4. Crea EnvioAprobacionEmpleador
         5. Actualiza estado contrato
@@ -336,7 +356,7 @@ class RRHHContratosService:
             EnvioAprobacionEmpleador creado
 
         Raises:
-            ValidationError: Si estado no es borrador
+            ValidationError: Si estado no es borrador ni pendiente_aprobacion
             PlantillaNoDisponibleError: Si no hay plantilla para generar PDF
 
         Example:
@@ -352,10 +372,10 @@ class RRHHContratosService:
             pk=contrato_id
         )
 
-        # Validación: solo borrador
-        if contrato.estado != "borrador":
+        # Validación: se permite primer envío desde borrador y reenvío/corrección desde pendiente_aprobacion
+        if contrato.estado not in ("borrador", "pendiente_aprobacion"):
             raise ValidationError({
-                "estado": f"Solo contratos en 'borrador' pueden enviarse. "
+                "estado": f"Solo contratos en 'borrador' o 'pendiente_aprobacion' pueden enviarse. "
                           f"Este está en '{contrato.estado}'"
             })
 
@@ -520,16 +540,15 @@ def _enviar_email_aprobacion_async(envio_id: int) -> None:
             f"<p>Tipo: {contrato.get_tipo_contrato_display()}</p>"
             f"<p>Fecha inicio: {contrato.fecha_inicio}</p>"
             f"<p><strong>El contrato expira en 14 días.</strong></p>"
-            f"<p><a href='{link_aprobacion}'>Revisar y responder</a></p>"
         )
 
         send_email_task.delay(
             subject="Solicitud de aprobación de contrato laboral",
-            recipients=[envio.enviado_a],
+            recipient_list=[envio.enviado_a],
             html_body=html_body,
-            template_name="Aprobacion de Contrato",
-            action_url=link_aprobacion,
-            action_text="Revisar contrato"
+            titulo="Revisión de Contrato Laboral",
+            url_boton=link_aprobacion,
+            text_boton="Revisar contrato",
         )
 
         logger.info(f"Email de aprobación enviado a {envio.enviado_a}")

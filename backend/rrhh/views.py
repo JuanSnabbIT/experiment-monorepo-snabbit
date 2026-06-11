@@ -31,7 +31,9 @@ from .models import (
     ConfiguracionLaboral,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    GrupoTurno,
     NacionalidadCatalogo,
+    SlotTurno,
     TurnoLaboral,
 )
 from .mixins import JsonBlockMixin
@@ -46,6 +48,7 @@ from .serializers import (
     ContratoTrabajadorWriteSerializer,
     CrearContratoConTrabajadorSerializer,
     EnvioAprobacionEmpleadorSerializer,
+    GrupoTurnoSerializer,
     NacionalidadCatalogoSerializer,
     SnapshotGetBlockSerializer,
     SnapshotUpdateBlockSerializer,
@@ -383,6 +386,57 @@ class TurnoLaboralViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
+class GrupoTurnoViewSet(viewsets.ModelViewSet):
+    """CRUD de grupos de turnos rotativos por empresa."""
+
+    serializer_class = GrupoTurnoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        if not empresa:
+            return GrupoTurno.objects.none()
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
+        target_empresa_id = empresa_id_validado or empresa.id
+        return (
+            GrupoTurno.objects.filter(empresa_id=target_empresa_id)
+            .prefetch_related("slots__turno")
+            .order_by("nombre")
+        )
+
+    def perform_create(self, serializer):
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
+        serializer.save(empresa=empresa)
+
+    @action(detail=True, methods=["post"], url_path="nueva-version")
+    def nueva_version(self, request, pk=None):
+        """Crea una copia del grupo con sufijo ' (v2)', (v3)... para editar sin romper contratos activos."""
+        import re
+        grupo_original = self.get_object()
+        base_nombre = re.sub(r' \(v\d+\)$', '', grupo_original.nombre)
+        empresa = _empresa_actual(self.request)
+        versiones = GrupoTurno.objects.filter(
+            empresa=empresa,
+            nombre__startswith=base_nombre,
+        ).values_list("nombre", flat=True)
+        max_v = 1
+        for nombre in versiones:
+            match = re.search(r'\(v(\d+)\)$', nombre)
+            if match:
+                max_v = max(max_v, int(match.group(1)))
+        nuevo_nombre = f"{base_nombre} (v{max_v + 1})"
+        nueva = GrupoTurno.objects.create(
+            empresa=empresa,
+            nombre=nuevo_nombre,
+            ciclo=grupo_original.ciclo,
+        )
+        for slot in grupo_original.slots.select_related("turno").order_by("orden"):
+            SlotTurno.objects.create(grupo=nueva, turno=slot.turno, orden=slot.orden)
+        serializer = self.get_serializer(nueva)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 class AnexoContratoViewSet(viewsets.ModelViewSet):
     """CRUD de anexos / modificaciones contractuales."""
 
@@ -439,7 +493,12 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 usuario_empresa__isnull=True,
                 datos_trabajador_nuevo__sucursal_id__in=sucursal_ids_json,
             )
-        ).select_related("usuario_empresa__usuario", "usuario_empresa__sucursal")
+        ).select_related(
+            "usuario_empresa__usuario",
+            "usuario_empresa__sucursal__empresa",
+            "plantilla_contrato",
+            "creado_por",
+        )
 
         usuario_empresa_id = self.request.query_params.get("usuario_empresa")
         if usuario_empresa_id:
@@ -569,15 +628,15 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=["post"], url_path="aceptar")
-    def aceptar(self, request, pk=None):
+    @action(detail=True, methods=["post"], url_path="aprobar")
+    def aprobar(self, request, pk=None):
         from .services import RRHHContratosService
 
         contrato = self.get_object()
 
         if contrato.estado != "pendiente_aprobacion":
             return Response(
-                {"detail": "Solo se pueden aceptar contratos en estado 'pendiente_aprobacion'."},
+                {"detail": "Solo se pueden aprobar contratos en estado 'pendiente_aprobacion'."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

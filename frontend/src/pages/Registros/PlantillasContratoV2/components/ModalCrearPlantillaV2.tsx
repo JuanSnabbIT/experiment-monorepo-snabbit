@@ -6,12 +6,12 @@ import Validation from '@/components/form/Validation';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
-import { useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
 import { useCreatePlantillaV2Mutation } from '@/store/slices/contratos/plantillaContratoV2Api';
-import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
+import { useGetMisClientesQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
-import { Dispatch, SetStateAction, useEffect } from 'react';
+import { Dispatch, SetStateAction } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
@@ -33,20 +33,18 @@ const validationSchema = Yup.object({
 });
 
 const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlantillaV2Props) => {
-    const dispatch = useAppDispatch();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
-    const listaMisClientes = useAppSelector((state) => state.empresa.listaMisClientes);
     const [createPlantilla, { isLoading }] = useCreatePlantillaV2Mutation();
 
-    useEffect(() => {
-        if (isOpen && personalizacionUsuario?.empresa) {
-            dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
-        }
-    }, [isOpen, personalizacionUsuario?.empresa, dispatch]);
+    const empresaId = personalizacionUsuario?.empresa ?? undefined;
+    const { data: misClientes = [], isLoading: cargandoClientes } = useGetMisClientesQuery(
+        empresaId,
+        { skip: !empresaId },
+    );
 
     const clienteOptions: TSelectOption[] = [
-        { value: '', label: 'Global (sin cliente específico)' },
-        ...listaMisClientes.map((rel) => ({
+        { value: '', label: 'Global' },
+        ...misClientes.map((rel) => ({
             value: String(rel.cliente),
             label: rel.info_cliente.nombre,
         })),
@@ -131,14 +129,18 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                         />
                     </div>
                     <div>
-                        <Label htmlFor='v2-crear-cliente'>Empresa cliente (scope)</Label>
+                        <Label htmlFor='v2-crear-cliente'>Empresa cliente</Label>
                         <p className='mb-1 text-xs text-zinc-500'>
                             Deja en "Global" para que aplique a todos los clientes.
                         </p>
                         <SelectReact
+                            isLoading={cargandoClientes}
                             id='v2-crear-cliente'
                             name='empresa_cliente'
                             options={clienteOptions}
+                            menuPortalTarget={document.body}
+                            menuPosition='fixed'
+                            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                             value={
                                 clienteOptions.find(
                                     (o) =>

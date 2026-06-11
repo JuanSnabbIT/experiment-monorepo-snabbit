@@ -3,7 +3,7 @@
 from core.validators import validate_rut_chileno
 from rest_framework import serializers
 
-from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, NacionalidadCatalogo, TurnoLaboral
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, GrupoTurno, NacionalidadCatalogo, SlotTurno, TurnoLaboral
 
 
 def _normalize_first_capitalized(value: str | None) -> str | None:
@@ -86,6 +86,73 @@ class TurnoLaboralSerializer(serializers.ModelSerializer):
 
     def get_es_global(self, obj):
         return obj.empresa is None
+
+
+class SlotTurnoSerializer(serializers.ModelSerializer):
+    turno_nombre = serializers.CharField(source="turno.nombre", read_only=True)
+    turno_hora_inicio = serializers.TimeField(source="turno.hora_inicio", read_only=True)
+    turno_hora_fin = serializers.TimeField(source="turno.hora_fin", read_only=True)
+    turno_horas = serializers.DecimalField(source="turno.horas_turno", max_digits=4, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = SlotTurno
+        fields = ("id", "turno", "orden", "turno_nombre", "turno_hora_inicio", "turno_hora_fin", "turno_horas")
+
+
+class GrupoTurnoSerializer(serializers.ModelSerializer):
+    slots = SlotTurnoSerializer(many=True, read_only=True)
+    slots_write = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        help_text="Lista de {turno: id, orden: int} para escritura.",
+    )
+    horas_promedio = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = GrupoTurno
+        fields = ("id", "empresa", "nombre", "ciclo", "activo", "horas_promedio", "slots", "slots_write", "fecha_creacion", "fecha_modificacion")
+        read_only_fields = ("empresa", "fecha_creacion", "fecha_modificacion")
+        # empresa es read_only (se inyecta en perform_create), lo que rompe el
+        # UniqueTogetherValidator autogenerado por DRF. Suprimimos y validamos en create().
+        validators = []
+
+    def create(self, validated_data):
+        slots_data = validated_data.pop("slots_write", [])
+        empresa = validated_data.get("empresa")
+        nombre = validated_data.get("nombre", "")
+        if empresa and GrupoTurno.objects.filter(empresa=empresa, nombre=nombre).exists():
+            raise serializers.ValidationError({"nombre": "Ya existe un grupo con ese nombre para esta empresa."})
+        grupo = GrupoTurno.objects.create(**validated_data)
+        self._write_slots(grupo, slots_data)
+        return grupo
+
+    def update(self, instance, validated_data):
+        slots_data = validated_data.pop("slots_write", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if slots_data is not None:
+            instance.slots.all().delete()
+            self._write_slots(instance, slots_data)
+        return instance
+
+    def _write_slots(self, grupo, slots_data):
+        from django.db.models import Q
+        valid_turno_ids = set(
+            TurnoLaboral.objects.filter(
+                Q(empresa__isnull=True) | Q(empresa=grupo.empresa)
+            ).values_list("id", flat=True)
+        )
+        for item in slots_data:
+            turno_id = item.get("turno")
+            if turno_id is None:
+                raise serializers.ValidationError({"slots_write": "Cada slot requiere el campo 'turno'."})
+            if turno_id not in valid_turno_ids:
+                raise serializers.ValidationError(
+                    {"slots_write": f"El turno {turno_id} no pertenece a esta empresa."}
+                )
+            SlotTurno.objects.create(grupo=grupo, turno_id=turno_id, orden=item.get("orden", 0))
 
 
 class AnexoContratoSerializer(serializers.ModelSerializer):
@@ -364,9 +431,12 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
         turnos_rotativo = attrs.get("turnos_rotativo") if "turnos_rotativo" in attrs else (
             instance.turnos_rotativo if instance else []
         )
-        if jornada == "turnos" and not turnos_rotativo:
+        grupo_turno = attrs.get("grupo_turno") if "grupo_turno" in attrs else (
+            instance.grupo_turno if instance else None
+        )
+        if jornada == "turnos" and not turnos_rotativo and not grupo_turno:
             raise serializers.ValidationError(
-                {"turnos_rotativo": "Los contratos con jornada por turnos requieren al menos un turno definido."}
+                {"grupo_turno": "Los contratos con jornada por turnos requieren un grupo de turnos asignado."}
             )
 
         if tipo == "reemplazo" and not trabajador_reemplazado:

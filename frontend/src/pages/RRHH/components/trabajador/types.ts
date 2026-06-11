@@ -40,7 +40,7 @@ export interface IFormValuesContratoTrabajador {
     horas_semanales: number | '';
     dias_semana: string[];
     turnos_rotativo: ITurnoRotativo[];
-    ciclo_rotacion: string;
+    grupo_turno_id: number | null;
     horario_detalle: string;
     hora_inicio: string;
     hora_fin: string;
@@ -57,8 +57,13 @@ export interface IFormValuesContratoTrabajador {
     sueldo_liquido: number | '';
     moneda: TMonedaContrato;
     tipo_gratificacion: 'art_47' | 'art_50_mensual' | 'no_aplica' | '';
+    gratificacion_activa: boolean;
+    descuentos_activos: boolean;
+    porcentaje_descuentos: string;
     bono_movilizacion: number | '';
+    bono_movilizacion_activo: boolean;
     bono_colacion: number | '';
+    bono_colacion_activo: boolean;
     afp: number | null;
     sistema_salud: '' | 'fonasa' | 'isapre' | 'otro';
     nombre_isapre: string;

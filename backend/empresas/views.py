@@ -6,13 +6,14 @@ from recursos.serializers import EquipoSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rrhh.mixins import TrabajadoresClienteMixin
 from vacaciones.models import SolicitudVacaciones
 
 from .models import *
 from .serializers import *
 
 
-class EmpresaViewSet(viewsets.ModelViewSet):
+class EmpresaViewSet(TrabajadoresClienteMixin, viewsets.ModelViewSet):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
 
@@ -148,6 +149,18 @@ class EmpresaViewSet(viewsets.ModelViewSet):
         serializer = UsuarioEmpresaSerializer(usuarios_de_clientes_qs, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="trabajadores")
+    def trabajadores(self, request, pk=None):
+        """Lista unificada de trabajadores de una empresa cliente.
+
+        Combina UsuarioEmpresa confirmados y ContratoTrabajador pendientes
+        (sin cuenta aún) en una forma normalizada.
+        Endpoint: GET /api/empresas/{pk}/trabajadores/
+        """
+        empresa = self.get_object()
+        data = self.get_trabajadores_cliente(empresa.id)
+        return Response(data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="equipos-clientes")
     def equipos_de_mis_clientes(self, request, pk=None):

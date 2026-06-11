@@ -1,10 +1,12 @@
 import Input from '@/components/form/Input';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { Pages } from '@/config/pages.config';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { IContratoTrabajador } from '@/interface/rrhh.interface';
@@ -21,7 +23,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
@@ -35,7 +37,7 @@ const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'>
 
 const OPCIONES_ESTADO: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
-    { value: 'pendiente_aprobacion', label: 'Pendiente aprobacion' },
+    { value: 'pendiente_aprobacion', label: 'Pendiente aprobación' },
     { value: 'vigente', label: 'Vigente' },
     { value: 'terminado', label: 'Terminado' },
     { value: 'anulado', label: 'Anulado' },
@@ -52,8 +54,16 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     const navigate = useNavigate();
 
     const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: true }]);
+    const [inputBuscar, setInputBuscar] = useState('');
     const [globalFilter, setGlobalFilter] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<TSelectOption | null>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleBuscarChange = (value: string) => {
+        setInputBuscar(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => setGlobalFilter(value), 300);
+    };
     const [wizardOpen, setWizardOpen] = useState(false);
 
     const empresaClienteId = detalleCliente?.info_cliente?.id;
@@ -123,7 +133,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                 ),
             }),
             columnHelper.accessor('fecha_termino', {
-                header: 'Termino',
+                header: 'Término',
                 cell: (info) => {
                     const value = info.getValue();
                     if (!value) return <span className='italic text-zinc-400'>Indefinido</span>;
@@ -147,7 +157,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                         Pages.rrhh.subPages.detalleContratoTrabajador.to.replace(
                                             ':contratoId',
                                             `${info.row.original.id}`,
-                                        ),
+                                        ) + `?from=cliente&clienteId=${detalleCliente?.id}`,
                                     );
                                 }}
                             />
@@ -182,11 +192,11 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                     <div className='flex flex-wrap items-center gap-2'>
                         <Input
                             type='text'
-                            value={globalFilter}
-                            onChange={(e) => setGlobalFilter(e.target.value)}
-                            placeholder='Buscar...'
+                            value={inputBuscar}
+                            onChange={(e) => handleBuscarChange(e.target.value)}
+                            placeholder='Buscar nombre, RUT...'
                             name='buscarContratoLaboralCliente'
-                            className='max-w-[160px]'
+                            className='max-w-[180px]'
                         />
                         <div className='min-w-[180px]'>
                             <SelectReact
@@ -222,13 +232,35 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
-                                    <Th key={header.id}>
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                  header.column.columnDef.header,
-                                                  header.getContext(),
-                                              )}
+                                    <Th key={header.id} isColumnBorder={false} className='text-left'>
+                                        {header.isPlaceholder ? null : (
+                                            <div
+                                                className={
+                                                    header.column.getCanSort()
+                                                        ? 'flex cursor-pointer select-none items-center'
+                                                        : ''
+                                                }
+                                                onClick={header.column.getToggleSortingHandler()}>
+                                                {flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext(),
+                                                )}
+                                                {{
+                                                    asc: (
+                                                        <Icon
+                                                            icon='HeroChevronUp'
+                                                            className='ltr:ml-1.5 rtl:mr-1.5'
+                                                        />
+                                                    ),
+                                                    desc: (
+                                                        <Icon
+                                                            icon='HeroChevronDown'
+                                                            className='ltr:ml-1.5 rtl:mr-1.5'
+                                                        />
+                                                    ),
+                                                }[header.column.getIsSorted() as string] ?? null}
+                                            </div>
+                                        )}
                                     </Th>
                                 ))}
                             </Tr>
@@ -262,6 +294,9 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                         )}
                     </TBody>
                 </Table>
+                <div className='mt-2'>
+                    <TableCardFooterTemplateV2 table={table} />
+                </div>
             </CardBody>
 
             <CrearContratoTrabajadorWizard

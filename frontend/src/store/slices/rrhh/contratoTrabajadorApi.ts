@@ -54,13 +54,17 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             providesTags: (result, _error, empresaClienteId) =>
                 result
                     ? [
+                          { type: 'ContratoTrabajadorList', id: 'LIST' },
                           { type: 'ContratoTrabajadorList', id: `EC-${empresaClienteId}` },
                           ...result.map((c) => ({
                               type: 'ContratoTrabajador' as const,
                               id: c.id,
                           })),
                       ]
-                    : [{ type: 'ContratoTrabajadorList', id: `EC-${empresaClienteId}` }],
+                    : [
+                          { type: 'ContratoTrabajadorList', id: 'LIST' },
+                          { type: 'ContratoTrabajadorList', id: `EC-${empresaClienteId}` },
+                      ],
         }),
 
         getContratoTrabajadorDetalle: builder.query<IContratoTrabajador, number | string>({
@@ -217,8 +221,8 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             providesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador' as const, id: id as number }],
         }),
 
-        aceptarContratoTrabajador: builder.mutation<IContratoTrabajador, number | string>({
-            query: (id) => ({ url: `${BASE}/${id}/aceptar/`, method: 'post' }),
+        aprobarContratoTrabajador: builder.mutation<IContratoTrabajador, number | string>({
+            query: (id) => ({ url: `${BASE}/${id}/aprobar/`, method: 'post' }),
             invalidatesTags: (_r, _e, id) => [
                 { type: 'ContratoTrabajador' as const, id: id as number },
                 { type: 'ContratoTrabajadorList' as const, id: 'LIST' },
@@ -302,7 +306,7 @@ export const {
     useActualizarAnexoContratoMutation,
     useEnviarAprobacionEmpleadorMutation,
     useGetEstadoAprobacionEmpleadorQuery,
-    useAceptarContratoTrabajadorMutation,
+    useAprobarContratoTrabajadorMutation,
     useResponderAprobacionPublicaMutation,
     useActualizarDatosRelacionadosContratoMutation,
     useUpdateContratoTrabajadorSnapshotBlockMutation,

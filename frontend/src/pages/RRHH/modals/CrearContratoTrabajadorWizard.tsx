@@ -40,6 +40,7 @@ interface Props {
     externalIsOpen?: boolean;
     onExternalClose?: () => void;
     contratoId?: number | null;
+    usuarioEmpresaInicial?: { id: number; nombre: string };
 }
 
 type TStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -49,8 +50,8 @@ const STEP_LABELS: Record<TStep, string> = {
     2: 'Trabajador',
     3: 'Contrato',
     4: 'Jornada',
-    5: 'Remun.',
-    6: 'Previsión',
+    5: 'Previsión',
+    6: 'Remun.',
     7: 'Revisión',
 };
 
@@ -70,9 +71,8 @@ const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
         'trab_direccion',
     ],
     3: ['tipo_contrato', 'fecha_inicio', 'cargo', 'causal_reemplazo', 'trab_trabajador_reemplazado_id'],
-    4: ['jornada', 'hora_inicio', 'hora_fin', 'turnos_rotativo'],
-    5: ['sueldo_base'],
-    6: [
+    4: ['jornada', 'hora_inicio', 'hora_fin', 'grupo_turno_id'],
+    5: [
         'sistema_salud',
         'nombre_isapre',
         'sistema_salud_otro',
@@ -80,6 +80,7 @@ const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
         'tipo_cuenta_bancaria',
         'numero_cuenta_bancaria',
     ],
+    6: ['sueldo_base', 'tipo_gratificacion', 'bono_colacion', 'bono_movilizacion'],
     7: [],
 };
 
@@ -144,10 +145,10 @@ const validationSchema = Yup.object({
     }),
     cargo: Yup.string().required('Requerido'),
     jornada: Yup.string().required('Requerido'),
-    turnos_rotativo: Yup.array().when('jornada', {
+    grupo_turno_id: Yup.mixed().when('jornada', {
         is: 'turnos',
-        then: (s) => s.min(1, 'Selecciona al menos un turno'),
-        otherwise: (s) => s.notRequired(),
+        then: (s) => s.required('Selecciona un grupo de turnos'),
+        otherwise: (s) => s.notRequired().nullable(),
     }),
     horas_semanales: Yup.mixed().notRequired(),
     hora_inicio: Yup.string().when('jornada', {
@@ -163,11 +164,7 @@ const validationSchema = Yup.object({
     sueldo_base: Yup.number()
         .typeError('Debe ser un numero')
         .required('Requerido')
-        .when('moneda', {
-            is: 'CLP',
-            then: (s) => s.min(500000, 'Minimo legal: $500.000 CLP'),
-            otherwise: (s) => s.min(0, 'No puede ser negativo'),
-        }),
+        .min(1, 'Debe ser mayor a 0'),
     plantilla_contrato_id: Yup.mixed(),
     causal_reemplazo: Yup.string().when('tipo_contrato', {
         is: 'reemplazo',
@@ -220,6 +217,21 @@ const validationSchema = Yup.object({
             return Boolean(value && String(value).trim());
         },
     ),
+    tipo_gratificacion: Yup.string().when('gratificacion_activa', {
+        is: true,
+        then: (s) => s.required('Selecciona el tipo de gratificacion'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    bono_colacion: Yup.number().when('bono_colacion_activo', {
+        is: true,
+        then: (s) => s.typeError('Debe ser un numero').required('Requerido').min(1, 'Debe ser mayor a 0'),
+        otherwise: (s) => s.notRequired(),
+    }),
+    bono_movilizacion: Yup.number().when('bono_movilizacion_activo', {
+        is: true,
+        then: (s) => s.typeError('Debe ser un numero').required('Requerido').min(1, 'Debe ser mayor a 0'),
+        otherwise: (s) => s.notRequired(),
+    }),
 });
 
 const initialValues: IFormValuesContratoTrabajador = {
@@ -250,7 +262,7 @@ const initialValues: IFormValuesContratoTrabajador = {
     horas_semanales: '',
     dias_semana: [],
     turnos_rotativo: [],
-    ciclo_rotacion: 'semanal',
+    grupo_turno_id: null,
     horario_detalle: '',
     hora_inicio: '09:00',
     hora_fin: '18:00',
@@ -264,8 +276,13 @@ const initialValues: IFormValuesContratoTrabajador = {
     sueldo_liquido: '',
     moneda: 'CLP',
     tipo_gratificacion: '',
+    gratificacion_activa: false,
+    descuentos_activos: false,
+    porcentaje_descuentos: '20',
     bono_movilizacion: '',
+    bono_movilizacion_activo: false,
     bono_colacion: '',
+    bono_colacion_activo: false,
     afp: null,
     sistema_salud: '',
     nombre_isapre: '',
@@ -347,6 +364,7 @@ const CrearContratoTrabajadorWizard = ({
     externalIsOpen,
     onExternalClose,
     contratoId,
+    usuarioEmpresaInicial,
 }: Props) => {
     const dispatch = useAppDispatch();
     const { detalleCliente: detalleClienteStore, listaMisClientes } = useAppSelector(
@@ -410,20 +428,22 @@ const CrearContratoTrabajadorWizard = ({
                     jornada: values.jornada,
                     horas_semanales: values.horas_semanales || null,
                     dias_semana: values.dias_semana,
-                    turnos_rotativo: values.turnos_rotativo,
+                    turnos_rotativo: values.jornada === 'turnos' ? [] : values.turnos_rotativo,
+                    grupo_turno: values.jornada === 'turnos' ? values.grupo_turno_id : null,
                     horario_detalle: values.horario_detalle || null,
                     tiempo_colacion: values.tiempo_colacion || 30,
                     lugar_trabajo: values.lugar_trabajo || null,
                     enviar_al_empleador: values.enviar_al_empleador,
                     cantidad_meses: values.cantidad_meses || null,
                     sueldo_base: values.sueldo_base || 0,
-                    sueldo_liquido: values.sueldo_liquido || null,
-                    moneda: values.moneda,
-                    tipo_gratificacion: values.tipo_gratificacion || null,
-                    bono_movilizacion: values.bono_movilizacion || 0,
-                    bono_colacion: values.bono_colacion || 0,
+                    sueldo_liquido: null,
+                    moneda: 'CLP',
+                    tipo_gratificacion: values.gratificacion_activa ? values.tipo_gratificacion : 'no_aplica',
+                    bono_movilizacion: values.bono_movilizacion_activo ? Number(values.bono_movilizacion) || 0 : 0,
+                    bono_colacion: values.bono_colacion_activo ? Number(values.bono_colacion) || 0 : 0,
                     lugar_celebracion_contrato: values.lugar_celebracion_contrato || null,
                     fecha_firma: values.fecha_firma || null,
+                    plantilla_contrato: values.plantilla_contrato_id || null,
                     estado_civil: values.trab_estado_civil || null,
                     profesion_u_oficio: values.trab_profesion_u_oficio || null,
                     sistema_salud_otro: values.sistema_salud_otro || null,
@@ -501,6 +521,21 @@ const CrearContratoTrabajadorWizard = ({
         },
     });
 
+    // Pre-fill Step 2 cuando se crea un contrato para un trabajador confirmado específico
+    useEffect(() => {
+        if (isOpen && usuarioEmpresaInicial) {
+            formik.resetForm({
+                values: {
+                    ...initialValues,
+                    trab_modo: 'existente',
+                    trab_usuario_empresa_id: usuarioEmpresaInicial.id,
+                },
+            });
+            setStep(1);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]);
+
     // Empresa cliente de contexto: se toma del detalle actual y no se pide manualmente.
     const empresaClienteContexto = detalleCliente;
 
@@ -561,11 +596,19 @@ const CrearContratoTrabajadorWizard = ({
                 );
             case 2:
                 return (
-                    <StepTrabajador
-                        formik={formik}
-                        usuariosCliente={usuariosCliente}
-                        sucursales={sucursales}
-                    />
+                    <>
+                        {usuarioEmpresaInicial && (
+                            <div className='mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/20 dark:text-blue-200'>
+                                Creando contrato para:{' '}
+                                <strong>{usuarioEmpresaInicial.nombre}</strong>
+                            </div>
+                        )}
+                        <StepTrabajador
+                            formik={formik}
+                            usuariosCliente={usuariosCliente}
+                            sucursales={sucursales}
+                        />
+                    </>
                 );
             case 3: {
                 const sucursalDireccion =
@@ -625,13 +668,22 @@ const CrearContratoTrabajadorWizard = ({
                 return (
                     <StepJornada
                         formik={formik}
-                        empresaClienteId={formik.values.trab_empresa_cliente_id}
+                        empresaClienteId={empresaClienteContexto?.info_cliente.id || ''}
+                        onConfigureTurnos={
+                            empresaClienteContexto?.info_cliente.id
+                                ? () =>
+                                      window.open(
+                                          `/empresas/${empresaClienteContexto.info_cliente.id}?section=ConfiguracionRRHH`,
+                                          '_blank',
+                                      )
+                                : undefined
+                        }
                     />
                 );
             case 5:
-                return <StepRemuneraciones formik={formik} />;
-            case 6:
                 return <StepPrevisionBanco formik={formik} />;
+            case 6:
+                return <StepRemuneraciones formik={formik} />;
             case 7: {
                 const trabajadorLabel =
                     formik.values.trab_modo === 'existente'
@@ -791,16 +843,10 @@ const CrearContratoTrabajadorWizard = ({
                                 <dd className='font-medium'>{tipoLabel || '—'}</dd>
                                 <dt className='text-zinc-500'>Jornada:</dt>
                                 <dd className='font-medium'>{jornadaLabel || '—'}</dd>
-                                {formik.values.jornada === 'turnos' && formik.values.turnos_rotativo.length > 0 && (
+                                {formik.values.jornada === 'turnos' && formik.values.grupo_turno_id && (
                                     <>
-                                        <dt className='text-zinc-500'>Turnos:</dt>
-                                        <dd className='font-medium'>
-                                            {formik.values.turnos_rotativo.map((t) =>
-                                                `${t.nombre} (${t.hora_inicio}–${t.hora_fin})`
-                                            ).join(' · ')}
-                                        </dd>
-                                        <dt className='text-zinc-500'>Ciclo:</dt>
-                                        <dd className='font-medium'>{formik.values.ciclo_rotacion}</dd>
+                                        <dt className='text-zinc-500'>Grupo turnos:</dt>
+                                        <dd className='font-medium'>ID {formik.values.grupo_turno_id}</dd>
                                     </>
                                 )}
                                 <dt className='text-zinc-500'>Fecha inicio:</dt>
@@ -838,35 +884,41 @@ const CrearContratoTrabajadorWizard = ({
                                 <dt className='text-zinc-500'>Sueldo base:</dt>
                                 <dd className='font-medium'>
                                     {formik.values.sueldo_base
-                                        ? `${Number(formik.values.sueldo_base).toLocaleString('es-CL')} ${formik.values.moneda}`
+                                        ? `$${Number(formik.values.sueldo_base).toLocaleString('es-CL')} CLP`
                                         : '—'}
                                 </dd>
-                                {formik.values.bono_colacion && (
+                                {formik.values.descuentos_activos && (
                                     <>
-                                        <dt className='text-zinc-500'>Colacion:</dt>
+                                        <dt className='text-zinc-500'>Descuentos legales:</dt>
                                         <dd className='font-medium'>
-                                            {Number(
-                                                formik.values.bono_colacion,
-                                            ).toLocaleString('es-CL')}
+                                            {formik.values.porcentaje_descuentos}%
                                         </dd>
                                     </>
                                 )}
-                                {formik.values.bono_movilizacion && (
+                                {formik.values.gratificacion_activa && formik.values.tipo_gratificacion && (
                                     <>
-                                        <dt className='text-zinc-500'>Movilizacion:</dt>
+                                        <dt className='text-zinc-500'>Gratificacion:</dt>
                                         <dd className='font-medium'>
-                                            {Number(
-                                                formik.values.bono_movilizacion,
-                                            ).toLocaleString('es-CL')}
+                                            {({ art_47: 'Anual (Art.47)', art_50_mensual: 'Mensual (Art.50)', no_aplica: 'No aplica' } as Record<string, string>)[formik.values.tipo_gratificacion] ?? formik.values.tipo_gratificacion}
                                         </dd>
                                     </>
                                 )}
-                                <dt className='text-zinc-500'>Gratificacion:</dt>
-                                <dd className='font-medium'>
-                                    {formik.values.tipo_gratificacion
-                                        ? ({ art_47: 'Anual (Art.47)', art_50_mensual: 'Mensual (Art.50)', no_aplica: 'No aplica' } as Record<string, string>)[formik.values.tipo_gratificacion] ?? formik.values.tipo_gratificacion
-                                        : '—'}
-                                </dd>
+                                {formik.values.bono_colacion_activo && formik.values.bono_colacion && (
+                                    <>
+                                        <dt className='text-zinc-500'>Bono colacion:</dt>
+                                        <dd className='font-medium'>
+                                            ${Number(formik.values.bono_colacion).toLocaleString('es-CL')} CLP
+                                        </dd>
+                                    </>
+                                )}
+                                {formik.values.bono_movilizacion_activo && formik.values.bono_movilizacion && (
+                                    <>
+                                        <dt className='text-zinc-500'>Bono movilizacion:</dt>
+                                        <dd className='font-medium'>
+                                            ${Number(formik.values.bono_movilizacion).toLocaleString('es-CL')} CLP
+                                        </dd>
+                                    </>
+                                )}
                                 <dt className='text-zinc-500'>AFP / Salud:</dt>
                                 <dd className='font-medium'>
                                     {[formik.values.afp, formik.values.sistema_salud === 'isapre' ? formik.values.nombre_isapre : formik.values.sistema_salud].filter(Boolean).join(' / ') || '—'}

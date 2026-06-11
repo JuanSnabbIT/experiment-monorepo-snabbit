@@ -12,7 +12,7 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import ModalCrearSeccionV2 from './components/ModalCrearSeccionV2';
+import ModalCrearSeccionV2 from './components/ModalCrearSeccionV2.tsx';
 import ModalEditarPlantillaV2 from './components/ModalEditarPlantillaV2';
 import PanelDocumento, { IPanelDocumentoHandle } from './components/PanelDocumento';
 import PanelEstructura from './components/PanelEstructura';

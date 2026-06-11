@@ -135,6 +135,19 @@ class ContratoTrabajador(ModeloBaseHistorico):
         blank=True,
         help_text="Turnos rotativos. Lista de objetos con nombre, dias, hora_inicio, hora_fin.",
     )
+    grupo_turno = models.ForeignKey(
+        "rrhh.GrupoTurno",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contratos",
+        help_text="Grupo de turnos rotativos asignado al contrato.",
+    )
+    grupo_turno_snapshot = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Copia inmutable del grupo al momento de activar el contrato.",
+    )
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
     fecha_aprobacion = models.DateTimeField(blank=True, null=True)
@@ -388,6 +401,68 @@ class TurnoLaboral(ModeloBase):
 
     def __str__(self):
         return f"{self.nombre} ({self.hora_inicio}–{self.hora_fin})"
+
+
+class GrupoTurno(ModeloBase):
+    """Grupo de turnos rotativos reutilizable por empresa."""
+
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        related_name="grupos_turno",
+    )
+    nombre = models.CharField(max_length=150)
+    ciclo = models.CharField(
+        max_length=20,
+        choices=[
+            ("semanal", "Semanal"),
+            ("quincenal", "Quincenal"),
+            ("mensual", "Mensual"),
+        ],
+        default="semanal",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("empresa", "nombre")]
+        verbose_name = "Grupo de Turno"
+        verbose_name_plural = "Grupos de Turnos"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.ciclo})"
+
+    @property
+    def horas_promedio(self):
+        """Promedio de horas por slot del grupo."""
+        slots = self.slots.select_related("turno").all()
+        values = [float(s.turno.horas_turno) for s in slots if s.turno and s.turno.horas_turno]
+        return round(sum(values) / len(values), 2) if values else None
+
+
+class SlotTurno(ModeloBase):
+    """Turno individual dentro de un GrupoTurno, con orden explícito."""
+
+    grupo = models.ForeignKey(
+        GrupoTurno,
+        on_delete=models.CASCADE,
+        related_name="slots",
+    )
+    turno = models.ForeignKey(
+        TurnoLaboral,
+        on_delete=models.PROTECT,
+        related_name="slots_grupo",
+    )
+    orden = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["orden"]
+        unique_together = [("grupo", "orden")]
+        verbose_name = "Slot de Turno"
+        verbose_name_plural = "Slots de Turno"
+
+    def __str__(self):
+        return f"[{self.orden}] {self.turno.nombre} en {self.grupo.nombre}"
 
 
 DECISION_APROBACION = [

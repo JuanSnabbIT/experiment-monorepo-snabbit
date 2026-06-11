@@ -1,5 +1,5 @@
 import Button from '@/components/ui/Button';
-import { TIPOS_SECCION } from '@/constants/contrato.constant';
+import { TIPOS_SECCION, TIPOS_SECCION_LABELS_LEGACY } from '@/constants/contrato.constant';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
 import { ISeccionPlantillaV2 as ISeccionPlantilla } from '@/interface/plantillaContratoV2.interface';
 import { useUpdateSeccionV2Mutation } from '@/store/slices/contratos/plantillaContratoV2Api';
@@ -19,7 +19,7 @@ interface IPanelEditorSeccionProps {
 }
 
 const getTipoLabel = (tipo: string) =>
-    TIPOS_SECCION.find((s) => s.value === tipo)?.label ?? tipo;
+    TIPOS_SECCION.find((s) => s.value === tipo)?.label ?? TIPOS_SECCION_LABELS_LEGACY[tipo] ?? tipo;
 
 const formatEtiquetaLabel = (clave: string): string =>
     clave

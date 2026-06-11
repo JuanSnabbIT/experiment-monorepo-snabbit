@@ -67,6 +67,14 @@ ETIQUETAS_TRABAJADOR = [
     {"clave": "tiempo_colacion", "nombre_display": "Minutos de colacion",
      "categoria": "trabajador", "origen_dato": "contrato.tiempo_colacion"},
 
+    # --- Grupo de turnos (snapshot) ---
+    {"clave": "grupo_turno_nombre", "nombre_display": "Nombre del grupo de turnos",
+     "categoria": "trabajador", "origen_dato": "jornada.grupo_nombre"},
+    {"clave": "grupo_turno_ciclo", "nombre_display": "Ciclo de rotacion",
+     "categoria": "trabajador", "origen_dato": "jornada.ciclo"},
+    {"clave": "grupo_turno_slots", "nombre_display": "Tabla de slots del grupo",
+     "categoria": "trabajador", "origen_dato": "jornada.tabla_slots"},
+
     # --- Vigencia ---
     {"clave": "fecha_inicio", "nombre_display": "Fecha de inicio",
      "categoria": "trabajador", "origen_dato": "contrato.fecha_inicio"},

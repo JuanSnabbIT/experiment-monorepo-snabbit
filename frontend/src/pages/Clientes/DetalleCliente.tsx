@@ -1,11 +1,12 @@
 import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
-import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
-import { useGetDetalleClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetDetalleClienteQuery, useGetTrabajadoresClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import { useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import TablaContratosLaboralesCliente from './components/TablaContratosLaboralesCliente';
@@ -24,17 +25,24 @@ type TClientTab = keyof typeof CLIENT_TABS;
 
 const DetalleCliente = () => {
     const { id } = useParams();
-    const { data: detalleCliente } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
+    const {
+        data: detalleCliente,
+        isLoading: loadingCliente,
+        isError: errorCliente,
+        error: errorClienteData,
+    } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
+
+    const empresaClienteId = detalleCliente?.info_cliente?.id;
+    const { data: trabajadores = [] } = useGetTrabajadoresClienteQuery(
+        empresaClienteId ?? '',
+        { skip: !empresaClienteId },
+    );
+    const cantidadPendientes = trabajadores.filter((t) => t.tipo === 'pendiente').length;
     const [searchParams, setSearchParams] = useSearchParams();
 
     const activeTab = useMemo<TClientTab>(() => {
         const tab = searchParams.get('tab');
-        if (tab === 'usuarios') {
-            return 'trabajadores';
-        }
-        if (tab === 'contratos-laborales') {
-            return 'contratosLaborales';
-        }
+        if (tab === 'contratos-laborales') return 'contratosLaborales';
         if (
             tab === 'trabajadores' ||
             tab === 'contratos' ||
@@ -52,176 +60,138 @@ const DetalleCliente = () => {
         setSearchParams(nextParams, { replace: true });
     };
 
+    const tabProps = (tab: TClientTab) =>
+        activeTab === tab
+            ? {
+                  size: 'sm' as const,
+                  rounded: 'rounded-full' as const,
+                  className: 'border',
+                  isActive: true,
+                  color: 'blue' as const,
+                  colorIntensity: '500' as const,
+                  variant: 'solid' as const,
+              }
+            : {
+                  size: 'sm' as const,
+                  color: 'zinc' as const,
+                  rounded: 'rounded-full' as const,
+                  className: 'border',
+              };
+
     return (
         <PageWrapper isProtectedRoute={true} title='Detalle Cliente' name='Detalle Cliente'>
-            <Subheader>
-                <SubheaderLeft>{null}</SubheaderLeft>
-            </Subheader>
             <Container className='h-full w-full'>
                 <div className='flex flex-col gap-4'>
                     <Breadcrumb
                         path='Clientes'
                         currentPage={detalleCliente?.info_cliente.nombre || 'Detalle cliente'}
                     />
-                    <Card>
-                        <CardHeader>
-                            <CardHeaderChild>
-                                <Badge className='text-xl'>Datos</Badge>
-                            </CardHeaderChild>
 
-                        </CardHeader>
-                        <CardBody className='flex flex-col gap-4'>
-                            <div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>
-                                <div>
-                                    <Badge>Nombre</Badge>
-                            <div className='ml-4'>
-                                {detalleCliente?.info_cliente.nombre}
-                            </div>
-                                </div>
-                                <div>
-                                    <Badge>Dirección Principal</Badge>
-                                    <div className='ml-4'>
-                                        {detalleCliente?.info_cliente.direccion_principal}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Badge>Sitio Web</Badge>
-                                    <div className='ml-4'>
-                                        {detalleCliente?.info_cliente.sitio_web || 'Sin Sitio Web'}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'>
-                                <div>
-                                    <Badge>PPM</Badge>
-                                    <div className='ml-4'>{detalleCliente?.info_cliente.ppm}%</div>
-                                </div>
-                                <div>
-                                    <Badge>Recargo</Badge>
-                                    <div className='ml-4'>
-                                        {detalleCliente?.info_cliente.recargo}%
-                                    </div>
-                                </div>
-                            </div>
-                        </CardBody>
-                    </Card>
-                    <Card>
-                        <CardBody>
-                            <div className='mb-3'>
-                                <div className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
-                                    Navegacion del cliente
-                                </div>
-                            </div>
-                            <div className='flex flex-row gap-4 overflow-auto'>
-                                <Button
-                                    {...(activeTab === 'trabajadores'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveTab('trabajadores');
-                                    }}>
-                                    {CLIENT_TABS.trabajadores}
-                                </Button>
-                                <Button
-                                    {...(activeTab === 'contratos'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveTab('contratos');
-                                    }}>
-                                    {CLIENT_TABS.contratos}
-                                </Button>
-                                <Button
-                                    {...(activeTab === 'asignaciones'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveTab('asignaciones');
-                                    }}>
-                                    {CLIENT_TABS.asignaciones}
-                                </Button>
-                                <Button
-                                    {...(activeTab === 'contratosLaborales'
-                                        ? {
-                                              size: 'sm',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                              isActive: true,
-                                              color: 'blue',
-                                              colorIntensity: '500',
-                                              variant: 'solid',
-                                          }
-                                        : {
-                                              size: 'sm',
-                                              color: 'zinc',
-                                              rounded: 'rounded-full',
-                                              className: 'border',
-                                          })}
-                                    onClick={() => {
-                                        setActiveTab('contratosLaborales');
-                                    }}>
-                                    {CLIENT_TABS.contratosLaborales}
-                                </Button>
-                            </div>
-                        </CardBody>
-                    </Card>
-
-                    {activeTab === 'trabajadores' && (
-                        <TablaUsuariosDelCliente detalleCliente={detalleCliente} />
+                    {errorCliente && (
+                        <Alert color='red'>
+                            {getErrorMessage(errorClienteData)}
+                        </Alert>
                     )}
 
-                    {activeTab === 'contratos' && (
-                        <TablaDeContratosDelCliente detalleCliente={detalleCliente} />
+                    {loadingCliente && (
+                        <Card>
+                            <CardBody>
+                                <p className='text-sm text-zinc-500'>Cargando datos del cliente...</p>
+                            </CardBody>
+                        </Card>
                     )}
 
-                    {activeTab === 'asignaciones' && (
-                        <TablaDeUsuariosVinculadosLicencias
-                            detalleCliente={detalleCliente}
-                            onIrAContratos={() => setActiveTab('contratos')}
-                        />
-                    )}
+                    {!loadingCliente && !errorCliente && detalleCliente && (
+                        <>
+                            <Card>
+                                <CardHeader>
+                                    <CardHeaderChild>
+                                        <Badge className='text-xl'>Datos</Badge>
+                                    </CardHeaderChild>
+                                </CardHeader>
+                                <CardBody className='flex flex-col gap-4'>
+                                    <div className='grid grid-cols-3 gap-4 rounded-xl border border-blue-500 p-4'>
+                                        <div>
+                                            <Badge>Nombre</Badge>
+                                            <div className='ml-4'>
+                                                {detalleCliente.info_cliente.nombre}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Badge>Dirección Principal</Badge>
+                                            <div className='ml-4'>
+                                                {detalleCliente.info_cliente.direccion_principal}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Badge>Sitio Web</Badge>
+                                            <div className='ml-4'>
+                                                {detalleCliente.info_cliente.sitio_web || 'Sin Sitio Web'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'>
+                                        <div>
+                                            <Badge>PPM</Badge>
+                                            <div className='ml-4'>{detalleCliente.info_cliente.ppm}%</div>
+                                        </div>
+                                        <div>
+                                            <Badge>Recargo</Badge>
+                                            <div className='ml-4'>
+                                                {detalleCliente.info_cliente.recargo}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardBody>
+                            </Card>
 
-                    {activeTab === 'contratosLaborales' && (
-                        <TablaContratosLaboralesCliente detalleCliente={detalleCliente} />
+                            <Card>
+                                <CardBody>
+                                    <div className='mb-3'>
+                                        <div className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
+                                            Navegación del cliente
+                                        </div>
+                                    </div>
+                                    <div className='flex flex-row gap-4 overflow-auto'>
+                                        <Button {...tabProps('trabajadores')} onClick={() => setActiveTab('trabajadores')}>
+                                            <span className='flex items-center gap-2'>
+                                                {CLIENT_TABS.trabajadores}
+                                                {cantidadPendientes > 0 && (
+                                                    <Badge color='amber' className='text-xs'>
+                                                        {cantidadPendientes}
+                                                    </Badge>
+                                                )}
+                                            </span>
+                                        </Button>
+                                        <Button {...tabProps('contratos')} onClick={() => setActiveTab('contratos')}>
+                                            {CLIENT_TABS.contratos}
+                                        </Button>
+                                        <Button {...tabProps('asignaciones')} onClick={() => setActiveTab('asignaciones')}>
+                                            {CLIENT_TABS.asignaciones}
+                                        </Button>
+                                        <Button {...tabProps('contratosLaborales')} onClick={() => setActiveTab('contratosLaborales')}>
+                                            {CLIENT_TABS.contratosLaborales}
+                                        </Button>
+                                    </div>
+                                </CardBody>
+                            </Card>
+
+                            {activeTab === 'trabajadores' && (
+                                <TablaUsuariosDelCliente detalleCliente={detalleCliente} />
+                            )}
+                            {activeTab === 'contratos' && (
+                                <TablaDeContratosDelCliente detalleCliente={detalleCliente} />
+                            )}
+                            {activeTab === 'asignaciones' && (
+                                <TablaDeUsuariosVinculadosLicencias
+                                    detalleCliente={detalleCliente}
+                                    onIrAContratos={() => setActiveTab('contratos')}
+                                />
+                            )}
+                            {activeTab === 'contratosLaborales' && (
+                                <TablaContratosLaboralesCliente detalleCliente={detalleCliente} />
+                            )}
+                        </>
                     )}
                 </div>
             </Container>

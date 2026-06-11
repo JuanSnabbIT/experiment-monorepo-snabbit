@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 from django.db.models import QuerySet
+from django.utils.html import escape
 
 
 # Sentinel para distinguir "ruta no manejada por el adaptador" de
@@ -384,6 +385,61 @@ class AdaptadorContratoTrabajador(IContratoBase):
             }
             if campo in mapping:
                 return mapping[campo]
+            return default or ""
+
+        # ----- jornada.{campo} (grupo de turnos, leido desde snapshot) -----
+        if prefijo == "jornada":
+            campo = resto[0] if resto else None
+            if not campo:
+                return default or ""
+            contrato = self._c
+            snapshot = getattr(contrato, "grupo_turno_snapshot", None)
+
+            if campo == "grupo_nombre":
+                if snapshot:
+                    return snapshot.get("nombre") or (default or "")
+                if contrato.grupo_turno_id:
+                    return contrato.grupo_turno.nombre or (default or "")
+                return default or ""
+
+            elif campo == "ciclo":
+                ciclos = {
+                    "semanal": "Semanal",
+                    "quincenal": "Quincenal",
+                    "mensual": "Mensual",
+                }
+                if snapshot:
+                    return ciclos.get(snapshot.get("ciclo", ""), default or "") or (default or "")
+                if contrato.grupo_turno_id:
+                    return ciclos.get(contrato.grupo_turno.ciclo, default or "") or (default or "")
+                return default or ""
+
+            elif campo == "tabla_slots":
+                slots = None
+                if snapshot:
+                    slots = snapshot.get("slots", [])
+                elif contrato.grupo_turno_id:
+                    slots = [
+                        {
+                            "orden": s.orden,
+                            "nombre": s.turno.nombre,
+                            "hora_inicio": str(s.turno.hora_inicio),
+                            "hora_fin": str(s.turno.hora_fin),
+                        }
+                        for s in contrato.grupo_turno.slots.select_related("turno").order_by("orden")
+                    ]
+                if not slots:
+                    return getattr(contrato, "horario_detalle", None) or (default or "")
+                filas = "".join(
+                    f"<tr><td>{s['orden'] + 1}</td><td>{escape(s['nombre'])}</td>"
+                    f"<td>{escape(str(s['hora_inicio']))}–{escape(str(s['hora_fin']))}</td></tr>"
+                    for s in slots
+                )
+                return (
+                    f"<table><thead><tr><th>#</th><th>Turno</th><th>Horario</th></tr></thead>"
+                    f"<tbody>{filas}</tbody></table>"
+                )
+
             return default or ""
 
         # No es una ruta del dominio laboral.

@@ -9,7 +9,7 @@ import { Dispatch, SetStateAction, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import SeccionForm, {
-    ISeccionFormValues,
+  ISeccionFormValues,
 } from '../../PlantillasContrato/components/SeccionForm';
 
 interface IModalCrearSeccionV2Props {

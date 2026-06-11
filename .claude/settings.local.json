@@ -39,7 +39,14 @@
       "mcp__stitch__list_screens",
       "mcp__stitch__get_project",
       "mcp__stitch__get_screen",
-      "Bash(Find c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend -name \"*rrhh*\" -o -name \"*contrato*\")"
+      "Bash(Find c:\\\\proyectos\\\\experiment-monorepo-snabbit\\\\backend -name \"*rrhh*\" -o -name \"*contrato*\")",
+      "Bash(xargs grep -l \"etiqueta\")",
+      "Bash(python manage.py makemigrations rrhh)",
+      "Bash(where python *)",
+      "Bash(pip show *)",
+      "Bash(C:\\\\Users\\\\soporte\\\\.conda\\\\envs\\\\ENV\\\\python.exe manage.py seed_rrhh_completo)",
+      "Bash(python manage.py makemigrations --check --dry-run)",
+      "Bash(..\\\\ENV\\\\Scripts\\\\python.exe manage.py makemigrations --check --dry-run)"
     ]
   }
 }

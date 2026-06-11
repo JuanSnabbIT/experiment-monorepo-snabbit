@@ -6,6 +6,7 @@ import Textarea from '@/components/form/Textarea';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardFooter, CardHeader } from '@/components/ui/Card';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
+import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import {
     useCreateCargoCatalogoMutation,
     useGetCargosCatalogoQuery,
@@ -41,6 +42,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
     const [editando, setEditando] = useState(false);
 
     const { data: cargosCatalogo = [] } = useGetCargosCatalogoQuery(undefined, { skip: !editando });
+    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery(undefined, { skip: !editando });
     const [crearCargo] = useCreateCargoCatalogoMutation();
     const [updateContrato, { isLoading: guardando }] = useUpdateContratoTrabajadorMutation();
 
@@ -58,6 +60,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
             horas_semanales: contrato.horas_semanales ? String(contrato.horas_semanales) : '',
             lugar_trabajo: contrato.lugar_trabajo ?? '',
             funciones: contrato.funciones ?? '',
+            plantilla_contrato: contrato.plantilla_contrato ? String(contrato.plantilla_contrato) : '',
             es_indefinido: !tieneTermino,
         },
         onSubmit: async (values) => {
@@ -71,6 +74,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                     horas_semanales: values.horas_semanales ? Number(values.horas_semanales) : null,
                     lugar_trabajo: values.lugar_trabajo,
                     funciones: values.funciones,
+                    plantilla_contrato: values.plantilla_contrato ? Number(values.plantilla_contrato) : null,
                 };
                 await updateContrato({ id: contrato.id, data: payload }).unwrap();
                 toast.success('Datos del contrato actualizados');
@@ -85,6 +89,13 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
         value: c.nombre,
         label: c.nombre,
     }));
+
+    const plantillasOptions: TSelectOption[] = todasLasPlantillas
+        .filter((p) => p.tipo_contrato === 'trabajador' && p.activa)
+        .map((p) => ({
+            value: String(p.id),
+            label: p.titulo,
+        }));
 
     const handleCrearCargo = async (nombre: string) => {
         try {
@@ -104,7 +115,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                     </CardHeader>
                     <CardBody>
                         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-                            {/* Cargo */}
                             <div className='sm:col-span-2'>
                                 <Label htmlFor='cargo'>Cargo</Label>
                                 <SelectReact
@@ -117,13 +127,14 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                             ? { value: formik.values.cargo, label: formik.values.cargo }
                                             : null
                                     }
-                                    onChange={(opt) => formik.setFieldValue('cargo', (opt as TSelectOption)?.value ?? '')}
+                                    onChange={(opt) =>
+                                        formik.setFieldValue('cargo', (opt as TSelectOption)?.value ?? '')
+                                    }
                                     onCreateOption={handleCrearCargo}
                                     placeholder='Selecciona o escribe un cargo...'
                                 />
                             </div>
 
-                            {/* Tipo contrato */}
                             <div>
                                 <Label htmlFor='tipo_contrato'>Tipo de contrato</Label>
                                 <SelectReact
@@ -142,7 +153,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Fecha inicio */}
                             <div>
                                 <Label htmlFor='fecha_inicio'>Fecha inicio</Label>
                                 <Input
@@ -154,7 +164,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Contrato indefinido toggle */}
                             <div className='flex items-center gap-2 sm:col-span-2'>
                                 <Checkbox
                                     id='es_indefinido'
@@ -165,7 +174,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Fecha termino */}
                             {!formik.values.es_indefinido && (
                                 <>
                                     <div>
@@ -207,7 +215,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 </>
                             )}
 
-                            {/* Jornada */}
                             <div>
                                 <Label htmlFor='jornada'>Jornada</Label>
                                 <SelectReact
@@ -224,7 +231,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Horas semanales */}
                             <div>
                                 <Label htmlFor='horas_semanales'>Horas semanales</Label>
                                 <SelectReact
@@ -252,7 +258,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Lugar de trabajo */}
                             <div className='sm:col-span-2'>
                                 <Label htmlFor='lugar_trabajo'>Lugar de trabajo</Label>
                                 <Input
@@ -264,7 +269,28 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 />
                             </div>
 
-                            {/* Funciones */}
+                            <div className='sm:col-span-2'>
+                                <Label htmlFor='plantilla_contrato'>Plantilla de contrato</Label>
+                                <SelectReact
+                                    id='plantilla_contrato'
+                                    name='plantilla_contrato'
+                                    options={plantillasOptions}
+                                    value={
+                                        plantillasOptions.find(
+                                            (o) => o.value === formik.values.plantilla_contrato,
+                                        ) ?? null
+                                    }
+                                    onChange={(opt) =>
+                                        formik.setFieldValue(
+                                            'plantilla_contrato',
+                                            (opt as TSelectOption)?.value ?? '',
+                                        )
+                                    }
+                                    placeholder='Selecciona una plantilla...'
+                                    isClearable
+                                />
+                            </div>
+
                             <div className='sm:col-span-2'>
                                 <Label htmlFor='funciones'>Funciones</Label>
                                 <Textarea
@@ -280,10 +306,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                     </CardBody>
                     <CardFooter>
                         <div className='flex justify-end gap-2'>
-                            <Button
-                                type='button'
-                                onClick={() => setEditando(false)}
-                                isDisable={guardando}>
+                            <Button type='button' onClick={() => setEditando(false)} isDisable={guardando}>
                                 Cancelar
                             </Button>
                             <Button
@@ -306,51 +329,70 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                 <CardHeader>
                     <span>Datos del Contrato</span>
                     {esBorrador && (
-                        <Button
-                            variant='solid'
-                            icon='HeroPencil'
-                            size='sm'
-                            onClick={() => setEditando(true)}
-                        />
+                        <Button variant='solid' icon='HeroPencil' size='sm' onClick={() => setEditando(true)} />
                     )}
                 </CardHeader>
                 <CardBody>
                     <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
                         <Campo label='Cargo' value={contrato.cargo} />
-                        <Campo
-                            label='Tipo de contrato'
-                            value={contrato.tipo_contrato_label ?? contrato.tipo_contrato}
-                        />
-                        <Campo
-                            label='Estado'
-                            value={contrato.estado_label ?? contrato.estado}
-                        />
+                        <Campo label='Tipo de contrato' value={contrato.tipo_contrato_label ?? contrato.tipo_contrato} />
+                        <Campo label='Estado' value={contrato.estado_label ?? contrato.estado} />
                         <Campo
                             label='Fecha inicio'
-                            value={
-                                contrato.fecha_inicio
-                                    ? dayjs(contrato.fecha_inicio).format('DD/MM/YYYY')
-                                    : null
-                            }
+                            value={contrato.fecha_inicio ? dayjs(contrato.fecha_inicio).format('DD/MM/YYYY') : null}
                         />
                         <Campo
                             label='Fecha termino'
-                            value={
-                                contrato.fecha_termino
-                                    ? dayjs(contrato.fecha_termino).format('DD/MM/YYYY')
-                                    : 'Indefinido'
-                            }
+                            value={contrato.fecha_termino ? dayjs(contrato.fecha_termino).format('DD/MM/YYYY') : 'Indefinido'}
                         />
-                        <Campo
-                            label='Jornada'
-                            value={contrato.jornada_label ?? contrato.jornada}
-                        />
-                        <Campo
-                            label='Horas semanales'
-                            value={contrato.horas_semanales ?? '—'}
-                        />
+                        <Campo label='Jornada' value={contrato.jornada_label ?? contrato.jornada} />
+                        <Campo label='Horas semanales' value={contrato.horas_semanales ?? '—'} />
                         <Campo label='Lugar de trabajo' value={contrato.lugar_trabajo} />
+                        <Campo
+                            label='Plantilla de contrato'
+                            value={contrato.plantilla_contrato_titulo ?? (contrato.plantilla_contrato ? `#${contrato.plantilla_contrato}` : '—')}
+                        />
                     </div>
+
+                    {contrato.grupo_turno_snapshot ? (
+                        <div className='col-span-2 mt-4'>
+                            <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+                                Grupo de turnos
+                            </p>
+                            <div className='mt-1 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900'>
+                                <div className='mb-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200'>
+                                    {contrato.grupo_turno_snapshot.nombre}
+                                    <span className='ml-2 font-normal text-zinc-400'>
+                                        · ciclo {contrato.grupo_turno_snapshot.ciclo}
+                                    </span>
+                                </div>
+                                <div className='space-y-0.5'>
+                                    {contrato.grupo_turno_snapshot.slots.map((slot, i) => (
+                                        <div key={i} className='text-xs text-zinc-600 dark:text-zinc-300'>
+                                            <span className='mr-1 font-medium'>{slot.orden + 1}.</span>
+                                            {slot.nombre}
+                                            <span className='ml-1 text-zinc-400'>
+                                                {slot.hora_inicio}–{slot.hora_fin}
+                                            </span>
+                                            {slot.horas_turno && (
+                                                <span className='ml-1 text-zinc-400'>· {slot.horas_turno}h</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : contrato.horario_detalle ? (
+                        <div className='col-span-2 mt-4'>
+                            <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+                                Horario
+                            </p>
+                            <p className='mt-0.5 text-sm text-zinc-900 dark:text-zinc-100'>
+                                {contrato.horario_detalle}
+                            </p>
+                        </div>
+                    ) : null}
+
                     {contrato.funciones && (
                         <div className='mt-4'>
                             <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
@@ -363,6 +405,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                     )}
                 </CardBody>
             </Card>
+
             {(contrato.empresa_nombre || contrato.sucursal_nombre) && (
                 <Card>
                     <CardHeader>Asignacion Organizacional</CardHeader>
@@ -379,4 +422,3 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
 };
 
 export default TabDatosLaboralesTrabajador;
-

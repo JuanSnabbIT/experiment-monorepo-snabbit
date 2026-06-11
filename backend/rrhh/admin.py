@@ -8,7 +8,9 @@ from .models import (
     CargoCatalogo,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    GrupoTurno,
     NacionalidadCatalogo,
+    SlotTurno,
     TurnoLaboral,
 )
 
@@ -80,6 +82,22 @@ class TurnoLaboralAdmin(admin.ModelAdmin):
     search_fields = ("nombre", "empresa__nombre")
     list_editable = ("activo",)
     readonly_fields = ("cruza_medianoche", "horas_turno")
+
+
+@admin.register(GrupoTurno)
+class GrupoTurnoAdmin(admin.ModelAdmin):
+    list_display = ("id", "nombre", "empresa", "ciclo", "activo")
+    list_filter = ("activo", "ciclo", "empresa")
+    search_fields = ("nombre", "empresa__nombre")
+    list_editable = ("activo",)
+
+
+@admin.register(SlotTurno)
+class SlotTurnoAdmin(admin.ModelAdmin):
+    list_display = ("id", "grupo", "turno", "orden")
+    list_filter = ("grupo__empresa",)
+    search_fields = ("grupo__nombre", "turno__nombre")
+    ordering = ("grupo", "orden")
 
 
 @admin.register(EnvioAprobacionEmpleador)

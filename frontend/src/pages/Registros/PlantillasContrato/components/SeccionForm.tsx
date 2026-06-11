@@ -4,7 +4,7 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import Alert from '@/components/ui/Alert';
-import { CONTENIDO_CANONICO_FIRMAS, CONTENIDO_CANONICO_IDENTIFICACION, TIPOS_SECCION } from '@/constants/contrato.constant';
+import { CONTENIDO_CANONICO_FIRMAS, TIPOS_SECCION } from '@/constants/contrato.constant';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
 import { FormikProps } from 'formik';
 import { useEffect } from 'react';
@@ -36,67 +36,33 @@ const SeccionForm = ({
     idPrefix = 'sec',
 }: ISeccionFormProps) => {
     const esFirmas = formik.values.tipo === 'firmas';
-    const esIdentificacion = formik.values.tipo === 'identificacion_cliente';
-    const esPredeterminada = esFirmas || esIdentificacion;
-    const esTituloOSubtitulo = formik.values.tipo === 'titulo' || formik.values.tipo === 'subtitulo';
+    const esTitulo = formik.values.tipo === 'titulo';
     const esLibre = formik.values.tipo === 'libre';
     const esSaltoPagina = formik.values.tipo === 'salto_pagina';
 
-    // Forzar valores canónicos cuando el tipo es firmas
     useEffect(() => {
         if (esFirmas) {
-            if (formik.values.titulo !== 'Firmas') {
-                formik.setFieldValue('titulo', 'Firmas');
-            }
-            if (formik.values.contenido_template !== CONTENIDO_CANONICO_FIRMAS) {
+            if (formik.values.titulo !== 'Firmas') formik.setFieldValue('titulo', 'Firmas');
+            if (formik.values.contenido_template !== CONTENIDO_CANONICO_FIRMAS)
                 formik.setFieldValue('contenido_template', CONTENIDO_CANONICO_FIRMAS);
-            }
-            if (formik.values.es_editable_en_contrato) {
-                formik.setFieldValue('es_editable_en_contrato', false);
-            }
-            if (!formik.values.es_obligatoria) {
-                formik.setFieldValue('es_obligatoria', true);
-            }
+            if (formik.values.es_editable_en_contrato) formik.setFieldValue('es_editable_en_contrato', false);
+            if (!formik.values.es_obligatoria) formik.setFieldValue('es_obligatoria', true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [esFirmas]);
 
-    // Forzar valores canónicos cuando el tipo es identificacion_cliente
     useEffect(() => {
-        if (esIdentificacion) {
-            if (formik.values.titulo !== 'Identificación del Cliente') {
-                formik.setFieldValue('titulo', 'Identificación del Cliente');
-            }
-            if (formik.values.contenido_template !== CONTENIDO_CANONICO_IDENTIFICACION) {
-                formik.setFieldValue('contenido_template', CONTENIDO_CANONICO_IDENTIFICACION);
-            }
-            if (formik.values.es_editable_en_contrato) {
-                formik.setFieldValue('es_editable_en_contrato', false);
-            }
-            if (!formik.values.es_obligatoria) {
-                formik.setFieldValue('es_obligatoria', true);
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [esIdentificacion]);
-
-    // Limpiar contenido_template para tipos título/subtítulo (solo tienen título)
-    useEffect(() => {
-        if (esTituloOSubtitulo && formik.values.contenido_template !== '') {
+        if (esTitulo && formik.values.contenido_template !== '')
             formik.setFieldValue('contenido_template', '');
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [esTituloOSubtitulo]);
+    }, [esTitulo]);
 
-    // Limpiar título para tipo sección libre (solo tiene contenido)
     useEffect(() => {
-        if (esLibre && formik.values.titulo !== '') {
+        if (esLibre && formik.values.titulo !== '')
             formik.setFieldValue('titulo', '');
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [esLibre]);
 
-    // Limpiar título y contenido para salto de página; forzar checkboxes
     useEffect(() => {
         if (esSaltoPagina) {
             if (formik.values.titulo !== '') formik.setFieldValue('titulo', '');
@@ -123,7 +89,7 @@ const SeccionForm = ({
                                 value={formik.values.titulo}
                                 onChange={formik.handleChange}
                                 onBlur={formik.handleBlur}
-                                disabled={esPredeterminada}
+                                disabled={esFirmas}
                             />
                         </Validation>
                     </div>
@@ -143,51 +109,40 @@ const SeccionForm = ({
                                 (option as TSelectOption)?.value || '',
                             )
                         }
+                        menuPortalTarget={document.body}
+                        menuPosition='fixed'
+                        styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                     />
                 </div>
             </div>
 
             {esFirmas ? (
                 <Alert color='blue' variant='outline' className='text-sm'>
-                    <p className='font-semibold'>Zona de firmas (bloque del sistema)</p>
+                    <p className='font-semibold'>Zona de firmas</p>
                     <p className='mt-1 text-zinc-500'>
-                        El contenido de firmas se genera automáticamente con los datos del
-                        contrato. No requiere edición manual.
+                        El contenido se genera automáticamente con los datos del contrato.
                     </p>
                 </Alert>
-            ) : esIdentificacion ? (
-                <Alert color='sky' variant='outline' className='text-sm'>
-                    <p className='font-semibold'>Identificación del cliente (bloque del sistema)</p>
-                    <p className='mt-1 text-zinc-500'>
-                        Muestra los datos identificatorios del cliente con sus etiquetas
-                        correspondientes. El contenido se completa automáticamente al generar el
-                        documento.
-                    </p>
-                </Alert>
-            ) : esTituloOSubtitulo ? (
+            ) : esTitulo ? (
                 <Alert color='zinc' variant='outline' className='text-sm'>
-                    <p className='font-semibold'>
-                        {formik.values.tipo === 'titulo' ? 'Título de sección' : 'Subtítulo de sección'}
-                    </p>
+                    <p className='font-semibold'>Título</p>
                     <p className='mt-1 text-zinc-500'>
-                        Este bloque solo muestra el texto del campo Título. No lleva contenido adicional.
+                        Solo muestra el texto del título, sin contenido adicional.
                     </p>
                 </Alert>
             ) : esSaltoPagina ? (
                 <Alert color='zinc' variant='outline' className='text-sm'>
                     <p className='font-semibold'>Salto de página</p>
                     <p className='mt-1 text-zinc-500'>
-                        Inserta un quiebre de página en el documento generado. No lleva título ni contenido.
+                        Inserta un quiebre de página en el documento generado.
                     </p>
                 </Alert>
             ) : (
                 <EditorSeccion
                     value={formik.values.contenido_template}
-                    onChange={(value) =>
-                        formik.setFieldValue('contenido_template', value)
-                    }
+                    onChange={(value) => formik.setFieldValue('contenido_template', value)}
                     etiquetas={etiquetas}
-                    label='Texto base de la sección'
+                    label='Texto de la sección'
                 />
             )}
 
@@ -199,14 +154,12 @@ const SeccionForm = ({
                         checked={formik.values.es_editable_en_contrato}
                         onChange={formik.handleChange}
                         label='Editable en contrato'
-                        disabled={esPredeterminada}
+                        disabled={esFirmas}
                     />
                     <p className='mt-2 text-xs text-zinc-500'>
                         {esFirmas
                             ? 'Las firmas no son editables en contrato.'
-                            : esIdentificacion
-                              ? 'La identificación del cliente no es editable en contrato.'
-                              : 'Permite ajustes posteriores.'}
+                            : 'Permite ajustes al crear el contrato.'}
                     </p>
                 </div>
                 <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
@@ -216,14 +169,12 @@ const SeccionForm = ({
                         checked={formik.values.es_obligatoria}
                         onChange={formik.handleChange}
                         label='Obligatoria'
-                        disabled={esPredeterminada}
+                        disabled={esFirmas}
                     />
                     <p className='mt-2 text-xs text-zinc-500'>
                         {esFirmas
                             ? 'Las firmas siempre son obligatorias.'
-                            : esIdentificacion
-                              ? 'La identificación del cliente siempre es obligatoria.'
-                              : 'Mantiene el bloque en la base.'}
+                            : 'Mantiene el bloque en la base del contrato.'}
                     </p>
                 </div>
             </div>

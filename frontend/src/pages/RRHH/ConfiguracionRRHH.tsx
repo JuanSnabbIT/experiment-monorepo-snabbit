@@ -11,6 +11,7 @@ import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/compon
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { ITurnoLaboral, ITurnoLaboralWrite } from '@/interface/rrhh.interface';
+import TabGruposTurnos from '@/pages/RRHH/components/TabGruposTurnos';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
@@ -50,7 +51,7 @@ const DIAS_SEMANA = [
     { key: 'D', label: 'Domingo' },
 ];
 
-type TTabId = 'parametros' | 'afp' | 'bancos' | 'turnos' | 'plantillas' | 'cargos';
+type TTabId = 'parametros' | 'afp' | 'bancos' | 'turnos' | 'plantillas' | 'cargos' | 'grupos_turnos';
 
 const TABS: { id: TTabId; label: string }[] = [
     { id: 'parametros', label: 'Parámetros' },
@@ -59,6 +60,7 @@ const TABS: { id: TTabId; label: string }[] = [
     { id: 'turnos', label: 'Turnos' },
     { id: 'plantillas', label: 'Plantillas' },
     { id: 'cargos', label: 'Cargos' },
+    { id: 'grupos_turnos', label: 'Grupos de Turnos' },
 ];
 
 const BadgeAmbito = ({ esGlobal }: { esGlobal: boolean }) =>
@@ -649,6 +651,9 @@ const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfigur
                 {activeTab === 'turnos' && <TabTurnos empresaId={empresaIdActiva} />}
                 {activeTab === 'plantillas' && <TabPlantillas empresaId={empresaIdActiva} />}
                 {activeTab === 'cargos' && <TabCargos />}
+                {activeTab === 'grupos_turnos' && (
+                    <TabGruposTurnos empresaId={empresaIdActiva ?? ''} />
+                )}
             </CardBody>
         </Card>
     );

@@ -5,6 +5,7 @@ import {
     IUltimasActividadesUsuarioEmpresa,
     IUsuarioEmpresa,
 } from '@/interface/empresas.interface';
+import { ITrabajadorCliente } from '@/interface/rrhh.interface';
 import RtkQueryService from '@/services/RtkQueryService';
 
 export const empresaApi = RtkQueryService.injectEndpoints({
@@ -243,6 +244,16 @@ export const empresaApi = RtkQueryService.injectEndpoints({
                 { type: 'ClienteUsuarios' as const, id },
             ],
         }),
+        getTrabajadoresCliente: builder.query<ITrabajadorCliente[], number | string>({
+            query: (empresaClienteId) => ({
+                url: `/api/empresas/${empresaClienteId}/trabajadores/`,
+                method: 'get',
+            }),
+            providesTags: (_result, _error, id) => [
+                { type: 'ClienteUsuarios' as const, id },
+                { type: 'ContratoTrabajadorList' as const, id: 'LIST' },
+            ],
+        }),
     }),
 });
 
@@ -269,4 +280,5 @@ export const {
     useGetUsuariosEmpresaYClienteQuery,
     useGetUsuariosDeMisClientesQuery,
     useGetDetalleUsuarioClienteQuery,
+    useGetTrabajadoresClienteQuery,
 } = empresaApi;

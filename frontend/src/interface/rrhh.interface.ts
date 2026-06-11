@@ -1,5 +1,17 @@
 // Interfaces del modulo RRHH (contratos laborales y anexos)
 
+export interface ITrabajadorCliente {
+    tipo: 'confirmado' | 'pendiente';
+    ref_id: number;
+    nombre: string | null;
+    email: string | null;
+    rut: string | null;
+    cargo: string | null;
+    sucursal_id: number | null;
+    estado: string;
+    estado_label: string;
+}
+
 export type TTipoContrato =
     | 'indefinido'
     | 'plazo_fijo'
@@ -58,6 +70,55 @@ export interface ITurnoLaboralWrite {
     dias_semana: string[];
     horas_turno?: number;
     empresa_id?: number;
+}
+
+export interface ISlotTurno {
+    id: number;
+    turno: number;
+    orden: number;
+    turno_nombre: string;
+    turno_hora_inicio: string;
+    turno_hora_fin: string;
+    turno_horas: string | null;
+}
+
+export interface ISlotTurnoWrite {
+    turno: number;
+    orden: number;
+}
+
+export interface IGrupoTurno {
+    id: number;
+    empresa: number;
+    nombre: string;
+    ciclo: 'semanal' | 'quincenal' | 'mensual';
+    activo: boolean;
+    horas_promedio: number | null;
+    slots: ISlotTurno[];
+    fecha_creacion: string;
+    fecha_modificacion: string;
+}
+
+export interface IGrupoTurnoWrite {
+    nombre: string;
+    ciclo: 'semanal' | 'quincenal' | 'mensual';
+    activo?: boolean;
+    slots_write: ISlotTurnoWrite[];
+    empresa_id?: number;
+}
+
+export interface IGrupoTurnoSnapshot {
+    id: number;
+    nombre: string;
+    ciclo: string;
+    slots: Array<{
+        orden: number;
+        turno_id: number;
+        nombre: string;
+        hora_inicio: string;
+        hora_fin: string;
+        horas_turno: number | null;
+    }>;
 }
 
 export interface IAnexoContrato {
@@ -122,10 +183,14 @@ export interface IContratoTrabajador {
     observaciones: string | null;
     sueldo_liquido: string | null;
     horario_detalle: string | null;
+    grupo_turno: number | null;
+    grupo_turno_data?: IGrupoTurno | null;
+    grupo_turno_snapshot?: IGrupoTurnoSnapshot | null;
     tiempo_colacion: number | null;
     lugar_celebracion_contrato: string | null;
     fecha_firma: string | null;
     plantilla_contrato: number | null;
+    plantilla_contrato_titulo?: string | null;
 
     // Campos legales Art. 10 CT
     estado_civil: string | null;
