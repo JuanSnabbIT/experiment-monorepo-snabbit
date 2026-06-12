@@ -89,6 +89,9 @@ export interface IUsuarioEmpresa {
         rut: null | string;
         dias_corridos: {
             dias_totales: number;
+            años: number;
+            meses: number;
+            dias: number;
             formato: string;
         };
     };

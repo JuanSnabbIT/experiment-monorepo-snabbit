@@ -196,6 +196,8 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     sucursal_nombre = serializers.SerializerMethodField()
     email_empresa = serializers.SerializerMethodField()
 
+    antiguedad_trabajador = serializers.SerializerMethodField()
+
     plantilla_contrato_titulo = serializers.CharField(
         source="plantilla_contrato.titulo", read_only=True, default=None,
     )
@@ -329,6 +331,17 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
             return obj.usuario_empresa.sucursal.empresa.email
         except Exception:
             return None
+
+    def get_antiguedad_trabajador(self, obj):
+        if not obj.usuario_empresa:
+            return None
+        ue = obj.usuario_empresa
+        antiguedad = ue.calcular_dias_desde_contratacion()
+        return {
+            **antiguedad,
+            "dias_vacaciones_acumulados": round(float(ue.calcular_dias_vacaciones_acumulados()), 1),
+            "dias_vacaciones_disponibles": round(float(ue.dias_vacaciones_disponibles()), 1),
+        }
 
     def get_secciones_generadas(self, obj):
         secciones = obj.secciones_generadas.all().order_by("orden") if hasattr(obj, "secciones_generadas") else []

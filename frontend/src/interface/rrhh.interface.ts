@@ -201,6 +201,17 @@ export interface IContratoTrabajador {
     causal_reemplazo: string | null;
     causal_reemplazo_label?: string | null;
 
+    // Antigüedad y vacaciones calculadas desde UsuarioEmpresa
+    antiguedad_trabajador?: {
+        dias_totales: number;
+        años: number;
+        meses: number;
+        dias: number;
+        formato: string;
+        dias_vacaciones_acumulados: number;
+        dias_vacaciones_disponibles: number;
+    } | null;
+
     // Datos derivados (read-only)
     nombre_trabajador?: string | null;
     email_trabajador?: string | null;

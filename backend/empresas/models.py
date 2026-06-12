@@ -208,16 +208,20 @@ class UsuarioEmpresa(ModeloBase):
     def calcular_dias_desde_contratacion(self):
         """Calcula los días que han pasado desde la contratación, incluyendo fines de semana y feriados."""
         if not self.fecha_contrato:
-            return {"dias_totales": 0, "formato": "No hay fecha de contratación"}
+            return {"dias_totales": 0, "años": 0, "meses": 0, "dias": 0, "formato": "Sin fecha de contratación"}
 
         hoy = date.today()
         dias_totales = (hoy - self.fecha_contrato).days
-
-        # Formateo en años, meses y días
         delta = relativedelta(hoy, self.fecha_contrato)
         formato = f"{delta.years} años, {delta.months} meses, {delta.days} días"
 
-        return {"dias_totales": dias_totales, "formato": formato}
+        return {
+            "dias_totales": dias_totales,
+            "años": delta.years,
+            "meses": delta.months,
+            "dias": delta.days,
+            "formato": formato,
+        }
 
     def generar_papeleta(self):
         return {

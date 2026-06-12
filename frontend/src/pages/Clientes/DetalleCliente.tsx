@@ -7,8 +7,9 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import { useGetDetalleClienteQuery, useGetTrabajadoresClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import TablaContratosLaboralesCliente from './components/TablaContratosLaboralesCliente';
 import TablaDeContratosDelCliente from './components/TablaDeContratosDelCliente';
 import TablaDeUsuariosVinculadosLicencias from './components/TablaDeUsuariosVinculadosLicencias';
@@ -25,12 +26,22 @@ type TClientTab = keyof typeof CLIENT_TABS;
 
 const DetalleCliente = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const {
         data: detalleCliente,
         isLoading: loadingCliente,
         isError: errorCliente,
         error: errorClienteData,
     } = useGetDetalleClienteQuery(id ?? '', { skip: !id });
+
+    useEffect(() => {
+        if (!errorCliente) return;
+        const status = (errorClienteData as { status?: number })?.status;
+        if (status === 404) {
+            toast.warning('El cliente no fue encontrado. Es posible que haya sido eliminado.');
+            navigate('/empresa/empresas', { replace: true });
+        }
+    }, [errorCliente, errorClienteData, navigate]);
 
     const empresaClienteId = detalleCliente?.info_cliente?.id;
     const { data: trabajadores = [] } = useGetTrabajadoresClienteQuery(

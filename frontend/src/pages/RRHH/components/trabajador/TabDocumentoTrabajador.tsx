@@ -39,12 +39,14 @@ const PdfFileCard = ({ contrato }: { contrato: IContratoTrabajador }) => {
                 <p className='truncate text-sm font-medium'>{nombreArchivo}</p>
                 <p className='text-xs text-zinc-400 dark:text-zinc-500'>PDF firmado</p>
             </div>
-            <Button
-                icon='HeroArrowDownTray'
-                size='sm'
-                onClick={() => window.open(contrato.archivo_pdf!, '_blank')}>
+            <a
+                href={contrato.archivo_pdf!}
+                target='_blank'
+                rel='noopener noreferrer'
+                download
+                className='inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300'>
                 Descargar
-            </Button>
+            </a>
         </div>
     );
 };
@@ -144,8 +146,8 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
         <Card>
             <CardHeader>Documento del contrato</CardHeader>
             <CardBody>
-                <div className='mb-4 space-y-3'>
-                    <div className='flex items-center justify-between gap-3'>
+                {esBorrador && (
+                    <div className='mb-4 space-y-3'>
                         <div>
                             <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
                                 Snapshot estructurado
@@ -154,42 +156,37 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                                 Vista por bloques del documento congelado del contrato.
                             </p>
                         </div>
-                        {!esBorrador && (
-                            <Alert variant='outline' color='amber' icon='HeroClock' className='max-w-fit'>
-                                Solo lectura fuera de borrador.
-                            </Alert>
-                        )}
-                    </div>
 
-                    <div className='grid gap-3 md:grid-cols-2'>
-                        {snapshotBlocks.map((block) => (
-                            <div
-                                key={block.path}
-                                className='rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40'>
-                                <div className='flex items-start justify-between gap-3'>
-                                    <div>
-                                        <p className='text-sm font-semibold text-zinc-700 dark:text-zinc-200'>
-                                            {block.label}
-                                        </p>
-                                        <p className='text-xs text-zinc-400 dark:text-zinc-500'>{block.path}</p>
+                        <div className='grid gap-3 md:grid-cols-2'>
+                            {snapshotBlocks.map((block) => (
+                                <div
+                                    key={block.path}
+                                    className='rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/40'>
+                                    <div className='flex items-start justify-between gap-3'>
+                                        <div>
+                                            <p className='text-sm font-semibold text-zinc-700 dark:text-zinc-200'>
+                                                {block.label}
+                                            </p>
+                                            <p className='text-xs text-zinc-400 dark:text-zinc-500'>{block.path}</p>
+                                        </div>
+                                        <Button
+                                            size='sm'
+                                            icon='HeroPencilSquare'
+                                            variant='solid'
+                                            color='blue'
+                                            isDisable={!esBorrador}
+                                            onClick={() => openBlockEditor(block.path)}>
+                                            Editar
+                                        </Button>
                                     </div>
-                                    <Button
-                                        size='sm'
-                                        icon='HeroPencilSquare'
-                                        variant='solid'
-                                        color='blue'
-                                        isDisable={!esBorrador}
-                                        onClick={() => openBlockEditor(block.path)}>
-                                        Editar
-                                    </Button>
+                                    <div className='mt-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/60'>
+                                        {block.value || '—'}
+                                    </div>
                                 </div>
-                                <div className='mt-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/60'>
-                                    {block.value || '—'}
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Variante A: borrador sin PDF */}
                 {esBorrador && !tienePdf && (
@@ -238,8 +235,8 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                     </div>
                 )}
 
-                {/* Variante C: borrador con PDF o vigente */}
-                {((esBorrador && tienePdf) || esVigente) && (
+                {/* Variante C: borrador con PDF */}
+                {esBorrador && tienePdf && (
                     <div className='space-y-3'>
                         <PdfFileCard contrato={contrato} />
                         <div>
@@ -256,7 +253,6 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                                 }
                                 isClearable
                                 placeholder='Seleccionar plantilla'
-                                isDisabled={esVigente}
                             />
                         </div>
                         <Button
@@ -268,6 +264,13 @@ const TabDocumentoTrabajador = ({ contrato }: ITabDocumentoProps) => {
                             className='w-full justify-center'>
                             Regenerar PDF
                         </Button>
+                    </div>
+                )}
+
+                {/* Variante C2: vigente — solo descarga */}
+                {esVigente && (
+                    <div className='space-y-3'>
+                        <PdfFileCard contrato={contrato} />
                     </div>
                 )}
 

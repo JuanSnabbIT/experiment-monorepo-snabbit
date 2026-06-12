@@ -324,9 +324,11 @@ const DetalleUsuarioCliente = () => {
                                         </div>
                                         <div>
                                             <p className='text-xl font-bold'>
-                                                {usuario!.papeleta?.años_servicio ?? '-'}
+                                                {usuario!.papeleta?.dias_corridos
+                                                    ? `${usuario!.papeleta.dias_corridos.dias} d / ${usuario!.papeleta.dias_corridos.meses} m / ${usuario!.papeleta.dias_corridos.años} a`
+                                                    : '-'}
                                             </p>
-                                            <p className='text-xs text-zinc-500'>Antigüedad (años)</p>
+                                            <p className='text-xs text-zinc-500'>Antigüedad</p>
                                         </div>
                                     </div>
                                 )}

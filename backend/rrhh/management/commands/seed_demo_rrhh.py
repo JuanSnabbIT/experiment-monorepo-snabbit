@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
@@ -19,12 +19,19 @@ from rrhh.models import (
 )
 
 
-# Demo empresa y usuario admin
 DEMO_EMPRESA_NOMBRE = "Demo RRHH SpA"
 DEMO_EMPRESA_DIRECCION = "Av. Demo 123, Santiago, Región Metropolitana"
 DEMO_SUCURSAL_NOMBRE = "Casa Matriz"
 
-# Catálogos
+# Lista de emails demo (usado en reset y en creación)
+DEMO_EMAILS = [
+    "admin@demo.cl",
+    "ana.perez@demo.cl",
+    "juan.soto@demo.cl",
+    "carla.rojas@demo.cl",
+    "pedro.alarcon@demo.cl",
+]
+
 AFP_CATALOGOS = [
     "Provida",
     "Habitat",
@@ -61,7 +68,7 @@ CONFIG_LABORAL = [
     {"clave": "jornada_horas_semanales", "valor": Decimal("45")},
 ]
 
-# Usuarios trabajadores
+# Usuarios trabajadores — no mutar este dict; el loop usa .copy()
 USUARIOS_TRABAJADORES = [
     {
         "email": "admin@demo.cl",
@@ -71,6 +78,20 @@ USUARIOS_TRABAJADORES = [
         "is_superuser": True,
         "rut": "11111111-1",
         "cargo": "Gerente General",
+        # Perfil personal
+        "celular": "+56998765432",
+        "genero": "1",
+        "fecha_nacimiento": date(1978, 9, 25),
+        "estado_civil": "casado",
+        "nacionalidad": "Chilena",
+        "direccion": "Av. Apoquindo 5678, Las Condes, Santiago",
+        # Previsional / bancario
+        "afp_nombre": "Capital",
+        "sistema_salud": "isapre",
+        "nombre_isapre": "Colmena",
+        "banco": "BancoEstado",
+        "tipo_cuenta_bancaria": "corriente",
+        "numero_cuenta_bancaria": "00011111111",
     },
     {
         "email": "ana.perez@demo.cl",
@@ -80,6 +101,20 @@ USUARIOS_TRABAJADORES = [
         "is_superuser": False,
         "rut": "22222222-2",
         "cargo": "Desarrollador de Software",
+        # Perfil personal
+        "celular": "+56912345678",
+        "genero": "2",
+        "fecha_nacimiento": date(1990, 5, 15),
+        "estado_civil": "soltero",
+        "nacionalidad": "Chilena",
+        "direccion": "Av. Providencia 1234, Providencia, Santiago",
+        # Previsional / bancario
+        "afp_nombre": "Habitat",
+        "sistema_salud": "fonasa",
+        "nombre_isapre": None,
+        "banco": "BancoEstado",
+        "tipo_cuenta_bancaria": "rut",
+        "numero_cuenta_bancaria": "22222222",
     },
     {
         "email": "juan.soto@demo.cl",
@@ -89,6 +124,20 @@ USUARIOS_TRABAJADORES = [
         "is_superuser": False,
         "rut": "33333333-3",
         "cargo": "Analista de Sistemas",
+        # Perfil personal
+        "celular": "+56923456789",
+        "genero": "1",
+        "fecha_nacimiento": date(1985, 11, 20),
+        "estado_civil": "casado",
+        "nacionalidad": "Chilena",
+        "direccion": "Calle San Martín 456, Maipú, Santiago",
+        # Previsional / bancario
+        "afp_nombre": "Provida",
+        "sistema_salud": "isapre",
+        "nombre_isapre": "Cruz Blanca",
+        "banco": "Santander",
+        "tipo_cuenta_bancaria": "corriente",
+        "numero_cuenta_bancaria": "00033333333",
     },
     {
         "email": "carla.rojas@demo.cl",
@@ -98,12 +147,48 @@ USUARIOS_TRABAJADORES = [
         "is_superuser": False,
         "rut": "44444444-4",
         "cargo": "Administrativo",
+        # Perfil personal
+        "celular": "+56934567890",
+        "genero": "2",
+        "fecha_nacimiento": date(1992, 3, 8),
+        "estado_civil": "divorciado",
+        "nacionalidad": "Chilena",
+        "direccion": "Pasaje Los Pinos 789, Ñuñoa, Santiago",
+        # Previsional / bancario
+        "afp_nombre": "Capital",
+        "sistema_salud": "fonasa",
+        "nombre_isapre": None,
+        "banco": "BCI",
+        "tipo_cuenta_bancaria": "vista",
+        "numero_cuenta_bancaria": "00044444444",
+    },
+    {
+        "email": "pedro.alarcon@demo.cl",
+        "first_name": "Pedro",
+        "last_name": "Alarcón",
+        "is_staff": False,
+        "is_superuser": False,
+        "rut": "55555555-5",
+        "cargo": "Diseñador UX",
+        # Perfil personal
+        "celular": "+56945678901",
+        "genero": "1",
+        "fecha_nacimiento": date(1988, 7, 14),
+        "estado_civil": "casado",
+        "nacionalidad": "Chilena",
+        "direccion": "Av. Grecia 2500, Macul, Santiago",
+        # Previsional / bancario
+        "afp_nombre": "Cuprum",
+        "sistema_salud": "isapre",
+        "nombre_isapre": "Banmédica",
+        "banco": "Chile",
+        "tipo_cuenta_bancaria": "corriente",
+        "numero_cuenta_bancaria": "00055555555",
     },
 ]
 
 PASSWORD_DEMO = "Demo1234!"
 
-# Plantillas de contrato laboral
 PLANTILLAS_TRABAJADOR = [
     {
         "titulo": "Contrato Individual de Trabajo",
@@ -334,83 +419,94 @@ class Command(BaseCommand):
         reset = options.get("reset", False)
 
         with transaction.atomic():
-            # Paso 0: Catálogos globales
+
+            # ── RESET ──────────────────────────────────────────────────────────
+            if reset:
+                self.stdout.write(self.style.WARNING("RESET: Limpiando datos demo anteriores..."))
+                empresa_demo = Empresa.objects.filter(nombre=DEMO_EMPRESA_NOMBRE).first()
+                if empresa_demo:
+                    # 1. Contratos (PROTECT sobre UsuarioEmpresa — borrar primero)
+                    sucursal_ids = empresa_demo.sucursales.values_list("id", flat=True)
+                    ue_ids = UsuarioEmpresa.objects.filter(
+                        sucursal_id__in=sucursal_ids
+                    ).values_list("id", flat=True)
+                    n_contratos, _ = ContratoTrabajador.objects.filter(
+                        usuario_empresa_id__in=ue_ids
+                    ).delete()
+                    self.stdout.write(self.style.SUCCESS(f"  [OK] Contratos eliminados: {n_contratos}"))
+
+                    # 2. Plantillas por empresa (SET_NULL no las borra automáticamente)
+                    n_plantillas, _ = PlantillaContrato.objects.filter(
+                        empresa_prestadora=empresa_demo
+                    ).delete()
+                    self.stdout.write(self.style.SUCCESS(f"  [OK] Plantillas de empresa eliminadas: {n_plantillas}"))
+
+                    # 3. Usuarios demo (cascade elimina UsuarioEmpresa y PersonalizacionUsuario)
+                    n_users, _ = User.objects.filter(email__in=DEMO_EMAILS).delete()
+                    self.stdout.write(self.style.SUCCESS(f"  [OK] Usuarios eliminados: {n_users}"))
+
+                    # 4. Empresa (cascade elimina SucursalEmpresa, CargoCatalogo, ConfiguracionLaboral)
+                    empresa_demo.delete()
+                    self.stdout.write(self.style.SUCCESS(f"  [OK] Empresa '{DEMO_EMPRESA_NOMBRE}' eliminada"))
+                else:
+                    self.stdout.write(self.style.SUCCESS("  [OK] No había datos demo previos"))
+
+            # ── PASO 0: Catálogos globales ─────────────────────────────────────
             self.stdout.write(self.style.WARNING("Paso 0: Poblando catálogos globales..."))
             call_command("seed_turnos_globales")
             call_command("seed_etiquetas_trabajador")
             call_command("seed_bloques_transversales")
 
-            # Paso 1: Empresa y Sucursal
+            # ── PASO 1: Empresa y Sucursal ─────────────────────────────────────
             self.stdout.write(self.style.WARNING("Paso 1: Creando empresa y sucursal..."))
             empresa, empresa_creada = Empresa.objects.get_or_create(
                 nombre=DEMO_EMPRESA_NOMBRE,
                 defaults={"direccion_principal": DEMO_EMPRESA_DIRECCION},
             )
-            if empresa_creada:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"  [OK] Empresa '{empresa.nombre}' creada"
-                    )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"  [OK] Empresa '{empresa.nombre}' {'creada' if empresa_creada else 'ya existe'}"
                 )
-            else:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"  [OK] Empresa '{empresa.nombre}' ya existe"
-                    )
-                )
+            )
 
             sucursal, sucursal_creada = SucursalEmpresa.objects.get_or_create(
                 empresa=empresa,
                 nombre=DEMO_SUCURSAL_NOMBRE,
             )
-            if sucursal_creada:
-                self.stdout.write(self.style.SUCCESS(f"  [OK] Sucursal '{sucursal.nombre}' creada"))
-            else:
-                self.stdout.write(self.style.SUCCESS(f"  [OK] Sucursal '{sucursal.nombre}' ya existe"))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"  [OK] Sucursal '{sucursal.nombre}' {'creada' if sucursal_creada else 'ya existe'}"
+                )
+            )
 
-            # Paso 2: Plantillas de contrato por defecto para la empresa demo
+            # ── PASO 2: Plantillas default por empresa ─────────────────────────
             self.stdout.write(self.style.WARNING("Paso 2: Creando plantillas de contrato por defecto para la empresa demo..."))
             call_command("seed_plantillas_default", empresa_id=empresa.id)
 
-            # Paso 3: Catálogos por empresa
+            # ── PASO 3: Catálogos por empresa ──────────────────────────────────
             self.stdout.write(self.style.WARNING("Paso 3: Poblando catálogos por empresa..."))
 
-            # AFP
             afp_creadas = 0
             for afp_nombre in AFP_CATALOGOS:
-                _, creada = AfpCatalogo.objects.get_or_create(
-                    nombre=afp_nombre,
-                    empresa=None,
-                )
+                _, creada = AfpCatalogo.objects.get_or_create(nombre=afp_nombre, empresa=None)
                 if creada:
                     afp_creadas += 1
             self.stdout.write(self.style.SUCCESS(f"  [OK] AFP: {afp_creadas} creadas"))
 
-            # Bancos
             banco_creados = 0
             for banco_nombre in BANCO_CATALOGOS:
-                _, creado = BancoCatalogo.objects.get_or_create(
-                    nombre=banco_nombre,
-                    empresa=None,
-                )
+                _, creado = BancoCatalogo.objects.get_or_create(nombre=banco_nombre, empresa=None)
                 if creado:
                     banco_creados += 1
             self.stdout.write(self.style.SUCCESS(f"  [OK] Bancos: {banco_creados} creados"))
 
-            # Cargos por empresa
             cargo_creados = 0
             for cargo_nombre in CARGO_CATALOGOS:
-                _, creado = CargoCatalogo.objects.get_or_create(
-                    empresa=empresa,
-                    nombre=cargo_nombre,
-                )
+                _, creado = CargoCatalogo.objects.get_or_create(empresa=empresa, nombre=cargo_nombre)
                 if creado:
                     cargo_creados += 1
-            self.stdout.write(
-                self.style.SUCCESS(f"  [OK] Cargos ({empresa.nombre}): {cargo_creados} creados")
-            )
+            self.stdout.write(self.style.SUCCESS(f"  [OK] Cargos ({empresa.nombre}): {cargo_creados} creados"))
 
-            # Configuración laboral
             config_creadas = 0
             for config_data in CONFIG_LABORAL:
                 _, creada = ConfiguracionLaboral.objects.get_or_create(
@@ -420,40 +516,98 @@ class Command(BaseCommand):
                 )
                 if creada:
                     config_creadas += 1
-            self.stdout.write(
-                self.style.SUCCESS(f"  [OK] Configuración laboral: {config_creadas} creada")
-            )
+            self.stdout.write(self.style.SUCCESS(f"  [OK] Configuración laboral: {config_creadas} creada"))
 
-            # Paso 3: Usuarios trabajadores
-            self.stdout.write(self.style.WARNING("Paso 3: Creando usuarios trabajadores..."))
+            # ── PASO 4: Usuarios trabajadores ──────────────────────────────────
+            self.stdout.write(self.style.WARNING("Paso 4: Creando usuarios trabajadores..."))
+            hoy = timezone.now().date()
             usuarios_creados = 0
-            for user_data in USUARIOS_TRABAJADORES:
-                email = user_data.pop("email")
-                rut = user_data.pop("rut")
-                cargo_nombre = user_data.pop("cargo")
 
+            for raw_data in USUARIOS_TRABAJADORES:
+                data = raw_data.copy()
+
+                email = data.pop("email")
+                rut = data.pop("rut")
+                cargo_nombre = data.pop("cargo")
+                afp_nombre = data.pop("afp_nombre")
+                sistema_salud = data.pop("sistema_salud")
+                nombre_isapre = data.pop("nombre_isapre")
+                banco_nombre = data.pop("banco")
+                tipo_cuenta_bancaria = data.pop("tipo_cuenta_bancaria")
+                numero_cuenta_bancaria = data.pop("numero_cuenta_bancaria")
+
+                # Campos del User (todo lo que queda en data más rut e is_active)
                 user, user_creado = User.objects.get_or_create(
                     email=email,
                     defaults={
                         "password": make_password(PASSWORD_DEMO),
-                        **user_data,
+                        "is_active": True,
+                        "rut": rut,
+                        **data,
                     },
                 )
                 if user_creado:
                     usuarios_creados += 1
                     self.stdout.write(self.style.SUCCESS(f"    [OK] User '{email}' creado"))
+                else:
+                    # Actualizar campos de perfil en usuarios existentes
+                    needs_save = False
+                    profile_fields = {
+                        "is_active": True,
+                        "rut": rut,
+                        **{k: v for k, v in data.items() if k not in ("is_staff", "is_superuser")},
+                    }
+                    for field, value in profile_fields.items():
+                        if getattr(user, field) != value:
+                            setattr(user, field, value)
+                            needs_save = True
+                    if needs_save:
+                        user.save()
+
+                # AFP lookup
+                afp_obj = AfpCatalogo.objects.filter(nombre=afp_nombre, empresa=None).first()
 
                 # UsuarioEmpresa
+                if cargo_nombre == "Diseñador UX":
+                    fecha_ingreso = hoy - timedelta(days=913)  # ~2 años 6 meses
+                elif cargo_nombre == "Administrativo":
+                    fecha_ingreso = hoy - timedelta(days=180)
+                elif cargo_nombre == "Analista de Sistemas":
+                    fecha_ingreso = hoy - timedelta(days=30)
+                else:
+                    fecha_ingreso = hoy - timedelta(days=60)
                 usuario_empresa, ue_creado = UsuarioEmpresa.objects.get_or_create(
                     usuario=user,
                     defaults={
                         "sucursal": sucursal,
                         "cargo": cargo_nombre,
                         "rut": rut,
+                        "afp": afp_obj,
+                        "sistema_salud": sistema_salud,
+                        "nombre_isapre": nombre_isapre or "",
+                        "banco": banco_nombre,
+                        "tipo_cuenta_bancaria": tipo_cuenta_bancaria,
+                        "numero_cuenta_bancaria": numero_cuenta_bancaria,
+                        "fecha_ingreso": fecha_ingreso,
+                        "fecha_contrato": fecha_ingreso,
                     },
                 )
+                if not ue_creado:
+                    # Actualizar datos previsionales/bancarios en registros existentes
+                    updated = UsuarioEmpresa.objects.filter(pk=usuario_empresa.pk).update(
+                        afp=afp_obj,
+                        sistema_salud=sistema_salud,
+                        nombre_isapre=nombre_isapre or "",
+                        banco=banco_nombre,
+                        tipo_cuenta_bancaria=tipo_cuenta_bancaria,
+                        numero_cuenta_bancaria=numero_cuenta_bancaria,
+                        fecha_ingreso=fecha_ingreso,
+                        fecha_contrato=fecha_ingreso,
+                    )
+                    if updated:
+                        self.stdout.write(self.style.SUCCESS(f"    [OK] UsuarioEmpresa '{email}' actualizado"))
 
-                # PersonalizacionUsuario (actualizar sucursal_principal si no existe)
+                # PersonalizacionUsuario
                 personalizacion, _ = PersonalizacionUsuario.objects.get_or_create(
                     usuario=user,
                     defaults={"sucursal_principal": sucursal},
@@ -464,8 +618,8 @@ class Command(BaseCommand):
 
             self.stdout.write(self.style.SUCCESS(f"  [OK] Usuarios: {usuarios_creados} creados"))
 
-            # Paso 4: Plantillas globales tipo='trabajador'
-            self.stdout.write(self.style.WARNING("Paso 4: Creando plantillas laborales globales..."))
+            # ── PASO 5: Plantillas laborales globales ─────────────────────────
+            self.stdout.write(self.style.WARNING("Paso 5: Creando plantillas laborales globales..."))
 
             plantillas_creadas = 0
             plantilla_default = None
@@ -491,7 +645,6 @@ class Command(BaseCommand):
                     plantillas_creadas += 1
                     self.stdout.write(self.style.SUCCESS(f"  [OK] Plantilla global creada: {titulo}"))
 
-                    # Crear secciones de la plantilla
                     secciones_creadas = 0
                     for sec_data in secciones_data:
                         _, sec_creada = SeccionPlantilla.objects.get_or_create(
@@ -508,22 +661,17 @@ class Command(BaseCommand):
                         if sec_creada:
                             secciones_creadas += 1
 
-                    self.stdout.write(
-                        self.style.SUCCESS(f"    [OK] {secciones_creadas} secciones creadas")
-                    )
+                    self.stdout.write(self.style.SUCCESS(f"    [OK] {secciones_creadas} secciones creadas"))
                 else:
                     self.stdout.write(self.style.SUCCESS(f"  [OK] Plantilla global ya existe: {titulo}"))
 
-                # Guardar la plantilla por defecto
                 if es_default:
                     plantilla_default = plantilla
 
-            self.stdout.write(
-                self.style.SUCCESS(f"  [OK] Total plantillas laborales globales creadas: {plantillas_creadas}")
-            )
+            self.stdout.write(self.style.SUCCESS(f"  [OK] Total plantillas laborales globales: {plantillas_creadas} creadas"))
 
-            # Paso 5: Contratos laborales en distintos estados
-            self.stdout.write(self.style.WARNING("Paso 5: Creando contratos de prueba..."))
+            # ── PASO 6: Contratos de prueba ───────────────────────────────────
+            self.stdout.write(self.style.WARNING("Paso 6: Creando contratos de prueba..."))
 
             hoy = timezone.now().date()
             contratos_data = [
@@ -551,6 +699,14 @@ class Command(BaseCommand):
                     "cargo": "Administrativo",
                     "sueldo_base": Decimal("1800000"),
                 },
+                {
+                    "trabajador_email": "pedro.alarcon@demo.cl",
+                    "tipo_contrato": "indefinido",
+                    "estado": "vigente",
+                    "fecha_inicio": hoy - timedelta(days=913),
+                    "cargo": "Diseñador UX",
+                    "sueldo_base": Decimal("2800000"),
+                },
             ]
 
             contratos_creados = 0
@@ -559,7 +715,6 @@ class Command(BaseCommand):
                 usuario = User.objects.get(email=trabajador_email)
                 usuario_empresa = UsuarioEmpresa.objects.get(usuario=usuario)
 
-                # Buscar cargo del catálogo
                 cargo = CargoCatalogo.objects.filter(
                     empresa=empresa, nombre=contrato_data["cargo"]
                 ).first()
@@ -584,22 +739,22 @@ class Command(BaseCommand):
 
                 if contrato_creado:
                     contratos_creados += 1
-                    estado_display = contrato_data["estado"].upper()
                     self.stdout.write(
                         self.style.SUCCESS(
-                            f"    [OK] Contrato {usuario.email}: {estado_display}"
+                            f"    [OK] Contrato {usuario.email}: {contrato_data['estado'].upper()}"
                         )
                     )
 
             self.stdout.write(self.style.SUCCESS(f"  [OK] Contratos: {contratos_creados} creados"))
 
-            # Resumen final
+            # ── Resumen ────────────────────────────────────────────────────────
             self.stdout.write("")
             self.stdout.write(
                 self.style.SUCCESS(
                     f"[OK] Seed completado para RRHH Demo.\n"
                     f"  Empresa: {empresa.nombre}\n"
                     f"  Login demo: admin@demo.cl / {PASSWORD_DEMO}\n"
-                    f"  Trabajadores: ana.perez@demo.cl, juan.soto@demo.cl, carla.rojas@demo.cl"
+                    f"  Trabajadores: ana.perez@demo.cl, juan.soto@demo.cl, carla.rojas@demo.cl\n"
+                    f"  Contratos: BORRADOR (Ana), VIGENTE (Juan), TERMINADO (Carla), VIGENTE (Pedro ~2.5 años)"
                 )
             )

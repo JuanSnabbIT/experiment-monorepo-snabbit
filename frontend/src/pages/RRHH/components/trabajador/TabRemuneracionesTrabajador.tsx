@@ -34,7 +34,7 @@ const DESCUENTO_OPTIONS = [
 const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
     const esBorrador = contrato.estado === 'borrador';
     const [editando, setEditando] = useState(false);
-    const [descuentoOption, setDescuentoOption] = useState('20');
+    const [descuentoOption, setDescuentoOption] = useState('no');
     const [guardando, setGuardando] = useState(false);
 
     const [updateContrato] = useUpdateContratoTrabajadorMutation();
@@ -52,6 +52,18 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
         onSubmit: async (values) => {
             setGuardando(true);
             try {
+                const _base = Number(values.sueldo_base) || 0;
+                const _gratif =
+                    values.tipo_gratificacion === 'art_50_mensual' ? Math.round(_base * 0.25) : 0;
+                const _colacion = Number(values.bono_colacion) || 0;
+                const _movil = Number(values.bono_movilizacion) || 0;
+                const _bruto = _base + _gratif + _colacion + _movil;
+                const _desc =
+                    descuentoOption !== 'no'
+                        ? Math.round(_base * ((Number(descuentoOption) || 0) / 100))
+                        : 0;
+                const _liquido = Math.max(0, _bruto - _desc);
+
                 await updateContrato({
                     id: contrato.id,
                     data: {
@@ -60,7 +72,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                         tipo_gratificacion: values.tipo_gratificacion,
                         bono_movilizacion: values.bono_movilizacion !== '' ? values.bono_movilizacion : undefined,
                         bono_colacion: values.bono_colacion !== '' ? values.bono_colacion : undefined,
-                        sueldo_liquido: values.sueldo_liquido !== '' ? values.sueldo_liquido : null,
+                        sueldo_liquido: _liquido,
                     } as Partial<IContratoTrabajador>,
                 }).unwrap();
                 toast.success('Remuneraciones actualizadas');

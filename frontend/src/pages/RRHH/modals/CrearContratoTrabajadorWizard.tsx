@@ -416,6 +416,20 @@ const CrearContratoTrabajadorWizard = ({
         validationSchema,
         onSubmit: async (values) => {
             try {
+                // Calcular sueldo_liquido con la misma lógica del StepRemuneraciones
+                const _base = Number(values.sueldo_base) || 0;
+                const _gratif =
+                    values.gratificacion_activa && values.tipo_gratificacion === 'art_50_mensual'
+                        ? Math.round(_base * 0.25)
+                        : 0;
+                const _colacion = values.bono_colacion_activo ? Number(values.bono_colacion) || 0 : 0;
+                const _movil = values.bono_movilizacion_activo ? Number(values.bono_movilizacion) || 0 : 0;
+                const _bruto = _base + _gratif + _colacion + _movil;
+                const _desc = values.descuentos_activos
+                    ? Math.round(_base * ((Number(values.porcentaje_descuentos) || 0) / 100))
+                    : 0;
+                const _sueldoLiquido = Math.max(0, _bruto - _desc);
+
                 // Construir payload del contrato
                 const contratoPayload: Record<string, unknown> = {
                     referencia_interna: values.referencia_interna || null,
@@ -436,7 +450,7 @@ const CrearContratoTrabajadorWizard = ({
                     enviar_al_empleador: values.enviar_al_empleador,
                     cantidad_meses: values.cantidad_meses || null,
                     sueldo_base: values.sueldo_base || 0,
-                    sueldo_liquido: null,
+                    sueldo_liquido: _sueldoLiquido,
                     moneda: 'CLP',
                     tipo_gratificacion: values.gratificacion_activa ? values.tipo_gratificacion : 'no_aplica',
                     bono_movilizacion: values.bono_movilizacion_activo ? Number(values.bono_movilizacion) || 0 : 0,

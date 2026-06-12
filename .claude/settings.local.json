@@ -46,7 +46,9 @@
       "Bash(pip show *)",
       "Bash(C:\\\\Users\\\\soporte\\\\.conda\\\\envs\\\\ENV\\\\python.exe manage.py seed_rrhh_completo)",
       "Bash(python manage.py makemigrations --check --dry-run)",
-      "Bash(..\\\\ENV\\\\Scripts\\\\python.exe manage.py makemigrations --check --dry-run)"
+      "Bash(..\\\\ENV\\\\Scripts\\\\python.exe manage.py makemigrations --check --dry-run)",
+      "Bash(python manage.py seed_demo_rrhh --reset)",
+      "Bash(python -c \"import django; print\\(django.__version__\\)\")"
     ]
   }
 }
