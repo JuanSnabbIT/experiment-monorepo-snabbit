@@ -48,7 +48,12 @@
       "Bash(python manage.py makemigrations --check --dry-run)",
       "Bash(..\\\\ENV\\\\Scripts\\\\python.exe manage.py makemigrations --check --dry-run)",
       "Bash(python manage.py seed_demo_rrhh --reset)",
-      "Bash(python -c \"import django; print\\(django.__version__\\)\")"
+      "Bash(python -c \"import django; print\\(django.__version__\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\proyectos\\\\experiment-monorepo-snabbit\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(git log *)",
+      "Bash(grep -r \"\\\\`.*\\\\${.*}\\\\`\\\\|\\\\[\\\\`.*\\\\${.*}\\\\`\\\\]\" --include=\"*.tsx\" --include=\"*.ts\")"
     ]
   }
 }

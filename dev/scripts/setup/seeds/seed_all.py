@@ -59,19 +59,31 @@ PASSWORD_DEFAULT = "test1234"
 # ---------------------------------------------------------------------------
 # Secciones hardcoded para plantilla de contrato de trabajador
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Notas de alineación con AdaptadorContratoTrabajador:
+#   - empresa.ciudad    : Empresa no tiene campo ciudad; el adaptador usa
+#                         direccion_principal como fallback.
+#                         MEJORA FUTURA (Opción A): agregar CharField ciudad a Empresa.
+#   - forma_pago        : No existe en ContratoTrabajador; texto fijo por ahora.
+#                         MEJORA FUTURA (Opción A): agregar campo forma_pago a
+#                         ContratoTrabajador y reemplazar texto fijo por [contrato.forma_pago].
+#   - prestaciones      : Reemplazado por bonos existentes (bono_colacion, bono_movilizacion).
+#                         MEJORA FUTURA (Opción A): agregar campo prestaciones_adicionales
+#                         a ContratoTrabajador y usar [contrato.prestaciones_adicionales].
+# ---------------------------------------------------------------------------
 SECCIONES_TRABAJADOR = [
     {
         "orden": 1,
         "tipo": "encabezado",
         "titulo": "Contrato de Trabajo",
         "contenido_template": (
-            "En [empresa.ciudad], a [contrato.fecha_inicio_formato], "
-            "entre [empresa.nombre], RUT [empresa.rut], representada "
+            "En [empresa.ciudad], a [contrato.fecha_inicio], "
+            "entre [empresa.nombre], RUT [empresa.rut_empresa], representada "
             "legalmente por [empresa.representante_legal], RUT "
             "[empresa.rut_representante], en adelante el EMPLEADOR, y "
             "[trabajador.nombre_completo], de nacionalidad "
             "[trabajador.nacionalidad], estado civil [trabajador.estado_civil], "
-            "RUT [trabajador.rut], con domicilio en [trabajador.direccion_completa], "
+            "RUT [trabajador.rut], con domicilio en [trabajador.direccion], "
             "en adelante el TRABAJADOR, se ha convenido el siguiente contrato "
             "de trabajo:"
         ),
@@ -121,11 +133,13 @@ SECCIONES_TRABAJADOR = [
         "orden": 5,
         "tipo": "clausula",
         "titulo": "CUARTO: Remuneracion",
+        # Opción A futura: agregar campo forma_pago a ContratoTrabajador y
+        # reemplazar "mediante transferencia bancaria" por [contrato.forma_pago].
         "contenido_template": (
             "El EMPLEADOR pagara al (la) TRABAJADOR(A) una remuneracion "
-            r"mensual bruta de <b>\$[contrato.remuneracion_bruta]</b> "
-            "([contrato.remuneracion_bruta_letras] pesos), pagadera en "
-            "forma mensual [contrato.forma_pago] a mes vencido. "
+            r"mensual bruta de <b>\$[remuneracion.sueldo_base]</b> "
+            "([remuneracion.sueldo_base_palabras]), pagadera en "
+            "forma mensual mediante transferencia bancaria a mes vencido. "
             "Esta remuneracion incluye todas las prestaciones en dinero o "
             "especies correspondientes al respectivo periodo de pago."
         ),
@@ -134,9 +148,12 @@ SECCIONES_TRABAJADOR = [
         "orden": 6,
         "tipo": "clausula",
         "titulo": "QUINTO: Prestaciones adicionales",
+        # Opción A futura: agregar campo prestaciones_adicionales a ContratoTrabajador
+        # y reemplazar los bonos individuales por [contrato.prestaciones_adicionales].
         "contenido_template": (
             "El EMPLEADOR otorgara adicionalmente al (la) TRABAJADOR(A) "
-            "las siguientes prestaciones: [contrato.prestaciones_adicionales]. "
+            r"las siguientes prestaciones: bono de colacion $[remuneracion.bono_colacion] "
+            r"y bono de movilizacion $[remuneracion.bono_movilizacion]. "
             "Estas prestaciones no constituyen remuneracion y no son "
             "imponibles para los efectos legales."
         ),
@@ -171,8 +188,8 @@ SECCIONES_TRABAJADOR = [
         "titulo": "OCTAVO: Vigencia",
         "contenido_template": (
             "Este contrato regira a partir del dia "
-            "<b>[contrato.fecha_inicio_formato]</b> y tendra "
-            "vigencia <b>[contrato.tipo_contrato_label]</b>."
+            "<b>[contrato.fecha_inicio]</b> y tendra "
+            "vigencia <b>[contrato.tipo_contrato]</b>."
         ),
     },
     {
@@ -202,7 +219,7 @@ SECCIONES_TRABAJADOR = [
         "orden": 12,
         "tipo": "clausula",
         "titulo": "DECIMO PRIMERO: Funciones especificas",
-        "contenido_template": "[contrato.funciones_especificas]",
+        "contenido_template": "[contrato.funciones]",
     },
     {
         "orden": 13,
@@ -210,7 +227,7 @@ SECCIONES_TRABAJADOR = [
         "titulo": "DECIMO SEGUNDO: Fecha de ingreso",
         "contenido_template": (
             "Para todos los efectos legales, la fecha de ingreso del (la) "
-            "TRABAJADOR(A) al EMPLEADOR es el [contrato.fecha_ingreso_formato]."
+            "TRABAJADOR(A) al EMPLEADOR es el [contrato.fecha_inicio]."
         ),
     },
     {
@@ -219,8 +236,8 @@ SECCIONES_TRABAJADOR = [
         "titulo": "DECIMO TERCERO: Prevision y salud",
         "contenido_template": (
             "El (la) TRABAJADOR(A) declara estar afiliado(a) a la AFP "
-            "[trabajador.afp_nombre] y al sistema de salud "
-            "[trabajador.sistema_salud_label]. "
+            "[prevision.afp_nombre] y al sistema de salud "
+            "[prevision.sistema_salud]. "
             "Las cotizaciones previsionales y de salud seran descontadas "
             "mensualmente de la remuneracion y enteradas oportunamente "
             "por el EMPLEADOR a las instituciones correspondientes."
@@ -243,7 +260,7 @@ SECCIONES_TRABAJADOR = [
         "titulo": "Firmas",
         "contenido_template": (
             "En conformidad, firman las partes en [empresa.ciudad], "
-            "a [contrato.fecha_firma_formato]."
+            "a [contrato.fecha_firma]."
         ),
     },
 ]
@@ -872,7 +889,7 @@ def seed_plantilla_servicios(plantilla_data, mapa_empresas_todos: list):
 
 def seed_plantilla_trabajador(mapa_empresas_todos: list):
     from contratos.models import PlantillaContrato, SeccionPlantilla
-    creadas = omitidas = 0
+    plantillas_creadas = plantillas_existentes = secciones_creadas = secciones_actualizadas = 0
     for empresa in mapa_empresas_todos:
         plantilla, creada = PlantillaContrato.objects.get_or_create(
             empresa_prestadora=empresa,
@@ -887,18 +904,30 @@ def seed_plantilla_trabajador(mapa_empresas_todos: list):
             },
         )
         if creada:
-            for s in SECCIONES_TRABAJADOR:
-                SeccionPlantilla.objects.create(
-                    plantilla=plantilla,
-                    orden=s["orden"],
-                    tipo=s["tipo"],
-                    titulo=s["titulo"],
-                    contenido_template=s["contenido_template"],
-                )
-            creadas += 1
+            plantillas_creadas += 1
         else:
-            omitidas += 1
-    print(f"  PlantillaContrato (trabajador): creadas={creadas}, existentes={omitidas}")
+            plantillas_existentes += 1
+        # Siempre sincronizar secciones (update_or_create garantiza que re-ejecutar
+        # el seed corrija plantillas existentes con etiquetas desactualizadas).
+        for s in SECCIONES_TRABAJADOR:
+            _, sec_creada = SeccionPlantilla.objects.update_or_create(
+                plantilla=plantilla,
+                orden=s["orden"],
+                defaults={
+                    "tipo": s["tipo"],
+                    "titulo": s["titulo"],
+                    "contenido_template": s["contenido_template"],
+                },
+            )
+            if sec_creada:
+                secciones_creadas += 1
+            else:
+                secciones_actualizadas += 1
+    print(
+        f"  PlantillaContrato (trabajador): creadas={plantillas_creadas}, "
+        f"existentes={plantillas_existentes} | "
+        f"SeccionPlantilla: creadas={secciones_creadas}, actualizadas={secciones_actualizadas}"
+    )
 
 
 def _construir_mapa_items_por_id_orig(datos_items: list, mapa_empresas: dict) -> dict:

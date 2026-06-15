@@ -45,12 +45,17 @@
     {
       "name": "visual-styles",
       "path": ".github/skills/visual-styles/SKILL.md",
-      "description": "Componentes UI, tema base Fyr, consistencia visual"
+      "description": "Componentes UI snapshot local derivado de FYR/Omtanke, sin dependencia externa. Catalogo canonico de patrones visuales: botones, badges, modales, tablas, cards, forms"
     },
     {
       "name": "notificaciones",
       "path": ".github/skills/notificaciones/SKILL.md",
       "description": "Sistema de notificaciones, eventos, Celery tasks"
+    },
+    {
+      "name": "docs-audit",
+      "path": ".github/skills/docs-audit/SKILL.md",
+      "description": "Skill maestra de auditoria: detecta desalineaciones entre codigo y documentacion. Orquesta visual-styles, rrhh, notificaciones. Modos: --quick (baseline), --full (completo), --fix (corrige bajo riesgo)"
     }
   ],
   "ignorePatterns": [
@@ -186,7 +191,7 @@
     "drf": "latest",
     "react": "18.x",
     "typescript": "5.x",
-    "vite": "5.x",
+    "vite": "8.x",
     "nodejs": "22+",
     "python": "3.12+"
   },

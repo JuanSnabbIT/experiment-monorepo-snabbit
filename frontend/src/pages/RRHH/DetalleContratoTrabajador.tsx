@@ -22,6 +22,7 @@ import {
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { TMotivoTerminoContrato } from '@/interface/rrhh.interface';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -29,12 +30,10 @@ import { toast } from 'react-toastify';
 import CicloVidaContratoLaboral from './components/trabajador/CicloVidaContratoLaboral';
 import ModalCambiarEstadoContrato from './components/trabajador/ModalCambiarEstadoContrato';
 import TabAnexosTrabajador from './components/trabajador/TabAnexosTrabajador';
-import TabBancoTrabajador from './components/trabajador/TabBancoTrabajador';
 import TabDatosLaboralesTrabajador from './components/trabajador/TabDatosLaboralesTrabajador';
 import TabDocumentoTrabajador from './components/trabajador/TabDocumentoTrabajador';
 import TabFiniquitoTrabajador from './components/trabajador/TabFiniquitoTrabajador';
 import TabHistorialTrabajador from './components/trabajador/TabHistorialTrabajador';
-import TabPrevisionTrabajador from './components/trabajador/TabPrevisionTrabajador';
 import TabRemuneracionesTrabajador from './components/trabajador/TabRemuneracionesTrabajador';
 import TabTrabajadorTrabajador from './components/trabajador/TabTrabajadorTrabajador';
 
@@ -42,8 +41,6 @@ type TTabId =
     | 'datos'
     | 'trabajador'
     | 'sueldo'
-    | 'prevision'
-    | 'banco'
     | 'documento'
     | 'anexos'
     | 'historial'
@@ -53,8 +50,6 @@ const TABS: { id: TTabId; label: string }[] = [
     { id: 'datos', label: 'Datos contrato' },
     { id: 'trabajador', label: 'Trabajador' },
     { id: 'sueldo', label: 'Sueldo' },
-    { id: 'prevision', label: 'Previsión y salud' },
-    { id: 'banco', label: 'Datos bancarios' },
     { id: 'documento', label: 'Documento' },
     { id: 'anexos', label: 'Anexos' },
     { id: 'historial', label: 'Historial' },
@@ -232,6 +227,22 @@ const DetalleContratoTrabajador = () => {
         }
     };
 
+    const handleDescartarContrato = async () => {
+        const confirmed = await confirmAlert({
+            title: 'Descartar contrato',
+            text: 'Esta acción es irreversible. El contrato pasará a estado Descartado y no podrá modificarse.',
+            confirmText: 'Descartar',
+            icon: 'warning',
+        });
+        if (!confirmed) return;
+        try {
+            await cambiarEstado({ id: contrato.id, estado: 'descartado' }).unwrap();
+            toast.success('Contrato descartado.');
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
     const handleAbrirModalCopia = () => {
         setNombreCopia(`Copia de ${contrato.referencia_interna || `contrato #${contratoId}`}`);
         setModalCopiaOpen(true);
@@ -341,6 +352,13 @@ const DetalleContratoTrabajador = () => {
                                     <>
                                         <Button icon='HeroDocumentArrowDown' isDisable={generandoPdf} onClick={handleGenerarPdf}>
                                             {generandoPdf ? 'Generando...' : 'Vista previa'}
+                                        </Button>
+                                        <Button
+                                            icon='HeroTrash'
+                                            color='red'
+                                            isDisable={cambiandoEstado}
+                                            onClick={handleDescartarContrato}>
+                                            Descartar
                                         </Button>
                                         <Button
                                             icon='HeroEnvelope'
@@ -542,26 +560,38 @@ const DetalleContratoTrabajador = () => {
             )}
 
             <Container className='pb-0'>
-                <div className='flex gap-1 border-b border-zinc-200 dark:border-zinc-700'>
+                <div className='flex flex-wrap gap-2'>
                     {TABS.filter((tab) => {
                         if (tab.id === 'finiquito') {
                             return contrato.estado === 'terminado' || contrato.estado === 'anulado';
                         }
                         return true;
-                    }).map((tab) => (
-                        <button
-                            key={tab.id}
-                            type='button'
-                            onClick={() => setActiveTab(tab.id)}
-                            className={[
-                                'px-4 py-2 text-sm font-medium transition-colors',
-                                activeTab === tab.id
-                                    ? 'border-b-2 border-blue-500 text-blue-500'
-                                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
-                            ].join(' ')}>
-                            {tab.label}
-                        </button>
-                    ))}
+                    }).map((tab) =>
+                        activeTab === tab.id ? (
+                            <Button
+                                key={tab.id}
+                                size='sm'
+                                rounded='rounded-full'
+                                className='border'
+                                isActive
+                                color='blue'
+                                colorIntensity='500'
+                                variant='solid'
+                                onClick={() => setActiveTab(tab.id)}>
+                                {tab.label}
+                            </Button>
+                        ) : (
+                            <Button
+                                key={tab.id}
+                                size='sm'
+                                rounded='rounded-full'
+                                className='border'
+                                color='zinc'
+                                onClick={() => setActiveTab(tab.id)}>
+                                {tab.label}
+                            </Button>
+                        ),
+                    )}
                 </div>
             </Container>
 
@@ -722,9 +752,7 @@ const DetalleContratoTrabajador = () => {
                 {activeTab === 'datos' && <TabDatosLaboralesTrabajador contrato={contrato} />}
                 {activeTab === 'trabajador' && <TabTrabajadorTrabajador contrato={contrato} />}
                 {activeTab === 'sueldo' && <TabRemuneracionesTrabajador contrato={contrato} />}
-                {activeTab === 'prevision' && <TabPrevisionTrabajador contrato={contrato} />}
-                {activeTab === 'banco' && <TabBancoTrabajador contrato={contrato} />}
-                {activeTab === 'documento' && <TabDocumentoTrabajador contrato={contrato} />}
+{activeTab === 'documento' && <TabDocumentoTrabajador contrato={contrato} />}
                 {activeTab === 'anexos' && <TabAnexosTrabajador contrato={contrato} />}
                 {activeTab === 'historial' && <TabHistorialTrabajador contratoId={contrato.id} />}
                 {activeTab === 'finiquito' && <TabFiniquitoTrabajador contrato={contrato} />}

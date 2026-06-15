@@ -89,7 +89,8 @@ def renderizar_seccion_v2(contenido_template: str, adaptador: IContratoBase, eti
 
     def _reemplazo(match):
         clave = match.group(1)
-        return resolver_valor_etiqueta_v2(clave, adaptador, etiquetas_map)
+        valor = resolver_valor_etiqueta_v2(clave, adaptador, etiquetas_map)
+        return str(valor) if valor is not None else ""
 
     return PATRON_ETIQUETA.sub(_reemplazo, contenido_template or "")
 

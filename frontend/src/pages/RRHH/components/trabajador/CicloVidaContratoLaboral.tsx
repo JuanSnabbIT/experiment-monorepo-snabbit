@@ -41,9 +41,16 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
     // Para el stepper de 4 pasos principales, el indice del paso activo en el orden principal
     const indiceEnOrden = ORDEN_PRINCIPAL.indexOf(est);
 
+    // Anulado y Descartado solo aparecen cuando el contrato está en ese estado
+    const pasosMostrar = ESTADOS_CICLO.filter((paso) => {
+        if (paso.key === 'anulado') return esAnulado;
+        if (paso.key === 'descartado') return esDescartado;
+        return true;
+    });
+
     return (
         <div className='flex flex-wrap items-center justify-center gap-1 sm:gap-2'>
-            {ESTADOS_CICLO.map((paso, i) => {
+            {pasosMostrar.map((paso, i) => {
                 const esMismoEstado = paso.key === est;
 
                 let esActivo = false;
@@ -96,7 +103,7 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
                 // Color de la linea conectora antes de este paso
                 const lineaAnteriorCompletada = (() => {
                     if (i === 0) return false;
-                    const pasoAnterior = ESTADOS_CICLO[i - 1];
+                    const pasoAnterior = pasosMostrar[i - 1];
                     if (esAnulado) {
                         return pasoAnterior.key !== 'terminado' && pasoAnterior.key !== 'descartado';
                     }

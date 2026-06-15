@@ -1,9 +1,11 @@
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Button from '@/components/ui/Button';
-import Card, { CardBody, CardFooter, CardHeader } from '@/components/ui/Card';
+import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
+import Tooltip from '@/components/ui/Tooltip';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
 import {
     useCrearBancoInlineMutation,
@@ -29,10 +31,10 @@ const CUENTA_LABEL: Record<string, string> = {
 
 const Campo = ({ label, value }: { label: string; value: string | null | undefined }) => (
     <div>
-        <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
+        <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
             {label}
         </p>
-        <p className='mt-0.5 text-sm text-zinc-900 dark:text-zinc-100'>{value ?? '—'}</p>
+        <p className='mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100'>{value ?? '—'}</p>
     </div>
 );
 
@@ -40,10 +42,10 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
     const prev = contrato.datos_previsionales_trabajador;
     const dtn = contrato.datos_trabajador_nuevo;
     const esBorrador = contrato.estado === 'borrador';
-    const [editando, setEditando] = useState(false);
+    const [modalOpen, setModalOpen] = useState(false);
     const [guardando, setGuardando] = useState(false);
 
-    const { data: bancoList = [] } = useGetBancoCatalogoQuery(undefined, { skip: !editando });
+    const { data: bancoList = [] } = useGetBancoCatalogoQuery(undefined, { skip: !modalOpen });
     const [crearBanco] = useCrearBancoInlineMutation();
     const [actualizarDatos] = useActualizarDatosRelacionadosContratoMutation();
 
@@ -51,7 +53,10 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
     const tipoCuenta = prev?.tipo_cuenta_bancaria ?? dtn?.tipo_cuenta_bancaria ?? null;
     const numeroCuenta = prev?.numero_cuenta_bancaria ?? dtn?.numero_cuenta_bancaria ?? null;
 
-    const bancoOptions: TSelectOption[] = bancoList.map((b) => ({ value: b.nombre, label: b.nombre }));
+    const bancoOptions: TSelectOption[] = bancoList.map((b) => ({
+        value: b.nombre,
+        label: b.nombre,
+    }));
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -65,11 +70,13 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
             try {
                 const payload: Record<string, unknown> = {};
                 if (values.banco) payload.banco = values.banco;
-                if (values.tipo_cuenta_bancaria) payload.tipo_cuenta_bancaria = values.tipo_cuenta_bancaria;
-                if (values.numero_cuenta_bancaria) payload.numero_cuenta_bancaria = values.numero_cuenta_bancaria;
+                if (values.tipo_cuenta_bancaria)
+                    payload.tipo_cuenta_bancaria = values.tipo_cuenta_bancaria;
+                if (values.numero_cuenta_bancaria)
+                    payload.numero_cuenta_bancaria = values.numero_cuenta_bancaria;
                 await actualizarDatos({ id: contrato.id, data: payload }).unwrap();
                 toast.success('Datos bancarios actualizados');
-                setEditando(false);
+                setModalOpen(false);
             } catch (err: unknown) {
                 toast.error(getErrorMessage(err));
             } finally {
@@ -82,29 +89,100 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
         try {
             await crearBanco({ nombre }).unwrap();
         } catch {
-            // ignorar, igual asignamos el valor
+            // igual asignamos el valor
         }
         formik.setFieldValue('banco', nombre);
     };
 
-    // ── Modo edición ───────────────────────────────────────────────────
-    if (editando) {
-        return (
+    return (
+        <>
             <Card>
-                <CardHeader><span>Datos Bancarios</span></CardHeader>
+                <CardHeader>
+                    <span>Datos Bancarios</span>
+                    {esBorrador && (
+                        <Tooltip text='Editar'>
+                            <Button
+                                variant='solid'
+                                icon='HeroPencil'
+                                size='sm'
+                                onClick={() => setModalOpen(true)}
+                            />
+                        </Tooltip>
+                    )}
+                </CardHeader>
                 <CardBody>
+                    {banco || tipoCuenta || numeroCuenta ? (
+                        <div className='space-y-3'>
+                            {banco && (
+                                <div className='flex items-center gap-3'>
+                                    <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
+                                        <Icon
+                                            icon='HeroBuildingOffice'
+                                            className='text-sm text-zinc-500 dark:text-zinc-400'
+                                        />
+                                    </div>
+                                    <Campo label='Banco' value={banco} />
+                                </div>
+                            )}
+                            {tipoCuenta && (
+                                <div className='flex items-center gap-3'>
+                                    <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
+                                        <Icon
+                                            icon='HeroCreditCard'
+                                            className='text-sm text-zinc-500 dark:text-zinc-400'
+                                        />
+                                    </div>
+                                    <Campo
+                                        label='Tipo de cuenta'
+                                        value={CUENTA_LABEL[tipoCuenta] ?? tipoCuenta}
+                                    />
+                                </div>
+                            )}
+                            {numeroCuenta && (
+                                <div className='flex items-center gap-3'>
+                                    <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
+                                        <Icon
+                                            icon='HeroHashtag'
+                                            className='text-sm text-zinc-500 dark:text-zinc-400'
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                            N° de cuenta
+                                        </p>
+                                        <p className='mt-1 font-mono text-sm font-medium tracking-wider text-zinc-800 dark:text-zinc-100'>
+                                            {numeroCuenta}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p className='text-sm text-zinc-400 dark:text-zinc-500'>
+                            Sin datos bancarios registrados.
+                        </p>
+                    )}
+                </CardBody>
+            </Card>
+
+            <Modal isOpen={modalOpen} setIsOpen={setModalOpen}>
+                <ModalHeader>Editar datos bancarios</ModalHeader>
+                <ModalBody>
                     <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
                         <div>
-                            <Label htmlFor='banco'>Banco</Label>
+                            <Label htmlFor='m_banco'>Banco</Label>
                             <SelectReact
-                                id='banco'
+                                id='m_banco'
                                 name='banco'
                                 isCreatable
                                 isClearable
                                 options={bancoOptions}
                                 value={
                                     formik.values.banco
-                                        ? { value: formik.values.banco, label: formik.values.banco }
+                                        ? {
+                                              value: formik.values.banco,
+                                              label: formik.values.banco,
+                                          }
                                         : null
                                 }
                                 onChange={(opt) =>
@@ -116,9 +194,9 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
                             />
                         </div>
                         <div>
-                            <Label htmlFor='tipo_cuenta_bancaria'>Tipo de cuenta</Label>
+                            <Label htmlFor='m_tipo_cuenta'>Tipo de cuenta</Label>
                             <SelectReact
-                                id='tipo_cuenta_bancaria'
+                                id='m_tipo_cuenta'
                                 name='tipo_cuenta_bancaria'
                                 isClearable
                                 options={TIPO_CUENTA_OPTIONS}
@@ -137,9 +215,9 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
                             />
                         </div>
                         <div className='sm:col-span-2'>
-                            <Label htmlFor='numero_cuenta_bancaria'>Número de cuenta</Label>
+                            <Label htmlFor='m_numero_cuenta'>Número de cuenta</Label>
                             <Input
-                                id='numero_cuenta_bancaria'
+                                id='m_numero_cuenta'
                                 name='numero_cuenta_bancaria'
                                 value={formik.values.numero_cuenta_bancaria}
                                 onChange={formik.handleChange}
@@ -147,77 +225,24 @@ const TabBancoTrabajador = ({ contrato }: Props) => {
                             />
                         </div>
                     </div>
-                </CardBody>
-                <CardFooter>
-                    <div className='flex justify-end gap-2'>
-                        <Button type='button' onClick={() => setEditando(false)} isDisable={guardando}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant='solid'
-                            type='button'
-                            onClick={() => formik.handleSubmit()}
-                            isLoading={guardando}>
-                            Guardar cambios
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-        );
-    }
-
-    // ── Modo lectura ───────────────────────────────────────────────────
-    return (
-        <Card>
-            <CardHeader>
-                <span>Datos Bancarios</span>
-                {esBorrador && (
-                    <Button variant='solid' icon='HeroPencil' size='sm' onClick={() => setEditando(true)} />
-                )}
-            </CardHeader>
-            <CardBody>
-                {banco || tipoCuenta || numeroCuenta ? (
-                    <div className='space-y-3'>
-                        {banco && (
-                            <div className='flex items-center gap-3'>
-                                <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
-                                    <Icon icon='HeroBuildingOffice' className='text-sm text-zinc-500 dark:text-zinc-400' />
-                                </div>
-                                <Campo label='Banco' value={banco} />
-                            </div>
-                        )}
-                        {tipoCuenta && (
-                            <div className='flex items-center gap-3'>
-                                <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
-                                    <Icon icon='HeroCreditCard' className='text-sm text-zinc-500 dark:text-zinc-400' />
-                                </div>
-                                <Campo
-                                    label='Tipo de cuenta'
-                                    value={CUENTA_LABEL[tipoCuenta] ?? tipoCuenta}
-                                />
-                            </div>
-                        )}
-                        {numeroCuenta && (
-                            <div className='flex items-center gap-3'>
-                                <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-700'>
-                                    <Icon icon='HeroHashtag' className='text-sm text-zinc-500 dark:text-zinc-400' />
-                                </div>
-                                <div>
-                                    <p className='text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500'>
-                                        N° de cuenta
-                                    </p>
-                                    <p className='mt-0.5 font-mono text-sm tracking-wide text-zinc-900 dark:text-zinc-100'>
-                                        {numeroCuenta}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <p className='text-sm text-zinc-400 dark:text-zinc-500'>Sin datos bancarios registrados.</p>
-                )}
-            </CardBody>
-        </Card>
+                </ModalBody>
+                <ModalFooter>
+                    <Button
+                        type='button'
+                        onClick={() => setModalOpen(false)}
+                        isDisable={guardando}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        variant='solid'
+                        type='button'
+                        onClick={() => formik.handleSubmit()}
+                        isLoading={guardando}>
+                        Guardar cambios
+                    </Button>
+                </ModalFooter>
+            </Modal>
+        </>
     );
 };
 

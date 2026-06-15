@@ -244,6 +244,21 @@ export const empresaApi = RtkQueryService.injectEndpoints({
                 { type: 'ClienteUsuarios' as const, id },
             ],
         }),
+        actualizarFichaTrabajador: builder.mutation<
+            IUsuarioEmpresa,
+            { id: number | string; data: Record<string, unknown> }
+        >({
+            query: ({ id, data }) => ({
+                url: `/api/usuarios-empresa/actualizar-ficha-trabajador/${id}/`,
+                method: 'patch',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify(data),
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'ClienteUsuarios' as const, id },
+            ],
+        }),
+
         getTrabajadoresCliente: builder.query<ITrabajadorCliente[], number | string>({
             query: (empresaClienteId) => ({
                 url: `/api/empresas/${empresaClienteId}/trabajadores/`,
@@ -280,5 +295,6 @@ export const {
     useGetUsuariosEmpresaYClienteQuery,
     useGetUsuariosDeMisClientesQuery,
     useGetDetalleUsuarioClienteQuery,
+    useActualizarFichaTrabajadorMutation,
     useGetTrabajadoresClienteQuery,
 } = empresaApi;

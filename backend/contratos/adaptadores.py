@@ -293,6 +293,16 @@ class AdaptadorContratoTrabajador(IContratoBase):
             campo = resto[0] if resto else None
             if not campo:
                 return default or ""
+            # empresa.ciudad: Empresa no tiene campo ciudad; usa direccion_principal
+            # como fallback hasta que se agregue el campo (ver TODO abajo).
+            # TODO (Mejora futura, Opción A): agregar CharField ciudad a Empresa y
+            # eliminar este bloque especial.
+            if campo == "ciudad":
+                return (
+                    getattr(self._empresa, "ciudad", None)
+                    or getattr(self._empresa, "direccion_principal", "")
+                    or ""
+                )
             valor = getattr(self._empresa, campo, None)
             if valor is None:
                 return default or ""
@@ -360,8 +370,8 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 return default or ""
             campo = resto[0] if resto else None
             mapping = {
-                "afp": self._ue.afp or "",
-                "afp_nombre": self._ue.afp or "",
+                "afp": self._ue.afp.nombre if self._ue.afp else "",
+                "afp_nombre": self._ue.afp.nombre if self._ue.afp else "",
                 "sistema_salud": self._ue.get_sistema_salud_display() or "" if self._ue.sistema_salud else "",
                 "salud_codigo": self._ue.sistema_salud or "",
                 "salud_isapre": self._ue.nombre_isapre or "",

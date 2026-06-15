@@ -9,6 +9,7 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
     nombre_aprobado_rechazado_por = serializers.SerializerMethodField()
     logo_empresa = serializers.SerializerMethodField()
     firma_empresa = serializers.SerializerMethodField()
+    nombre_empresa = serializers.SerializerMethodField()
 
     class Meta:
         model = SolicitudVacaciones
@@ -43,3 +44,6 @@ class SolicitudVacacionesSerializer(serializers.ModelSerializer):
             return obj.usuario_empresa.sucursal.empresa.firma_empresa
         else:
             return obj.usuario_empresa.sucursal.empresa.firma_empresa
+
+    def get_nombre_empresa(self, obj):
+        return obj.usuario_empresa.sucursal.empresa.nombre

@@ -1,3 +1,7 @@
+import React from 'react';
+import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
@@ -14,9 +18,15 @@ import {
     useGetLicenciasPorUsuarioEmpresaQuery,
 } from '@/store/slices/contratos/contratoApi';
 import {
+    useActualizarFichaTrabajadorMutation,
     useGetDetalleClienteQuery,
     useGetDetalleUsuarioClienteQuery,
 } from '@/store/slices/empresa/empresaApi';
+import {
+    useCrearBancoInlineMutation,
+    useGetAfpCatalogoQuery,
+    useGetBancoCatalogoQuery,
+} from '@/store/slices/rrhh/catalogosRrhhApi';
 import {
     useCambiarEstadoContratoTrabajadorMutation,
     useGetContratoTrabajadorDetalleQuery,
@@ -27,10 +37,12 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import { formatRut } from '@/utils/rut.util';
 import { confirmAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
+import { useFormik } from 'formik';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrearContratoTrabajadorWizard from '@/pages/RRHH/modals/CrearContratoTrabajadorWizard';
+import TabVacaciones from './components/TabVacaciones';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,17 +71,560 @@ const FilaDato = ({
     label: string;
     value: React.ReactNode;
 }) => (
-    <div className='flex flex-col gap-0.5'>
-        <span className='text-xs text-zinc-500 dark:text-zinc-400'>{label}</span>
-        <span className='text-sm font-medium'>{value ?? '-'}</span>
+    <div>
+        <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+            {label}
+        </p>
+        <p className='mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100'>{value ?? '—'}</p>
     </div>
 );
 
+// ── Opciones para selects en modales de edición ───────────────────────────────
+
+const GENERO_OPTIONS: TSelectOption[] = [
+    { value: '0', label: 'No especificado' },
+    { value: '1', label: 'Masculino' },
+    { value: '2', label: 'Femenino' },
+];
+
+const ESTADO_CIVIL_OPTIONS: TSelectOption[] = [
+    { value: 'soltero', label: 'Soltero/a' },
+    { value: 'casado', label: 'Casado/a' },
+    { value: 'divorciado', label: 'Divorciado/a' },
+    { value: 'viudo', label: 'Viudo/a' },
+    { value: 'conviviente', label: 'Conviviente civil' },
+];
+
+const NIVEL_ESTUDIOS_OPTIONS: TSelectOption[] = [
+    { value: 'basica', label: 'Educación básica' },
+    { value: 'media', label: 'Educación media' },
+    { value: 'tecnico_nivel_medio', label: 'Técnico nivel medio' },
+    { value: 'tecnico_nivel_superior', label: 'Técnico nivel superior' },
+    { value: 'universitario', label: 'Universitario' },
+    { value: 'postgrado', label: 'Postgrado / Magíster / Doctorado' },
+];
+
+const SISTEMA_SALUD_OPTIONS: TSelectOption[] = [
+    { value: 'fonasa', label: 'Fonasa' },
+    { value: 'isapre', label: 'Isapre' },
+    { value: 'otro', label: 'Otro' },
+];
+
+const TIPO_CUENTA_OPTIONS: TSelectOption[] = [
+    { value: 'corriente', label: 'Cuenta corriente' },
+    { value: 'vista', label: 'Cuenta vista' },
+    { value: 'ahorro', label: 'Cuenta de ahorro' },
+    { value: 'rut', label: 'Cuenta RUT' },
+];
+
 // ── Tipos de pestaña ──────────────────────────────────────────────────────────
 
-type TTab = 'personal' | 'contrato' | 'prevision' | 'cargas' | 'historial' | 'equipos' | 'licencias';
+type TTab = 'personal' | 'contrato' | 'cargas' | 'vacaciones' | 'equipos' | 'licencias';
 
-const VALID_TABS: TTab[] = ['personal', 'contrato', 'prevision', 'cargas', 'historial', 'equipos', 'licencias'];
+const VALID_TABS: TTab[] = ['personal', 'contrato', 'cargas', 'vacaciones', 'equipos', 'licencias'];
+
+// ── Sub-componente: tab Personal + Previsión ──────────────────────────────────
+
+interface ITabPersonalProps {
+    usuario: import('@/interface/empresas.interface').IUsuarioEmpresa | null;
+    contratoPendiente: import('@/interface/rrhh.interface').IContratoTrabajador | null;
+    datosPendiente: import('@/interface/rrhh.interface').IContratoTrabajador['datos_trabajador_nuevo'];
+    esPendiente: boolean;
+    usuarioEmpresaId: number;
+    actualizarFicha: ReturnType<typeof useActualizarFichaTrabajadorMutation>[0];
+    modalPersonal: boolean; setModalPersonal: React.Dispatch<React.SetStateAction<boolean>>;
+    modalContacto: boolean; setModalContacto: React.Dispatch<React.SetStateAction<boolean>>;
+    modalEducacion: boolean; setModalEducacion: React.Dispatch<React.SetStateAction<boolean>>;
+    modalPrevision: boolean; setModalPrevision: React.Dispatch<React.SetStateAction<boolean>>;
+    modalBanco: boolean; setModalBanco: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const TabPersonalConPrevision = ({
+    usuario,
+    contratoPendiente,
+    datosPendiente,
+    esPendiente,
+    usuarioEmpresaId,
+    actualizarFicha,
+    modalPersonal, setModalPersonal,
+    modalContacto, setModalContacto,
+    modalEducacion, setModalEducacion,
+    modalPrevision, setModalPrevision,
+    modalBanco, setModalBanco,
+}: ITabPersonalProps) => {
+    const [guardando, setGuardando] = useState(false);
+
+    const { data: afpList = [] } = useGetAfpCatalogoQuery(undefined, { skip: !modalPrevision });
+    const { data: bancoList = [] } = useGetBancoCatalogoQuery(undefined, { skip: !modalBanco });
+    const [crearBanco] = useCrearBancoInlineMutation();
+
+    const afpOptions: TSelectOption[] = afpList.map((a) => ({ value: String(a.id), label: a.nombre }));
+    const bancoOptions: TSelectOption[] = bancoList.map((b) => ({ value: b.nombre, label: b.nombre }));
+
+    const submitFicha = async (data: Record<string, unknown>, onClose: () => void) => {
+        setGuardando(true);
+        try {
+            await actualizarFicha({ id: usuarioEmpresaId, data }).unwrap();
+            toast.success('Datos actualizados');
+            onClose();
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    // ── Formiks ───────────────────────────────────────────────────────────────
+
+    const fPersonal = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            first_name: usuario?.first_name ?? '',
+            second_name: usuario?.second_name ?? '',
+            last_name: usuario?.last_name ?? '',
+            second_last_name: usuario?.second_last_name ?? '',
+            fecha_nacimiento: usuario?.fecha_nacimiento ?? '',
+            genero: usuario?.genero ?? '0',
+            estado_civil: usuario?.estado_civil ?? '',
+            nacionalidad: usuario?.nacionalidad ?? '',
+        },
+        onSubmit: (values) => submitFicha(values, () => setModalPersonal(false)),
+    });
+
+    const fContacto = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            celular: usuario?.celular ?? '',
+            direccion: usuario?.direccion ?? '',
+        },
+        onSubmit: (values) => submitFicha(values, () => setModalContacto(false)),
+    });
+
+    const fEducacion = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            nivel_estudios: usuario?.nivel_estudios ?? '',
+            titulo_especialidad: usuario?.titulo_especialidad ?? '',
+            institucion_educacional: usuario?.institucion_educacional ?? '',
+        },
+        onSubmit: (values) => submitFicha(values, () => setModalEducacion(false)),
+    });
+
+    const fPrevision = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            afp: usuario?.afp ? String(usuario.afp) : '',
+            sistema_salud: usuario?.sistema_salud ?? '',
+            nombre_isapre: usuario?.nombre_isapre ?? '',
+        },
+        onSubmit: (values) => submitFicha({
+            afp: values.afp || null,
+            sistema_salud: values.sistema_salud || null,
+            nombre_isapre: values.sistema_salud === 'isapre' ? values.nombre_isapre || null : null,
+        }, () => setModalPrevision(false)),
+    });
+
+    const fBanco = useFormik({
+        enableReinitialize: true,
+        initialValues: {
+            banco: usuario?.banco ?? '',
+            tipo_cuenta_bancaria: usuario?.tipo_cuenta_bancaria ?? '',
+            numero_cuenta_bancaria: usuario?.numero_cuenta_bancaria ?? '',
+        },
+        onSubmit: (values) => submitFicha(values, () => setModalBanco(false)),
+    });
+
+    // ── Datos para modo lectura ────────────────────────────────────────────────
+
+    const rut = esPendiente
+        ? (contratoPendiente?.rut_trabajador ?? datosPendiente?.rut ?? null)
+        : (usuario?.papeleta?.rut ?? null);
+    const email = esPendiente
+        ? (contratoPendiente?.email_trabajador ?? datosPendiente?.email ?? null)
+        : (usuario?.email_usuario ?? null);
+
+    const saludLabel = usuario?.sistema_salud === 'fonasa'
+        ? 'Fonasa'
+        : usuario?.sistema_salud === 'isapre'
+            ? `Isapre${usuario.nombre_isapre ? ` — ${usuario.nombre_isapre}` : ''}`
+            : usuario?.sistema_salud === 'otro'
+                ? 'Otro'
+                : null;
+
+    const editBtn = (onClick: () => void) => (
+        <Tooltip text='Editar'>
+            <Button variant='solid' icon='HeroPencil' size='sm' onClick={onClick} />
+        </Tooltip>
+    );
+
+    return (
+        <div className='space-y-4'>
+            {/* ── Identificación ─────────────────────────────────────────── */}
+            <Card>
+                <CardHeader>
+                    <span>Identificación</span>
+                    {!esPendiente && editBtn(() => setModalPersonal(true))}
+                </CardHeader>
+                <CardBody>
+                    <div className='grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4'>
+                        <FilaDato label='RUT' value={rut ? formatRut(rut) : '—'} />
+                        {!esPendiente ? (
+                            <>
+                                <FilaDato
+                                    label='Primer nombre'
+                                    value={usuario!.first_name}
+                                />
+                                <FilaDato
+                                    label='Segundo nombre'
+                                    value={usuario!.second_name}
+                                />
+                                <FilaDato
+                                    label='Apellido paterno'
+                                    value={usuario!.last_name}
+                                />
+                                <FilaDato
+                                    label='Apellido materno'
+                                    value={usuario!.second_last_name}
+                                />
+                                <FilaDato
+                                    label='Fecha de nacimiento'
+                                    value={
+                                        usuario!.fecha_nacimiento
+                                            ? `${dayjs(usuario!.fecha_nacimiento).format('DD/MM/YYYY')} (${calcularEdad(usuario!.fecha_nacimiento)})`
+                                            : null
+                                    }
+                                />
+                                <FilaDato label='Género' value={usuario!.genero_label} />
+                                <FilaDato label='Nacionalidad' value={usuario!.nacionalidad} />
+                                <FilaDato label='Estado civil' value={usuario!.estado_civil_label} />
+                            </>
+                        ) : (
+                            <>
+                                <FilaDato label='Correo electrónico' value={email} />
+                                <FilaDato
+                                    label='Fecha de nacimiento'
+                                    value={
+                                        datosPendiente?.fecha_nacimiento
+                                            ? dayjs(datosPendiente.fecha_nacimiento).format('DD/MM/YYYY')
+                                            : null
+                                    }
+                                />
+                                <FilaDato label='Nacionalidad' value={datosPendiente?.nacionalidad} />
+                            </>
+                        )}
+                    </div>
+                </CardBody>
+            </Card>
+
+            {/* ── Contacto ───────────────────────────────────────────────── */}
+            {!esPendiente && (
+                <Card>
+                    <CardHeader>
+                        <span>Contacto</span>
+                        {editBtn(() => setModalContacto(true))}
+                    </CardHeader>
+                    <CardBody>
+                        <div className='grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3'>
+                            <FilaDato label='Correo electrónico' value={email} />
+                            <FilaDato label='Teléfono' value={usuario!.celular} />
+                            <FilaDato label='Dirección' value={usuario!.direccion} />
+                            <FilaDato label='Región' value={usuario!.region_nombre} />
+                            <FilaDato label='Provincia' value={usuario!.provincia_nombre} />
+                            <FilaDato label='Comuna' value={usuario!.comuna_nombre} />
+                        </div>
+                    </CardBody>
+                </Card>
+            )}
+
+            {/* ── Educación ──────────────────────────────────────────────── */}
+            {!esPendiente && (
+                <Card>
+                    <CardHeader>
+                        <span>Educación</span>
+                        {editBtn(() => setModalEducacion(true))}
+                    </CardHeader>
+                    <CardBody>
+                        <div className='grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3'>
+                            <FilaDato label='Nivel de estudios' value={usuario!.nivel_estudios_label} />
+                            <FilaDato label='Título / especialidad' value={usuario!.titulo_especialidad} />
+                            <FilaDato label='Institución' value={usuario!.institucion_educacional} />
+                        </div>
+                    </CardBody>
+                </Card>
+            )}
+
+            {/* ── Previsión + Banco (side-by-side) ──────────────────────── */}
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                <Card>
+                    <CardHeader>
+                        <span>Previsión y Salud</span>
+                        {!esPendiente && editBtn(() => setModalPrevision(true))}
+                    </CardHeader>
+                    <CardBody>
+                        {usuario?.afp_nombre || saludLabel || datosPendiente?.afp ? (
+                            <div className='grid grid-cols-1 gap-4'>
+                                <FilaDato
+                                    label='AFP'
+                                    value={esPendiente ? datosPendiente?.afp : usuario!.afp_nombre}
+                                />
+                                <FilaDato
+                                    label='Sistema de salud'
+                                    value={
+                                        esPendiente
+                                            ? datosPendiente?.sistema_salud
+                                            : saludLabel
+                                    }
+                                />
+                            </div>
+                        ) : (
+                            <p className='text-sm text-zinc-400'>Sin datos previsionales.</p>
+                        )}
+                    </CardBody>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <span>Datos Bancarios</span>
+                        {!esPendiente && editBtn(() => setModalBanco(true))}
+                    </CardHeader>
+                    <CardBody>
+                        {usuario?.banco || usuario?.tipo_cuenta_bancaria || datosPendiente?.banco ? (
+                            <div className='grid grid-cols-1 gap-4'>
+                                <FilaDato
+                                    label='Banco'
+                                    value={esPendiente ? datosPendiente?.banco : usuario!.banco}
+                                />
+                                <FilaDato
+                                    label='Tipo de cuenta'
+                                    value={
+                                        esPendiente
+                                            ? datosPendiente?.tipo_cuenta_bancaria
+                                            : usuario!.tipo_cuenta_bancaria_label
+                                    }
+                                />
+                                <FilaDato
+                                    label='N° de cuenta'
+                                    value={
+                                        esPendiente
+                                            ? datosPendiente?.numero_cuenta_bancaria
+                                            : usuario!.numero_cuenta_bancaria
+                                    }
+                                />
+                            </div>
+                        ) : (
+                            <p className='text-sm text-zinc-400'>Sin datos bancarios.</p>
+                        )}
+                    </CardBody>
+                </Card>
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════ */}
+            {/* Modales de edición                                          */}
+            {/* ════════════════════════════════════════════════════════════ */}
+
+            {/* Modal: Identificación */}
+            <Modal isOpen={modalPersonal} setIsOpen={setModalPersonal}>
+                <ModalHeader>Editar identificación</ModalHeader>
+                <ModalBody>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='mp_first_name'>Primer nombre</Label>
+                            <Input id='mp_first_name' name='first_name' value={fPersonal.values.first_name} onChange={fPersonal.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_second_name'>Segundo nombre</Label>
+                            <Input id='mp_second_name' name='second_name' value={fPersonal.values.second_name} onChange={fPersonal.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_last_name'>Apellido paterno</Label>
+                            <Input id='mp_last_name' name='last_name' value={fPersonal.values.last_name} onChange={fPersonal.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_second_last_name'>Apellido materno</Label>
+                            <Input id='mp_second_last_name' name='second_last_name' value={fPersonal.values.second_last_name} onChange={fPersonal.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_fecha_nacimiento'>Fecha de nacimiento</Label>
+                            <Input id='mp_fecha_nacimiento' name='fecha_nacimiento' type='date' value={fPersonal.values.fecha_nacimiento} onChange={fPersonal.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_genero'>Género</Label>
+                            <SelectReact
+                                id='mp_genero'
+                                name='genero'
+                                options={GENERO_OPTIONS}
+                                value={GENERO_OPTIONS.find((o) => o.value === fPersonal.values.genero) ?? null}
+                                onChange={(opt) => fPersonal.setFieldValue('genero', (opt as TSelectOption)?.value ?? '0')}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_estado_civil'>Estado civil</Label>
+                            <SelectReact
+                                id='mp_estado_civil'
+                                name='estado_civil'
+                                isClearable
+                                options={ESTADO_CIVIL_OPTIONS}
+                                value={ESTADO_CIVIL_OPTIONS.find((o) => o.value === fPersonal.values.estado_civil) ?? null}
+                                onChange={(opt) => fPersonal.setFieldValue('estado_civil', (opt as TSelectOption)?.value ?? '')}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='mp_nacionalidad'>Nacionalidad</Label>
+                            <Input id='mp_nacionalidad' name='nacionalidad' value={fPersonal.values.nacionalidad} onChange={fPersonal.handleChange} />
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button type='button' onClick={() => setModalPersonal(false)} isDisable={guardando}>Cancelar</Button>
+                    <Button variant='solid' type='button' onClick={() => fPersonal.handleSubmit()} isLoading={guardando}>Guardar</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Modal: Contacto */}
+            <Modal isOpen={modalContacto} setIsOpen={setModalContacto}>
+                <ModalHeader>Editar contacto</ModalHeader>
+                <ModalBody>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='mc_celular'>Teléfono</Label>
+                            <Input id='mc_celular' name='celular' value={fContacto.values.celular} onChange={fContacto.handleChange} placeholder='+569...' />
+                        </div>
+                        <div className='sm:col-span-2'>
+                            <Label htmlFor='mc_direccion'>Dirección</Label>
+                            <Input id='mc_direccion' name='direccion' value={fContacto.values.direccion} onChange={fContacto.handleChange} />
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button type='button' onClick={() => setModalContacto(false)} isDisable={guardando}>Cancelar</Button>
+                    <Button variant='solid' type='button' onClick={() => fContacto.handleSubmit()} isLoading={guardando}>Guardar</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Modal: Educación */}
+            <Modal isOpen={modalEducacion} setIsOpen={setModalEducacion}>
+                <ModalHeader>Editar educación</ModalHeader>
+                <ModalBody>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div className='sm:col-span-2'>
+                            <Label htmlFor='me_nivel'>Nivel de estudios</Label>
+                            <SelectReact
+                                id='me_nivel'
+                                name='nivel_estudios'
+                                isClearable
+                                options={NIVEL_ESTUDIOS_OPTIONS}
+                                value={NIVEL_ESTUDIOS_OPTIONS.find((o) => o.value === fEducacion.values.nivel_estudios) ?? null}
+                                onChange={(opt) => fEducacion.setFieldValue('nivel_estudios', (opt as TSelectOption)?.value ?? '')}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='me_titulo'>Título / especialidad</Label>
+                            <Input id='me_titulo' name='titulo_especialidad' value={fEducacion.values.titulo_especialidad} onChange={fEducacion.handleChange} />
+                        </div>
+                        <div>
+                            <Label htmlFor='me_institucion'>Institución</Label>
+                            <Input id='me_institucion' name='institucion_educacional' value={fEducacion.values.institucion_educacional} onChange={fEducacion.handleChange} />
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button type='button' onClick={() => setModalEducacion(false)} isDisable={guardando}>Cancelar</Button>
+                    <Button variant='solid' type='button' onClick={() => fEducacion.handleSubmit()} isLoading={guardando}>Guardar</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Modal: Previsión */}
+            <Modal isOpen={modalPrevision} setIsOpen={setModalPrevision}>
+                <ModalHeader>Editar previsión y salud</ModalHeader>
+                <ModalBody>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div className='sm:col-span-2'>
+                            <Label htmlFor='mpv_afp'>AFP</Label>
+                            <SelectReact
+                                id='mpv_afp'
+                                name='afp'
+                                isClearable
+                                options={afpOptions}
+                                value={afpOptions.find((o) => o.value === fPrevision.values.afp) ?? null}
+                                onChange={(opt) => fPrevision.setFieldValue('afp', (opt as TSelectOption)?.value ?? '')}
+                                placeholder='Selecciona AFP...'
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='mpv_salud'>Sistema de salud</Label>
+                            <SelectReact
+                                id='mpv_salud'
+                                name='sistema_salud'
+                                isClearable
+                                options={SISTEMA_SALUD_OPTIONS}
+                                value={SISTEMA_SALUD_OPTIONS.find((o) => o.value === fPrevision.values.sistema_salud) ?? null}
+                                onChange={(opt) => fPrevision.setFieldValue('sistema_salud', (opt as TSelectOption)?.value ?? '')}
+                                placeholder='Fonasa / Isapre...'
+                            />
+                        </div>
+                        {fPrevision.values.sistema_salud === 'isapre' && (
+                            <div>
+                                <Label htmlFor='mpv_isapre'>Nombre Isapre</Label>
+                                <Input id='mpv_isapre' name='nombre_isapre' value={fPrevision.values.nombre_isapre} onChange={fPrevision.handleChange} placeholder='Banmédica, Cruz Blanca...' />
+                            </div>
+                        )}
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button type='button' onClick={() => setModalPrevision(false)} isDisable={guardando}>Cancelar</Button>
+                    <Button variant='solid' type='button' onClick={() => fPrevision.handleSubmit()} isLoading={guardando}>Guardar</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Modal: Banco */}
+            <Modal isOpen={modalBanco} setIsOpen={setModalBanco}>
+                <ModalHeader>Editar datos bancarios</ModalHeader>
+                <ModalBody>
+                    <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                        <div>
+                            <Label htmlFor='mb_banco'>Banco</Label>
+                            <SelectReact
+                                id='mb_banco'
+                                name='banco'
+                                isCreatable
+                                isClearable
+                                options={bancoOptions}
+                                value={fBanco.values.banco ? { value: fBanco.values.banco, label: fBanco.values.banco } : null}
+                                onChange={(opt) => fBanco.setFieldValue('banco', (opt as TSelectOption)?.value ?? '')}
+                                onCreateOption={async (nombre) => {
+                                    try { await crearBanco({ nombre }).unwrap(); } catch { /* ok */ }
+                                    fBanco.setFieldValue('banco', nombre);
+                                }}
+                                formatCreateLabel={(v) => `Agregar: "${v}"`}
+                                placeholder='Selecciona o escribe...'
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor='mb_tipo'>Tipo de cuenta</Label>
+                            <SelectReact
+                                id='mb_tipo'
+                                name='tipo_cuenta_bancaria'
+                                isClearable
+                                options={TIPO_CUENTA_OPTIONS}
+                                value={TIPO_CUENTA_OPTIONS.find((o) => o.value === fBanco.values.tipo_cuenta_bancaria) ?? null}
+                                onChange={(opt) => fBanco.setFieldValue('tipo_cuenta_bancaria', (opt as TSelectOption)?.value ?? '')}
+                                placeholder='Tipo...'
+                            />
+                        </div>
+                        <div className='sm:col-span-2'>
+                            <Label htmlFor='mb_numero'>Número de cuenta</Label>
+                            <Input id='mb_numero' name='numero_cuenta_bancaria' value={fBanco.values.numero_cuenta_bancaria} onChange={fBanco.handleChange} placeholder='00000000' />
+                        </div>
+                    </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button type='button' onClick={() => setModalBanco(false)} isDisable={guardando}>Cancelar</Button>
+                    <Button variant='solid' type='button' onClick={() => fBanco.handleSubmit()} isLoading={guardando}>Guardar</Button>
+                </ModalFooter>
+            </Modal>
+        </div>
+    );
+};
 
 const DetalleUsuarioCliente = () => {
     const navigate = useNavigate();
@@ -109,6 +664,7 @@ const DetalleUsuarioCliente = () => {
     });
 
     const [cambiarEstado] = useCambiarEstadoContratoTrabajadorMutation();
+    const [actualizarFicha] = useActualizarFichaTrabajadorMutation();
 
     // ── Estado local ──────────────────────────────────────────────────────────
 
@@ -116,6 +672,11 @@ const DetalleUsuarioCliente = () => {
         (typeof equipos)[number] | null
     >(null);
     const [wizardOpen, setWizardOpen] = useState(false);
+    const [modalPersonal, setModalPersonal] = useState(false);
+    const [modalContacto, setModalContacto] = useState(false);
+    const [modalEducacion, setModalEducacion] = useState(false);
+    const [modalPrevision, setModalPrevision] = useState(false);
+    const [modalBanco, setModalBanco] = useState(false);
 
     // ── Estado del tab (persistido en URL) ──────────────────────────────────
 
@@ -214,7 +775,7 @@ const DetalleUsuarioCliente = () => {
     const cargasFamiliares = esPendiente ? [] : (usuario!.cargas_familiares ?? []);
     const documentosLaborales = esPendiente ? [] : (usuario!.contratos_laborales_historial ?? []);
 
-    const TABS_PENDIENTE: TTab[] = ['personal', 'contrato', 'prevision', 'cargas'];
+    const TABS_PENDIENTE: TTab[] = ['personal', 'contrato', 'cargas'];
     const tabsActivos: TTab[] = esPendiente ? TABS_PENDIENTE : VALID_TABS;
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -316,20 +877,6 @@ const DetalleUsuarioCliente = () => {
                                             <p className='text-xl font-bold'>{licencias.length}</p>
                                             <p className='text-xs text-zinc-500'>Licencias</p>
                                         </div>
-                                        <div>
-                                            <p className='text-xl font-bold'>
-                                                {usuario!.papeleta?.dias_disponibles ?? '-'}
-                                            </p>
-                                            <p className='text-xs text-zinc-500'>Días vacaciones</p>
-                                        </div>
-                                        <div>
-                                            <p className='text-xl font-bold'>
-                                                {usuario!.papeleta?.dias_corridos
-                                                    ? `${usuario!.papeleta.dias_corridos.dias} d / ${usuario!.papeleta.dias_corridos.meses} m / ${usuario!.papeleta.dias_corridos.años} a`
-                                                    : '-'}
-                                            </p>
-                                            <p className='text-xs text-zinc-500'>Antigüedad</p>
-                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -375,10 +922,38 @@ const DetalleUsuarioCliente = () => {
                     )}
 
                     {/* ── Tabs navigation ──────────────────────────────────── */}
-                    <div className='flex flex-wrap gap-2'>
-                        {tabsActivos.map((tab) => {
+                    {(() => {
+                        const TAB_LABELS: Record<TTab, string> = {
+                            personal: 'Datos personales',
+                            contrato: 'Contrato',
+                            cargas: 'Cargas familiares',
+                            vacaciones: 'Vacaciones',
+                            equipos: 'Equipos',
+                            licencias: 'Licencias de software',
+                        };
+                        const TAB_BADGES: Partial<Record<TTab, React.ReactNode>> = {
+                            cargas:
+                                cargasFamiliares.length > 0 ? (
+                                    <Badge color='blue' className='ml-1'>
+                                        {cargasFamiliares.length}
+                                    </Badge>
+                                ) : null,
+                            equipos:
+                                equiposActivos > 0 ? (
+                                    <Badge color='blue' className='ml-1'>
+                                        {equiposActivos}
+                                    </Badge>
+                                ) : null,
+                            licencias:
+                                licencias.length > 0 ? (
+                                    <Badge color='blue' className='ml-1'>
+                                        {licencias.length}
+                                    </Badge>
+                                ) : null,
+                        };
+                        const renderTab = (tab: TTab) => {
                             const isActive = activeTab === tab;
-                            const baseProps = isActive
+                            const props = isActive
                                 ? {
                                       size: 'sm' as const,
                                       rounded: 'rounded-full' as const,
@@ -394,203 +969,58 @@ const DetalleUsuarioCliente = () => {
                                       rounded: 'rounded-full' as const,
                                       className: 'border',
                                   };
-                            const labels: Record<TTab, string> = {
-                                personal: 'Datos personales',
-                                contrato: 'Contrato',
-                                prevision: 'Previsión',
-                                cargas: 'Cargas familiares',
-                                historial: 'Historial contratos',
-                                equipos: 'Equipos',
-                                licencias: 'Licencias de software',
-                            };
                             return (
-                                <Button key={tab} {...baseProps} onClick={() => setActiveTab(tab)}>
-                                    {labels[tab]}
-                                    {tab === 'cargas' && cargasFamiliares.length > 0 && (
-                                        <Badge color='blue' className='ml-1'>
-                                            {cargasFamiliares.length}
-                                        </Badge>
-                                    )}
-                                    {tab === 'historial' && documentosLaborales.length > 0 && (
-                                        <Badge color='zinc' className='ml-1'>
-                                            {documentosLaborales.length}
-                                        </Badge>
-                                    )}
-                                    {tab === 'equipos' && equiposActivos > 0 && (
-                                        <Badge color='blue' className='ml-1'>
-                                            {equiposActivos}
-                                        </Badge>
-                                    )}
-                                    {tab === 'licencias' && licencias.length > 0 && (
-                                        <Badge color='blue' className='ml-1'>
-                                            {licencias.length}
-                                        </Badge>
-                                    )}
+                                <Button key={tab} {...props} onClick={() => setActiveTab(tab)}>
+                                    {TAB_LABELS[tab]}
+                                    {TAB_BADGES[tab]}
                                 </Button>
                             );
-                        })}
-                    </div>
+                        };
+                        const LEFT_TABS: TTab[] = ['personal', 'cargas', 'vacaciones', 'contrato'];
+                        const RIGHT_TABS: TTab[] = ['equipos', 'licencias'];
+                        const leftVisible = LEFT_TABS.filter((t) => tabsActivos.includes(t));
+                        const rightVisible = RIGHT_TABS.filter((t) => tabsActivos.includes(t));
+                        return (
+                            <div className='flex flex-wrap items-center gap-2'>
+                                {leftVisible.map(renderTab)}
+                                {rightVisible.length > 0 && (
+                                    <>
+                                        <div className='flex-1' />
+                                        <div className='flex flex-wrap gap-2'>
+                                            {rightVisible.map(renderTab)}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })()}
 
                     {/* ══════════════════════════════════════════════════════ */}
-                    {/* Tab: Datos personales                                 */}
+                    {/* Tab: Datos personales + Previsión                     */}
                     {/* ══════════════════════════════════════════════════════ */}
-                    {activeTab === 'personal' && esPendiente && (
-                        <Card>
-                            <CardBody>
-                                <div className='mb-6'>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Identificación
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='RUT'
-                                            value={
-                                                contratoPendiente!.rut_trabajador
-                                                    ? formatRut(contratoPendiente!.rut_trabajador)
-                                                    : datosPendiente?.rut
-                                                      ? formatRut(datosPendiente.rut)
-                                                      : 'Sin RUT'
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Correo electrónico'
-                                            value={
-                                                contratoPendiente!.email_trabajador ??
-                                                datosPendiente?.email
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Fecha de nacimiento'
-                                            value={
-                                                datosPendiente?.fecha_nacimiento
-                                                    ? dayjs(
-                                                          datosPendiente.fecha_nacimiento,
-                                                      ).format('DD/MM/YYYY')
-                                                    : null
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Nacionalidad'
-                                            value={datosPendiente?.nacionalidad}
-                                        />
-                                        <FilaDato
-                                            label='Dirección'
-                                            value={datosPendiente?.direccion}
-                                        />
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    )}
-
-                    {activeTab === 'personal' && !esPendiente && (
-                        <Card>
-                            <CardBody>
-                                {/* IDENTIFICACION */}
-                                <div className='mb-6'>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Identificación
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='RUT'
-                                            value={formatRut(usuario!.papeleta?.rut) || 'Sin RUT'}
-                                        />
-                                        <FilaDato
-                                            label='Nombres'
-                                            value={
-                                                [usuario!.first_name, usuario!.second_name]
-                                                    .filter(Boolean)
-                                                    .join(' ') || null
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Apellido paterno'
-                                            value={usuario!.last_name}
-                                        />
-                                        <FilaDato
-                                            label='Apellido materno'
-                                            value={usuario!.second_last_name}
-                                        />
-                                        <FilaDato
-                                            label='Fecha de nacimiento'
-                                            value={
-                                                usuario!.fecha_nacimiento
-                                                    ? `${dayjs(usuario!.fecha_nacimiento).format('DD/MM/YYYY')} (${calcularEdad(usuario!.fecha_nacimiento)})`
-                                                    : null
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Género'
-                                            value={usuario!.genero_label}
-                                        />
-                                        <FilaDato
-                                            label='Nacionalidad'
-                                            value={usuario!.nacionalidad}
-                                        />
-                                    </div>
-                                    <div className='mt-4'>
-                                        <FilaDato
-                                            label='Estado civil'
-                                            value={usuario!.estado_civil_label}
-                                        />
-                                    </div>
-                                </div>
-
-                                <hr className='my-4 border-zinc-200 dark:border-zinc-700' />
-
-                                {/* CONTACTO */}
-                                <div className='mb-6'>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Contacto
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='Correo electrónico'
-                                            value={usuario!.email_usuario}
-                                        />
-                                        <FilaDato
-                                            label='Teléfono móvil'
-                                            value={usuario!.celular}
-                                        />
-                                        <FilaDato
-                                            label='Dirección'
-                                            value={usuario!.direccion}
-                                        />
-                                        <FilaDato label='Región' value={usuario!.region_nombre} />
-                                        <FilaDato
-                                            label='Provincia'
-                                            value={usuario!.provincia_nombre}
-                                        />
-                                        <FilaDato label='Comuna' value={usuario!.comuna_nombre} />
-                                    </div>
-                                </div>
-
-                                <hr className='my-4 border-zinc-200 dark:border-zinc-700' />
-
-                                {/* EDUCACION */}
-                                <div>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Educación
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='Nivel de estudios'
-                                            value={usuario!.nivel_estudios_label}
-                                        />
-                                        <FilaDato
-                                            label='Título / especialidad'
-                                            value={usuario!.titulo_especialidad}
-                                        />
-                                        <FilaDato
-                                            label='Institución'
-                                            value={usuario!.institucion_educacional}
-                                        />
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    )}
+                    {activeTab === 'personal' && (() => {
+                        const uId = Number(refId);
+                        return (
+                            <TabPersonalConPrevision
+                                usuario={esPendiente ? null : usuario!}
+                                contratoPendiente={esPendiente ? contratoPendiente! : null}
+                                datosPendiente={datosPendiente}
+                                esPendiente={esPendiente}
+                                usuarioEmpresaId={uId}
+                                actualizarFicha={actualizarFicha}
+                                modalPersonal={modalPersonal}
+                                setModalPersonal={setModalPersonal}
+                                modalContacto={modalContacto}
+                                setModalContacto={setModalContacto}
+                                modalEducacion={modalEducacion}
+                                setModalEducacion={setModalEducacion}
+                                modalPrevision={modalPrevision}
+                                setModalPrevision={setModalPrevision}
+                                modalBanco={modalBanco}
+                                setModalBanco={setModalBanco}
+                            />
+                        );
+                    })()}
 
                     {/* ══════════════════════════════════════════════════════ */}
                     {/* Tab: Contrato laboral                                 */}
@@ -598,185 +1028,260 @@ const DetalleUsuarioCliente = () => {
                     {activeTab === 'contrato' && (() => {
                         const c = esPendiente ? contratoPendiente! : contrato;
                         return (
-                            <Card>
-                                <CardHeader>
-                                    <CardHeaderChild>
-                                        <span className='font-semibold'>
-                                            {esPendiente
-                                                ? 'Datos del contrato'
-                                                : 'Contrato laboral vigente'}
-                                        </span>
-                                    </CardHeaderChild>
-                                    <CardHeaderChild>
-                                        {c && (
-                                            <Badge
-                                                color={
-                                                    c.estado === 'vigente'
-                                                        ? 'emerald'
-                                                        : c.estado === 'pendiente_aprobacion'
-                                                          ? 'amber'
-                                                          : 'zinc'
-                                                }>
-                                                {c.estado_label}
-                                            </Badge>
-                                        )}
-                                    </CardHeaderChild>
-                                </CardHeader>
-                                <CardBody>
-                                    {!c ? (
-                                        <Alert color='zinc'>
-                                            Este trabajador no tiene un contrato laboral registrado en
-                                            el sistema.
-                                        </Alert>
-                                    ) : (
-                                        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-                                            <FilaDato
-                                                label='Tipo de contrato'
-                                                value={c.tipo_contrato_label}
-                                            />
-                                            <FilaDato label='Jornada' value={c.jornada_label} />
-                                            {c.grupo_turno_snapshot && (
-                                                <FilaDato
-                                                    label='Grupo turnos'
-                                                    value={c.grupo_turno_snapshot.nombre}
-                                                />
+                            <div className='space-y-4'>
+                                <Card>
+                                    <CardHeader>
+                                        <CardHeaderChild>
+                                            <span className='font-semibold'>
+                                                {esPendiente
+                                                    ? 'Datos del contrato'
+                                                    : 'Contrato laboral vigente'}
+                                            </span>
+                                        </CardHeaderChild>
+                                        <CardHeaderChild>
+                                            {c && (
+                                                <Badge
+                                                    color={
+                                                        c.estado === 'vigente'
+                                                            ? 'emerald'
+                                                            : c.estado === 'pendiente_aprobacion'
+                                                              ? 'amber'
+                                                              : 'zinc'
+                                                    }>
+                                                    {c.estado_label}
+                                                </Badge>
                                             )}
-                                            <FilaDato label='Cargo' value={c.cargo} />
-                                            <FilaDato
-                                                label='Lugar de trabajo'
-                                                value={c.lugar_trabajo}
-                                            />
-                                            <FilaDato
-                                                label='Fecha inicio'
-                                                value={dayjs(c.fecha_inicio).format('DD/MM/YYYY')}
-                                            />
-                                            <FilaDato
-                                                label='Fecha término'
-                                                value={
-                                                    c.fecha_termino
-                                                        ? dayjs(c.fecha_termino).format(
-                                                              'DD/MM/YYYY',
-                                                          )
-                                                        : 'Indefinido'
-                                                }
-                                            />
-                                            <FilaDato
-                                                label='Sueldo base'
-                                                value={formatCurrency(c.sueldo_base, c.moneda)}
-                                            />
-                                            <FilaDato
-                                                label='Sueldo líquido'
-                                                value={
-                                                    c.sueldo_liquido
-                                                        ? formatCurrency(
-                                                              c.sueldo_liquido,
-                                                              c.moneda,
-                                                          )
-                                                        : null
-                                                }
-                                            />
-                                            <FilaDato
-                                                label='Bono movilización'
-                                                value={formatCurrency(c.bono_movilizacion, c.moneda)}
-                                            />
-                                            <FilaDato
-                                                label='Bono colación'
-                                                value={formatCurrency(c.bono_colacion, c.moneda)}
-                                            />
-                                            <FilaDato
-                                                label='Gratificación'
-                                                value={
-                                                    (c as { tipo_gratificacion_label?: string | null })
-                                                        .tipo_gratificacion_label ??
-                                                    c.tipo_gratificacion ??
-                                                    '-'
-                                                }
-                                            />
-                                        </div>
-                                    )}
-                                </CardBody>
-                            </Card>
+                                        </CardHeaderChild>
+                                    </CardHeader>
+                                    <CardBody>
+                                        {!c ? (
+                                            <Alert color='zinc'>
+                                                Este trabajador no tiene un contrato laboral registrado en
+                                                el sistema.
+                                            </Alert>
+                                        ) : (
+                                            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                                                <FilaDato
+                                                    label='Tipo de contrato'
+                                                    value={c.tipo_contrato_label}
+                                                />
+                                                <FilaDato label='Jornada' value={c.jornada_label} />
+                                                {c.grupo_turno_snapshot && (
+                                                    <FilaDato
+                                                        label='Grupo turnos'
+                                                        value={c.grupo_turno_snapshot.nombre}
+                                                    />
+                                                )}
+                                                <FilaDato label='Cargo' value={c.cargo} />
+                                                <FilaDato
+                                                    label='Lugar de trabajo'
+                                                    value={c.lugar_trabajo}
+                                                />
+                                                <FilaDato
+                                                    label='Fecha inicio'
+                                                    value={dayjs(c.fecha_inicio).format('DD/MM/YYYY')}
+                                                />
+                                                <FilaDato
+                                                    label='Fecha término'
+                                                    value={
+                                                        c.fecha_termino
+                                                            ? dayjs(c.fecha_termino).format(
+                                                                  'DD/MM/YYYY',
+                                                              )
+                                                            : 'Indefinido'
+                                                    }
+                                                />
+                                                <FilaDato
+                                                    label='Sueldo base'
+                                                    value={formatCurrency(c.sueldo_base, c.moneda)}
+                                                />
+                                                <FilaDato
+                                                    label='Sueldo líquido'
+                                                    value={
+                                                        c.sueldo_liquido
+                                                            ? formatCurrency(
+                                                                  c.sueldo_liquido,
+                                                                  c.moneda,
+                                                              )
+                                                            : null
+                                                    }
+                                                />
+                                                <FilaDato
+                                                    label='Bono movilización'
+                                                    value={formatCurrency(c.bono_movilizacion, c.moneda)}
+                                                />
+                                                <FilaDato
+                                                    label='Bono colación'
+                                                    value={formatCurrency(c.bono_colacion, c.moneda)}
+                                                />
+                                                <FilaDato
+                                                    label='Gratificación'
+                                                    value={
+                                                        (c as { tipo_gratificacion_label?: string | null })
+                                                            .tipo_gratificacion_label ??
+                                                        c.tipo_gratificacion ??
+                                                        '-'
+                                                    }
+                                                />
+                                            </div>
+                                        )}
+                                    </CardBody>
+                                </Card>
+
+                                {!esPendiente && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardHeaderChild>
+                                                <span className='font-semibold'>
+                                                    Historial de contratos
+                                                </span>
+                                                {documentosLaborales.length > 0 && (
+                                                    <Badge color='zinc'>
+                                                        {documentosLaborales.length}
+                                                    </Badge>
+                                                )}
+                                            </CardHeaderChild>
+                                            <CardHeaderChild>
+                                                <Button
+                                                    variant='solid'
+                                                    color='blue'
+                                                    icon='HeroPlus'
+                                                    size='sm'
+                                                    onClick={() => setWizardOpen(true)}>
+                                                    Nuevo contrato
+                                                </Button>
+                                            </CardHeaderChild>
+                                        </CardHeader>
+                                        <CardBody className='p-0'>
+                                            {documentosLaborales.length === 0 ? (
+                                                <p className='p-4 text-sm text-zinc-500'>
+                                                    Sin documentos laborales registrados.
+                                                </p>
+                                            ) : (
+                                                <Table>
+                                                    <THead>
+                                                        <Tr>
+                                                            <Th>Tipo</Th>
+                                                            <Th>Estado</Th>
+                                                            <Th>Fecha inicio</Th>
+                                                            <Th>Fecha término</Th>
+                                                            <Th>PDF</Th>
+                                                            <Th>Acciones</Th>
+                                                        </Tr>
+                                                    </THead>
+                                                    <TBody>
+                                                        {documentosLaborales.map((doc) => {
+                                                            const esActual =
+                                                                doc.id === contrato?.id ||
+                                                                doc.estado === 'vigente';
+                                                            return (
+                                                                <Tr
+                                                                    key={doc.id}
+                                                                    className={
+                                                                        esActual
+                                                                            ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                                                                            : ''
+                                                                    }>
+                                                                    <Td>
+                                                                        <span
+                                                                            className={
+                                                                                esActual
+                                                                                    ? 'font-semibold'
+                                                                                    : ''
+                                                                            }>
+                                                                            {doc.tipo_contrato_label}
+                                                                        </span>
+                                                                    </Td>
+                                                                    <Td>
+                                                                        <div className='flex items-center gap-1.5'>
+                                                                            <Badge
+                                                                                color={
+                                                                                    doc.estado ===
+                                                                                    'vigente'
+                                                                                        ? 'emerald'
+                                                                                        : doc.estado ===
+                                                                                            'pendiente_aprobacion'
+                                                                                          ? 'amber'
+                                                                                          : 'zinc'
+                                                                                }>
+                                                                                {doc.estado_label}
+                                                                            </Badge>
+                                                                            {esActual && (
+                                                                                <Badge color='emerald' variant='outline'>
+                                                                                    Actual
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </Td>
+                                                                    <Td>
+                                                                        {dayjs(
+                                                                            doc.fecha_inicio,
+                                                                        ).format('DD/MM/YYYY')}
+                                                                    </Td>
+                                                                    <Td>
+                                                                        {doc.fecha_termino
+                                                                            ? dayjs(
+                                                                                  doc.fecha_termino,
+                                                                              ).format('DD/MM/YYYY')
+                                                                            : 'Indefinido'}
+                                                                    </Td>
+                                                                    <Td>
+                                                                        {doc.archivo_pdf ? (
+                                                                            <Button
+                                                                                size='sm'
+                                                                                icon='HeroDocumentArrowDown'
+                                                                                color='blue'
+                                                                                variant='solid'
+                                                                                onClick={() =>
+                                                                                    window.open(
+                                                                                        doc.archivo_pdf!,
+                                                                                        '_blank',
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <span className='text-xs text-zinc-400'>
+                                                                                Sin PDF
+                                                                            </span>
+                                                                        )}
+                                                                    </Td>
+                                                                    <Td>
+                                                                        <Tooltip text='Ver contrato'>
+                                                                            <Button
+                                                                                icon='HeroEye'
+                                                                                size='sm'
+                                                                                color='violet'
+                                                                                variant='solid'
+                                                                                onClick={() =>
+                                                                                    navigate(
+                                                                                        Pages.rrhh.subPages.detalleContratoTrabajador.to.replace(
+                                                                                            ':contratoId',
+                                                                                            `${doc.id}`,
+                                                                                        ) +
+                                                                                            `?from=ficha&clienteId=${clienteId}`,
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                        </Tooltip>
+                                                                    </Td>
+                                                                </Tr>
+                                                            );
+                                                        })}
+                                                    </TBody>
+                                                </Table>
+                                            )}
+                                        </CardBody>
+                                    </Card>
+                                )}
+                            </div>
                         );
                     })()}
 
                     {/* ══════════════════════════════════════════════════════ */}
-                    {/* Tab: Prevision                                        */}
+                    {/* Tab: Vacaciones                                       */}
                     {/* ══════════════════════════════════════════════════════ */}
-                    {activeTab === 'prevision' && (
-                        <Card>
-                            <CardBody>
-                                {/* PREVISION SOCIAL */}
-                                <div className='mb-6'>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Previsión social
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='AFP'
-                                            value={
-                                                esPendiente
-                                                    ? datosPendiente?.afp
-                                                    : usuario!.afp_nombre
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Sistema de salud'
-                                            value={
-                                                esPendiente
-                                                    ? datosPendiente?.sistema_salud
-                                                    : usuario!.sistema_salud_label
-                                            }
-                                        />
-                                        {(esPendiente
-                                            ? datosPendiente?.sistema_salud === 'isapre'
-                                            : usuario!.sistema_salud === 'isapre') && (
-                                            <FilaDato
-                                                label='Nombre ISAPRE'
-                                                value={
-                                                    esPendiente
-                                                        ? datosPendiente?.nombre_isapre
-                                                        : usuario!.nombre_isapre
-                                                }
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-
-                                <hr className='my-4 border-zinc-200 dark:border-zinc-700' />
-
-                                {/* DATOS BANCARIOS */}
-                                <div>
-                                    <p className='mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400'>
-                                        Datos bancarios
-                                    </p>
-                                    <div className='flex flex-wrap gap-x-8 gap-y-4'>
-                                        <FilaDato
-                                            label='Banco'
-                                            value={
-                                                esPendiente ? datosPendiente?.banco : usuario!.banco
-                                            }
-                                        />
-                                        <FilaDato
-                                            label='Tipo de cuenta'
-                                            value={
-                                                esPendiente
-                                                    ? datosPendiente?.tipo_cuenta_bancaria
-                                                    : usuario!.tipo_cuenta_bancaria_label
-                                            }
-                                        />
-                                        {/* Cuenta de depósito de remuneraciones — no enmascarar, no es número de tarjeta */}
-                                        <FilaDato
-                                            label='Número de cuenta'
-                                            value={
-                                                esPendiente
-                                                    ? datosPendiente?.numero_cuenta_bancaria
-                                                    : usuario!.numero_cuenta_bancaria
-                                            }
-                                        />
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
+                    {activeTab === 'vacaciones' && !esPendiente && (
+                        <TabVacaciones usuario={usuario!} />
                     )}
 
                     {/* ══════════════════════════════════════════════════════ */}
@@ -836,125 +1341,6 @@ const DetalleUsuarioCliente = () => {
                                                             }>
                                                             {carga.is_activo ? 'Activo' : 'Inactivo'}
                                                         </Badge>
-                                                    </Td>
-                                                </Tr>
-                                            ))}
-                                        </TBody>
-                                    </Table>
-                                )}
-                            </CardBody>
-                        </Card>
-                    )}
-
-                    {/* ══════════════════════════════════════════════════════ */}
-                    {/* Tab: Historial contratos                              */}
-                    {/* ══════════════════════════════════════════════════════ */}
-                    {activeTab === 'historial' && (
-                        <Card>
-                            <CardHeader>
-                                <CardHeaderChild>
-                                    <span className='font-semibold'>
-                                        Historial de contratos laborales
-                                    </span>
-                                    {documentosLaborales.length > 0 && (
-                                        <Badge color='zinc'>{documentosLaborales.length}</Badge>
-                                    )}
-                                </CardHeaderChild>
-                                <CardHeaderChild>
-                                    <Button
-                                        variant='solid'
-                                        color='blue'
-                                        icon='HeroPlus'
-                                        size='sm'
-                                        onClick={() => setWizardOpen(true)}>
-                                        Nuevo contrato
-                                    </Button>
-                                </CardHeaderChild>
-                            </CardHeader>
-                            <CardBody className='p-0'>
-                                {documentosLaborales.length === 0 ? (
-                                    <p className='p-4 text-sm text-zinc-500'>
-                                        Sin documentos laborales registrados.
-                                    </p>
-                                ) : (
-                                    <Table>
-                                        <THead>
-                                            <Tr>
-                                                <Th>Tipo</Th>
-                                                <Th>Estado</Th>
-                                                <Th>Fecha inicio</Th>
-                                                <Th>Fecha término</Th>
-                                                <Th>PDF</Th>
-                                                <Th>Acciones</Th>
-                                            </Tr>
-                                        </THead>
-                                        <TBody>
-                                            {documentosLaborales.map((doc) => (
-                                                <Tr key={doc.id}>
-                                                    <Td>{doc.tipo_contrato_label}</Td>
-                                                    <Td>
-                                                        <Badge
-                                                            color={
-                                                                doc.estado === 'vigente'
-                                                                    ? 'emerald'
-                                                                    : doc.estado ===
-                                                                        'pendiente_aprobacion'
-                                                                      ? 'amber'
-                                                                      : 'zinc'
-                                                            }>
-                                                            {doc.estado_label}
-                                                        </Badge>
-                                                    </Td>
-                                                    <Td>
-                                                        {dayjs(doc.fecha_inicio).format(
-                                                            'DD/MM/YYYY',
-                                                        )}
-                                                    </Td>
-                                                    <Td>
-                                                        {doc.fecha_termino
-                                                            ? dayjs(doc.fecha_termino).format(
-                                                                  'DD/MM/YYYY',
-                                                              )
-                                                            : 'Indefinido'}
-                                                    </Td>
-                                                    <Td>
-                                                        {doc.archivo_pdf ? (
-                                                            <Button
-                                                                size='sm'
-                                                                icon='HeroDocumentArrowDown'
-                                                                color='blue'
-                                                                variant='solid'
-                                                                onClick={() =>
-                                                                    window.open(
-                                                                        doc.archivo_pdf!,
-                                                                        '_blank',
-                                                                    )
-                                                                }
-                                                            />
-                                                        ) : (
-                                                            <span className='text-xs text-zinc-400'>
-                                                                Sin PDF
-                                                            </span>
-                                                        )}
-                                                    </Td>
-                                                    <Td>
-                                                        <Tooltip text='Ver contrato'>
-                                                            <Button
-                                                                icon='HeroEye'
-                                                                size='sm'
-                                                                color='violet'
-                                                                variant='solid'
-                                                                onClick={() =>
-                                                                    navigate(
-                                                                        Pages.rrhh.subPages.detalleContratoTrabajador.to.replace(
-                                                                            ':contratoId',
-                                                                            `${doc.id}`,
-                                                                        ) +
-                                                                            `?from=ficha&clienteId=${clienteId}`,
-                                                                    )
-                                                                }
-                                                            />
-                                                        </Tooltip>
                                                     </Td>
                                                 </Tr>
                                             ))}

@@ -7,6 +7,7 @@ import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import { ISolicitudVacaciones } from '@/interface/calendario.interface';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
@@ -22,7 +23,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AprobarSolicitudVacaciones from './modals/AprobarSolicitudVacaciones';
 import EliminarSolicitudVacaciones from './modals/EliminarSolicitudVacaciones';
@@ -36,10 +37,22 @@ function ListaSolicitudesVacaciones() {
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
+    const [empresaFiltro, setEmpresaFiltro] = useState<TSelectOption | null>(null);
 
     useEffect(() => {
         dispatch(listaSolicitudesVacacionesThunk());
     }, [personalizacionUsuario]);
+
+    const empresaOpciones = useMemo<TSelectOption[]>(() => {
+        const nombres = [...new Set(listaSolicitudesVacaciones.map((s) => s.nombre_empresa).filter(Boolean))];
+        return nombres.map((n) => ({ value: n, label: n }));
+    }, [listaSolicitudesVacaciones]);
+
+    const solicitudesFiltradas = useMemo(() =>
+        empresaFiltro
+            ? listaSolicitudesVacaciones.filter((s) => s.nombre_empresa === empresaFiltro.value)
+            : listaSolicitudesVacaciones,
+    [listaSolicitudesVacaciones, empresaFiltro]);
 
     const columns = [
         columnHelper.accessor('papeleta.nombre_empleado', {
@@ -80,7 +93,7 @@ function ListaSolicitudesVacaciones() {
     ];
 
     const table = useReactTable({
-        data: listaSolicitudesVacaciones,
+        data: solicitudesFiltradas,
         columns: columns,
         state: {
             sorting: sorting,
@@ -102,11 +115,23 @@ function ListaSolicitudesVacaciones() {
             name='Solicitudes Vacaciones'>
             <Subheader>
                 <SubheaderLeft>
-                    <AnimacionDeInputModoMovil
-                        globalFilter={globalFilter}
-                        setGlobalFilter={setGlobalFilter}
-                        anchoInput={200}
-                    />
+                    <div className='flex items-center gap-3'>
+                        <AnimacionDeInputModoMovil
+                            globalFilter={globalFilter}
+                            setGlobalFilter={setGlobalFilter}
+                            anchoInput={200}
+                        />
+                        <div className='w-56'>
+                            <SelectReact
+                                name='empresa_filtro'
+                                isClearable
+                                options={empresaOpciones}
+                                value={empresaFiltro}
+                                onChange={(opt) => setEmpresaFiltro(opt as TSelectOption | null)}
+                                placeholder='Filtrar por empresa...'
+                            />
+                        </div>
+                    </div>
                 </SubheaderLeft>
                 <SubheaderRight />
             </Subheader>

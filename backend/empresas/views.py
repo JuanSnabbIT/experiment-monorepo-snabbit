@@ -371,50 +371,99 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def _get_ue_cliente_con_permisos(self, request, usuario_empresa_pk):
+        """Helper: obtiene UsuarioEmpresa de cliente con validación multi-tenancy."""
+        try:
+            ue = UsuarioEmpresa.objects.select_related(
+                'usuario', 'sucursal', 'sucursal__empresa'
+            ).get(pk=usuario_empresa_pk)
+        except UsuarioEmpresa.DoesNotExist:
+            return None, Response({"error": "No encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        personalizacion = PersonalizacionUsuario.objects.filter(usuario=request.user).first()
+        if not personalizacion or not personalizacion.sucursal_principal:
+            return None, Response({"error": "Sin permisos."}, status=status.HTTP_403_FORBIDDEN)
+
+        empresa_autenticada = personalizacion.sucursal_principal.empresa
+        empresa_usuario = ue.sucursal.empresa
+
+        es_cliente = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa_autenticada, cliente=empresa_usuario
+        ).exists()
+        es_misma_empresa = empresa_autenticada == empresa_usuario
+
+        if not es_cliente and not es_misma_empresa:
+            return None, Response({"error": "Sin permisos."}, status=status.HTTP_403_FORBIDDEN)
+
+        return ue, None
+
+    @action(detail=False, methods=["patch"], url_path=r"actualizar-ficha-trabajador/(?P<usuario_empresa_pk>\d+)")
+    def actualizar_ficha_trabajador(self, request, usuario_empresa_pk=None):
+        """
+        PATCH /api/usuarios-empresa/actualizar-ficha-trabajador/{id}/
+        Actualiza campos del User (datos personales) y/o del UsuarioEmpresa (previsión, banco).
+        """
+        ue, err = self._get_ue_cliente_con_permisos(request, usuario_empresa_pk)
+        if err:
+            return err
+
+        data = request.data
+        user = ue.usuario
+
+        USER_FIELDS = [
+            'first_name', 'second_name', 'last_name', 'second_last_name',
+            'celular', 'genero', 'fecha_nacimiento', 'estado_civil',
+            'nacionalidad', 'direccion', 'region', 'provincia', 'comuna',
+            'nivel_estudios', 'titulo_especialidad', 'institucion_educacional',
+        ]
+        UE_FIELDS = [
+            'sistema_salud', 'nombre_isapre',
+            'banco', 'tipo_cuenta_bancaria', 'numero_cuenta_bancaria',
+            'rut',
+        ]
+
+        user_dirty = False
+        for field in USER_FIELDS:
+            if field in data:
+                setattr(user, field, data[field] or None)
+                user_dirty = True
+        if user_dirty:
+            user.save()
+
+        ue_dirty = False
+        for field in UE_FIELDS:
+            if field in data:
+                setattr(ue, field, data[field] or None)
+                ue_dirty = True
+
+        if 'afp' in data:
+            from rrhh.models import AfpCatalogo
+            afp_id = data.get('afp')
+            if afp_id:
+                try:
+                    ue.afp = AfpCatalogo.objects.get(pk=int(afp_id))
+                except (AfpCatalogo.DoesNotExist, ValueError):
+                    pass
+            else:
+                ue.afp = None
+            ue_dirty = True
+
+        if ue_dirty:
+            ue.save()
+
+        serializer = self.get_serializer(ue, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=["get"], url_path=r"detalle-usuario-cliente/(?P<usuario_empresa_pk>\d+)")
     def detalle_usuario_cliente(self, request, usuario_empresa_pk=None):
         """
         GET /api/usuarios-empresa/detalle-usuario-cliente/{usuario_empresa_pk}/
         Retorna el detalle de un UsuarioEmpresa que pertenece a una empresa cliente.
-        Filtra por multi-tenancy: la empresa del usuario debe ser cliente de la empresa autenticada.
         """
-        try:
-            usuario_empresa = UsuarioEmpresa.objects.select_related(
-                'usuario', 'sucursal', 'sucursal__empresa'
-            ).get(pk=usuario_empresa_pk)
-        except UsuarioEmpresa.DoesNotExist:
-            return Response(
-                {"error": "No se encontró el usuario."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Validar multi-tenancy: la empresa del usuario debe ser cliente del usuario autenticado
-        personalizacion = PersonalizacionUsuario.objects.filter(usuario=request.user).first()
-        if not personalizacion or not personalizacion.sucursal_principal:
-            return Response(
-                {"error": "Sin permisos."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        empresa_autenticada = personalizacion.sucursal_principal.empresa
-        empresa_usuario = usuario_empresa.sucursal.empresa
-
-        # Verificar que la empresa del usuario sea cliente de la empresa autenticada
-        es_cliente = RelacionEmpresa.objects.filter(
-            prestador_servicios=empresa_autenticada,
-            cliente=empresa_usuario,
-        ).exists()
-
-        # O que sea de la misma empresa
-        es_misma_empresa = empresa_autenticada == empresa_usuario
-
-        if not es_cliente and not es_misma_empresa:
-            return Response(
-                {"error": "No tiene permisos para ver este usuario."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        serializer = self.get_serializer(usuario_empresa)
+        ue, err = self._get_ue_cliente_con_permisos(request, usuario_empresa_pk)
+        if err:
+            return err
+        serializer = self.get_serializer(ue, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

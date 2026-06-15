@@ -15,12 +15,17 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
         user = self.request.user
         try:
             personalizacion = PersonalizacionUsuario.objects.get(usuario=user)
-            sucursal = personalizacion.sucursal_principal
-        except PersonalizacionUsuario.DoesNotExist:
+            empresa = personalizacion.sucursal_principal.empresa
+        except (PersonalizacionUsuario.DoesNotExist, AttributeError):
             return SolicitudVacaciones.objects.none()
-        except AttributeError:
-            return SolicitudVacaciones.objects.none()
-        return SolicitudVacaciones.objects.filter(usuario_empresa__sucursal=sucursal)
+        from empresas.models import RelacionEmpresa
+        client_ids = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa
+        ).values_list('cliente_id', flat=True)
+        empresa_ids = list(client_ids) + [empresa.id]
+        return SolicitudVacaciones.objects.filter(
+            usuario_empresa__sucursal__empresa_id__in=empresa_ids
+        )
 
     def perform_create(self, serializer):
         solicitud = serializer.save()

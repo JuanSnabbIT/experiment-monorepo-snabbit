@@ -31,4 +31,5 @@ export interface ISolicitudVacaciones {
     firma_usuario: string | null;
     logo_empresa: string;
     firma_empresa: string;
+    nombre_empresa: string;
 }

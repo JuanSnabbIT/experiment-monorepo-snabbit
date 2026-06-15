@@ -142,6 +142,8 @@ const RtkQueryService = createApi({
         'SeccionPlantillaV2',
         'BloqueTransversal',
         'EtiquetaPlantillaV2',
+        'SolicitudVacaciones',
+        'SolicitudVacacionesList',
     ] as const,
     endpoints: () => ({}),
 });
