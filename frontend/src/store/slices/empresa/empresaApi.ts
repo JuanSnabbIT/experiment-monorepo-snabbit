@@ -259,6 +259,15 @@ export const empresaApi = RtkQueryService.injectEndpoints({
             ],
         }),
 
+        generarCertificadoAntiguedad: builder.query<Blob, number | string>({
+            query: (usuarioEmpresaId) => ({
+                url: `/api/usuarios-empresa/certificado-antiguedad/${usuarioEmpresaId}/`,
+                method: 'get',
+                responseHandler: async (response: Response) => response.blob(),
+                cache: 'no-cache',
+            }),
+        }),
+
         getTrabajadoresCliente: builder.query<ITrabajadorCliente[], number | string>({
             query: (empresaClienteId) => ({
                 url: `/api/empresas/${empresaClienteId}/trabajadores/`,
@@ -296,5 +305,6 @@ export const {
     useGetUsuariosDeMisClientesQuery,
     useGetDetalleUsuarioClienteQuery,
     useActualizarFichaTrabajadorMutation,
+    useLazyGenerarCertificadoAntiguedadQuery,
     useGetTrabajadoresClienteQuery,
 } = empresaApi;

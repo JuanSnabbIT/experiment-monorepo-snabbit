@@ -5,7 +5,7 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
-import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
+import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -21,6 +21,7 @@ import {
     useActualizarFichaTrabajadorMutation,
     useGetDetalleClienteQuery,
     useGetDetalleUsuarioClienteQuery,
+    useLazyGenerarCertificadoAntiguedadQuery,
 } from '@/store/slices/empresa/empresaApi';
 import {
     useCrearBancoInlineMutation,
@@ -665,6 +666,8 @@ const DetalleUsuarioCliente = () => {
 
     const [cambiarEstado] = useCambiarEstadoContratoTrabajadorMutation();
     const [actualizarFicha] = useActualizarFichaTrabajadorMutation();
+    const [fetchCertificado, { isFetching: generandoCertificado }] =
+        useLazyGenerarCertificadoAntiguedadQuery();
 
     // ── Estado local ──────────────────────────────────────────────────────────
 
@@ -760,6 +763,18 @@ const DetalleUsuarioCliente = () => {
         }
     };
 
+    const handleCertificadoAntiguedad = async () => {
+        if (!refId) return;
+        try {
+            const blob = await fetchCertificado(refId).unwrap();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch {
+            toast.error('No se pudo generar el certificado de antigüedad.');
+        }
+    };
+
     // ── Datos derivados ───────────────────────────────────────────────────────
 
     const contrato = esPendiente ? null : (usuario!.contrato_laboral_vigente ?? null);
@@ -791,6 +806,18 @@ const DetalleUsuarioCliente = () => {
                     </Button>
                     <h1 className='text-xl font-bold'>{nombreCompleto}</h1>
                 </SubheaderLeft>
+                {!esPendiente && (
+                    <SubheaderRight>
+                        <Button
+                            icon='HeroDocumentText'
+                            color='zinc'
+                            variant='outlined'
+                            isLoading={generandoCertificado}
+                            onClick={handleCertificadoAntiguedad}>
+                            Certificado de Antigüedad
+                        </Button>
+                    </SubheaderRight>
+                )}
             </Subheader>
 
             <Container>

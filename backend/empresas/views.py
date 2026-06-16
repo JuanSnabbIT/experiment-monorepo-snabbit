@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from django.db import transaction
+from django.http import HttpResponse
 from core.models import PersonalizacionUsuario
 from cuentas.functions import obtener_usuario_empresa
 from recursos.models import Equipo
@@ -10,6 +13,7 @@ from rrhh.mixins import TrabajadoresClienteMixin
 from vacaciones.models import SolicitudVacaciones
 
 from .models import *
+from .pdfs.certificado_antiguedad import generar_certificado_antiguedad_pdf
 from .serializers import *
 
 
@@ -465,6 +469,26 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
             return err
         serializer = self.get_serializer(ue, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path=r"certificado-antiguedad/(?P<usuario_empresa_pk>\d+)")
+    def certificado_antiguedad(self, request, usuario_empresa_pk=None):
+        """
+        GET /api/usuarios-empresa/certificado-antiguedad/{usuario_empresa_pk}/
+        Genera y devuelve el PDF de Certificado de Antigüedad Laboral.
+        """
+        ue, err = self._get_ue_cliente_con_permisos(request, usuario_empresa_pk)
+        if err:
+            return err
+
+        buffer = BytesIO()
+        generar_certificado_antiguedad_pdf(ue, buffer)
+
+        rut_slug = (ue.rut or str(ue.pk)).replace(".", "").replace("-", "")
+        nombre_archivo = f"certificado_antiguedad_{rut_slug}.pdf"
+
+        response = HttpResponse(buffer.read(), content_type="application/pdf")
+        response["Content-Disposition"] = f'inline; filename="{nombre_archivo}"'
+        return response
 
 
 class RelacionEmpresaViewSet(viewsets.ModelViewSet):
