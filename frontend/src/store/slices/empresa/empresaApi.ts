@@ -263,8 +263,7 @@ export const empresaApi = RtkQueryService.injectEndpoints({
             query: (usuarioEmpresaId) => ({
                 url: `/api/usuarios-empresa/certificado-antiguedad/${usuarioEmpresaId}/`,
                 method: 'get',
-                responseHandler: async (response: Response) => response.blob(),
-                cache: 'no-cache',
+                responseType: 'blob',
             }),
         }),
 
