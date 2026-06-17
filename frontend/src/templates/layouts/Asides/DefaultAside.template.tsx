@@ -74,7 +74,7 @@ const DefaultAsideTemplate = () => {
                                 <NavCollapse
                                     text={Pages.empresa.subPages.detalleCliente.text}
                                     icon={Pages.empresa.subPages.detalleCliente.icon}
-                                    to='/empresa/clientes'>
+                                    to={Pages.empresa.subPages.detalleCliente.to}>
                                     <CrearClienteEnMenu />
                                     {listaMisClientes.length > 0 ? (
                                         listaMisClientes.map((cli, index) => (
@@ -507,6 +507,15 @@ const DefaultAsideTemplate = () => {
                                     to={Pages.vacaciones.subPages.dashboardVacaciones.to}
                                     icon={Pages.vacaciones.subPages.dashboardVacaciones.icon}
                                     id={Pages.vacaciones.subPages.dashboardVacaciones.id}></NavItem>
+                            </AuthorityCheckNav>
+                            <AuthorityCheckNav
+                                authority={Pages.listaDiasCalendario.authority}
+                                userAuthority={listaGrupos?.grupos}>
+                                <NavItem
+                                    text={Pages.listaDiasCalendario.text}
+                                    to={Pages.listaDiasCalendario.to}
+                                    icon={Pages.listaDiasCalendario.icon}
+                                    id={Pages.listaDiasCalendario.id}></NavItem>
                             </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
