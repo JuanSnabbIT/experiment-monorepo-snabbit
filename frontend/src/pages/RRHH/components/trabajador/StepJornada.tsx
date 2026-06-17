@@ -90,7 +90,14 @@ const StepJornada = ({ formik, empresaClienteId }: Props) => {
                             value={op.value}
                             checked={values.jornada === op.value}
                             onChange={() => {
-                                setFieldValue('jornada', op.value);
+                                setFieldValue('jornada', op.value, false);
+                                setFieldValue('horas_semanales', '', false);
+                                setFieldValue('hora_inicio', '', false);
+                                setFieldValue('hora_fin', '', false);
+                                setFieldValue('dias_semana', [], false);
+                                setFieldValue('grupo_turno_id', null, false);
+                                setFieldValue('turnos_rotativo', [], false);
+                                setFieldValue('horario_detalle', '', false);
                                 setFieldTouched('jornada', true, false);
                             }}>
                             <span className='text-xs font-semibold leading-tight'>{op.label}</span>

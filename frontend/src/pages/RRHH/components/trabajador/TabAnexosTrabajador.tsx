@@ -8,11 +8,13 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import type { IAnexoContrato, IContratoTrabajador } from '@/interface/rrhh.interface';
+import ApiService from '@/services/ApiService';
 import {
     useCrearAnexoContratoMutation,
     useGetAnexosContratoQuery,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
+import { confirmAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
 import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -29,7 +31,12 @@ interface IProps {
     contrato: IContratoTrabajador;
 }
 
-const AnexoCard = ({ a }: { a: IAnexoContrato }) => (
+interface IAnexoCardProps {
+    a: IAnexoContrato;
+    onDescargar: (url: string, id: number) => void;
+}
+
+const AnexoCard = ({ a, onDescargar }: IAnexoCardProps) => (
     <div className='rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800'>
         <div className='flex items-start justify-between gap-2'>
             <div>
@@ -55,8 +62,11 @@ const AnexoCard = ({ a }: { a: IAnexoContrato }) => (
                 )}
             </div>
             {a.archivo_pdf && (
-                <Button icon='HeroEye' size='sm' onClick={() => window.open(a.archivo_pdf!, '_blank')}>
-                    PDF
+                <Button
+                    icon='HeroDocumentArrowDown'
+                    size='sm'
+                    onClick={() => onDescargar(a.archivo_pdf!, a.id)}>
+                    Descargar PDF
                 </Button>
             )}
         </div>
@@ -73,6 +83,7 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
     const [nuevaFechaTermino, setNuevaFechaTermino] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [archivoPdf, setArchivoPdf] = useState<File | null>(null);
+    const [formErrors, setFormErrors] = useState({ tipo: '', fechaEfectiva: '', descripcion: '' });
     const fileRef = useRef<HTMLInputElement>(null);
 
     const estado = contrato.estado;
@@ -83,24 +94,59 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
     const puedeCrear = esVigente;
     const esProrroga = tipo?.value === 'prorroga';
 
+    const handleDescargarPdf = async (url: string, id: number) => {
+        try {
+            const response = await ApiService.fetchData<Blob>({
+                url,
+                method: 'get',
+                responseType: 'blob',
+            });
+            const blobUrl = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'application/pdf' }),
+            );
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `anexo_${id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
     const resetForm = () => {
         setTipo(null);
         setFechaEfectiva('');
         setNuevaFechaTermino('');
         setDescripcion('');
         setArchivoPdf(null);
+        setFormErrors({ tipo: '', fechaEfectiva: '', descripcion: '' });
         if (fileRef.current) fileRef.current.value = '';
         setFormVisible(false);
     };
 
     const handleCrear = async () => {
-        if (!tipo || !fechaEfectiva || !descripcion.trim()) {
-            toast.warning('Completa tipo, fecha y descripcion antes de guardar.');
-            return;
-        }
+        const errs = {
+            tipo: !tipo ? 'Requerido' : '',
+            fechaEfectiva: !fechaEfectiva ? 'Requerido' : '',
+            descripcion: !descripcion.trim() ? 'Requerido' : '',
+        };
+        setFormErrors(errs);
+        if (Object.values(errs).some(Boolean)) return;
+
+        const ok = await confirmAlert({
+            title: 'Crear anexo',
+            text: 'El anexo quedará registrado de forma permanente y no podrá eliminarse.',
+            confirmText: 'Crear anexo',
+            icon: 'warning',
+        });
+        if (!ok) return;
+
         const fd = new FormData();
         fd.append('contrato', String(contrato.id));
-        fd.append('tipo', tipo.value);
+        fd.append('tipo', tipo!.value);
         fd.append('fecha_efectiva', fechaEfectiva);
         fd.append('descripcion', descripcion.trim());
         if (esProrroga && nuevaFechaTermino) fd.append('nueva_fecha_termino', nuevaFechaTermino);
@@ -114,25 +160,12 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
         }
     };
 
-    // Estados que no permiten ningun acceso
-    if (esBorrador) {
+    if (esBorrador || esPendiente) {
         return (
             <Card>
                 <CardBody>
                     <Alert variant='outline' color='blue' icon='HeroInformationCircle'>
-                        Los anexos no estan disponibles en estado Borrador. El contrato debe estar Vigente para gestionar anexos.
-                    </Alert>
-                </CardBody>
-            </Card>
-        );
-    }
-
-    if (esPendiente) {
-        return (
-            <Card>
-                <CardBody>
-                    <Alert variant='outline' color='blue' icon='HeroClock'>
-                        Los anexos se habilitaran cuando el contrato pase a estado Vigente (una vez aceptado).
+                        Los anexos están disponibles únicamente cuando el contrato está Vigente.
                     </Alert>
                 </CardBody>
             </Card>
@@ -141,6 +174,12 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
 
     return (
         <div className='space-y-4'>
+            {esVigente && (
+                <Alert variant='outline' color='blue' icon='HeroInformationCircle'>
+                    Para modificar condiciones laborales (sueldo, cargo, jornada), crea un anexo
+                    en lugar de un nuevo contrato. Esto preserva la antigüedad del trabajador.
+                </Alert>
+            )}
             {/* Lista de anexos */}
             <Card>
                 <CardHeader>
@@ -170,7 +209,7 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
                     ) : (
                         <div className='space-y-3'>
                             {anexos.map((a: IAnexoContrato) => (
-                                <AnexoCard key={a.id} a={a} />
+                                <AnexoCard key={a.id} a={a} onDescargar={handleDescargarPdf} />
                             ))}
                         </div>
                     )}
@@ -190,9 +229,15 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
                                         name='anexo_tipo'
                                         options={TIPO_ANEXO_OPTIONS}
                                         value={tipo}
-                                        onChange={(opt) => setTipo(opt as TSelectOption | null)}
+                                        onChange={(opt) => {
+                                            setTipo(opt as TSelectOption | null);
+                                            setFormErrors((prev) => ({ ...prev, tipo: '' }));
+                                        }}
                                         placeholder='Seleccionar...'
                                     />
+                                    {formErrors.tipo && (
+                                        <p className='mt-1 text-xs text-red-500'>{formErrors.tipo}</p>
+                                    )}
                                 </div>
                                 <div>
                                     <Label htmlFor='anexo_fecha'>Fecha efectiva</Label>
@@ -201,8 +246,14 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
                                         name='anexo_fecha'
                                         type='date'
                                         value={fechaEfectiva}
-                                        onChange={(e) => setFechaEfectiva(e.target.value)}
+                                        onChange={(e) => {
+                                            setFechaEfectiva(e.target.value);
+                                            setFormErrors((prev) => ({ ...prev, fechaEfectiva: '' }));
+                                        }}
                                     />
+                                    {formErrors.fechaEfectiva && (
+                                        <p className='mt-1 text-xs text-red-500'>{formErrors.fechaEfectiva}</p>
+                                    )}
                                 </div>
                             </div>
                             {esProrroga && (
@@ -227,10 +278,16 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
                                 <Textarea
                                     id='anexo_descripcion'
                                     value={descripcion}
-                                    onChange={(e) => setDescripcion(e.target.value)}
+                                    onChange={(e) => {
+                                        setDescripcion(e.target.value);
+                                        setFormErrors((prev) => ({ ...prev, descripcion: '' }));
+                                    }}
                                     placeholder='Describe el cambio o modificacion...'
                                     rows={3}
                                 />
+                                {formErrors.descripcion && (
+                                    <p className='mt-1 text-xs text-red-500'>{formErrors.descripcion}</p>
+                                )}
                             </div>
                             <FileInput
                                 ref={fileRef}
@@ -244,7 +301,6 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
                             <div className='flex gap-2'>
                                 <Button
                                     variant='solid'
-                                    icon='HeroPlus'
                                     onClick={handleCrear}
                                     isLoading={creando}
                                     isDisable={creando}>

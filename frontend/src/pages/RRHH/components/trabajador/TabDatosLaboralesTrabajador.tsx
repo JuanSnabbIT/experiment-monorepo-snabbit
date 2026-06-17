@@ -244,6 +244,28 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                 <ModalBody>
                     <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
                         <div className='sm:col-span-2'>
+                            <Label htmlFor='m_plantilla_contrato'>Plantilla de contrato</Label>
+                            <SelectReact
+                                id='m_plantilla_contrato'
+                                name='plantilla_contrato'
+                                options={plantillasOptions}
+                                value={
+                                    plantillasOptions.find(
+                                        (o) => o.value === formik.values.plantilla_contrato,
+                                    ) ?? null
+                                }
+                                onChange={(opt) =>
+                                    formik.setFieldValue(
+                                        'plantilla_contrato',
+                                        (opt as TSelectOption)?.value ?? '',
+                                    )
+                                }
+                                placeholder='Selecciona una plantilla...'
+                                isClearable
+                            />
+                        </div>
+
+                        <div className='sm:col-span-2'>
                             <Label htmlFor='m_cargo'>Cargo</Label>
                             <SelectReact
                                 id='m_cargo'
@@ -408,28 +430,6 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                 value={formik.values.lugar_trabajo}
                                 onChange={formik.handleChange}
                                 placeholder='Dirección o descripción del lugar...'
-                            />
-                        </div>
-
-                        <div className='sm:col-span-2'>
-                            <Label htmlFor='m_plantilla_contrato'>Plantilla de contrato</Label>
-                            <SelectReact
-                                id='m_plantilla_contrato'
-                                name='plantilla_contrato'
-                                options={plantillasOptions}
-                                value={
-                                    plantillasOptions.find(
-                                        (o) => o.value === formik.values.plantilla_contrato,
-                                    ) ?? null
-                                }
-                                onChange={(opt) =>
-                                    formik.setFieldValue(
-                                        'plantilla_contrato',
-                                        (opt as TSelectOption)?.value ?? '',
-                                    )
-                                }
-                                placeholder='Selecciona una plantilla...'
-                                isClearable
                             />
                         </div>
 

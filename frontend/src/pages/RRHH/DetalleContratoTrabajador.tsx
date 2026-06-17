@@ -21,8 +21,10 @@ import {
     useGetEstadoAprobacionEmpleadorQuery,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { TMotivoTerminoContrato } from '@/interface/rrhh.interface';
+import ApiService from '@/services/ApiService';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
+import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -31,7 +33,6 @@ import CicloVidaContratoLaboral from './components/trabajador/CicloVidaContratoL
 import ModalCambiarEstadoContrato from './components/trabajador/ModalCambiarEstadoContrato';
 import TabAnexosTrabajador from './components/trabajador/TabAnexosTrabajador';
 import TabDatosLaboralesTrabajador from './components/trabajador/TabDatosLaboralesTrabajador';
-import TabDocumentoTrabajador from './components/trabajador/TabDocumentoTrabajador';
 import TabFiniquitoTrabajador from './components/trabajador/TabFiniquitoTrabajador';
 import TabHistorialTrabajador from './components/trabajador/TabHistorialTrabajador';
 import TabRemuneracionesTrabajador from './components/trabajador/TabRemuneracionesTrabajador';
@@ -41,7 +42,6 @@ type TTabId =
     | 'datos'
     | 'trabajador'
     | 'sueldo'
-    | 'documento'
     | 'anexos'
     | 'historial'
     | 'finiquito';
@@ -50,17 +50,16 @@ const TABS: { id: TTabId; label: string }[] = [
     { id: 'datos', label: 'Datos contrato' },
     { id: 'trabajador', label: 'Trabajador' },
     { id: 'sueldo', label: 'Sueldo' },
-    { id: 'documento', label: 'Documento' },
     { id: 'anexos', label: 'Anexos' },
     { id: 'historial', label: 'Historial' },
     { id: 'finiquito', label: 'Finiquito' },
 ];
 
-const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
+const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'violet' | 'zinc'> = {
     borrador: 'zinc',
     pendiente_aprobacion: 'amber',
     vigente: 'emerald',
-    terminado: 'zinc',
+    terminado: 'violet',
     anulado: 'red',
     descartado: 'zinc',
 };
@@ -154,10 +153,29 @@ const DetalleContratoTrabajador = () => {
               contrato.datos_trabajador_nuevo.email
             : `Trabajador #${contrato.usuario_empresa}`);
 
-    const handleGenerarPdf = async () => {
+    const handleVerOGenerarPdf = async () => {
         try {
-            await generarPdf(contrato.id).unwrap();
-            toast.success('PDF generado correctamente.');
+            const resultado = await generarPdf(contrato.id).unwrap();
+            const pdfUrl = resultado.archivo_pdf;
+
+            if (!pdfUrl) return;
+
+            const response = await ApiService.fetchData<Blob>({
+                url: pdfUrl,
+                method: 'get',
+                responseType: 'blob',
+            });
+
+            const blobUrl = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'application/pdf' }),
+            );
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `contrato_${contrato.id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
         } catch (err) {
             toast.error(getErrorMessage(err));
         }
@@ -189,16 +207,48 @@ const DetalleContratoTrabajador = () => {
     };
 
     const handleActivarContrato = async () => {
-        try {
-            const resultado = await aprobarContrato(contrato.id).unwrap();
+        const activar = async (accion?: string) => {
+            const resultado = await aprobarContrato({ id: contrato.id, accion }).unwrap();
             toast.success('Contrato activado correctamente.');
             if (fromFicha && clienteId && resultado.usuario_empresa) {
                 navigate(
                     `/empresa/detalle-cliente/${clienteId}/trabajador/${resultado.usuario_empresa}?tipo=confirmado`,
                 );
             }
-        } catch (err) {
-            toast.error(getErrorMessage(err));
+        };
+
+        try {
+            await activar();
+        } catch (err: any) {
+            const data = err?.data;
+            if (data?.code === 'conflicto_vigente') {
+                const refVigente = data.referencia ?? `Contrato #${data.contrato_vigente_id}`;
+                const result = await Swal.fire({
+                    title: 'Ya existe un contrato vigente',
+                    html: `El trabajador ya tiene el contrato <strong>${refVigente}</strong> activo.<br><br>¿Qué deseas hacer?`,
+                    icon: 'warning',
+                    showConfirmButton: true,
+                    showDenyButton: true,
+                    showCancelButton: true,
+                    confirmButtonText: 'Terminar contrato anterior y activar este',
+                    denyButtonText: 'Ir al contrato vigente para crear un anexo',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#ef4444',
+                    denyButtonColor: '#3b82f6',
+                    reverseButtons: true,
+                });
+                if (result.isConfirmed) {
+                    try {
+                        await activar('deprecar_anterior');
+                    } catch (err2) {
+                        toast.error(getErrorMessage(err2));
+                    }
+                } else if (result.isDenied) {
+                    navigate(`/rrhh/contratos/${data.contrato_vigente_id}?tab=anexos`);
+                }
+            } else {
+                toast.error(getErrorMessage(err));
+            }
         }
     };
 
@@ -350,7 +400,10 @@ const DetalleContratoTrabajador = () => {
                             <div className='flex shrink-0 flex-wrap items-center gap-2'>
                                 {contrato.estado === 'borrador' && (
                                     <>
-                                        <Button icon='HeroDocumentArrowDown' isDisable={generandoPdf} onClick={handleGenerarPdf}>
+                                        <Button
+                                            icon='HeroDocumentArrowDown'
+                                            isDisable={generandoPdf}
+                                            onClick={handleVerOGenerarPdf}>
                                             {generandoPdf ? 'Generando...' : 'Vista previa'}
                                         </Button>
                                         <Button
@@ -370,19 +423,37 @@ const DetalleContratoTrabajador = () => {
                                     </>
                                 )}
 
-                                {contrato.estado === 'pendiente_aprobacion' &&
-                                    (envio?.decision === 'cambios_solicitados' || envio?.expirado === true) && (
-                                        <Button
-                                            variant='solid'
-                                            color='amber'
-                                            icon='HeroArrowUturnLeft'
-                                            isDisable={cambiandoEstado}
-                                            onClick={handleVolverABorrador}>
-                                            Volver a borrador
-                                        </Button>
-                                    )}
+                                {contrato.estado === 'pendiente_aprobacion' && (
+                                    <>
+                                        {contrato.archivo_pdf && (
+                                            <Button
+                                                icon='HeroDocumentArrowDown'
+                                                onClick={handleVerOGenerarPdf}>
+                                                Descargar PDF
+                                            </Button>
+                                        )}
+                                        {(envio?.decision === 'cambios_solicitados' || envio?.expirado === true) && (
+                                            <Button
+                                                variant='solid'
+                                                color='amber'
+                                                icon='HeroArrowUturnLeft'
+                                                isDisable={cambiandoEstado}
+                                                onClick={handleVolverABorrador}>
+                                                Volver a borrador
+                                            </Button>
+                                        )}
+                                    </>
+                                )}
+
                                 {contrato.estado === 'vigente' && (
                                     <>
+                                        <Button
+                                            icon='HeroClipboardDocumentList'
+                                            variant='solid'
+                                            color='blue'
+                                            onClick={() => setActiveTab('anexos')}>
+                                            Modificar condiciones
+                                        </Button>
                                         <Button
                                             icon='HeroArrowsRightLeft'
                                             onClick={() => {
@@ -391,24 +462,41 @@ const DetalleContratoTrabajador = () => {
                                             }}>
                                             Terminar / Anular
                                         </Button>
-                                        <Button icon='HeroDocumentArrowDown' isDisable={generandoPdf} onClick={handleGenerarPdf}>
-                                            PDF
+                                        <Button
+                                            icon='HeroDocumentArrowDown'
+                                            isDisable={generandoPdf}
+                                            onClick={handleVerOGenerarPdf}>
+                                            {generandoPdf ? 'Generando...' : contrato.archivo_pdf ? 'Descargar PDF' : 'Generar PDF'}
                                         </Button>
                                     </>
                                 )}
+
                                 {contrato.estado === 'terminado' && (
-                                    <Button icon='HeroDocumentArrowDown' isDisable={generandoPdf} onClick={handleGenerarPdf}>
-                                        {generandoPdf ? 'Generando...' : 'Generar PDF'}
+                                    <Button
+                                        icon='HeroDocumentArrowDown'
+                                        isDisable={generandoPdf}
+                                        onClick={handleVerOGenerarPdf}>
+                                        {generandoPdf ? 'Generando...' : contrato.archivo_pdf ? 'Ver PDF' : 'Generar PDF'}
                                     </Button>
                                 )}
+
                                 {contrato.estado === 'anulado' && (
-                                    <Button
-                                        icon='HeroDocumentDuplicate'
-                                        variant='solid'
-                                        color='blue'
-                                        onClick={handleAbrirModalCopia}>
-                                        Crear copia
-                                    </Button>
+                                    <>
+                                        {contrato.archivo_pdf && (
+                                            <Button
+                                                icon='HeroDocumentArrowDown'
+                                                onClick={handleVerOGenerarPdf}>
+                                                Descargar PDF
+                                            </Button>
+                                        )}
+                                        <Button
+                                            icon='HeroDocumentDuplicate'
+                                            variant='solid'
+                                            color='blue'
+                                            onClick={handleAbrirModalCopia}>
+                                            Crear copia
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -752,7 +840,6 @@ const DetalleContratoTrabajador = () => {
                 {activeTab === 'datos' && <TabDatosLaboralesTrabajador contrato={contrato} />}
                 {activeTab === 'trabajador' && <TabTrabajadorTrabajador contrato={contrato} />}
                 {activeTab === 'sueldo' && <TabRemuneracionesTrabajador contrato={contrato} />}
-{activeTab === 'documento' && <TabDocumentoTrabajador contrato={contrato} />}
                 {activeTab === 'anexos' && <TabAnexosTrabajador contrato={contrato} />}
                 {activeTab === 'historial' && <TabHistorialTrabajador contratoId={contrato.id} />}
                 {activeTab === 'finiquito' && <TabFiniquitoTrabajador contrato={contrato} />}

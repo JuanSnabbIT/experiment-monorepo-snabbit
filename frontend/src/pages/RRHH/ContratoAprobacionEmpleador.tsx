@@ -535,7 +535,7 @@ const ContratoAprobacionEmpleador = () => {
                                     icon='HeroDocumentArrowDown'
                                     onClick={handleDescargarPDF}>
                                     {datos?.decision === 'aprobado'
-                                        ? 'Ver PDF'
+                                        ? 'Descargar PDF aprobado'
                                         : 'Ver PDF'}
                                 </Button>
                             </div>

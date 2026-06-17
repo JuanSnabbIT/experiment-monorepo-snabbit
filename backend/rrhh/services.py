@@ -41,6 +41,14 @@ class RRHHContratosServiceException(Exception):
     pass
 
 
+class ConflictoVigenteError(Exception):
+    """Se lanza cuando ya existe un contrato vigente para el mismo usuario_empresa."""
+    def __init__(self, contrato_vigente_id: int, referencia: str):
+        self.contrato_vigente_id = contrato_vigente_id
+        self.referencia = referencia
+        super().__init__(f"Ya existe un contrato vigente: {referencia}")
+
+
 class RRHHContratosService:
     """
     Servicio centralizado para operaciones sobre contratos laborales.
@@ -91,7 +99,7 @@ class RRHHContratosService:
 
     @staticmethod
     @transaction.atomic
-    def cambiar_estado_a_vigente(contrato_id: int, usuario) -> ContratoTrabajador:
+    def cambiar_estado_a_vigente(contrato_id: int, usuario, accion: str | None = None) -> ContratoTrabajador:
         """
         Cambia contrato de pendiente_aprobacion a vigente.
 
@@ -151,6 +159,23 @@ class RRHHContratosService:
                     "aprobacion": f"Empleador no aprobó. "
                                   f"Estado: {envio_pendiente.get_decision_display()}"
                 })
+
+        # Validación 3: un solo contrato vigente por trabajador
+        if contrato.usuario_empresa_id:
+            conflicto = ContratoTrabajador.objects.filter(
+                usuario_empresa_id=contrato.usuario_empresa_id,
+                estado="vigente",
+            ).exclude(pk=contrato.pk).first()
+            if conflicto:
+                if accion != "deprecar_anterior":
+                    raise ConflictoVigenteError(
+                        contrato_vigente_id=conflicto.pk,
+                        referencia=conflicto.referencia_interna or f"Contrato #{conflicto.pk}",
+                    )
+                conflicto.estado = "terminado"
+                conflicto.motivo_termino = "otro"
+                conflicto.fecha_termino_real = timezone.now().date()
+                conflicto.save(update_fields=["estado", "motivo_termino", "fecha_termino_real", "fecha_modificacion"])
 
         # Transición atómica
         contrato.estado = "vigente"
@@ -291,6 +316,24 @@ class RRHHContratosService:
                 })
 
             contrato.motivo_anulacion = motivo_anulacion
+
+        # Validación 3: un solo contrato vigente por trabajador
+        if nuevo_estado == "vigente" and contrato.usuario_empresa_id:
+            accion = kwargs.get("accion")
+            conflicto = ContratoTrabajador.objects.filter(
+                usuario_empresa_id=contrato.usuario_empresa_id,
+                estado="vigente",
+            ).exclude(pk=contrato.pk).first()
+            if conflicto:
+                if accion != "deprecar_anterior":
+                    raise ConflictoVigenteError(
+                        contrato_vigente_id=conflicto.pk,
+                        referencia=conflicto.referencia_interna or f"Contrato #{conflicto.pk}",
+                    )
+                conflicto.estado = "terminado"
+                conflicto.motivo_termino = "otro"
+                conflicto.fecha_termino_real = timezone.now().date()
+                conflicto.save(update_fields=["estado", "motivo_termino", "fecha_termino_real", "fecha_modificacion"])
 
         # Cambio de estado
         contrato.estado = nuevo_estado

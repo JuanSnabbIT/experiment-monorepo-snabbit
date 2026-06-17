@@ -590,7 +590,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
     def cambiar_estado(self, request, pk=None):
-        from .services import RRHHContratosService
+        from .services import RRHHContratosService, ConflictoVigenteError
 
         contrato = self.get_object()
         nuevo_estado = request.data.get("estado")
@@ -614,6 +614,15 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 **extra_data
             )
             return Response(ContratoTrabajadorSerializer(contrato).data)
+        except ConflictoVigenteError as e:
+            return Response(
+                {
+                    "code": "conflicto_vigente",
+                    "contrato_vigente_id": e.contrato_vigente_id,
+                    "referencia": e.referencia,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except ValidationError as e:
             return Response(
                 {"detail": str(e), "errors": e.message_dict if hasattr(e, 'message_dict') else {}},
@@ -630,7 +639,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="aprobar")
     def aprobar(self, request, pk=None):
-        from .services import RRHHContratosService
+        from .services import RRHHContratosService, ConflictoVigenteError
 
         contrato = self.get_object()
 
@@ -640,12 +649,24 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        accion = request.data.get("accion")
+
         try:
             contrato = RRHHContratosService.cambiar_estado_a_vigente(
                 contrato_id=pk,
-                usuario=request.user
+                usuario=request.user,
+                accion=accion,
             )
             return Response(ContratoTrabajadorSerializer(contrato).data)
+        except ConflictoVigenteError as e:
+            return Response(
+                {
+                    "code": "conflicto_vigente",
+                    "contrato_vigente_id": e.contrato_vigente_id,
+                    "referencia": e.referencia,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         except ValidationError as e:
             return Response(
                 {"detail": str(e)},
@@ -1345,8 +1366,11 @@ class ContratoAprobacionPDFView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
-            # PDF congelado aprobado, sin marca de agua
-            pdf_bytes = bytes(envio.pdf_congelado)
+            # Contrato vigente → regenerar sin marca de agua
+            try:
+                pdf_bytes = _generar_pdf(envio.contrato, forzar_borrador=False)
+            except PlantillaNoDisponibleError:
+                pdf_bytes = bytes(envio.pdf_congelado)
 
         filename = f"contrato_aprobacion_{envio.contrato_id}.pdf"
         response = HttpResponse(pdf_bytes, content_type="application/pdf")

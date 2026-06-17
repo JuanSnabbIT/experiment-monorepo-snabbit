@@ -15,9 +15,10 @@ import Tooltip from '@/components/ui/Tooltip';
 import { useContratoWizard } from '@/hooks/useContratoWizard';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
-import { useAppDispatch, useAppSelector } from '@/store';
+import { useAppSelector } from '@/store';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetGruposTurnoQuery } from '@/store/slices/rrhh/grupoTurnoApi';
 import {
     useCrearContratoConTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
@@ -366,8 +367,7 @@ const CrearContratoTrabajadorWizard = ({
     contratoId,
     usuarioEmpresaInicial,
 }: Props) => {
-    const dispatch = useAppDispatch();
-    const { detalleCliente: detalleClienteStore, listaMisClientes } = useAppSelector(
+    const { detalleCliente: detalleClienteStore } = useAppSelector(
         (state) => state.empresa,
     );
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
@@ -399,11 +399,6 @@ const CrearContratoTrabajadorWizard = ({
     // Rastrea si el usuario intentó avanzar en el paso actual.
     // Permite bloquear el botón Siguiente solo tras el primer intento fallido.
     const [stepAttempted, setStepAttempted] = useState(false);
-
-    // Cargar lista de empresas cliente al abrir el wizard
-    useEffect(() => {
-        // TODO RBAC: validar acceso explícito al cliente contextual cuando exista control por roles.
-    }, [isOpen, personalizacionUsuario]);
 
     // Reset del intento al cambiar de paso
     useEffect(() => { setStepAttempted(false); }, [step]);
@@ -562,6 +557,11 @@ const CrearContratoTrabajadorWizard = ({
         { skip: !empresaClienteContexto?.info_cliente.id || !isOpen },
     );
 
+    const { data: gruposTurno = [] } = useGetGruposTurnoQuery(
+        { empresa_id: empresaClienteContexto?.info_cliente.id },
+        { skip: !empresaClienteContexto?.info_cliente.id || !isOpen },
+    );
+
     const renderStep = () => {
         switch (step) {
             case 1:
@@ -650,10 +650,11 @@ const CrearContratoTrabajadorWizard = ({
                                             value={op.value}
                                             checked={formik.values.tipo_contrato === op.value}
                                             onChange={(e) => {
-                                                formik.setFieldValue('tipo_contrato', e.target.value);
+                                                formik.setFieldValue('tipo_contrato', e.target.value, false);
                                                 formik.setFieldTouched('tipo_contrato', true, false);
+                                                formik.setFieldError('tipo_contrato', undefined);
                                                 if (e.target.value !== 'plazo_fijo') {
-                                                    formik.setFieldValue('cantidad_meses', '');
+                                                    formik.setFieldValue('cantidad_meses', '', false);
                                                 }
                                             }}
                                             icon={iconMap[op.value as keyof typeof iconMap]}>
@@ -701,7 +702,9 @@ const CrearContratoTrabajadorWizard = ({
             case 7: {
                 const trabajadorLabel =
                     formik.values.trab_modo === 'existente'
-                        ? `ID ${formik.values.trab_usuario_empresa_id}`
+                        ? usuariosCliente.find(
+                              (u) => String(u.id) === String(formik.values.trab_usuario_empresa_id),
+                          )?.nombre_usuario ?? `ID ${formik.values.trab_usuario_empresa_id}`
                         : `${formik.values.trab_first_name} ${formik.values.trab_last_name}`.trim();
                 const tipoLabel = ({
                     indefinido: 'Indefinido',
@@ -860,7 +863,11 @@ const CrearContratoTrabajadorWizard = ({
                                 {formik.values.jornada === 'turnos' && formik.values.grupo_turno_id && (
                                     <>
                                         <dt className='text-zinc-500'>Grupo turnos:</dt>
-                                        <dd className='font-medium'>ID {formik.values.grupo_turno_id}</dd>
+                                        <dd className='font-medium'>
+                                            {gruposTurno.find(
+                                                (g) => String(g.id) === String(formik.values.grupo_turno_id),
+                                            )?.nombre ?? `ID ${formik.values.grupo_turno_id}`}
+                                        </dd>
                                     </>
                                 )}
                                 <dt className='text-zinc-500'>Fecha inicio:</dt>

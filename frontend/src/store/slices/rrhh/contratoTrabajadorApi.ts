@@ -221,9 +221,16 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             providesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador' as const, id: id as number }],
         }),
 
-        aprobarContratoTrabajador: builder.mutation<IContratoTrabajador, number | string>({
-            query: (id) => ({ url: `${BASE}/${id}/aprobar/`, method: 'post' }),
-            invalidatesTags: (_r, _e, id) => [
+        aprobarContratoTrabajador: builder.mutation<
+            IContratoTrabajador,
+            { id: number | string; accion?: string }
+        >({
+            query: ({ id, accion }) => ({
+                url: `${BASE}/${id}/aprobar/`,
+                method: 'post',
+                data: accion ? { accion } : undefined,
+            }),
+            invalidatesTags: (_r, _e, { id }) => [
                 { type: 'ContratoTrabajador' as const, id: id as number },
                 { type: 'ContratoTrabajadorList' as const, id: 'LIST' },
             ],

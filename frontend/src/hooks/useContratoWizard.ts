@@ -143,15 +143,20 @@ export const useContratoWizard = (
   );
 
   // Actualizar campo con debounce nativo
+  const nuevosCambiosRef = useRef<Record<string, any>>({});
+
   const actualizarCampo = useCallback(
     (campo: string, valor: any) => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+
       setState((prev) => {
         const nuevosCambios = {
           ...prev.cambios,
           [campo]: valor,
         };
 
-        // Guardar en localStorage inmediatamente
         if (contratoId) {
           localStorage.setItem(
             STORAGE_KEY(contratoId),
@@ -159,27 +164,19 @@ export const useContratoWizard = (
           );
         }
 
-        // Limpiar error anterior
-        if (prev.error) {
-          setState((p) => ({ ...p, error: null }));
-        }
-
-        // Cancelar debounce anterior
-        if (debounceTimeoutRef.current) {
-          clearTimeout(debounceTimeoutRef.current);
-        }
-
-        // Iniciar nuevo debounce
-        debounceTimeoutRef.current = setTimeout(() => {
-          guardarEnBackend(nuevosCambios);
-        }, DEBOUNCE_DELAY);
+        nuevosCambiosRef.current = nuevosCambios;
 
         return {
           ...prev,
           cambios: nuevosCambios,
+          error: null,
           guardando: true,
         };
       });
+
+      debounceTimeoutRef.current = setTimeout(() => {
+        guardarEnBackend(nuevosCambiosRef.current);
+      }, DEBOUNCE_DELAY);
     },
     [contratoId, guardarEnBackend]
   );

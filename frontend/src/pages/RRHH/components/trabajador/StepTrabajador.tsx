@@ -215,15 +215,10 @@ const StepTrabajador = ({
                                 ) || null
                             }
                             onChange={(opt) => {
-                                setFieldValue(
-                                    'trab_sucursal_id',
-                                    opt ? Number((opt as TSelectOption).value) : '',
-                                );
-                                setFieldValue('trab_usuario_empresa_id', '');
+                                setFieldValue('trab_sucursal_id', opt ? Number((opt as TSelectOption).value) : '', false);
+                                setFieldValue('trab_usuario_empresa_id', '', false);
                                 formik.setFieldTouched('trab_sucursal_id', true, false);
-                                if (opt) {
-                                    formik.setFieldError('trab_sucursal_id', undefined);
-                                }
+                                formik.setFieldError('trab_sucursal_id', undefined);
                             }}
                         />
                         {touched.trab_sucursal_id && errors.trab_sucursal_id && (
@@ -391,11 +386,9 @@ const StepTrabajador = ({
                                 ) || null
                             }
                             onChange={(opt) => {
-                                setFieldValue(
-                                    'trab_sucursal_id',
-                                    opt ? Number((opt as TSelectOption).value) : '',
-                                );
+                                setFieldValue('trab_sucursal_id', opt ? Number((opt as TSelectOption).value) : '', false);
                                 formik.setFieldTouched('trab_sucursal_id', true, false);
+                                formik.setFieldError('trab_sucursal_id', undefined);
                             }}
                         />
                         {touched.trab_sucursal_id && errors.trab_sucursal_id && (

@@ -19,7 +19,7 @@ export const cargoCatalogoApi = RtkQueryService.injectEndpoints({
             providesTags: [{ type: 'CargoCatalogo', id: 'LIST' }],
         }),
 
-        createCargoCatalogo: builder.mutation<ICargoCatalogo, { nombre: string }>({
+        createCargoCatalogo: builder.mutation<ICargoCatalogo, { nombre: string; empresa?: number }>({
             query: (data) => ({ url: `${BASE}/`, method: 'post', data }),
             invalidatesTags: [{ type: 'CargoCatalogo', id: 'LIST' }],
         }),

@@ -3,14 +3,17 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
-import { useGetCargosCatalogoQuery } from '@/store/slices/rrhh/cargoCatalogoApi';
+import { useCreateCargoCatalogoMutation, useGetCargosCatalogoQuery } from '@/store/slices/rrhh/cargoCatalogoApi';
+import { useAppSelector } from '@/store';
 import { FormikProps } from 'formik';
 import { useEffect } from 'react';
+import { toast } from 'react-toastify';
 import {
     IFormValuesContratoTrabajador,
     MESES_OPTIONS,
 } from './types';
 import { IUsuarioEmpresa } from '@/interface/empresas.interface';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 const CAUSAL_REEMPLAZO_OPTIONS: TSelectOption[] = [
     { value: 'licencia_medica', label: 'Licencia medica' },
@@ -36,7 +39,11 @@ const calcFechaTermino = (fechaInicio: string, meses: number): string => {
 const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = [] }: Props) => {
     const { values, errors, touched, setFieldValue, setFieldTouched, handleChange, handleBlur } = formik;
 
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const empresaId = personalizacionUsuario?.empresa ?? undefined;
+
     const { data: cargos = [] } = useGetCargosCatalogoQuery();
+    const [crearCargo] = useCreateCargoCatalogoMutation();
 
     const cargosOpts: TSelectOption[] = cargos.map((c) => ({
         value: c.nombre,
@@ -98,7 +105,22 @@ const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = []
                     onChange={(opt) => {
                         setFieldValue('cargo', opt ? (opt as TSelectOption).value : '');
                         setFieldTouched('cargo', true, false);
+                        formik.setFieldError('cargo', undefined);
                     }}
+                    onCreateOption={async (inputValue) => {
+                        const nombre = inputValue.trim();
+                        if (!nombre) return;
+                        try {
+                            const creado = await crearCargo({ nombre, empresa: empresaId }).unwrap();
+                            setFieldValue('cargo', creado.nombre, false);
+                            setFieldTouched('cargo', true, false);
+                            formik.setFieldError('cargo', undefined);
+                        } catch (err) {
+                            setFieldValue('cargo', nombre, false);
+                            toast.error(getErrorMessage(err));
+                        }
+                    }}
+                    formatCreateLabel={(inputValue) => `Crear cargo "${inputValue.trim()}"`}
                 />
             </Validation>
         </div>
