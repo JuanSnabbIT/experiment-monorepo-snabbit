@@ -102,6 +102,8 @@ export interface IUsuarioEmpresa {
     fecha_modificacion: string;
     fecha_ingreso: null | string;
     fecha_contrato: null | string;
+    fecha_inicio_laboral: null | string;
+    antiguedad_display: null | string;
     cargo: null | string;
     estado: string;
     usuario: number;

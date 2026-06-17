@@ -1,9 +1,11 @@
-from datetime import date
 from textwrap import wrap
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+
+from core.pdf.canvas_utils import draw_logo, draw_paginacion, get_logo_empresa_b64
+from core.pdf.styles import FONTS, MESES_ES
 
 
 def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
@@ -11,8 +13,8 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
     Genera el PDF de Certificado de Antigüedad Laboral para un UsuarioEmpresa.
     El buffer debe ser un BytesIO ya abierto; se posiciona al inicio al terminar.
     """
-    pdf = canvas.Canvas(buffer, pagesize=letter)
-    ancho, alto = letter
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    ancho, alto = A4
     margen_x = 50
     margen_y = 40
     y_pos = alto - margen_y
@@ -32,23 +34,23 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
     años = antiguedad["años"]
     meses = antiguedad["meses"]
     dias = antiguedad["dias"]
-    fecha_inicio = usuario_empresa.fecha_contrato
+    fecha_inicio = usuario_empresa.get_fecha_inicio_laboral()
 
+    from datetime import date
     hoy = date.today()
-    fecha_emision = hoy.strftime("%d de %B de %Y").replace(
-        "January", "enero").replace("February", "febrero").replace(
-        "March", "marzo").replace("April", "abril").replace(
-        "May", "mayo").replace("June", "junio").replace(
-        "July", "julio").replace("August", "agosto").replace(
-        "September", "septiembre").replace("October", "octubre").replace(
-        "November", "noviembre").replace("December", "diciembre")
+    fecha_emision = f"{hoy.day} de {MESES_ES[hoy.month - 1]} de {hoy.year}"
+
+    # ── Logo empresa ──────────────────────────────────────────────────────────
+    logo_b64 = get_logo_empresa_b64(empresa) if empresa else None
+    if logo_b64:
+        draw_logo(pdf, logo_b64, ancho, alto, margen_x, margen_y)
 
     # ── Encabezado empresa ────────────────────────────────────────────────────
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(*FONTS["titulo"])
     pdf.drawString(margen_x, y_pos, nombre_empresa)
     y_pos -= 18
 
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(*FONTS["fecha"])
     if rut_empresa:
         pdf.drawString(margen_x, y_pos, f"RUT: {rut_empresa}")
         y_pos -= 13
@@ -65,20 +67,19 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
 
     # ── Título ────────────────────────────────────────────────────────────────
     pdf.setFont("Helvetica-Bold", 16)
-    titulo = "CERTIFICADO DE ANTIGÜEDAD LABORAL"
-    pdf.drawCentredString(ancho / 2, y_pos, titulo)
+    pdf.drawCentredString(ancho / 2, y_pos, "CERTIFICADO DE ANTIGÜEDAD LABORAL")
     y_pos -= 40
 
     # ── Cuerpo del certificado ────────────────────────────────────────────────
-    pdf.setFont("Helvetica", 11)
+    pdf.setFont(*FONTS["datos"])
     ancho_texto = ancho - 2 * margen_x
-    chars_por_linea = int(ancho_texto / 6.2)
+    chars_por_linea = int(ancho_texto / 5.8)  # 5.8 pts/char ajustado para A4
 
     def escribir_parrafo(texto, indent=0):
         nonlocal y_pos
         lineas = wrap(texto, width=chars_por_linea - indent)
         for i, linea in enumerate(lineas):
-            x = margen_x + (indent * 6.2 if i == 0 else 0)
+            x = margen_x + (indent * 5.8 if i == 0 else 0)
             pdf.drawString(x, y_pos, linea)
             y_pos -= 16
 
@@ -94,10 +95,10 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
     y_pos -= 8
 
     # Título CERTIFICA
-    pdf.setFont("Helvetica-Bold", 11)
+    pdf.setFont(*FONTS["datos_label"])
     pdf.drawString(margen_x, y_pos, "CERTIFICA:")
     y_pos -= 22
-    pdf.setFont("Helvetica", 11)
+    pdf.setFont(*FONTS["datos"])
 
     # Párrafo central
     fecha_inicio_str = (
@@ -127,7 +128,8 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
     y_pos -= 30
 
     # Lugar y fecha
-    pdf.drawString(margen_x, y_pos, f"Santiago, {fecha_emision}")
+    pdf.setFont(*FONTS["datos"])
+    pdf.drawString(margen_x, y_pos, f"{nombre_empresa}, {fecha_emision}")
     y_pos -= 60
 
     # ── Firma representante ───────────────────────────────────────────────────
@@ -137,12 +139,15 @@ def generar_certificado_antiguedad_pdf(usuario_empresa, buffer):
     pdf.line(firma_x, y_pos, firma_x + 200, y_pos)
     y_pos -= 14
 
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(*FONTS["firma_label"])
     if representante_legal:
         pdf.drawString(firma_x, y_pos, representante_legal)
         y_pos -= 13
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(*FONTS["firma_cargo"])
     pdf.drawString(firma_x, y_pos, "Representante Legal")
+
+    # ── Paginación ────────────────────────────────────────────────────────────
+    draw_paginacion(pdf, ancho, margen_x, margen_y)
 
     pdf.save()
     buffer.seek(0)

@@ -76,6 +76,10 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
     # AFP como FK: exponer nombre legible
     afp_nombre = serializers.CharField(source="afp.nombre", read_only=True, default=None)
 
+    # Fecha de inicio laboral con fallback a contratos historicos
+    fecha_inicio_laboral = serializers.SerializerMethodField()
+    antiguedad_display = serializers.SerializerMethodField()
+
     # Cargas familiares
     cargas_familiares = CargaFamiliarSerializer(many=True, read_only=True)
 
@@ -145,6 +149,23 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
 
     def get_tipo_cuenta_bancaria_label(self, obj):
         return obj.get_tipo_cuenta_bancaria_display() if obj.tipo_cuenta_bancaria else None
+
+    def get_fecha_inicio_laboral(self, obj):
+        fecha = obj.get_fecha_inicio_laboral()
+        return str(fecha) if fecha else None
+
+    def get_antiguedad_display(self, obj):
+        datos = obj.calcular_dias_desde_contratacion()
+        años = datos.get("años", 0)
+        meses = datos.get("meses", 0)
+        if not años and not meses:
+            return None
+        partes = []
+        if años:
+            partes.append(f"{años} año{'s' if años != 1 else ''}")
+        if meses:
+            partes.append(f"{meses} mes{'es' if meses != 1 else ''}")
+        return ", ".join(partes)
 
     def get_foto_perfil(self, obj):
         if not obj.usuario.image:

@@ -129,9 +129,9 @@ function DetalleUsuarioEmpresa() {
                                 <div className='w-full'>
                                     <Badge>Fecha de Contrato</Badge>
                                     <div className='ml-4'>
-                                        {dayjs(detalleUsuarioEmpresa?.fecha_contrato).format(
-                                            'DD-MM-YYYY',
-                                        )}
+                                        {detalleUsuarioEmpresa?.fecha_inicio_laboral
+                                            ? dayjs(detalleUsuarioEmpresa.fecha_inicio_laboral).format('DD-MM-YYYY')
+                                            : '—'}
                                     </div>
                                 </div>
                                 <div className='w-full'>

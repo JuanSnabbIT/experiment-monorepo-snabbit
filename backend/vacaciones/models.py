@@ -57,10 +57,11 @@ class SolicitudVacaciones(models.Model):
     def calcular_dias_solicitados(self):
         dias_totales = (self.fecha_fin - self.fecha_inicio).days + 1
         dias_solicitados = 0
+        empresa = self.usuario_empresa.sucursal.empresa
 
         for i in range(dias_totales):
             dia_actual = self.fecha_inicio + timedelta(days=i)
-            dia_calendario = DiaCalendario.objects.filter(fecha=dia_actual).first()
+            dia_calendario = DiaCalendario.objects.filter(fecha=dia_actual, empresa=empresa).first()
 
             # Contamos solo los días hábiles (lunes a viernes)
             if dia_actual.weekday() < 5:  # 0 es lunes, 4 es viernes

@@ -481,7 +481,13 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
             return err
 
         buffer = BytesIO()
-        generar_certificado_antiguedad_pdf(ue, buffer)
+        try:
+            generar_certificado_antiguedad_pdf(ue, buffer)
+        except Exception as e:
+            return Response(
+                {"detail": f"No se pudo generar el certificado: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         rut_slug = (ue.rut or str(ue.pk)).replace(".", "").replace("-", "")
         nombre_archivo = f"certificado_antiguedad_{rut_slug}.pdf"

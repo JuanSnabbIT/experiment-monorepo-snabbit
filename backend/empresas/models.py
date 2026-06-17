@@ -146,20 +146,36 @@ class UsuarioEmpresa(ModeloBase):
     def __str__(self):
         return f"{self.usuario.get_nombre()}"
 
+    def get_fecha_inicio_laboral(self):
+        """
+        Retorna la fecha de inicio laboral real del trabajador.
+        Cascada: fecha_contrato (campo denormalizado) → primer ContratoTrabajador
+        activado (vigente/terminado) ordenado por fecha_inicio ASC → None.
+        """
+        if self.fecha_contrato:
+            return self.fecha_contrato
+        primer_contrato = self.contratos_laborales.filter(
+            estado__in=["vigente", "terminado"],
+            fecha_inicio__isnull=False,
+        ).order_by("fecha_inicio").first()
+        return primer_contrato.fecha_inicio if primer_contrato else None
+
     def tiene_derecho_a_vacaciones(self):
         """Verifica si el empleado ha cumplido al menos un año de servicio."""
-        if self.fecha_contrato:
+        fecha = self.get_fecha_inicio_laboral()
+        if fecha:
             hoy = date.today()
-            delta = relativedelta(hoy, self.fecha_contrato)
+            delta = relativedelta(hoy, fecha)
             años_servicio = delta.years + (delta.months / 12) + (delta.days / 365.25)
             return años_servicio >= 1
         return False
 
     def calcular_años_servicio(self):
         """Calcula los años de servicio."""
-        if self.fecha_contrato:
+        fecha = self.get_fecha_inicio_laboral()
+        if fecha:
             hoy = date.today()
-            delta = relativedelta(hoy, self.fecha_contrato)
+            delta = relativedelta(hoy, fecha)
             años_servicio = delta.years + (delta.months / 12) + (delta.days / 365.25)
             return años_servicio
         return 0
@@ -167,11 +183,12 @@ class UsuarioEmpresa(ModeloBase):
     def calcular_dias_vacaciones_acumulados(self):
         """Calcula los días de vacaciones acumulados a razón de 1.25 días por mes trabajado,
         pero solo si el empleado ha cumplido al menos un año de servicio."""
-        if not self.fecha_contrato or not self.tiene_derecho_a_vacaciones():
+        fecha = self.get_fecha_inicio_laboral()
+        if not fecha or not self.tiene_derecho_a_vacaciones():
             return 0
 
         hoy = date.today()
-        delta = relativedelta(hoy, self.fecha_contrato)
+        delta = relativedelta(hoy, fecha)
         # Total de meses completos trabajados desde el primer año
         total_meses = delta.years * 12 + delta.months
 
@@ -207,12 +224,13 @@ class UsuarioEmpresa(ModeloBase):
 
     def calcular_dias_desde_contratacion(self):
         """Calcula los días que han pasado desde la contratación, incluyendo fines de semana y feriados."""
-        if not self.fecha_contrato:
+        fecha = self.get_fecha_inicio_laboral()
+        if not fecha:
             return {"dias_totales": 0, "años": 0, "meses": 0, "dias": 0, "formato": "Sin fecha de contratación"}
 
         hoy = date.today()
-        dias_totales = (hoy - self.fecha_contrato).days
-        delta = relativedelta(hoy, self.fecha_contrato)
+        dias_totales = (hoy - fecha).days
+        delta = relativedelta(hoy, fecha)
         formato = f"{delta.years} años, {delta.months} meses, {delta.days} días"
 
         return {

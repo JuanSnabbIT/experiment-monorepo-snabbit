@@ -26,11 +26,11 @@ import dayjs from 'dayjs';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BADGE_COLOR: Record<string, 'amber' | 'blue' | 'emerald' | 'red' | 'zinc'> = {
-    borrador: 'zinc',
+const BADGE_COLOR: Record<string, 'amber' | 'emerald' | 'red' | 'violet' | 'zinc'> = {
+    borrador: 'amber',
     pendiente_aprobacion: 'amber',
     vigente: 'emerald',
-    terminado: 'zinc',
+    terminado: 'violet',
     anulado: 'red',
     descartado: 'zinc',
 };
@@ -184,12 +184,15 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
 
     return (
         <Card>
-            <CardHeader>
-                <CardHeaderChild>
-                    <Badge className='text-xl'>Contratos laborales</Badge>
-                </CardHeaderChild>
-                <CardHeaderChild>
-                    <div className='flex flex-wrap items-center gap-2'>
+            <CardHeader className='flex justify-between items-start'>
+                <div className='flex flex-col gap-1'>
+                    <h2 className='text-xl font-semibold text-blue-600'>Contratos laborales</h2>
+                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                        Se muestran contratos laborales asociados a la empresa cliente seleccionada.
+                    </p>
+                </div>
+                <div className='flex items-center gap-2'>
+                    <div className='flex items-center gap-2'>
                         <Input
                             type='text'
                             value={inputBuscar}
@@ -208,25 +211,22 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                 placeholder='Estado...'
                             />
                         </div>
-                        <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
-                            <Button
-                                variant='solid'
-                                color='blue'
-                                icon='HeroPlus'
-                                onClick={() => {
-                                    // TODO RBAC: validar permiso de creacion de contratos laborales.
-                                    setWizardOpen(true);
-                                }}>
-                                Nuevo contrato laboral
-                            </Button>
-                        </Tooltip>
                     </div>
-                </CardHeaderChild>
+                    <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
+                        <Button
+                            variant='solid'
+                            color='blue'
+                            icon='HeroPlus'
+                            onClick={() => {
+                                // TODO RBAC: validar permiso de creacion de contratos laborales.
+                                setWizardOpen(true);
+                            }}>
+                            Nuevo contrato laboral
+                        </Button>
+                    </Tooltip>
+                </div>
             </CardHeader>
             <CardBody>
-                <p className='mb-3 text-xs text-zinc-500 dark:text-zinc-400'>
-                    Se muestran contratos laborales asociados a la empresa cliente seleccionada.
-                </p>
                 <Table>
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (

@@ -21,8 +21,8 @@ import {
     useActualizarFichaTrabajadorMutation,
     useGetDetalleClienteQuery,
     useGetDetalleUsuarioClienteQuery,
-    useLazyGenerarCertificadoAntiguedadQuery,
 } from '@/store/slices/empresa/empresaApi';
+import ApiService from '@/services/ApiService';
 import {
     useCrearBancoInlineMutation,
     useGetAfpCatalogoQuery,
@@ -666,8 +666,7 @@ const DetalleUsuarioCliente = () => {
 
     const [cambiarEstado] = useCambiarEstadoContratoTrabajadorMutation();
     const [actualizarFicha] = useActualizarFichaTrabajadorMutation();
-    const [fetchCertificado, { isFetching: generandoCertificado }] =
-        useLazyGenerarCertificadoAntiguedadQuery();
+    const [generandoCertificado, setGenerandoCertificado] = useState(false);
 
     // ── Estado local ──────────────────────────────────────────────────────────
 
@@ -765,13 +764,25 @@ const DetalleUsuarioCliente = () => {
 
     const handleCertificadoAntiguedad = async () => {
         if (!refId) return;
+        setGenerandoCertificado(true);
         try {
-            const blob = await fetchCertificado(refId).unwrap();
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            setTimeout(() => URL.revokeObjectURL(url), 10000);
-        } catch {
-            toast.error('No se pudo generar el certificado de antigüedad.');
+            const response = await ApiService.fetchData<Blob>({
+                url: `/api/usuarios-empresa/certificado-antiguedad/${refId}/`,
+                method: 'get',
+                responseType: 'blob',
+            });
+            const blob =
+                response.data instanceof Blob
+                    ? response.data
+                    : new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank', 'noopener,noreferrer');
+            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+            toast.success('Certificado generado correctamente.');
+        } catch (err) {
+            toast.error(getErrorMessage(err) || 'No se pudo generar el certificado de antigüedad.');
+        } finally {
+            setGenerandoCertificado(false);
         }
     };
 
@@ -811,7 +822,7 @@ const DetalleUsuarioCliente = () => {
                         <Button
                             icon='HeroDocumentText'
                             color='zinc'
-                            variant='outlined'
+                            variant='outline'
                             isLoading={generandoCertificado}
                             onClick={handleCertificadoAntiguedad}>
                             Certificado de Antigüedad
@@ -1056,6 +1067,30 @@ const DetalleUsuarioCliente = () => {
                         const c = esPendiente ? contratoPendiente! : contrato;
                         return (
                             <div className='space-y-4'>
+                                {!esPendiente && usuario?.fecha_inicio_laboral && (
+                                    <Card>
+                                        <CardBody>
+                                            <div className='flex flex-wrap gap-6'>
+                                                <div>
+                                                    <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                                        Antigüedad
+                                                    </p>
+                                                    <p className='mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
+                                                        {usuario.antiguedad_display ?? '—'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className='text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500'>
+                                                        Desde
+                                                    </p>
+                                                    <p className='mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100'>
+                                                        {dayjs(usuario.fecha_inicio_laboral).format('DD/MM/YYYY')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardBody>
+                                    </Card>
+                                )}
                                 <Card>
                                     <CardHeader>
                                         <CardHeaderChild>
