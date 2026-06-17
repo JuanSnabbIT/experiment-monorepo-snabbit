@@ -38,6 +38,11 @@
   },
   "skills": [
     {
+      "name": "commit-sprint",
+      "path": ".claude/commands/commit-sprint.md",
+      "description": "Genera commits semánticos agrupados por módulo con etiqueta de semana del año. Pre-flight checks en paralelo, agrupa diff por dominio, commits atómicos con referencia al sprint y git tag."
+    },
+    {
       "name": "rrhh",
       "path": ".github/skills/rrhh/SKILL.md",
       "description": "Contratos laborales, RRHH, firma digital, UsuarioEmpresa"

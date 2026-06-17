@@ -93,6 +93,14 @@ Thumbs.db
 # Agent frontend design previews (generados localmente, no versionar)
 agent-previews/
 
+# Claude Design sync — artefactos generados (no versionar)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+frontend/dist-lib/
+
 # Misc
 *.orig
 
