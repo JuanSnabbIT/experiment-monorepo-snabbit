@@ -10,7 +10,6 @@ import {
 import { useGetOrdenesTrabajoQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
 import { TIcons } from '@/types/icons.type';
 import {
-    DateSelectArg,
     EventClickArg,
     EventContentArg,
     EventSourceInput,
@@ -21,22 +20,9 @@ import { createRef, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import classNames from 'classnames';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
-import Modal, {
-    ModalBody,
-    ModalFooter,
-    ModalFooterChild,
-    ModalHeader,
-} from '@/components/ui/Modal';
+import Modal, { ModalBody, ModalHeader } from '@/components/ui/Modal';
 import Badge from '@/components/ui/Badge';
-import Textarea from '@/components/form/Textarea';
-import { useFormik } from 'formik';
-import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
-import Input from '@/components/form/Input';
-import Validation from '@/components/form/Validation';
-import Radio, { RadioGroup } from '@/components/form/Radio';
 import { Dictionary } from '@fullcalendar/core/internal';
-import * as Yup from 'yup';
 import Container from '@/components/layouts/Container/Container';
 import Subheader, { SubheaderRight } from '@/components/layouts/Subheader/Subheader';
 import CrearDiasCalendario from './modals/CrearDiasCalendario';
@@ -49,7 +35,7 @@ function ListaDiasCalendarioV2() {
     const { listaSolicitudesVacaciones, listaDiasCalendario } = useAppSelector(
         (state) => state.calendario,
     );
-    const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
+    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const { data: listaOrdenTrabajo = [] } = useGetOrdenesTrabajoQuery();
     const {
         viewMode,
@@ -66,9 +52,8 @@ function ListaDiasCalendarioV2() {
         dayGridMonth: { key: 'dayGridMonth', text: 'Meses', icon: 'HeroCalendarDays' },
         listWeek: { key: 'listWeek', text: 'Lista', icon: 'HeroClipboardDocumentCheck' },
     };
-    const [isOpenModalDia, setIsOpenModalDia] = useState<boolean>(false);
-    const [fechaSeleccionada, setFechaSeleccionada] = useState<Date | undefined>();
-    const [isOpenModalEliminarDia, setIsOpenModalEliminarDia] = useState<boolean>(false);
+    const [feriadoSeleccionado, setFeriadoSeleccionado] = useState<{ descripcion: string; tipo: string; es_irrenunciable: boolean; fecha: string } | undefined>();
+    const [isOpenModalFeriado, setIsOpenModalFeriado] = useState<boolean>(false);
     const [isOpenModalDetalle, setIsOpenModalDetalle] = useState<boolean>(false);
     const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<Dictionary | undefined>();
     const [eventosVacaciones, setEventosVacaciones] = useState<EventSourceInput | undefined>();
@@ -128,29 +113,23 @@ function ListaDiasCalendarioV2() {
         setEventosVacaciones(eventosCombinados);
     }, [listaDiasCalendario, listaSolicitudesVacaciones, listaOrdenTrabajo]);
 
-    const handleDateSelect = (selectInfo: DateSelectArg) => {
-        // eslint-disable-next-line no-alert
-        setFechaSeleccionada(selectInfo.start);
-        const fecha = listaDiasCalendario.find(
-            (dia) =>
-                dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                dayjs(selectInfo.start).format('DD-MM-YYYY'),
-        );
-        if (fecha) {
-            formik.setFieldValue('descripcion', fecha.descripcion);
-        }
-        setIsOpenModalDia(true);
-    };
-
     const handleEventClick = (clickInfo: EventClickArg) => {
-        // eslint-disable-next-line no-restricted-globals,no-alert
         if (clickInfo.event.extendedProps.tipo_evento === 'calendario' && clickInfo.event.start) {
-            setFechaSeleccionada(clickInfo.event.start);
-            setIsOpenModalDia(true);
-        } else if (
-            clickInfo.event.extendedProps.tipo_evento === 'orden_trabajo' &&
-            clickInfo.event.start
-        ) {
+            const dia = listaDiasCalendario.find(
+                (d) =>
+                    dayjs(d.fecha).format('DD-MM-YYYY') ===
+                    dayjs(clickInfo.event.start!).format('DD-MM-YYYY'),
+            );
+            if (dia) {
+                setFeriadoSeleccionado({
+                    descripcion: dia.descripcion,
+                    tipo: dia.tipo,
+                    es_irrenunciable: dia.es_irrenunciable,
+                    fecha: dayjs(dia.fecha).format('DD-MM-YYYY'),
+                });
+                setIsOpenModalFeriado(true);
+            }
+        } else if (clickInfo.event.extendedProps.tipo_evento === 'orden_trabajo') {
             navigate(`/orden-trabajo/detalle-orden-trabajo/${clickInfo.event.extendedProps.id}`);
         } else {
             setSolicitudSeleccionada(clickInfo.event.extendedProps);
@@ -174,69 +153,6 @@ function ListaDiasCalendarioV2() {
             </>
         );
     };
-
-    const formik = useFormik({
-        enableReinitialize: true,
-        initialValues: {
-            descripcion: '',
-        },
-        validationSchema: Yup.object().shape({
-            descripcion: Yup.string().nullable().max(250, 'Maximo 250 caracteres'),
-        }),
-        onSubmit: async (values) => {
-            try {
-                const response = await ApiService.fetchData({
-                    url: `/api/dias-calendario/${listaDiasCalendario.find((dia) => dayjs(dia.fecha).format('DD-MM-YYYY') === dayjs(fechaSeleccionada).format('DD-MM-YYYY'))?.id}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
-                });
-                if (response.data) {
-                    toast.success('Feriado Editado', { autoClose: 1000 });
-                    dispatch(listaDiasCalendarioThunk());
-                    setIsOpenModalDia(false);
-                }
-            } catch (error: any) {
-                toast.error(error.response.data);
-            }
-        },
-    });
-
-    const formikCrear = useFormik({
-        enableReinitialize: true,
-        initialValues: {
-            descripcion: '',
-            es_feriado: true,
-            es_irrenunciable: false,
-            tipo: '',
-        },
-        validationSchema: Yup.object().shape({
-            descripcion: Yup.string().nullable().max(250, 'Maximo 250 caracteres'),
-            es_irrenunciable: Yup.boolean().required('Requerido'),
-            tipo: Yup.string().nullable().max(50, 'Maximo 50 caracteres'),
-        }),
-        onSubmit: async (values) => {
-            try {
-                const response = await ApiService.fetchData({
-                    url: `/api/dias-calendario/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                        ...values,
-                        empresa: personalizacionUsuario?.empresa,
-                        fecha: dayjs(fechaSeleccionada).format('YYYY-MM-DD'),
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Feriado Creado', { autoClose: 1000 });
-                    dispatch(listaDiasCalendarioThunk());
-                    setIsOpenModalDia(false);
-                }
-            } catch (error: any) {
-                toast.error(error.response.data);
-            }
-        },
-    });
 
     return (
         <PageWrapper isProtectedRoute={true} title='Calendario' name='Calendario'>
@@ -283,7 +199,6 @@ function ListaDiasCalendarioV2() {
                                 datesSet={handleDatesSet}
                                 viewMode={viewMode}
                                 events={eventosVacaciones}
-                                selectable
                                 dayCellContent={(props) => (
                                     <div
                                         className={classNames(
@@ -300,7 +215,6 @@ function ListaDiasCalendarioV2() {
                                         <div>{dayjs(props.date).format('DD')}</div>
                                     </div>
                                 )}
-                                select={handleDateSelect}
                                 eventContent={renderEventContent}
                                 eventClick={handleEventClick}
                                 eventClassNames='truncate'
@@ -314,292 +228,30 @@ function ListaDiasCalendarioV2() {
                     </CardBody>
                 </Card>
             </Container>
-            <Modal
-                isOpen={isOpenModalDia}
-                setIsOpen={setIsOpenModalDia}
-                isStaticBackdrop={true}
-                isStaticBackdropAnimation={false}>
+            <Modal isOpen={isOpenModalFeriado} setIsOpen={setIsOpenModalFeriado}>
                 <ModalHeader>
-                    <Badge className='text-xl'>
-                        Dia {dayjs(fechaSeleccionada).format('DD-MM-YYYY')}
-                    </Badge>
+                    <Badge className='text-xl'>Feriado — {feriadoSeleccionado?.fecha}</Badge>
                 </ModalHeader>
                 <ModalBody>
-                    {listaGrupos &&
-                    listaGrupos.grupos.some(
-                        (grupo) => grupo === 'admin' || grupo === 'superadmin',
-                    ) ? (
-                        fechaSeleccionada &&
-                        listaDiasCalendario.some(
-                            (dia) =>
-                                dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                dayjs(fechaSeleccionada).format('DD-MM-YYYY'),
-                        ) ? (
-                            <div className='grid grid-cols-1 gap-4'>
-                                <div className='flex'>
-                                    <div className='w-full'>
-                                        <Badge>Tipo</Badge>
-                                        <div className='ml-4'>
-                                            {
-                                                listaDiasCalendario.find(
-                                                    (dia) =>
-                                                        dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                                        dayjs(fechaSeleccionada).format(
-                                                            'DD-MM-YYYY',
-                                                        ),
-                                                )?.tipo
-                                            }
-                                        </div>
-                                    </div>
-                                    <div className='w-full'>
-                                        <Badge>¿Es Irrenunciable?</Badge>
-                                        <div className='ml-4'>
-                                            {listaDiasCalendario.find(
-                                                (dia) =>
-                                                    dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                                    dayjs(fechaSeleccionada).format('DD-MM-YYYY'),
-                                            )?.es_irrenunciable
-                                                ? 'Si'
-                                                : 'No'}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className='flex'>
-                                    <Badge>Descripción</Badge>
-                                    <Validation
-                                        isValid={formik.isValid}
-                                        isTouched={formik.touched.descripcion}
-                                        invalidFeedback={formik.errors.descripcion}>
-                                        <Textarea
-                                            value={formik.values.descripcion}
-                                            name='descripcion'
-                                            onChange={formik.handleChange}
-                                            onBlur={formik.handleBlur}
-                                        />
-                                    </Validation>
-                                </div>
-                                <div className='flex justify-between'>
-                                    <Button
-                                        variant='solid'
-                                        color='red'
-                                        onClick={() => {
-                                            setIsOpenModalEliminarDia(true);
-                                        }}>
-                                        Eliminar Dia
-                                    </Button>
-                                    <div className='flex gap-4'>
-                                        <Button
-                                            onClick={() => {
-                                                setIsOpenModalDia(false);
-                                                formik.resetForm();
-                                            }}>
-                                            Cancelar
-                                        </Button>
-                                        <Button
-                                            variant='solid'
-                                            onClick={() => {
-                                                formik.handleSubmit();
-                                            }}>
-                                            Guardar
-                                        </Button>
-                                    </div>
+                    <div className='grid grid-cols-1 gap-3'>
+                        <div className='flex gap-4'>
+                            <div className='w-full'>
+                                <Badge>Tipo</Badge>
+                                <div className='ml-2 mt-1'>{feriadoSeleccionado?.tipo || '—'}</div>
+                            </div>
+                            <div className='w-full'>
+                                <Badge>¿Es Irrenunciable?</Badge>
+                                <div className='ml-2 mt-1'>
+                                    {feriadoSeleccionado?.es_irrenunciable ? 'Sí' : 'No'}
                                 </div>
                             </div>
-                        ) : (
-                            <div className='grid grid-cols-1 gap-4'>
-                                <div className='flex flex-col'>
-                                    <div className='w-full'>
-                                        <Badge className='text-xl'>Crear Feriado</Badge>
-                                    </div>
-                                    <div className='mb-4 ml-4 w-full'>
-                                        Ingrese los datos del dia feriado que desea crear.
-                                    </div>
-                                    <div className='w-full'>
-                                        <Badge>Tipo</Badge>
-                                        <Validation
-                                            isValid={formikCrear.isValid}
-                                            isTouched={formikCrear.touched.tipo}
-                                            invalidFeedback={formikCrear.errors.tipo}>
-                                            <Input
-                                                name='tipo'
-                                                type='text'
-                                                value={formikCrear.values.tipo}
-                                                onChange={formikCrear.handleChange}
-                                                onBlur={formikCrear.handleBlur}
-                                            />
-                                        </Validation>
-                                    </div>
-                                    <div className='w-full'>
-                                        <Badge>¿Es Irrenunciable?</Badge>
-                                        <Validation
-                                            isValid={formikCrear.isValid}
-                                            isTouched={formikCrear.touched.es_feriado}
-                                            invalidFeedback={formikCrear.errors.es_feriado}>
-                                            <RadioGroup isInline>
-                                                <Radio
-                                                    label='Si'
-                                                    name='es_feriado'
-                                                    value='true'
-                                                    selectedValue={`${formikCrear.values.es_irrenunciable}`}
-                                                    onChange={() => {
-                                                        formikCrear.setFieldValue(
-                                                            'es_irrenunciable',
-                                                            true,
-                                                        );
-                                                    }}
-                                                />
-                                                <Radio
-                                                    label='No'
-                                                    name='es_feriado'
-                                                    value='false'
-                                                    selectedValue={`${formikCrear.values.es_irrenunciable}`}
-                                                    onChange={() => {
-                                                        formikCrear.setFieldValue(
-                                                            'es_irrenunciable',
-                                                            false,
-                                                        );
-                                                    }}
-                                                />
-                                            </RadioGroup>
-                                        </Validation>
-                                    </div>
-                                    <div className='w-full'>
-                                        <Badge>Descripción</Badge>
-                                        <Validation
-                                            isValid={formikCrear.isValid}
-                                            isTouched={formikCrear.touched.descripcion}
-                                            invalidFeedback={formikCrear.errors.descripcion}>
-                                            <Textarea
-                                                name='descripcion'
-                                                value={formikCrear.values.descripcion}
-                                                onChange={formikCrear.handleChange}
-                                                onBlur={formikCrear.handleBlur}
-                                            />
-                                        </Validation>
-                                    </div>
-                                    <div className='mt-4 flex justify-end'>
-                                        <Button
-                                            onClick={() => {
-                                                setIsOpenModalDia(false);
-                                                formikCrear.resetForm();
-                                            }}>
-                                            Cancelar
-                                        </Button>
-                                        <Button
-                                            variant='solid'
-                                            onClick={() => {
-                                                formikCrear.handleSubmit();
-                                            }}>
-                                            Crear
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    ) : (
-                        <div className='grid grid-cols-1 gap-4'>
-                            <div className='flex'>
-                                <div className='w-full'>
-                                    <Badge>Tipo</Badge>
-                                    <div className='ml-4'>
-                                        {
-                                            listaDiasCalendario.find(
-                                                (dia) =>
-                                                    dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                                    dayjs(fechaSeleccionada).format('DD-MM-YYYY'),
-                                            )?.tipo
-                                        }
-                                    </div>
-                                </div>
-                                <div className='w-full'>
-                                    <Badge>¿Es Irrenunciable?</Badge>
-                                    <div className='ml-4'>
-                                        {listaDiasCalendario.find(
-                                            (dia) =>
-                                                dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                                dayjs(fechaSeleccionada).format('DD-MM-YYYY'),
-                                        )?.es_irrenunciable
-                                            ? 'Si'
-                                            : 'No'}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className='flex'>
-                                <Badge>Descripción</Badge>
-                                {/* <Validation
-									isValid={formik.isValid}
-									isTouched={formik.touched.descripcion}
-									invalidFeedback={formik.errors.descripcion}
-								>
-									<Textarea
-										value={formik.values.descripcion}
-										name="descripcion"
-										onChange={formik.handleChange}
-										onBlur={formik.handleBlur}
-									/>
-								</Validation> */}
-                                <div className='ml-4'>
-                                    {
-                                        listaDiasCalendario.find(
-                                            (dia) =>
-                                                dayjs(dia.fecha).format('DD-MM-YYYY') ===
-                                                dayjs(fechaSeleccionada).format('DD-MM-YYYY'),
-                                        )?.descripcion
-                                    }
-                                </div>
-                            </div>
-                            {/* <div className="flex justify-between">
-								<Button variant="solid" color="red" onClick={() => {setIsOpenModalEliminarDia(true)}}>Eliminar Dia</Button>
-								<div className="gap-4 flex">
-									<Button onClick={() => {setIsOpenModalDia(false)}}>Cancelar</Button>
-									<Button variant="solid" onClick={() => {formik.handleSubmit()}}>Guardar</Button>
-								</div>
-							</div> */}
                         </div>
-                    )}
-                </ModalBody>
-            </Modal>
-            <Modal isOpen={isOpenModalEliminarDia} setIsOpen={setIsOpenModalEliminarDia}>
-                <ModalHeader>
-                    <Badge>¿Esta Seguro de Eliminar el Feriado?</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div>
-                        <div>Esta accion no se puede deshacer.</div>
+                        <div>
+                            <Badge>Descripción</Badge>
+                            <div className='ml-2 mt-1'>{feriadoSeleccionado?.descripcion || '—'}</div>
+                        </div>
                     </div>
                 </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button
-                            onClick={() => {
-                                setIsOpenModalEliminarDia(false);
-                            }}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant='solid'
-                            color='red'
-                            onClick={async () => {
-                                try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/dias-calendario/${listaDiasCalendario.find((dia) => dayjs(dia.fecha).format('DD-MM-YYYY') === dayjs(fechaSeleccionada).format('DD-MM-YYYY'))?.id}/`,
-                                        method: 'delete',
-                                    });
-                                    if (response.status === 204) {
-                                        toast.success('Dia Feriado Eliminado', { autoClose: 1000 });
-                                        dispatch(listaDiasCalendarioThunk());
-                                        setIsOpenModalEliminarDia(false);
-                                        setIsOpenModalDia(false);
-                                    }
-                                } catch (error: any) {
-                                    toast.error(error.response.data);
-                                }
-                            }}>
-                            Eliminar
-                        </Button>
-                    </ModalFooterChild>
-                </ModalFooter>
             </Modal>
             <Modal isOpen={isOpenModalDetalle} setIsOpen={setIsOpenModalDetalle}>
                 <ModalHeader>
