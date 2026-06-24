@@ -11,110 +11,137 @@ import Modal, {
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
 import { listaDiasCalendarioThunk, useAppDispatch, useAppSelector } from '@/store';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
-function CrearDiasCalendario() {
+interface ICrearDiasCalendarioProps {
+    isOpen: boolean;
+    setIsOpen: (v: boolean) => void;
+}
+
+const YEAR_ACTUAL = new Date().getFullYear();
+
+type TAnioOption = TSelectOption & { yaExiste: boolean; conteo: number };
+
+function CrearDiasCalendario({ isOpen, setIsOpen }: ICrearDiasCalendarioProps) {
     const dispatch = useAppDispatch();
     const { listaDiasCalendario } = useAppSelector((state) => state.calendario);
-    const [anioSelected, setAnioSelected] = useState<TSelectOption | undefined>();
-    const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [anioSelected, setAnioSelected] = useState<TAnioOption | undefined>();
+    const [mostrarAnioSiguiente, setMostrarAnioSiguiente] = useState(false);
 
-    const diasDelAnio = anioSelected
-        ? listaDiasCalendario.filter(
-              (d) => new Date(d.fecha).getFullYear() === Number(anioSelected.value),
-          ).length
-        : 0;
+    useEffect(() => {
+        if (!isOpen) {
+            setAnioSelected(undefined);
+            setMostrarAnioSiguiente(false);
+        }
+    }, [isOpen]);
 
-    const yaExiste = diasDelAnio > 0;
+    const conteosPorAnio = useMemo(() => {
+        const map = new Map<number, number>();
+        listaDiasCalendario.forEach((d) => {
+            const year = new Date(d.fecha).getFullYear();
+            map.set(year, (map.get(year) || 0) + 1);
+        });
+        return map;
+    }, [listaDiasCalendario]);
+
+    const añosVisibles = useMemo(() => {
+        const base = [YEAR_ACTUAL, YEAR_ACTUAL - 1, YEAR_ACTUAL - 2, YEAR_ACTUAL - 3];
+        return mostrarAnioSiguiente ? [YEAR_ACTUAL + 1, ...base] : base;
+    }, [mostrarAnioSiguiente]);
+
+    const opcionesAnio: TAnioOption[] = añosVisibles.map((year) => ({
+        value: String(year),
+        label: String(year),
+        yaExiste: conteosPorAnio.has(year),
+        conteo: conteosPorAnio.get(year) ?? 0,
+    }));
+
+    const handleSubmit = async () => {
+        if (!anioSelected) return;
+        try {
+            await ApiService.fetchData({
+                url: `/api/dias-calendario/generar_calendario_anual/`,
+                method: 'post',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({ anio: anioSelected.value }),
+            });
+            toast.success(`Feriados de ${anioSelected.label} creados`, { autoClose: 1500 });
+            dispatch(listaDiasCalendarioThunk());
+            setIsOpen(false);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail ?? 'Error al generar feriados');
+        }
+    };
 
     return (
-        <>
-            <Tooltip text='Crear Dias'>
-                <Button
-                    variant='solid'
-                    onClick={() => setIsOpen(true)}
-                    icon='HeroPlus'></Button>
-            </Tooltip>
-            <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>
-                    <Badge className='text-xl'>Crear Feriados</Badge>
-                </ModalHeader>
-                <ModalBody>
-                    <div className='flex flex-col gap-3'>
-                        <div className='w-full'>
-                            <Badge>Año</Badge>
-                            <SelectReact
-                                name='anio'
-                                options={[
-                                    { value: '2024', label: '2024' },
-                                    { value: '2025', label: '2025' },
-                                    { value: '2026', label: '2026' },
-                                    { value: '2027', label: '2027' },
-                                ]}
-                                onChange={(e) => setAnioSelected(e as TSelectOption)}
-                                placeholder='Seleccione un año'
-                                noOptionsMessage={(e) => `No hay ${e}`}
-                            />
-                        </div>
-                        {anioSelected && yaExiste && (
-                            <Alert
-                                color='amber'
-                                icon='HeroExclamationTriangle'>
-                                El año {anioSelected.label} ya tiene {diasDelAnio} feriados registrados.
-                                Al continuar se sobreescribirán, perdiendo cualquier edición manual.
-                            </Alert>
-                        )}
-                        {anioSelected && !yaExiste && (
-                            <Alert
-                                color='emerald'
-                                icon='HeroCheckCircle'>
-                                No hay feriados registrados para {anioSelected.label}. Se generarán desde la API oficial.
-                            </Alert>
+        <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
+            <ModalHeader>
+                <Badge className='text-xl'>Agregar Feriados</Badge>
+            </ModalHeader>
+            <ModalBody>
+                <div className='flex flex-col gap-3'>
+                    <div className='w-full'>
+                        <Badge>Año</Badge>
+                        <SelectReact
+                            name='anio'
+                            options={opcionesAnio}
+                            value={anioSelected ?? null}
+                            onChange={(e) => setAnioSelected(e as TAnioOption)}
+                            placeholder='Seleccione un año'
+                            noOptionsMessage={() => 'Sin años disponibles'}
+                            isOptionDisabled={(opt) => (opt as TAnioOption).yaExiste}
+                            formatOptionLabel={(opt) => {
+                                const o = opt as TAnioOption;
+                                if (!o.yaExiste) return <span>{o.label}</span>;
+                                return (
+                                    <Tooltip
+                                        text={`${o.label} ya tiene ${o.conteo} feriados registrados`}>
+                                        <div className='pointer-events-auto flex w-full items-center justify-between'>
+                                            <span className='text-zinc-400'>{o.label}</span>
+                                            <Badge
+                                                color='emerald'
+                                                variant='outline'
+                                                className='pointer-events-none text-xs'>
+                                                {o.conteo} feriados
+                                            </Badge>
+                                        </div>
+                                    </Tooltip>
+                                );
+                            }}
+                        />
+                        {!mostrarAnioSiguiente && (
+                            <button
+                                type='button'
+                                onClick={() => setMostrarAnioSiguiente(true)}
+                                className='mt-1 text-xs text-blue-500 hover:text-blue-700 hover:underline'>
+                                + Incluir {YEAR_ACTUAL + 1}
+                            </button>
                         )}
                     </div>
-                </ModalBody>
-                <ModalFooter>
-                    <ModalFooterChild></ModalFooterChild>
-                    <ModalFooterChild>
-                        <Button
-                            color='red'
-                            onClick={() => {
-                                setIsOpen(false);
-                                setAnioSelected(undefined);
-                            }}></Button>
-                        <Button
-                            variant='solid'
-                            color={yaExiste ? 'amber' : 'blue'}
-                            isDisable={!anioSelected}
-                            onClick={async () => {
-                                if (!anioSelected) return;
-                                try {
-                                    await ApiService.fetchData({
-                                        url: `/api/dias-calendario/generar_calendario_anual/`,
-                                        method: 'post',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({ anio: anioSelected.value }),
-                                    });
-                                    toast.success(
-                                        yaExiste
-                                            ? `Feriados de ${anioSelected.label} actualizados`
-                                            : `Feriados de ${anioSelected.label} creados`,
-                                        { autoClose: 1500 },
-                                    );
-                                    dispatch(listaDiasCalendarioThunk());
-                                    setIsOpen(false);
-                                    setAnioSelected(undefined);
-                                } catch (error: any) {
-                                    toast.error(error?.response?.data?.detail ?? 'Error al generar feriados');
-                                }
-                            }}>
-                            {yaExiste ? 'Sobreescribir' : 'Crear'}
-                        </Button>
-                    </ModalFooterChild>
-                </ModalFooter>
-            </Modal>
-        </>
+                    {anioSelected && (
+                        <Alert color='emerald' icon='HeroCheckCircle'>
+                            Se generarán los feriados de {anioSelected.label} desde la API oficial.
+                        </Alert>
+                    )}
+                </div>
+            </ModalBody>
+            <ModalFooter>
+                <ModalFooterChild />
+                <ModalFooterChild>
+                    <Button color='red' onClick={() => setIsOpen(false)}>
+                        Cancelar
+                    </Button>
+                    <Button
+                        variant='solid'
+                        color='blue'
+                        isDisable={!anioSelected}
+                        onClick={handleSubmit}>
+                        Crear
+                    </Button>
+                </ModalFooterChild>
+            </ModalFooter>
+        </Modal>
     );
 }
 

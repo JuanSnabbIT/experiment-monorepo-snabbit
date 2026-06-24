@@ -79,7 +79,7 @@ const Calendar = forwardRef<FullCalendar, ICalendarProps>((props, ref) => {
 					--fc-today-bg-color:${colors.blue['500']}20;
 					--fc-neutral-bg-color:${colors.blue['500']};
 					--fc-list-event-hover-bg-color:${colors.blue['700']};
-			
+				}
 			`}</style>
             <FullCalendar
                 locale={locale || i18n.language}

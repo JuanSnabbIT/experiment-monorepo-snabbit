@@ -313,8 +313,8 @@ export const NavCollapse: FC<INavCollapseProps> = (props) => {
     const here = isRouteActive(to, location.pathname);
 
     useEffect(() => {
-        setIsActive(here);
-    }, [here, location.pathname]);
+        if (here) setIsActive(true);
+    }, [here]);
 
     return (
         <li

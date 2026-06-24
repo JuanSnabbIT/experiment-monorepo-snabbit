@@ -47,6 +47,8 @@ interface IPanelDocumentoProps {
     onSaved: () => void;
     onDirtyChange?: (dirty: boolean) => void;
     bloques?: IOrdenBloqueTransversalPlantilla[];
+    viewMode?: 'editor' | 'preview';
+    plantillaTipoContrato?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -83,10 +85,13 @@ const formatEtiquetaLabel = (clave: string): string =>
 /**
  * Convierte nodos Slate a HTML para el modo preview del documento.
  * Preserva marcas (bold, italic, underline), etiquetas con chips y listas.
+ * En modo 'preview', las etiquetas se renderizan como texto plano [clave]
+ * para emular la apariencia del PDF generado.
  */
 const renderSlateNodesToHTML = (
     nodes: TSlateNode[],
     etiquetasMap: Map<string, IEtiquetaPlantilla>,
+    mode: 'editor' | 'preview' = 'editor',
 ): string => {
     type LeafNode = { text: string } & TMarksTexto;
 
@@ -104,7 +109,11 @@ const renderSlateNodesToHTML = (
         return html;
     };
 
-    const chipHTML = (clave: string): string => {
+    const etiquetaHTML = (clave: string): string => {
+        if (mode === 'preview') {
+            // En preview: texto plano itálico gris, igual a como aparece en el PDF sin datos reales
+            return `<span style="color:#9ca3af;font-style:italic">[${clave}]</span>`;
+        }
         const label = etiquetasMap.get(clave)?.nombre_display ?? formatEtiquetaLabel(clave);
         return `<span class="inline-flex items-center rounded-full border border-blue-500 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:border-blue-400 dark:text-blue-300">${label}</span>`;
     };
@@ -113,7 +122,7 @@ const renderSlateNodesToHTML = (
     const childrenToHTML = (children: any[]): string =>
         children
             .map((child) => {
-                if (child.type === 'etiqueta') return chipHTML((child as TNodoEtiqueta).clave);
+                if (child.type === 'etiqueta') return etiquetaHTML((child as TNodoEtiqueta).clave);
                 return leafToHTML(child as LeafNode);
             })
             .join('');
@@ -138,7 +147,7 @@ const renderSlateNodesToHTML = (
             return `<${Tag} class="${cls}">${items}</${Tag}>`;
         }
         if (node.type === 'etiqueta') {
-            return chipHTML(node.clave);
+            return etiquetaHTML(node.clave);
         }
         if (node.type === 'salto_pagina') {
             return `<div style="page-break-after:always;border-top:1px dashed #d4d4d8;margin:12px 0;text-align:center"><span style="font-size:10px;color:#a1a1aa;background:#fff;padding:0 8px">salto de p&aacute;gina</span></div>`;
@@ -195,6 +204,8 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
             onSaved,
             onDirtyChange,
             bloques = [],
+            viewMode = 'editor',
+            plantillaTipoContrato,
         },
         ref,
     ) => {
@@ -440,6 +451,17 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
               ).legacyText.trim() || tituloSeccion.contenido_template || tituloPagina
             : tituloPagina;
 
+        const tipoContratoLabels: Record<string, string> = {
+            trabajador: 'Contrato Laboral',
+            servicios: 'Servicios',
+            licencia: 'Licenciamiento',
+            venta: 'Venta',
+            finiquito: 'Finiquito de Contrato',
+        };
+        const tipoLabel = plantillaTipoContrato
+            ? (tipoContratoLabels[plantillaTipoContrato] ?? plantillaTipoContrato)
+            : 'Contrato';
+
         // Lista unificada de secciones + bloques para el documento
         type TDocItem =
             | { kind: 'seccion'; orden: number; data: ISeccionPlantilla }
@@ -462,7 +484,147 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                         {/* ── Pagina tipo A4 ─────────────────────────────────────────────── */}
                         <div className='mx-auto max-w-[760px] rounded-[2px] bg-white px-[80px] pb-[80px] pt-[60px] shadow-[0_8px_48px_rgba(0,0,0,0.18)]'>
                             {/* ── Titulo del documento ──────────────────────────────────────── */}
-                            {tituloSeccion ? (
+                            {viewMode === 'preview' ? (
+                                /* ── Modo preview: header fiel al PDF ── */
+                                <div
+                                    className='mb-6'
+                                    style={{ fontFamily: 'Times New Roman, Times, serif' }}>
+                                    {/* Logo placeholder */}
+                                    <div className='mb-4 flex items-start'>
+                                        <div className='flex h-[34px] w-[108px] items-center justify-center rounded border border-dashed border-zinc-300 bg-zinc-50'>
+                                            <span className='text-[9px] text-zinc-400'>
+                                                Logo empresa
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* Título y subtítulo */}
+                                    <div className='mb-4 text-center'>
+                                        <p className='text-[14px] font-bold uppercase leading-snug tracking-wide text-zinc-900'>
+                                            {tituloTexto}
+                                        </p>
+                                        <p className='mt-0.5 text-[11px] text-zinc-600'>
+                                            {tipoLabel}
+                                        </p>
+                                    </div>
+                                    {/* Tabla partes */}
+                                    <table
+                                        className='mb-3 w-full border-collapse text-[10px]'
+                                        style={{ borderColor: '#cccccc' }}>
+                                        <thead>
+                                            <tr>
+                                                <th
+                                                    className='border px-3 py-1.5 text-left text-[10px] font-bold'
+                                                    style={{
+                                                        background: '#f0f4f8',
+                                                        borderColor: '#cccccc',
+                                                        width: '50%',
+                                                    }}>
+                                                    EMPLEADOR
+                                                </th>
+                                                <th
+                                                    className='border px-3 py-1.5 text-left text-[10px] font-bold'
+                                                    style={{
+                                                        background: '#f0f4f8',
+                                                        borderColor: '#cccccc',
+                                                        width: '50%',
+                                                    }}>
+                                                    TRABAJADOR
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {[
+                                                [
+                                                    { label: 'Nombre', val: '[nombre_empresa]' },
+                                                    { label: 'Nombre', val: '[nombre_trabajador]' },
+                                                ],
+                                                [
+                                                    { label: 'RUT', val: '[rut_empresa]' },
+                                                    { label: 'RUT', val: '[rut_trabajador]' },
+                                                ],
+                                                [
+                                                    {
+                                                        label: 'Domicilio',
+                                                        val: '[domicilio_empresa]',
+                                                    },
+                                                    {
+                                                        label: 'Domicilio',
+                                                        val: '[domicilio_trabajador]',
+                                                    },
+                                                ],
+                                                [
+                                                    {
+                                                        label: 'Representante',
+                                                        val: '[representante_legal]',
+                                                    },
+                                                    { label: 'Email', val: '[email_trabajador]' },
+                                                ],
+                                            ].map((fila, i) => (
+                                                <tr key={i}>
+                                                    {fila.map((celda, j) => (
+                                                        <td
+                                                            key={j}
+                                                            className='border px-3 py-1'
+                                                            style={{ borderColor: '#cccccc' }}>
+                                                            <span className='block text-[8px] text-zinc-400'>
+                                                                {celda.label}
+                                                            </span>
+                                                            <span
+                                                                style={{
+                                                                    color: '#9ca3af',
+                                                                    fontStyle: 'italic',
+                                                                }}>
+                                                                {celda.val}
+                                                            </span>
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {/* Tabla vigencia */}
+                                    <table
+                                        className='mb-6 w-full border-collapse text-[10px]'
+                                        style={{ borderColor: '#cccccc' }}>
+                                        <thead>
+                                            <tr>
+                                                {['Inicio', 'Término', 'Tipo'].map((h) => (
+                                                    <th
+                                                        key={h}
+                                                        className='border px-3 py-1.5 text-left text-[10px] font-bold'
+                                                        style={{
+                                                            background: '#f0f4f8',
+                                                            borderColor: '#cccccc',
+                                                        }}>
+                                                        {h}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                {[
+                                                    '[fecha_inicio]',
+                                                    '[fecha_termino]',
+                                                    '[tipo_contrato_label]',
+                                                ].map((val) => (
+                                                    <td
+                                                        key={val}
+                                                        className='border px-3 py-1'
+                                                        style={{
+                                                            borderColor: '#cccccc',
+                                                            color: '#9ca3af',
+                                                            fontStyle: 'italic',
+                                                        }}>
+                                                        {val}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : tituloSeccion ? (
+                                /* ── Modo editor: título clicable ── */
                                 <div
                                     className={[
                                         'mb-8 rounded-[3px] text-center transition-all duration-150',
@@ -555,19 +717,23 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                         ref={(el) => {
                                             seccionRefs.current[seccion.id] = el;
                                         }}
-                                        role='button'
-                                        tabIndex={0}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !isActive)
-                                                onSelectSeccion(seccion);
-                                        }}
+                                        {...(viewMode === 'editor' && {
+                                            role: 'button',
+                                            tabIndex: 0,
+                                            onKeyDown: (e: React.KeyboardEvent) => {
+                                                if (e.key === 'Enter' && !isActive)
+                                                    onSelectSeccion(seccion);
+                                            },
+                                            onClick: () => !isActive && onSelectSeccion(seccion),
+                                        })}
                                         className={[
                                             'relative rounded-[3px] transition-all duration-150',
-                                            isActive
-                                                ? 'outline outline-2 outline-blue-400 outline-offset-1 bg-blue-50/30 dark:bg-blue-950/10'
-                                                : 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30',
-                                        ].join(' ')}
-                                        onClick={() => !isActive && onSelectSeccion(seccion)}>
+                                            viewMode === 'editor'
+                                                ? isActive
+                                                    ? 'outline outline-2 outline-blue-400 outline-offset-1 bg-blue-50/30 dark:bg-blue-950/10'
+                                                    : 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/30'
+                                                : '',
+                                        ].join(' ')}>
                                         {/* ── Encabezado de seccion (solo clausulas) ─────── */}
                                         {TIPOS_CON_HEADING.includes(seccion.tipo) && (
                                             <div
@@ -604,7 +770,8 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                                         {seccion.titulo.toUpperCase()}
                                                     </p>
                                                 )}
-                                                {isActive &&
+                                                {viewMode === 'editor' &&
+                                                    isActive &&
                                                     !isEditingThis &&
                                                     editingTituloId !== seccion.id && (
                                                         <div className='ml-auto flex shrink-0 items-center gap-1'>
@@ -678,11 +845,60 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                         )}
 
                                         {/* ── Firmas ────────────────────────────────────────── */}
-                                        {seccion.tipo === 'firmas' && (
+                                        {seccion.tipo === 'firmas' && viewMode === 'preview' ? (
+                                            <div
+                                                className='mt-10'
+                                                style={{
+                                                    fontFamily: 'Times New Roman, Times, serif',
+                                                }}>
+                                                <table className='w-full border-collapse text-[10px]'>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td
+                                                                className='w-1/2 px-4 pb-2 pt-10 text-center align-bottom'
+                                                                style={{ paddingBottom: 4 }}>
+                                                                <div className='mx-auto mb-1 h-[36px] w-[160px] border-b border-zinc-400' />
+                                                            </td>
+                                                            <td
+                                                                className='w-1/2 px-4 pb-2 pt-10 text-center align-bottom'
+                                                                style={{ paddingBottom: 4 }}>
+                                                                <div className='mx-auto mb-1 h-[36px] w-[160px] border-b border-zinc-400' />
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td className='px-4 py-1 text-center'>
+                                                                <p className='font-semibold'>
+                                                                    Firma del Empleador
+                                                                </p>
+                                                                <p
+                                                                    style={{
+                                                                        color: '#9ca3af',
+                                                                        fontStyle: 'italic',
+                                                                    }}>
+                                                                    [nombre_empresa]
+                                                                </p>
+                                                            </td>
+                                                            <td className='px-4 py-1 text-center'>
+                                                                <p className='font-semibold'>
+                                                                    Firma del Trabajador
+                                                                </p>
+                                                                <p
+                                                                    style={{
+                                                                        color: '#9ca3af',
+                                                                        fontStyle: 'italic',
+                                                                    }}>
+                                                                    [nombre_trabajador]
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : seccion.tipo === 'firmas' ? (
                                             <p className='mb-2 mt-8 text-[13px] font-bold uppercase tracking-widest text-zinc-700'>
                                                 {seccion.titulo}
                                             </p>
-                                        )}
+                                        ) : null}
 
                                         {/* ── Contenido de la seccion ──────────────────────── */}
                                         {(seccion.tipo !== 'subtitulo' || isEditingThis) && (
@@ -746,10 +962,13 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                                         Sin contenido &mdash; clic para editar
                                                     </p>
                                                 ) : (
-                                                    /* ── Modo preview: HTML desde nodos Slate ── */
+                                                    /* ── Modo vista: HTML desde nodos Slate ── */
                                                     <div
                                                         className={[
-                                                            'text-[13px] leading-relaxed',
+                                                            'leading-relaxed',
+                                                            viewMode === 'preview'
+                                                                ? 'text-[11px]'
+                                                                : 'text-[13px]',
                                                             TIPOS_PARRAFO.includes(seccion.tipo)
                                                                 ? 'text-zinc-800'
                                                                 : 'text-zinc-700',
@@ -762,6 +981,7 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                                             __html: renderSlateNodesToHTML(
                                                                 slateNodes,
                                                                 etiquetasMap,
+                                                                viewMode,
                                                             ),
                                                         }}
                                                     />
@@ -769,8 +989,8 @@ const PanelDocumento = forwardRef<IPanelDocumentoHandle, IPanelDocumentoProps>(
                                             </div>
                                         )}
 
-                                        {/* ── Boton Editar (flotante cuando la seccion esta activa) ── */}
-                                        {isActive && !isEditingThis && (
+                                        {/* ── Boton Editar (solo en modo editor) ── */}
+                                        {viewMode === 'editor' && isActive && !isEditingThis && (
                                             <div className='absolute right-2 top-2'>
                                                 {seccion.es_editable_en_contrato ? (
                                                     <Button

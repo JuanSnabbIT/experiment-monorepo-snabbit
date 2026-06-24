@@ -42,6 +42,7 @@ const EditorPlantillaV2 = () => {
     const [hayUnsavedChanges, setHayUnsavedChanges] = useState(false);
     // Orden optimista de secciones (se actualiza al hacer drag-and-drop)
     const [seccionesLocales, setSeccionesLocales] = useState<ISeccionPlantilla[]>([]);
+    const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
 
     // Ref del documento para guardar / insertar / envolver seleccion
     const panelDocumentoRef = useRef<IPanelDocumentoHandle>(null);
@@ -218,8 +219,13 @@ const EditorPlantillaV2 = () => {
 
                 {/* Acciones */}
                 <div className='flex shrink-0 items-center gap-2'>
-                    <Button size='sm' variant='default' icon='HeroEye'>
-                        Vista previa
+                    <Button
+                        size='sm'
+                        variant={viewMode === 'preview' ? 'solid' : 'default'}
+                        color={viewMode === 'preview' ? 'blue' : undefined}
+                        icon={viewMode === 'preview' ? 'HeroPencil' : 'HeroEye'}
+                        onClick={() => setViewMode((v) => (v === 'editor' ? 'preview' : 'editor'))}>
+                        {viewMode === 'preview' ? 'Editor' : 'Vista previa'}
                     </Button>
                     <Button
                         size='sm'
@@ -254,28 +260,30 @@ const EditorPlantillaV2 = () => {
             </header>
 
             {/* ═══════════════════════════════════════════════════════════════
-                CONTENIDO PRINCIPAL — 3 paneles
+                CONTENIDO PRINCIPAL — 3 paneles (ocultar laterales en preview)
             ═══════════════════════════════════════════════════════════════ */}
             <div className='flex min-h-0 flex-1 overflow-hidden'>
-                {/* ── Panel izquierdo: Estructura (260px fijo) ── */}
-                <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                    <PanelEstructura
-                        secciones={secciones}
-                        seccionActivaId={seccionActivaId}
-                        onSelectSeccion={handleSeleccionarSeccion}
-                        onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
-                        onReordenarSecciones={handleReordenarSecciones}
-                        bloques={plantilla?.bloques_transversales ?? []}
-                    />
-                </aside>
+                {/* ── Panel izquierdo: Estructura (oculto en preview) ── */}
+                {viewMode === 'editor' && (
+                    <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
+                        <PanelEstructura
+                            secciones={secciones}
+                            seccionActivaId={seccionActivaId}
+                            onSelectSeccion={handleSeleccionarSeccion}
+                            onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
+                            onReordenarSecciones={handleReordenarSecciones}
+                            bloques={plantilla?.bloques_transversales ?? []}
+                        />
+                    </aside>
+                )}
 
                 {/* ── Panel central: Documento completo ── */}
                 <main className='flex min-w-0 flex-1 flex-col overflow-hidden'>
                     <PanelDocumento
                         ref={panelDocumentoRef}
                         secciones={secciones}
-                        seccionActivaId={seccionActivaId}
-                        isEditing={isEditing}
+                        seccionActivaId={viewMode === 'preview' ? null : seccionActivaId}
+                        isEditing={viewMode === 'preview' ? false : isEditing}
                         plantillaId={plantillaId ?? ''}
                         tituloPagina={plantilla.titulo}
                         etiquetas={etiquetas as IEtiquetaPlantilla[]}
@@ -285,18 +293,22 @@ const EditorPlantillaV2 = () => {
                         onSaved={() => {/* invalidado automáticamente por RTK Query */}}
                         onDirtyChange={setHayUnsavedChanges}
                         bloques={plantilla?.bloques_transversales ?? []}
+                        viewMode={viewMode}
+                        plantillaTipoContrato={plantilla.tipo_contrato}
                     />
                 </main>
 
-                {/* ── Panel derecho: Etiquetas (260px fijo) ── */}
-                <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                    <PanelEtiquetas
-                        etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                        onInsertarEtiqueta={handleInsertarEtiqueta}
-                        onWrapSelection={handleWrapSelection}
-                        editingEnabled={isEditing}
-                    />
-                </aside>
+                {/* ── Panel derecho: Etiquetas (oculto en preview) ── */}
+                {viewMode === 'editor' && (
+                    <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
+                        <PanelEtiquetas
+                            etiquetas={etiquetas as IEtiquetaPlantilla[]}
+                            onInsertarEtiqueta={handleInsertarEtiqueta}
+                            onWrapSelection={handleWrapSelection}
+                            editingEnabled={isEditing}
+                        />
+                    </aside>
+                )}
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════

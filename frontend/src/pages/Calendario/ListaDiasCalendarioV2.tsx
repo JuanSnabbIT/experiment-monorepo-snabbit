@@ -16,7 +16,7 @@ import {
 } from '@fullcalendar/core/index.js';
 import FullCalendar from '@fullcalendar/react';
 import esLocale from '@fullcalendar/core/locales/es';
-import { createRef, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import classNames from 'classnames';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
@@ -31,7 +31,7 @@ import { useNavigate } from 'react-router-dom';
 function ListaDiasCalendarioV2() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const ref = createRef<FullCalendar>();
+    const ref = useRef<FullCalendar>(null);
     const { listaSolicitudesVacaciones, listaDiasCalendario } = useAppSelector(
         (state) => state.calendario,
     );
@@ -57,6 +57,7 @@ function ListaDiasCalendarioV2() {
     const [isOpenModalDetalle, setIsOpenModalDetalle] = useState<boolean>(false);
     const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<Dictionary | undefined>();
     const [eventosVacaciones, setEventosVacaciones] = useState<EventSourceInput | undefined>();
+    const [isOpenCrearFeriados, setIsOpenCrearFeriados] = useState<boolean>(false);
 
     useEffect(() => {
         dispatch(listaDiasCalendarioThunk());
@@ -158,7 +159,24 @@ function ListaDiasCalendarioV2() {
         <PageWrapper isProtectedRoute={true} title='Calendario' name='Calendario'>
             <Subheader>
                 <SubheaderRight>
-                    <CrearDiasCalendario />
+                    <Dropdown>
+                        <DropdownToggle>
+                            <Button variant='solid' icon='HeroCog6Tooth'>
+                                Configuración
+                            </Button>
+                        </DropdownToggle>
+                        <DropdownMenu placement='bottom-end'>
+                            <DropdownItem
+                                icon='HeroCalendarPlus'
+                                onClick={() => setIsOpenCrearFeriados(true)}>
+                                Agregar feriados
+                            </DropdownItem>
+                        </DropdownMenu>
+                    </Dropdown>
+                    <CrearDiasCalendario
+                        isOpen={isOpenCrearFeriados}
+                        setIsOpen={setIsOpenCrearFeriados}
+                    />
                 </SubheaderRight>
             </Subheader>
             <Container className='h-full w-full'>

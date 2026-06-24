@@ -1,7 +1,7 @@
 {
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "playwright@claude-plugins-official": false
+    "superpowers@claude-plugins-official": false,
+    "playwright@claude-plugins-official": true
   },
   "description": "Configuración de Claude Code para monorepo ERP Snabbit",
   "codeGeneration": {
