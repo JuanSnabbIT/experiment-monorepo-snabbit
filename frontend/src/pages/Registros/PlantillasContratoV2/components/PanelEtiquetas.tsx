@@ -13,7 +13,8 @@ const CATEGORIA_LABELS: Record<string, string> = {
     proveedor: 'Proveedor',
     contrato: 'Contrato',
     servicio: 'Servicio',
-    economico: 'Economico',
+    economico: 'Económico',
+    trabajador: 'Datos del Trabajador',
     custom: 'Personalizada',
 };
 

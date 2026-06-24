@@ -49,6 +49,7 @@ const ModalCrearSeccionV2 = ({
             es_editable_en_contrato: true,
             es_obligatoria: false,
             orden: nextOrder,
+            condicion_aparicion: 'siempre',
         },
         validationSchema,
         onSubmit: async (values, { resetForm }) => {
@@ -81,7 +82,7 @@ const ModalCrearSeccionV2 = ({
         <Modal isOpen={isOpen} setIsOpen={setIsOpen} size='lg'>
             <ModalHeader>Nueva sección</ModalHeader>
             <ModalBody>
-                <SeccionForm formik={formik} etiquetas={etiquetas} idPrefix='crear-sec-v2' />
+                <SeccionForm formik={formik} etiquetas={etiquetas} idPrefix='crear-sec-v2' showCondicion />
             </ModalBody>
             <ModalFooter>
                 <Button onClick={handleClose}>Cancelar</Button>

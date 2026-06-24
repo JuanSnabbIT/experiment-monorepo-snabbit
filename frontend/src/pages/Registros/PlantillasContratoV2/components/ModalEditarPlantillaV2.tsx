@@ -17,6 +17,13 @@ import { Dispatch, SetStateAction, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
+const SUBTIPO_TRABAJADOR_OPTIONS: TSelectOption[] = [
+    { value: '',           label: 'Todos los subtipos (plantilla genérica)' },
+    { value: 'indefinido', label: 'Solo contratos indefinidos' },
+    { value: 'plazo_fijo', label: 'Solo contratos a plazo fijo' },
+    { value: 'reemplazo',  label: 'Solo contratos de reemplazo' },
+];
+
 interface IModalEditarPlantillaV2Props {
     isOpen: boolean;
     setIsOpen: Dispatch<SetStateAction<boolean>>;
@@ -46,6 +53,7 @@ const ModalEditarPlantillaV2 = ({
         initialValues: {
             titulo: plantilla?.titulo || '',
             tipo_contrato: plantilla?.tipo_contrato || '',
+            subtipo_trabajador: plantilla?.subtipo_trabajador || '',
             descripcion: plantilla?.descripcion || '',
             activa: plantilla?.activa ?? true,
         },
@@ -53,7 +61,11 @@ const ModalEditarPlantillaV2 = ({
         onSubmit: async (values) => {
             if (!plantilla) return;
             try {
-                await updatePlantilla({ id: plantilla.id, ...values }).unwrap();
+                await updatePlantilla({
+                    id: plantilla.id,
+                    ...values,
+                    subtipo_trabajador: values.subtipo_trabajador || null,
+                }).unwrap();
                 toast.success('Configuración actualizada');
                 setIsOpen(false);
             } catch (error: unknown) {
@@ -124,6 +136,30 @@ const ModalEditarPlantillaV2 = ({
                             />
                         </Validation>
                     </div>
+                    {formik.values.tipo_contrato === 'trabajador' && (
+                        <div>
+                            <Label htmlFor='edit-v2-subtipo'>Subtipo de contrato laboral</Label>
+                            <p className='mb-1.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                                Define si esta plantilla aplica a un tipo específico de contrato o a todos.
+                            </p>
+                            <SelectReact
+                                id='edit-v2-subtipo'
+                                name='subtipo_trabajador'
+                                options={SUBTIPO_TRABAJADOR_OPTIONS}
+                                value={
+                                    SUBTIPO_TRABAJADOR_OPTIONS.find(
+                                        (o) => o.value === (formik.values.subtipo_trabajador ?? ''),
+                                    ) ?? SUBTIPO_TRABAJADOR_OPTIONS[0]
+                                }
+                                onChange={(option) =>
+                                    formik.setFieldValue(
+                                        'subtipo_trabajador',
+                                        (option as TSelectOption)?.value || '',
+                                    )
+                                }
+                            />
+                        </div>
+                    )}
                     <div>
                         <Label htmlFor='edit-v2-descripcion'>Descripción (opcional)</Label>
                         <Textarea

@@ -1,3 +1,4 @@
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Button from '@/components/ui/Button';
 import { TIPOS_SECCION, TIPOS_SECCION_LABELS_LEGACY } from '@/constants/contrato.constant';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
@@ -6,6 +7,7 @@ import { useUpdateSeccionV2Mutation } from '@/store/slices/contratos/plantillaCo
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { CONDICION_APARICION_OPTIONS } from '../../PlantillasContrato/components/SeccionForm';
 
 interface IPanelEditorSeccionProps {
     seccion: ISeccionPlantilla;
@@ -48,6 +50,8 @@ const PanelEditorSeccion = ({
     const [contenido, setContenido] = useState(seccion.contenido_template ?? '');
     const [titulo, setTitulo] = useState(seccion.titulo ?? '');
     const [isDirty, setIsDirty] = useState(false);
+    const [condicion, setCondicion] = useState(seccion.condicion_aparicion ?? 'siempre');
+    const [isSavingCondicion, setIsSavingCondicion] = useState(false);
     const [updateSeccion, { isLoading: isSaving }] = useUpdateSeccionV2Mutation();
 
     const etiquetasMap = useMemo(() => {
@@ -60,8 +64,27 @@ const PanelEditorSeccion = ({
     useEffect(() => {
         setContenido(seccion.contenido_template ?? '');
         setTitulo(seccion.titulo ?? '');
+        setCondicion(seccion.condicion_aparicion ?? 'siempre');
         setIsDirty(false);
-    }, [seccion.id, seccion.contenido_template, seccion.titulo]);
+    }, [seccion.id, seccion.contenido_template, seccion.titulo, seccion.condicion_aparicion]);
+
+    const handleCondicionChange = useCallback(async (nuevaCondicion: string) => {
+        setCondicion(nuevaCondicion);
+        setIsSavingCondicion(true);
+        try {
+            await updateSeccion({
+                plantillaId: Number(plantillaId),
+                seccionId: seccion.id,
+                data: { condicion_aparicion: nuevaCondicion },
+            }).unwrap();
+            toast.success('Condición actualizada');
+        } catch (err: unknown) {
+            toast.error(getErrorMessage(err));
+            setCondicion(seccion.condicion_aparicion ?? 'siempre');
+        } finally {
+            setIsSavingCondicion(false);
+        }
+    }, [plantillaId, seccion.id, seccion.condicion_aparicion, updateSeccion]);
 
     const handleGuardar = useCallback(async () => {
         try {
@@ -171,7 +194,7 @@ const PanelEditorSeccion = ({
     return (
         <div className='flex h-full flex-col'>
             <div className='flex items-start justify-between gap-4 border-b border-zinc-200 bg-zinc-50 px-4 py-4 dark:border-zinc-700 dark:bg-zinc-800/40'>
-                <div className='min-w-0'>
+                <div className='min-w-0 flex-1'>
                     <p className='text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
                         Sección seleccionada
                     </p>
@@ -181,6 +204,33 @@ const PanelEditorSeccion = ({
                     <p className='mt-1 text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400'>
                         {getTipoLabel(seccion.tipo)} · {seccion.es_editable_en_contrato ? 'Editable' : 'Fijo'}
                     </p>
+                    <div className='mt-2.5 flex items-center gap-2'>
+                        <span className='shrink-0 text-xs text-zinc-500 dark:text-zinc-400'>
+                            Aparece:
+                        </span>
+                        <div className='w-64'>
+                            <SelectReact
+                                name='condicion_aparicion'
+                                options={CONDICION_APARICION_OPTIONS}
+                                value={
+                                    CONDICION_APARICION_OPTIONS.find((o) => o.value === condicion)
+                                    ?? CONDICION_APARICION_OPTIONS[0]
+                                }
+                                onChange={(opt) =>
+                                    handleCondicionChange((opt as TSelectOption)?.value ?? 'siempre')
+                                }
+                                isDisabled={isSavingCondicion}
+                                menuPortalTarget={document.body}
+                                menuPosition='fixed'
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                            />
+                        </div>
+                        {isSavingCondicion && (
+                            <span className='text-xs text-zinc-400 dark:text-zinc-500'>
+                                Guardando...
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <Button
                     size='sm'

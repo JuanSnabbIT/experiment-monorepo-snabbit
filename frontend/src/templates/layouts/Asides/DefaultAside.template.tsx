@@ -95,8 +95,10 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Gestión Operativa</NavTitle>
+                    </AuthorityCheckNav>
 
                     {/* Registros */}
                     <AuthorityCheckNav
@@ -172,15 +174,6 @@ const DefaultAsideTemplate = () => {
                                     to={Pages.registros.subPages.listaPlanesYServicios.to}
                                     icon={Pages.registros.subPages.listaPlanesYServicios.icon}
                                     id={Pages.registros.subPages.listaPlanesYServicios.id}></NavItem>
-                            </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.registros.subPages.listaPlantillasContrato.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.registros.subPages.listaPlantillasContrato.text}
-                                    to={Pages.registros.subPages.listaPlantillasContrato.to}
-                                    icon={Pages.registros.subPages.listaPlantillasContrato.icon}
-                                    id={Pages.registros.subPages.listaPlantillasContrato.id}></NavItem>
                             </AuthorityCheckNav>
                             <AuthorityCheckNav
                                 authority={Pages.registros.subPages.listaPlantillasContratoV2.authority}
@@ -273,8 +266,10 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Ventas & Compras</NavTitle>
+                    </AuthorityCheckNav>
 
                     {/* Cotizaciones */}
                     <AuthorityCheckNav
@@ -364,8 +359,10 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <AuthorityCheckNav authority={['staff', 'superadmin']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Gestión Financiera</NavTitle>
+                    </AuthorityCheckNav>
 
                     {/* Rendiciones */}
                     <AuthorityCheckNav
@@ -435,8 +432,10 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    <AuthorityCheckNav authority={['staff', 'superadmin']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Recursos Humanos</NavTitle>
+                    </AuthorityCheckNav>
 
                     {/* Vacaciones */}
                     <AuthorityCheckNav
@@ -520,8 +519,17 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    {/* RRHH legacy removido del menú principal.
-                        El acceso funcional se consolida en Empresa/Cliente y se mantiene compatibilidad por rutas legacy con redirección. */}
+                    {/* Plantillas de contrato — visibles para RRHH y admins */}
+                    <AuthorityCheckNav
+                        authority={Pages.registros.subPages.listaPlantillasContratoV2.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavItem
+                            text='Plantillas de Contrato'
+                            to={Pages.registros.subPages.listaPlantillasContratoV2.to}
+                            icon={Pages.registros.subPages.listaPlantillasContratoV2.icon}
+                            id={Pages.registros.subPages.listaPlantillasContratoV2.id}
+                        />
+                    </AuthorityCheckNav>
 
                     {/* <NavCollapse  text={"Empresas"} icon={'HeroDocument'} to={'/empresas'}>
 						{listaEmpresas.map(empresa => (

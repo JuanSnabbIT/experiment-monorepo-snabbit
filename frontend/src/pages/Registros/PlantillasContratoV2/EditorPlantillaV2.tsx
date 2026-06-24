@@ -28,7 +28,9 @@ const EditorPlantillaV2 = () => {
         isLoading,
         isError,
     } = useGetDetallePlantillaV2Query(plantillaId ?? '');
-    const { data: etiquetas = [] } = useGetEtiquetasV2Query();
+    const { data: etiquetas = [] } = useGetEtiquetasV2Query(
+        plantilla?.tipo_contrato ? { tipo_contrato: plantilla.tipo_contrato } : undefined,
+    );
     const [duplicar, { isLoading: isDuplicating }] = useDuplicarPlantillaV2Mutation();
     const [reordenarSecciones] = useReordenarSeccionesV2Mutation();
 

@@ -17,7 +17,22 @@ export interface ISeccionFormValues {
     orden: number;
     es_editable_en_contrato: boolean;
     es_obligatoria: boolean;
+    condicion_aparicion?: string;
 }
+
+export const CONDICION_APARICION_OPTIONS: TSelectOption[] = [
+    { value: 'siempre',              label: 'Siempre (sin condición)' },
+    { value: 'solo_plazo_fijo',      label: 'Solo contratos a plazo fijo' },
+    { value: 'solo_indefinido',      label: 'Solo contratos indefinidos' },
+    { value: 'solo_reemplazo',       label: 'Solo contratos de reemplazo' },
+    { value: 'si_bono_movilizacion', label: 'Si tiene bono de movilización' },
+    { value: 'si_bono_colacion',     label: 'Si tiene bono de colación' },
+    { value: 'si_grupo_turno',       label: 'Si tiene grupo de turnos' },
+    { value: 'si_gratificacion',     label: 'Si tiene gratificación activa' },
+    { value: 'si_jornada_parcial',   label: 'Si la jornada es parcial' },
+    { value: 'si_banco',             label: 'Si tiene datos bancarios' },
+    { value: 'si_isapre',            label: 'Si cotiza en Isapre' },
+];
 
 const tipoSeccionOptions: TSelectOption[] = TIPOS_SECCION.map((tipo) => ({
     value: tipo.value,
@@ -28,12 +43,15 @@ interface ISeccionFormProps {
     formik: FormikProps<ISeccionFormValues>;
     etiquetas: IEtiquetaPlantilla[];
     idPrefix?: string;
+    /** Mostrar selector de condición de aparición (solo para plantillas tipo trabajador) */
+    showCondicion?: boolean;
 }
 
 const SeccionForm = ({
     formik,
     etiquetas,
     idPrefix = 'sec',
+    showCondicion = false,
 }: ISeccionFormProps) => {
     const esFirmas = formik.values.tipo === 'firmas';
     const esTitulo = formik.values.tipo === 'titulo';
@@ -178,6 +196,29 @@ const SeccionForm = ({
                     </p>
                 </div>
             </div>
+
+            {showCondicion && (
+                <div>
+                    <Label htmlFor={`${idPrefix}-condicion`}>¿Cuándo debe aparecer esta sección?</Label>
+                    <p className='mb-1.5 text-xs text-zinc-500 dark:text-zinc-400'>
+                        Solo aplica a plantillas de tipo Trabajador. La sección se omite del PDF cuando la condición no se cumple.
+                    </p>
+                    <SelectReact
+                        id={`${idPrefix}-condicion`}
+                        name='condicion_aparicion'
+                        options={CONDICION_APARICION_OPTIONS}
+                        value={CONDICION_APARICION_OPTIONS.find(
+                            (o) => o.value === (formik.values.condicion_aparicion ?? 'siempre'),
+                        ) ?? CONDICION_APARICION_OPTIONS[0]}
+                        onChange={(option) =>
+                            formik.setFieldValue('condicion_aparicion', (option as TSelectOption)?.value ?? 'siempre')
+                        }
+                        menuPortalTarget={document.body}
+                        menuPosition='fixed'
+                        styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                    />
+                </div>
+            )}
         </div>
     );
 };

@@ -143,12 +143,6 @@ const RedirectLegacyUsuarioAFicha = () => {
         />
     );
 };
-const ListaPlantillasContrato = lazy(
-    () => import('@/pages/Registros/PlantillasContrato/ListaPlantillas'),
-);
-const DetallePlantillaContrato = lazy(
-    () => import('@/pages/Registros/PlantillasContrato/DetallePlantilla'),
-);
 const ListaPlantillasContratoV2 = lazy(
     () => import('@/pages/Registros/PlantillasContratoV2/ListaPlantillasV2'),
 );
@@ -193,6 +187,7 @@ const ResumenContratoPublico = lazy(
 const DetalleContratoTrabajador = lazy(
     () => import('@/pages/RRHH/DetalleContratoTrabajador'),
 );
+const ConfiguracionRRHH = lazy(() => import('@/pages/RRHH/ConfiguracionRRHH'));
 const DetalleRetroalimentacionOT = lazy(
     () => import('@/pages/OrdenTrabajo/components/DetalleRetroalimentacionOT'),
 );
@@ -410,14 +405,14 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.registros.subPages.detallePlanServicio.authority,
     },
     {
-        path: Pages.registros.subPages.listaPlantillasContrato.to,
-        element: <ListaPlantillasContrato />,
-        authority: Pages.registros.subPages.listaPlantillasContrato.authority,
+        path: '/registros/plantillas-contrato',
+        element: <Navigate to='/registros/plantillas-contrato-v2' replace />,
+        authority: ['staff', 'superadmin', 'rrhh'],
     },
     {
-        path: Pages.registros.subPages.detallePlantillaContrato.to,
-        element: <DetallePlantillaContrato />,
-        authority: Pages.registros.subPages.detallePlantillaContrato.authority,
+        path: '/registros/plantillas-contrato/:plantillaId',
+        element: <Navigate to='/registros/plantillas-contrato-v2' replace />,
+        authority: ['staff', 'superadmin', 'rrhh'],
     },
     {
         path: Pages.registros.subPages.listaPlantillasContratoV2.to,
@@ -660,6 +655,11 @@ const contentRoutes: IRoutePersonalizadas[] = [
         path: Pages.empresa.subPages.detalleContrato.to,
         element: <DetalleContrato />,
         authority: Pages.empresa.subPages.detalleContrato.authority,
+    },
+    {
+        path: Pages.rrhh.subPages.configuracionRRHH.to,
+        element: <ConfiguracionRRHH />,
+        authority: Pages.rrhh.subPages.configuracionRRHH.authority,
     },
     {
         path: Pages.rrhh.subPages.detalleContratoTrabajador.to,
